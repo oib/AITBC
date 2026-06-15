@@ -215,26 +215,26 @@ cat > index.html << 'EOF'
 
     <script>
         lucide.createIcons();
-        
+
         const RPC_URL = 'http://localhost:8082';
-        
+
         async function refreshData() {
             try {
                 const response = await fetch(`${RPC_URL}/rpc/head`);
                 const head = await response.json();
-                
+
                 document.getElementById('chain-height').textContent = head.height || '-';
                 document.getElementById('latest-hash').textContent = head.hash ? head.hash.substring(0, 16) + '...' : '-';
                 document.getElementById('node-status').innerHTML = '<span class="text-green-500">Online</span>';
-                
+
                 // Load last 10 blocks
                 const tbody = document.getElementById('blocks-table');
                 tbody.innerHTML = '';
-                
+
                 for (let i = 0; i < 10 && head.height - i >= 0; i++) {
                     const blockResponse = await fetch(`${RPC_URL}/rpc/blocks/${head.height - i}`);
                     const block = await blockResponse.json();
-                    
+
                     const row = tbody.insertRow();
                     row.innerHTML = `
                         <td class="py-3 font-mono">${block.height}</td>
@@ -248,7 +248,7 @@ cat > index.html << 'EOF'
                 document.getElementById('node-status').innerHTML = '<span class="text-red-500">Error</span>';
             }
         }
-        
+
         refreshData();
         setInterval(refreshData, 30000);
     </script>
@@ -264,7 +264,7 @@ server {
     server_name _;
     root /opt/blockchain-explorer;
     index index.html;
-    
+
     location / {
         try_files \$uri \$uri/ =404;
     }

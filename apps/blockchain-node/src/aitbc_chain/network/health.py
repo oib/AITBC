@@ -10,6 +10,10 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 
+import ping3  # type: ignore
+
+from .discovery import NodeStatus, PeerNode
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,11 +27,6 @@ def log_error(msg: str) -> None:
 
 def log_debug(msg: str) -> None:
     logger.debug(msg)
-
-
-import ping3  # type: ignore  # noqa: E402
-
-from .discovery import NodeStatus, PeerNode  # noqa: E402
 
 
 class HealthMetric(Enum):

@@ -36,17 +36,17 @@ hermes:
   node_id: node-$(hostname)
   island_id: ait-hub.aitbc.bubuit.net-island
   chain_id: ait-hub.aitbc.bubuit.net
-  
+
 blockchain:
   rpc_url: http://hub.aitbc.bubuit.net:8202
   p2p_url: hub.aitbc.bubuit.net:8200
   wallet_path: /var/lib/aitbc/keystore/hermes-agent.json
-  
+
 communication:
   message_timeout: 60
   retry_attempts: 3
   sync_interval: 5
-  
+
 capabilities:
   - agent_communication
   - task_distribution

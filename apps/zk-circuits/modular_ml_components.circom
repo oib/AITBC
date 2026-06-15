@@ -68,12 +68,12 @@ template LearningRateValidation() {
     // Ensures 0 < learning_rate < 1
     component lt1 = LessThan(252);
     component gt0 = GreaterThan(252);
-    
+
     // Ensure learning_rate < 1
     lt1.in[0] <== learning_rate;
     lt1.in[1] <== 1;
     lt1.out === 1;
-    
+
     // Ensure learning_rate > 0
     gt0.in[0] <== learning_rate;
     gt0.in[1] <== 0;

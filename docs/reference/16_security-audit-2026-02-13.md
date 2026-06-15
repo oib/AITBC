@@ -1,8 +1,8 @@
 # Security Audit Report
 
-**Date**: 2026-02-13  
-**Auditor**: Cascade AI  
-**Scope**: AITBC Platform Security Review  
+**Date**: 2026-02-13
+**Auditor**: Cascade AI
+**Scope**: AITBC Platform Security Review
 **Status**: ✅ All Critical Issues Resolved
 
 ## Executive Summary
@@ -13,11 +13,11 @@ A comprehensive security audit was conducted on the AITBC platform, identifying 
 
 ### 1. Hardcoded Secrets 🔴 Critical
 
-**Issue**: 
+**Issue**:
 - JWT secret hardcoded in `config_pg.py`
 - PostgreSQL credentials hardcoded in `db_pg.py`
 
-**Impact**: 
+**Impact**:
 - Authentication bypass possible
 - Database compromise risk
 
@@ -48,7 +48,7 @@ validate_secrets()  # Fail-fast if not provided
 # Added session-based authentication
 @app.post("/api/orders", response_model=OrderResponse)
 def create_order(
-    order: OrderCreate, 
+    order: OrderCreate,
     db: Session = Depends(get_db_session),
     user_id: UserDep  # Authenticated user
 ):
@@ -73,7 +73,7 @@ allow_origins=["*"]
 # After
 allow_origins=[
     "http://localhost:3000",
-    "http://localhost:8080", 
+    "http://localhost:8080",
     "http://localhost:8203",
     "http://localhost:8203"
 ]

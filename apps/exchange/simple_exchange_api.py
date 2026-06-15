@@ -959,10 +959,8 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
     def handle_bridge_deposits(self, parsed):
         """GET /v1/bridge/deposits — list bridge deposits"""
         try:
-            import sys
             from urllib.parse import parse_qs
 
-            sys.path.insert(0, "/opt/aitbc/apps/bridge-monitor/src")
             from bridge_monitor.storage import BridgeDepositStatus, count_deposits, get_deposits
 
             params = parse_qs(parsed.query)
@@ -1005,9 +1003,6 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
     def handle_bridge_deposit_detail(self, tx_hash):
         """GET /v1/bridge/deposit/{tx_hash} — get deposit details"""
         try:
-            import sys
-
-            sys.path.insert(0, "/opt/aitbc/apps/bridge-monitor/src")
             from bridge_monitor.storage import get_deposit
 
             deposit = get_deposit(tx_hash)

@@ -19,7 +19,7 @@ contract AgentServiceMarketplace is Ownable, ReentrancyGuard, Pausable {
     uint256 public serviceCounter;
     uint256 public subscriptionCounter;
     uint256 public platformFeePercentage = 250; // 2.5% in basis points (10000 = 100%)
-    
+
     struct ServiceOffering {
         uint256 serviceId;
         address providerAgent;
@@ -135,12 +135,12 @@ contract AgentServiceMarketplace is Ownable, ReentrancyGuard, Pausable {
 
         // Transfer funds
         aitbcToken.safeTransferFrom(msg.sender, address(this), service.pricePerUse);
-        
+
         // Pay provider
         if (providerAmount > 0) {
             aitbcToken.safeTransfer(service.providerAgent, providerAmount);
         }
-        
+
         // Retain platform fee in contract (owner can withdraw)
 
         service.totalUses += 1;
@@ -162,7 +162,7 @@ contract AgentServiceMarketplace is Ownable, ReentrancyGuard, Pausable {
 
         // Transfer funds
         aitbcToken.safeTransferFrom(msg.sender, address(this), service.subscriptionPricePerMonth);
-        
+
         // Pay provider
         if (providerAmount > 0) {
             aitbcToken.safeTransfer(service.providerAgent, providerAmount);

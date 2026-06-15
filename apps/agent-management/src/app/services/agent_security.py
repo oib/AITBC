@@ -5,18 +5,17 @@ Implements comprehensive security, auditing, and trust establishment for agent e
 
 import hashlib
 import json
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
+from uuid import uuid4
+
+from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 
 from aitbc import get_logger
+from app.domain.agent import AIAgentWorkflow, VerificationLevel
 
 logger = get_logger(__name__)
-from datetime import UTC, datetime  # noqa: E402
-from enum import StrEnum  # noqa: E402
-from typing import Any  # noqa: E402
-from uuid import uuid4  # noqa: E402
-
-from sqlmodel import JSON, Column, Field, Session, SQLModel, select  # noqa: E402
-
-from app.domain.agent import AIAgentWorkflow, VerificationLevel  # noqa: E402
 
 
 class SecurityLevel(StrEnum):

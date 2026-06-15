@@ -36,7 +36,6 @@ def retry(
     """
 
     def decorator(func: Callable) -> Callable:
-
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             last_exception = None
@@ -96,7 +95,6 @@ def cache_result(ttl: int = 300):
     cache = {}
 
     def decorator(func: Callable) -> Callable:
-
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             cache_key = (func.__name__, args, frozenset(kwargs.items()))
@@ -126,7 +124,6 @@ def validate_args(*validators: Callable):
     """
 
     def decorator(func: Callable) -> Callable:
-
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             for validator in validators:
@@ -152,7 +149,6 @@ def handle_exceptions(default_return: Any = None, log_errors: bool = True, raise
     """
 
     def decorator(func: Callable) -> Callable:
-
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             try:

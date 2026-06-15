@@ -109,20 +109,20 @@ def test_agent_manifest():
     try:
         with open('docs/11_agents/agent-manifest.json') as f:
             manifest = json.load(f)
-        
+
         required_keys = ['aitbc_agent_manifest']
         for key in required_keys:
             if key not in manifest:
                 raise Exception(f"Missing key in manifest: {key}")
-        
+
         # Check agent types
         agent_types = manifest['aitbc_agent_manifest'].get('agent_types', {})
         required_agent_types = ['compute_provider', 'compute_consumer', 'platform_builder', 'swarm_coordinator']
-        
+
         for agent_type in required_agent_types:
             if agent_type not in agent_types:
                 raise Exception(f"Missing agent type: {agent_type}")
-        
+
         print("✅ Agent manifest validation passed")
         return True
     except Exception as e:
@@ -133,17 +133,17 @@ def test_api_spec():
     try:
         with open('docs/11_agents/agent-api-spec.json') as f:
             api_spec = json.load(f)
-        
+
         if 'aitbc_agent_api' not in api_spec:
             raise Exception("Missing aitbc_agent_api key")
-        
+
         endpoints = api_spec['aitbc_agent_api'].get('endpoints', {})
         required_endpoints = ['agent_registry', 'resource_marketplace', 'swarm_coordination', 'reputation_system']
-        
+
         for endpoint in required_endpoints:
             if endpoint not in endpoints:
                 raise Exception(f"Missing endpoint: {endpoint}")
-        
+
         print("✅ API spec validation passed")
         return True
     except Exception as e:
@@ -154,12 +154,12 @@ def test_quickstart():
     try:
         with open('docs/11_agents/agent-quickstart.yaml') as f:
             quickstart = yaml.safe_load(f)
-        
+
         required_sections = ['network', 'agent_types', 'onboarding_workflow']
         for section in required_sections:
             if section not in quickstart:
                 raise Exception(f"Missing section: {section}")
-        
+
         print("✅ Quickstart validation passed")
         return True
     except Exception as e:
@@ -170,12 +170,12 @@ def test_index_structure():
     try:
         with open('docs/11_agents/index.yaml') as f:
             index = yaml.safe_load(f)
-        
+
         required_sections = ['network', 'agent_types', 'documentation_structure']
         for section in required_sections:
             if section not in index:
                 raise Exception(f"Missing section in index: {section}")
-        
+
         print("✅ Index structure validation passed")
         return True
     except Exception as e:
@@ -189,14 +189,14 @@ if __name__ == "__main__":
         test_quickstart,
         test_index_structure
     ]
-    
+
     passed = 0
     for test in tests:
         if test():
             passed += 1
         else:
             sys.exit(1)
-    
+
     print(f"✅ All {passed} documentation tests passed")
 EOF
 

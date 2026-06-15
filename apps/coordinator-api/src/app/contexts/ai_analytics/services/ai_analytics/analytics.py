@@ -7,10 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
-from aitbc import get_logger
-
-logger = get_logger(__name__)
-from app.domain.analytics import (  # type: ignore[import-not-found]  # noqa: E402
+from app.domain.analytics import (  # type: ignore[import-not-found]
     AnalyticsAlert,
     AnalyticsPeriod,
     DashboardConfig,
@@ -19,7 +16,11 @@ from app.domain.analytics import (  # type: ignore[import-not-found]  # noqa: E4
     MarketMetric,
     MetricType,
 )
-from sqlmodel import Session, and_, select  # noqa: E402
+from sqlmodel import Session, and_, select
+
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class DataCollector:

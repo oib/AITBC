@@ -11,7 +11,7 @@ check_service() {
     local name=$1
     local url=$2
     local expected=${3:-200}
-    
+
     if curl -s -o /dev/null -w "%{http_code}" "$url" | grep -q "$expected"; then
         echo -e "${GREEN}✓${NC} $name is healthy"
         return 0

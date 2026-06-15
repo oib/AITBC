@@ -1,9 +1,9 @@
 # Packages Documentation
 
-**Level**: Intermediate  
-**Prerequisites**: Familiarity with AITBC package management  
-**Estimated Time**: 15-20 minutes  
-**Last Updated**: 2026-04-27  
+**Level**: Intermediate
+**Prerequisites**: Familiarity with AITBC package management
+**Estimated Time**: 15-20 minutes
+**Last Updated**: 2026-04-27
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
@@ -48,6 +48,6 @@ Use this directory for package-specific documentation such as:
 
 ---
 
-*Last updated: 2026-04-27*  
-*Version: 1.0*  
+*Last updated: 2026-04-27*
+*Version: 1.0*
 *Status: Package documentation hub*

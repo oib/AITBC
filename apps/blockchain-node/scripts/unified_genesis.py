@@ -15,7 +15,6 @@ import hashlib
 import json
 import os
 import secrets
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -24,10 +23,6 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-
-# Add project paths
-sys.path.insert(0, "/opt/aitbc")
-sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
 
 try:
     from aitbc_chain.config import BlockchainConfig  # noqa: F401

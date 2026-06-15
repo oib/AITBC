@@ -1,6 +1,6 @@
 # Hermes Agent Autonomy Features
 
-**Last Updated:** June 5, 2026  
+**Last Updated:** June 5, 2026
 **Version:** v0.4.3.3 (Service Status Update)
 
 This document describes the enhanced Hermes agent autonomy features for distributed decision making, self-healing, and autonomous resource management.

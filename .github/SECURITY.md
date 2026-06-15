@@ -15,7 +15,7 @@ The AITBC project implements automated dependency security scanning using multip
 
 #### GitHub Actions
 - **Workflow**: `.github/workflows/dependency-security.yml`
-- **Triggers**: 
+- **Triggers**:
   - On push to main/develop branches
   - On pull requests to main/develop
   - Daily scheduled scan (2 AM UTC)

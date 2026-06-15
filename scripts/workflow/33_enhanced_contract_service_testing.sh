@@ -51,11 +51,11 @@ echo ""
 run_test() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🧪 Testing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
@@ -71,11 +71,11 @@ run_test() {
 run_test_verbose() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🧪 Testing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))

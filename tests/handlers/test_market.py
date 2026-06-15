@@ -3,17 +3,10 @@ Market Handler Tests
 Tests for marketplace command handlers
 """
 
-import sys
-from pathlib import Path
 from unittest.mock import Mock, patch
 
-# Add CLI path for imports
-cli_path = Path("/opt/aitbc/cli")
-if str(cli_path) not in sys.path:
-    sys.path.insert(0, str(cli_path))
-
-import pytest  # noqa: E402
-from handlers.market import (  # noqa: E402
+import pytest
+from handlers.market import (
     handle_market_buy,
     handle_market_create,
     handle_market_delete,

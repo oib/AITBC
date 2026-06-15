@@ -24,7 +24,6 @@ logger = get_logger(__name__)
 
 
 def create_get_current_user_optional(session: Session = Depends(get_session)) -> Any:
-
     async def get_current_user_optional(request: Request | None = None) -> dict[str, Any]:
         """Optional authentication that returns default test user if no token provided"""
         try:

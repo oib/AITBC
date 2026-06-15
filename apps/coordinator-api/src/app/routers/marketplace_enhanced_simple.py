@@ -1,22 +1,23 @@
 "\nEnhanced Marketplace API Router - Simplified Version\nREST API endpoints for enhanced marketplace features\n"
+
 from typing import Annotated, Any
 
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
+from sqlmodel import Session
+
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
-logger = get_logger(__name__)
-from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
-from sqlmodel import Session  # noqa: E402
-
-from aitbc.rate_limiting import rate_limit  # noqa: E402
-
-from ..contexts.marketplace.services.marketplace_enhanced_simple import (  # noqa: E402
+from ..contexts.marketplace.services.marketplace_enhanced_simple import (
     EnhancedMarketplaceService,
     LicenseType,
     VerificationType,
 )
-from ..deps import require_admin_key  # noqa: E402
-from ..storage import get_session  # noqa: E402
+from ..deps import require_admin_key
+from ..storage import get_session
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/marketplace/enhanced", tags=["Marketplace Enhanced"])
 

@@ -14,17 +14,17 @@ import "./Groth16Verifier.sol";
  * @notice Manages rental agreements between AI compute providers and consumers
  */
 contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
-    
+
     // State variables
     IERC20 public aitbcToken;
     ZKReceiptVerifier public zkVerifier;
     Groth16Verifier public groth16Verifier;
-    
+
     uint256 public agreementCounter;
     uint256 public platformFeePercentage = 250; // 2.5% in basis points
     uint256 public minRentalDuration = 3600; // 1 hour minimum
     uint256 public maxRentalDuration = 86400 * 30; // 30 days maximum
-    
+
     // Structs
     struct RentalAgreement {
         uint256 agreementId;
@@ -41,7 +41,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         uint256 computeUnits;
         bytes32 performanceProof;
     }
-    
+
     struct PerformanceMetrics {
         uint256 responseTime;
         uint256 accuracy;
@@ -50,7 +50,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         bool withinSLA;
         uint256 lastUpdateTime;
     }
-    
+
     struct DisputeInfo {
         bool exists;
         address initiator;
@@ -59,7 +59,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         bool resolved;
         uint256 resolutionAmount;
     }
-    
+
     // Enums
     enum RentalStatus {
         Created,
@@ -69,7 +69,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         Cancelled,
         Expired
     }
-    
+
     // Mappings
     mapping(uint256 => RentalAgreement) public rentalAgreements;
     mapping(uint256 => DisputeInfo) public disputes;
@@ -77,7 +77,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
     mapping(address => uint256[]) public consumerAgreements;
     mapping(address => bool) public authorizedProviders;
     mapping(address => bool) public authorizedConsumers;
-    
+
     // Events
     event AgreementCreated(
         uint256 indexed agreementId,
@@ -88,26 +88,26 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         string gpuModel,
         uint256 computeUnits
     );
-    
+
     event AgreementStarted(
         uint256 indexed agreementId,
         uint256 startTime,
         uint256 endTime
     );
-    
+
     event AgreementCompleted(
         uint256 indexed agreementId,
         uint256 completionTime,
         bool withinSLA
     );
-    
+
     event PaymentProcessed(
         uint256 indexed agreementId,
         address indexed provider,
         uint256 amount,
         uint256 platformFee
     );
-    
+
     event PerformanceSubmitted(
         uint256 indexed agreementId,
         uint256 responseTime,
@@ -115,35 +115,35 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         uint256 availability,
         bool withinSLA
     );
-    
+
     event DisputeFiled(
         uint256 indexed agreementId,
         address indexed initiator,
         string reason
     );
-    
+
     event DisputeResolved(
         uint256 indexed agreementId,
         uint256 resolutionAmount,
         bool resolvedInFavorOfProvider
     );
-    
+
     event ProviderAuthorized(address indexed provider);
     event ProviderRevoked(address indexed provider);
     event ConsumerAuthorized(address indexed consumer);
     event ConsumerRevoked(address indexed consumer);
-    
+
     // Modifiers
     modifier onlyAuthorizedProvider() {
         require(authorizedProviders[msg.sender], "Not authorized provider");
         _;
     }
-    
+
     modifier onlyAuthorizedConsumer() {
         require(authorizedConsumers[msg.sender], "Not authorized consumer");
         _;
     }
-    
+
     modifier onlyParticipant(uint256 _agreementId) {
         require(
             rentalAgreements[_agreementId].provider == msg.sender ||
@@ -152,17 +152,17 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         );
         _;
     }
-    
+
     modifier agreementExists(uint256 _agreementId) {
         require(_agreementId < agreementCounter, "Agreement does not exist");
         _;
     }
-    
+
     modifier validStatus(uint256 _agreementId, RentalStatus _requiredStatus) {
         require(rentalAgreements[_agreementId].status == _requiredStatus, "Invalid agreement status");
         _;
     }
-    
+
     // Constructor
     constructor(
         address _aitbcToken,
@@ -174,7 +174,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         groth16Verifier = Groth16Verifier(_groth16Verifier);
         agreementCounter = 0;
     }
-    
+
     /**
      * @dev Creates a new rental agreement
      * @param _provider Address of the compute provider
@@ -196,10 +196,10 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         require(_duration <= maxRentalDuration, "Duration too long");
         require(_price > 0, "Price must be positive");
         require(authorizedProviders[_provider], "Provider not authorized");
-        
+
         uint256 agreementId = agreementCounter++;
         uint256 platformFee = (_price * platformFeePercentage) / 10000;
-        
+
         rentalAgreements[agreementId] = RentalAgreement({
             agreementId: agreementId,
             provider: _provider,
@@ -222,10 +222,10 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
             computeUnits: _computeUnits,
             performanceProof: bytes32(0)
         });
-        
+
         providerAgreements[_provider].push(agreementId);
         consumerAgreements[_consumer].push(agreementId);
-        
+
         emit AgreementCreated(
             agreementId,
             _provider,
@@ -235,99 +235,99 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
             _gpuModel,
             _computeUnits
         );
-        
+
         return agreementId;
     }
-    
+
     /**
      * @dev Starts a rental agreement and locks payment
      * @param _agreementId ID of the agreement to start
      */
-    function startRental(uint256 _agreementId) 
-        external 
+    function startRental(uint256 _agreementId)
+        external
         agreementExists(_agreementId)
         validStatus(_agreementId, RentalStatus.Created)
-        nonReentrant 
+        nonReentrant
     {
         RentalAgreement storage agreement = rentalAgreements[_agreementId];
-        
+
         require(msg.sender == agreement.consumer, "Only consumer can start");
-        
+
         uint256 totalAmount = agreement.price + agreement.platformFee;
-        
+
         // Transfer tokens from consumer to contract
         require(
             aitbcToken.transferFrom(msg.sender, address(this), totalAmount),
             "Payment transfer failed"
         );
-        
+
         agreement.startTime = block.timestamp;
         agreement.endTime = block.timestamp + agreement.duration;
         agreement.status = RentalStatus.Active;
-        
+
         emit AgreementStarted(_agreementId, agreement.startTime, agreement.endTime);
     }
-    
+
     /**
      * @dev Completes a rental agreement and processes payment
      * @param _agreementId ID of the agreement to complete
      */
-    function completeRental(uint256 _agreementId) 
-        external 
+    function completeRental(uint256 _agreementId)
+        external
         agreementExists(_agreementId)
         validStatus(_agreementId, RentalStatus.Active)
         onlyParticipant(_agreementId)
-        nonReentrant 
+        nonReentrant
     {
         RentalAgreement storage agreement = rentalAgreements[_agreementId];
-        
+
         require(block.timestamp >= agreement.endTime, "Rental period not ended");
-        
+
         agreement.status = RentalStatus.Completed;
-        
+
         // Process payment to provider
         uint256 providerAmount = agreement.price;
         uint256 platformFeeAmount = agreement.platformFee;
-        
+
         if (providerAmount > 0) {
             require(
                 aitbcToken.transfer(agreement.provider, providerAmount),
                 "Provider payment failed"
             );
         }
-        
+
         if (platformFeeAmount > 0) {
             require(
                 aitbcToken.transfer(owner(), platformFeeAmount),
                 "Platform fee transfer failed"
             );
         }
-        
+
         emit PaymentProcessed(_agreementId, agreement.provider, providerAmount, platformFeeAmount);
         emit AgreementCompleted(_agreementId, block.timestamp, agreement.performance.withinSLA);
     }
-    
+
     /**
      * @dev Files a dispute for a rental agreement
      * @param _agreementId ID of the agreement
      * @param _reason Reason for the dispute
      */
-    function disputeRental(uint256 _agreementId, string memory _reason) 
-        external 
+    function disputeRental(uint256 _agreementId, string memory _reason)
+        external
         agreementExists(_agreementId)
         onlyParticipant(_agreementId)
-        nonReentrant 
+        nonReentrant
     {
         RentalAgreement storage agreement = rentalAgreements[_agreementId];
-        
+
         require(
-            agreement.status == RentalStatus.Active || 
+            agreement.status == RentalStatus.Active ||
             agreement.status == RentalStatus.Completed,
             "Cannot dispute this agreement"
         );
-        
+
         require(!disputes[_agreementId].exists, "Dispute already exists");
-        
+
         disputes[_agreementId] = DisputeInfo({
             exists: true,
             initiator: msg.sender,
@@ -336,12 +336,12 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
             resolved: false,
             resolutionAmount: 0
         });
-        
+
         agreement.status = RentalStatus.Disputed;
-        
+
         emit DisputeFiled(_agreementId, msg.sender, _reason);
     }
-    
+
     /**
      * @dev Submits performance metrics for a rental agreement
      * @param _agreementId ID of the agreement
@@ -360,9 +360,9 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         bytes memory _zkProof
     ) external agreementExists(_agreementId) onlyAuthorizedProvider {
         RentalAgreement storage agreement = rentalAgreements[_agreementId];
-        
+
         require(agreement.status == RentalStatus.Active, "Agreement not active");
-        
+
         // Verify ZK proof
         bool proofValid = zkVerifier.verifyPerformanceProof(
             _agreementId,
@@ -372,9 +372,9 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
             _computePower,
             _zkProof
         );
-        
+
         require(proofValid, "Invalid performance proof");
-        
+
         agreement.performance = PerformanceMetrics({
             responseTime: _responseTime,
             accuracy: _accuracy,
@@ -383,9 +383,9 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
             withinSLA: _calculateSLA(_responseTime, _accuracy, _availability),
             lastUpdateTime: block.timestamp
         });
-        
+
         agreement.performanceProof = keccak256(_zkProof);
-        
+
         emit PerformanceSubmitted(
             _agreementId,
             _responseTime,
@@ -394,7 +394,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
             agreement.performance.withinSLA
         );
     }
-    
+
     /**
      * @dev Authorizes a provider to offer compute services
      * @param _provider Address of the provider
@@ -403,7 +403,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         authorizedProviders[_provider] = true;
         emit ProviderAuthorized(_provider);
     }
-    
+
     /**
      * @dev Revokes provider authorization
      * @param _provider Address of the provider
@@ -412,7 +412,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         authorizedProviders[_provider] = false;
         emit ProviderRevoked(_provider);
     }
-    
+
     /**
      * @dev Authorizes a consumer to rent compute services
      * @param _consumer Address of the consumer
@@ -421,7 +421,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         authorizedConsumers[_consumer] = true;
         emit ConsumerAuthorized(_consumer);
     }
-    
+
     /**
      * @dev Revokes consumer authorization
      * @param _consumer Address of the consumer
@@ -430,7 +430,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         authorizedConsumers[_consumer] = false;
         emit ConsumerRevoked(_consumer);
     }
-    
+
     /**
      * @dev Resolves a dispute
      * @param _agreementId ID of the disputed agreement
@@ -444,52 +444,52 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
     ) external onlyOwner agreementExists(_agreementId) {
         require(disputes[_agreementId].exists, "No dispute exists");
         require(!disputes[_agreementId].resolved, "Dispute already resolved");
-        
+
         RentalAgreement storage agreement = rentalAgreements[_agreementId];
         disputes[_agreementId].resolved = true;
         disputes[_agreementId].resolutionAmount = _resolutionAmount;
-        
+
         address winner = _resolveInFavorOfProvider ? agreement.provider : agreement.consumer;
-        
+
         if (_resolutionAmount > 0) {
             require(
                 aitbcToken.transfer(winner, _resolutionAmount),
                 "Resolution payment failed"
             );
         }
-        
+
         emit DisputeResolved(_agreementId, _resolutionAmount, _resolveInFavorOfProvider);
     }
-    
+
     /**
      * @dev Cancels a rental agreement (only before it starts)
      * @param _agreementId ID of the agreement to cancel
      */
-    function cancelRental(uint256 _agreementId) 
-        external 
+    function cancelRental(uint256 _agreementId)
+        external
         agreementExists(_agreementId)
         validStatus(_agreementId, RentalStatus.Created)
         onlyParticipant(_agreementId)
-        nonReentrant 
+        nonReentrant
     {
         RentalAgreement storage agreement = rentalAgreements[_agreementId];
         agreement.status = RentalStatus.Cancelled;
     }
-    
+
     /**
      * @dev Emergency pause function
      */
     function pause() external onlyOwner {
         _pause();
     }
-    
+
     /**
      * @dev Unpause function
      */
     function unpause() external onlyOwner {
         _unpause();
     }
-    
+
     /**
      * @dev Updates platform fee percentage
      * @param _newFee New fee percentage in basis points
@@ -498,59 +498,59 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         require(_newFee <= 1000, "Fee too high"); // Max 10%
         platformFeePercentage = _newFee;
     }
-    
+
     // View functions
-    
+
     /**
      * @dev Gets rental agreement details
      * @param _agreementId ID of the agreement
      */
-    function getRentalAgreement(uint256 _agreementId) 
-        external 
-        view 
-        agreementExists(_agreementId) 
-        returns (RentalAgreement memory) 
+    function getRentalAgreement(uint256 _agreementId)
+        external
+        view
+        agreementExists(_agreementId)
+        returns (RentalAgreement memory)
     {
         return rentalAgreements[_agreementId];
     }
-    
+
     /**
      * @dev Gets dispute information
      * @param _agreementId ID of the agreement
      */
-    function getDisputeInfo(uint256 _agreementId) 
-        external 
-        view 
-        agreementExists(_agreementId) 
-        returns (DisputeInfo memory) 
+    function getDisputeInfo(uint256 _agreementId)
+        external
+        view
+        agreementExists(_agreementId)
+        returns (DisputeInfo memory)
     {
         return disputes[_agreementId];
     }
-    
+
     /**
      * @dev Gets all agreements for a provider
      * @param _provider Address of the provider
      */
-    function getProviderAgreements(address _provider) 
-        external 
-        view 
-        returns (uint256[] memory) 
+    function getProviderAgreements(address _provider)
+        external
+        view
+        returns (uint256[] memory)
     {
         return providerAgreements[_provider];
     }
-    
+
     /**
      * @dev Gets all agreements for a consumer
      * @param _consumer Address of the consumer
      */
-    function getConsumerAgreements(address _consumer) 
-        external 
-        view 
-        returns (uint256[] memory) 
+    function getConsumerAgreements(address _consumer)
+        external
+        view
+        returns (uint256[] memory)
     {
         return consumerAgreements[_consumer];
     }
-    
+
     /**
      * @dev Calculates if performance meets SLA requirements
      */

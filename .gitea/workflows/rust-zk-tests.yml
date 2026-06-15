@@ -36,10 +36,10 @@ jobs:
       - name: Setup Rust environment
         run: |
           cd /opt/aitbc
-          
+
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
-          
+
           export HOME=/root
           export RUSTUP_HOME="$HOME/.rustup"
           export CARGO_HOME="$HOME/.cargo"
@@ -90,4 +90,3 @@ jobs:
           cd "/opt/aitbc/dev/gpu/gpu_zk_research"
           cargo test --all-targets
           echo "✅ Tests passed"
-

@@ -91,13 +91,13 @@ print_progress() {
 show_overview() {
     clear
     print_header "$TRAINING_PROGRAM"
-    
+
     echo -e "${BOLD}🎯 Training Objectives:${NC}"
     echo "• Master AITBC CLI operations on both nodes (aitbc & aitbc1)"
     echo "• Progress from beginner to expert level operations"
     echo "• Achieve hermes AITBC Master certification"
     echo
-    
+
     echo -e "${BOLD}📋 Training Stages:${NC}"
     echo "0. Environment Setup - Genesis wallet validation, node connectivity"
     echo "1. Foundation - Basic CLI, wallet, and transaction operations"
@@ -110,23 +110,23 @@ show_overview() {
     echo "8. Advanced Agent Specialization - Bounty, portfolio, knowledge graph, ZK proofs"
     echo "9. Multi-Chain Architecture - Island setup, gossip sync, multi-chain validator"
     echo
-    
+
     echo -e "${BOLD}🏗️ Two-Node Architecture:${NC}"
     echo "• Genesis Node (aitbc) - Port 8202 - Primary operations"
     echo "• Follower Node (aitbc1) - Port 8202 - Secondary operations"
     echo "• CLI Tool: $CLI_PATH"
     echo
-    
+
     echo -e "${BOLD}⏱️ Estimated Duration:${NC}"
     echo "• Total: 4 weeks (20 training days)"
     echo "• Per Stage: 2-5 days depending on complexity"
     echo
-    
+
     echo -e "${BOLD}🎓 Certification:${NC}"
     echo "• hermes AITBC Master upon successful completion"
     echo "• Requires 95%+ success rate on final exam"
     echo
-    
+
     echo -e "${BOLD}📊 Prerequisites:${NC}"
     echo "• AITBC CLI accessible at $CLI_PATH"
     echo "• Services running on ports 8203 (Coordinator-API), 9001 (Agent-Coordinator), 8001 (Exchange-API), 8202 (Blockchain RPC)"
@@ -137,9 +137,9 @@ show_overview() {
 # Check system readiness
 check_system_readiness() {
     print_status "Checking system readiness..."
-    
+
     local issues=0
-    
+
     # Check CLI availability
     if [ ! -f "$CLI_PATH" ]; then
         print_error "AITBC CLI not found at $CLI_PATH"
@@ -147,14 +147,14 @@ check_system_readiness() {
     else
         print_success "AITBC CLI found"
     fi
-    
+
     # Check service availability
     local services=("8001:Exchange" "9001:Agent-Coordinator" "8202:Genesis-Node" "8202:Follower-Node")
     for service in "${services[@]}"; do
         local port=$(echo "$service" | cut -d: -f1)
         local name=$(echo "$service" | cut -d: -f2)
-        
-        if curl -s "http://localhost:$port/health" > /dev/null 2>&1 || 
+
+        if curl -s "http://localhost:$port/health" > /dev/null 2>&1 ||
            curl -s "http://localhost:$port" > /dev/null 2>&1; then
             print_success "$name service (port $port) is accessible"
         else
@@ -162,7 +162,7 @@ check_system_readiness() {
             (( issues += 1 )) || true
         fi
     done
-    
+
     # Check Ollama service
     if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
         print_success "Ollama service is running"
@@ -170,19 +170,19 @@ check_system_readiness() {
         print_warning "Ollama service may not be running (needed for Stage 3)"
         (( issues += 1 )) || true
     fi
-    
+
     # Check log directory
     if [ ! -d "$LOG_DIR" ]; then
         print_status "Creating log directory..."
         mkdir -p "$LOG_DIR"
     fi
-    
+
     # Check training scripts
     if [ ! -d "$SCRIPT_DIR" ]; then
         print_error "Training scripts directory not found: $SCRIPT_DIR"
         (( issues += 1 )) || true
     fi
-    
+
     if [ $issues -eq 0 ]; then
         print_success "System readiness check passed"
         return 0
@@ -196,35 +196,35 @@ check_system_readiness() {
 run_stage() {
     local stage_num=$1
     local stage_script="$SCRIPT_DIR/stage${stage_num}_*.sh"
-    
+
     print_progress $stage_num "Starting"
-    
+
     # Find the stage script
     local script_file=$(ls $stage_script 2>/dev/null | head -1)
     if [ ! -f "$script_file" ]; then
         print_error "Stage $stage_num script not found"
         return 1
     fi
-    
+
     print_status "Running Stage $stage_num: $(basename "$script_file" .sh | sed 's/stage[0-10]_//')"
-    
+
     # Make script executable
     chmod +x "$script_file"
-    
+
     # Run the stage script
     if bash "$script_file"; then
         print_progress $stage_num "Completed successfully"
         log "Stage $stage_num completed successfully"
-        
+
         # Generate certificate
         mkdir -p "$CERT_DIR"
         generate_certificate $stage_num
         display_badge $stage_num
-        
+
         # Capture learnings for skill update
         local stage_name=$(get_stage_name $stage_num)
         capture_learnings $stage_num "$stage_name" "$ENABLE_SKILL_UPDATE"
-        
+
         return 0
     else
         print_error "Stage $stage_num failed"
@@ -256,7 +256,7 @@ save_progress() {
 # Reset training state
 reset_training_state() {
     print_header "Reset Training State"
-    
+
     echo -e "${YELLOW}⚠️  This will:${NC}"
     echo "• Clear all stage progress"
     echo "• Remove sandbox state directory"
@@ -265,30 +265,30 @@ reset_training_state() {
     echo
     echo -n "Are you sure you want to reset? [yes/NO]: "
     read -r confirm
-    
+
     if [[ "$confirm" != "yes" ]]; then
         print_status "Reset cancelled"
         return 0
     fi
-    
+
     print_status "Resetting training state..."
-    
+
     # Clear progress file
     if [ -f "$PROGRESS_FILE" ]; then
         rm "$PROGRESS_FILE"
         print_success "Progress file cleared"
     fi
-    
+
     # Remove state directory
     if [ -d "$STATE_DIR" ]; then
         rm -rf "$STATE_DIR"
         print_success "State directory cleared"
     fi
-    
+
     # Recreate state directory
     mkdir -p "$STATE_DIR"
     mkdir -p "$CERT_DIR"
-    
+
     log "Training state reset"
     print_success "Training state reset successfully"
 }
@@ -297,7 +297,7 @@ reset_training_state() {
 check_prerequisites() {
     local stage_num=$1
     local stage_name="stage${stage_num}_*"
-    
+
     # Run prerequisite validation
     if [ -f "$SCRIPT_DIR/generate_prerequisite_checks.py" ]; then
         print_status "Checking prerequisites for Stage $stage_num..."
@@ -339,7 +339,7 @@ generate_certificate() {
     local stage_name=$(get_stage_name $stage_num)
     local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     local cert_file="$CERT_DIR/stage${stage_num}_certificate.json"
-    
+
     # Create certificate JSON
     cat > "$cert_file" << EOF
 {
@@ -353,7 +353,7 @@ generate_certificate() {
   "version": "1.0"
 }
 EOF
-    
+
     log "Certificate generated for Stage $stage_num: $cert_file"
 }
 
@@ -361,7 +361,7 @@ EOF
 display_badge() {
     local stage_num=$1
     local stage_name=$(get_stage_name $stage_num)
-    
+
     echo
     echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}${BOLD}║                                                  ║${NC}"
@@ -411,16 +411,16 @@ capture_learnings() {
 # View certificates
 view_certificates() {
     print_header "Stage Completion Certificates"
-    
+
     # Ensure directories exist
     if [ ! -d "$CERT_DIR" ]; then
         mkdir -p "$CERT_DIR"
     fi
-    
+
     # Collect certificate files into array
     local cert_files=()
     local cert_count=0
-    
+
     if [ -d "$CERT_DIR" ]; then
         for cert_file in "$CERT_DIR"/stage*_certificate.json; do
             if [ -f "$cert_file" ]; then
@@ -429,55 +429,55 @@ view_certificates() {
             fi
         done
     fi
-    
+
     if [ $cert_count -eq 0 ]; then
         print_warning "No certificates found yet"
         echo "Complete stages to earn certificates"
         return 0
     fi
-    
+
     echo -e "${BOLD}📜 Certificates Earned:${NC}"
     echo
-    
+
     # Display certificates with index
     for i in "${!cert_files[@]}"; do
         local cert_file="${cert_files[$i]}"
         local stage_num=$(echo "$cert_file" | grep -o 'stage[0-9]*' | grep -o '[0-9]*')
         local stage_name=$(get_stage_name $stage_num)
         local timestamp=$(python3 -c "import json; print(json.load(open('$cert_file'))['completion_timestamp'])" 2>/dev/null || echo "Unknown")
-        
+
         echo -e "  ${GREEN}$(($i+1))${NC}. Stage $stage_num: $stage_name"
         echo "     Completed: $timestamp"
         echo "     File: $cert_file"
-        
+
         # Show badge path if exists
         local badge_file="$BADGE_DIR/stage${stage_num}_badge.md"
         if [ -f "$badge_file" ]; then
             echo "     Badge: $badge_file"
         fi
-        
+
         # Show HTML cert path if exists
         local html_file="$HTML_CERT_DIR/stage${stage_num}_certificate.html"
         if [ -f "$html_file" ]; then
             echo "     HTML: $html_file"
         fi
-        
+
         echo
     done
-    
+
     echo -e "${BOLD}Total certificates: $cert_count${NC}"
-    
+
     # Show badges summary if available
     if [ -d "$BADGE_DIR" ] && [ -f "$BADGE_DIR/training_summary.md" ]; then
         echo
         echo -e "${BOLD}🏅 Badges Summary:${NC}"
         cat "$BADGE_DIR/training_summary.md"
     fi
-    
+
     echo
     echo -n "View certificate details? Enter number [1-$cert_count] or N: "
     read -r view_choice
-    
+
     if [[ "$view_choice" =~ ^[0-9]+$ ]] && [ "$view_choice" -ge 1 ] && [ "$view_choice" -le "$cert_count" ]; then
         local idx=$(($view_choice - 1))
         local cert_file="${cert_files[$idx]}"
@@ -485,7 +485,7 @@ view_certificates() {
             echo
             echo -e "${BOLD}Certificate Details:${NC}"
             cat "$cert_file" | python3 -m json.tool 2>/dev/null || cat "$cert_file"
-            
+
             # Offer to open HTML certificate
             local stage_num=$(echo "$cert_file" | grep -o 'stage[0-9]*' | grep -o '[0-9]*')
             local html_file="$HTML_CERT_DIR/stage${stage_num}_certificate.html"
@@ -511,12 +511,12 @@ view_certificates() {
 # Export certificate
 export_certificate() {
     print_header "Export Certificate"
-    
+
     if [ ! -d "$CERT_DIR" ] || [ -z "$(ls -A $CERT_DIR)" ]; then
         print_error "No certificates found to export"
         return 1
     fi
-    
+
     echo "Available certificates:"
     local i=1
     for cert_file in "$CERT_DIR"/stage*_certificate.json; do
@@ -527,11 +527,11 @@ export_certificate() {
             ((i++))
         fi
     done
-    
+
     echo
     echo -n "Select certificate to export [1-$(($i-1))]: "
     read -r export_choice
-    
+
     if [[ "$export_choice" =~ ^[0-10]+$ ]] && [ "$export_choice" -ge 1 ] && [ "$export_choice" -lt "$i" ]; then
         local cert_file=$(ls "$CERT_DIR"/stage*_certificate.json | head -"$export_choice" | tail -1)
         if [ -f "$cert_file" ]; then
@@ -548,14 +548,14 @@ export_certificate() {
 show_playground_menu() {
     clear
     print_header "Training Playground"
-    
+
     echo -e "${BOLD}🎮 Playground Mode${NC}"
     echo "Interactive training with prerequisite validation and reset capability"
     echo
-    
+
     # Load progress
     load_progress
-    
+
     echo -e "${BOLD}📊 Progress:${NC}"
     if [ ${#COMPLETED_STAGES[@]} -gt 0 ]; then
         echo "Completed stages: ${COMPLETED_STAGES[*]}"
@@ -563,7 +563,7 @@ show_playground_menu() {
         echo "No stages completed yet"
     fi
     echo
-    
+
     echo -e "${BOLD}📋 Available Actions:${NC}"
     echo "1. Run Stage with Prerequisites Check"
     echo "2. Run Complete Training (Progressive)"
@@ -577,7 +577,7 @@ show_playground_menu() {
     echo -n "Select option [1-8]: "
     read -r choice
     echo
-    
+
     case $choice in
         1)
             playground_run_stage
@@ -613,7 +613,7 @@ show_playground_menu() {
 # Check prerequisites for all stages
 check_all_prerequisites() {
     print_header "Prerequisites Check for All Stages"
-    
+
     if [ -f "$SCRIPT_DIR/generate_prerequisite_checks.py" ]; then
         print_status "Running prerequisite validation..."
         python3 "$SCRIPT_DIR/generate_prerequisite_checks.py" "$STAGE_DIR"
@@ -644,11 +644,11 @@ playground_run_stage() {
     echo
     echo -n "Select stage [0-10]: "
     read -r stage_choice
-    
+
     if [[ "$stage_choice" =~ ^[0-10]$ ]]; then
         echo
         check_prerequisites $stage_choice
-        
+
         if [ $? -eq 0 ]; then
             echo -n "Proceed with Stage $stage_choice? [Y/n]: "
             read -r proceed
@@ -666,19 +666,19 @@ playground_run_stage() {
     else
         print_error "Invalid stage selection"
     fi
-    
+
     show_playground_menu
 }
 
 # Run complete training progressively (playground mode)
 playground_run_complete() {
     print_header "Progressive Complete Training"
-    
+
     load_progress
-    
+
     print_status "Starting progressive training from Stage 0..."
     local start_stage=0
-    
+
     # Find first uncompleted stage
     for i in {0..10}; do
         local completed=false
@@ -693,24 +693,24 @@ playground_run_complete() {
             break
         fi
     done
-    
+
     echo "Starting from Stage $start_stage"
     echo
-    
+
     for stage in $(seq $start_stage 9); do
         print_progress $stage "Starting"
-        
+
         check_prerequisites $stage
         if [ $? -ne 0 ]; then
             print_error "Prerequisites not satisfied for Stage $stage"
             break
         fi
-        
+
         if run_stage $stage; then
             COMPLETED_STAGES+=("$stage")
             save_progress
             print_success "Stage $stage completed and saved"
-            
+
             if [ $stage -lt 9 ]; then
                 echo
                 echo -n "Continue to next stage? [Y/n]: "
@@ -731,7 +731,7 @@ playground_run_complete() {
             fi
         fi
     done
-    
+
     show_training_summary ${#COMPLETED_STAGES[@]}
 }
 
@@ -750,7 +750,7 @@ show_menu() {
     echo -n "Select option [1-8]: "
     read -r choice || choice=""
     echo
-    
+
     case $choice in
         1)
             run_complete_training
@@ -787,20 +787,20 @@ show_menu() {
 # Run complete training program
 run_complete_training() {
     print_header "Complete Training Program"
-    
+
     print_status "Starting complete hermes AITBC Mastery Training..."
     log "Starting complete training program"
-    
+
     local completed_stages=0
-    
+
     for stage in {0..10}; do
         echo
         print_progress $stage "Starting"
-        
+
         if run_stage $stage; then
             ((completed_stages+=1))
             print_success "Stage $stage completed successfully"
-            
+
             # Ask if user wants to continue
             if [ $stage -lt 9 ]; then
                 echo
@@ -822,7 +822,7 @@ run_complete_training() {
             fi
         fi
     done
-    
+
     show_training_summary $completed_stages
 }
 
@@ -839,7 +839,7 @@ run_individual_stage() {
     echo
     echo -n "Select stage [1-7]: "
     read -r stage_choice
-    
+
     if [[ "$stage_choice" =~ ^[1-7]$ ]]; then
         echo
         run_stage $stage_choice
@@ -852,12 +852,12 @@ run_individual_stage() {
 # Review training progress
 review_progress() {
     print_header "Training Progress Review"
-    
+
     echo -e "${BOLD}📊 Training Statistics:${NC}"
-    
+
     # Load progress from file
     load_progress
-    
+
     # Check completed stages from progress file
     if [ ${#COMPLETED_STAGES[@]} -gt 0 ]; then
         echo -e "${BOLD}Completed Stages (from progress file):${NC}"
@@ -867,9 +867,9 @@ review_progress() {
     else
         echo -e "${BOLD}No stages completed yet${NC}"
     fi
-    
+
     echo
-    
+
     # Check log files for additional completion status
     local completed=0
     for stage in {0..10}; do
@@ -881,18 +881,18 @@ review_progress() {
             echo "❌ Stage $stage: Not completed in logs"
         fi
     done
-    
+
     local progress=$((completed * 100 / 10))
     echo
     echo -e "${BOLD}Overall Progress: $completed/10 stages ($progress%)${NC}"
-    
+
     # Show time tracking
     local elapsed=$(($(date +%s) - START_TIME))
     local hours=$((elapsed / 3600))
     local minutes=$(((elapsed % 3600) / 60))
-    
+
     echo "Time elapsed: ${hours}h ${minutes}m"
-    
+
     # Show recent log entries
     echo
     echo -e "${BOLD}📋 Recent Activity:${NC}"
@@ -906,7 +906,7 @@ review_progress() {
 # View training logs
 view_logs() {
     print_header "Training Logs"
-    
+
     echo "Available log files:"
     echo "1. Master training log"
     echo "0. Stage 0: Environment Setup"
@@ -924,7 +924,7 @@ view_logs() {
     echo
     echo -n "Select log to view [0-11]: "
     read -r log_choice
-    
+
     case $log_choice in
         1)
             if [ -f "$LOG_DIR/training_master.log" ]; then
@@ -1003,23 +1003,23 @@ view_logs() {
             print_error "Invalid selection"
             ;;
     esac
-    
+
     view_logs
 }
 
 # Show training summary
 show_training_summary() {
     local completed_stages=$1
-    
+
     echo
     print_header "Training Summary"
-    
+
     local progress=$((completed_stages * 100 / TOTAL_STAGES))
-    
+
     echo -e "${BOLD}🎯 Training Results:${NC}"
     echo "Stages completed: $completed_stages/$TOTAL_STAGES"
     echo "Progress: $progress%"
-    
+
     if [ $completed_stages -eq $TOTAL_STAGES ]; then
         echo -e "${GREEN}🎉 CONGRATULATIONS! TRAINING COMPLETED!${NC}"
         echo
@@ -1041,14 +1041,14 @@ show_training_summary() {
         echo "Stages remaining: $((TOTAL_STAGES - completed_stages))"
         echo "Continue training to achieve mastery status"
     fi
-    
+
     echo
     echo -e "${BOLD}📊 Training Logs:${NC}"
     for stage in $(seq 1 $completed_stages); do
         echo "• Stage $stage: $LOG_DIR/training_stage${stage}.log"
     done
     echo "• Master: $LOG_DIR/training_master.log"
-    
+
     log "Training summary: $completed_stages/$TOTAL_STAGES stages completed ($progress%)"
 }
 
@@ -1056,17 +1056,17 @@ show_training_summary() {
 main() {
     # Create log directory
     mkdir -p "$LOG_DIR"
-    
+
     # Create state directory
     mkdir -p "$STATE_DIR"
     mkdir -p "$CERT_DIR"
-    
+
     # Start logging
     log "hermes AITBC Mastery Training Program started"
-    
+
     # Show overview
     show_overview
-    
+
     # Check system readiness
     if ! check_system_readiness; then
         echo
@@ -1080,11 +1080,11 @@ main() {
             exit 1
         fi
     fi
-    
+
     echo
     echo -n "Ready to start training? [Y/n]: "
     read -r start_choice || start_choice="y"
-    
+
     if [[ ! "$start_choice" =~ ^[Nn]$ ]]; then
         show_menu
     else

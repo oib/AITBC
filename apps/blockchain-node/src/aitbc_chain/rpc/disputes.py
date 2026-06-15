@@ -8,10 +8,7 @@ from fastapi import HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 
 from ..logger import get_logger
-from .auth import get_authenticated_address
-
-_logger = get_logger(__name__)
-from ..models.dispute import (  # noqa: E402
+from ..models.dispute import (
     AuthorizeArbitratorRequest,
     AuthorizeArbitratorResponse,
     FileDisputeRequest,
@@ -26,7 +23,10 @@ from ..models.dispute import (  # noqa: E402
     VerifyEvidenceRequest,
     VerifyEvidenceResponse,
 )
-from ..rpc.dispute_resolution_service import dispute_resolution_service  # noqa: E402
+from ..rpc.dispute_resolution_service import dispute_resolution_service
+from .auth import get_authenticated_address
+
+_logger = get_logger(__name__)
 
 
 async def file_dispute(

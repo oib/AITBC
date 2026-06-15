@@ -20,12 +20,12 @@ template SimpleTrainingVerification(PARAM_COUNT, EPOCHS) {
     // Learning rate should be positive and reasonable (0 < lr < 1)
     component lt1 = LessThan(252);
     component gt0 = GreaterThan(252);
-    
+
     // Ensure learning_rate < 1
     lt1.in[0] <== learning_rate;
     lt1.in[1] <== 1;
     lt1.out === 1;
-    
+
     // Ensure learning_rate > 0
     gt0.in[0] <== learning_rate;
     gt0.in[1] <== 0;

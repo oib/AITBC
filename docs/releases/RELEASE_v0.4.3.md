@@ -1,7 +1,7 @@
 # AITBC v0.4.3 Release Notes
 
-**Date**: June 2, 2026  
-**Status**: ✅ Released  
+**Date**: June 2, 2026
+**Status**: ✅ Released
 **Scope**: Node Profiles & Lease-Based Subscription System
 
 ## 🎯 Overview
@@ -245,7 +245,7 @@ PERIODIC_SYNC_INTERVAL=30
    ```bash
    # Check logs for profile configuration
    journalctl -u aitbc-blockchain-node -n 50 | grep "blockchain_mode"
-   
+
    # Check sync mode
    journalctl -u aitbc-blockchain-node -n 50 | grep "Sync mode"
    ```
@@ -345,6 +345,6 @@ PERIODIC_SYNC_INTERVAL=30
 
 ---
 
-*Last Updated: 2026-06-02*  
-*Version: 0.4.3*  
+*Last Updated: 2026-06-02*
+*Version: 0.4.3*
 *Status: Released*

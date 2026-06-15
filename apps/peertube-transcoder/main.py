@@ -67,5 +67,10 @@ async def transcode_video(req: TranscodeRequest):
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("TRANSCODER_PORT", "8220"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    import os
+
+    # Standardized environment variable naming: SERVICE_BIND_HOST and SERVICE_BIND_PORT
+    host = os.getenv("TRANSCODER_BIND_HOST", "0.0.0.0")
+    port = int(os.getenv("TRANSCODER_BIND_PORT", os.getenv("TRANSCODER_PORT", "8220")))
+
+    uvicorn.run(app, host=host, port=port)

@@ -5,20 +5,20 @@ import fs from "fs";
 async function main() {
     console.log("🚀 Deploying AITBC Smart Contracts to Mainnet");
     console.log("==============================================");
-    
+
     const [deployer] = await ethers.getSigners();
     const balance = await ethers.provider.getBalance(deployer.address);
-    
+
     console.log(`Deployer: ${deployer.address}`);
     console.log(`Balance: ${ethers.formatEther(balance)} ETH`);
-    
+
     if (balance < ethers.parseEther("1")) {
         throw new Error("Insufficient ETH balance. Minimum 1 ETH recommended for deployment.");
     }
-    
+
     console.log("");
     console.log("Proceeding with contract deployment...");
-    
+
     // Deployment configuration
     const deployedContracts = {
         network: hardhat.network.name,
@@ -26,7 +26,7 @@ async function main() {
         timestamp: new Date().toISOString(),
         contracts: {}
     };
-    
+
     try {
         // Deploy prerequisites first
         console.log("📦 Deploying AIToken (Mock)...");
@@ -62,7 +62,7 @@ async function main() {
         const agentWalletAddr = await agentWallet.getAddress();
         deployedContracts.contracts.AgentWallet = agentWalletAddr;
         console.log(`✅ AgentWallet deployed: ${agentWalletAddr}`);
-        
+
         console.log("📦 Deploying AIPowerRental...");
         const AIPowerRental = await ethers.getContractFactory("AIPowerRental");
         const aiPowerRental = await AIPowerRental.deploy(
@@ -74,7 +74,7 @@ async function main() {
         const aiPowerRentalAddr = await aiPowerRental.getAddress();
         deployedContracts.contracts.AIPowerRental = aiPowerRentalAddr;
         console.log(`✅ AIPowerRental deployed: ${aiPowerRentalAddr}`);
-        
+
         console.log("📦 Deploying PerformanceVerifier...");
         const PerformanceVerifier = await ethers.getContractFactory("PerformanceVerifier");
         const performanceVerifier = await PerformanceVerifier.deploy(
@@ -97,7 +97,7 @@ async function main() {
         const agentBountyAddr = await agentBounty.getAddress();
         deployedContracts.contracts.AgentBounty = agentBountyAddr;
         console.log(`✅ AgentBounty deployed: ${agentBountyAddr}`);
-        
+
         console.log("📦 Deploying DynamicPricing...");
         const DynamicPricing = await ethers.getContractFactory("DynamicPricing");
         const dynamicPricing = await DynamicPricing.deploy(
@@ -109,7 +109,7 @@ async function main() {
         const dynamicPricingAddr = await dynamicPricing.getAddress();
         deployedContracts.contracts.DynamicPricing = dynamicPricingAddr;
         console.log(`✅ DynamicPricing deployed: ${dynamicPricingAddr}`);
-        
+
         console.log("📦 Deploying AgentStaking...");
         const AgentStaking = await ethers.getContractFactory("AgentStaking");
         const agentStaking = await AgentStaking.deploy(
@@ -120,10 +120,10 @@ async function main() {
         const agentStakingAddr = await agentStaking.getAddress();
         deployedContracts.contracts.AgentStaking = agentStakingAddr;
         console.log(`✅ AgentStaking deployed: ${agentStakingAddr}`);
-        
+
         // Save deployment info
         fs.writeFileSync("deployments.json", JSON.stringify(deployedContracts, null, 2));
-        
+
         console.log("");
         console.log("🎉 Deployment Summary:");
         console.log("====================");
@@ -135,11 +135,11 @@ async function main() {
         for (const [name, address] of Object.entries(deployedContracts.contracts)) {
             console.log(`  ${name}: ${address}`);
         }
-        
+
         console.log("");
         console.log("✅ All contracts deployed successfully!");
         console.log("📁 Deployment saved to: deployments.json");
-        
+
     } catch (error) {
         console.error("❌ Deployment failed:", error);
         process.exitCode = 1;

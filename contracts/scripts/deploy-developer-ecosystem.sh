@@ -50,19 +50,19 @@ echo ""
 # Check prerequisites
 check_prerequisites() {
     print_status "Checking prerequisites..."
-    
+
     # Check if hardhat is available
     if ! command -v npx &>/dev/null; then
         print_error "npx not found. Please install Node.js and npm."
         exit 1
     fi
-    
+
     # Check if we're in the contracts directory
     if [[ ! -f "$CONTRACTS_DIR/hardhat.config.js" ]]; then
         print_error "hardhat.config.js not found in $CONTRACTS_DIR"
         exit 1
     fi
-    
+
     # Check if .env file exists for network configuration
     if [[ ! -f "$CONTRACTS_DIR/.env" ]]; then
         print_warning ".env file not found. Creating template..."
@@ -79,16 +79,16 @@ MAINNET_URL=https://mainnet.infura.io/v3/\${INFURA_PROJECT_ID}
 EOF
         print_warning "Please update .env file with your credentials"
     fi
-    
+
     print_success "Prerequisites check completed"
 }
 
 # Compile contracts
 compile_contracts() {
     print_status "Compiling contracts..."
-    
+
     cd "$CONTRACTS_DIR"
-    
+
     if npx hardhat compile; then
         print_success "Contracts compiled successfully"
     else
@@ -100,9 +100,9 @@ compile_contracts() {
 # Deploy contracts
 deploy_contracts() {
     print_status "Deploying contracts to $NETWORK..."
-    
+
     cd "$CONTRACTS_DIR"
-    
+
     # Run deployment script
     if npx hardhat run scripts/deploy-developer-ecosystem.js --network "$NETWORK"; then
         print_success "Contracts deployed successfully"
@@ -118,16 +118,16 @@ verify_contracts() {
         print_status "Contract verification skipped"
         return
     fi
-    
+
     if [[ "$NETWORK" == "localhost" || "$NETWORK" == "hardhat" ]]; then
         print_status "Skipping verification for local network"
         return
     fi
-    
+
     print_status "Verifying contracts on Etherscan..."
-    
+
     cd "$CONTRACTS_DIR"
-    
+
     # Read deployed addresses from deployment output
     if [[ -f "deployed-contracts-$NETWORK.json" ]]; then
         # Verify each contract
@@ -141,9 +141,9 @@ verify_contracts() {
 # Run post-deployment tests
 run_post_deployment_tests() {
     print_status "Running post-deployment tests..."
-    
+
     cd "$ROOT_DIR"
-    
+
     # Run contract tests
     if npx hardhat test tests/contracts/ --network "$NETWORK"; then
         print_success "Post-deployment tests passed"
@@ -156,11 +156,11 @@ run_post_deployment_tests() {
 # Generate deployment report
 generate_deployment_report() {
     print_status "Generating deployment report..."
-    
+
     local report_file="$ROOT_DIR/deployment-report-$NETWORK-$(date +%Y%m%d-%H%M%S).json"
-    
+
     cd "$CONTRACTS_DIR"
-    
+
     if [[ -f "deployed-contracts-$NETWORK.json" ]]; then
         cp "deployed-contracts-$NETWORK.json" "$report_file"
         print_success "Deployment report saved to $report_file"
@@ -172,25 +172,25 @@ generate_deployment_report() {
 # Main execution
 main() {
     print_status "Starting Developer Ecosystem deployment..."
-    
+
     # Check prerequisites
     check_prerequisites
-    
+
     # Compile contracts
     compile_contracts
-    
+
     # Deploy contracts
     deploy_contracts
-    
+
     # Verify contracts (if requested)
     verify_contracts
-    
+
     # Run post-deployment tests
     run_post_deployment_tests
-    
+
     # Generate deployment report
     generate_deployment_report
-    
+
     print_success "🎉 Developer Ecosystem deployment completed successfully!"
     echo ""
     echo "Next steps:"

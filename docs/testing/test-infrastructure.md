@@ -175,10 +175,10 @@ def reset_db():
     db_path = Path("database.db")
     if db_path.exists():
         db_path.unlink()
-    
+
     init_db()
     yield
-    
+
     if db_path.exists():
         db_path.unlink()
 ```

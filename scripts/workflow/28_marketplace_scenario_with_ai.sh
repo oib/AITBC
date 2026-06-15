@@ -99,7 +99,7 @@ if [ "$BUNDLE_ID" != "demo_bundle_001" ] && [ -n "$BUNDLE_ID" ]; then
     echo "Checking plugin registry for bundle..."
     PLUGIN_CHECK=$(curl -s "http://localhost:8109/plugins?offer_id=$BUNDLE_ID" 2>/dev/null || echo "{}")
     echo "$PLUGIN_CHECK"
-    
+
     echo "✅ Hardware+software bundle registered"
 else
     echo "⚠️ Bundle creation failed, using demo ID"
@@ -132,7 +132,7 @@ if [ "$BUNDLE_ID" != "demo_bundle_001" ] && [ -n "$BUNDLE_ID" ]; then
     echo "Executing AI task with bundle $BUNDLE_ID..."
     AI_RESULT=$(ssh $FOLLOWER_NODE "aitbc market run $BUNDLE_ID '$AI_PROMPT'" 2>/dev/null || echo '{"error": "Run failed"}')
     echo "Bundle execution result: $AI_RESULT"
-    
+
     AI_TASK_ID=$(echo "$AI_RESULT" | python3 -c "
 import sys, json, re
 data = sys.stdin.read()
@@ -146,14 +146,14 @@ if m:
 else:
     print('')
 " 2>/dev/null || echo "bundle_task_$(date +%s)")
-    
+
     if [ -n "$AI_TASK_ID" ] && [ "$AI_TASK_ID" != "bundle_task_$(date +%s)" ]; then
         echo "✅ AI task executed with hardware+software bundle"
-        
+
         # Try to get AI response
         echo "Waiting for AI response..."
         sleep 3
-        
+
         AI_RESPONSE_RESULT=$(ssh $FOLLOWER_NODE "curl -s \"http://localhost:$FOLLOWER_PORT/rpc/ai/result?task_id=$AI_TASK_ID\"" 2>/dev/null)
         if [ -n "$AI_RESPONSE_RESULT" ] && [ "$AI_RESPONSE_RESULT" != "null" ] && [ "$AI_RESPONSE_RESULT" != '{"detail":"Not Found"}' ]; then
             AI_RESPONSE=$(echo "$AI_RESPONSE_RESULT" | jq -r .response 2>/dev/null || echo "Response not available")
@@ -209,7 +209,7 @@ echo "Payment transaction: $PAYMENT_TX"
 
 if [ "$PAYMENT_TX" != "unknown" ] && [ "$PAYMENT_TX" != "null" ]; then
     echo "✅ Escrow payment transaction created"
-    
+
     # Wait for mining
     echo "Waiting for payment to be mined..."
     for i in {1..10}; do

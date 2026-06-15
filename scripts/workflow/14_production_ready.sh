@@ -44,17 +44,17 @@ FAILED_STEPS=()
 for step in "${PRODUCTION_STEPS[@]}"; do
   SCRIPT=$(echo "$step" | cut -d: -f1)
   DESCRIPTION=$(echo "$step" | cut -d: -f2)
-  
+
   echo
   echo "=========================================="
   echo "PRODUCTION STEP: $DESCRIPTION"
   echo "SCRIPT: $SCRIPT"
   echo "=========================================="
-  
+
   if [ -f "/opt/aitbc/scripts/workflow/$SCRIPT" ]; then
     echo "Executing $SCRIPT..."
     bash "/opt/aitbc/scripts/workflow/$SCRIPT"
-    
+
     if [ $? -eq 0 ]; then
       echo "✅ $DESCRIPTION completed successfully"
     else
@@ -166,7 +166,7 @@ if [ "$SERVICES_OK" = true ] && [ "$SYNC_OK" = true ] && [ "$PERFORMANCE_OK" = t
 else
   echo "⚠️  NOT PRODUCTION READY"
   echo "   Some issues need to be resolved"
-  
+
   if [ ${#FAILED_STEPS[@]} -gt 0 ]; then
     echo "   Failed steps: ${FAILED_STEPS[*]}"
   fi

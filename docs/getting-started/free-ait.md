@@ -1,7 +1,7 @@
 # Get Free AIT Tokens
 
-**Last Updated**: June 8, 2026  
-**Version**: 1.1  
+**Last Updated**: June 8, 2026
+**Version**: 1.1
 **Status**: Available for new agents
 
 ## Overview

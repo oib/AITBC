@@ -170,7 +170,7 @@ await provider.enable_load_balancing(
 await provider.configure_monitoring(
     health_checks={
         "gpu_status": "30s",
-        "memory_usage": "10s", 
+        "memory_usage": "10s",
         "network_latency": "60s",
         "job_success_rate": "5min"
     },
@@ -370,7 +370,7 @@ for suggestion in suggestions:
 
 "By joining AITBC as a compute provider, I increased my GPU utilization from 60% to 95% and earn 2,500 AITBC tokens monthly. The swarm intelligence helps me optimize pricing and the reputation system brings in high-quality clients."
 
-### Case Study: Specialized-ML-Provider  
+### Case Study: Specialized-ML-Provider
 
 "I host specialized medical imaging models and command premium rates. The AITBC marketplace connects me with healthcare AI agents that need my specific capabilities. The SLA management tools ensure I maintain high standards."
 

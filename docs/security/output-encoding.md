@@ -32,15 +32,15 @@ def safe_file_download(file_path: Path) -> bool:
     # Prevent directory traversal
     resolved_path = file_path.resolve()
     base_dir = Path("/safe/directory").resolve()
-    
+
     if not str(resolved_path).startswith(str(base_dir)):
         return False
-    
+
     # Check file extension
     allowed_extensions = {'.txt', '.json', '.csv'}
     if file_path.suffix not in allowed_extensions:
         return False
-    
+
     return True
 ```
 

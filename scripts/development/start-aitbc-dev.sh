@@ -113,7 +113,7 @@ print_status "Checking remote containers via SSH..."
 containers=("aitbc" "aitbc1")
 for container in "${containers[@]}"; do
     print_status "Checking container: $container"
-    
+
     case $container in
         "aitbc")
             if ssh aitbc-cascade "echo 'Container is accessible'" >/dev/null 2>&1; then
@@ -168,12 +168,12 @@ if [ -z "$aitbc_services" ]; then
 else
     print_status "Found AITBC services:"
     echo "$aitbc_services" | sed 's/^/  - /'
-    
+
     # Start each service
     for service in $aitbc_services; do
         service_name=$(echo "$service" | sed 's/\.service$//')
         print_status "Starting service: $service_name"
-        
+
         if is_service_running "$service_name"; then
             print_warning "Service $service_name is already running"
         else
@@ -215,7 +215,7 @@ container_services=("aitbc-coordinator-api" "aitbc-wallet-daemon" "aitbc-blockch
 for container in "${containers[@]}"; do
     container_ip="${container_ips[$container]}"
     print_status "Container $container (IP: $container_ip):"
-    
+
     for service in "${container_services[@]}"; do
         if service_exists_in_container "$container" "$service"; then
             if is_service_running_in_container "$container" "$service"; then
@@ -252,7 +252,7 @@ ports=(
 for port_info in "${ports[@]}"; do
     port=$(echo "$port_info" | cut -d: -f1)
     service_name=$(echo "$port_info" | cut -d: -f2)
-    
+
     if is_port_in_use "$port"; then
         # Try to determine which process is using the port
         process_info=$(netstat -tlnp 2>/dev/null | grep ":$port " | head -1)
@@ -284,7 +284,7 @@ for port_info in "${ports[@]}"; do
                 fi
             fi
         done
-        
+
         if [ "$found_in_container" = false ]; then
             print_warning "$service_name (port $port): NOT RUNNING"
         fi
@@ -307,7 +307,7 @@ health_endpoints=(
 for endpoint_info in "${health_endpoints[@]}"; do
     url=$(echo "$endpoint_info" | cut -d: -f1-3)
     service_name=$(echo "$endpoint_info" | cut -d: -f4)
-    
+
     if curl -s --max-time 5 "$url" >/dev/null 2>&1; then
         print_success "$service_name: HEALTHY (LOCAL)"
     else
@@ -324,7 +324,7 @@ for endpoint_info in "${health_endpoints[@]}"; do
                 fi
             fi
         done
-        
+
         if [ "$found_in_container" = false ]; then
             print_warning "$service_name: NOT RESPONDING"
         fi

@@ -57,6 +57,6 @@ This directory defines normative policy guidance for:
 
 ---
 
-*Last updated: 2026-04-27*  
-*Version: 1.0*  
+*Last updated: 2026-04-27*
+*Version: 1.0*
 *Status: Policy index*

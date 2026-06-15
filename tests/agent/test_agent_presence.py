@@ -3,18 +3,10 @@ Agent Presence Tests
 Tests for agent presence, heartbeat, and status monitoring
 """
 
-import sys
-from pathlib import Path
+from datetime import UTC, datetime, timedelta
 
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
-
-from datetime import UTC, datetime, timedelta  # noqa: E402
-
-import pytest  # noqa: E402
-from app.routing.agent_discovery import AgentInfo, AgentStatus, AgentType  # noqa: E402
+import pytest
+from app.routing.agent_discovery import AgentInfo, AgentStatus, AgentType
 
 
 class TestAgentPresence:

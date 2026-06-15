@@ -31,7 +31,7 @@ WARNINGS=0
 for file in $ALL_FILES; do
     if [ -f "$file" ]; then
         echo "🔎 Checking: $file"
-        
+
         # Check if this is a new file (not in git history)
         if ! git rev-parse HEAD:"$file" >/dev/null 2>&1; then
             echo "🆕 NEW FILE - strict type checking required"

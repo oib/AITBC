@@ -134,12 +134,12 @@ for container in "${containers[@]}"; do
     if incus info "$container" >/dev/null 2>&1; then
         if incus info "$container" | grep -q "Status: RUNNING"; then
             print_status "Container $container is running"
-            
+
             # Check if services are accessible
             container_ip=$(incus exec "$container" -- ip addr show eth0 | grep "inet " | awk '{print $2}' | cut -d/ -f1)
             if [ -n "$container_ip" ]; then
                 print_status "Container $container IP: $container_ip"
-                
+
                 # Test basic connectivity
                 if ping -c 1 "$container_ip" >/dev/null 2>&1; then
                     print_success "Container $container is reachable"
@@ -165,12 +165,12 @@ if [ -n "$aitbc_services" ]; then
     running_count=0
     failed_count=0
     total_count=0
-    
+
     print_status "AITBC Services Status:"
     for service in $aitbc_services; do
         service_name=$(echo "$service" | sed 's/\.service$//')
         total_count=$((total_count + 1))
-        
+
         if systemctl is-active --quiet "$service_name"; then
             print_success "$service_name: RUNNING"
             running_count=$((running_count + 1))
@@ -179,16 +179,16 @@ if [ -n "$aitbc_services" ]; then
             failed_count=$((failed_count + 1))
         fi
     done
-    
+
     success_rate=$(( (running_count * 100) / total_count ))
-    
+
     echo ""
     print_status "Service Summary:"
     echo "  - Total services: $total_count"
     echo "  - Running: $running_count"
     echo "  - Failed: $failed_count"
     echo "  - Success rate: ${success_rate}%"
-    
+
     if [ $success_rate -ge 80 ]; then
         print_success "Most services are running successfully"
     elif [ $success_rate -ge 50 ]; then

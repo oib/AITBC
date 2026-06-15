@@ -8,9 +8,8 @@ from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 
-logger = get_logger(__name__)
-from ....models.hermes import DecisionModel, VoteModel  # noqa: E402
-from ....schemas.hermes_decision import (  # noqa: E402
+from ....models.hermes import DecisionModel, VoteModel
+from ....schemas.hermes_decision import (
     DecisionProposal,
     DecisionProposalResponse,
     DecisionResult,
@@ -20,6 +19,8 @@ from ....schemas.hermes_decision import (  # noqa: E402
     VoteOption,
     VoteResponse,
 )
+
+logger = get_logger(__name__)
 
 
 class DecisionService:

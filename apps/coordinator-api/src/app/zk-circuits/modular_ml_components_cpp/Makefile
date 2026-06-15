@@ -9,14 +9,14 @@ endif
 ifeq ($(shell uname),Linux)
 	NASM=nasm -felf64
 endif
-	
+
 all: modular_ml_components
-	
+
 %.o: %.cpp $(DEPS_HPP)
 	$(CC) -c $< $(CFLAGS)
 
 fr_asm.o: fr.asm
 	$(NASM) fr.asm -o fr_asm.o
-	
+
 modular_ml_components: $(DEPS_O) modular_ml_components.o
-	$(CC) -o modular_ml_components *.o -lgmp 
+	$(CC) -o modular_ml_components *.o -lgmp

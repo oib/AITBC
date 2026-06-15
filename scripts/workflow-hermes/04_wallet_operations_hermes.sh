@@ -28,15 +28,15 @@ hermes execute --agent WalletAgent --task initialize_wallet_operations || {
 echo "2. Creating wallets on both nodes via hermes WalletAgent..."
 hermes execute --agent WalletAgent --task create_cross_node_wallets || {
     echo "⚠️ hermes wallet creation failed - using manual method"
-    
+
     # Create client wallet on aitbc
     cd /opt/aitbc
     source venv/bin/activate
     ./aitbc-cli wallet create client-wallet --type simple
-    
+
     # Create miner wallet on aitbc1
     ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet create miner-wallet --type simple'
-    
+
     # Create user wallet on aitbc
     ./aitbc-cli wallet create user-wallet --type simple
 }
@@ -49,7 +49,7 @@ hermes execute --agent WalletAgent --task list_wallets || {
     cd /opt/aitbc
     source venv/bin/activate
     ./aitbc-cli wallet list
-    
+
     echo "=== Wallets on aitbc1 ==="
     ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet list'
 }
@@ -58,19 +58,19 @@ hermes execute --agent WalletAgent --task list_wallets || {
 echo "4. Getting wallet addresses via hermes WalletAgent..."
 hermes execute --agent WalletAgent --task get_wallet_addresses || {
     echo "⚠️ hermes address retrieval failed - using manual method"
-    
+
     # Get client wallet address
     CLIENT_ADDR=$(cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet address --wallet client-wallet)
-    
+
     # Get miner wallet address
     MINER_ADDR=$(ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet address --wallet miner-wallet')
-    
+
     # Get user wallet address
     USER_ADDR=$(cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet address --wallet user-wallet)
-    
+
     # Get genesis wallet address
     GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbcgenesis.json | jq -r '.address')
-    
+
     echo "Client Wallet: $CLIENT_ADDR"
     echo "Miner Wallet: $MINER_ADDR"
     echo "User Wallet: $USER_ADDR"
@@ -81,16 +81,16 @@ hermes execute --agent WalletAgent --task get_wallet_addresses || {
 echo "5. Funding wallets from genesis via hermes WalletAgent..."
 hermes execute --agent WalletAgent --task fund_wallets_from_genesis || {
     echo "⚠️ hermes wallet funding failed - using manual method"
-    
+
     cd /opt/aitbc
     source venv/bin/activate
-    
+
     # Fund client wallet with 1000 AIT
     ./aitbc-cli wallet send 1000 $CLIENT_ADDR "Initial funding for client wallet"
-    
+
     # Fund user wallet with 500 AIT
     ./aitbc-cli wallet send 500 $USER_ADDR "Initial funding for user wallet"
-    
+
     echo "⏳ Waiting for transactions to confirm..."
     sleep 10
 }
@@ -99,20 +99,20 @@ hermes execute --agent WalletAgent --task fund_wallets_from_genesis || {
 echo "6. Verifying wallet balances via hermes WalletAgent..."
 hermes execute --agent WalletAgent --task verify_wallet_balances || {
     echo "⚠️ hermes balance verification failed - using manual method"
-    
+
     echo "=== Wallet Balances ==="
     cd /opt/aitbc
     source venv/bin/activate
-    
+
     echo "Genesis Wallet:"
     ./aitbc-cli wallet balance --wallet aitbcgenesis
-    
+
     echo "Client Wallet:"
     ./aitbc-cli wallet balance --wallet client-wallet
-    
+
     echo "User Wallet:"
     ./aitbc-cli wallet balance --wallet user-wallet
-    
+
     echo "Miner Wallet (on aitbc1):"
     ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet balance --wallet miner-wallet'
 }
@@ -121,17 +121,17 @@ hermes execute --agent WalletAgent --task verify_wallet_balances || {
 echo "7. Executing cross-node transaction via hermes WalletAgent..."
 hermes execute --agent WalletAgent --task execute_cross_node_transaction || {
     echo "⚠️ hermes cross-node transaction failed - using manual method"
-    
+
     cd /opt/aitbc
     source venv/bin/activate
-    
+
     # Get miner wallet address
     MINER_ADDR=$(ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet address --wallet miner-wallet')
-    
+
     # Send 200 AIT from client wallet to miner wallet (cross-node)
     echo "Sending 200 AIT from client wallet to miner wallet (cross-node)..."
     ./aitbc-cli wallet send 200 $MINER_ADDR "Cross-node transaction to miner wallet"
-    
+
     echo "⏳ Waiting for cross-node transaction to confirm..."
     sleep 15
 }
@@ -140,14 +140,14 @@ hermes execute --agent WalletAgent --task execute_cross_node_transaction || {
 echo "8. Monitoring transaction confirmation via hermes WalletAgent..."
 hermes execute --agent WalletAgent --task monitor_transaction_confirmation || {
     echo "⚠️ hermes transaction monitoring failed - using manual method"
-    
+
     cd /opt/aitbc
     source venv/bin/activate
-    
+
     # Check recent transactions
     echo "=== Recent Transactions ==="
     ./aitbc-cli transaction list --limit 5
-    
+
     # Check miner wallet balance (should show the cross-node transaction)
     echo "=== Miner Wallet Balance After Cross-Node Transaction ==="
     ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet balance --wallet miner-wallet'
@@ -157,12 +157,12 @@ hermes execute --agent WalletAgent --task monitor_transaction_confirmation || {
 echo "9. Verifying transaction on both nodes via hermes WalletAgent..."
 hermes execute --agent WalletAgent --task verify_transaction_on_nodes || {
     echo "⚠️ hermes transaction verification failed - using manual method"
-    
+
     echo "=== Transaction Verification on aitbc ==="
     cd /opt/aitbc
     source venv/bin/activate
     ./aitbc-cli transaction list --limit 3
-    
+
     echo "=== Transaction Verification on aitbc1 ==="
     ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli transaction list --limit 3'
 }
@@ -171,17 +171,17 @@ hermes execute --agent WalletAgent --task verify_transaction_on_nodes || {
 echo "10. Testing wallet switching via hermes WalletAgent..."
 hermes execute --agent WalletAgent --task test_wallet_switching || {
     echo "⚠️ hermes wallet switching test failed - using manual method"
-    
+
     cd /opt/aitbc
     source venv/bin/activate
-    
+
     echo "=== Testing Wallet Switching on aitbc ==="
     ./aitbc-cli wallet switch client-wallet
     ./aitbc-cli wallet balance
-    
+
     ./aitbc-cli wallet switch user-wallet
     ./aitbc-cli wallet balance
-    
+
     echo "=== Testing Wallet Switching on aitbc1 ==="
     ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet switch miner-wallet && ./aitbc-cli wallet balance'
 }
@@ -190,14 +190,14 @@ hermes execute --agent WalletAgent --task test_wallet_switching || {
 echo "11. Creating additional test wallets via hermes WalletAgent..."
 hermes execute --agent WalletAgent --task create_test_wallets || {
     echo "⚠️ hermes test wallet creation failed - using manual method"
-    
+
     cd /opt/aitbc
     source venv/bin/activate
-    
+
     # Create test wallets for marketplace testing
     ./aitbc-cli wallet create provider-wallet --type simple
     ./aitbc-cli wallet create customer-wallet --type simple
-    
+
     ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet create validator-wallet --type simple'
 }
 

@@ -48,7 +48,7 @@ The `receipt_simple.circom` circuit:
 template SimpleReceipt() {
     signal input receiptHash;      // Public
     signal input receipt[4];       // Private
-    
+
     component hasher = Poseidon(4);
     for (var i = 0; i < 4; i++) {
         hasher.inputs[i] <== receipt[i];
@@ -174,28 +174,28 @@ def generate_receipt_proof(receipt: dict) -> dict:
             str(receipt["timestamp"])
         ]
     }
-    
+
     with open("input.json", "w") as f:
         json.dump(input_data, f)
-    
+
     # Generate witness
     subprocess.run([
         "node", "receipt_simple_js/generate_witness.js",
         "receipt_simple.wasm", "input.json", "witness.wtns"
     ], check=True)
-    
+
     # Generate proof
     subprocess.run([
         "snarkjs", "groth16", "prove",
         "receipt_simple_final.zkey",
         "witness.wtns", "proof.json", "public.json"
     ], check=True)
-    
+
     with open("proof.json") as f:
         proof = json.load(f)
     with open("public.json") as f:
         public_signals = json.load(f)
-    
+
     return {"proof": proof, "publicSignals": public_signals}
 ```
 
@@ -207,12 +207,12 @@ from web3 import Web3
 def submit_proof_to_contract(proof: dict, settlement_amount: int):
     """Submit proof to ZKReceiptVerifier contract."""
     w3 = Web3(Web3.HTTPProvider("https://rpc.example.com"))
-    
+
     contract = w3.eth.contract(
         address=VERIFIER_ADDRESS,
         abi=VERIFIER_ABI
     )
-    
+
     # Format proof
     a = [int(proof["pi_a"][0]), int(proof["pi_a"][1])]
     b = [
@@ -221,7 +221,7 @@ def submit_proof_to_contract(proof: dict, settlement_amount: int):
     ]
     c = [int(proof["pi_c"][0]), int(proof["pi_c"][1])]
     public_signals = [int(proof["publicSignals"][0])]
-    
+
     # Submit transaction
     tx = contract.functions.verifyAndRecord(
         a, b, c, public_signals, settlement_amount
@@ -230,10 +230,10 @@ def submit_proof_to_contract(proof: dict, settlement_amount: int):
         "gas": 500000,
         "nonce": w3.eth.get_transaction_count(AUTHORIZED_ADDRESS)
     })
-    
+
     signed = w3.eth.account.sign_transaction(tx, PRIVATE_KEY)
     tx_hash = w3.eth.send_raw_transaction(signed.rawTransaction)
-    
+
     return w3.eth.wait_for_transaction_receipt(tx_hash)
 ```
 

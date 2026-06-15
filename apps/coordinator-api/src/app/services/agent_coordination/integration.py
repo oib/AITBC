@@ -10,20 +10,20 @@ After migration is complete, duplicated code will be removed.
 import asyncio
 import os
 import subprocess
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
+from uuid import uuid4
+
+from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 
 from aitbc import get_logger
 
+from ...domain.agent import AgentExecution, AgentStepExecution, VerificationLevel
+from .agent_service import AIAgentOrchestrator
+from .security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel
+
 logger = get_logger(__name__)
-from datetime import UTC, datetime  # noqa: E402
-from enum import StrEnum  # noqa: E402
-from typing import Any  # noqa: E402
-from uuid import uuid4  # noqa: E402
-
-from sqlmodel import JSON, Column, Field, Session, SQLModel, select  # noqa: E402
-
-from ...domain.agent import AgentExecution, AgentStepExecution, VerificationLevel  # noqa: E402
-from .agent_service import AIAgentOrchestrator  # noqa: E402
-from .security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel  # noqa: E402
 
 
 class ZKProofService:

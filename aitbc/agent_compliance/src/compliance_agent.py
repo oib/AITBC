@@ -6,20 +6,11 @@ Automated compliance and regulatory monitoring agent
 
 import asyncio
 import json
-import logging
-import os
-import sys
 from datetime import UTC, datetime
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
-# Add parent directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
-
-from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceBridge  # noqa: E402
-
-from aitbc import get_logger  # noqa: E402
+from aitbc import get_logger
+from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceBridge  # type: ignore[import-not-found]
 
 logger = get_logger(__name__)
 

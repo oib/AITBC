@@ -37,7 +37,7 @@ jobs:
         run: |
           cd /opt/aitbc
           echo "=== Validating systemd service files ==="
-          
+
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
@@ -143,4 +143,3 @@ jobs:
             enabled=$(systemctl is-enabled "$svc" 2>/dev/null) || enabled="not-found"
             printf "  %-35s active=%-10s enabled=%s\n" "$svc" "$status" "$enabled"
           done
-

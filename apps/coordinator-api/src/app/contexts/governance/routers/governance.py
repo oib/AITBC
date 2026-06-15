@@ -1,23 +1,24 @@
+"""
+Decentralized Governance API Endpoints
+REST API for hermes DAO voting, proposals, and governance analytics
+"""
+
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-"\nDecentralized Governance API Endpoints\nREST API for hermes DAO voting, proposals, and governance analytics\n"
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
+from ....domain.governance import GovernanceProfile, Proposal, TransparencyReport, Vote, VoteType
+from ....storage import get_session
+from ..services.governance_service import GovernanceService
 
 logger = get_logger(__name__)
-from typing import Any  # noqa: E402
-
-from pydantic import BaseModel, Field  # noqa: E402
-
-from ....domain.governance import GovernanceProfile, Proposal, TransparencyReport, Vote, VoteType  # noqa: E402
-from ....storage import get_session  # noqa: E402
-from ..services.governance_service import GovernanceService  # noqa: E402
 
 router = APIRouter(prefix="/governance", tags=["governance"])
 

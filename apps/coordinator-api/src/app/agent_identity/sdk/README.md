@@ -31,7 +31,7 @@ async def main():
         base_url="http://localhost:8011/v1",
         api_key="your_api_key"
     ) as client:
-        
+
         # Create a new agent identity
         identity = await client.create_identity(
             owner_address="0x1234567890123456789012345678901234567890",
@@ -39,23 +39,23 @@ async def main():
             display_name="My AI Agent",
             description="An intelligent AI agent for decentralized computing"
         )
-        
+
         print(f"Created identity: {identity.agent_id}")
         print(f"Supported chains: {identity.supported_chains}")
-        
+
         # Get identity details
         details = await client.get_identity(identity.agent_id)
         print(f"Reputation score: {details['identity']['reputation_score']}")
-        
+
         # Create a wallet on Ethereum
         wallet = await client.create_wallet(
             agent_id=identity.agent_id,
             chain_id=1,
             owner_address="0x1234567890123456789012345678901234567890"
         )
-        
+
         print(f"Created wallet: {wallet.chain_address}")
-        
+
         # Get wallet balance
         balance = await client.get_wallet_balance(identity.agent_id, 1)
         print(f"Wallet balance: {balance} ETH")
@@ -441,9 +441,9 @@ async def setup_agent():
             description="Multi-chain AI agent for decentralized computing",
             tags=["ai", "computing", "decentralized"]
         )
-        
+
         print(f"Created agent: {identity.agent_id}")
-        
+
         # 2. Verify on all chains
         for chain_id in identity.supported_chains:
             await client.verify_identity(
@@ -454,10 +454,10 @@ async def setup_agent():
                 proof_data={"verification_type": "basic"},
                 verification_type=VerificationType.BASIC
             )
-        
+
         # 3. Get comprehensive summary
         summary = await client.get_identity(identity.agent_id)
-        
+
         print(f"Reputation: {summary['identity']['reputation_score']}")
         print(f"Verified mappings: {summary['cross_chain']['verified_mappings']}")
         print(f"Total balance: {summary['wallets']['total_balance']}")
@@ -472,14 +472,14 @@ if __name__ == "__main__":
 async def manage_transactions():
     async with AgentIdentityClient() as client:
         agent_id = "agent_123"
-        
+
         # Check balances across all chains
         wallets = await client.get_all_wallets(agent_id)
-        
+
         for wallet in wallets['wallets']:
             balance = await client.get_wallet_balance(agent_id, wallet['chain_id'])
             print(f"Chain {wallet['chain_id']}: {balance} tokens")
-        
+
         # Execute transaction on Ethereum
         tx = await client.execute_transaction(
             agent_id=agent_id,
@@ -488,9 +488,9 @@ async def manage_transactions():
             amount=0.1,
             data={"purpose": "payment"}
         )
-        
+
         print(f"Transaction hash: {tx.transaction_hash}")
-        
+
         # Get transaction history
         history = await client.get_transaction_history(agent_id, 1, limit=10)
         for tx in history:

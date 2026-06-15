@@ -45,7 +45,7 @@ deploy_to_region() {
     # 3. Apply regional configurations (mocking via sed/echo)
     log "[$region] Applying regional configurations..."
     ssh -i "$SSH_KEY" $SSH_USER@$ip "sed -i 's/^REGION=.*/REGION=$region/' $APP_DIR/.env"
-    
+
     # 4. Restart systemd services
     log "[$region] Restarting systemd services..."
     for svc in "${SERVICES[@]}"; do
@@ -69,7 +69,7 @@ log "Starting global multi-region deployment..."
 for entry in "${NODE_MAP[@]}"; do
     region="${entry%%:*}"
     ip="${entry##*:}"
-    
+
     # Run deployments sequentially for safety, could be parallelized with &
     deploy_to_region "$region" "$ip"
 done

@@ -51,10 +51,10 @@ log_to_file() {
     local script_name=$(basename "$0")
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local log_file="${LOG_DIR}/${script_name%.sh}.log"
-    
+
     # Create log directory if it doesn't exist
     mkdir -p "${LOG_DIR}"
-    
+
     # Append to log file
     echo "${timestamp} [${level}] ${message}" >> "${log_file}"
 }
@@ -68,9 +68,9 @@ backup_directory() {
     local backup_name="${2:-$(basename $source_dir)}"
     local timestamp=$(date +%Y%m%d_%H%M%S)
     local backup_path="${BACKUP_DIR}/${backup_name}_backup_${timestamp}"
-    
+
     log_info "Creating backup of ${source_dir}..."
-    
+
     if [[ -d "$source_dir" ]]; then
         mkdir -p "${BACKUP_DIR}"
         cp -r "$source_dir" "$backup_path"
@@ -86,9 +86,9 @@ backup_directory() {
 restore_backup() {
     local backup_path="$1"
     local target_dir="$2"
-    
+
     log_info "Restoring backup from ${backup_path}..."
-    
+
     if [[ -d "$backup_path" ]]; then
         rm -rf "$target_dir"
         cp -r "$backup_path" "$target_dir"
@@ -107,7 +107,7 @@ restore_backup() {
 validate_directory() {
     local dir="$1"
     local create_if_missing="${2:-false}"
-    
+
     if [[ ! -d "$dir" ]]; then
         if [[ "$create_if_missing" == "true" ]]; then
             mkdir -p "$dir"
@@ -123,7 +123,7 @@ validate_directory() {
 
 validate_file() {
     local file="$1"
-    
+
     if [[ ! -f "$file" ]]; then
         log_error "File does not exist: ${file}"
         return 1
@@ -133,7 +133,7 @@ validate_file() {
 
 validate_command() {
     local cmd="$1"
-    
+
     if ! command -v "$cmd" &> /dev/null; then
         log_error "Required command not found: ${cmd}"
         return 1
@@ -149,10 +149,10 @@ create_config_file() {
     local config_name="$1"
     local config_content="$2"
     local config_path="${CONFIG_DIR}/${config_name}"
-    
+
     # Create config directory if it doesn't exist
     mkdir -p "${CONFIG_DIR}"
-    
+
     # Write config file
     echo "$config_content" > "$config_path"
     log_info "Created configuration file: ${config_path}"
@@ -161,7 +161,7 @@ create_config_file() {
 load_config_file() {
     local config_name="$1"
     local config_path="${CONFIG_DIR}/${config_name}"
-    
+
     if [[ -f "$config_path" ]]; then
         cat "$config_path"
         return 0
@@ -183,15 +183,15 @@ show_progress() {
     local bar_length=50
     local filled=$((percentage * bar_length / 100))
     local empty=$((bar_length - filled))
-    
+
     # Create progress bar
     local bar=""
     for ((i=0; i<filled; i++)); do bar+="="; done
     for ((i=0; i<empty; i++)); do bar+=" "; done
-    
+
     # Print progress
     printf "\r${BLUE}[%s]${NC} %s: %3d%% (%d/%d)" "$bar" "$message" "$percentage" "$current" "$total"
-    
+
     # New line when complete
     if [[ $current -eq $total ]]; then
         echo ""
@@ -205,9 +205,9 @@ show_progress() {
 start_service() {
     local service_name="$1"
     local service_file="$2"
-    
+
     log_info "Starting service: ${service_name}"
-    
+
     if [[ -f "$service_file" ]]; then
         systemctl start "${service_name}"
         systemctl enable "${service_name}"
@@ -221,16 +221,16 @@ start_service() {
 
 stop_service() {
     local service_name="$1"
-    
+
     log_info "Stopping service: ${service_name}"
-    
+
     systemctl stop "${service_name}" 2>/dev/null || true
     log_info "Service ${service_name} stopped"
 }
 
 restart_service() {
     local service_name="$1"
-    
+
     log_info "Restarting service: ${service_name}"
     systemctl restart "${service_name}"
     log_info "Service ${service_name} restarted"
@@ -243,9 +243,9 @@ restart_service() {
 handle_error() {
     local error_code="$1"
     local error_message="$2"
-    
+
     log_error "Error ${error_code}: ${error_message}"
-    
+
     # Log stack trace if DEBUG_MODE is enabled
     if [[ "${DEBUG_MODE}" == "true" ]]; then
         log_debug "Stack trace:"
@@ -256,7 +256,7 @@ handle_error() {
             log_debug "  at ${file}:${line}"
         done
     fi
-    
+
     exit "$error_code"
 }
 
@@ -265,7 +265,7 @@ set_error_handling() {
     set -e
     set -u
     set -o pipefail
-    
+
     # Set error trap
     trap 'handle_error $? "Command failed at line $LINENO"' ERR
 }
@@ -278,7 +278,7 @@ mark_phase_complete() {
     local phase_name="$1"
     local completion_file="${CONFIG_DIR}/.completed_phases"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    
+
     mkdir -p "${CONFIG_DIR}"
     echo "${phase_name}:${timestamp}" >> "${completion_file}"
     log_info "Marked phase as complete: ${phase_name}"
@@ -287,7 +287,7 @@ mark_phase_complete() {
 check_phase_complete() {
     local phase_name="$1"
     local completion_file="${CONFIG_DIR}/.completed_phases"
-    
+
     if [[ -f "$completion_file" ]]; then
         if grep -q "^${phase_name}:" "$completion_file"; then
             return 0  # Phase is complete
@@ -298,7 +298,7 @@ check_phase_complete() {
 
 get_completed_phases() {
     local completion_file="${CONFIG_DIR}/.completed_phases"
-    
+
     if [[ -f "$completion_file" ]]; then
         cat "$completion_file" | cut -d: -f1
     fi
@@ -311,11 +311,11 @@ get_completed_phases() {
 create_python_module() {
     local module_path="$1"
     local module_content="$2"
-    
+
     # Create directory structure
     local module_dir=$(dirname "$module_path")
     mkdir -p "$module_dir"
-    
+
     # Write module
     echo "$module_content" > "$module_path"
     log_info "Created Python module: ${module_path}"
@@ -323,7 +323,7 @@ create_python_module() {
 
 validate_python_syntax() {
     local python_file="$1"
-    
+
     if python3 -m py_compile "$python_file" 2>/dev/null; then
         log_info "Python syntax validated: ${python_file}"
         return 0
@@ -340,12 +340,12 @@ validate_python_syntax() {
 init_common() {
     # Set error handling
     set_error_handling
-    
+
     # Create necessary directories
     mkdir -p "${CONFIG_DIR}"
     mkdir -p "${LOG_DIR}"
     mkdir -p "${BACKUP_DIR}"
-    
+
     log_info "Common utilities initialized"
     log_info "AITBC Root: ${AITBC_ROOT}"
 }

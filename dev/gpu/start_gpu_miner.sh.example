@@ -3,7 +3,7 @@
 
 # AITBC GPU Miner Startup Script (DEPRECATED - v0.4.7+)
 # ⚠️  This script is for the legacy GPU-only marketplace architecture
-# 
+#
 # For v0.4.7+, use the new Hardware+Software Bundle architecture:
 # - Register software offers with GPU information via: aitbc market offer ollama <model> <price>
 # - GPU mining is now integrated with software service offers

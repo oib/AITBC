@@ -416,6 +416,6 @@ aitbc trade history --source-chain ait-hub --dest-chain ait-island1
 
 ---
 
-*Last Updated: 2026-06-03*  
-*Version: 0.5.2*  
+*Last Updated: 2026-06-03*
+*Version: 0.5.2*
 *Status: Concept Plan*

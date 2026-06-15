@@ -119,7 +119,6 @@ async def create_wallet(
     keystore: PersistentKeystoreService = Depends(get_keystore),
     ledger: SQLiteLedgerAdapter = Depends(get_ledger),
 ) -> WalletCreateResponse:
-
     try:
         secret = base64.b64decode(wallet_request.secret_key) if wallet_request.secret_key else None
     except Exception as exc:

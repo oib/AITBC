@@ -51,11 +51,11 @@ echo ""
 run_test() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🔍 Testing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
@@ -71,11 +71,11 @@ run_test() {
 run_test_verbose() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🔍 Testing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
@@ -94,10 +94,10 @@ log_security_finding() {
     local description="$3"
     local recommendation="$4"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    
+
     echo "[$timestamp] [$severity] $category: $description" >> "$SECURITY_REPORT_DIR/security_findings.log"
     echo "[$timestamp] Recommendation: $recommendation" >> "$SECURITY_REPORT_DIR/security_findings.log"
-    
+
     case "$severity" in
         "CRITICAL")
             echo -e "${RED}🚨 CRITICAL: $category - $description${NC}"
@@ -125,22 +125,22 @@ run_test_verbose "Contract implementation security" "
     if [ -d \"\$CONTRACT_DIR\" ]; then
         echo \"Contract files found:\"
         ls -la \"\$CONTRACT_DIR\"/*.py 2>/dev/null || echo \"No Python contract files found\"
-        
+
         # Check for common security patterns
         for contract_file in \"\$CONTRACT_DIR\"/*.py; do
             if [ -f \"\$contract_file\" ]; then
                 echo \"Analyzing \$contract_file:\"
-                
+
                 # Check for hardcoded secrets
                 if grep -qi \"password\\|secret\\|key\\|token\" \"\$contract_file\"; then
                     log_security_finding \"MEDIUM\" \"Code Security\" \"Potential hardcoded secrets in \$contract_file\" \"Review and use environment variables for secrets\"
                 fi
-                
+
                 # Check for input validation
                 if ! grep -qi \"validate\\|sanitize\\|check\" \"\$contract_file\"; then
                     log_security_finding \"MEDIUM\" \"Input Validation\" \"Missing input validation in \$contract_file\" \"Add proper input validation and sanitization\"
                 fi
-                
+
                 # Check for error handling
                 if ! grep -qi \"try\\|except\\|error\" \"\$contract_file\"; then
                     log_security_finding \"LOW\" \"Error Handling\" \"Limited error handling in \$contract_file\" \"Implement comprehensive error handling\"
@@ -161,7 +161,7 @@ echo "============================="
 # Test service authentication
 run_test_verbose "Service authentication security" "
     echo 'Testing service authentication mechanisms...'
-    
+
     # Test blockchain RPC without authentication
     RPC_RESPONSE=\$(curl -s http://localhost:$GENESIS_PORT/rpc/info)
     if [ -n \"\$RPC_RESPONSE\" ]; then
@@ -170,7 +170,7 @@ run_test_verbose "Service authentication security" "
     else
         echo '❌ Blockchain RPC not accessible'
     fi
-    
+
     # Test coordinator API authentication
     COORDINATOR_RESPONSE=\$(curl -s http://localhost:$COORDINATOR_PORT/health/live)
     if [ -n \"\$COORDINATOR_RESPONSE\" ]; then
@@ -188,7 +188,7 @@ run_test_verbose "Service authentication security" "
 # Test service encryption
 run_test_verbose "Service encryption security" "
     echo 'Testing service encryption and TLS...'
-    
+
     # Test if services use HTTPS
     if curl -s --connect-timeout 5 https://localhost:$GENESIS_PORT >/dev/null 2>&1; then
         echo '✅ HTTPS available on blockchain RPC'
@@ -196,7 +196,7 @@ run_test_verbose "Service encryption security" "
         echo '⚠️ HTTPS not available on blockchain RPC'
         log_security_finding \"HIGH\" \"Encryption\" \"Blockchain RPC not using HTTPS\" \"Implement TLS/SSL for all services\"
     fi
-    
+
     # Check for SSL/TLS configuration
     if netstat -tlnp 2>/dev/null | grep -q \":$GENESIS_PORT.*LISTEN\"; then
         echo '✅ Blockchain RPC listening on port $GENESIS_PORT'
@@ -213,23 +213,23 @@ echo "====================================="
 # Test for common contract vulnerabilities
 run_test_verbose "Common contract vulnerabilities" "
     echo 'Scanning for common contract vulnerabilities...'
-    
+
     # Check for reentrancy patterns
     CONTRACT_FILES='/opt/aitbc/apps/blockchain-node/src/aitbc_chain/contracts/*.py'
     for contract_file in \$CONTRACT_FILES; do
         if [ -f \"\$contract_file\" ]; then
             echo \"Scanning \$contract_file for reentrancy...\"
-            
+
             # Look for patterns that might indicate reentrancy issues
             if grep -qi \"call.*before.*update\" \"\$contract_file\"; then
                 log_security_finding \"HIGH\" \"Reentrancy\" \"Potential reentrancy vulnerability in \$contract_file\" \"Implement checks-effects-interactions pattern\"
             fi
-            
+
             # Check for integer overflow/underflow
             if grep -qi \"+=\\|-=\\|*=\\|/=\" \"\$contract_file\"; then
                 log_security_finding \"MEDIUM\" \"Integer Overflow\" \"Potential integer overflow in \$contract_file\" \"Use SafeMath or similar protection\"
             fi
-            
+
             # Check for unchecked external calls
             if grep -qi \"call.*external\" \"\$contract_file\" && ! grep -qi \"require\\|assert\" \"\$contract_file\"; then
                 log_security_finding \"HIGH\" \"External Calls\" \"Unchecked external calls in \$contract_file\" \"Add proper checks for external calls\"
@@ -246,12 +246,12 @@ echo "================================="
 # Test cross-service communication security
 run_test_verbose "Cross-service communication security" "
     echo 'Testing cross-service communication security...'
-    
+
     # Test marketplace service security
     MARKETPLACE_RESPONSE=\$(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings)
     if [ -n \"\$MARKETPLACE_RESPONSE\" ]; then
         echo '✅ Marketplace service accessible'
-        
+
         # Check for data validation in marketplace
         if echo \"\$MARKETPLACE_RESPONSE\" | jq . 2>/dev/null | grep -q \"listing_id\"; then
             echo '✅ Marketplace data structure validated'
@@ -261,12 +261,12 @@ run_test_verbose "Cross-service communication security" "
     else
         echo '❌ Marketplace service not accessible'
     fi
-    
+
     # Test AI service security
     AI_RESPONSE=\$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats')
     if [ -n \"\$AI_RESPONSE\" ]; then
         echo '✅ AI service accessible'
-        
+
         # Check for AI service data exposure
         if echo \"\$AI_RESPONSE\" | jq . 2>/dev/null | grep -q \"total_jobs\"; then
             echo '✅ AI service data properly structured'
@@ -286,11 +286,11 @@ echo "================================"
 # Test blockchain consensus security
 run_test_verbose "Blockchain consensus security" "
     echo 'Testing blockchain consensus security...'
-    
+
     # Check for consensus health
     LOCAL_HEIGHT=\$(curl -s http://localhost:$GENESIS_PORT/rpc/head | jq .height 2>/dev/null || echo '0')
     REMOTE_HEIGHT=\$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/head | jq .height' 2>/dev/null || echo '0')
-    
+
     if [ \"\$LOCAL_HEIGHT\" -gt 0 ] && [ \"\$REMOTE_HEIGHT\" -gt 0 ]; then
         SYNC_DIFF=\$((LOCAL_HEIGHT - REMOTE_HEIGHT))
         if [ \"\$SYNC_DIFF\" -le 10 ]; then
@@ -302,7 +302,7 @@ run_test_verbose "Blockchain consensus security" "
         echo '❌ Unable to get blockchain heights'
         log_security_finding \"CRITICAL\" \"Consensus\" \"Blockchain consensus not accessible\" \"Check blockchain node status\"
     fi
-    
+
     # Check for transaction validation
     TX_COUNT=\$(curl -s http://localhost:$GENESIS_PORT/rpc/info | jq .total_transactions 2>/dev/null || echo '0')
     if [ \"\$TX_COUNT\" -gt 0 ]; then
@@ -320,7 +320,7 @@ echo "========================="
 # Test API rate limiting
 run_test_verbose "API rate limiting" "
     echo 'Testing API rate limiting...'
-    
+
     # Make multiple rapid requests to test rate limiting
     SUCCESS_COUNT=0
     for i in {1..10}; do
@@ -328,7 +328,7 @@ run_test_verbose "API rate limiting" "
             ((SUCCESS_COUNT++))
         fi
     done
-    
+
     if [ \"\$SUCCESS_COUNT\" -eq 10 ]; then
         echo '⚠️ No rate limiting detected'
         log_security_finding \"MEDIUM\" \"Rate Limiting\" \"No rate limiting on blockchain RPC\" \"Implement rate limiting to prevent abuse\"
@@ -340,12 +340,12 @@ run_test_verbose "API rate limiting" "
 # Test API input validation
 run_test_verbose "API input validation" "
     echo 'Testing API input validation...'
-    
+
     # Test with malformed input
     MALFORMED_RESPONSE=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/sendTx \\
         -H 'Content-Type: application/json' \\
         -d '{\"invalid\": \"data\"}' 2>/dev/null)
-    
+
     if [ -n \"\$MALFORMED_RESPONSE\" ]; then
         if echo \"\$MALFORMED_RESPONSE\" | grep -q 'error\\|invalid'; then
             echo '✅ API properly validates input'
@@ -365,18 +365,18 @@ echo "================================"
 # Test node-to-node communication security
 run_test_verbose "Node-to-node communication security" "
     echo 'Testing cross-node communication security...'
-    
+
     # Test if nodes can communicate securely
     GENESIS_INFO=\$(curl -s http://localhost:$GENESIS_PORT/rpc/info)
     FOLLOWER_INFO=\$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/info')
-    
+
     if [ -n \"\$GENESIS_INFO\" ] && [ -n \"\$FOLLOWER_INFO\" ]; then
         echo '✅ Both nodes accessible'
-        
+
         # Check if nodes have different identities
         GENESIS_ID=\$(echo \"\$GENESIS_INFO\" | jq -r .node_id 2>/dev/null || echo 'unknown')
         FOLLOWER_ID=\$(echo \"\$FOLLOWER_INFO\" | jq -r .node_id 2>/dev/null || echo 'unknown')
-        
+
         if [ \"\$GENESIS_ID\" != \"\$FOLLOWER_ID\" ]; then
             echo \"✅ Nodes have different identities (Genesis: \$GENESIS_ID, Follower: \$FOLLOWER_ID)\"
         else

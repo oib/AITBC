@@ -6,7 +6,7 @@ describe("AgentMarketplaceV2", function () {
   let marketplace, aitbcToken;
   let deployer, provider, consumer;
   let capabilityId;
-  
+
   const PRICE_PER_CALL = ethers.parseEther("50");
   const SUBSCRIPTION_PRICE = ethers.parseEther("100");
   const INITIAL_SUPPLY = ethers.parseUnits("1000000", 18);
@@ -124,7 +124,7 @@ describe("AgentMarketplaceV2", function () {
         true,
         true
       );
-      
+
       const capability = await marketplace.capabilities(capabilityId);
       expect(capability.pricePerCall).to.equal(newPrice);
     });
@@ -161,7 +161,7 @@ describe("AgentMarketplaceV2", function () {
         true,
         false
       );
-      
+
       const capability = await marketplace.capabilities(capabilityId);
       expect(capability.isActive).to.be.false;
     });
@@ -181,9 +181,9 @@ describe("AgentMarketplaceV2", function () {
 
     it("Should purchase a call", async function () {
       const providerBalance = await aitbcToken.balanceOf(provider.address);
-      
+
       await marketplace.connect(consumer).purchaseCall(capabilityId);
-      
+
       const newProviderBalance = await aitbcToken.balanceOf(provider.address);
       expect(newProviderBalance).to.be.gt(providerBalance);
     });
@@ -202,7 +202,7 @@ describe("AgentMarketplaceV2", function () {
         true,
         false
       );
-      
+
       await expect(
         marketplace.connect(consumer).purchaseCall(capabilityId)
       ).to.be.revertedWith("Capability inactive");
@@ -216,7 +216,7 @@ describe("AgentMarketplaceV2", function () {
         true,
         true
       );
-      
+
       await expect(
         marketplace.connect(consumer).purchaseCall(capabilityId)
       ).to.be.revertedWith("Not available for single call");
@@ -224,7 +224,7 @@ describe("AgentMarketplaceV2", function () {
 
     it("Should track total calls and revenue", async function () {
       await marketplace.connect(consumer).purchaseCall(capabilityId);
-      
+
       const capability = await marketplace.capabilities(capabilityId);
       expect(capability.totalCalls).to.equal(1);
       expect(capability.totalRevenue).to.be.gt(0);
@@ -246,7 +246,7 @@ describe("AgentMarketplaceV2", function () {
     it("Should subscribe to capability", async function () {
       const tx = await marketplace.connect(consumer).subscribeToCapability(capabilityId);
       const receipt = await tx.wait();
-      
+
       expect(receipt).to.not.be.undefined;
     });
 
@@ -264,7 +264,7 @@ describe("AgentMarketplaceV2", function () {
         true,
         false
       );
-      
+
       await expect(
         marketplace.connect(consumer).subscribeToCapability(capabilityId)
       ).to.be.revertedWith("Capability inactive");
@@ -278,7 +278,7 @@ describe("AgentMarketplaceV2", function () {
         false,
         true
       );
-      
+
       await expect(
         marketplace.connect(consumer).subscribeToCapability(capabilityId)
       ).to.be.revertedWith("Subscriptions not enabled");
@@ -287,7 +287,7 @@ describe("AgentMarketplaceV2", function () {
     it("Should check subscription validity", async function () {
       const tx = await marketplace.connect(consumer).subscribeToCapability(capabilityId);
       await tx.wait();
-      
+
       // Subscription creates a valid subscription that can be checked
       // Since we can't directly access the mapping, we just verify the subscription was created successfully
       expect(tx.hash).to.not.be.undefined;
@@ -333,7 +333,7 @@ describe("AgentMarketplaceV2", function () {
 
     it("Should update capability reputation", async function () {
       await marketplace.connect(deployer).updateCapabilityReputation(capabilityId, 100);
-      
+
       const capability = await marketplace.capabilities(capabilityId);
       expect(capability.reputationScore).to.equal(100);
     });
@@ -362,12 +362,12 @@ describe("AgentMarketplaceV2", function () {
       );
       const receipt = await tx.wait();
       capabilityId = receipt.logs[0].args[0];
-      
+
       await marketplace.connect(consumer).purchaseCall(capabilityId);
-      
+
       const ownerBalance = await aitbcToken.balanceOf(deployer.address);
       await marketplace.connect(deployer).withdrawPlatformFees();
-      
+
       const newOwnerBalance = await aitbcToken.balanceOf(deployer.address);
       expect(newOwnerBalance).to.be.gt(ownerBalance);
     });

@@ -12,22 +12,21 @@ The deployment and monitoring sections use SQLModel patterns which are properly 
 import asyncio
 import os
 import subprocess
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
+from uuid import uuid4
+
+from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 
 from aitbc import get_logger
+from app.domain.agent import AgentExecution, AgentStepExecution, VerificationLevel
+
+from ..services.agent_security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel
+from ..services.agent_service import AIAgentOrchestrator
+from .agent_integration_factory import get_shared_agent_integration_service
 
 logger = get_logger(__name__)
-from datetime import UTC, datetime  # noqa: E402
-from enum import StrEnum  # noqa: E402
-from typing import Any  # noqa: E402
-from uuid import uuid4  # noqa: E402
-
-from sqlmodel import JSON, Column, Field, Session, SQLModel, select  # noqa: E402
-
-from app.domain.agent import AgentExecution, AgentStepExecution, VerificationLevel  # noqa: E402
-
-from ..services.agent_security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel  # noqa: E402
-from ..services.agent_service import AIAgentOrchestrator  # noqa: E402
-from .agent_integration_factory import get_shared_agent_integration_service  # noqa: E402
 
 
 class ZKProofService:

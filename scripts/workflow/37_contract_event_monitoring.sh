@@ -54,11 +54,11 @@ echo ""
 run_test() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "📊 Testing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
@@ -74,11 +74,11 @@ run_test() {
 run_test_verbose() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "📊 Testing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
@@ -97,7 +97,7 @@ log_contract_event() {
     local function_name="$3"
     local details="$4"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    
+
     echo "[$timestamp] [CONTRACT] [$event_type] $contract_address:$function_name - $details" >> "$CONTRACT_EVENT_LOG"
 }
 
@@ -107,7 +107,7 @@ log_service_event() {
     local event_type="$2"
     local details="$3"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    
+
     echo "[$timestamp] [SERVICE] [$event_type] $service_name - $details" >> "$SERVICE_EVENT_LOG"
 }
 
@@ -119,7 +119,7 @@ echo "========================"
 run_test_verbose "Event log directory setup" "
     echo 'Setting up event logging directories...'
     mkdir -p \"$EVENT_LOG_DIR\"
-    
+
     # Create contract event log
     if [ ! -f \"$CONTRACT_EVENT_LOG\" ]; then
         echo \"# Contract Event Log\" > \"$CONTRACT_EVENT_LOG\"
@@ -128,7 +128,7 @@ run_test_verbose "Event log directory setup" "
     else
         echo \"✅ Contract event log exists: $CONTRACT_EVENT_LOG\"
     fi
-    
+
     # Create service event log
     if [ ! -f \"$SERVICE_EVENT_LOG\" ]; then
         echo \"# Service Event Log\" > \"$SERVICE_EVENT_LOG\"
@@ -137,7 +137,7 @@ run_test_verbose "Event log directory setup" "
     else
         echo \"✅ Service event log exists: $SERVICE_EVENT_LOG\"
     fi
-    
+
     # Set log rotation
     echo \"Setting up log rotation...\"
     cat > /etc/logrotate.d/aitbc-events << EOF
@@ -172,11 +172,11 @@ echo "============================="
 # Test contract deployment event logging
 run_test_verbose "Contract deployment event logging" "
     echo 'Testing contract deployment event logging...'
-    
+
     # Simulate contract deployment event
     CONTRACT_ADDRESS=\"0xtest_$(date +%s)\"
     log_contract_event \"DEPLOY\" \"\$CONTRACT_ADDRESS\" \"constructor\" \"Contract deployed successfully\"
-    
+
     # Verify event was logged
     if tail -1 \"$CONTRACT_EVENT_LOG\" | grep -q \"DEPLOY\"; then
         echo \"✅ Contract deployment event logged correctly\"
@@ -189,11 +189,11 @@ run_test_verbose "Contract deployment event logging" "
 # Test contract execution event logging
 run_test_verbose "Contract execution event logging" "
     echo 'Testing contract execution event logging...'
-    
+
     # Simulate contract execution event
     CONTRACT_ADDRESS=\"0xguardian_001\"
     log_contract_event \"EXECUTION\" \"\$CONTRACT_ADDRESS\" \"storeValue\" \"Function executed with gas: 21000\"
-    
+
     # Verify event was logged
     if tail -1 \"$CONTRACT_EVENT_LOG\" | grep -q \"EXECUTION\"; then
         echo \"✅ Contract execution event logged correctly\"
@@ -206,11 +206,11 @@ run_test_verbose "Contract execution event logging" "
 # Test contract state change event logging
 run_test_verbose "Contract state change event logging" "
     echo 'Testing contract state change event logging...'
-    
+
     # Simulate contract state change event
     CONTRACT_ADDRESS=\"0xguardian_001\"
     log_contract_event \"STATE_CHANGE\" \"\$CONTRACT_ADDRESS\" \"storage\" \"Storage updated: counter = 42\"
-    
+
     # Verify event was logged
     if tail -1 \"$CONTRACT_EVENT_LOG\" | grep -q \"STATE_CHANGE\"; then
         echo \"✅ Contract state change event logged correctly\"
@@ -228,10 +228,10 @@ echo "============================="
 # Test marketplace service event logging
 run_test_verbose "Marketplace service event logging" "
     echo 'Testing marketplace service event logging...'
-    
+
     # Simulate marketplace service event
     log_service_event \"MARKETPLACE\" \"LISTING_CREATED\" \"New listing created: demo_001\"
-    
+
     # Verify event was logged
     if tail -1 \"$SERVICE_EVENT_LOG\" | grep -q \"MARKETPLACE\"; then
         echo \"✅ Marketplace service event logged correctly\"
@@ -244,10 +244,10 @@ run_test_verbose "Marketplace service event logging" "
 # Test AI service event logging
 run_test_verbose "AI service event logging" "
     echo 'Testing AI service event logging...'
-    
+
     # Simulate AI service event
     log_service_event \"AI_SERVICE\" \"JOB_SUBMITTED\" \"New AI job submitted: job_$(date +%s)\"
-    
+
     # Verify event was logged
     if tail -1 \"$SERVICE_EVENT_LOG\" | grep -q \"AI_SERVICE\"; then
         echo \"✅ AI service event logged correctly\"
@@ -260,10 +260,10 @@ run_test_verbose "AI service event logging" "
 # Test blockchain service event logging
 run_test_verbose "Blockchain service event logging" "
     echo 'Testing blockchain service event logging...'
-    
+
     # Simulate blockchain service event
     log_service_event \"BLOCKCHAIN\" \"BLOCK_MINED\" \"New block mined: height 3950\"
-    
+
     # Verify event was logged
     if tail -1 \"$SERVICE_EVENT_LOG\" | grep -q \"BLOCKCHAIN\"; then
         echo \"✅ Blockchain service event logged correctly\"
@@ -281,16 +281,16 @@ echo "=============================="
 # Test real-time event monitoring
 run_test_verbose "Real-time event monitoring" "
     echo 'Testing real-time event monitoring...'
-    
+
     # Start monitoring events in background
     echo 'Starting event monitoring...'
-    
+
     # Generate test events
     for i in {1..3}; do
         log_contract_event \"TEST\" \"0xtest_contract\" \"test_function\" \"Test event \$i\"
         sleep 1
     done
-    
+
     # Check if events were logged
     EVENT_COUNT=\$(grep -c \"TEST\" \"$CONTRACT_EVENT_LOG\" || echo \"0\")
     if [ \"\$EVENT_COUNT\" -ge 3 ]; then
@@ -309,19 +309,19 @@ echo "==============================="
 # Test event querying
 run_test_verbose "Event querying" "
     echo 'Testing event querying capabilities...'
-    
+
     # Query contract events
     CONTRACT_EVENTS=\$(grep \"CONTRACT\" \"$CONTRACT_EVENT_LOG\" | wc -l)
     echo \"Contract events found: \$CONTRACT_EVENTS\"
-    
+
     # Query service events
     SERVICE_EVENTS=\$(grep \"SERVICE\" \"$SERVICE_EVENT_LOG\" | wc -l)
     echo \"Service events found: \$SERVICE_EVENTS\"
-    
+
     # Query specific event types
     DEPLOY_EVENTS=\$(grep \"DEPLOY\" \"$CONTRACT_EVENT_LOG\" | wc -l)
     echo \"Deploy events found: \$DEPLOY_EVENTS\"
-    
+
     if [ \"\$CONTRACT_EVENTS\" -gt 0 ] && [ \"\$SERVICE_EVENTS\" -gt 0 ]; then
         echo \"✅ Event querying working correctly\"
     else
@@ -333,22 +333,22 @@ run_test_verbose "Event querying" "
 # Test event analysis
 run_test_verbose "Event analysis" "
     echo 'Testing event analysis capabilities...'
-    
+
     # Analyze event patterns
     echo 'Analyzing event patterns...'
-    
+
     # Count events by type
     echo 'Event distribution:'
     grep -o '\[CONTRACT\] \[.*\]' \"$CONTRACT_EVENT_LOG\" | sort | uniq -c | head -5
-    
+
     # Count events by service
     echo 'Service distribution:'
     grep -o '\[SERVICE\] \[.*\]' \"$SERVICE_EVENT_LOG\" | sort | uniq -c | head -5
-    
+
     # Recent events
     echo 'Recent events (last 5):'
     tail -5 \"$CONTRACT_EVENT_LOG\" | grep -v '^#'
-    
+
     echo \"✅ Event analysis completed\"
 "
 
@@ -360,16 +360,16 @@ echo "====================================="
 # Test cross-node event synchronization
 run_test_verbose "Cross-node event synchronization" "
     echo 'Testing cross-node event synchronization...'
-    
+
     # Generate event on genesis node
     log_contract_event \"CROSS_NODE_TEST\" \"0xsync_test\" \"sync_function\" \"Event from genesis node\"
-    
+
     # Check if event is accessible from follower node
     ssh $FOLLOWER_NODE 'if [ -f \"'$CONTRACT_EVENT_LOG'\" ]; then echo \"✅ Event log accessible from follower\"; else echo \"❌ Event log not accessible from follower\"; exit 1; fi'
-    
+
     # Generate event on follower node
     ssh $FOLLOWER_NODE \"echo '[\$(date +\"%Y-%m-%d %H:%M:%S\")] [CONTRACT] [CROSS_NODE_TEST] 0xsync_test:sync_function - Event from follower node' >> '$CONTRACT_EVENT_LOG'\"
-    
+
     echo \"✅ Cross-node event synchronization working\"
 "
 
@@ -381,7 +381,7 @@ echo "================================"
 # Test event retention
 run_test_verbose "Event retention" "
     echo 'Testing event retention policies...'
-    
+
     # Check log rotation configuration
     if [ -f /etc/logrotate.d/aitbc-events ]; then
         echo '✅ Log rotation configured'
@@ -391,14 +391,14 @@ run_test_verbose "Event retention" "
         echo '❌ Log rotation not configured'
         exit 1
     fi
-    
+
     # Check log sizes
     CONTRACT_LOG_SIZE=\$(du -sh \"$CONTRACT_EVENT_LOG\" 2>/dev/null | cut -f1 || echo \"0\")
     SERVICE_LOG_SIZE=\$(du -sh \"$SERVICE_EVENT_LOG\" 2>/dev/null | cut -f1 || echo \"0\")
-    
+
     echo \"Contract log size: \$CONTRACT_LOG_SIZE\"
     echo \"Service log size: \$SERVICE_LOG_SIZE\"
-    
+
     echo \"✅ Event retention verified\"
 "
 
@@ -410,9 +410,9 @@ echo "==============================="
 # Generate event dashboard
 run_test_verbose "Event dashboard generation" "
     echo 'Generating event dashboard...'
-    
+
     DASHBOARD_FILE=\"$EVENT_LOG_DIR/event_dashboard_$(date +%Y%m%d_%H%M%S).txt\"
-    
+
     cat > \"\$DASHBOARD_FILE\" << EOF
 AITBC Event Monitoring Dashboard
 =============================
@@ -440,7 +440,7 @@ Contract Events by Type:
 Service Events by Type:
 \$(grep \"SERVICE\" \"$SERVICE_EVENT_LOG\" | grep -o '\[.*\]' | sort | uniq -c | head -5)
 EOF
-    
+
     echo \"✅ Event dashboard generated: \$DASHBOARD_FILE\"
     echo \"Dashboard content:\"
     cat \"\$DASHBOARD_FILE\"

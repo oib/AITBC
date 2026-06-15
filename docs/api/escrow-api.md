@@ -1,7 +1,7 @@
 # Blockchain Escrow API Reference
 
-**Last Updated:** June 3, 2026  
-**Base URL:** `http://localhost:8202/rpc`  
+**Last Updated:** June 3, 2026
+**Base URL:** `http://localhost:8202/rpc`
 **Service:** `aitbc-blockchain-rpc` (port 8202)
 
 ## Overview

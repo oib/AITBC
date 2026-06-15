@@ -9,10 +9,10 @@ BALANCE=$(bitcoin-cli -testnet -rpcwallet=aitbc_exchange getbalance)
 if [ "$(echo "$BALANCE > 0" | bc)" -eq 1 ]; then
     echo "Current balance: $BALANCE BTC"
     echo "Sending to return address: $RETURN_ADDRESS"
-    
+
     # Calculate amount to send (balance minus small fee)
     SEND_AMOUNT=$(echo "$BALANCE - 0.00001" | bc)
-    
+
     TXID=$(bitcoin-cli -testnet -rpcwallet=aitbc_exchange sendtoaddress "$RETURN_ADDRESS" "$SEND_AMOUNT")
     echo "Transaction sent! TXID: $TXID"
     echo "Explorer: https://blockstream.info/testnet/tx/$TXID"

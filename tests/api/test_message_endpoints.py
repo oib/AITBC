@@ -3,17 +3,8 @@ API Endpoint Tests
 Tests for agent messaging API endpoints
 """
 
-import sys
-from pathlib import Path
-
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
-
-
-import pytest  # noqa: E402
-from app.routers.messages import SendMessageRequest, SubscribeRequest  # noqa: E402
+import pytest
+from app.routers.messages import SendMessageRequest, SubscribeRequest
 
 
 class TestSendMessageRequest:

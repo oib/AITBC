@@ -86,27 +86,27 @@ submit_ai_task() {
 # Check prerequisites
 check_prerequisites() {
     print_status "Checking prerequisites..."
-    
+
     # Check if CLI command works
     if ! $CLI_PATH --help > /dev/null 2>&1; then
         print_error "AITBC CLI not working at $CLI_PATH"
         exit 1
     fi
-    
+
     # Check if training wallet exists
     if ! $CLI_PATH wallet list | grep -q "$WALLET_NAME"; then
         print_error "Training wallet $WALLET_NAME not found. Run Stage 1 first."
         exit 1
     fi
-    
+
     # Check AI services
     if ! curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
         print_warning "Ollama service may not be running on port 11434"
     fi
-    
+
     # Create log directory
     mkdir -p "$(dirname "$LOG_FILE")"
-    
+
     print_success "Prerequisites check completed"
     log "Prerequisites check: PASSED"
 }
@@ -114,7 +114,7 @@ check_prerequisites() {
 # 3.1 AI Job Submission
 ai_job_submission() {
     print_status "3.1 AI Job Submission"
-    
+
     print_status "Submitting AI task..."
     TASK_ID="ai_training_$(date +%s)"
     TASK_RESPONSE=$(submit_ai_task "$TASK_ID" "$TEST_PROMPT")
@@ -127,60 +127,60 @@ ai_job_submission() {
         print_warning "AI task submission may have failed"
         SUBMITTED_TASK_ID="task_test_$(date +%s)"
     fi
-    
+
     print_status "Checking task status..."
     curl -s "${AGENT_COORDINATOR_URL}/tasks/status" 2>/dev/null || print_warning "Task status command not available"
     log "Task status checked for $SUBMITTED_TASK_ID"
-    
+
     print_status "Monitoring task processing..."
     for i in {1..5}; do
         print_status "Check $i/5 - Task status..."
         curl -s "${AGENT_COORDINATOR_URL}/tasks/status" 2>/dev/null || print_warning "Task status check failed"
         sleep 2
     done
-    
+
     print_status "Getting task status summary..."
     curl -s "${AGENT_COORDINATOR_URL}/tasks/status" 2>/dev/null || print_warning "Task summary command not available"
     log "Task summary retrieved for $SUBMITTED_TASK_ID"
-    
+
     print_status "Listing task submissions..."
     curl -s "${AGENT_COORDINATOR_URL}/tasks/status" 2>/dev/null || print_warning "Task list command not available"
     log "Task list checked"
-    
+
     print_success "3.1 AI Job Submission completed"
 }
 
 # 3.2 Resource Management
 resource_management() {
     print_status "3.2 Resource Management"
-    
+
     print_status "Checking resource status (verbose mode, output json)..."
     $CLI_PATH resource status --verbose --output json 2>/dev/null || print_warning "Resource status command not available"
     log "Resource status checked"
-    
+
     print_status "Allocating GPU resources (non-interactive)..."
     $CLI_PATH resource allocate --type gpu --amount 50% --yes --no-confirm 2>/dev/null || print_warning "Resource allocation command not available"
     log "GPU resource allocation attempted"
-    
+
     print_status "Monitoring resource utilization (debug mode)..."
     $CLI_PATH resource monitor --interval 30 --debug 2>/dev/null || print_warning "Resource monitoring command not available"
     log "Resource monitoring completed"
-    
+
     print_status "Optimizing CPU resources (dry-run)..."
     $CLI_PATH resource optimize --target cpu --dry-run 2>/dev/null || print_warning "Resource optimization command not available"
     log "CPU resource optimization attempted"
-    
+
     print_status "Running resource benchmark (verbose mode)..."
     $CLI_PATH resource benchmark --type inference --verbose 2>/dev/null || print_warning "Resource benchmark command not available"
     log "Resource benchmark completed"
-    
+
     print_success "3.2 Resource Management completed"
 }
 
 # 3.3 Ollama Integration
 ollama_integration() {
     print_status "3.3 Ollama Integration"
-    
+
     print_status "Checking Ollama service status..."
     if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
         print_success "Ollama service is running"
@@ -190,39 +190,39 @@ ollama_integration() {
         log "Ollama service: NOT RUNNING"
         return 1
     fi
-    
+
     print_status "Listing available Ollama models (format table)..."
     $CLI_PATH ollama models --format table 2>/dev/null || {
         print_warning "Ollama list command not available, checking directly..."
         curl -s http://localhost:11434/api/tags | jq -r '.models[].name' 2>/dev/null || echo "Direct API check failed"
     }
     log "Ollama models listed"
-    
+
     print_status "Using existing llama2:7b model (already available)"
     log "Ollama model pull skipped (using existing model)"
-    
+
     print_status "Running Ollama model inference (verbose mode)..."
     $CLI_PATH ollama run --model llama2 --prompt "Test prompt" --verbose 2>/dev/null || {
         print_warning "Ollama run command not available, trying direct API..."
         curl -s http://localhost:11434/api/generate -d '{"model":"llama2:7b","prompt":"AITBC training test","stream":false}' 2>/dev/null | jq -r '.response' || echo "Direct API inference failed"
     }
     log "Ollama model inference completed"
-    
+
     print_status "Checking Ollama service health (debug mode)..."
     $CLI_PATH ollama status --debug 2>/dev/null || print_warning "Ollama status command not available"
     log "Ollama service health checked"
-    
+
     print_success "3.3 Ollama Integration completed"
 }
 
 # 3.4 AI Service Integration
 ai_service_integration() {
     print_status "3.4 AI Service Integration"
-    
+
     print_status "Listing available AI services (format table)..."
     $CLI_PATH ai service list --format table 2>/dev/null || print_warning "AI service list command not available"
     log "AI services listed"
-    
+
     print_status "Checking Agent Coordinator service health (verbose mode)..."
     coordinator_health=$(curl -s "${AGENT_COORDINATOR_URL}/health" 2>/dev/null)
     if [ -n "$coordinator_health" ]; then
@@ -239,7 +239,7 @@ ai_service_integration() {
         log "Agent Coordinator service: NOT ACCESSIBLE"
         return 1
     fi
-    
+
     print_status "Testing Agent Coordinator task endpoint (debug mode)..."
     if curl -s "${AGENT_COORDINATOR_URL}/tasks/status" > /dev/null 2>&1; then
         print_success "Agent Coordinator task endpoint is accessible"
@@ -249,11 +249,11 @@ ai_service_integration() {
         log "Agent Coordinator task endpoint: NOT ACCESSIBLE"
         return 1
     fi
-    
+
     print_status "Monitoring Agent Coordinator task status (output json)..."
     curl -s "${AGENT_COORDINATOR_URL}/tasks/status" 2>/dev/null | jq '.' 2>/dev/null || print_warning "Agent Coordinator task status unavailable"
     log "Agent Coordinator task status monitored"
-    
+
     print_success "3.4 AI Service Integration completed"
 }
 
@@ -340,23 +340,23 @@ performance_benchmarking() {
         else
             OLLAMA_TIME="5.0"
         fi
-        
+
         print_status "Ollama inference time: ${OLLAMA_TIME}s"
         log "Performance benchmark: Ollama inference ${OLLAMA_TIME}s"
     else
         print_warning "Ollama service not available for benchmarking"
         OLLAMA_TIME="0.0"
     fi
-    
+
     print_success "AI performance benchmark passed"
-    
+
     print_success "Performance benchmarking completed"
 }
 
 # Validation quiz
 validation_quiz() {
     print_status "Stage 3 Validation Quiz"
-    
+
     echo -e "${BLUE}Answer these questions to validate your understanding:${NC}"
     echo
     echo "1. How do you submit different types of AI jobs?"
@@ -368,7 +368,7 @@ validation_quiz() {
     echo
     echo -e "${YELLOW}Press Enter to continue to Stage 4 when ready...${NC}"
     read -t 1 -r || true
-    
+
     print_success "Stage 3 validation completed"
 }
 
@@ -378,9 +378,9 @@ main() {
     echo -e "${BLUE}hermes AITBC Training - $TRAINING_STAGE${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo
-    
+
     log "Starting $TRAINING_STAGE"
-    
+
     check_prerequisites
     ai_job_submission
     resource_management
@@ -389,19 +389,19 @@ main() {
     node_specific_ai
     performance_benchmarking
     validation_quiz
-    
+
     echo
     echo -e "${GREEN}========================================${NC}"
     echo -e "${GREEN}$TRAINING_STAGE COMPLETED SUCCESSFULLY${NC}"
     echo -e "${GREEN}========================================${NC}"
-    
+
     # Output learnings for skill update
     output_stage_learnings 3 "AI Operations" \
         "./aitbc-cli ai-ops submit <model> <prompt>|./aitbc-cli ai-ops status <job_id>|curl http://localhost:9001/tasks/submit" \
         "Agent Coordinator on port 9001|Task submission format|Job status polling" \
         "/var/lib/aitbc/keystore|AI_SERVICE_PATH=\"/opt/aitbc/aitbc-ai\"" \
         "AI job submission|Task management|Agent Coordinator integration"
-    
+
     echo
     echo -e "${BLUE}Next Steps:${NC}"
     echo "1. Review the log file: $LOG_FILE"
@@ -409,7 +409,7 @@ main() {
     echo "3. Proceed to Stage 4: Marketplace & Economic Intelligence"
     echo
     echo -e "${YELLOW}Training Log: $LOG_FILE${NC}"
-    
+
     log "$TRAINING_STAGE completed successfully"
 }
 

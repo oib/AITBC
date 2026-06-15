@@ -496,7 +496,7 @@ class AlertManager:
         """Generate alert message"""
         message_parts = [f"Alert triggered for {alert.name}", "Current metrics:"]
         for key, value in metrics.items():
-            if isinstance(value, (int, float)):
+            if isinstance(value, int | float):
                 message_parts.append(f"  {key}: {value:.2f}")
         return "\n".join(message_parts)
 

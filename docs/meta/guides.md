@@ -1,9 +1,9 @@
 # Documentation Guides
 
-**Level**: All Levels  
-**Prerequisites**: None  
-**Estimated Time**: 10-15 minutes  
-**Last Updated**: 2026-05-28  
+**Level**: All Levels
+**Prerequisites**: None
+**Estimated Time**: 10-15 minutes
+**Last Updated**: 2026-05-28
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
@@ -45,6 +45,6 @@ This directory centralizes guide-style documentation that helps contributors and
 
 ---
 
-*Last updated: 2026-04-27*  
-*Version: 1.0*  
+*Last updated: 2026-04-27*
+*Version: 1.0*
 *Status: Guide index*
