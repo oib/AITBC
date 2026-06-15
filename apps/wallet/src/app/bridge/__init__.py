@@ -17,5 +17,5 @@ __all__ = [
     "calculate_ait_amount",
     "get_exchange_rate",
     "start_monitoring",
-    "router"
+    "router",
 ]

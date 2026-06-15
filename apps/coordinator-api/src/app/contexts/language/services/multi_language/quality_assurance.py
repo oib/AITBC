@@ -2,6 +2,7 @@
 Translation Quality Assurance Module
 Quality assessment and validation for translation results
 """
+
 import asyncio
 import re
 from collections import Counter
@@ -19,12 +20,14 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+
 class QualityMetric(Enum):
-    BLEU = 'bleu'
-    SEMANTIC_SIMILARITY = 'semantic_similarity'
-    LENGTH_RATIO = 'length_ratio'
-    CONFIDENCE = 'confidence'
-    CONSISTENCY = 'consistency'
+    BLEU = "bleu"
+    SEMANTIC_SIMILARITY = "semantic_similarity"
+    LENGTH_RATIO = "length_ratio"
+    CONFIDENCE = "confidence"
+    CONSISTENCY = "consistency"
+
 
 @dataclass
 class QualityScore:
@@ -32,6 +35,7 @@ class QualityScore:
     score: float
     weight: float
     description: str
+
 
 @dataclass
 class QualityAssessment:
@@ -41,37 +45,47 @@ class QualityAssessment:
     recommendations: list[str]
     processing_time_ms: int
 
+
 class TranslationQualityChecker:
     """Advanced quality assessment for translation results"""
 
     def __init__(self, config: dict):
         self.config = config
         self.nlp_models: dict[str, Any] = {}
-        self.thresholds = config.get('thresholds', {'overall': 0.7, 'bleu': 0.3, 'semantic_similarity': 0.6, 'length_ratio': 0.5, 'confidence': 0.6})
+        self.thresholds = config.get(
+            "thresholds", {"overall": 0.7, "bleu": 0.3, "semantic_similarity": 0.6, "length_ratio": 0.5, "confidence": 0.6}
+        )
         self._initialize_models()
 
     def _initialize_models(self) -> None:
         """Initialize NLP models for quality assessment"""
         try:
-            languages = ['en', 'zh', 'es', 'fr', 'de', 'ja', 'ko', 'ru']
+            languages = ["en", "zh", "es", "fr", "de", "ja", "ko", "ru"]
             for lang in languages:
                 try:
-                    model_name = f'{lang}_core_web_sm'
+                    model_name = f"{lang}_core_web_sm"
                     self.nlp_models[lang] = spacy.load(model_name)
                 except OSError:
-                    logger.warning('Spacy model for %s not found, using fallback', lang)
-                    if 'en' not in self.nlp_models:
-                        self.nlp_models['en'] = spacy.load('en_core_web_sm')
-                    self.nlp_models[lang] = self.nlp_models['en']
+                    logger.warning("Spacy model for %s not found, using fallback", lang)
+                    if "en" not in self.nlp_models:
+                        self.nlp_models["en"] = spacy.load("en_core_web_sm")
+                    self.nlp_models[lang] = self.nlp_models["en"]
             try:
-                nltk.data.find('tokenizers/punkt')
+                nltk.data.find("tokenizers/punkt")
             except LookupError:
-                nltk.download('punkt')
-            logger.info('Quality checker models initialized successfully')
+                nltk.download("punkt")
+            logger.info("Quality checker models initialized successfully")
         except Exception as e:
-            logger.error('Failed to initialize quality checker models: %s', e)
+            logger.error("Failed to initialize quality checker models: %s", e)
 
-    async def evaluate_translation(self, source_text: str, translated_text: str, source_lang: str, target_lang: str, reference_translation: str | None=None) -> QualityAssessment:
+    async def evaluate_translation(
+        self,
+        source_text: str,
+        translated_text: str,
+        source_lang: str,
+        target_lang: str,
+        reference_translation: str | None = None,
+    ) -> QualityAssessment:
         """Comprehensive quality assessment of translation"""
         start_time = asyncio.get_event_loop().time()
         scores = []
@@ -89,9 +103,17 @@ class TranslationQualityChecker:
         overall_score = self._calculate_overall_score(scores)
         recommendations = self._generate_recommendations(scores, overall_score)
         processing_time = int((asyncio.get_event_loop().time() - start_time) * 1000)
-        return QualityAssessment(overall_score=overall_score, individual_scores=scores, passed_threshold=overall_score >= self.thresholds['overall'], recommendations=recommendations, processing_time_ms=processing_time)
+        return QualityAssessment(
+            overall_score=overall_score,
+            individual_scores=scores,
+            passed_threshold=overall_score >= self.thresholds["overall"],
+            recommendations=recommendations,
+            processing_time_ms=processing_time,
+        )
 
-    async def _evaluate_confidence(self, translated_text: str, source_text: str, source_lang: str, target_lang: str) -> QualityScore:
+    async def _evaluate_confidence(
+        self, translated_text: str, source_text: str, source_lang: str, target_lang: str
+    ) -> QualityScore:
         """Evaluate translation confidence based on various factors"""
         confidence_factors = []
         if translated_text.strip():
@@ -116,35 +138,63 @@ class TranslationQualityChecker:
         else:
             confidence_factors.append(0.5)
         avg_confidence = np.mean(confidence_factors)
-        return QualityScore(metric=QualityMetric.CONFIDENCE, score=avg_confidence, weight=0.3, description='Confidence based on text completeness, language detection, and structure preservation')  # type: ignore[arg-type]
+        return QualityScore(
+            metric=QualityMetric.CONFIDENCE,
+            score=avg_confidence,
+            weight=0.3,
+            description="Confidence based on text completeness, language detection, and structure preservation",
+        )  # type: ignore[arg-type]
 
-    async def _evaluate_length_ratio(self, source_text: str, translated_text: str, source_lang: str, target_lang: str) -> QualityScore:
+    async def _evaluate_length_ratio(
+        self, source_text: str, translated_text: str, source_lang: str, target_lang: str
+    ) -> QualityScore:
         """Evaluate appropriate length ratio between source and target"""
         source_length = len(source_text.strip())
         translated_length = len(translated_text.strip())
         if source_length == 0:
-            return QualityScore(metric=QualityMetric.LENGTH_RATIO, score=0.0, weight=0.2, description='Empty source text')
+            return QualityScore(metric=QualityMetric.LENGTH_RATIO, score=0.0, weight=0.2, description="Empty source text")
         ratio = translated_length / source_length
-        expected_ratios = {('en', 'zh'): 0.8, ('en', 'ja'): 0.9, ('en', 'ko'): 0.9, ('zh', 'en'): 1.2, ('ja', 'en'): 1.1, ('ko', 'en'): 1.1}
+        expected_ratios = {
+            ("en", "zh"): 0.8,
+            ("en", "ja"): 0.9,
+            ("en", "ko"): 0.9,
+            ("zh", "en"): 1.2,
+            ("ja", "en"): 1.1,
+            ("ko", "en"): 1.1,
+        }
         expected_ratio = expected_ratios.get((source_lang, target_lang), 1.0)
         deviation = abs(ratio - expected_ratio)
         score = max(0.0, 1.0 - deviation)
-        return QualityScore(metric=QualityMetric.LENGTH_RATIO, score=score, weight=0.2, description=f'Length ratio: {ratio:.2f} (expected: {expected_ratio:.2f})')
+        return QualityScore(
+            metric=QualityMetric.LENGTH_RATIO,
+            score=score,
+            weight=0.2,
+            description=f"Length ratio: {ratio:.2f} (expected: {expected_ratio:.2f})",
+        )
 
-    async def _evaluate_semantic_similarity(self, source_text: str, translated_text: str, source_lang: str, target_lang: str) -> QualityScore:
+    async def _evaluate_semantic_similarity(
+        self, source_text: str, translated_text: str, source_lang: str, target_lang: str
+    ) -> QualityScore:
         """Evaluate semantic similarity using NLP models"""
         try:
-            source_nlp = self.nlp_models.get(source_lang, self.nlp_models.get('en'))
-            target_nlp = self.nlp_models.get(target_lang, self.nlp_models.get('en'))
+            source_nlp = self.nlp_models.get(source_lang, self.nlp_models.get("en"))
+            target_nlp = self.nlp_models.get(target_lang, self.nlp_models.get("en"))
             source_doc = source_nlp(source_text) if source_nlp else None
             target_doc = target_nlp(translated_text) if target_nlp else None
             source_features = self._extract_text_features(source_doc)
             target_features = self._extract_text_features(target_doc)
             similarity = self._calculate_feature_similarity(source_features, target_features)
-            return QualityScore(metric=QualityMetric.SEMANTIC_SIMILARITY, score=similarity, weight=0.3, description='Semantic similarity based on NLP features')
+            return QualityScore(
+                metric=QualityMetric.SEMANTIC_SIMILARITY,
+                score=similarity,
+                weight=0.3,
+                description="Semantic similarity based on NLP features",
+            )
         except Exception as e:
-            logger.warning('Semantic similarity evaluation failed: %s', e)
-            return QualityScore(metric=QualityMetric.SEMANTIC_SIMILARITY, score=0.5, weight=0.3, description='Fallback similarity score')
+            logger.warning("Semantic similarity evaluation failed: %s", e)
+            return QualityScore(
+                metric=QualityMetric.SEMANTIC_SIMILARITY, score=0.5, weight=0.3, description="Fallback similarity score"
+            )
 
     async def _evaluate_bleu_score(self, translated_text: str, reference_text: str) -> QualityScore:
         """Calculate BLEU score against reference translation"""
@@ -153,10 +203,12 @@ class TranslationQualityChecker:
             candidate_tokens = word_tokenize(translated_text.lower())
             smoothing = SmoothingFunction().method1
             bleu_score = sentence_bleu([reference_tokens], candidate_tokens, smoothing_function=smoothing)
-            return QualityScore(metric=QualityMetric.BLEU, score=bleu_score, weight=0.2, description='BLEU score against reference translation')
+            return QualityScore(
+                metric=QualityMetric.BLEU, score=bleu_score, weight=0.2, description="BLEU score against reference translation"
+            )
         except Exception as e:
-            logger.warning('BLEU score calculation failed: %s', e)
-            return QualityScore(metric=QualityMetric.BLEU, score=0.0, weight=0.2, description='BLEU score calculation failed')
+            logger.warning("BLEU score calculation failed: %s", e)
+            return QualityScore(metric=QualityMetric.BLEU, score=0.0, weight=0.2, description="BLEU score calculation failed")
 
     async def _evaluate_consistency(self, source_text: str, translated_text: str) -> QualityScore:
         """Evaluate internal consistency of translation"""
@@ -175,8 +227,8 @@ class TranslationQualityChecker:
             consistency_factors.append(consistency_score)
         else:
             consistency_factors.append(0.8)
-        source_punctuation = re.findall('[.!?;:,]', source_text)
-        translated_punctuation = re.findall('[.!?;:,]', translated_text)
+        source_punctuation = re.findall("[.!?;:,]", source_text)
+        translated_punctuation = re.findall("[.!?;:,]", translated_text)
         if len(source_punctuation) > 0:
             punctuation_ratio = len(translated_punctuation) / len(source_punctuation)
             if 0.5 <= punctuation_ratio <= 2.0:
@@ -186,28 +238,40 @@ class TranslationQualityChecker:
         else:
             consistency_factors.append(0.8)
         avg_consistency = np.mean(consistency_factors)
-        return QualityScore(metric=QualityMetric.CONSISTENCY, score=avg_consistency, weight=0.1, description='Internal consistency of translation')  # type: ignore[arg-type]
+        return QualityScore(
+            metric=QualityMetric.CONSISTENCY,
+            score=avg_consistency,
+            weight=0.1,
+            description="Internal consistency of translation",
+        )  # type: ignore[arg-type]
 
     def _extract_text_features(self, doc: Any) -> dict[str, Any]:
         """Extract linguistic features from spaCy document"""
-        features = {'pos_tags': [token.pos_ for token in doc], 'entities': [(ent.text, ent.label_) for ent in doc.ents], 'noun_chunks': [chunk.text for chunk in doc.noun_chunks], 'verbs': [token.lemma_ for token in doc if token.pos_ == 'VERB'], 'sentence_count': len(list(doc.sents)), 'token_count': len(doc)}
+        features = {
+            "pos_tags": [token.pos_ for token in doc],
+            "entities": [(ent.text, ent.label_) for ent in doc.ents],
+            "noun_chunks": [chunk.text for chunk in doc.noun_chunks],
+            "verbs": [token.lemma_ for token in doc if token.pos_ == "VERB"],
+            "sentence_count": len(list(doc.sents)),
+            "token_count": len(doc),
+        }
         return features
 
     def _calculate_feature_similarity(self, source_features: dict, target_features: dict) -> float:
         """Calculate similarity between text features"""
         similarities = []
-        source_pos = Counter(source_features['pos_tags'])
-        target_pos = Counter(target_features['pos_tags'])
+        source_pos = Counter(source_features["pos_tags"])
+        target_pos = Counter(target_features["pos_tags"])
         if source_pos and target_pos:
             pos_similarity = self._calculate_counter_similarity(source_pos, target_pos)
             similarities.append(pos_similarity)
-        source_entities = {ent[0].lower() for ent in source_features['entities']}
-        target_entities = {ent[0].lower() for ent in target_features['entities']}
+        source_entities = {ent[0].lower() for ent in source_features["entities"]}
+        target_entities = {ent[0].lower() for ent in target_features["entities"]}
         if source_entities and target_entities:
             entity_similarity = len(source_entities & target_entities) / len(source_entities | target_entities)
             similarities.append(entity_similarity)
-        source_len = source_features['token_count']
-        target_len = target_features['token_count']
+        source_len = source_features["token_count"]
+        target_len = target_features["token_count"]
         if source_len > 0 and target_len > 0:
             length_similarity = min(source_len, target_len) / max(source_len, target_len)
             similarities.append(length_similarity)
@@ -227,8 +291,14 @@ class TranslationQualityChecker:
 
     def _is_valid_language(self, text: str, expected_lang: str) -> bool:
         """Basic language validation (simplified)"""
-        lang_patterns = {'zh': '[\\u4e00-\\u9fff]', 'ja': '[\\u3040-\\u309f\\u30a0-\\u30ff]', 'ko': '[\\uac00-\\ud7af]', 'ar': '[\\u0600-\\u06ff]', 'ru': '[\\u0400-\\u04ff]'}
-        pattern = lang_patterns.get(expected_lang, '[a-zA-Z]')
+        lang_patterns = {
+            "zh": "[\\u4e00-\\u9fff]",
+            "ja": "[\\u3040-\\u309f\\u30a0-\\u30ff]",
+            "ko": "[\\uac00-\\ud7af]",
+            "ar": "[\\u0600-\\u06ff]",
+            "ru": "[\\u0400-\\u04ff]",
+        }
+        pattern = lang_patterns.get(expected_lang, "[a-zA-Z]")
         matches = re.findall(pattern, text)
         return len(matches) > len(text) * 0.1
 
@@ -243,18 +313,18 @@ class TranslationQualityChecker:
     def _generate_recommendations(self, scores: list[QualityScore], overall_score: float) -> list[str]:
         """Generate improvement recommendations based on quality assessment"""
         recommendations = []
-        if overall_score < self.thresholds['overall']:
-            recommendations.append('Translation quality below threshold - consider manual review')
+        if overall_score < self.thresholds["overall"]:
+            recommendations.append("Translation quality below threshold - consider manual review")
         for score in scores:
             if score.score < self.thresholds.get(score.metric.value, 0.5):
                 if score.metric == QualityMetric.LENGTH_RATIO:
-                    recommendations.append('Translation length seems inappropriate - check for truncation or expansion')
+                    recommendations.append("Translation length seems inappropriate - check for truncation or expansion")
                 elif score.metric == QualityMetric.SEMANTIC_SIMILARITY:
-                    recommendations.append('Semantic meaning may be lost - verify key concepts are preserved')
+                    recommendations.append("Semantic meaning may be lost - verify key concepts are preserved")
                 elif score.metric == QualityMetric.CONSISTENCY:
-                    recommendations.append('Translation lacks consistency - check for repeated patterns and formatting')
+                    recommendations.append("Translation lacks consistency - check for repeated patterns and formatting")
                 elif score.metric == QualityMetric.CONFIDENCE:
-                    recommendations.append('Low confidence detected - verify translation accuracy')
+                    recommendations.append("Low confidence detected - verify translation accuracy")
         return recommendations
 
     async def batch_evaluate(self, translations: list[tuple[str, str, str, str, str | None]]) -> list[QualityAssessment]:
@@ -269,18 +339,26 @@ class TranslationQualityChecker:
             if isinstance(result, QualityAssessment):
                 processed_results.append(result)
             else:
-                logger.error('Quality assessment failed for translation %s: %s', i, result)
-                processed_results.append(QualityAssessment(overall_score=0.5, individual_scores=[], passed_threshold=False, recommendations=['Quality assessment failed'], processing_time_ms=0))
+                logger.error("Quality assessment failed for translation %s: %s", i, result)
+                processed_results.append(
+                    QualityAssessment(
+                        overall_score=0.5,
+                        individual_scores=[],
+                        passed_threshold=False,
+                        recommendations=["Quality assessment failed"],
+                        processing_time_ms=0,
+                    )
+                )
         return processed_results
 
     async def health_check(self) -> dict[str, bool]:
         """Health check for quality checker"""
         health_status = {}
         try:
-            sample_assessment = await self.evaluate_translation('Hello world', 'Hola mundo', 'en', 'es')
-            health_status['basic_assessment'] = sample_assessment.overall_score > 0
+            sample_assessment = await self.evaluate_translation("Hello world", "Hola mundo", "en", "es")
+            health_status["basic_assessment"] = sample_assessment.overall_score > 0
         except Exception as e:
-            logger.error('Quality checker health check failed: %s', e)
-            health_status['basic_assessment'] = False
-        health_status['nlp_models_loaded'] = len(self.nlp_models) > 0
+            logger.error("Quality checker health check failed: %s", e)
+            health_status["basic_assessment"] = False
+        health_status["nlp_models_loaded"] = len(self.nlp_models) > 0
         return health_status

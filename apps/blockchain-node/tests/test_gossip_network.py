@@ -188,9 +188,9 @@ class TestInMemoryGossipBackend:
     async def test_shutdown(self, backend: InMemoryGossipBackend) -> None:
         """Test backend shutdown."""
         # Add some subscriptions
-        sub1 = await backend.subscribe("topic1")
-        sub2 = await backend.subscribe("topic2")
-        sub3 = await backend.subscribe("topic2")
+        await backend.subscribe("topic1")
+        await backend.subscribe("topic2")
+        await backend.subscribe("topic2")
 
         assert len(backend._topics) == 2
 
@@ -206,16 +206,13 @@ class TestInMemoryGossipBackend:
         subscriptions = []
 
         # Create multiple subscribers
-        for i in range(5):
+        for _i in range(5):
             sub = await backend.subscribe("concurrent_topic")
             subscriptions.append(sub)
 
         # Publish messages concurrently
         messages = [f"message_{i}" for i in range(10)]
-        publish_tasks = [
-            backend.publish("concurrent_topic", msg)
-            for msg in messages
-        ]
+        publish_tasks = [backend.publish("concurrent_topic", msg) for msg in messages]
 
         await asyncio.gather(*publish_tasks)
 
@@ -287,7 +284,7 @@ class TestBroadcastGossipBackend:
     @pytest.mark.asyncio
     async def test_backend_initialization(self, mock_broadcast: AsyncMock) -> None:
         """Test backend initialization with mock broadcast."""
-        with patch('aitbc_chain.gossip.broker.Broadcast', return_value=mock_broadcast):
+        with patch("aitbc_chain.gossip.broker.Broadcast", return_value=mock_broadcast):
             backend = BroadcastGossipBackend("redis://localhost:6379")
 
             assert backend._broadcast == mock_broadcast
@@ -298,7 +295,7 @@ class TestBroadcastGossipBackend:
     @pytest.mark.asyncio
     async def test_start_stop(self, mock_broadcast: AsyncMock) -> None:
         """Test starting and stopping the backend."""
-        with patch('aitbc_chain.gossip.broker.Broadcast', return_value=mock_broadcast):
+        with patch("aitbc_chain.gossip.broker.Broadcast", return_value=mock_broadcast):
             backend = BroadcastGossipBackend("redis://localhost:6379")
 
             # Start
@@ -313,7 +310,7 @@ class TestBroadcastGossipBackend:
     @pytest.mark.asyncio
     async def test_publish_when_not_running(self, mock_broadcast: AsyncMock) -> None:
         """Test publishing when backend is not started."""
-        with patch('aitbc_chain.gossip.broker.Broadcast', return_value=mock_broadcast):
+        with patch("aitbc_chain.gossip.broker.Broadcast", return_value=mock_broadcast):
             backend = BroadcastGossipBackend("redis://localhost:6379")
 
             # Should raise error when not running
@@ -323,7 +320,7 @@ class TestBroadcastGossipBackend:
     @pytest.mark.asyncio
     async def test_publish_when_running(self, mock_broadcast: AsyncMock) -> None:
         """Test publishing when backend is running."""
-        with patch('aitbc_chain.gossip.broker.Broadcast', return_value=mock_broadcast):
+        with patch("aitbc_chain.gossip.broker.Broadcast", return_value=mock_broadcast):
             backend = BroadcastGossipBackend("redis://localhost:6379")
 
             # Start backend
@@ -342,7 +339,7 @@ class TestBroadcastGossipBackend:
     @pytest.mark.asyncio
     async def test_subscribe_when_not_running(self, mock_broadcast: AsyncMock) -> None:
         """Test subscribing when backend is not started."""
-        with patch('aitbc_chain.gossip.broker.Broadcast', return_value=mock_broadcast):
+        with patch("aitbc_chain.gossip.broker.Broadcast", return_value=mock_broadcast):
             backend = BroadcastGossipBackend("redis://localhost:6379")
 
             # Should raise error when not running
@@ -352,12 +349,12 @@ class TestBroadcastGossipBackend:
     @pytest.mark.asyncio
     async def test_in_process_broadcast_fallback(self) -> None:
         """Test fallback to in-process broadcast when Broadcast is missing."""
-        with patch('aitbc_chain.gossip.broker.Broadcast', None):
+        with patch("aitbc_chain.gossip.broker.Broadcast", None):
             backend = BroadcastGossipBackend("redis://localhost:6379")
 
             # Should use _InProcessBroadcast
-            assert hasattr(backend._broadcast, 'publish')
-            assert hasattr(backend._broadcast, 'subscribe')
+            assert hasattr(backend._broadcast, "publish")
+            assert hasattr(backend._broadcast, "subscribe")
 
 
 class TestGossipMetrics:
@@ -366,7 +363,7 @@ class TestGossipMetrics:
     @pytest.mark.asyncio
     async def test_publication_metrics(self) -> None:
         """Test that publication metrics are recorded."""
-        with patch('aitbc_chain.gossip.broker.metrics_registry') as mock_metrics:
+        with patch("aitbc_chain.gossip.broker.metrics_registry") as mock_metrics:
             backend = InMemoryGossipBackend()
             await backend.subscribe("test_topic")
 
@@ -384,7 +381,7 @@ class TestGossipMetrics:
     @pytest.mark.asyncio
     async def test_queue_metrics(self) -> None:
         """Test that queue metrics are recorded."""
-        with patch('aitbc_chain.gossip.broker.metrics_registry') as mock_metrics:
+        with patch("aitbc_chain.gossip.broker.metrics_registry") as mock_metrics:
             backend = InMemoryGossipBackend()
             await backend.subscribe("test_topic")
 
@@ -401,7 +398,7 @@ class TestGossipMetrics:
     @pytest.mark.asyncio
     async def test_subscriber_metrics(self) -> None:
         """Test that subscriber metrics are recorded."""
-        with patch('aitbc_chain.gossip.broker.metrics_registry') as mock_metrics:
+        with patch("aitbc_chain.gossip.broker.metrics_registry") as mock_metrics:
             backend = InMemoryGossipBackend()
 
             # Add multiple subscribers

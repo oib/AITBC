@@ -45,6 +45,7 @@ class MetricsResponse(BaseModel):
 # Service Configuration Schemas
 class ServiceConfigBase(BaseModel):
     """Base service configuration"""
+
     enabled: bool = Field(False, description="Whether service is enabled")
     config: dict[str, Any] = Field(default_factory=dict, description="Service-specific configuration")
     pricing: dict[str, Any] = Field(default_factory=dict, description="Pricing configuration")
@@ -54,11 +55,13 @@ class ServiceConfigBase(BaseModel):
 
 class ServiceConfigCreate(ServiceConfigBase):
     """Service configuration creation request"""
+
     pass
 
 
 class ServiceConfigUpdate(BaseModel):
     """Service configuration update request"""
+
     enabled: bool | None = Field(None, description="Whether service is enabled")
     config: dict[str, Any] | None = Field(None, description="Service-specific configuration")
     pricing: dict[str, Any] | None = Field(None, description="Pricing configuration")
@@ -68,6 +71,7 @@ class ServiceConfigUpdate(BaseModel):
 
 class ServiceConfigResponse(ServiceConfigBase):
     """Service configuration response"""
+
     service_type: str = Field(..., description="Service type")
     created_at: datetime = Field(..., description="Creation time")
     updated_at: datetime = Field(..., description="Last update time")

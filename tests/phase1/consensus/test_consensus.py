@@ -3,7 +3,6 @@ Phase 1: Consensus Layer Tests
 Modularized consensus layer tests for AITBC Mesh Network
 """
 
-
 import pytest
 
 # Import consensus components from installed blockchain-node package
@@ -20,7 +19,7 @@ try:
         rotation_interval=100,
         min_stake=1000.0,
         reputation_threshold=0.5,
-        max_validators=21
+        max_validators=21,
     )
 except ImportError as e:
     pytest.skip(f"Phase 1 consensus modules not available: {e}", allow_module_level=True)
@@ -76,7 +75,7 @@ class TestMultiValidatorPoA:
         validators = [
             "0x1111111111111111111111111111111111111111",
             "0x2222222222222222222222222222222222222222",
-            "0x3333333333333333333333333333333333333333"
+            "0x3333333333333333333333333333333333333333",
         ]
 
         for validator in validators:
@@ -211,7 +210,7 @@ class TestPBFTConsensus:
             prepare_msg = pbft.state.prepared_messages.get(key)
             if prepare_msg and len(prepare_msg) > 0:
                 # Then commit - requires validator and prepare_msg
-                success = await pbft.commit_phase("0xvalidator3", prepare_msg[0])
+                await pbft.commit_phase("0xvalidator3", prepare_msg[0])
                 # Just verify it doesn't error, the actual success depends on quorum
                 assert True
 
@@ -238,9 +237,7 @@ class TestSlashingManager:
         """Test double signing detection"""
         validator_address = "0xvalidator1"
 
-        event = slashing.detect_double_sign(
-            validator_address, "hash1", "hash2", 100
-        )
+        event = slashing.detect_double_sign(validator_address, "hash1", "hash2", 100)
 
         assert event is not None
         assert event.condition == SlashingCondition.DOUBLE_SIGN
@@ -248,22 +245,13 @@ class TestSlashingManager:
 
     def test_downtime_detection(self, slashing):
         """Test detection of excessive downtime"""
-        event = slashing.detect_unavailability(
-            "0xvalidator1",
-            missed_blocks=5,
-            height=100
-        )
+        event = slashing.detect_unavailability("0xvalidator1", missed_blocks=5, height=100)
         assert event is not None
         assert event.condition == SlashingCondition.UNAVAILABLE
 
     def test_malicious_proposal_detection(self, slashing):
         """Test malicious proposal detection"""
-        event = slashing.detect_invalid_block(
-            "0xvalidator1",
-            block_hash="0xinvalid",
-            reason="Invalid signature",
-            height=100
-        )
+        event = slashing.detect_invalid_block("0xvalidator1", block_hash="0xinvalid", reason="Invalid signature", height=100)
         assert event is not None
         assert event.condition == SlashingCondition.INVALID_BLOCK
 
@@ -339,6 +327,8 @@ class TestKeyManager:
         # Get new key
         key_pair_2 = key_manager.get_key_pair(address)
         assert key_pair_2.public_key_pem != key_pair.public_key_pem
+
+
 class TestConsensusIntegration:
     """Test Integration Between Consensus Components"""
 

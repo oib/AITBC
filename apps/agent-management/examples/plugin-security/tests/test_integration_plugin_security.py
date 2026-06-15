@@ -1,6 +1,5 @@
 """Integration tests for plugin security service"""
 
-
 import pytest
 from fastapi.testclient import TestClient
 from main import SecurityScan, app, scan_queue, scan_reports, security_policies, vulnerability_database
@@ -47,13 +46,7 @@ def test_health_check_endpoint():
 def test_initiate_security_scan():
     """Test initiating a security scan"""
     client = TestClient(app)
-    scan = SecurityScan(
-        plugin_id="plugin_123",
-        version="1.0.0",
-        plugin_type="cli",
-        scan_type="comprehensive",
-        priority="high"
-    )
+    scan = SecurityScan(plugin_id="plugin_123", version="1.0.0", plugin_type="cli", scan_type="comprehensive", priority="high")
     response = client.post("/api/v1/security/scan", json=scan.model_dump())
     assert response.status_code == 200
     data = response.json()
@@ -66,13 +59,7 @@ def test_initiate_security_scan():
 def test_get_scan_status_queued():
     """Test getting scan status for queued scan"""
     client = TestClient(app)
-    scan = SecurityScan(
-        plugin_id="plugin_123",
-        version="1.0.0",
-        plugin_type="cli",
-        scan_type="basic",
-        priority="medium"
-    )
+    scan = SecurityScan(plugin_id="plugin_123", version="1.0.0", plugin_type="cli", scan_type="basic", priority="medium")
     scan_response = client.post("/api/v1/security/scan", json=scan.model_dump())
     scan_id = scan_response.json()["scan_id"]
 
@@ -141,13 +128,8 @@ def test_create_security_policy():
         "name": "Test Policy",
         "description": "A test security policy",
         "rules": ["rule1", "rule2"],
-        "severity_thresholds": {
-            "critical": 0,
-            "high": 0,
-            "medium": 5,
-            "low": 10
-        },
-        "plugin_types": ["cli", "web"]
+        "severity_thresholds": {"critical": 0, "high": 0, "medium": 5, "low": 10},
+        "plugin_types": ["cli", "web"],
     }
     response = client.post("/api/v1/security/policies", json=policy)
     assert response.status_code == 200
@@ -186,22 +168,12 @@ def test_scan_priority_queueing():
     client = TestClient(app)
 
     # Add low priority scan
-    scan_low = SecurityScan(
-        plugin_id="plugin_low",
-        version="1.0.0",
-        plugin_type="cli",
-        scan_type="basic",
-        priority="low"
-    )
+    scan_low = SecurityScan(plugin_id="plugin_low", version="1.0.0", plugin_type="cli", scan_type="basic", priority="low")
     client.post("/api/v1/security/scan", json=scan_low.model_dump())
 
     # Add critical priority scan
     scan_critical = SecurityScan(
-        plugin_id="plugin_critical",
-        version="1.0.0",
-        plugin_type="cli",
-        scan_type="basic",
-        priority="critical"
+        plugin_id="plugin_critical", version="1.0.0", plugin_type="cli", scan_type="basic", priority="critical"
     )
     response = client.post("/api/v1/security/scan", json=scan_critical.model_dump())
     scan_id = response.json()["scan_id"]

@@ -90,6 +90,7 @@ def test_marketplace_cors_rejects_wildcard():
     # This is the expected behavior
     with pytest.raises(ValueError, match="Wildcard CORS origins are not allowed"):
         import importlib.util
+
         spec = importlib.util.spec_from_file_location("agent_marketplace", agent_marketplace_file)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -114,6 +115,7 @@ def test_marketplace_cors_accepts_localhost():
 
     # Import the function directly from the file
     import importlib.util
+
     spec = importlib.util.spec_from_file_location("agent_marketplace", agent_marketplace_file)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -145,7 +147,7 @@ def test_no_wildcard_cors_in_coordinator_api_apps():
     ]
 
     wildcard_pattern = re.compile(r'allow_origins\s*=\s*\["\*"\]')
-    credentials_pattern = re.compile(r'allow_credentials\s*=\s*True')
+    credentials_pattern = re.compile(r"allow_credentials\s*=\s*True")
 
     for file_path in files_to_check:
         if not file_path.exists():

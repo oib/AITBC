@@ -25,7 +25,7 @@ class KnowledgeOperations:
             if result["success"]:
                 return result["data"].get("graph_id", "")
             else:
-                logger.error("Knowledge create failed: %s", result.get('error'))
+                logger.error("Knowledge create failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("create_knowledge_graph failed: %s", e)
@@ -39,7 +39,7 @@ class KnowledgeOperations:
             if result["success"]:
                 return result["data"].get("joined", False)
             else:
-                logger.error("Knowledge join failed: %s", result.get('error'))
+                logger.error("Knowledge join failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("join_knowledge_graph failed: %s", e)
@@ -53,7 +53,7 @@ class KnowledgeOperations:
             if result["success"]:
                 return result["data"].get("results", [])
             else:
-                logger.error("Knowledge query failed: %s", result.get('error'))
+                logger.error("Knowledge query failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("query_knowledge_graph failed: %s", e)
@@ -67,7 +67,7 @@ class KnowledgeOperations:
             if result["success"]:
                 return result["data"].get("node_id", "")
             else:
-                logger.error("Knowledge add-node failed: %s", result.get('error'))
+                logger.error("Knowledge add-node failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("add_knowledge_node failed: %s", e)
@@ -83,7 +83,7 @@ class KnowledgeOperations:
             if result["success"]:
                 return result["data"].get("edge_id", "")
             else:
-                logger.error("Knowledge add-edge failed: %s", result.get('error'))
+                logger.error("Knowledge add-edge failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("add_knowledge_edge failed: %s", e)

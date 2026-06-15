@@ -22,8 +22,9 @@ class TestGPUMarketplaceCommands:
         """Test that gpu command group exists"""
         try:
             from aitbc_cli.commands.gpu_marketplace import gpu
+
             assert gpu is not None
-            assert hasattr(gpu, 'name')
+            assert hasattr(gpu, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import gpu commands: {e}")
 
@@ -31,12 +32,13 @@ class TestGPUMarketplaceCommands:
         """Test gpu group name"""
         try:
             from aitbc_cli.commands.gpu_marketplace import gpu
+
             assert gpu.name == "gpu"
         except ImportError as e:
             pytest.skip(f"Cannot import gpu commands: {e}")
 
-    @patch('aitbc_cli.commands.gpu_marketplace.output')
-    @patch('aitbc_cli.commands.gpu_marketplace.error')
+    @patch("aitbc_cli.commands.gpu_marketplace.output")
+    @patch("aitbc_cli.commands.gpu_marketplace.error")
     def test_gpu_discover_command(self, mock_error, mock_output):
         """Test gpu discover command - skip due to complex config dependencies"""
         pytest.skip("GPU commands have complex config and HTTP client dependencies")

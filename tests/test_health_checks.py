@@ -35,7 +35,7 @@ class TestHealthCheck:
             status=HealthStatus.HEALTHY,
             message="All good",
             timestamp=datetime.now(),
-            details={"key": "value"}
+            details={"key": "value"},
         )
         assert check.service == "test-service"
         assert check.status == HealthStatus.HEALTHY
@@ -44,12 +44,7 @@ class TestHealthCheck:
 
     def test_health_check_without_details(self):
         """Test HealthCheck without optional details"""
-        check = HealthCheck(
-            service="test-service",
-            status=HealthStatus.HEALTHY,
-            message="All good",
-            timestamp=datetime.now()
-        )
+        check = HealthCheck(service="test-service", status=HealthStatus.HEALTHY, message="All good", timestamp=datetime.now())
         assert check.details is None
 
 
@@ -74,7 +69,7 @@ class TestHealthChecker:
         assert "memory" in checker._checks
         assert checker._checks["memory"] == mock_check
 
-    @patch('aitbc.health_checks.logger')
+    @patch("aitbc.health_checks.logger")
     def test_register_check_logs(self, mock_logger):
         """Test register_check logs registration"""
         checker = HealthChecker("test-service")
@@ -140,7 +135,7 @@ class TestHealthChecker:
         assert result.status == HealthStatus.UNHEALTHY
         assert "unhealthy" in result.message
 
-    @patch('aitbc.health_checks.logger')
+    @patch("aitbc.health_checks.logger")
     def test_run_checks_with_exception(self, mock_logger):
         """Test run_checks handles exceptions in checks"""
         checker = HealthChecker("test-service")
@@ -211,6 +206,7 @@ class TestCreateBasicHealthCheck:
         """Test basic health check has registered checks when psutil available"""
         try:
             import psutil
+
             checker = create_basic_health_check("test-service")
             # Should have memory and disk checks if psutil is available
             assert len(checker._checks) > 0

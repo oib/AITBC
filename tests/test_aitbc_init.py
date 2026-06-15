@@ -17,7 +17,7 @@ class TestAitbcInit:
 
     def test_aitbc_has_version(self):
         """Test aitbc has __version__"""
-        assert hasattr(aitbc, '__version__')
+        assert hasattr(aitbc, "__version__")
 
 
 if __name__ == "__main__":

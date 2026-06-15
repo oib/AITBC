@@ -22,6 +22,7 @@ class TestServiceErrorHandling:
     def test_monitor_service_error_handling(self):
         """Test monitor service handles file and JSON errors properly"""
         import os
+
         monitor_file = "/opt/aitbc/services/monitor.py"
         if not os.path.exists(monitor_file):
             pytest.skip(f"Monitor service file not found: {monitor_file}")
@@ -35,6 +36,7 @@ class TestServiceErrorHandling:
     def test_marketplace_launcher_error_handling(self):
         """Test marketplace launcher handles subprocess errors properly"""
         import os
+
         launcher_file = "/opt/aitbc/services/real_marketplace_launcher.py"
         if not os.path.exists(launcher_file):
             pytest.skip(f"Launcher file not found: {launcher_file}")
@@ -47,6 +49,7 @@ class TestServiceErrorHandling:
     def test_blockchain_launcher_error_handling(self):
         """Test blockchain HTTP launcher handles subprocess errors properly"""
         import os
+
         launcher_file = "/opt/aitbc/services/blockchain_http_launcher.py"
         if not os.path.exists(launcher_file):
             pytest.skip(f"Launcher file not found: {launcher_file}")
@@ -59,6 +62,7 @@ class TestServiceErrorHandling:
     def test_gpu_launcher_error_handling(self):
         """Test GPU marketplace launcher handles subprocess errors properly"""
         import os
+
         launcher_file = "/opt/aitbc/services/gpu_marketplace_launcher.py"
         if not os.path.exists(launcher_file):
             pytest.skip(f"Launcher file not found: {launcher_file}")
@@ -76,6 +80,7 @@ class TestMinerManagementErrorHandling:
     def test_miner_register_error_handling(self):
         """Test miner register handles network errors properly"""
         import os
+
         miner_file = "/opt/aitbc/cli/miner_management.py"
         assert os.path.exists(miner_file)
 
@@ -101,6 +106,7 @@ class TestDatabasePerformanceOptimizations:
     def test_database_connection_pooling(self):
         """Test database has connection pooling configured"""
         import os
+
         db_file = "/opt/aitbc/apps/coordinator-api/src/app/database.py"
         assert os.path.exists(db_file)
 
@@ -118,6 +124,7 @@ class TestCachePerformanceOptimizations:
     def test_cache_memory_management(self):
         """Test cache has memory management configured"""
         import os
+
         cache_file = "/opt/aitbc/apps/coordinator-api/src/app/utils/cache.py"
         assert os.path.exists(cache_file)
 
@@ -134,61 +141,37 @@ class TestCLIComprehensiveTesting:
 
     def test_cli_help_command(self, skip_if_cli_missing):
         """Test CLI help command works"""
-        result = subprocess.run(
-            [str(CLI_BIN), "--help"],
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run([str(CLI_BIN), "--help"], capture_output=True, text=True)
         assert result.returncode == 0
         assert "AITBC CLI" in result.stdout
 
     def test_cli_system_command(self, skip_if_cli_missing):
         """Test CLI system command works"""
-        result = subprocess.run(
-            [str(CLI_BIN), "system", "status"],
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run([str(CLI_BIN), "system", "status"], capture_output=True, text=True)
         assert result.returncode == 0
         assert "System status" in result.stdout
 
     def test_cli_chain_command(self, skip_if_cli_missing):
         """Test CLI chain command works"""
-        result = subprocess.run(
-            [str(CLI_BIN), "blockchain", "info"],
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run([str(CLI_BIN), "blockchain", "info"], capture_output=True, text=True)
         assert result.returncode == 0
         assert "Blockchain information" in result.stdout
 
     def test_cli_network_command(self, skip_if_cli_missing):
         """Test CLI network command works"""
-        result = subprocess.run(
-            [str(CLI_BIN), "network", "status"],
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run([str(CLI_BIN), "network", "status"], capture_output=True, text=True)
         assert result.returncode == 0
         assert "Network status" in result.stdout
 
     def test_cli_wallet_command(self, skip_if_cli_missing):
         """Test CLI wallet command works"""
-        result = subprocess.run(
-            [str(CLI_BIN), "wallet", "--help"],
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run([str(CLI_BIN), "wallet", "--help"], capture_output=True, text=True)
         assert result.returncode == 0
         assert "create,list,balance,transactions,send,import,export,delete,rename,backup,sync,batch" in result.stdout
 
     def test_cli_marketplace_list_command(self, skip_if_cli_missing):
         """Test CLI marketplace list command works"""
-        result = subprocess.run(
-            [str(CLI_BIN), "market", "list"],
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run([str(CLI_BIN), "market", "list"], capture_output=True, text=True)
         assert result.returncode == 0
         assert "Marketplace list" in result.stdout
 

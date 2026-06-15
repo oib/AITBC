@@ -2,6 +2,7 @@
 CLI-based contract client for AITBC
 Provides the same interface as ContractClient but uses CLI commands
 """
+
 import asyncio
 import json
 import logging
@@ -10,9 +11,11 @@ import subprocess
 
 logger = logging.getLogger(__name__)
 
+
 def set_logger(log):
     global logger
     logger = log
+
 
 class CLIContractClient:
     """Contract client that uses AITBC CLI instead of Web3"""
@@ -28,22 +31,16 @@ class CLIContractClient:
     def _load_contract_addresses(self) -> None:
         """Load contract addresses from config"""
         # Store contract addresses by name
-        if hasattr(self.config, 'cross_chain_atomic_swap') and self.config.cross_chain_atomic_swap:
+        if hasattr(self.config, "cross_chain_atomic_swap") and self.config.cross_chain_atomic_swap:
             self.contracts["cross_chain_atomic_swap"] = self.config.cross_chain_atomic_swap
-        if hasattr(self.config, 'payment_processor') and self.config.payment_processor:
+        if hasattr(self.config, "payment_processor") and self.config.payment_processor:
             self.contracts["payment_processor"] = self.config.payment_processor
-        if hasattr(self.config, 'agent_marketplace') and self.config.agent_marketplace:
+        if hasattr(self.config, "agent_marketplace") and self.config.agent_marketplace:
             self.contracts["agent_marketplace"] = self.config.agent_marketplace
-        if hasattr(self.config, 'staking_contract') and self.config.staking_contract:
+        if hasattr(self.config, "staking_contract") and self.config.staking_contract:
             self.contracts["staking_contract"] = self.config.staking_contract
 
-    async def send_transaction(
-        self,
-        contract_name: str,
-        method_name: str,
-        *args,
-        **kwargs
-    ) -> str:
+    async def send_transaction(self, contract_name: str, method_name: str, *args, **kwargs) -> str:
         """Send transaction via CLI"""
         contract_address = self.contracts.get(contract_name)
         if not contract_address:
@@ -65,11 +62,16 @@ class CLIContractClient:
 
         # Build CLI command
         cmd = [
-            "python3", "/opt/aitbc/cli/unified_cli.py",
-            "contract", "call",
-            "--address", contract_address,
-            "--method", method_name,
-            "--params", params_json
+            "python3",
+            "/opt/aitbc/cli/unified_cli.py",
+            "contract",
+            "call",
+            "--address",
+            contract_address,
+            "--method",
+            method_name,
+            "--params",
+            params_json,
         ]
 
         # Add password file if available
@@ -81,9 +83,7 @@ class CLIContractClient:
             if logger:
                 logger.info("Calling CLI: %s on %s", method_name, contract_name)
 
-            result = await asyncio.to_thread(
-                subprocess.run, cmd, capture_output=True, text=True, timeout=30
-            )
+            result = await asyncio.to_thread(subprocess.run, cmd, capture_output=True, text=True, timeout=30)
 
             if result.returncode != 0:
                 raise Exception(f"CLI call failed: {result.stderr}")
@@ -108,5 +108,5 @@ class CLIContractClient:
             "block_number": 0,
             "gas_used": 0,
             "transaction_hash": tx_hash,
-            "note": "CLI-based transaction"
+            "note": "CLI-based transaction",
         }

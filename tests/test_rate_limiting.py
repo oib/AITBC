@@ -45,6 +45,7 @@ class TestRateLimitDecorator:
     @pytest.mark.asyncio
     async def test_rate_limit_within_limit(self):
         """Test rate_limit allows requests within limit"""
+
         @rate_limit(rate=5, per=60)
         async def test_endpoint(request: Request):
             return {"status": "ok"}
@@ -60,6 +61,7 @@ class TestRateLimitDecorator:
     @pytest.mark.asyncio
     async def test_rate_limit_exceeded(self):
         """Test rate_limit blocks requests exceeding limit"""
+
         @rate_limit(rate=2, per=60)
         async def test_endpoint(request: Request):
             return {"status": "ok"}
@@ -82,6 +84,7 @@ class TestRateLimitDecorator:
     @pytest.mark.asyncio
     async def test_rate_limit_custom_key_func(self):
         """Test rate_limit with custom key function"""
+
         def custom_key(request: Request) -> str:
             return request.headers.get("X-API-Key", "unknown")
 
@@ -105,6 +108,7 @@ class TestRateLimitDecorator:
     @pytest.mark.asyncio
     async def test_rate_limit_no_request(self):
         """Test rate_limit without request skips limiting"""
+
         @rate_limit(rate=2, per=60)
         async def test_endpoint():
             return {"status": "ok"}
@@ -116,6 +120,7 @@ class TestRateLimitDecorator:
     @pytest.mark.asyncio
     async def test_rate_limit_custom_error_message(self):
         """Test rate_limit with custom error message"""
+
         @rate_limit(rate=1, per=60, error_message="Custom limit message")
         async def test_endpoint(request: Request):
             return {"status": "ok"}
@@ -180,6 +185,7 @@ class TestRateLimitMiddleware:
     @pytest.mark.asyncio
     async def test_middleware_custom_key_func(self):
         """Test middleware with custom key function"""
+
         def custom_key(request: Request) -> str:
             return request.headers.get("X-API-Key", "unknown")
 

@@ -30,6 +30,7 @@ _PUBLIC_SEPOLIA_RPCS = [
 @dataclass
 class EthereumConfig:
     """Configuration for Ethereum RPC connection."""
+
     network: str = field(default_factory=lambda: os.getenv("ETH_NETWORK", "sepolia"))
     rpc_url: str | None = field(default_factory=lambda: os.getenv("ETH_RPC_URL"))
     infura_key: str | None = field(default_factory=lambda: os.getenv("INFURA_API_KEY"))
@@ -119,6 +120,7 @@ class EthereumRPCClient:
         Returns wei and ether values.
         """
         from web3 import Web3
+
         w3 = self._get_web3()
         checksum_addr = Web3.to_checksum_address(address)
         wei = w3.eth.get_balance(checksum_addr)
@@ -145,6 +147,7 @@ class EthereumRPCClient:
     def get_transaction(self, tx_hash: str) -> dict[str, Any] | None:
         """Get transaction data by hash."""
         from web3 import Web3
+
         w3 = self._get_web3()
         try:
             tx = w3.eth.get_transaction(tx_hash)
@@ -184,6 +187,7 @@ class EthereumRPCClient:
     def get_gas_price(self) -> dict[str, Any]:
         """Get current gas price in wei and gwei."""
         from web3 import Web3
+
         w3 = self._get_web3()
         wei = w3.eth.gas_price
         return {
@@ -200,6 +204,7 @@ class EthereumRPCClient:
     ) -> Any:
         """Call a read-only contract function."""
         from web3 import Web3
+
         w3 = self._get_web3()
         checksum = Web3.to_checksum_address(contract_address)
         contract = w3.eth.contract(address=checksum, abi=abi)

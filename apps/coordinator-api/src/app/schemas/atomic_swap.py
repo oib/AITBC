@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel
 
 from ..domain.atomic_swap import SwapStatus

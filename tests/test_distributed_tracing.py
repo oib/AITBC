@@ -3,7 +3,6 @@ Distributed Tracing Tests
 Tests for AITBC distributed tracing utilities
 """
 
-
 import pytest
 
 from aitbc.distributed_tracing import (
@@ -23,22 +22,14 @@ class TestSpanContext:
 
     def test_span_context_creation(self):
         """Test SpanContext creation"""
-        context = SpanContext(
-            trace_id="test-trace-123",
-            span_id="test-span-456",
-            parent_span_id=None
-        )
+        context = SpanContext(trace_id="test-trace-123", span_id="test-span-456", parent_span_id=None)
         assert context.trace_id == "test-trace-123"
         assert context.span_id == "test-span-456"
         assert context.parent_span_id is None
 
     def test_span_context_with_parent(self):
         """Test SpanContext with parent span"""
-        context = SpanContext(
-            trace_id="test-trace-123",
-            span_id="test-span-456",
-            parent_span_id="parent-span-789"
-        )
+        context = SpanContext(trace_id="test-trace-123", span_id="test-span-456", parent_span_id="parent-span-789")
         assert context.parent_span_id == "parent-span-789"
 
 
@@ -63,12 +54,7 @@ class TestTracingManager:
 
     def test_tracing_manager_custom_jaeger_config(self):
         """Test TracingManager with custom Jaeger config"""
-        manager = TracingManager(
-            service_name="test-service",
-            jaeger_host="custom-host",
-            jaeger_port=6832,
-            enabled=False
-        )
+        manager = TracingManager(service_name="test-service", jaeger_host="custom-host", jaeger_port=6832, enabled=False)
         assert manager.jaeger_host == "custom-host"
         assert manager.jaeger_port == 6832
 
@@ -145,6 +131,7 @@ class TestTracedDecorator:
 
     def test_traced_decorator_without_opentelemetry(self):
         """Test traced decorator when OpenTelemetry not available"""
+
         @traced(name="test_function")
         def test_func(x, y):
             return x + y
@@ -154,6 +141,7 @@ class TestTracedDecorator:
 
     def test_traced_decorator_with_exception(self):
         """Test traced decorator with exception"""
+
         @traced(name="test_function")
         def test_func():
             raise ValueError("test error")
@@ -163,6 +151,7 @@ class TestTracedDecorator:
 
     def test_traced_decorator_default_name(self):
         """Test traced decorator with default name"""
+
         @traced()
         def test_func():
             return 42
@@ -172,6 +161,7 @@ class TestTracedDecorator:
 
     def test_traced_decorator_with_attributes(self):
         """Test traced decorator with attributes"""
+
         @traced(attributes={"custom": "value"})
         def test_func():
             return 42
@@ -198,12 +188,7 @@ class TestTracingFunctions:
 
     def test_initialize_tracing_custom_config(self):
         """Test initialize_tracing with custom config"""
-        manager = initialize_tracing(
-            service_name="test-service",
-            jaeger_host="custom-host",
-            jaeger_port=6832,
-            enabled=False
-        )
+        manager = initialize_tracing(service_name="test-service", jaeger_host="custom-host", jaeger_port=6832, enabled=False)
         assert manager.jaeger_host == "custom-host"
         assert manager.jaeger_port == 6832
         shutdown_tracing()

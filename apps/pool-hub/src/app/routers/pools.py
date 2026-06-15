@@ -15,6 +15,7 @@ router = APIRouter(prefix="/pools", tags=["pools"])
 
 class PoolCreate(BaseModel):
     """Pool creation request"""
+
     pool_id: str
     name: str
     description: str | None = None
@@ -26,6 +27,7 @@ class PoolCreate(BaseModel):
 
 class PoolInfo(BaseModel):
     """Pool information response"""
+
     pool_id: str
     name: str
     description: str | None
@@ -42,6 +44,7 @@ class PoolInfo(BaseModel):
 
 class PoolStats(BaseModel):
     """Pool statistics"""
+
     pool_id: str
     miner_count: int
     active_miners: int
@@ -59,11 +62,7 @@ def get_registry() -> MinerRegistry:
 
 @router.post("/", response_model=PoolInfo)
 @rate_limit(rate=50, per=60)
-async def create_pool(
-    request: Request,
-    pool: PoolCreate,
-    registry: MinerRegistry = Depends(get_registry)
-) -> PoolInfo:
+async def create_pool(request: Request, pool: PoolCreate, registry: MinerRegistry = Depends(get_registry)) -> PoolInfo:
     """Create a new mining pool."""
     try:
         created = await registry.create_pool(
@@ -73,7 +72,7 @@ async def create_pool(
             operator=pool.operator,
             fee_percent=pool.fee_percent,
             min_payout=pool.min_payout,
-            payout_schedule=pool.payout_schedule
+            payout_schedule=pool.payout_schedule,
         )
         return created  # type: ignore[no-any-return]
     except ValueError as e:
@@ -82,11 +81,7 @@ async def create_pool(
 
 @router.get("/{pool_id}", response_model=PoolInfo)
 @rate_limit(rate=200, per=60)
-async def get_pool(
-    request: Request,
-    pool_id: str,
-    registry: MinerRegistry = Depends(get_registry)
-) -> PoolInfo:
+async def get_pool(request: Request, pool_id: str, registry: MinerRegistry = Depends(get_registry)) -> PoolInfo:
     """Get pool information."""
     pool = await registry.get_pool(pool_id)
     if not pool:
@@ -97,10 +92,7 @@ async def get_pool(
 @router.get("/", response_model=list[PoolInfo])
 @rate_limit(rate=200, per=60)
 async def list_pools(
-    request: Request,
-    limit: int = Query(50, le=100),
-    offset: int = Query(0),
-    registry: MinerRegistry = Depends(get_registry)
+    request: Request, limit: int = Query(50, le=100), offset: int = Query(0), registry: MinerRegistry = Depends(get_registry)
 ) -> list[PoolInfo]:
     """List all pools."""
     return await registry.list_pools(limit=limit, offset=offset)  # type: ignore[no-any-return]
@@ -108,11 +100,7 @@ async def list_pools(
 
 @router.get("/{pool_id}/stats", response_model=PoolStats)
 @rate_limit(rate=200, per=60)
-async def get_pool_stats(
-    request: Request,
-    pool_id: str,
-    registry: MinerRegistry = Depends(get_registry)
-) -> PoolStats:
+async def get_pool_stats(request: Request, pool_id: str, registry: MinerRegistry = Depends(get_registry)) -> PoolStats:
     """Get pool statistics."""
     pool = await registry.get_pool(pool_id)
     if not pool:
@@ -128,7 +116,7 @@ async def get_pool_miners(
     pool_id: str,
     status: str | None = Query(None),
     limit: int = Query(50, le=100),
-    registry: MinerRegistry = Depends(get_registry)
+    registry: MinerRegistry = Depends(get_registry),
 ) -> list[dict[str, Any]]:
     """Get miners in a pool."""
     pool = await registry.get_pool(pool_id)
@@ -141,10 +129,7 @@ async def get_pool_miners(
 @router.put("/{pool_id}")
 @rate_limit(rate=50, per=60)
 async def update_pool(
-    request: Request,
-    pool_id: str,
-    updates: dict[str, Any],
-    registry: MinerRegistry = Depends(get_registry)
+    request: Request, pool_id: str, updates: dict[str, Any], registry: MinerRegistry = Depends(get_registry)
 ) -> dict[str, str]:
     """Update pool settings."""
     pool = await registry.get_pool(pool_id)
@@ -160,11 +145,7 @@ async def update_pool(
 
 @router.delete("/{pool_id}")
 @rate_limit(rate=50, per=60)
-async def delete_pool(
-    request: Request,
-    pool_id: str,
-    registry: MinerRegistry = Depends(get_registry)
-) -> dict[str, str]:
+async def delete_pool(request: Request, pool_id: str, registry: MinerRegistry = Depends(get_registry)) -> dict[str, str]:
     """Delete a pool (must have no miners)."""
     pool = await registry.get_pool(pool_id)
     if not pool:
@@ -172,10 +153,7 @@ async def delete_pool(
 
     miners = await registry.list(pool_id=pool_id, limit=1)
     if miners:
-        raise HTTPException(
-            status_code=409,
-            detail="Cannot delete pool with active miners"
-        )
+        raise HTTPException(status_code=409, detail="Cannot delete pool with active miners")
 
     await registry.delete_pool(pool_id)
     return {"status": "deleted"}

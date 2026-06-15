@@ -9,6 +9,7 @@ try:
     from pydantic_settings import BaseSettings, SettingsConfigDict
 except ImportError:
     from pydantic import BaseSettings  # type: ignore
+
     SettingsConfigDict = None  # type: ignore[misc,assignment]
 from enum import StrEnum
 
@@ -21,18 +22,22 @@ def validated_cors_origins(origins: list[str]) -> list[str]:
 
 class Environment(StrEnum):
     """Environment types"""
+
     DEVELOPMENT = "development"
     TESTING = "testing"
     STAGING = "staging"
     PRODUCTION = "production"
 
+
 class LogLevel(StrEnum):
     """Log levels"""
+
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARNING = "WARNING"
     ERROR = "ERROR"
     CRITICAL = "CRITICAL"
+
 
 class Settings(BaseSettings):
     """Application settings"""
@@ -83,16 +88,20 @@ class Settings(BaseSettings):
     # Security settings
     secret_key: str = os.getenv("SECRET_KEY", "default_secret_key_change_in_production")
     allowed_hosts: list[str] = os.getenv("ALLOWED_HOSTS", "*").split(",") if os.getenv("ALLOWED_HOSTS") else ["*"]
-    cors_origins: list[str] = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else [
-        "http://localhost:8001",
-        "http://localhost:8011",
-        "http://localhost:8016",
-        "http://localhost:9001",
-        "http://127.0.0.1:8001",
-        "http://127.0.0.1:8011",
-        "http://127.0.0.1:8016",
-        "http://127.0.0.1:9001",
-    ]
+    cors_origins: list[str] = (
+        os.getenv("CORS_ORIGINS", "").split(",")
+        if os.getenv("CORS_ORIGINS")
+        else [
+            "http://localhost:8001",
+            "http://localhost:8011",
+            "http://localhost:8016",
+            "http://localhost:9001",
+            "http://127.0.0.1:8001",
+            "http://127.0.0.1:8011",
+            "http://127.0.0.1:8016",
+            "http://127.0.0.1:9001",
+        ]
+    )
 
     # Monitoring settings
     enable_metrics: bool = True
@@ -110,36 +119,26 @@ class Settings(BaseSettings):
     load_balancer_cache_size: int = 1000
 
     if SettingsConfigDict is None:
+
         class Config:
             env_file = ".env"
             env_file_encoding = "utf-8"
             case_sensitive = False
 
+
 # Global settings instance
 settings = Settings()
+
 
 # Configuration constants
 class ConfigConstants:
     """Configuration constants"""
 
     # Agent types
-    AGENT_TYPES = [
-        "coordinator",
-        "worker",
-        "specialist",
-        "monitor",
-        "gateway",
-        "orchestrator"
-    ]
+    AGENT_TYPES = ["coordinator", "worker", "specialist", "monitor", "gateway", "orchestrator"]
 
     # Agent statuses
-    AGENT_STATUSES = [
-        "active",
-        "inactive",
-        "busy",
-        "maintenance",
-        "error"
-    ]
+    AGENT_STATUSES = ["active", "inactive", "busy", "maintenance", "error"]
 
     # Message types
     MESSAGE_TYPES = [
@@ -152,17 +151,11 @@ class ConfigConstants:
         "broadcast",
         "direct",
         "peer_to_peer",
-        "hierarchical"
+        "hierarchical",
     ]
 
     # Task priorities
-    TASK_PRIORITIES = [
-        "low",
-        "normal",
-        "high",
-        "critical",
-        "urgent"
-    ]
+    TASK_PRIORITIES = ["low", "normal", "high", "critical", "urgent"]
 
     # Load balancing strategies
     LOAD_BALANCING_STRATEGIES = [
@@ -173,7 +166,7 @@ class ConfigConstants:
         "resource_based",
         "capability_based",
         "predictive",
-        "consistent_hash"
+        "consistent_hash",
     ]
 
     # Default ports
@@ -182,17 +175,11 @@ class ConfigConstants:
         "agent_registry": 9002,
         "task_distributor": 9003,
         "metrics": 9004,
-        "health": 9005
+        "health": 9005,
     }
 
     # Timeouts (in seconds)
-    TIMEOUTS = {
-        "connection": 30,
-        "message": 300,
-        "task": 600,
-        "heartbeat": 120,
-        "cleanup": 3600
-    }
+    TIMEOUTS = {"connection": 30, "message": 300, "task": 600, "heartbeat": 120, "cleanup": 3600}
 
     # Limits
     LIMITS = {
@@ -200,8 +187,9 @@ class ConfigConstants:
         "max_task_queue_size": 10000,
         "max_concurrent_tasks": 100,
         "max_agent_connections": 1000,
-        "max_redis_connections": 10
+        "max_redis_connections": 10,
     }
+
 
 # Environment-specific configurations
 class EnvironmentConfig:
@@ -216,7 +204,7 @@ class EnvironmentConfig:
             "reload": True,
             "workers": 1,
             "redis_url": "redis://localhost:6379/1",
-            "enable_metrics": True
+            "enable_metrics": True,
         }
 
     @staticmethod
@@ -228,7 +216,7 @@ class EnvironmentConfig:
             "redis_url": "redis://localhost:6379/15",  # Separate DB for testing
             "enable_metrics": False,
             "heartbeat_interval": 5,  # Faster for testing
-            "cleanup_interval": 10
+            "cleanup_interval": 10,
         }
 
     @staticmethod
@@ -240,7 +228,7 @@ class EnvironmentConfig:
             "redis_url": "redis://localhost:6379/2",
             "enable_metrics": True,
             "workers": 2,
-            "cors_origins": ["https://staging.aitbc.com"]
+            "cors_origins": ["https://staging.aitbc.com"],
         }
 
     @staticmethod
@@ -254,8 +242,9 @@ class EnvironmentConfig:
             "workers": 4,
             "cors_origins": ["https://aitbc.com"],
             "secret_key": os.getenv("SECRET_KEY"),
-            "allowed_hosts": ["aitbc.com", "www.aitbc.com"]
+            "allowed_hosts": ["aitbc.com", "www.aitbc.com"],
         }
+
 
 # Configuration loader
 class ConfigLoader:
@@ -334,7 +323,7 @@ class ConfigLoader:
             "decode_responses": True,
             "socket_keepalive": True,
             "socket_keepalive_options": {},
-            "health_check_interval": 30
+            "health_check_interval": 30,
         }
 
     @staticmethod
@@ -344,40 +333,27 @@ class ConfigLoader:
             "version": 1,
             "disable_existing_loggers": False,
             "formatters": {
-                "default": {
-                    "format": settings.log_format,
-                    "datefmt": "%Y-%m-%d %H:%M:%S"
-                },
+                "default": {"format": settings.log_format, "datefmt": "%Y-%m-%d %H:%M:%S"},
                 "detailed": {
                     "format": "%(asctime)s - %(name)s - %(levelname)s - %(module)s - %(funcName)s - %(message)s",
-                    "datefmt": "%Y-%m-%d %H:%M:%S"
-                }
+                    "datefmt": "%Y-%m-%d %H:%M:%S",
+                },
             },
             "handlers": {
                 "console": {
                     "class": "logging.StreamHandler",
                     "level": settings.log_level.value,
                     "formatter": "default",
-                    "stream": "ext://sys.stdout"
+                    "stream": "ext://sys.stdout",
                 }
             },
             "loggers": {
-                "": {
-                    "level": settings.log_level.value,
-                    "handlers": ["console"]
-                },
-                "uvicorn": {
-                    "level": "INFO",
-                    "handlers": ["console"],
-                    "propagate": False
-                },
-                "fastapi": {
-                    "level": "INFO",
-                    "handlers": ["console"],
-                    "propagate": False
-                }
-            }
+                "": {"level": settings.log_level.value, "handlers": ["console"]},
+                "uvicorn": {"level": "INFO", "handlers": ["console"], "propagate": False},
+                "fastapi": {"level": "INFO", "handlers": ["console"], "propagate": False},
+            },
         }
+
 
 # Configuration utilities
 class ConfigUtils:
@@ -389,48 +365,23 @@ class ConfigUtils:
         base_config = {
             "heartbeat_interval": settings.heartbeat_interval,
             "max_connections": 100,
-            "timeout": settings.connection_timeout
+            "timeout": settings.connection_timeout,
         }
 
         # Agent-specific configurations
         agent_configs = {
-            "coordinator": {
-                **base_config,
-                "max_connections": 1000,
-                "heartbeat_interval": 15,
-                "enable_coordination": True
-            },
-            "worker": {
-                **base_config,
-                "max_connections": 50,
-                "task_timeout": 300,
-                "enable_coordination": False
-            },
-            "specialist": {
-                **base_config,
-                "max_connections": 25,
-                "specialization_timeout": 600,
-                "enable_coordination": True
-            },
-            "monitor": {
-                **base_config,
-                "heartbeat_interval": 10,
-                "enable_coordination": True,
-                "monitoring_interval": 30
-            },
-            "gateway": {
-                **base_config,
-                "max_connections": 2000,
-                "enable_coordination": True,
-                "gateway_timeout": 60
-            },
+            "coordinator": {**base_config, "max_connections": 1000, "heartbeat_interval": 15, "enable_coordination": True},
+            "worker": {**base_config, "max_connections": 50, "task_timeout": 300, "enable_coordination": False},
+            "specialist": {**base_config, "max_connections": 25, "specialization_timeout": 600, "enable_coordination": True},
+            "monitor": {**base_config, "heartbeat_interval": 10, "enable_coordination": True, "monitoring_interval": 30},
+            "gateway": {**base_config, "max_connections": 2000, "enable_coordination": True, "gateway_timeout": 60},
             "orchestrator": {
                 **base_config,
                 "max_connections": 500,
                 "heartbeat_interval": 5,
                 "enable_coordination": True,
-                "orchestration_timeout": 120
-            }
+                "orchestration_timeout": 120,
+            },
         }
 
         return agent_configs.get(agent_type, base_config)
@@ -442,7 +393,7 @@ class ConfigUtils:
             "host": settings.host,
             "port": settings.port,
             "workers": settings.workers,
-            "timeout": settings.connection_timeout
+            "timeout": settings.connection_timeout,
         }
 
         # Service-specific configurations
@@ -450,41 +401,27 @@ class ConfigUtils:
             "agent_coordinator": {
                 **base_config,
                 "port": ConfigConstants.DEFAULT_PORTS["agent_coordinator"],
-                "enable_metrics": settings.enable_metrics
+                "enable_metrics": settings.enable_metrics,
             },
             "agent_registry": {
                 **base_config,
                 "port": ConfigConstants.DEFAULT_PORTS["agent_registry"],
-                "enable_metrics": False
+                "enable_metrics": False,
             },
             "task_distributor": {
                 **base_config,
                 "port": ConfigConstants.DEFAULT_PORTS["task_distributor"],
-                "max_queue_size": settings.max_task_queue_size
+                "max_queue_size": settings.max_task_queue_size,
             },
-            "metrics": {
-                **base_config,
-                "port": ConfigConstants.DEFAULT_PORTS["metrics"],
-                "enable_metrics": True
-            },
-            "health": {
-                **base_config,
-                "port": ConfigConstants.DEFAULT_PORTS["health"],
-                "enable_metrics": False
-            }
+            "metrics": {**base_config, "port": ConfigConstants.DEFAULT_PORTS["metrics"], "enable_metrics": True},
+            "health": {**base_config, "port": ConfigConstants.DEFAULT_PORTS["health"], "enable_metrics": False},
         }
 
         return service_configs.get(service_name, base_config)
+
 
 # Load configuration
 config = ConfigLoader.load_config()
 
 # Export settings and utilities
-__all__ = [
-    "settings",
-    "config",
-    "ConfigConstants",
-    "EnvironmentConfig",
-    "ConfigLoader",
-    "ConfigUtils"
-]
+__all__ = ["settings", "config", "ConfigConstants", "EnvironmentConfig", "ConfigLoader", "ConfigUtils"]

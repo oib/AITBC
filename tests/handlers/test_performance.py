@@ -23,7 +23,7 @@ from handlers.performance import (
 class TestHandlePerformanceBenchmark:
     """Test handle_performance_benchmark function"""
 
-    @patch('handlers.performance.logger')
+    @patch("handlers.performance.logger")
     def test_handle_performance_benchmark_json(self, mock_logger):
         """Test benchmark with JSON output format"""
         args = Mock()
@@ -38,7 +38,7 @@ class TestHandlePerformanceBenchmark:
         logged_calls = [str(call) for call in mock_logger.info.call_args_list]
         assert any("tps" in call for call in logged_calls)
 
-    @patch('handlers.performance.logger')
+    @patch("handlers.performance.logger")
     def test_handle_performance_benchmark_text(self, mock_logger):
         """Test benchmark with text output format"""
         args = Mock()
@@ -57,7 +57,7 @@ class TestHandlePerformanceBenchmark:
 class TestHandlePerformanceOptimize:
     """Test handle_performance_optimize function"""
 
-    @patch('handlers.performance.logger')
+    @patch("handlers.performance.logger")
     def test_handle_performance_optimize_default_target(self, mock_logger):
         """Test optimization with default target"""
         args = Mock()
@@ -72,7 +72,7 @@ class TestHandlePerformanceOptimize:
         logged_msg = mock_logger.info.call_args[0][0]
         assert "general" in logged_msg
 
-    @patch('handlers.performance.logger')
+    @patch("handlers.performance.logger")
     def test_handle_performance_optimize_custom_target(self, mock_logger):
         """Test optimization with custom target"""
         args = Mock()
@@ -87,7 +87,7 @@ class TestHandlePerformanceOptimize:
         logged_msg = mock_logger.info.call_args[0][0]
         assert "database" in logged_msg
 
-    @patch('handlers.performance.logger')
+    @patch("handlers.performance.logger")
     def test_handle_performance_optimize_calls_render_mapping(self, mock_logger):
         """Test that render_mapping is called"""
         args = Mock()
@@ -105,7 +105,7 @@ class TestHandlePerformanceOptimize:
 class TestHandlePerformanceTune:
     """Test handle_performance_tune function"""
 
-    @patch('handlers.performance.logger')
+    @patch("handlers.performance.logger")
     def test_handle_performance_tune_defaults(self, mock_logger):
         """Test tuning with default parameters"""
         args = Mock()
@@ -121,7 +121,7 @@ class TestHandlePerformanceTune:
         logged_msg = mock_logger.info.call_args[0][0]
         assert "Performance tuning applied" in logged_msg
 
-    @patch('handlers.performance.logger')
+    @patch("handlers.performance.logger")
     def test_handle_performance_tune_with_parameters(self, mock_logger):
         """Test tuning with parameters enabled"""
         args = Mock()
@@ -135,7 +135,7 @@ class TestHandlePerformanceTune:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.performance.logger')
+    @patch("handlers.performance.logger")
     def test_handle_performance_tune_aggressive(self, mock_logger):
         """Test tuning with aggressive mode"""
         args = Mock()
@@ -149,7 +149,7 @@ class TestHandlePerformanceTune:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.performance.logger')
+    @patch("handlers.performance.logger")
     def test_handle_performance_tune_calls_render_mapping(self, mock_logger):
         """Test that render_mapping is called"""
         args = Mock()

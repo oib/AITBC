@@ -22,6 +22,7 @@ class TestRetry:
 
     def test_retry_succeeds_on_first_attempt(self):
         """Test retry when function succeeds on first attempt"""
+
         @retry(max_attempts=3)
         def test_func():
             return "success"
@@ -46,6 +47,7 @@ class TestRetry:
 
     def test_retry_exhausts_attempts(self):
         """Test retry when function fails after all attempts"""
+
         @retry(max_attempts=2, delay=0.01)
         def test_func():
             raise ValueError("fail")
@@ -55,6 +57,7 @@ class TestRetry:
 
     def test_retry_with_specific_exception(self):
         """Test retry only catches specified exceptions"""
+
         @retry(max_attempts=2, delay=0.01, exceptions=(ValueError,))
         def test_func():
             raise TypeError("fail")
@@ -99,9 +102,10 @@ class TestRetry:
 class TestTiming:
     """Tests for timing decorator"""
 
-    @patch('aitbc.decorators.logger')
+    @patch("aitbc.decorators.logger")
     def test_timing_logs_execution_time(self, mock_logger):
         """Test timing decorator logs execution time"""
+
         @timing
         def test_func():
             time.sleep(0.01)
@@ -112,9 +116,10 @@ class TestTiming:
         mock_logger.info.assert_called_once()
         assert "executed in" in mock_logger.info.call_args[0][0]
 
-    @patch('aitbc.decorators.logger')
+    @patch("aitbc.decorators.logger")
     def test_timing_preserves_function_name(self, mock_logger):
         """Test timing decorator preserves function name"""
+
         @timing
         def my_function():
             return "result"
@@ -190,6 +195,7 @@ class TestValidateArgs:
 
     def test_validate_args_passes_valid(self):
         """Test validate_args passes when validators succeed"""
+
         def validator(x):
             if x < 0:
                 raise ValueError("Must be positive")
@@ -203,6 +209,7 @@ class TestValidateArgs:
 
     def test_validate_args_fails_invalid(self):
         """Test validate_args fails when validators raise error"""
+
         def validator(x):
             if x < 0:
                 raise ValueError("Must be positive")
@@ -216,6 +223,7 @@ class TestValidateArgs:
 
     def test_validate_args_multiple_validators(self):
         """Test validate_args with multiple validators"""
+
         def validator1(x):
             if x < 0:
                 raise ValueError("Must be positive")
@@ -235,9 +243,10 @@ class TestValidateArgs:
 class TestHandleExceptions:
     """Tests for handle_exceptions decorator"""
 
-    @patch('aitbc.decorators.logger')
+    @patch("aitbc.decorators.logger")
     def test_handle_exceptions_returns_default(self, mock_logger):
         """Test handle_exceptions returns default on exception"""
+
         @handle_exceptions(default_return="error")
         def test_func():
             raise ValueError("fail")
@@ -246,9 +255,10 @@ class TestHandleExceptions:
         assert result == "error"
         mock_logger.error.assert_called_once()
 
-    @patch('aitbc.decorators.logger')
+    @patch("aitbc.decorators.logger")
     def test_handle_exceptions_no_logging(self, mock_logger):
         """Test handle_exceptions with logging disabled"""
+
         @handle_exceptions(default_return="error", log_errors=False)
         def test_func():
             raise ValueError("fail")
@@ -259,6 +269,7 @@ class TestHandleExceptions:
 
     def test_handle_exceptions_raises_on_specified(self):
         """Test handle_exceptions still raises specified exceptions"""
+
         @handle_exceptions(default_return="error", raise_on=(ValueError,))
         def test_func():
             raise ValueError("fail")
@@ -268,6 +279,7 @@ class TestHandleExceptions:
 
     def test_handle_exceptions_passes_on_success(self):
         """Test handle_exceptions passes through successful return"""
+
         @handle_exceptions(default_return="error")
         def test_func():
             return "success"
@@ -280,15 +292,17 @@ class TestAsyncTiming:
     """Tests for async_timing decorator"""
 
     @pytest.mark.asyncio
-    @patch('aitbc.decorators.logger')
+    @patch("aitbc.decorators.logger")
     async def test_async_timing_logs_execution_time(self, mock_logger):
         """Test async_timing decorator logs execution time"""
+
         @async_timing
         async def test_func():
             await asyncio.sleep(0.01)
             return "result"
 
         import asyncio
+
         result = await test_func()
         assert result == "result"
         mock_logger.info.assert_called_once()
@@ -297,6 +311,7 @@ class TestAsyncTiming:
     @pytest.mark.asyncio
     async def test_async_timing_preserves_function_name(self):
         """Test async_timing decorator preserves function name"""
+
         @async_timing
         async def my_function():
             return "result"

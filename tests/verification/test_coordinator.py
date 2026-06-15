@@ -11,14 +11,7 @@ COORDINATOR_URL = "http://localhost:8090"
 
 # Test available endpoints
 print("=== Testing Mock Coordinator Endpoints ===")
-endpoints = [
-    "/",
-    "/health",
-    "/metrics",
-    "/miners/register",
-    "/miners/list",
-    "/marketplace/offers"
-]
+endpoints = ["/", "/health", "/metrics", "/miners/register", "/miners/list", "/marketplace/offers"]
 
 for endpoint in endpoints:
     try:

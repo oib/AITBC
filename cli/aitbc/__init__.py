@@ -1,17 +1,19 @@
 """Minimal aitbc package for CLI compatibility"""
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import requests
 
 
 class NetworkError(Exception):
     """Network error for AITBC operations"""
+
     pass
 
 
 class ValidationError(Exception):
     """Validation error for AITBC operations"""
+
     pass
 
 
@@ -49,6 +51,7 @@ class AITBCHTTPClient:
 def get_logger(name: str):
     """Simple logger wrapper"""
     import logging
+
     return logging.getLogger(name)
 
 
@@ -59,4 +62,5 @@ KEYSTORE_DIR = "/var/lib/aitbc/keystore"
 
 class BaseAITBCConfig:
     """Base configuration class"""
+
     pass

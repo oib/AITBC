@@ -22,6 +22,7 @@ def derive_address_from_public_key(pub_key_bytes: bytes) -> str:
     # Return with aitbc1 prefix
     return f"aitbc1{address_hash}"
 
+
 def create_genesis_wallet(password: str = None):
     """Create genesis wallet with secure random private key"""
     # Generate cryptographically secure random private key (32 bytes)
@@ -32,10 +33,7 @@ def create_genesis_wallet(password: str = None):
     public_key = private_key.public_key()
 
     # Get public key bytes
-    pub_key_bytes = public_key.public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw
-    )
+    pub_key_bytes = public_key.public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
 
     # Derive address
     address = derive_address_from_public_key(pub_key_bytes)
@@ -68,29 +66,22 @@ def create_genesis_wallet(password: str = None):
         "public_key": pub_key_bytes.hex(),
         "crypto": {
             "kdf": "pbkdf2",
-            "kdfparams": {
-                "salt": salt.hex(),
-                "c": 100000,
-                "dklen": 32,
-                "prf": "hmac-sha256"
-            },
+            "kdfparams": {"salt": salt.hex(), "c": 100000, "dklen": 32, "prf": "hmac-sha256"},
             "cipher": "aes-256-gcm",
-            "cipherparams": {
-                "nonce": nonce.hex()
-            },
-            "ciphertext": ciphertext.hex()
+            "cipherparams": {"nonce": nonce.hex()},
+            "ciphertext": ciphertext.hex(),
         },
-        "version": 1
+        "version": 1,
     }
 
     # Write to keystore
     keystore_path = Path("/var/lib/aitbc/keystore/genesis.json")
-    with open(keystore_path, 'w') as f:
+    with open(keystore_path, "w") as f:
         json.dump(wallet_data, f, indent=2)
 
     # Save password to secure file
     password_path = Path("/var/lib/aitbc/keystore/.genesis_password")
-    with open(password_path, 'w') as f:
+    with open(password_path, "w") as f:
         f.write(password)
     os.chmod(password_path, 0o600)
 
@@ -104,6 +95,7 @@ def create_genesis_wallet(password: str = None):
     print("⚠️  IMPORTANT: Store the password securely!")
 
     return ait_address, pub_key_bytes.hex(), private_key_bytes.hex(), password
+
 
 if __name__ == "__main__":
     create_genesis_wallet()

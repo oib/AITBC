@@ -35,7 +35,7 @@ class OllamaClient:
                 "gemma3:4b",
                 "qwen2.5:1.5b",
                 "gemma3:1b",
-                "lauchacarro/qwen2.5-translator:latest"
+                "lauchacarro/qwen2.5-translator:latest",
             ]
         except Exception as e:
             print(f"Failed to get models: {e}")
@@ -48,7 +48,7 @@ class OllamaClient:
         system_prompt: str | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
-        ttl_seconds: int = 300
+        ttl_seconds: int = 300,
     ) -> str | None:
         """Submit a text generation job"""
 
@@ -57,7 +57,7 @@ class OllamaClient:
             "model": model,
             "prompt": prompt,
             "temperature": temperature,
-            "max_tokens": max_tokens
+            "max_tokens": max_tokens,
         }
 
         if system_prompt:
@@ -71,7 +71,7 @@ class OllamaClient:
         messages: list[dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int | None = None,
-        ttl_seconds: int = 300
+        ttl_seconds: int = 300,
     ) -> str | None:
         """Submit a chat completion job"""
 
@@ -80,7 +80,7 @@ class OllamaClient:
             "model": model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": max_tokens
+            "max_tokens": max_tokens,
         }
 
         return self._submit_job(job_payload, ttl_seconds)
@@ -92,7 +92,7 @@ class OllamaClient:
         language: str | None = None,
         temperature: float = 0.3,
         max_tokens: int | None = None,
-        ttl_seconds: int = 600
+        ttl_seconds: int = 600,
     ) -> str | None:
         """Submit a code generation job"""
 
@@ -106,7 +106,7 @@ class OllamaClient:
             "prompt": prompt,
             "system_prompt": system_prompt,
             "temperature": temperature,
-            "max_tokens": max_tokens
+            "max_tokens": max_tokens,
         }
 
         return self._submit_job(job_payload, ttl_seconds)
@@ -114,24 +114,18 @@ class OllamaClient:
     def _submit_job(self, payload: dict[str, Any], ttl_seconds: int) -> str | None:
         """Submit job to coordinator"""
 
-        job_data = {
-            "payload": payload,
-            "ttl_seconds": ttl_seconds
-        }
+        job_data = {"payload": payload, "ttl_seconds": ttl_seconds}
 
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/jobs",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Api-Key": self.api_key
-                },
-                json=job_data
+                headers={"Content-Type": "application/json", "X-Api-Key": self.api_key},
+                json=job_data,
             )
 
             if response.status_code == 201:
                 job = response.json()
-                return job['job_id']
+                return job["job_id"]
             else:
                 print(f"❌ Failed to submit job: {response.status_code}")
                 print(f"   Response: {response.text}")
@@ -145,10 +139,7 @@ class OllamaClient:
         """Get job status and result"""
 
         try:
-            response = self.client.get(
-                f"{self.coordinator_url}/v1/jobs/{job_id}",
-                headers={"X-Api-Key": self.api_key}
-            )
+            response = self.client.get(f"{self.coordinator_url}/v1/jobs/{job_id}", headers={"X-Api-Key": self.api_key})
 
             if response.status_code == 200:
                 return response.json()
@@ -164,18 +155,19 @@ class OllamaClient:
         """Wait for job completion and return result"""
 
         import time
+
         start_time = time.time()
 
         while time.time() - start_time < timeout:
             status = self.get_job_status(job_id)
 
             if status:
-                if status['state'] == 'completed':
+                if status["state"] == "completed":
                     return status
-                elif status['state'] == 'failed':
+                elif status["state"] == "failed":
                     print(f"❌ Job failed: {status.get('error', 'Unknown error')}")
                     return status
-                elif status['state'] == 'expired':
+                elif status["state"] == "expired":
                     print("⏰ Job expired")
                     return status
 
@@ -183,6 +175,7 @@ class OllamaClient:
 
         print(f"⏰ Timeout waiting for job {job_id}")
         return None
+
 
 # CLI interface
 def main():
@@ -195,7 +188,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
     # List models
-    models_parser = subparsers.add_parser("models", help="List available models")
+    _ = subparsers.add_parser("models", help="List available models")
 
     # Generate text
     gen_parser = subparsers.add_parser("generate", help="Generate text")
@@ -237,21 +230,15 @@ def main():
 
     elif args.command == "generate":
         print(f"📝 Generating with {args.model}...")
-        job_id = client.submit_generation(
-            args.model,
-            args.prompt,
-            args.system,
-            args.temp,
-            args.max_tokens
-        )
+        job_id = client.submit_generation(args.model, args.prompt, args.system, args.temp, args.max_tokens)
 
         if job_id:
             print(f"✅ Job submitted: {job_id}")
             result = client.wait_for_result(job_id)
 
-            if result and result['state'] == 'completed':
+            if result and result["state"] == "completed":
                 print("\n📄 Result:")
-                print(result.get('result', {}).get('output', 'No output'))
+                print(result.get("result", {}).get("output", "No output"))
 
     elif args.command == "chat":
         print(f"💬 Chatting with {args.model}...")
@@ -263,9 +250,9 @@ def main():
             print(f"✅ Job submitted: {job_id}")
             result = client.wait_for_result(job_id)
 
-            if result and result['state'] == 'completed':
+            if result and result["state"] == "completed":
                 print("\n🤖 Response:")
-                print(result.get('result', {}).get('output', 'No response'))
+                print(result.get("result", {}).get("output", "No response"))
 
     elif args.command == "code":
         print(f"💻 Generating {args.lang} code with {args.model}...")
@@ -275,9 +262,9 @@ def main():
             print(f"✅ Job submitted: {job_id}")
             result = client.wait_for_result(job_id)
 
-            if result and result['state'] == 'completed':
+            if result and result["state"] == "completed":
                 print("\n💾 Generated Code:")
-                print(result.get('result', {}).get('output', 'No code'))
+                print(result.get("result", {}).get("output", "No code"))
 
     elif args.command == "status":
         status = client.get_job_status(args.job_id)
@@ -285,8 +272,9 @@ def main():
             print(f"📊 Job {args.job_id}:")
             print(f"   State: {status['state']}")
             print(f"   Miner: {status.get('assigned_miner_id', 'None')}")
-            if status['state'] == 'completed':
+            if status["state"] == "completed":
                 print(f"   Cost: {status.get('result', {}).get('cost', 0)} AITBC")
+
 
 if __name__ == "__main__":
     main()

@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 # Mock httpx before importing
-sys.modules['httpx'] = Mock()
+sys.modules["httpx"] = Mock()
 
 from main import app
 
@@ -22,14 +22,14 @@ def test_get_transaction_missing_fields():
     mock_response.json.return_value = {
         "tx_hash": "0x" + "a" * 64,
         # Missing sender, recipient, payload
-        "created_at": "2026-01-01T00:00:00"
+        "created_at": "2026-01-01T00:00:00",
     }
 
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.return_value = mock_response
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/transactions/" + "a" * 64)
         assert response.status_code == 200
         data = response.json()
@@ -51,14 +51,14 @@ def test_get_transaction_empty_payload():
         "sender": "0xsender",
         "recipient": "0xrecipient",
         "payload": {},
-        "created_at": "2026-01-01T00:00:00"
+        "created_at": "2026-01-01T00:00:00",
     }
 
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.return_value = mock_response
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/transactions/" + "a" * 64)
         assert response.status_code == 200
         data = response.json()
@@ -77,7 +77,7 @@ def test_get_transaction_missing_created_at():
         "tx_hash": "0x" + "a" * 64,
         "sender": "0xsender",
         "recipient": "0xrecipient",
-        "payload": {"value": "1000", "fee": "10"}
+        "payload": {"value": "1000", "fee": "10"},
         # Missing created_at
     }
 
@@ -85,7 +85,7 @@ def test_get_transaction_missing_created_at():
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.return_value = mock_response
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/transactions/" + "a" * 64)
         assert response.status_code == 200
         data = response.json()
@@ -104,7 +104,7 @@ def test_get_transaction_missing_block_height():
         "sender": "0xsender",
         "recipient": "0xrecipient",
         "payload": {"value": "1000", "fee": "10"},
-        "created_at": "2026-01-01T00:00:00"
+        "created_at": "2026-01-01T00:00:00",
         # Missing block_height
     }
 
@@ -112,7 +112,7 @@ def test_get_transaction_missing_block_height():
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.return_value = mock_response
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/transactions/" + "a" * 64)
         assert response.status_code == 200
         data = response.json()
@@ -126,18 +126,13 @@ def test_get_block_negative_height():
 
     mock_response = Mock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "height": -1,
-        "hash": "0xblock",
-        "timestamp": 1234567890,
-        "transactions": []
-    }
+    mock_response.json.return_value = {"height": -1, "hash": "0xblock", "timestamp": 1234567890, "transactions": []}
 
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.return_value = mock_response
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/blocks/-1")
         assert response.status_code == 200
         data = response.json()
@@ -151,18 +146,13 @@ def test_get_block_zero_height():
 
     mock_response = Mock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "height": 0,
-        "hash": "0xgenesis",
-        "timestamp": 1234567890,
-        "transactions": []
-    }
+    mock_response.json.return_value = {"height": 0, "hash": "0xgenesis", "timestamp": 1234567890, "transactions": []}
 
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.return_value = mock_response
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/blocks/0")
         assert response.status_code == 200
         data = response.json()
@@ -182,14 +172,14 @@ def test_get_transaction_short_hash():
         "recipient": "0xrecipient",
         "payload": {"value": "1000", "fee": "10"},
         "created_at": "2026-01-01T00:00:00",
-        "block_height": 100
+        "block_height": 100,
     }
 
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.return_value = mock_response
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/transactions/abc")
         assert response.status_code in [200, 404, 500]  # Any valid response
 
@@ -207,13 +197,13 @@ def test_get_transaction_invalid_hex_hash():
         "recipient": "0xrecipient",
         "payload": {"value": "1000", "fee": "10"},
         "created_at": "2026-01-01T00:00:00",
-        "block_height": 100
+        "block_height": 100,
     }
 
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.return_value = mock_response
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/transactions/" + "z" * 64)
         assert response.status_code in [200, 404, 500]

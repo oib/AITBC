@@ -1,10 +1,11 @@
 """baseline
 
 Revision ID: e31f486f1484
-Revises: 
+Revises:
 Create Date: 2025-09-27 05:58:27.490151
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -46,12 +47,8 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False),
     )
     op.create_index("ix_transaction_tx_hash", "transaction", ["tx_hash"], unique=True)
-    op.create_index(
-        "ix_transaction_block_height", "transaction", ["block_height"], unique=False
-    )
-    op.create_index(
-        "ix_transaction_created_at", "transaction", ["created_at"], unique=False
-    )
+    op.create_index("ix_transaction_block_height", "transaction", ["block_height"], unique=False)
+    op.create_index("ix_transaction_created_at", "transaction", ["created_at"], unique=False)
 
     op.create_table(
         "receipt",

@@ -22,8 +22,9 @@ class TestBridgeCommands:
         """Test that bridge command group exists"""
         try:
             from aitbc_cli.commands.bridge import bridge
+
             assert bridge is not None
-            assert hasattr(bridge, 'name')
+            assert hasattr(bridge, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import bridge commands: {e}")
 
@@ -31,12 +32,13 @@ class TestBridgeCommands:
         """Test bridge group name"""
         try:
             from aitbc_cli.commands.bridge import bridge
+
             assert bridge.name == "bridge"
         except ImportError as e:
             pytest.skip(f"Cannot import bridge commands: {e}")
 
-    @patch('aitbc_cli.commands.bridge.output')
-    @patch('aitbc_cli.commands.bridge.error')
+    @patch("aitbc_cli.commands.bridge.output")
+    @patch("aitbc_cli.commands.bridge.error")
     def test_bridge_start_command(self, mock_error, mock_output):
         """Test bridge start command - skip due to Click context issues"""
         pytest.skip("Click context mocking requires complex setup")

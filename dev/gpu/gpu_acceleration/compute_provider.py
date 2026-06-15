@@ -16,6 +16,7 @@ import numpy as np
 
 class ComputeBackend(Enum):
     """Available compute backends"""
+
     CUDA = "cuda"
     ROCM = "rocm"
     APPLE_SILICON = "apple_silicon"
@@ -26,6 +27,7 @@ class ComputeBackend(Enum):
 @dataclass
 class ComputeDevice:
     """Information about a compute device"""
+
     device_id: int
     name: str
     backend: ComputeBackend
@@ -40,6 +42,7 @@ class ComputeDevice:
 @dataclass
 class ComputeTask:
     """A compute task to be executed"""
+
     task_id: str
     operation: str
     data: Any
@@ -51,6 +54,7 @@ class ComputeTask:
 @dataclass
 class ComputeResult:
     """Result of a compute task"""
+
     task_id: str
     success: bool
     result: Any = None
@@ -62,7 +66,7 @@ class ComputeResult:
 class ComputeProvider(ABC):
     """
     Abstract base class for GPU compute providers.
-    
+
     This interface defines the contract that all GPU compute providers
     must implement, allowing for seamless backend swapping.
     """
@@ -71,7 +75,7 @@ class ComputeProvider(ABC):
     def initialize(self) -> bool:
         """
         Initialize the compute provider.
-        
+
         Returns:
             bool: True if initialization successful, False otherwise
         """
@@ -86,7 +90,7 @@ class ComputeProvider(ABC):
     def get_available_devices(self) -> list[ComputeDevice]:
         """
         Get list of available compute devices.
-        
+
         Returns:
             List[ComputeDevice]: Available compute devices
         """
@@ -96,7 +100,7 @@ class ComputeProvider(ABC):
     def get_device_count(self) -> int:
         """
         Get the number of available devices.
-        
+
         Returns:
             int: Number of available devices
         """
@@ -106,10 +110,10 @@ class ComputeProvider(ABC):
     def set_device(self, device_id: int) -> bool:
         """
         Set the active compute device.
-        
+
         Args:
             device_id: ID of the device to set as active
-            
+
         Returns:
             bool: True if device set successfully, False otherwise
         """
@@ -119,10 +123,10 @@ class ComputeProvider(ABC):
     def get_device_info(self, device_id: int) -> ComputeDevice | None:
         """
         Get information about a specific device.
-        
+
         Args:
             device_id: ID of the device
-            
+
         Returns:
             Optional[ComputeDevice]: Device information or None if not found
         """
@@ -132,11 +136,11 @@ class ComputeProvider(ABC):
     def allocate_memory(self, size: int, device_id: int | None = None) -> Any:
         """
         Allocate memory on the compute device.
-        
+
         Args:
             size: Size of memory to allocate in bytes
             device_id: Device ID (None for current device)
-            
+
         Returns:
             Any: Memory handle or pointer
         """
@@ -146,7 +150,7 @@ class ComputeProvider(ABC):
     def free_memory(self, memory_handle: Any) -> None:
         """
         Free allocated memory.
-        
+
         Args:
             memory_handle: Memory handle to free
         """
@@ -156,7 +160,7 @@ class ComputeProvider(ABC):
     def copy_to_device(self, host_data: Any, device_data: Any) -> None:
         """
         Copy data from host to device.
-        
+
         Args:
             host_data: Host data to copy
             device_data: Device memory destination
@@ -167,7 +171,7 @@ class ComputeProvider(ABC):
     def copy_to_host(self, device_data: Any, host_data: Any) -> None:
         """
         Copy data from device to host.
-        
+
         Args:
             device_data: Device data to copy
             host_data: Host memory destination
@@ -181,18 +185,18 @@ class ComputeProvider(ABC):
         grid_size: tuple[int, int, int],
         block_size: tuple[int, int, int],
         args: list[Any],
-        shared_memory: int = 0
+        shared_memory: int = 0,
     ) -> bool:
         """
         Execute a compute kernel.
-        
+
         Args:
             kernel_name: Name of the kernel to execute
             grid_size: Grid dimensions (x, y, z)
             block_size: Block dimensions (x, y, z)
             args: Kernel arguments
             shared_memory: Shared memory size in bytes
-            
+
         Returns:
             bool: True if execution successful, False otherwise
         """
@@ -207,10 +211,10 @@ class ComputeProvider(ABC):
     def get_memory_info(self, device_id: int | None = None) -> tuple[int, int]:
         """
         Get memory information for a device.
-        
+
         Args:
             device_id: Device ID (None for current device)
-            
+
         Returns:
             Tuple[int, int]: (free_memory, total_memory) in bytes
         """
@@ -220,10 +224,10 @@ class ComputeProvider(ABC):
     def get_utilization(self, device_id: int | None = None) -> float:
         """
         Get device utilization percentage.
-        
+
         Args:
             device_id: Device ID (None for current device)
-            
+
         Returns:
             float: Utilization percentage (0-100)
         """
@@ -233,10 +237,10 @@ class ComputeProvider(ABC):
     def get_temperature(self, device_id: int | None = None) -> float | None:
         """
         Get device temperature.
-        
+
         Args:
             device_id: Device ID (None for current device)
-            
+
         Returns:
             Optional[float]: Temperature in Celsius or None if unavailable
         """
@@ -248,12 +252,12 @@ class ComputeProvider(ABC):
     def zk_field_add(self, a: np.ndarray, b: np.ndarray, result: np.ndarray) -> bool:
         """
         Perform field addition for ZK operations.
-        
+
         Args:
             a: First operand
             b: Second operand
             result: Result array
-            
+
         Returns:
             bool: True if operation successful
         """
@@ -263,12 +267,12 @@ class ComputeProvider(ABC):
     def zk_field_mul(self, a: np.ndarray, b: np.ndarray, result: np.ndarray) -> bool:
         """
         Perform field multiplication for ZK operations.
-        
+
         Args:
             a: First operand
             b: Second operand
             result: Result array
-            
+
         Returns:
             bool: True if operation successful
         """
@@ -278,31 +282,26 @@ class ComputeProvider(ABC):
     def zk_field_inverse(self, a: np.ndarray, result: np.ndarray) -> bool:
         """
         Perform field inversion for ZK operations.
-        
+
         Args:
             a: Operand to invert
             result: Result array
-            
+
         Returns:
             bool: True if operation successful
         """
         pass
 
     @abstractmethod
-    def zk_multi_scalar_mul(
-        self,
-        scalars: list[np.ndarray],
-        points: list[np.ndarray],
-        result: np.ndarray
-    ) -> bool:
+    def zk_multi_scalar_mul(self, scalars: list[np.ndarray], points: list[np.ndarray], result: np.ndarray) -> bool:
         """
         Perform multi-scalar multiplication for ZK operations.
-        
+
         Args:
             scalars: List of scalar operands
             points: List of point operands
             result: Result array
-            
+
         Returns:
             bool: True if operation successful
         """
@@ -312,12 +311,12 @@ class ComputeProvider(ABC):
     def zk_pairing(self, p1: np.ndarray, p2: np.ndarray, result: np.ndarray) -> bool:
         """
         Perform pairing operation for ZK operations.
-        
+
         Args:
             p1: First point
             p2: Second point
             result: Result array
-            
+
         Returns:
             bool: True if operation successful
         """
@@ -329,11 +328,11 @@ class ComputeProvider(ABC):
     def benchmark_operation(self, operation: str, iterations: int = 100) -> dict[str, float]:
         """
         Benchmark a specific operation.
-        
+
         Args:
             operation: Operation name to benchmark
             iterations: Number of iterations to run
-            
+
         Returns:
             Dict[str, float]: Performance metrics
         """
@@ -343,7 +342,7 @@ class ComputeProvider(ABC):
     def get_performance_metrics(self) -> dict[str, Any]:
         """
         Get performance metrics for the provider.
-        
+
         Returns:
             Dict[str, Any]: Performance metrics
         """
@@ -364,14 +363,14 @@ class ComputeProviderFactory:
     def create_provider(cls, backend: ComputeBackend, **kwargs) -> ComputeProvider:
         """
         Create a compute provider instance.
-        
+
         Args:
             backend: The compute backend to create
             **kwargs: Additional arguments for provider initialization
-            
+
         Returns:
             ComputeProvider: The created provider instance
-            
+
         Raises:
             ValueError: If backend is not supported
         """
@@ -390,7 +389,7 @@ class ComputeProviderFactory:
     def auto_detect_backend(cls) -> ComputeBackend:
         """
         Auto-detect the best available backend.
-        
+
         Returns:
             ComputeBackend: The detected backend
         """
@@ -400,7 +399,7 @@ class ComputeProviderFactory:
             ComputeBackend.ROCM,
             ComputeBackend.APPLE_SILICON,
             ComputeBackend.OPENCL,
-            ComputeBackend.CPU
+            ComputeBackend.CPU,
         ]
 
         for backend in preference_order:
@@ -423,7 +422,7 @@ class ComputeManager:
     def __init__(self, backend: ComputeBackend | None = None):
         """
         Initialize the compute manager.
-        
+
         Args:
             backend: Specific backend to use, or None for auto-detection
         """
@@ -461,7 +460,5 @@ class ComputeManager:
             "backend": self.backend.value,
             "initialized": self.initialized,
             "device_count": self.provider.get_device_count() if self.initialized else 0,
-            "available_devices": [
-                device.name for device in self.provider.get_available_devices()
-            ] if self.initialized else []
+            "available_devices": [device.name for device in self.provider.get_available_devices()] if self.initialized else [],
         }

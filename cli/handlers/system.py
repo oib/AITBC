@@ -10,16 +10,19 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-
 def handle_system_status(args, cli_version):
     """Handle system status command."""
     logger.info("System status: OK")
     logger.info("  Version: aitbc-cli v%s", cli_version)
     logger.info("  Services: Running")
     logger.info("  Nodes: 2 connected")
+
+
 def handle_analytics(args, default_rpc_url, get_blockchain_analytics):
     """Handle analytics command."""
-    analytics_type = getattr(args, "analytics_type", None) or getattr(args, "analytics_action", None) or getattr(args, "type", "blocks")
+    analytics_type = (
+        getattr(args, "analytics_type", None) or getattr(args, "analytics_action", None) or getattr(args, "type", "blocks")
+    )
     limit = getattr(args, "limit", 10)
     rpc_url = getattr(args, "rpc_url", default_rpc_url)
     if analytics_type == "blocks":
@@ -69,7 +72,7 @@ def handle_analytics(args, default_rpc_url, get_blockchain_analytics):
     else:
         analytics = get_blockchain_analytics(analytics_type, limit, rpc_url=rpc_url)
     if analytics:
-        logger.info("Blockchain Analytics (%s):", analytics['type'])
+        logger.info("Blockchain Analytics (%s):", analytics["type"])
         for key, value in analytics.items():
             if key != "type":
                 logger.info("  %s: %s", key, value)
@@ -80,7 +83,25 @@ def handle_analytics(args, default_rpc_url, get_blockchain_analytics):
 def handle_agent_action(args, agent_operations, render_mapping):
     """Handle agent action command."""
     kwargs = {}
-    for name in ("name", "description", "verification", "max_execution_time", "max_cost_budget", "input_data", "wallet", "priority", "execution_id", "status", "agent", "message", "to", "content", "password", "password_file", "rpc_url"):
+    for name in (
+        "name",
+        "description",
+        "verification",
+        "max_execution_time",
+        "max_cost_budget",
+        "input_data",
+        "wallet",
+        "priority",
+        "execution_id",
+        "status",
+        "agent",
+        "message",
+        "to",
+        "content",
+        "password",
+        "password_file",
+        "rpc_url",
+    ):
         value = getattr(args, name, None)
         if value not in (None, "", False):
             kwargs[name] = value
@@ -92,13 +113,13 @@ def handle_agent_action(args, agent_operations, render_mapping):
             stub_result = {
                 "action": args.agent_action,
                 "status": "simulated",
-                "timestamp": __import__('datetime').datetime.now().isoformat()
+                "timestamp": __import__("datetime").datetime.now().isoformat(),
             }
             logger.info("Agent %s (simulated)", args.agent_action)
             render_mapping(f"Agent {args.agent_action}:", stub_result)
             return
         # Handle case where result doesn't have 'action' field (e.g., message send)
-        if 'action' in result:
+        if "action" in result:
             render_mapping(f"Agent {result['action']}:", result)
     except Exception as e:
         logger.error("Error in agent operations: %s", e)
@@ -133,7 +154,7 @@ def handle_agent_coordinator_action(args, render_mapping):
             params = {
                 "agent_id": args.agent_id,
                 "limit": getattr(args, "limit", 100),
-                "unread_only": getattr(args, "unread_only", False)
+                "unread_only": getattr(args, "unread_only", False),
             }
             response = requests.get(f"{coordinator_url}/api/v1/agent/messages/inbox", params=params, timeout=10)
             response.raise_for_status()
@@ -145,7 +166,7 @@ def handle_agent_coordinator_action(args, render_mapping):
             data = {
                 "agent_id": args.agent_id,
                 "topic": args.topic,
-                "filter": json.loads(args.filter) if hasattr(args, "filter") and args.filter else {}
+                "filter": json.loads(args.filter) if hasattr(args, "filter") and args.filter else {},
             }
             response = requests.post(f"{coordinator_url}/api/v1/agent/subscribe", json=data, timeout=10)
             response.raise_for_status()
@@ -154,15 +175,10 @@ def handle_agent_coordinator_action(args, render_mapping):
 
         elif action == "workflow_create":
             # Create workflow
-            with open(args.steps_file, 'r') as f:
+            with open(args.steps_file, "r") as f:
                 steps = json.load(f)
 
-            data = {
-                "name": args.name,
-                "description": getattr(args, "description", ""),
-                "steps": steps,
-                "created_by": "cli"
-            }
+            data = {"name": args.name, "description": getattr(args, "description", ""), "steps": steps, "created_by": "cli"}
             response = requests.post(f"{coordinator_url}/api/v1/agent/workflows", json=data, timeout=10)
             response.raise_for_status()
             result = response.json()
@@ -172,11 +188,13 @@ def handle_agent_coordinator_action(args, render_mapping):
             # Execute workflow
             input_params = {}
             if hasattr(args, "input_file") and args.input_file:
-                with open(args.input_file, 'r') as f:
+                with open(args.input_file, "r") as f:
                     input_params = json.load(f)
 
             data = {"input_parameters": input_params}
-            response = requests.post(f"{coordinator_url}/api/v1/agent/workflows/{args.workflow_id}/execute", json=data, timeout=10)
+            response = requests.post(
+                f"{coordinator_url}/api/v1/agent/workflows/{args.workflow_id}/execute", json=data, timeout=10
+            )
             response.raise_for_status()
             result = response.json()
             render_mapping("Workflow Execution:", result)
@@ -227,7 +245,7 @@ def handle_agent_sdk_action(args, render_mapping):
             "name": name,
             "type": agent_type,
             "status": "created",
-            "timestamp": __import__('datetime').datetime.now().isoformat()
+            "timestamp": __import__("datetime").datetime.now().isoformat(),
         }
 
         logger.info("Agent SDK created: %s", name)
@@ -243,19 +261,13 @@ def handle_agent_sdk_action(args, render_mapping):
             logger.error("Error: --agent-id and --status are required")
             sys.exit(1)
 
-        status_update_request = {
-            "status": status,
-            "load_metrics": load_metrics if isinstance(load_metrics, dict) else {}
-        }
+        status_update_request = {"status": status, "load_metrics": load_metrics if isinstance(load_metrics, dict) else {}}
 
         logger.info("Updating agent %s status to %s...", agent_id, status)
         try:
             import requests
-            response = requests.put(
-                f"{coordinator_url}/v1/agents/{agent_id}/status",
-                json=status_update_request,
-                timeout=30
-            )
+
+            response = requests.put(f"{coordinator_url}/v1/agents/{agent_id}/status", json=status_update_request, timeout=30)
 
             if response.status_code == 200:
                 result = response.json()
@@ -282,20 +294,19 @@ def handle_agent_sdk_action(args, render_mapping):
         registration_request = {
             "agent_id": agent_id,
             "agent_type": agent_type,
-            "capabilities": capabilities if isinstance(capabilities, list) else (capabilities.split(",") if capabilities else []),
+            "capabilities": capabilities
+            if isinstance(capabilities, list)
+            else (capabilities.split(",") if capabilities else []),
             "services": services if isinstance(services, list) else (services.split(",") if services else []),
             "endpoints": endpoints if isinstance(endpoints, dict) else (json.loads(endpoints) if endpoints else {}),
-            "metadata": metadata if isinstance(metadata, dict) else (json.loads(metadata) if metadata else {})
+            "metadata": metadata if isinstance(metadata, dict) else (json.loads(metadata) if metadata else {}),
         }
 
         logger.info("Registering agent %s with coordinator at %s...", agent_id, coordinator_url)
         try:
             import requests
-            response = requests.post(
-                f"{coordinator_url}/v1/agents/register",
-                json=registration_request,
-                timeout=30
-            )
+
+            response = requests.post(f"{coordinator_url}/v1/agents/register", json=registration_request, timeout=30)
 
             if response.status_code in (200, 201):
                 result = response.json()
@@ -324,15 +335,12 @@ def handle_agent_sdk_action(args, render_mapping):
         logger.info("Discovering agents from coordinator at %s...", coordinator_url)
         try:
             import requests
-            response = requests.post(
-                f"{coordinator_url}/v1/agents/discover",
-                json=query,
-                timeout=30
-            )
+
+            response = requests.post(f"{coordinator_url}/v1/agents/discover", json=query, timeout=30)
 
             if response.status_code == 200:
                 result = response.json()
-                logger.info("Found %s agents", result.get('count', 0))
+                logger.info("Found %s agents", result.get("count", 0))
                 render_mapping("Agents:", result)
             else:
                 logger.error("Discovery failed: %s", response.status_code)
@@ -349,10 +357,8 @@ def handle_agent_sdk_action(args, render_mapping):
         logger.info("Getting agent info for %s from coordinator at %s...", agent_id, coordinator_url)
         try:
             import requests
-            response = requests.get(
-                f"{coordinator_url}/v1/agents/{agent_id}",
-                timeout=30
-            )
+
+            response = requests.get(f"{coordinator_url}/v1/agents/{agent_id}", timeout=30)
 
             if response.status_code == 200:
                 result = response.json()
@@ -374,7 +380,7 @@ def handle_agent_sdk_action(args, render_mapping):
             "gpu_available": True,
             "gpu_memory": "16GB",
             "supported_models": ["llama2", "mistral", "gpt-4"],
-            "max_concurrent_jobs": 2
+            "max_concurrent_jobs": 2,
         }
 
         logger.info("System capabilities")
@@ -382,11 +388,7 @@ def handle_agent_sdk_action(args, render_mapping):
 
     else:
         # Stub for other SDK actions
-        sdk_result = {
-            "action": action,
-            "status": "simulated",
-            "timestamp": __import__('datetime').datetime.now().isoformat()
-        }
+        sdk_result = {"action": action, "status": "simulated", "timestamp": __import__("datetime").datetime.now().isoformat()}
 
         logger.info("Agent SDK %s (simulated)", action)
         render_mapping("SDK Operation:", sdk_result)
@@ -478,7 +480,7 @@ def simulate_blockchain(blocks, transactions, delay):
     """Simulate blockchain activity by submitting transactions to the blockchain."""
     import time
 
-    BLOCKCHAIN_RPC_URL = "http://localhost:8082"
+    _ = "http://localhost:8082"
 
     logger.info("Simulating %s blocks with %s transactions each", blocks, transactions)
 
@@ -572,36 +574,21 @@ def simulate_ai_jobs(jobs, models, duration_range):
 
     logger.info("Simulating %s AI jobs with models: %s", jobs, models)
 
-    headers = {
-        "X-Api-Key": CLIENT_API_KEY,
-        "Content-Type": "application/json"
-    }
+    headers = {"X-Api-Key": CLIENT_API_KEY, "Content-Type": "application/json"}
 
     for job_num in range(jobs):
         model = random.choice(models.split(","))
         job_data = {
-            "payload": {
-                "type": "inference",
-                "model": model,
-                "prompt": f"Simulated job {job_num + 1}"
-            },
-            "constraints": {
-                "max_price": 0.1,
-                "region": "localhost"
-            },
-            "ttl_seconds": 900
+            "payload": {"type": "inference", "model": model, "prompt": f"Simulated job {job_num + 1}"},
+            "constraints": {"max_price": 0.1, "region": "localhost"},
+            "ttl_seconds": 900,
         }
 
         try:
-            response = requests.post(
-                f"{COORDINATOR_URL}/v1/jobs",
-                json=job_data,
-                headers=headers,
-                timeout=10
-            )
+            response = requests.post(f"{COORDINATOR_URL}/v1/jobs", json=job_data, headers=headers, timeout=10)
             response.raise_for_status()
             result = response.json()
-            logger.info("Job %s/%s created: %s", job_num + 1, jobs, result.get('job_id'))
+            logger.info("Job %s/%s created: %s", job_num + 1, jobs, result.get("job_id"))
         except Exception as e:
             logger.error("Failed to create job %s: %s", job_num + 1, e)
 
@@ -617,7 +604,7 @@ def handle_economics_action(args, render_mapping):
             "cost_optimization": getattr(args, "cost_optimize", False),
             "nodes_optimized": 3,
             "cost_reduction": "15.3%",
-            "last_sync": "2024-01-15T10:30:00Z"
+            "last_sync": "2024-01-15T10:30:00Z",
         }
         render_mapping("Economics:", result)
     elif action == "model":
@@ -671,7 +658,7 @@ def handle_economics_action(args, render_mapping):
             "total_supply": "1000000 AIT",
             "circulating_supply": "750000 AIT",
             "staked": "250000 AIT",
-            "burned": "50000 AIT"
+            "burned": "50000 AIT",
         }
         render_mapping("Token Balance:", result)
     else:
@@ -688,7 +675,7 @@ def handle_cluster_action(args, render_mapping):
             "nodes_synced": 5,
             "total_nodes": 5,
             "sync_status": "complete",
-            "last_sync": "2024-01-15T10:30:00Z"
+            "last_sync": "2024-01-15T10:30:00Z",
         }
         render_mapping("Cluster Sync:", result)
     elif action == "status":
@@ -697,7 +684,7 @@ def handle_cluster_action(args, render_mapping):
             "cluster_health": "healthy",
             "active_nodes": 5,
             "total_nodes": 5,
-            "load_balance": "optimal"
+            "load_balance": "optimal",
         }
         render_mapping("Cluster Status:", result)
     else:
@@ -715,14 +702,14 @@ def handle_performance_action(args, render_mapping):
             "latency_ms": 45,
             "throughput_mbps": 850,
             "cpu_usage": "65%",
-            "memory_usage": "72%"
+            "memory_usage": "72%",
         }
         render_mapping("Performance Benchmark:", result)
     elif action == "profile":
         result = {
             "action": "profile",
             "hotspots": ["block_validation", "transaction_processing"],
-            "optimization_suggestions": ["caching", "parallelization"]
+            "optimization_suggestions": ["caching", "parallelization"],
         }
         render_mapping("Performance Profile:", result)
     else:
@@ -734,19 +721,14 @@ def handle_security_action(args, render_mapping):
     """Handle security command."""
     action = getattr(args, "security_action", None)
     if action == "audit":
-        result = {
-            "action": "audit",
-            "vulnerabilities_found": 0,
-            "security_score": "A+",
-            "last_audit": "2024-01-15T10:30:00Z"
-        }
+        result = {"action": "audit", "vulnerabilities_found": 0, "security_score": "A+", "last_audit": "2024-01-15T10:30:00Z"}
         render_mapping("Security Audit:", result)
     elif action == "scan":
         result = {
             "action": "scan",
             "scanned_components": ["smart_contracts", "rpc_endpoints", "wallet_keys"],
             "threats_detected": 0,
-            "scan_status": "complete"
+            "scan_status": "complete",
         }
         render_mapping("Security Scan:", result)
     elif action == "patch":
@@ -754,7 +736,7 @@ def handle_security_action(args, render_mapping):
             "action": "patch",
             "critical_patches": getattr(args, "critical", False),
             "patches_applied": 0,
-            "status": "up to date"
+            "status": "up to date",
         }
         render_mapping("Security Patch:", result)
     else:
@@ -769,8 +751,8 @@ def handle_compliance_check(args, render_mapping):
     compliance_data = {
         "standard": standard,
         "status": "compliant",
-        "last_check": __import__('datetime').datetime.now().isoformat(),
-        "issues_found": 0
+        "last_check": __import__("datetime").datetime.now().isoformat(),
+        "issues_found": 0,
     }
 
     logger.info("Compliance check for %s", standard)
@@ -783,9 +765,9 @@ def handle_compliance_report(args, render_mapping):
 
     report_data = {
         "format": format_type,
-        "generated_at": __import__('datetime').datetime.now().isoformat(),
+        "generated_at": __import__("datetime").datetime.now().isoformat(),
         "standards_checked": ["gdpr", "hipaa", "soc2"],
-        "overall_status": "compliant"
+        "overall_status": "compliant",
     }
 
     logger.info("Compliance report (%s)", format_type)
@@ -801,7 +783,7 @@ def handle_cluster_status(args, render_mapping):
         "nodes": nodes,
         "local_status": "healthy",
         "sync_status": "standalone",
-        "timestamp": __import__('datetime').datetime.now().isoformat()
+        "timestamp": __import__("datetime").datetime.now().isoformat(),
     }
 
     render_mapping("Network Status:", status_data)
@@ -815,7 +797,7 @@ def handle_cluster_sync(args, render_mapping):
         "nodes_synced": 5 if sync_all else 2,
         "total_nodes": 5,
         "sync_status": "complete",
-        "last_sync": __import__('datetime').datetime.now().isoformat()
+        "last_sync": __import__("datetime").datetime.now().isoformat(),
     }
 
     logger.info("Cluster sync completed")
@@ -830,7 +812,7 @@ def handle_cluster_balance(args, render_mapping):
         "workload_balanced": workload,
         "nodes_active": 5,
         "load_distribution": "balanced",
-        "timestamp": __import__('datetime').datetime.now().isoformat()
+        "timestamp": __import__("datetime").datetime.now().isoformat(),
     }
 
     logger.info("Workload balanced across cluster")
@@ -846,7 +828,7 @@ def handle_script_run(args, render_mapping):
         "file": file_path,
         "args": script_args,
         "status": "executed",
-        "timestamp": __import__('datetime').datetime.now().isoformat()
+        "timestamp": __import__("datetime").datetime.now().isoformat(),
     }
 
     logger.info("Script executed: %s", file_path)

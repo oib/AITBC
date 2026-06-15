@@ -85,7 +85,7 @@ class TestMessage:
             encryption_key=b"key",
             encryption_type=EncryptionType.AES256,
             size=12,
-            timestamp=datetime.now(UTC)
+            timestamp=datetime.now(UTC),
         )
 
         assert msg.id == "msg_123"
@@ -127,7 +127,7 @@ class TestMessage:
             metadata={"priority": "high"},
             expires_at=now + timedelta(hours=1),
             reply_to="msg_123",
-            thread_id="thread_1"
+            thread_id="thread_1",
         )
 
         assert msg.delivery_timestamp is not None
@@ -156,7 +156,7 @@ class TestCommunicationChannel:
             is_active=True,
             created_timestamp=now,
             last_activity=now,
-            message_count=0
+            message_count=0,
         )
 
         assert channel.id == "channel_123"
@@ -181,7 +181,7 @@ class TestCommunicationChannel:
             last_activity=now,
             message_count=10,
             participants=["agent1", "agent2", "agent3"],
-            encryption_enabled=False
+            encryption_enabled=False,
         )
 
         assert channel.channel_type == ChannelType.GROUP

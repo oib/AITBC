@@ -16,15 +16,14 @@ def load_module_from_path(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-exceptions = load_module_from_path(
-    "aitbc.exceptions",
-    Path("/opt/aitbc/aitbc/exceptions.py")
-)
+
+exceptions = load_module_from_path("aitbc.exceptions", Path("/opt/aitbc/aitbc/exceptions.py"))
 
 
 # ============================================================================
 # Exception Class Tests
 # ============================================================================
+
 
 class TestAITBCError:
     """Test AITBCError base exception"""
@@ -157,6 +156,7 @@ class TestRateLimitError:
 # Exception Hierarchy Tests
 # ============================================================================
 
+
 class TestExceptionHierarchy:
     """Test exception hierarchy relationships"""
 
@@ -171,7 +171,7 @@ class TestExceptionHierarchy:
             exceptions.BridgeError,
             exceptions.RetryError,
             exceptions.CircuitBreakerOpenError,
-            exceptions.RateLimitError
+            exceptions.RateLimitError,
         ]
 
         for exc_class in exception_classes:

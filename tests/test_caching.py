@@ -148,7 +148,7 @@ class TestLRUCache:
         stats = cache.get_stats()
         assert stats["hit_rate"] == 0
 
-    @patch('aitbc.caching.logger')
+    @patch("aitbc.caching.logger")
     def test_print_stats(self, mock_logger):
         """Test print stats logs output"""
         cache = LRUCache()
@@ -370,11 +370,12 @@ class TestCacheDecorators:
 
     def test_decorator_cache_attachment(self):
         """Test that cache is attached to decorated function"""
+
         @cached(ttl=60)
         def func(x):
             return x * 2
 
-        assert hasattr(func, 'cache')
+        assert hasattr(func, "cache")
         assert isinstance(func.cache, TTLCache)
 
 
@@ -449,7 +450,7 @@ class TestGlobalCaches:
         assert lru_cache.get("key1") is None
         assert ttl_cache.get("key2") is None
 
-    @patch('aitbc.caching.logger')
+    @patch("aitbc.caching.logger")
     def test_clear_global_caches_logging(self, mock_logger):
         """Test clear global caches logs"""
         clear_global_caches()

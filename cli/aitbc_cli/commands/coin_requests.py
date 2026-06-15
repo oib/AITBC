@@ -18,6 +18,7 @@ def _load_env_file(path: str):
                     key, value = line.split("=", 1)
                     os.environ.setdefault(key.strip(), value.strip())
 
+
 # Load environment variables BEFORE importing storage
 _load_env_file("/etc/aitbc/blockchain.env")
 _load_env_file("/etc/aitbc/blockchain-secrets.env")
@@ -38,13 +39,8 @@ def send_hermes_notification(recipient: str, content: str):
     try:
         response = requests.post(
             f"{coordinator_url}/api/v1/agent/messages/send",
-            json={
-                "sender": agent_id,
-                "recipient": recipient,
-                "content": content,
-                "message_type": "direct"
-            },
-            timeout=10
+            json={"sender": agent_id, "recipient": recipient, "content": content, "message_type": "direct"},
+            timeout=10,
         )
         if response.status_code == 200:
             click.echo(f"Notification sent to {recipient}")
@@ -194,6 +190,7 @@ def execute(ctx, request_id):
             click.echo(f"No local genesis key — forwarding execution to hub: {execute_url}")
             try:
                 import httpx
+
                 resp = httpx.post(
                     execute_url,
                     json={
@@ -213,7 +210,9 @@ def execute(ctx, request_id):
                     req.audit_log += f" | Forwarded to hub for execution at {datetime.utcnow().isoformat()} | Hash: {tx_hash}"
                     click.echo(f"Transaction submitted by hub: {tx_hash}")
                     click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
-                    send_hermes_notification(req.sender, f"Coin request {req.id} EXECUTED via hub. TX: {tx_hash}. Amount: {req.amount} AIT.")
+                    send_hermes_notification(
+                        req.sender, f"Coin request {req.id} EXECUTED via hub. TX: {tx_hash}. Amount: {req.amount} AIT."
+                    )
                 else:
                     click.echo(f"Hub execution failed: {resp.status_code} {resp.text}")
             except Exception as e:
@@ -237,11 +236,7 @@ def execute(ctx, request_id):
         click.echo(f"Genesis wallet balance: {balance} AIT")
 
         # Generate signed transaction
-        signed_tx = tx_service.generate_signed_transaction(
-            to_address=req.wallet_address,
-            amount=req.amount,
-            fee=1000
-        )
+        signed_tx = tx_service.generate_signed_transaction(to_address=req.wallet_address, amount=req.amount, fee=1000)
 
         if not signed_tx:
             click.echo("Error: Failed to generate signed transaction")
@@ -253,6 +248,7 @@ def execute(ctx, request_id):
         # Submit transaction to blockchain
         try:
             from ..utils.http_client import AITBCHTTPClient
+
             http_client = AITBCHTTPClient(base_url=tx_service.rpc_url, timeout=30)
             result = http_client.post("/rpc/transaction", json=signed_tx)
             tx_hash = result.get("transaction_hash")
@@ -267,7 +263,9 @@ def execute(ctx, request_id):
                 click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
 
                 # Send notification to sender
-                notification_content = f"Coin request {req.id} EXECUTED. Transaction hash: {tx_hash}. Amount: {req.amount} AIT."
+                notification_content = (
+                    f"Coin request {req.id} EXECUTED. Transaction hash: {tx_hash}. Amount: {req.amount} AIT."
+                )
                 send_hermes_notification(req.sender, notification_content)
             else:
                 # Revert to PENDING on failure

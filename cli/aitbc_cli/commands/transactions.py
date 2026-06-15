@@ -29,9 +29,15 @@ def transactions():
     pass
 
 
-def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee: float,
-                          password: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR,
-                          rpc_url: str = DEFAULT_RPC_URL) -> str | None:
+def _send_transaction_impl(
+    from_wallet: str,
+    to_address: str,
+    amount: float,
+    fee: float,
+    password: str,
+    keystore_dir: Path = DEFAULT_KEYSTORE_DIR,
+    rpc_url: str = DEFAULT_RPC_URL,
+) -> str | None:
     """Send transaction from one wallet to another"""
 
     # Validate recipient address
@@ -63,7 +69,7 @@ def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee
     with open(sender_keystore) as f:
         sender_data = json.load(f)
 
-    sender_address = sender_data['address']
+    sender_address = sender_data["address"]
 
     # Decrypt private key if wallet is encrypted, otherwise use directly
     try:
@@ -89,7 +95,8 @@ def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee
 
     # Get chain_id from RPC health endpoint or use override
     from ..utils.chain_id import get_chain_id
-    chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+
+    _ = get_chain_id(rpc_url, override=None, timeout=5)
 
     # Get actual nonce from blockchain
     actual_nonce = 0
@@ -111,7 +118,7 @@ def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee
         "fee": int(fee),
         "nonce": actual_nonce,
         "type": "TRANSFER",
-        "payload": {}
+        "payload": {},
     }
 
     # Sign transaction
@@ -138,14 +145,22 @@ def _send_transaction_impl(from_wallet: str, to_address: str, amount: float, fee
 
 
 @transactions.command()
-@click.option('--from', 'from_wallet', required=True, help='From wallet name')
-@click.option('--to', 'to_address', required=True, help='To address')
-@click.option('--amount', type=float, required=True, help='Amount to send')
-@click.option('--fee', type=float, default=0.001, help='Transaction fee')
-@click.option('--password', help='Wallet password')
-@click.option('--password-file', help='File containing wallet password')
-@click.option('--rpc-url', help='Blockchain RPC URL')
-def send(from_wallet: str, to_address: str, amount: float, fee: float, password: str | None, password_file: str | None, rpc_url: str | None):
+@click.option("--from", "from_wallet", required=True, help="From wallet name")
+@click.option("--to", "to_address", required=True, help="To address")
+@click.option("--amount", type=float, required=True, help="Amount to send")
+@click.option("--fee", type=float, default=0.001, help="Transaction fee")
+@click.option("--password", help="Wallet password")
+@click.option("--password-file", help="File containing wallet password")
+@click.option("--rpc-url", help="Blockchain RPC URL")
+def send(
+    from_wallet: str,
+    to_address: str,
+    amount: float,
+    fee: float,
+    password: str | None,
+    password_file: str | None,
+    rpc_url: str | None,
+):
     """Send transaction from one wallet to another"""
     # Password resolution priority:
     # 1. --password flag
@@ -176,10 +191,13 @@ def send(from_wallet: str, to_address: str, amount: float, fee: float, password:
             else:
                 # Wallet is encrypted, need password
                 if not sys.stdin.isatty():
-                    error("No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.")
+                    error(
+                        "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable."
+                    )
                     raise click.Abort()
                 else:
                     import getpass
+
                     try:
                         password = getpass.getpass("Enter wallet password: ")
                     except Exception as e:
@@ -188,10 +206,13 @@ def send(from_wallet: str, to_address: str, amount: float, fee: float, password:
         else:
             # Wallet file doesn't exist, will fail later in _send_transaction_impl
             if not sys.stdin.isatty():
-                error("No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.")
+                error(
+                    "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable."
+                )
                 raise click.Abort()
             else:
                 import getpass
+
                 try:
                     password = getpass.getpass("Enter wallet password: ")
                 except Exception as e:
@@ -207,10 +228,10 @@ def send(from_wallet: str, to_address: str, amount: float, fee: float, password:
 
 
 @transactions.command()
-@click.option('--transactions-file', required=True, help='JSON file with batch transactions')
-@click.option('--password', help='Wallet password')
-@click.option('--password-file', help='File containing wallet password')
-@click.option('--rpc-url', help='Blockchain RPC URL')
+@click.option("--transactions-file", required=True, help="JSON file with batch transactions")
+@click.option("--password", help="Wallet password")
+@click.option("--password-file", help="File containing wallet password")
+@click.option("--rpc-url", help="Blockchain RPC URL")
 def batch(transactions_file: str, password: str | None, password_file: str | None, rpc_url: str | None):
     """Send batch transactions"""
     # Password resolution priority:
@@ -234,7 +255,7 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
         with open(transactions_file) as f:
             transactions_data = json.load(f)
         if transactions_data:
-            first_wallet = transactions_data[0].get('from_wallet')
+            first_wallet = transactions_data[0].get("from_wallet")
             keystore_dir = DEFAULT_KEYSTORE_DIR
             sender_keystore = keystore_dir / f"{first_wallet}.json"
             if sender_keystore.exists():
@@ -246,10 +267,13 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
                 else:
                     # Wallet is encrypted, need password
                     if not sys.stdin.isatty():
-                        error("No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.")
+                        error(
+                            "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable."
+                        )
                         raise click.Abort()
                     else:
                         import getpass
+
                         try:
                             password = getpass.getpass("Enter wallet password: ")
                         except Exception as e:
@@ -258,10 +282,13 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
             else:
                 # Wallet file doesn't exist
                 if not sys.stdin.isatty():
-                    error("No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.")
+                    error(
+                        "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable."
+                    )
                     raise click.Abort()
                 else:
                     import getpass
+
                     try:
                         password = getpass.getpass("Enter wallet password: ")
                     except Exception as e:
@@ -270,10 +297,13 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
         else:
             # Empty transactions file
             if not sys.stdin.isatty():
-                error("No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.")
+                error(
+                    "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable."
+                )
                 raise click.Abort()
             else:
                 import getpass
+
                 try:
                     password = getpass.getpass("Enter wallet password: ")
                 except Exception as e:
@@ -290,18 +320,9 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
     for tx in transactions_data:
         try:
             tx_hash = _send_transaction_impl(
-                tx['from_wallet'],
-                tx['to_address'],
-                tx['amount'],
-                tx.get('fee', 10.0),
-                password,
-                rpc_url=rpc_url
+                tx["from_wallet"], tx["to_address"], tx["amount"], tx.get("fee", 10.0), password, rpc_url=rpc_url
             )
-            results.append({
-                'transaction': tx,
-                'hash': tx_hash,
-                'success': tx_hash is not None
-            })
+            results.append({"transaction": tx, "hash": tx_hash, "success": tx_hash is not None})
 
             if tx_hash:
                 success(f"Transaction sent: {tx['from_wallet']} → {tx['to_address']} ({tx['amount']} AIT)")
@@ -309,20 +330,15 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
                 error(f"Transaction failed: {tx['from_wallet']} → {tx['to_address']}")
 
         except Exception as e:
-            results.append({
-                'transaction': tx,
-                'hash': None,
-                'success': False,
-                'error': str(e)
-            })
+            results.append({"transaction": tx, "hash": None, "success": False, "error": str(e)})
             error(f"Transaction error: {e}")
 
     success(f"Batch completed: {len([r for r in results if r['success']])}/{len(results)} successful")
 
 
 @transactions.command()
-@click.argument('tx_hash')
-@click.option('--rpc-url', help='Blockchain RPC URL')
+@click.argument("tx_hash")
+@click.option("--rpc-url", help="Blockchain RPC URL")
 def status(tx_hash: str, rpc_url: str | None):
     """Get transaction status"""
     if not rpc_url:
@@ -340,7 +356,7 @@ def status(tx_hash: str, rpc_url: str | None):
 
 
 @transactions.command()
-@click.option('--rpc-url', help='Blockchain RPC URL')
+@click.option("--rpc-url", help="Blockchain RPC URL")
 def pending(rpc_url: str | None):
     """Get pending transactions"""
     if not rpc_url:
@@ -360,10 +376,10 @@ def pending(rpc_url: str | None):
 
 
 @transactions.command()
-@click.option('--from', 'from_wallet', required=True, help='From wallet name')
-@click.option('--to', 'to_address', required=True, help='To address')
-@click.option('--amount', type=float, required=True, help='Amount to send')
-@click.option('--rpc-url', help='Blockchain RPC URL')
+@click.option("--from", "from_wallet", required=True, help="From wallet name")
+@click.option("--to", "to_address", required=True, help="To address")
+@click.option("--amount", type=float, required=True, help="Amount to send")
+@click.option("--rpc-url", help="Blockchain RPC URL")
 def estimate_fee(from_wallet: str, to_address: str, amount: float, rpc_url: str | None):
     """Estimate transaction fee"""
     if not rpc_url:
@@ -377,7 +393,7 @@ def estimate_fee(from_wallet: str, to_address: str, amount: float, rpc_url: str 
             "fee": 10,
             "nonce": 0,
             "type": "transfer",
-            "payload": {}
+            "payload": {},
         }
 
         try:

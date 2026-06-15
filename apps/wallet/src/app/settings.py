@@ -23,11 +23,11 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0", alias="HOST")
     port: int = Field(default=8108, alias="PORT")
 
-    @field_validator('coordinator_api_key')
+    @field_validator("coordinator_api_key")
     @classmethod
     def validate_api_key(cls, v: str) -> str:
-        if v.startswith('$') or not v or v == 'your_api_key_here':
-            raise ValueError('COORDINATOR_API_KEY must be set to a valid value and cannot be a template placeholder')
+        if v.startswith("$") or not v or v == "your_api_key_here":
+            raise ValueError("COORDINATOR_API_KEY must be set to a valid value and cannot be a template placeholder")
         return v
 
     class Config:

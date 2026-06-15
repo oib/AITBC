@@ -31,12 +31,12 @@ class AITBCWallet:
             "address": "aitbc1" + os.urandom(10).hex(),
             "balance": 0.0,
             "transactions": [],
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
         }
 
     def save(self):
         """Save wallet to file"""
-        with open(self.wallet_file, 'w') as f:
+        with open(self.wallet_file, "w") as f:
             json.dump(self.data, f, indent=2)
 
     def add_earnings(self, amount: float, job_id: str, description: str = ""):
@@ -46,7 +46,7 @@ class AITBCWallet:
             "amount": amount,
             "job_id": job_id,
             "description": description or f"Job {job_id}",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         self.data["transactions"].append(transaction)
@@ -64,12 +64,7 @@ class AITBCWallet:
             print(f"   Needed: {amount} AITBC")
             return False
 
-        transaction = {
-            "type": "spend",
-            "amount": -amount,
-            "description": description,
-            "timestamp": datetime.now().isoformat()
-        }
+        transaction = {"type": "spend", "amount": -amount, "description": description, "timestamp": datetime.now().isoformat()}
 
         self.data["transactions"].append(transaction)
         self.data["balance"] -= amount
@@ -104,6 +99,7 @@ class AITBCWallet:
                 print(f"    🆔 Job: {tx['job_id']}")
             print()
 
+
 def main():
     parser = argparse.ArgumentParser(description="AITBC Wallet CLI")
     parser.add_argument("--wallet", help="Wallet file path")
@@ -111,7 +107,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
     # Balance command
-    balance_parser = subparsers.add_parser("balance", help="Show balance")
+    _ = subparsers.add_parser("balance", help="Show balance")
 
     # History command
     history_parser = subparsers.add_parser("history", help="Show transaction history")
@@ -129,7 +125,7 @@ def main():
     spend_parser.add_argument("description", help="What you're spending on")
 
     # Address command
-    address_parser = subparsers.add_parser("address", help="Show wallet address")
+    _ = subparsers.add_parser("address", help="Show wallet address")
 
     args = parser.parse_args()
 
@@ -153,6 +149,7 @@ def main():
 
     elif args.command == "address":
         print(f"💳 Wallet Address: {wallet.data['address']}")
+
 
 if __name__ == "__main__":
     main()

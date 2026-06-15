@@ -17,15 +17,14 @@ def load_module_from_path(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-security = load_module_from_path(
-    "aitbc.crypto.security",
-    Path("/opt/aitbc/aitbc/crypto/security.py")
-)
+
+security = load_module_from_path("aitbc.crypto.security", Path("/opt/aitbc/aitbc/crypto/security.py"))
 
 
 # ============================================================================
 # Token Generation Tests
 # ============================================================================
+
 
 class TestTokenGeneration:
     """Test token generation functions"""
@@ -88,6 +87,7 @@ class TestTokenGeneration:
 # ============================================================================
 # Session Manager Tests
 # ============================================================================
+
 
 class TestSessionManager:
     """Test SessionManager class"""
@@ -172,6 +172,7 @@ class TestSessionManager:
 # ============================================================================
 # API Key Manager Tests
 # ============================================================================
+
 
 class TestAPIKeyManager:
     """Test APIKeyManager class"""
@@ -266,6 +267,7 @@ class TestAPIKeyManager:
 # Secure Random Generation Tests
 # ============================================================================
 
+
 class TestSecureRandomGeneration:
     """Test secure random generation functions"""
 
@@ -289,6 +291,7 @@ class TestSecureRandomGeneration:
 # Secret Manager Tests
 # ============================================================================
 
+
 class TestSecretManager:
     """Test SecretManager class"""
 
@@ -300,6 +303,7 @@ class TestSecretManager:
 
     def test_secret_manager_with_key(self):
         from cryptography.fernet import Fernet
+
         key = Fernet.generate_key()
         manager = security.SecretManager(encryption_key=key)
         assert manager.fernet is not None
@@ -423,6 +427,7 @@ class TestSecretManager:
 
     def test_rotate_encryption_key(self):
         from cryptography.fernet import Fernet
+
         manager = security.SecretManager()
         manager.set_secret("test_key", "test_value")
         new_key = Fernet.generate_key()
@@ -465,6 +470,7 @@ class TestSecretManager:
 # Global Secret Manager Tests
 # ============================================================================
 
+
 class TestGlobalSecretManager:
     """Test global secret manager singleton"""
 
@@ -477,6 +483,7 @@ class TestGlobalSecretManager:
 
     def test_get_secret_manager_with_key(self):
         from cryptography.fernet import Fernet
+
         security._global_secret_manager = None
         key = Fernet.generate_key()
         manager = security.get_secret_manager(encryption_key=key)
@@ -486,6 +493,7 @@ class TestGlobalSecretManager:
 # ============================================================================
 # Password Hashing Tests
 # ============================================================================
+
 
 class TestPasswordHashing:
     """Test password hashing functions"""
@@ -516,6 +524,7 @@ class TestPasswordHashing:
 # ============================================================================
 # Cryptographic Utilities Tests
 # ============================================================================
+
 
 class TestCryptographicUtilities:
     """Test cryptographic utility functions"""

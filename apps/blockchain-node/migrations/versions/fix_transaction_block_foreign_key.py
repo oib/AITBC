@@ -1,14 +1,15 @@
 """Fix transaction block foreign key
 
 Revision ID: fix_transaction_block_foreign_key
-Revises: 
+Revises:
 Create Date: 2026-01-29 12:45:00.000000
 
 """
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = 'fix_transaction_block_foreign_key'
+revision = "fix_transaction_block_foreign_key"
 down_revision = "80bc0020bde2"
 branch_labels = None
 depends_on = None

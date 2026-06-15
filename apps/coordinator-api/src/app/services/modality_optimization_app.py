@@ -51,7 +51,10 @@ async def health() -> dict[str, Any]:
 
 @app.post("/optimize")
 async def optimize_modality(
-    modality: str, data: dict[str, Any], strategy: str = "balanced", session: Annotated[Session | None, Depends(get_session)] = None
+    modality: str,
+    data: dict[str, Any],
+    strategy: str = "balanced",
+    session: Annotated[Session | None, Depends(get_session)] = None,
 ) -> dict[str, Any]:
     """Optimize specific modality"""
     assert session is not None, "DB session required"
@@ -64,7 +67,9 @@ async def optimize_modality(
 
 @app.post("/optimize-multimodal")
 async def optimize_multimodal(
-    multimodal_data: dict[str, Any], strategy: str = "balanced", session: Annotated[Session | None, Depends(get_session)] = None
+    multimodal_data: dict[str, Any],
+    strategy: str = "balanced",
+    session: Annotated[Session | None, Depends(get_session)] = None,
 ) -> dict[str, Any]:
     """Optimize multiple modalities"""
     assert session is not None, "DB session required"

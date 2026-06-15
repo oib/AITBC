@@ -6,7 +6,7 @@ import click
 
 from .main import exchange
 
-__all__ = ['exchange']
+__all__ = ["exchange"]
 
 
 # Attach payment commands
@@ -16,8 +16,7 @@ __all__ = ['exchange']
 @click.option("--user-id", help="User ID for the payment")
 @click.option("--notes", help="Additional notes for the payment")
 @click.pass_context
-def create_payment(ctx, aitbc_amount: float | None, btc_amount: float | None,
-                  user_id: str | None, notes: str | None):
+def create_payment(ctx, aitbc_amount: float | None, btc_amount: float | None, user_id: str | None, notes: str | None):
     """Create a Bitcoin payment request for AITBC purchase"""
     create_payment_command(ctx, aitbc_amount, btc_amount, user_id, notes)
 
@@ -78,8 +77,9 @@ def register(ctx, name: str, api_key: str, api_secret: str | None, sandbox: bool
 @click.option("--price-precision", type=int, help="Price precision")
 @click.option("--quantity-precision", type=int, help="Quantity precision")
 @click.pass_context
-def create_pair(ctx, pair: str, base_asset: str, quote_asset: str,
-                 min_order_size: float, price_precision: int, quantity_precision: int):
+def create_pair(
+    ctx, pair: str, base_asset: str, quote_asset: str, min_order_size: float, price_precision: int, quantity_precision: int
+):
     """Create trading pair on external exchange"""
     create_pair_command(ctx, pair, base_asset, quote_asset, min_order_size, price_precision, quantity_precision)
 
@@ -267,4 +267,4 @@ def bridge_estimate(eth_amount):
     bridge_estimate_command(eth_amount)
 
 
-__all__ = ['exchange']
+__all__ = ["exchange"]

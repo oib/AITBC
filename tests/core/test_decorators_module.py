@@ -18,15 +18,14 @@ def load_module_from_path(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-decorators = load_module_from_path(
-    "aitbc.decorators",
-    Path("/opt/aitbc/aitbc/decorators.py")
-)
+
+decorators = load_module_from_path("aitbc.decorators", Path("/opt/aitbc/aitbc/decorators.py"))
 
 
 # ============================================================================
 # Retry Decorator Tests
 # ============================================================================
+
 
 class TestRetryDecorator:
     """Test retry decorator"""
@@ -137,6 +136,7 @@ class TestRetryDecorator:
 # Timing Decorator Tests
 # ============================================================================
 
+
 class TestTimingDecorator:
     """Test timing decorator"""
 
@@ -169,6 +169,7 @@ class TestTimingDecorator:
 # ============================================================================
 # Cache Result Decorator Tests
 # ============================================================================
+
 
 class TestCacheResultDecorator:
     """Test cache_result decorator"""
@@ -250,6 +251,7 @@ class TestCacheResultDecorator:
 # Validate Args Decorator Tests
 # ============================================================================
 
+
 class TestValidateArgsDecorator:
     """Test validate_args decorator"""
 
@@ -322,6 +324,7 @@ class TestValidateArgsDecorator:
 # Handle Exceptions Decorator Tests
 # ============================================================================
 
+
 class TestHandleExceptionsDecorator:
     """Test handle_exceptions decorator"""
 
@@ -377,6 +380,7 @@ class TestHandleExceptionsDecorator:
 # ============================================================================
 # Async Timing Decorator Tests
 # ============================================================================
+
 
 class TestAsyncTimingDecorator:
     """Test async_timing decorator"""

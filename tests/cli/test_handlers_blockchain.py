@@ -21,6 +21,7 @@ class TestBlockchainHandlers:
         """Test that handle_blockchain_info function exists"""
         try:
             from handlers.blockchain import handle_blockchain_info
+
             assert handle_blockchain_info is not None
         except ImportError as e:
             pytest.skip(f"Cannot import blockchain handlers: {e}")
@@ -29,6 +30,7 @@ class TestBlockchainHandlers:
         """Test that handle_blockchain_height function exists"""
         try:
             from handlers.blockchain import handle_blockchain_height
+
             assert handle_blockchain_height is not None
         except ImportError as e:
             pytest.skip(f"Cannot import blockchain handlers: {e}")
@@ -37,6 +39,7 @@ class TestBlockchainHandlers:
         """Test that handle_blockchain_block function exists"""
         try:
             from handlers.blockchain import handle_blockchain_block
+
             assert handle_blockchain_block is not None
         except ImportError as e:
             pytest.skip(f"Cannot import blockchain handlers: {e}")

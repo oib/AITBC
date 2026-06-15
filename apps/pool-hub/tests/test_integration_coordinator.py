@@ -60,20 +60,14 @@ def test_end_to_end_sla_to_billing_workflow(
     )
 
     # Step 2: Verify metric was recorded
-    metrics = sla_collector.db.run_sync(
-        lambda sess: sla_collector.get_sla_metrics(
-            miner_id=sample_miner.miner_id, hours=1
-        )
-    )
+    metrics = sla_collector.db.run_sync(lambda sess: sla_collector.get_sla_metrics(miner_id=sample_miner.miner_id, hours=1))
     assert len(metrics) > 0
 
     # Step 3: Collect usage data for billing
     end_date = datetime.now(UTC)
     start_date = end_date - timedelta(hours=1)
     usage_data = sla_collector.db.run_sync(
-        lambda sess: billing_integration._collect_miner_usage(
-            sample_miner.miner_id, start_date, end_date
-        )
+        lambda sess: billing_integration._collect_miner_usage(sample_miner.miner_id, start_date, end_date)
     )
     assert "gpu_hours" in usage_data
     assert "api_calls" in usage_data
@@ -82,9 +76,7 @@ def test_end_to_end_sla_to_billing_workflow(
 def test_capacity_snapshot_creation(sla_collector: SLACollector, sample_miner: Miner):
     """Test capacity snapshot creation for capacity planning"""
     # Create capacity snapshot
-    capacity = sla_collector.db.run_sync(
-        lambda sess: sla_collector.collect_capacity_availability()
-    )
+    capacity = sla_collector.db.run_sync(lambda sess: sla_collector.collect_capacity_availability())
 
     assert capacity["total_miners"] >= 1
     assert "active_miners" in capacity
@@ -92,10 +84,7 @@ def test_capacity_snapshot_creation(sla_collector: SLACollector, sample_miner: M
 
     # Verify snapshot was stored in database
     snapshots = sla_collector.db.run_sync(
-        lambda sess: sla_collector.db.query(CapacitySnapshot)
-        .order_by(CapacitySnapshot.timestamp.desc())
-        .limit(1)
-        .all()
+        lambda sess: sla_collector.db.query(CapacitySnapshot).order_by(CapacitySnapshot.timestamp.desc()).limit(1).all()
     )
     assert len(snapshots) > 0
 
@@ -117,9 +106,7 @@ def test_sla_violation_billing_correlation(
 
     # Check violation was recorded
     violations = sla_collector.db.run_sync(
-        lambda sess: sla_collector.get_sla_violations(
-            miner_id=sample_miner.miner_id, resolved=False
-        )
+        lambda sess: sla_collector.get_sla_violations(miner_id=sample_miner.miner_id, resolved=False)
     )
     assert len(violations) > 0
 
@@ -127,9 +114,7 @@ def test_sla_violation_billing_correlation(
     end_date = datetime.now(UTC)
     start_date = end_date - timedelta(hours=1)
     usage_data = sla_collector.db.run_sync(
-        lambda sess: billing_integration._collect_miner_usage(
-            sample_miner.miner_id, start_date, end_date
-        )
+        lambda sess: billing_integration._collect_miner_usage(sample_miner.miner_id, start_date, end_date)
     )
     assert usage_data is not None
 
@@ -156,9 +141,7 @@ def test_multi_miner_sla_collection(sla_collector: SLACollector, db_session: Ses
     db_session.commit()
 
     # Collect metrics for all miners
-    results = sla_collector.db.run_sync(
-        lambda sess: sla_collector.collect_all_miner_metrics()
-    )
+    results = sla_collector.db.run_sync(lambda sess: sla_collector.collect_all_miner_metrics())
 
     assert results["miners_processed"] >= 3
 
@@ -178,9 +161,7 @@ def test_billing_sync_with_coordinator_api(
         mock_response.json.return_value = {"status": "success", "id": "usage_123"}
         mock_response.raise_for_status = AsyncMock()
 
-        mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-            return_value=mock_response
-        )
+        mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
 
         result = billing_integration.db.run_sync(
             lambda sess: billing_integration.sync_miner_usage(
@@ -203,9 +184,7 @@ def test_sla_threshold_configuration(sla_collector: SLACollector):
 
 def test_capacity_utilization_calculation(sla_collector: SLACollector, sample_miner: Miner):
     """Test capacity utilization calculation"""
-    capacity = sla_collector.db.run_sync(
-        lambda sess: sla_collector.collect_capacity_availability()
-    )
+    capacity = sla_collector.db.run_sync(lambda sess: sla_collector.collect_capacity_availability())
 
     # Verify utilization is between 0 and 100
     assert 0 <= capacity["capacity_availability_pct"] <= 100

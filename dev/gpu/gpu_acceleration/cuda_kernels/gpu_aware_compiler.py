@@ -24,7 +24,7 @@ class GPUAwareCompiler:
             "total_memory_mb": 16384,
             "safe_memory_mb": 14336,  # Leave 2GB for system
             "circuit_memory_per_constraint": 0.001,  # MB per constraint
-            "max_constraints_per_batch": 1000000  # 1M constraints per batch
+            "max_constraints_per_batch": 1000000,  # 1M constraints per batch
         }
 
         print("🚀 GPU-Aware Compiler initialized")
@@ -35,10 +35,10 @@ class GPUAwareCompiler:
     def estimate_circuit_memory(self, circuit_path: str) -> dict:
         """
         Estimate memory requirements for circuit compilation
-        
+
         Args:
             circuit_path: Path to circuit file
-            
+
         Returns:
             Memory estimation dictionary
         """
@@ -53,7 +53,7 @@ class GPUAwareCompiler:
                 content = f.read()
 
             # Simple constraint estimation
-            constraint_count = content.count('<==') + content.count('===')
+            constraint_count = content.count("<==") + content.count("===")
 
             # Estimate memory requirements
             estimated_memory = constraint_count * self.gpu_memory_config["circuit_memory_per_constraint"]
@@ -71,8 +71,8 @@ class GPUAwareCompiler:
                 "gpu_feasible": total_memory_mb < self.gpu_memory_config["safe_memory_mb"],
                 "recommended_batch_size": min(
                     self.gpu_memory_config["max_constraints_per_batch"],
-                    int(self.gpu_memory_config["safe_memory_mb"] / self.gpu_memory_config["circuit_memory_per_constraint"])
-                )
+                    int(self.gpu_memory_config["safe_memory_mb"] / self.gpu_memory_config["circuit_memory_per_constraint"]),
+                ),
             }
 
         except Exception as e:
@@ -81,11 +81,11 @@ class GPUAwareCompiler:
     def compile_with_gpu_optimization(self, circuit_path: str, output_dir: str = None) -> dict:
         """
         Compile circuit with GPU-aware memory optimization
-        
+
         Args:
             circuit_path: Path to circuit file
             output_dir: Output directory for compiled artifacts
-            
+
         Returns:
             Compilation results
         """
@@ -153,29 +153,14 @@ class GPUAwareCompiler:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Compile with Circom
-        cmd = [
-            "circom",
-            str(circuit_file),
-            "--r1cs",
-            "--wasm",
-            "-o", str(output_dir)
-        ]
+        cmd = ["circom", str(circuit_file), "--r1cs", "--wasm", "-o", str(output_dir)]
 
         print(f"🔄 Running: {' '.join(cmd)}")
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            cwd=str(self.base_dir)
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(self.base_dir))
 
         if result.returncode != 0:
-            return {
-                "error": "Circom compilation failed",
-                "stderr": result.stderr,
-                "stdout": result.stdout
-            }
+            return {"error": "Circom compilation failed", "stderr": result.stderr, "stdout": result.stdout}
 
         # Check compiled artifacts
         r1cs_path = output_dir / f"{circuit_name}.r1cs"
@@ -198,7 +183,7 @@ class GPUAwareCompiler:
             "output_dir": str(output_dir),
             "artifacts": artifacts,
             "memory_estimation": memory_est,
-            "optimization_applied": "gpu_aware_memory"
+            "optimization_applied": "gpu_aware_memory",
         }
 
     def compile_cpu_fallback(self, circuit_path: str, output_dir: str = None) -> dict:
@@ -211,10 +196,10 @@ class GPUAwareCompiler:
     def batch_compile_optimized(self, circuit_paths: list[str]) -> dict:
         """
         Compile multiple circuits with GPU memory optimization
-        
+
         Args:
             circuit_paths: List of circuit file paths
-            
+
         Returns:
             Batch compilation results
         """
@@ -253,7 +238,7 @@ class GPUAwareCompiler:
             "total_time": total_time,
             "average_time": total_time / len(circuit_paths),
             "results": results,
-            "memory_estimates": memory_estimates
+            "memory_estimates": memory_estimates,
         }
 
     def sequential_compile(self, circuit_paths: list[str]) -> dict:
@@ -273,7 +258,7 @@ class GPUAwareCompiler:
             "compilation_type": "sequential",
             "total_time": total_time,
             "average_time": total_time / len(circuit_paths),
-            "results": results
+            "results": results,
         }
 
     def _create_cache_key(self, circuit_path: str) -> str:
@@ -284,7 +269,7 @@ class GPUAwareCompiler:
         file_hash = hashlib.sha256()
 
         try:
-            with open(circuit_file, 'rb') as f:
+            with open(circuit_file, "rb") as f:
                 file_hash.update(f.read())
 
             # Add modification time
@@ -308,7 +293,7 @@ class GPUAwareCompiler:
     def _save_cache(self, cache_path: Path, result: dict):
         """Save compilation result to cache"""
         try:
-            with open(cache_path, 'w') as f:
+            with open(cache_path, "w") as f:
                 json.dump(result, f, indent=2)
         except Exception as e:
             print(f"⚠️  Failed to save cache: {e}")
@@ -316,11 +301,11 @@ class GPUAwareCompiler:
     def benchmark_compilation_performance(self, circuit_path: str, iterations: int = 5) -> dict:
         """
         Benchmark compilation performance
-        
+
         Args:
             circuit_path: Path to circuit file
             iterations: Number of iterations to run
-            
+
         Returns:
             Performance benchmark results
         """
@@ -357,8 +342,9 @@ class GPUAwareCompiler:
             "average_time": avg_time,
             "min_time": min_time,
             "max_time": max_time,
-            "times": times
+            "times": times,
         }
+
 
 def main():
     """Main function for testing GPU-aware compilation"""
@@ -368,11 +354,7 @@ def main():
     compiler = GPUAwareCompiler()
 
     # Test with existing circuits
-    test_circuits = [
-        "modular_ml_components.circom",
-        "ml_training_verification.circom",
-        "ml_inference_verification.circom"
-    ]
+    test_circuits = ["modular_ml_components.circom", "ml_training_verification.circom", "ml_inference_verification.circom"]
 
     for circuit in test_circuits:
         circuit_path = compiler.base_dir / circuit
@@ -390,6 +372,7 @@ def main():
 
         else:
             print(f"⚠️  Circuit not found: {circuit_path}")
+
 
 if __name__ == "__main__":
     main()

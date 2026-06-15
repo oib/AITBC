@@ -49,6 +49,7 @@ def init_db() -> None:
 def insert_deposit(tx_hash: str, from_address: str, amount_eth: float, amount_ait: float) -> str:
     """Insert a new deposit record."""
     import uuid
+
     deposit_id = f"deposit_{uuid.uuid4().hex[:8]}"
 
     conn = sqlite3.connect(DB_PATH)
@@ -60,7 +61,7 @@ def insert_deposit(tx_hash: str, from_address: str, amount_eth: float, amount_ai
             INSERT INTO eth_deposits (id, tx_hash, from_address, amount_eth, amount_ait, status, created_at)
             VALUES (?, ?, ?, ?, ?, 'pending', ?)
             """,
-            (deposit_id, tx_hash, from_address, amount_eth, amount_ait, datetime.now().isoformat())
+            (deposit_id, tx_hash, from_address, amount_eth, amount_ait, datetime.now().isoformat()),
         )
         conn.commit()
         return deposit_id
@@ -94,7 +95,7 @@ def get_pending_deposits() -> list[dict[str, Any]]:
             "amount_eth": row[3],
             "amount_ait": row[4],
             "status": row[5],
-            "created_at": row[6]
+            "created_at": row[6],
         }
         for row in rows
     ]
@@ -113,7 +114,7 @@ def update_deposit_status(deposit_id: str, status: str) -> bool:
         SET status = ?, {timestamp_field} = ?
         WHERE id = ?
         """,
-        (status, datetime.now().isoformat(), deposit_id)
+        (status, datetime.now().isoformat(), deposit_id),
     )
 
     conn.commit()
@@ -128,11 +129,14 @@ def get_deposit_by_tx_hash(tx_hash: str) -> dict[str, Any] | None:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at
         FROM eth_deposits
         WHERE tx_hash = ?
-    """, (tx_hash,))
+    """,
+        (tx_hash,),
+    )
 
     row = cursor.fetchone()
     conn.close()
@@ -149,7 +153,7 @@ def get_deposit_by_tx_hash(tx_hash: str) -> dict[str, Any] | None:
         "status": row[5],
         "created_at": row[6],
         "verified_at": row[7],
-        "completed_at": row[8]
+        "completed_at": row[8],
     }
 
 
@@ -158,12 +162,15 @@ def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at
         FROM eth_deposits
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
-    """, (limit, offset))
+    """,
+        (limit, offset),
+    )
 
     rows = cursor.fetchall()
     conn.close()
@@ -178,7 +185,7 @@ def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
             "status": row[5],
             "created_at": row[6],
             "verified_at": row[7],
-            "completed_at": row[8]
+            "completed_at": row[8],
         }
         for row in rows
     ]
@@ -194,7 +201,7 @@ def insert_price_history(eth_usd: float, eth_eur: float, exchange_rate_usd: floa
         INSERT INTO price_history (eth_usd_price, eth_eur_price, exchange_rate_usd, exchange_rate_eur)
         VALUES (?, ?, ?, ?)
         """,
-        (eth_usd, eth_eur, exchange_rate_usd, exchange_rate_eur)
+        (eth_usd, eth_eur, exchange_rate_usd, exchange_rate_eur),
     )
 
     conn.commit()
@@ -207,7 +214,7 @@ def get_all_time_average() -> dict[str, Any] | None:
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT 
+        SELECT
             AVG(eth_usd_price) as avg_usd,
             AVG(eth_eur_price) as avg_eur,
             AVG(exchange_rate_usd) as avg_rate_usd,
@@ -225,7 +232,7 @@ def get_all_time_average() -> dict[str, Any] | None:
             "eth_eur_avg": result[1],
             "exchange_rate_usd_avg": result[2],
             "exchange_rate_eur_avg": result[3],
-            "count": result[4]
+            "count": result[4],
         }
 
     return None

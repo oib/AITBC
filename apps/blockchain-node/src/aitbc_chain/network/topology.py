@@ -12,11 +12,15 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 def log_info(msg: str) -> None:
     logger.info(msg)
 
+
 def log_error(msg: str) -> None:
     logger.error(msg)
+
+
 import networkx as nx  # type: ignore
 
 from .discovery import P2PDiscovery, PeerNode
@@ -29,6 +33,7 @@ class TopologyStrategy(Enum):
     MESH = "mesh"
     HYBRID = "hybrid"
 
+
 @dataclass
 class ConnectionWeight:
     source: str
@@ -37,6 +42,7 @@ class ConnectionWeight:
     latency: float
     bandwidth: float
     reliability: float
+
 
 class NetworkTopology:
     """Manages and optimizes network topology"""
@@ -84,12 +90,15 @@ class NetworkTopology:
 
         # Add all peers as nodes
         for peer in self.discovery.get_peer_list():
-            self.graph.add_node(peer.node_id, **{
-                'address': peer.address,
-                'port': peer.port,
-                'reputation': peer.reputation,
-                'capabilities': peer.capabilities
-            })
+            self.graph.add_node(
+                peer.node_id,
+                **{
+                    "address": peer.address,
+                    "port": peer.port,
+                    "reputation": peer.reputation,
+                    "capabilities": peer.capabilities,
+                },
+            )
 
         # Add edges based on current connections
         await self._add_connection_edges()
@@ -101,7 +110,7 @@ class NetworkTopology:
         # In a real implementation, this would use actual connection data
         # For now, create a mesh topology
         for i, peer1 in enumerate(peers):
-            for peer2 in peers[i+1:]:
+            for peer2 in peers[i + 1 :]:
                 if self._should_connect(peer1, peer2):
                     weight = await self._calculate_connection_weight(peer1, peer2)
                     self.graph.add_edge(peer1.node_id, peer2.node_id, weight=weight)
@@ -109,8 +118,7 @@ class NetworkTopology:
     def _should_connect(self, peer1: PeerNode, peer2: PeerNode) -> bool:
         """Determine if two peers should be connected"""
         # Check degree constraints
-        if (self.graph.degree(peer1.node_id) >= self.max_degree or
-            self.graph.degree(peer2.node_id) >= self.max_degree):
+        if self.graph.degree(peer1.node_id) >= self.max_degree or self.graph.degree(peer2.node_id) >= self.max_degree:
             return False
 
         # Check strategy-specific rules
@@ -207,18 +215,20 @@ class NetworkTopology:
 
         # Calculate basic metrics
         if nx.is_connected(self.graph):
-            self.avg_path_length = nx.average_shortest_path_length(self.graph, weight='weight')
+            self.avg_path_length = nx.average_shortest_path_length(self.graph, weight="weight")
         else:
-            self.avg_path_length = float('inf')
+            self.avg_path_length = float("inf")
 
         self.clustering_coefficient = nx.average_clustering(self.graph)
 
         # Calculate network efficiency
         self.network_efficiency = nx.global_efficiency(self.graph)
 
-        log_info(f"Topology metrics - Path length: {self.avg_path_length:.2f}, "
-                f"Clustering: {self.clustering_coefficient:.2f}, "
-                f"Efficiency: {self.network_efficiency:.2f}")
+        log_info(
+            f"Topology metrics - Path length: {self.avg_path_length:.2f}, "
+            f"Clustering: {self.clustering_coefficient:.2f}, "
+            f"Efficiency: {self.network_efficiency:.2f}"
+        )
 
     async def _identify_improvements(self) -> list[dict[str, Any]]:
         """Identify topology improvements"""
@@ -228,10 +238,7 @@ class NetworkTopology:
         if not nx.is_connected(self.graph):
             components = list(nx.connected_components(self.graph))
             if len(components) > 1:
-                improvements.append({
-                    'type': 'connect_components',
-                    'components': components
-                })
+                improvements.append({"type": "connect_components", "components": components})
 
         # Check degree distribution
         degrees = dict(self.graph.degree())
@@ -239,38 +246,29 @@ class NetworkTopology:
         high_degree_nodes = [node for node, degree in degrees.items() if degree > self.max_degree]
 
         if low_degree_nodes:
-            improvements.append({
-                'type': 'increase_degree',
-                'nodes': low_degree_nodes
-            })
+            improvements.append({"type": "increase_degree", "nodes": low_degree_nodes})
 
         if high_degree_nodes:
-            improvements.append({
-                'type': 'decrease_degree',
-                'nodes': high_degree_nodes
-            })
+            improvements.append({"type": "decrease_degree", "nodes": high_degree_nodes})
 
         # Check for inefficient paths
         if self.avg_path_length > 6:  # Too many hops
-            improvements.append({
-                'type': 'add_shortcuts',
-                'target_path_length': [4.0]
-            })
+            improvements.append({"type": "add_shortcuts", "target_path_length": [4.0]})
 
         return improvements
 
     async def _apply_improvement(self, improvement: dict[str, Any]) -> None:
         """Apply topology improvement"""
-        improvement_type = improvement['type']
+        improvement_type = improvement["type"]
 
-        if improvement_type == 'connect_components':
-            await self._connect_components(improvement['components'])
-        elif improvement_type == 'increase_degree':
-            await self._increase_node_degree(improvement['nodes'])
-        elif improvement_type == 'decrease_degree':
-            await self._decrease_node_degree(improvement['nodes'])
-        elif improvement_type == 'add_shortcuts':
-            await self._add_shortcuts(improvement['target_path_length'])
+        if improvement_type == "connect_components":
+            await self._connect_components(improvement["components"])
+        elif improvement_type == "increase_degree":
+            await self._increase_node_degree(improvement["nodes"])
+        elif improvement_type == "decrease_degree":
+            await self._decrease_node_degree(improvement["nodes"])
+        elif improvement_type == "add_shortcuts":
+            await self._add_shortcuts(improvement["target_path_length"])
 
     async def _connect_components(self, components: list[set[str]]) -> None:
         """Connect disconnected components"""
@@ -313,7 +311,7 @@ class NetworkTopology:
             edges = list(self.graph.edges(node_id, data=True))
 
             # Sort by weight (lowest first)
-            edges.sort(key=lambda x: x[2].get('weight', 1.0))
+            edges.sort(key=lambda x: x[2].get("weight", 1.0))
 
             # Remove excess connections
             excess_count = self.graph.degree(node_id) - self.max_degree
@@ -371,8 +369,7 @@ class NetworkTopology:
         candidates = []
 
         for candidate_peer in self.discovery.get_peer_list():
-            if (candidate_peer.node_id == peer.node_id or
-                self.graph.has_edge(peer.node_id, candidate_peer.node_id)):
+            if candidate_peer.node_id == peer.node_id or self.graph.has_edge(peer.node_id, candidate_peer.node_id):
                 continue
 
             # Score candidate
@@ -408,14 +405,14 @@ class NetworkTopology:
     def get_topology_metrics(self) -> dict[str, Any]:
         """Get current topology metrics"""
         return {
-            'node_count': len(self.graph.nodes()),
-            'edge_count': len(self.graph.edges()),
-            'avg_degree': sum(dict(self.graph.degree()).values()) / len(self.graph.nodes()) if self.graph.nodes() else 0,
-            'avg_path_length': self.avg_path_length,
-            'clustering_coefficient': self.clustering_coefficient,
-            'network_efficiency': self.network_efficiency,
-            'is_connected': nx.is_connected(self.graph),
-            'strategy': self.strategy.value
+            "node_count": len(self.graph.nodes()),
+            "edge_count": len(self.graph.edges()),
+            "avg_degree": sum(dict(self.graph.degree()).values()) / len(self.graph.nodes()) if self.graph.nodes() else 0,
+            "avg_path_length": self.avg_path_length,
+            "clustering_coefficient": self.clustering_coefficient,
+            "network_efficiency": self.network_efficiency,
+            "is_connected": nx.is_connected(self.graph),
+            "strategy": self.strategy.value,
         }
 
     def get_visualization_data(self) -> dict[str, Any]:
@@ -425,33 +422,31 @@ class NetworkTopology:
 
         for node_id in self.graph.nodes():
             node_data = self.graph.nodes[node_id]
-            peer = self.discovery.peers.get(node_id)
+            self.discovery.peers.get(node_id)
 
-            nodes.append({
-                'id': node_id,
-                'address': node_data.get('address', ''),
-                'reputation': node_data.get('reputation', 0),
-                'degree': self.graph.degree(node_id)
-            })
+            nodes.append(
+                {
+                    "id": node_id,
+                    "address": node_data.get("address", ""),
+                    "reputation": node_data.get("reputation", 0),
+                    "degree": self.graph.degree(node_id),
+                }
+            )
 
         for edge in self.graph.edges(data=True):
-            edges.append({
-                'source': edge[0],
-                'target': edge[1],
-                'weight': edge[2].get('weight', 1.0)
-            })
+            edges.append({"source": edge[0], "target": edge[1], "weight": edge[2].get("weight", 1.0)})
 
-        return {
-            'nodes': nodes,
-            'edges': edges
-        }
+        return {"nodes": nodes, "edges": edges}
+
 
 # Global topology manager
 topology_manager: NetworkTopology | None = None
 
+
 def get_topology_manager() -> NetworkTopology | None:
     """Get global topology manager"""
     return topology_manager
+
 
 def create_topology_manager(discovery: P2PDiscovery, health_monitor: PeerHealthMonitor) -> NetworkTopology:
     """Create and set global topology manager"""

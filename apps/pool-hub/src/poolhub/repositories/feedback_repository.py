@@ -59,21 +59,11 @@ class FeedbackRepository:
         return feedback
 
     async def list_feedback_for_miner(self, miner_id: str, limit: int = 50) -> list[Feedback]:
-        stmt = (
-            select(Feedback)
-            .where(Feedback.miner_id == miner_id)
-            .order_by(Feedback.created_at.desc())
-            .limit(limit)
-        )
+        stmt = select(Feedback).where(Feedback.miner_id == miner_id).order_by(Feedback.created_at.desc()).limit(limit)
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
 
     async def list_feedback_for_job(self, job_id: str, limit: int = 50) -> list[Feedback]:
-        stmt = (
-            select(Feedback)
-            .where(Feedback.job_id == job_id)
-            .order_by(Feedback.created_at.desc())
-            .limit(limit)
-        )
+        stmt = select(Feedback).where(Feedback.job_id == job_id).order_by(Feedback.created_at.desc()).limit(limit)
         result = await self._session.execute(stmt)
         return list(result.scalars().all())

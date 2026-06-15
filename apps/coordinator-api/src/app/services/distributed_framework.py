@@ -2,38 +2,50 @@
 Distributed Agent Processing Framework
 Implements a scalable, fault-tolerant framework for distributed AI agent tasks across the AITBC network.
 """
+
 import asyncio
 import hashlib
 import json
 import time
 import uuid
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-class TaskStatus(str, Enum):
-    PENDING = 'pending'
-    SCHEDULED = 'scheduled'
-    PROCESSING = 'processing'
-    COMPLETED = 'completed'
-    FAILED = 'failed'
-    TIMEOUT = 'timeout'
-    RETRYING = 'retrying'
 
-class WorkerStatus(str, Enum):
-    IDLE = 'idle'
-    BUSY = 'busy'
-    OFFLINE = 'offline'
-    OVERLOADED = 'overloaded'
+class TaskStatus(StrEnum):
+    PENDING = "pending"
+    SCHEDULED = "scheduled"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
+    RETRYING = "retrying"
+
+
+class WorkerStatus(StrEnum):
+    IDLE = "idle"
+    BUSY = "busy"
+    OFFLINE = "offline"
+    OVERLOADED = "overloaded"
+
 
 class DistributedTask:
-
-    def __init__(self, task_id: str, agent_id: str, payload: dict[str, Any], priority: int=1, requires_gpu: bool=False, timeout_ms: int=30000, max_retries: int=3):
-        self.task_id = task_id or f'dt_{uuid.uuid4().hex[:12]}'
+    def __init__(
+        self,
+        task_id: str,
+        agent_id: str,
+        payload: dict[str, Any],
+        priority: int = 1,
+        requires_gpu: bool = False,
+        timeout_ms: int = 30000,
+        max_retries: int = 3,
+    ):
+        self.task_id = task_id or f"dt_{uuid.uuid4().hex[:12]}"
         self.agent_id = agent_id
         self.payload = payload
         self.priority = priority
@@ -52,9 +64,9 @@ class DistributedTask:
         content = json.dumps(payload, sort_keys=True)
         self.content_hash = hashlib.sha256(content.encode()).hexdigest()
 
-class WorkerNode:
 
-    def __init__(self, worker_id: str, capabilities: list[str], has_gpu: bool=False, max_concurrent_tasks: int=4):
+class WorkerNode:
+    def __init__(self, worker_id: str, capabilities: list[str], has_gpu: bool = False, max_concurrent_tasks: int = 4):
         self.worker_id = worker_id
         self.capabilities = capabilities
         self.has_gpu = has_gpu
@@ -64,6 +76,7 @@ class WorkerNode:
         self.last_heartbeat = time.time()
         self.total_completed = 0
         self.performance_score = 1.0
+
 
 class DistributedProcessingCoordinator:
     """
@@ -87,7 +100,7 @@ class DistributedProcessingCoordinator:
         self.is_running = True
         self._scheduler_task = asyncio.create_task(self._scheduling_loop())
         self._monitor_task = asyncio.create_task(self._health_monitor_loop())
-        logger.info('Distributed Processing Coordinator started')
+        logger.info("Distributed Processing Coordinator started")
 
     async def stop(self) -> None:
         """Stop the coordinator gracefully"""
@@ -96,13 +109,13 @@ class DistributedProcessingCoordinator:
             self._scheduler_task.cancel()
         if self._monitor_task:
             self._monitor_task.cancel()
-        logger.info('Distributed Processing Coordinator stopped')
+        logger.info("Distributed Processing Coordinator stopped")
 
-    def register_worker(self, worker_id: str, capabilities: list[str], has_gpu: bool=False, max_tasks: int=4) -> None:
+    def register_worker(self, worker_id: str, capabilities: list[str], has_gpu: bool = False, max_tasks: int = 4) -> None:
         """Register a new worker node in the cluster"""
         if worker_id not in self.workers:
             self.workers[worker_id] = WorkerNode(worker_id, capabilities, has_gpu, max_tasks)
-            logger.info('Registered new worker node: %s (GPU: %s)', worker_id, has_gpu)
+            logger.info("Registered new worker node: %s (GPU: %s)", worker_id, has_gpu)
         else:
             worker = self.workers[worker_id]
             worker.capabilities = capabilities
@@ -112,13 +125,13 @@ class DistributedProcessingCoordinator:
             if worker.status == WorkerStatus.OFFLINE:
                 worker.status = WorkerStatus.IDLE
 
-    def heartbeat(self, worker_id: str, metrics: dict[str, Any] | None=None) -> None:
+    def heartbeat(self, worker_id: str, metrics: dict[str, Any] | None = None) -> None:
         """Record a heartbeat from a worker node"""
         if worker_id in self.workers:
             worker = self.workers[worker_id]
             worker.last_heartbeat = time.time()
             if metrics:
-                cpu_load = metrics.get('cpu_load', 0.0)
+                cpu_load = metrics.get("cpu_load", 0.0)
                 if cpu_load > 0.9 or len(worker.active_tasks) >= worker.max_concurrent_tasks:
                     worker.status = WorkerStatus.OVERLOADED
                 elif len(worker.active_tasks) > 0:
@@ -133,12 +146,12 @@ class DistributedProcessingCoordinator:
             task.result = self.result_cache[task.content_hash]
             task.completed_at = time.time()
             self.tasks[task.task_id] = task
-            logger.debug('Task %s fulfilled from cache', task.task_id)
+            logger.debug("Task %s fulfilled from cache", task.task_id)
             return task.task_id
         self.tasks[task.task_id] = task
         queue_priority = 100 - min(task.priority, 100)
         await self.task_queue.put((queue_priority, task.created_at, task.task_id))
-        logger.debug('Task %s queued with priority %s', task.task_id, task.priority)
+        logger.debug("Task %s queued with priority %s", task.task_id, task.priority)
         return task.task_id
 
     async def get_task_status(self, task_id: str) -> dict[str, Any] | None:
@@ -146,16 +159,16 @@ class DistributedProcessingCoordinator:
         if task_id not in self.tasks:
             return None
         task = self.tasks[task_id]
-        response = {'task_id': task.task_id, 'status': task.status, 'created_at': task.created_at}
+        response = {"task_id": task.task_id, "status": task.status, "created_at": task.created_at}
         if task.status == TaskStatus.COMPLETED:
-            response['result'] = task.result
-            response['completed_at'] = task.completed_at
+            response["result"] = task.result
+            response["completed_at"] = task.completed_at
             if task.completed_at is not None:
-                response['duration_ms'] = int((task.completed_at - (task.started_at or task.created_at)) * 1000)
+                response["duration_ms"] = int((task.completed_at - (task.started_at or task.created_at)) * 1000)
         elif task.status in [TaskStatus.FAILED, TaskStatus.TIMEOUT]:
-            response['error'] = str(task.error)
+            response["error"] = str(task.error)
         if task.assigned_worker_id:
-            response['worker_id'] = task.assigned_worker_id
+            response["worker_id"] = task.assigned_worker_id
         return response
 
     async def _scheduling_loop(self) -> None:
@@ -182,7 +195,7 @@ class DistributedProcessingCoordinator:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error('Error in scheduling loop: %s', e)
+                logger.error("Error in scheduling loop: %s", e)
                 await asyncio.sleep(1.0)
 
     async def _requeue_delayed(self, priority: int, task: DistributedTask) -> None:
@@ -222,7 +235,7 @@ class DistributedProcessingCoordinator:
             worker.status = WorkerStatus.OVERLOADED
         elif worker.status == WorkerStatus.IDLE:
             worker.status = WorkerStatus.BUSY
-        logger.debug('Assigned task %s to worker %s', task.task_id, worker.worker_id)
+        logger.debug("Assigned task %s to worker %s", task.task_id, worker.worker_id)
         asyncio.create_task(self._simulate_worker_execution(task, worker))
 
     async def _simulate_worker_execution(self, task: DistributedTask, worker: WorkerNode) -> None:
@@ -230,16 +243,16 @@ class DistributedProcessingCoordinator:
         task.status = TaskStatus.PROCESSING
         task.started_at = time.time()
         try:
-            complexity = task.payload.get('complexity', 1.0)
+            complexity = task.payload.get("complexity", 1.0)
             base_time = 0.5
             if worker.has_gpu and task.requires_gpu:
                 processing_time = base_time * complexity * 0.2
             else:
                 processing_time = base_time * complexity
             if worker.performance_score < 0.5 and time.time() % 10 < 1:
-                raise ConnectionError('Worker node network failure')
+                raise ConnectionError("Worker node network failure")
             await asyncio.sleep(processing_time)
-            self.report_task_success(task.task_id, {'result_data': 'simulated_success', 'processed_by': worker.worker_id})
+            self.report_task_success(task.task_id, {"result_data": "simulated_success", "processed_by": worker.worker_id})
         except Exception as e:
             self.report_task_failure(task.task_id, str(e))
 
@@ -264,7 +277,7 @@ class DistributedProcessingCoordinator:
                 worker.status = WorkerStatus.BUSY
             if len(worker.active_tasks) == 0:
                 worker.status = WorkerStatus.IDLE
-        logger.info('Task %s completed successfully', task_id)
+        logger.info("Task %s completed successfully", task_id)
 
     def report_task_failure(self, task_id: str, error: str) -> None:
         """Called when a task fails execution"""
@@ -280,15 +293,15 @@ class DistributedProcessingCoordinator:
             task.retries += 1
             task.status = TaskStatus.RETRYING
             task.assigned_worker_id = None
-            task.error = f'Attempt {task.retries} failed: {error}'
-            logger.warning('Task %s failed, scheduling retry %s/%s', task_id, task.retries, task.max_retries)
+            task.error = f"Attempt {task.retries} failed: {error}"
+            logger.warning("Task %s failed, scheduling retry %s/%s", task_id, task.retries, task.max_retries)
             queue_priority = 100 - min(task.priority, 100) + task.retries * 5
             asyncio.create_task(self.task_queue.put((queue_priority, time.time(), task.task_id)))
         else:
             task.status = TaskStatus.FAILED
-            task.error = f'Max retries exceeded. Final error: {error}'
+            task.error = f"Max retries exceeded. Final error: {error}"
             task.completed_at = time.time()
-            logger.error('Task %s failed permanently', task_id)
+            logger.error("Task %s failed permanently", task_id)
 
     async def _health_monitor_loop(self) -> None:
         """Background task that monitors worker health and task timeouts"""
@@ -298,23 +311,23 @@ class DistributedProcessingCoordinator:
                 for worker_id, worker in self.workers.items():
                     if current_time - worker.last_heartbeat > 60.0:
                         if worker.status != WorkerStatus.OFFLINE:
-                            logger.warning('Worker %s went offline (missed heartbeats)', worker_id)
+                            logger.warning("Worker %s went offline (missed heartbeats)", worker_id)
                             worker.status = WorkerStatus.OFFLINE
                             for task_id in worker.active_tasks:
                                 if task_id in self.tasks:
-                                    self.report_task_failure(task_id, 'Worker node disconnected')
+                                    self.report_task_failure(task_id, "Worker node disconnected")
                             worker.active_tasks.clear()
                 for task_id, task in self.tasks.items():
                     if task.status in [TaskStatus.SCHEDULED, TaskStatus.PROCESSING]:
                         start_time = task.started_at or task.scheduled_at
                         if start_time and (current_time - start_time) * 1000 > task.timeout_ms:
-                            logger.warning('Task %s timed out', task_id)
-                            self.report_task_failure(task_id, f'Execution timed out after {task.timeout_ms}ms')
+                            logger.warning("Task %s timed out", task_id)
+                            self.report_task_failure(task_id, f"Execution timed out after {task.timeout_ms}ms")
                 await asyncio.sleep(5.0)
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error('Error in health monitor loop: %s', e)
+                logger.error("Error in health monitor loop: %s", e)
                 await asyncio.sleep(5.0)
 
     def get_cluster_status(self) -> dict[str, Any]:
@@ -329,4 +342,15 @@ class DistributedProcessingCoordinator:
         total_capacity = sum(w.max_concurrent_tasks for w in self.workers.values() if w.status != WorkerStatus.OFFLINE)
         current_load = sum(len(w.active_tasks) for w in self.workers.values() if w.status != WorkerStatus.OFFLINE)
         utilization = current_load / total_capacity * 100 if total_capacity > 0 else 0
-        return {'cluster_health': 'healthy' if active_workers > 0 else 'offline', 'nodes': {'total': total_workers, 'active': active_workers, 'with_gpu': gpu_workers}, 'tasks': {'pending': pending_tasks, 'processing': processing_tasks, 'completed': completed_tasks, 'failed': failed_tasks}, 'performance': {'utilization_percent': round(utilization, 2), 'cache_size': len(self.result_cache)}, 'timestamp': datetime.now(UTC).isoformat()}
+        return {
+            "cluster_health": "healthy" if active_workers > 0 else "offline",
+            "nodes": {"total": total_workers, "active": active_workers, "with_gpu": gpu_workers},
+            "tasks": {
+                "pending": pending_tasks,
+                "processing": processing_tasks,
+                "completed": completed_tasks,
+                "failed": failed_tasks,
+            },
+            "performance": {"utilization_percent": round(utilization, 2), "cache_size": len(self.result_cache)},
+            "timestamp": datetime.now(UTC).isoformat(),
+        }

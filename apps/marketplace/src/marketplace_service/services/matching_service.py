@@ -1,6 +1,7 @@
 """
 Marketplace matching service for matching GPU providers with consumers
 """
+
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,68 +13,91 @@ from ..domain.marketplace import MarketplaceOffer
 
 logger = get_logger(__name__)
 
+
 class MatchingService:
     """Service for matching GPU offers with consumer bids"""
 
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def find_best_match(self, bid_requirements: dict[str, Any], max_price: float | None=None, preferred_region: str | None=None, min_gpu_memory: int | None=None, required_gpu_model: str | None=None) -> dict[str, Any] | None:
+    async def find_best_match(
+        self,
+        bid_requirements: dict[str, Any],
+        max_price: float | None = None,
+        preferred_region: str | None = None,
+        min_gpu_memory: int | None = None,
+        required_gpu_model: str | None = None,
+    ) -> dict[str, Any] | None:
         """
         Find the best matching offer for a bid based on requirements
-        
+
         Args:
             bid_requirements: Bid requirements (capacity, duration, etc.)
             max_price: Maximum price per hour willing to pay
             preferred_region: Preferred region for GPU location
             min_gpu_memory: Minimum GPU memory in GB
             required_gpu_model: Specific GPU model required
-        
+
         Returns:
             Best matching offer as dict, or None if no match found
         """
         try:
-            logger.info('Finding best match for bid requirements: %s', bid_requirements.keys())
-            stmt = select(MarketplaceOffer).where(MarketplaceOffer.status == 'active')
+            logger.info("Finding best match for bid requirements: %s", bid_requirements.keys())
+            stmt = select(MarketplaceOffer).where(MarketplaceOffer.status == "active")
             if max_price is not None:
-                stmt = stmt.where(MarketplaceOffer.price_per_hour.isnot(None)).where(MarketplaceOffer.price_per_hour <= max_price)  # type: ignore[union-attr,operator]
+                stmt = stmt.where(MarketplaceOffer.price_per_hour.isnot(None)).where(
+                    MarketplaceOffer.price_per_hour <= max_price
+                )  # type: ignore[union-attr,operator]
             if preferred_region:
                 stmt = stmt.where(MarketplaceOffer.region == preferred_region)
             if min_gpu_memory is not None:
-                stmt = stmt.where(MarketplaceOffer.gpu_memory_gb.isnot(None)).where(MarketplaceOffer.gpu_memory_gb >= min_gpu_memory)  # type: ignore[union-attr,operator]
+                stmt = stmt.where(MarketplaceOffer.gpu_memory_gb.isnot(None)).where(
+                    MarketplaceOffer.gpu_memory_gb >= min_gpu_memory
+                )  # type: ignore[union-attr,operator]
             if required_gpu_model:
                 stmt = stmt.where(MarketplaceOffer.gpu_model == required_gpu_model)
             stmt = stmt.order_by(MarketplaceOffer.price_per_hour.asc(), MarketplaceOffer.capacity.desc())  # type: ignore[union-attr,attr-defined]
             result = await self.session.execute(stmt)
             offers = result.scalars().all()
             if not offers:
-                logger.info('No matching offers found')
+                logger.info("No matching offers found")
                 return None
             best_offer = offers[0]
-            logger.info('Found best match: offer_id=%s, price=%s', best_offer.id, best_offer.price_per_hour)
-            return {'id': best_offer.id, 'provider': best_offer.provider, 'capacity': best_offer.capacity, 'price': best_offer.price, 'price_per_hour': best_offer.price_per_hour, 'gpu_model': best_offer.gpu_model, 'gpu_memory_gb': best_offer.gpu_memory_gb, 'gpu_count': best_offer.gpu_count, 'region': best_offer.region, 'match_score': self._calculate_match_score(best_offer, bid_requirements)}
+            logger.info("Found best match: offer_id=%s, price=%s", best_offer.id, best_offer.price_per_hour)
+            return {
+                "id": best_offer.id,
+                "provider": best_offer.provider,
+                "capacity": best_offer.capacity,
+                "price": best_offer.price,
+                "price_per_hour": best_offer.price_per_hour,
+                "gpu_model": best_offer.gpu_model,
+                "gpu_memory_gb": best_offer.gpu_memory_gb,
+                "gpu_count": best_offer.gpu_count,
+                "region": best_offer.region,
+                "match_score": self._calculate_match_score(best_offer, bid_requirements),
+            }
         except Exception as e:
-            logger.error('Error in find_best_match: %s: %s', type(e).__name__, str(e))
+            logger.error("Error in find_best_match: %s: %s", type(e).__name__, str(e))
             raise
 
     def _calculate_match_score(self, offer: MarketplaceOffer, requirements: dict[str, Any]) -> float:
         """
         Calculate a match score for an offer based on requirements
-        
+
         Args:
             offer: Marketplace offer
             requirements: Bid requirements
-        
+
         Returns:
             Match score between 0.0 and 1.0
         """
         score = 1.0
-        if requirements.get('max_price'):
-            price_ratio = offer.price_per_hour / requirements['max_price']
+        if requirements.get("max_price"):
+            price_ratio = offer.price_per_hour / requirements["max_price"]
             score *= 1.0 - price_ratio * 0.3
-        if requirements.get('capacity'):
-            capacity_ratio = min(offer.capacity / requirements['capacity'], 2.0)
+        if requirements.get("capacity"):
+            capacity_ratio = min(offer.capacity / requirements["capacity"], 2.0)
             score *= 0.7 + capacity_ratio * 0.15
-        if requirements.get('preferred_region') and offer.region == requirements['preferred_region']:
+        if requirements.get("preferred_region") and offer.region == requirements["preferred_region"]:
             score *= 1.1
         return min(max(score, 0.0), 1.0)

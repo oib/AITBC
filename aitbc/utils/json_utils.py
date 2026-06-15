@@ -45,7 +45,7 @@ def save_json(data: dict[str, Any], path: Path, indent: int = 2) -> None:
         indent: JSON indentation level
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         json.dump(data, f, indent=indent)
 
 
@@ -151,6 +151,7 @@ def flatten_json(data: dict[str, Any], separator: str = ".") -> dict[str, Any]:
     Returns:
         Flattened dictionary
     """
+
     def _flatten(obj: Any, parent_key: str = "") -> dict[str, Any]:
         items = {}
         if isinstance(obj, dict):

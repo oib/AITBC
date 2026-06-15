@@ -26,6 +26,7 @@ def coordinator_client():
             sys.path.insert(0, coordinator_path)
 
         from app.main import app as coordinator_app
+
         print("✅ Using real coordinator API client")
         return TestClient(coordinator_app)
     except ImportError as e:
@@ -42,8 +43,8 @@ def coordinator_client():
                 "expires_at": "2026-01-26T18:15:00.000000",
                 "error": None,
                 "payment_id": "test-payment-456",
-                "payment_status": "escrowed"
-            }
+                "payment_status": "escrowed",
+            },
         )
 
         mock_client = Mock()
@@ -59,18 +60,12 @@ def coordinator_client():
                 "expires_at": "2026-01-26T18:15:00.000000",
                 "error": None,
                 "payment_id": "test-payment-456",
-                "payment_status": "escrowed"
-            }
+                "payment_status": "escrowed",
+            },
         )
         mock_client.get.return_value = mock_get_response
 
-        mock_receipts_response = MockResponse(
-            status_code=200,
-            json_data={
-                "items": [],
-                "total": 0
-            }
-        )
+        mock_receipts_response = MockResponse(status_code=200, json_data={"items": [], "total": 0})
 
         def mock_get_side_effect(url, headers=None):
             if "receipts" in url:
@@ -91,8 +86,8 @@ def coordinator_client():
                         "payment_method": "aitbc_token",
                         "escrow_address": "test-escrow-id",
                         "created_at": "2026-01-26T18:00:00.000000",
-                        "updated_at": "2026-01-26T18:00:00.000000"
-                    }
+                        "updated_at": "2026-01-26T18:00:00.000000",
+                    },
                 )
             return mock_get_response
 

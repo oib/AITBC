@@ -2,7 +2,6 @@
 Media processing service definitions
 """
 
-
 from .registry import (
     HardwareRequirement,
     ParameterDefinition,

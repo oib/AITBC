@@ -26,14 +26,9 @@ def create_island_command(ctx, island_id, island_name, chain_id):
         if not chain_id:
             chain_id = f"ait-{island_id[:8]}"
 
-        island_info = {
-            "Island ID": island_id,
-            "Island Name": island_name,
-            "Chain ID": chain_id,
-            "Created": "Now"
-        }
+        island_info = {"Island ID": island_id, "Island Name": island_name, "Chain ID": chain_id, "Created": "Now"}
 
-        output(island_info, ctx.obj.get('output_format', 'table'), title="New Island Created")
+        output(island_info, ctx.obj.get("output_format", "table"), title="New Island Created")
         success(f"Island {island_name} ({island_id}) created successfully")
 
     except Exception as e:
@@ -49,19 +44,19 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub):
         # Get system hostname
         hostname = socket.gethostname()
 
-        sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
+        sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
         from aitbc_chain.config import settings as chain_settings
 
         # Get public key from keystore
-        keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
+        keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
         public_key_pem = None
 
         if os.path.exists(keystore_path):
             with open(keystore_path) as f:
                 keys = json.load(f)
                 # Get first key's public key
-                for key_id, key_data in keys.items():
-                    public_key_pem = key_data.get('public_key_pem')
+                for _key_id, key_data in keys.items():
+                    public_key_pem = key_data.get("public_key_pem")
                     break
         else:
             error(f"Keystore not found at {keystore_path}")
@@ -100,46 +95,44 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub):
 
         # Send join request
         async def send_join():
-            return await p2p_service.send_join_request(
-                hub_ip, hub_port, island_id, island_name, node_id, public_key_pem
-            )
+            return await p2p_service.send_join_request(hub_ip, hub_port, island_id, island_name, node_id, public_key_pem)
 
         response = asyncio.run(send_join())
 
         if response:
             # Store credentials locally
-            credentials_path = '/var/lib/aitbc/island_credentials.json'
+            credentials_path = "/var/lib/aitbc/island_credentials.json"
             credentials_data = {
-                "island_id": response.get('island_id'),
-                "island_name": response.get('island_name'),
-                "island_chain_id": response.get('island_chain_id'),
-                "credentials": response.get('credentials'),
-                "joined_at": datetime.now().isoformat()
+                "island_id": response.get("island_id"),
+                "island_name": response.get("island_name"),
+                "island_chain_id": response.get("island_chain_id"),
+                "credentials": response.get("credentials"),
+                "joined_at": datetime.now().isoformat(),
             }
 
-            with open(credentials_path, 'w') as f:
+            with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f, indent=2)
 
             # Display join info
             join_info = {
-                "Island ID": response.get('island_id'),
-                "Island Name": response.get('island_name'),
-                "Chain ID": response.get('island_chain_id'),
-                "Member Count": len(response.get('members', [])),
-                "Credentials Stored": credentials_path
+                "Island ID": response.get("island_id"),
+                "Island Name": response.get("island_name"),
+                "Chain ID": response.get("island_chain_id"),
+                "Member Count": len(response.get("members", [])),
+                "Credentials Stored": credentials_path,
             }
 
-            output(join_info, ctx.obj.get('output_format', 'table'), title=f"Joined Island: {island_name}")
+            output(join_info, ctx.obj.get("output_format", "table"), title=f"Joined Island: {island_name}")
 
             # Display member list
-            members = response.get('members', [])
+            members = response.get("members", [])
             if members:
-                output(members, ctx.obj.get('output_format', 'table'), title="Island Members")
+                output(members, ctx.obj.get("output_format", "table"), title="Island Members")
 
             # Display credentials
-            credentials = response.get('credentials', {})
+            credentials = response.get("credentials", {})
             if credentials:
-                output(credentials, ctx.obj.get('output_format', 'table'), title="Blockchain Credentials")
+                output(credentials, ctx.obj.get("output_format", "table"), title="Blockchain Credentials")
 
             success(f"Successfully joined island {island_name}")
 
@@ -175,11 +168,11 @@ def list_islands_command(ctx):
                 "Island Name": "default",
                 "Chain ID": "ait-island-default",
                 "Status": "Active",
-                "Peer Count": "3"
+                "Peer Count": "3",
             }
         ]
 
-        output(islands, ctx.obj.get('output_format', 'table'), title="Known Islands")
+        output(islands, ctx.obj.get("output_format", "table"), title="Known Islands")
 
     except Exception as e:
         error(f"Error listing islands: {str(e)}")
@@ -195,10 +188,10 @@ def island_info_command(ctx, island_id):
             "Chain ID": "ait-island-default",
             "Status": "Active",
             "Peer Count": "3",
-            "Created": "2024-01-01T00:00:00Z"
+            "Created": "2024-01-01T00:00:00Z",
         }
 
-        output(island_info, ctx.obj.get('output_format', 'table'), title=f"Island Information: {island_id}")
+        output(island_info, ctx.obj.get("output_format", "table"), title=f"Island Information: {island_id}")
 
     except Exception as e:
         error(f"Error getting island info: {str(e)}")

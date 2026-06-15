@@ -8,15 +8,10 @@ from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = os.getenv(
-    "AI_SERVICE_DATABASE_URL",
-    "postgresql+asyncpg://aitbc_ai:password@localhost:5432/aitbc_ai"
-)
+DATABASE_URL = os.getenv("AI_SERVICE_DATABASE_URL", "postgresql+asyncpg://aitbc_ai:password@localhost:5432/aitbc_ai")
 
 engine = create_async_engine(DATABASE_URL, echo=False)
-AsyncSessionLocal = sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False
-)
+AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 @asynccontextmanager

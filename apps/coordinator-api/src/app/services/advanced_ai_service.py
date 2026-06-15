@@ -3,6 +3,7 @@ Advanced AI Service - Phase 5.2 Implementation
 Integrates enhanced RL, multi-modal fusion, and GPU optimization
 Port: 8009
 """
+
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -23,26 +24,30 @@ from .multi_modal_fusion import MultiModalFusionEngine  # type: ignore[import-no
 
 
 class RLTrainingRequest(BaseModel):
-    agent_id: str = Field(..., description='Unique agent identifier')
-    environment_type: str = Field(..., description='Environment type for training')
-    algorithm: str = Field(default='ppo', description='RL algorithm to use')
-    training_config: dict[str, Any] | None = Field(default=None, description='Training configuration')
-    training_data: list[dict[str, Any]] = Field(..., description='Training data')
+    agent_id: str = Field(..., description="Unique agent identifier")
+    environment_type: str = Field(..., description="Environment type for training")
+    algorithm: str = Field(default="ppo", description="RL algorithm to use")
+    training_config: dict[str, Any] | None = Field(default=None, description="Training configuration")
+    training_data: list[dict[str, Any]] = Field(..., description="Training data")
+
 
 class MultiModalFusionRequest(BaseModel):
-    modal_data: dict[str, Any] = Field(..., description='Multi-modal input data')
-    fusion_strategy: str = Field(default='transformer_fusion', description='Fusion strategy')
-    fusion_config: dict[str, Any] | None = Field(default=None, description='Fusion configuration')
+    modal_data: dict[str, Any] = Field(..., description="Multi-modal input data")
+    fusion_strategy: str = Field(default="transformer_fusion", description="Fusion strategy")
+    fusion_config: dict[str, Any] | None = Field(default=None, description="Fusion configuration")
+
 
 class GPUOptimizationRequest(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    modality_features: dict[str, np.ndarray] = Field(..., description='Features for each modality')
-    attention_config: dict[str, Any] | None = Field(default=None, description='Attention configuration')
+    modality_features: dict[str, np.ndarray] = Field(..., description="Features for each modality")
+    attention_config: dict[str, Any] | None = Field(default=None, description="Attention configuration")
+
 
 class AdvancedAIRequest(BaseModel):
-    request_type: str = Field(..., description='Type of AI processing')
-    input_data: dict[str, Any] = Field(..., description='Input data for processing')
-    config: dict[str, Any] | None = Field(default=None, description='Processing configuration')
+    request_type: str = Field(..., description="Type of AI processing")
+    input_data: dict[str, Any] = Field(..., description="Input data for processing")
+    config: dict[str, Any] | None = Field(default=None, description="Processing configuration")
+
 
 class PerformanceMetrics(BaseModel):
     processing_time_ms: float
@@ -50,162 +55,278 @@ class PerformanceMetrics(BaseModel):
     memory_usage_mb: float | None = None
     accuracy: float | None = None
     model_complexity: int | None = None
-app = FastAPI(title='Advanced AI Service', description='Enhanced AI capabilities with RL, multi-modal fusion, and GPU optimization', version='5.2.0', docs_url='/docs', redoc_url='/redoc')
-app.add_middleware(CORSMiddleware, allow_origins=['http://localhost:8001', 'http://localhost:8203', 'http://localhost:8016', 'http://localhost:9001', 'http://127.0.0.1:8001', 'http://127.0.0.1:8203', 'http://127.0.0.1:8016', 'http://127.0.0.1:9001'], allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
+
+
+app = FastAPI(
+    title="Advanced AI Service",
+    description="Enhanced AI capabilities with RL, multi-modal fusion, and GPU optimization",
+    version="5.2.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8001",
+        "http://localhost:8203",
+        "http://localhost:8016",
+        "http://localhost:9001",
+        "http://127.0.0.1:8001",
+        "http://127.0.0.1:8203",
+        "http://127.0.0.1:8016",
+        "http://127.0.0.1:9001",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 rl_engine = AdvancedReinforcementLearningEngine()
 fusion_engine = MultiModalFusionEngine()
 advanced_learning = AdvancedLearningService({})
 
-@app.on_event('startup')
+
+@app.on_event("startup")
 async def startup_event() -> None:
     """Initialize the Advanced AI Service"""
-    logger.info('Starting Advanced AI Service on port 8009')
+    logger.info("Starting Advanced AI Service on port 8009")
     if torch.cuda.is_available():
-        logger.info('CUDA available: %s', torch.cuda.get_device_name())
-        logger.info('GPU Memory: %s GB', torch.cuda.get_device_properties(0).total_memory / 1000000000.0)
+        logger.info("CUDA available: %s", torch.cuda.get_device_name())
+        logger.info("GPU Memory: %s GB", torch.cuda.get_device_properties(0).total_memory / 1000000000.0)
     else:
-        logger.warning('CUDA not available, using CPU fallback')
+        logger.warning("CUDA not available, using CPU fallback")
 
-@app.get('/')
+
+@app.get("/")
 async def root() -> dict[str, Any]:
     """Root endpoint"""
-    return {'service': 'Advanced AI Service', 'version': '5.2.0', 'port': 8009, 'capabilities': ['Advanced Reinforcement Learning', 'Multi-Modal Fusion', 'GPU-Accelerated Processing', 'Meta-Learning', 'Performance Optimization'], 'status': 'operational'}
+    return {
+        "service": "Advanced AI Service",
+        "version": "5.2.0",
+        "port": 8009,
+        "capabilities": [
+            "Advanced Reinforcement Learning",
+            "Multi-Modal Fusion",
+            "GPU-Accelerated Processing",
+            "Meta-Learning",
+            "Performance Optimization",
+        ],
+        "status": "operational",
+    }
 
-@app.get('/health')
+
+@app.get("/health")
 async def health_check() -> dict[str, Any]:
     """Health check endpoint"""
-    return {'status': 'healthy', 'timestamp': datetime.now(UTC).isoformat(), 'gpu_available': torch.cuda.is_available(), 'services': {'rl_engine': 'operational', 'fusion_engine': 'operational', 'advanced_learning': 'operational'}}
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(UTC).isoformat(),
+        "gpu_available": torch.cuda.is_available(),
+        "services": {"rl_engine": "operational", "fusion_engine": "operational", "advanced_learning": "operational"},
+    }
 
-@app.post('/rl/train')
+
+@app.post("/rl/train")
 async def train_rl_agent(request: RLTrainingRequest, background_tasks: BackgroundTasks) -> Any:
     """Train a reinforcement learning agent"""
     try:
         training_id = str(uuid.uuid4())
-        background_tasks.add_task(_train_rl_agent_background, training_id, request.agent_id, request.environment_type, request.algorithm, request.training_config, request.training_data)
-        return {'training_id': training_id, 'status': 'training_started', 'agent_id': request.agent_id, 'algorithm': request.algorithm, 'environment': request.environment_type}
+        background_tasks.add_task(
+            _train_rl_agent_background,
+            training_id,
+            request.agent_id,
+            request.environment_type,
+            request.algorithm,
+            request.training_config,
+            request.training_data,
+        )
+        return {
+            "training_id": training_id,
+            "status": "training_started",
+            "agent_id": request.agent_id,
+            "algorithm": request.algorithm,
+            "environment": request.environment_type,
+        }
     except Exception as e:
-        logger.error('RL training failed: %s', e)
+        logger.error("RL training failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-async def _train_rl_agent_background(training_id: str, agent_id: str, environment_type: str, algorithm: str, training_config: dict[str, Any] | None, training_data: list[dict[str, Any]]) -> None:
+
+async def _train_rl_agent_background(
+    training_id: str,
+    agent_id: str,
+    environment_type: str,
+    algorithm: str,
+    training_config: dict[str, Any] | None,
+    training_data: list[dict[str, Any]],
+) -> None:
     """Background task for RL training"""
     try:
         from ..database import get_session  # type: ignore[attr-defined]
-        async with get_session() as session:
-            await rl_engine.create_rl_agent(session=session, agent_id=agent_id, environment_type=environment_type, algorithm=algorithm, training_config=training_config)
-            logger.info('RL training completed: %s', training_id)
-    except Exception as e:
-        logger.error('Background RL training failed: %s', e)
 
-@app.post('/fusion/process')
+        async with get_session() as session:
+            await rl_engine.create_rl_agent(
+                session=session,
+                agent_id=agent_id,
+                environment_type=environment_type,
+                algorithm=algorithm,
+                training_config=training_config,
+            )
+            logger.info("RL training completed: %s", training_id)
+    except Exception as e:
+        logger.error("Background RL training failed: %s", e)
+
+
+@app.post("/fusion/process")
 async def process_multi_modal_fusion(request: MultiModalFusionRequest) -> Any:
     """Process multi-modal fusion"""
     try:
         start_time = datetime.now(UTC)
         from ..database import get_session  # type: ignore[attr-defined]
+
         async with get_session() as session:
-            if request.fusion_strategy == 'transformer_fusion':
-                result = await fusion_engine.transformer_fusion(session=session, modal_data=request.modal_data, fusion_config=request.fusion_config)
-            elif request.fusion_strategy == 'cross_modal_attention':
-                result = await fusion_engine.cross_modal_attention(session=session, modal_data=request.modal_data, fusion_config=request.fusion_config)
+            if request.fusion_strategy == "transformer_fusion":
+                result = await fusion_engine.transformer_fusion(
+                    session=session, modal_data=request.modal_data, fusion_config=request.fusion_config
+                )
+            elif request.fusion_strategy == "cross_modal_attention":
+                result = await fusion_engine.cross_modal_attention(
+                    session=session, modal_data=request.modal_data, fusion_config=request.fusion_config
+                )
             else:
-                result = await fusion_engine.adaptive_fusion_selection(modal_data=request.modal_data, performance_requirements=request.fusion_config or {})
+                result = await fusion_engine.adaptive_fusion_selection(
+                    modal_data=request.modal_data, performance_requirements=request.fusion_config or {}
+                )
         processing_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
-        return {'fusion_result': result, 'processing_time_ms': processing_time, 'strategy_used': request.fusion_strategy, 'timestamp': datetime.now(UTC).isoformat()}
+        return {
+            "fusion_result": result,
+            "processing_time_ms": processing_time,
+            "strategy_used": request.fusion_strategy,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
     except Exception as e:
-        logger.error('Multi-modal fusion failed: %s', e)
+        logger.error("Multi-modal fusion failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post('/gpu/optimize')
+
+@app.post("/gpu/optimize")
 async def optimize_gpu_processing(request: GPUOptimizationRequest) -> Any:
     """Perform GPU-optimized processing"""
     try:
         from ..database import get_session  # type: ignore[attr-defined]
+
         async with get_session() as session:
             gpu_processor = GPUAcceleratedMultiModal(session)
-            result = await gpu_processor.accelerated_cross_modal_attention(modality_features=request.modality_features, attention_config=request.attention_config)
-        return {'optimization_result': result, 'timestamp': datetime.now(UTC).isoformat()}
+            result = await gpu_processor.accelerated_cross_modal_attention(
+                modality_features=request.modality_features, attention_config=request.attention_config
+            )
+        return {"optimization_result": result, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
-        logger.error('GPU optimization failed: %s', e)
+        logger.error("GPU optimization failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post('/process')
+
+@app.post("/process")
 async def advanced_ai_processing(request: AdvancedAIRequest) -> Any:
     """Unified advanced AI processing endpoint"""
     try:
         datetime.now(UTC)
-        if request.request_type == 'rl_training':
+        if request.request_type == "rl_training":
             return await _handle_rl_training(request.input_data, request.config)
-        elif request.request_type == 'multi_modal_fusion':
+        elif request.request_type == "multi_modal_fusion":
             return await _handle_fusion_processing(request.input_data, request.config)
-        elif request.request_type == 'gpu_optimization':
+        elif request.request_type == "gpu_optimization":
             return await _handle_gpu_optimization(request.input_data, request.config)
-        elif request.request_type == 'meta_learning':
+        elif request.request_type == "meta_learning":
             return await _handle_meta_learning(request.input_data, request.config)
         else:
-            raise HTTPException(status_code=400, detail=f'Unsupported request type: {request.request_type}')
+            raise HTTPException(status_code=400, detail=f"Unsupported request type: {request.request_type}")
     except Exception as e:
-        logger.error('Advanced AI processing failed: %s', e)
+        logger.error("Advanced AI processing failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
 
 async def _handle_rl_training(input_data: dict[str, Any], config: dict[str, Any] | None) -> Any:
     """Handle RL training request"""
-    return {'status': 'rl_training_initiated', 'details': input_data}
+    return {"status": "rl_training_initiated", "details": input_data}
+
 
 async def _handle_fusion_processing(input_data: dict[str, Any], config: dict[str, Any] | None) -> Any:
     """Handle fusion processing request"""
-    return {'status': 'fusion_processing_initiated', 'details': input_data}
+    return {"status": "fusion_processing_initiated", "details": input_data}
+
 
 async def _handle_gpu_optimization(input_data: dict[str, Any], config: dict[str, Any] | None) -> Any:
     """Handle GPU optimization request"""
-    return {'status': 'gpu_optimization_initiated', 'details': input_data}
+    return {"status": "gpu_optimization_initiated", "details": input_data}
+
 
 async def _handle_meta_learning(input_data: dict[str, Any], config: dict[str, Any] | None) -> Any:
     """Handle meta-learning request"""
-    return {'status': 'meta_learning_initiated', 'details': input_data}
+    return {"status": "meta_learning_initiated", "details": input_data}
 
-@app.get('/metrics')
+
+@app.get("/metrics")
 async def get_performance_metrics() -> Any:
     """Get service performance metrics"""
     try:
         gpu_metrics = {}
         if torch.cuda.is_available():
-            gpu_metrics = {'gpu_available': True, 'gpu_name': torch.cuda.get_device_name(), 'gpu_memory_total_gb': torch.cuda.get_device_properties(0).total_memory / 1000000000.0, 'gpu_memory_allocated_gb': torch.cuda.memory_allocated() / 1000000000.0, 'gpu_memory_cached_gb': torch.cuda.memory_reserved() / 1000000000.0}
+            gpu_metrics = {
+                "gpu_available": True,
+                "gpu_name": torch.cuda.get_device_name(),
+                "gpu_memory_total_gb": torch.cuda.get_device_properties(0).total_memory / 1000000000.0,
+                "gpu_memory_allocated_gb": torch.cuda.memory_allocated() / 1000000000.0,
+                "gpu_memory_cached_gb": torch.cuda.memory_reserved() / 1000000000.0,
+            }
         else:
-            gpu_metrics = {'gpu_available': False}
-        gpu_memory_allocated = float(gpu_metrics.get('gpu_memory_allocated_gb', 0))  # type: ignore[arg-type]
-        gpu_memory_total = float(gpu_metrics.get('gpu_memory_total_gb', 1))  # type: ignore[arg-type]
-        service_metrics = {'rl_models_trained': len(rl_engine.agents), 'fusion_models_created': len(fusion_engine.fusion_models), 'gpu_utilization': gpu_memory_allocated / gpu_memory_total * 100 if gpu_metrics.get('gpu_available') else 0}
-        return {'timestamp': datetime.now(UTC).isoformat(), 'gpu_metrics': gpu_metrics, 'service_metrics': service_metrics, 'system_health': 'operational'}
+            gpu_metrics = {"gpu_available": False}
+        gpu_memory_allocated = float(gpu_metrics.get("gpu_memory_allocated_gb", 0))  # type: ignore[arg-type]
+        gpu_memory_total = float(gpu_metrics.get("gpu_memory_total_gb", 1))  # type: ignore[arg-type]
+        service_metrics = {
+            "rl_models_trained": len(rl_engine.agents),
+            "fusion_models_created": len(fusion_engine.fusion_models),
+            "gpu_utilization": gpu_memory_allocated / gpu_memory_total * 100 if gpu_metrics.get("gpu_available") else 0,
+        }
+        return {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "gpu_metrics": gpu_metrics,
+            "service_metrics": service_metrics,
+            "system_health": "operational",
+        }
     except Exception as e:
-        logger.error('Failed to get metrics: %s', e)
+        logger.error("Failed to get metrics: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get('/models')
+
+@app.get("/models")
 async def list_available_models() -> Any:
     """List available trained models"""
     try:
         rl_models = list(rl_engine.agents.keys())
         fusion_models = list(fusion_engine.fusion_models.keys())
-        return {'rl_models': rl_models, 'fusion_models': fusion_models, 'total_models': len(rl_models) + len(fusion_models)}
+        return {"rl_models": rl_models, "fusion_models": fusion_models, "total_models": len(rl_models) + len(fusion_models)}
     except Exception as e:
-        logger.error('Failed to list models: %s', e)
+        logger.error("Failed to list models: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete('/models/{model_id}')
+
+@app.delete("/models/{model_id}")
 async def delete_model(model_id: str) -> Any:
     """Delete a trained model"""
     try:
         if model_id in rl_engine.agents:
             del rl_engine.agents[model_id]
-            return {'status': 'model_deleted', 'model_id': model_id, 'type': 'rl'}
+            return {"status": "model_deleted", "model_id": model_id, "type": "rl"}
         if model_id in fusion_engine.fusion_models:
             del fusion_engine.fusion_models[model_id]
-            return {'status': 'model_deleted', 'model_id': model_id, 'type': 'fusion'}
-        raise HTTPException(status_code=404, detail=f'Model not found: {model_id}')
+            return {"status": "model_deleted", "model_id": model_id, "type": "fusion"}
+        raise HTTPException(status_code=404, detail=f"Model not found: {model_id}")
     except Exception as e:
-        logger.error('Failed to delete model: %s', e)
+        logger.error("Failed to delete model: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
-if __name__ == '__main__':
+
+
+if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=8015)
+
+    uvicorn.run(app, host="0.0.0.0", port=8015)

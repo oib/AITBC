@@ -53,7 +53,7 @@ class TestAdvancedReinforcementLearningEngine:
         assert action is not None
         assert isinstance(action, (int, torch.Tensor))
 
-    @patch('app.services.advanced_rl.engine.Session')
+    @patch("app.services.advanced_rl.engine.Session")
     async def test_proximal_policy_optimization(self, mock_session):
         """Test PPO training"""
         from app.domain.reinforcement_learning import ReinforcementLearningConfig
@@ -64,9 +64,7 @@ class TestAdvancedReinforcementLearningEngine:
         # Mock session and config
         mock_session_instance = MagicMock()
         config = ReinforcementLearningConfig(
-            agent_id="test_agent",
-            algorithm="ppo",
-            hyperparameters={"learning_rate": 0.001, "batch_size": 32}
+            agent_id="test_agent", algorithm="ppo", hyperparameters={"learning_rate": 0.001, "batch_size": 32}
         )
         training_data = [{"state": [1, 2, 3], "action": 0, "reward": 1.0}]
 
@@ -75,7 +73,7 @@ class TestAdvancedReinforcementLearningEngine:
         assert "training_loss" in result
         assert "episode_rewards" in result
 
-    @patch('app.services.advanced_rl.engine.Session')
+    @patch("app.services.advanced_rl.engine.Session")
     async def test_soft_actor_critic(self, mock_session):
         """Test SAC training"""
         from app.domain.reinforcement_learning import ReinforcementLearningConfig
@@ -85,9 +83,7 @@ class TestAdvancedReinforcementLearningEngine:
 
         mock_session_instance = MagicMock()
         config = ReinforcementLearningConfig(
-            agent_id="test_agent",
-            algorithm="sac",
-            hyperparameters={"learning_rate": 0.001, "batch_size": 32}
+            agent_id="test_agent", algorithm="sac", hyperparameters={"learning_rate": 0.001, "batch_size": 32}
         )
         training_data = [{"state": [1, 2, 3], "action": 0, "reward": 1.0}]
 

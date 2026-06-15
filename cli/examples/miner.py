@@ -15,6 +15,7 @@ DEFAULT_COORDINATOR = "http://localhost:8000"
 DEFAULT_API_KEY = "${MINER_API_KEY}"
 DEFAULT_MINER_ID = "cli-miner"
 
+
 class AITBCMiner:
     def __init__(self, coordinator_url: str, api_key: str, miner_id: str):
         self.coordinator_url = coordinator_url
@@ -27,11 +28,8 @@ class AITBCMiner:
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/miners/register?miner_id={self.miner_id}",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Api-Key": self.api_key
-                },
-                json={"capabilities": capabilities}
+                headers={"Content-Type": "application/json", "X-Api-Key": self.api_key},
+                json={"capabilities": capabilities},
             )
 
             if response.status_code == 200:
@@ -51,11 +49,8 @@ class AITBCMiner:
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/miners/poll",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Api-Key": self.api_key
-                },
-                json={"max_wait_seconds": max_wait}
+                headers={"Content-Type": "application/json", "X-Api-Key": self.api_key},
+                json={"max_wait_seconds": max_wait},
             )
 
             if response.status_code == 200:
@@ -73,20 +68,15 @@ class AITBCMiner:
 
     def submit_result(self, job_id: str, result: dict, metrics: dict = None) -> bool:
         """Submit job result"""
-        payload = {
-            "result": result
-        }
+        payload = {"result": result}
         if metrics:
             payload["metrics"] = metrics
 
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/miners/{job_id}/result",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Api-Key": self.api_key
-                },
-                json=payload
+                headers={"Content-Type": "application/json", "X-Api-Key": self.api_key},
+                json=payload,
             )
 
             if response.status_code == 200:
@@ -110,18 +100,15 @@ class AITBCMiner:
                 "last_seen": datetime.now(UTC).isoformat(),
                 "gpu_utilization": 75,
                 "gpu_memory_used": 8000,
-                "gpu_temperature": 65
-            }
+                "gpu_temperature": 65,
+            },
         }
 
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/miners/heartbeat?miner_id={self.miner_id}",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Api-Key": self.api_key
-                },
-                json=heartbeat_data
+                headers={"Content-Type": "application/json", "X-Api-Key": self.api_key},
+                json=heartbeat_data,
             )
 
             return response.status_code == 200
@@ -158,16 +145,12 @@ class AITBCMiner:
                         "status": "completed",
                         "output": f"Job {job['job_id']} processed by {self.miner_id}",
                         "execution_time_ms": 2000,
-                        "miner_id": self.miner_id
+                        "miner_id": self.miner_id,
                     }
 
-                    metrics = {
-                        "compute_time": 2.0,
-                        "energy_used": 0.1,
-                        "aitbc_earned": 10.0
-                    }
+                    metrics = {"compute_time": 2.0, "energy_used": 0.1, "aitbc_earned": 10.0}
 
-                    if self.submit_result(job['job_id'], result, metrics):
+                    if self.submit_result(job["job_id"], result, metrics):
                         jobs_completed += 1
                         print("💰 Earned 10 AITBC!")
                         print(f"   Total jobs completed: {jobs_completed}")
@@ -185,6 +168,7 @@ class AITBCMiner:
         except KeyboardInterrupt:
             print("\n⏹️  Mining stopped by user")
             print(f"   Total jobs completed: {jobs_completed}")
+
 
 def main():
     parser = argparse.ArgumentParser(description="AITBC Miner CLI")
@@ -209,7 +193,7 @@ def main():
     mine_parser.add_argument("--no-simulate", action="store_true", help="Don't simulate work")
 
     # Heartbeat command
-    heartbeat_parser = subparsers.add_parser("heartbeat", help="Send heartbeat")
+    _ = subparsers.add_parser("heartbeat", help="Send heartbeat")
 
     args = parser.parse_args()
 
@@ -221,17 +205,13 @@ def main():
 
     if args.command == "register":
         capabilities = {
-            "gpu": {
-                "model": args.gpu,
-                "memory_gb": args.memory,
-                "cuda_version": "12.4"
-            },
+            "gpu": {"model": args.gpu, "memory_gb": args.memory, "cuda_version": "12.4"},
             "compute": {
                 "type": "GPU",
                 "platform": "CUDA",
                 "supported_tasks": ["inference", "training"],
-                "max_concurrent_jobs": 1
-            }
+                "max_concurrent_jobs": 1,
+            },
         }
         miner.register(capabilities)
 
@@ -253,6 +233,7 @@ def main():
             print("💓 Heartbeat sent successfully")
         else:
             print("❌ Heartbeat failed")
+
 
 if __name__ == "__main__":
     main()

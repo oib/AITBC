@@ -1,10 +1,11 @@
 """Initial governance schema with v0.4.12 enhancements
 
 Revision ID: 001
-Revises: 
+Revises:
 Create Date: 2026-06-07 18:58:00
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa

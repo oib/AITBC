@@ -53,6 +53,7 @@ def _bypass_api_key_auth():
     construction time and may have stale (empty) key sets when other
     test files flush sys.modules and re-import the coordinator package.
     """
+
     def _accept_test_key(self, api_key=None):
         return api_key or _TEST_KEY
 
@@ -144,6 +145,7 @@ class _ProxyClient:
     def _request(self, method, url, **kw):
         # Normalise URL: strip scheme+host so TestClient gets just the path
         from urllib.parse import urlparse
+
         parsed = urlparse(str(url))
         path = parsed.path
         if parsed.query:
@@ -154,7 +156,7 @@ class _ProxyClient:
         params = kw.get("params")
         json_body = kw.get("json")
         content = kw.get("content")
-        timeout = kw.pop("timeout", None)  # ignored for test client
+        kw.pop("timeout", None)  # ignored for test client
 
         resp = self._tc.request(
             method,
@@ -195,6 +197,7 @@ def runner():
 def invoke(runner, patched_httpx, mock_config):
     """Helper: invoke a CLI command with the test API key and coordinator URL."""
     from unittest.mock import Mock
+
     cfg = Mock()
     cfg.coordinator_url = "http://testserver"
     cfg.api_key = _TEST_KEY
@@ -203,21 +206,26 @@ def invoke(runner, patched_httpx, mock_config):
 
     def _invoke(*args, **kwargs):
         full_args = [
-            "--url", "http://testserver",
-            "--api-key", _TEST_KEY,
-            "--output", "json",
+            "--url",
+            "http://testserver",
+            "--api-key",
+            _TEST_KEY,
+            "--output",
+            "json",
             *args,
         ]
         obj = kwargs.pop("obj", {})
         obj["config"] = cfg
         result = runner.invoke(cli, full_args, obj=obj, **kwargs)
         return result
+
     return _invoke
 
 
 # ===========================================================================
 # System commands
 # ===========================================================================
+
 
 class TestSystemCommands:
     """Test system management commands."""
@@ -247,6 +255,7 @@ class TestSystemCommands:
 # Config commands
 # ===========================================================================
 
+
 class TestConfigCommands:
     """Test config management commands."""
 
@@ -267,6 +276,7 @@ class TestConfigCommands:
 # Version / info commands
 # ===========================================================================
 
+
 class TestVersionCommands:
     """Test version command."""
 
@@ -284,6 +294,7 @@ class TestVersionCommands:
 # ===========================================================================
 # AI commands
 # ===========================================================================
+
 
 class TestAICommands:
     """Test AI job submission and inspection commands."""
@@ -311,6 +322,7 @@ class TestAICommands:
 # Agent commands
 # ===========================================================================
 
+
 class TestAgentCommands:
     """Test agent SDK management commands."""
 
@@ -332,6 +344,7 @@ class TestAgentCommands:
 # GPU commands
 # ===========================================================================
 
+
 class TestGPUCommands:
     """Test GPU marketplace commands."""
 
@@ -350,6 +363,7 @@ class TestGPUCommands:
 # Operations / governance commands
 # ===========================================================================
 
+
 class TestOperationsCommands:
     """Test operations governance commands."""
 
@@ -362,6 +376,7 @@ class TestOperationsCommands:
 # ===========================================================================
 # Marketplace commands
 # ===========================================================================
+
 
 class TestMarketplaceCommands:
     """Test marketplace commands."""

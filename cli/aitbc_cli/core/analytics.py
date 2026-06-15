@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ChainMetrics:
     """Chain performance metrics"""
+
     chain_id: str
     node_id: str
     timestamp: datetime
@@ -35,9 +36,11 @@ class ChainMetrics:
     network_in_mb: float
     network_out_mb: float
 
+
 @dataclass
 class ChainAlert:
     """Chain performance alert"""
+
     chain_id: str
     alert_type: str
     severity: str
@@ -46,15 +49,18 @@ class ChainAlert:
     threshold: float
     current_value: float
 
+
 @dataclass
 class ChainPrediction:
     """Chain performance prediction"""
+
     chain_id: str
     metric: str
     predicted_value: float
     confidence: float
     time_horizon_hours: int
     created_at: datetime
+
 
 class ChainAnalytics:
     """Advanced chain analytics and monitoring"""
@@ -69,13 +75,13 @@ class ChainAnalytics:
 
         # Alert thresholds
         self.thresholds = {
-            'tps_low': 1.0,
-            'tps_high': 100.0,
-            'block_time_high': 10.0,
-            'memory_usage_high': 80.0,  # percentage
-            'disk_usage_high': 85.0,   # percentage
-            'node_count_low': 1,
-            'client_count_low': 5
+            "tps_low": 1.0,
+            "tps_high": 100.0,
+            "block_time_high": 10.0,
+            "memory_usage_high": 80.0,  # percentage
+            "disk_usage_high": 85.0,  # percentage
+            "node_count_low": 1,
+            "client_count_low": 5,
         }
 
     async def collect_metrics(self, chain_id: str, node_id: str) -> ChainMetrics:
@@ -105,7 +111,7 @@ class ChainAnalytics:
                     miner_count=chain_stats.get("miner_count", 0),
                     agent_count=chain_stats.get("agent_count", 0),
                     network_in_mb=node_info.get("network_in_mb", 0.0),
-                    network_out_mb=node_info.get("network_out_mb", 0.0)
+                    network_out_mb=node_info.get("network_out_mb", 0.0),
                 )
 
                 # Store metrics history
@@ -129,6 +135,7 @@ class ChainAnalytics:
 
         tasks = []
         for node_id, node_config in self.config.nodes.items():
+
             async def get_node_metrics(nid):
                 try:
                     async with NodeClient(node_config) as client:
@@ -165,10 +172,7 @@ class ChainAnalytics:
 
         # Filter metrics by time range
         cutoff_time = datetime.now() - timedelta(hours=hours)
-        recent_metrics = [
-            m for m in self.metrics_history[chain_id]
-            if m.timestamp >= cutoff_time
-        ]
+        recent_metrics = [m for m in self.metrics_history[chain_id] if m.timestamp >= cutoff_time]
 
         if not recent_metrics:
             return {}
@@ -188,23 +192,23 @@ class ChainAnalytics:
                     "avg": statistics.mean(tps_values),
                     "min": min(tps_values),
                     "max": max(tps_values),
-                    "median": statistics.median(tps_values)
+                    "median": statistics.median(tps_values),
                 },
                 "block_time": {
                     "avg": statistics.mean(block_time_values),
                     "min": min(block_time_values),
                     "max": max(block_time_values),
-                    "median": statistics.median(block_time_values)
+                    "median": statistics.median(block_time_values),
                 },
                 "gas_price": {
                     "avg": statistics.mean(gas_prices),
                     "min": min(gas_prices),
                     "max": max(gas_prices),
-                    "median": statistics.median(gas_prices)
-                }
+                    "median": statistics.median(gas_prices),
+                },
             },
             "health_score": self.health_scores.get(chain_id, 0.0),
-            "active_alerts": len([a for a in self.alerts if a.chain_id == chain_id])
+            "active_alerts": len([a for a in self.alerts if a.chain_id == chain_id]),
         }
 
         return summary
@@ -218,28 +222,16 @@ class ChainAnalytics:
                 "active_chains": 2,
                 "chains_by_type": {"ait-devnet": 1, "ait-testnet": 1},
                 "performance_comparison": {
-                    "ait-devnet": {
-                        "tps": 2.5,
-                        "block_time": 8.5,
-                        "health_score": 85.0
-                    },
-                    "ait-testnet": {
-                        "tps": 1.8,
-                        "block_time": 12.3,
-                        "health_score": 72.0
-                    }
+                    "ait-devnet": {"tps": 2.5, "block_time": 8.5, "health_score": 85.0},
+                    "ait-testnet": {"tps": 1.8, "block_time": 12.3, "health_score": 72.0},
                 },
                 "resource_usage": {
                     "total_memory_mb": 2048.0,
                     "total_disk_mb": 10240.0,
                     "total_clients": 25,
-                    "total_agents": 8
+                    "total_agents": 8,
                 },
-                "alerts_summary": {
-                    "total_alerts": 2,
-                    "critical_alerts": 0,
-                    "warning_alerts": 2
-                }
+                "alerts_summary": {"total_alerts": 2, "critical_alerts": 0, "warning_alerts": 2},
             }
 
         analysis = {
@@ -247,17 +239,12 @@ class ChainAnalytics:
             "active_chains": len([c for c in self.metrics_history.keys() if self.health_scores.get(c, 0) > 0.5]),
             "chains_by_type": defaultdict(int),
             "performance_comparison": {},
-            "resource_usage": {
-                "total_memory_mb": 0,
-                "total_disk_mb": 0,
-                "total_clients": 0,
-                "total_agents": 0
-            },
+            "resource_usage": {"total_memory_mb": 0, "total_disk_mb": 0, "total_clients": 0, "total_agents": 0},
             "alerts_summary": {
                 "total_alerts": len(self.alerts),
                 "critical_alerts": len([a for a in self.alerts if a.severity == "critical"]),
-                "warning_alerts": len([a for a in self.alerts if a.severity == "warning"])
-            }
+                "warning_alerts": len([a for a in self.alerts if a.severity == "warning"]),
+            },
         }
 
         # Analyze each chain
@@ -275,7 +262,7 @@ class ChainAnalytics:
             analysis["performance_comparison"][chain_id] = {
                 "tps": latest.tps,
                 "block_time": latest.avg_block_time,
-                "health_score": self.health_scores.get(chain_id, 0.0)
+                "health_score": self.health_scores.get(chain_id, 0.0),
             }
 
             # Resource usage
@@ -310,14 +297,16 @@ class ChainAnalytics:
                 predicted_tps = recent_avg * (1 + trend * (hours / 24))
                 confidence = max(0.1, 1.0 - abs(trend))  # Higher confidence for stable trends
 
-                predictions.append(ChainPrediction(
-                    chain_id=chain_id,
-                    metric="tps",
-                    predicted_value=predicted_tps,
-                    confidence=confidence,
-                    time_horizon_hours=hours,
-                    created_at=datetime.now()
-                ))
+                predictions.append(
+                    ChainPrediction(
+                        chain_id=chain_id,
+                        metric="tps",
+                        predicted_value=predicted_tps,
+                        confidence=confidence,
+                        time_horizon_hours=hours,
+                        created_at=datetime.now(),
+                    )
+                )
 
         # Memory usage prediction
         memory_values = [m.memory_usage_mb for m in metrics]
@@ -333,14 +322,16 @@ class ChainAnalytics:
                 predicted_memory = recent_avg * (1 + growth_rate * (hours / 24))
                 confidence = max(0.1, 1.0 - abs(growth_rate))
 
-                predictions.append(ChainPrediction(
-                    chain_id=chain_id,
-                    metric="memory_usage_mb",
-                    predicted_value=predicted_memory,
-                    confidence=confidence,
-                    time_horizon_hours=hours,
-                    created_at=datetime.now()
-                ))
+                predictions.append(
+                    ChainPrediction(
+                        chain_id=chain_id,
+                        metric="memory_usage_mb",
+                        predicted_value=predicted_memory,
+                        confidence=confidence,
+                        time_horizon_hours=hours,
+                        created_at=datetime.now(),
+                    )
+                )
 
         # Store predictions
         self.predictions[chain_id].extend(predictions)
@@ -361,48 +352,56 @@ class ChainAnalytics:
         latest = metrics[-1]
 
         # TPS optimization
-        if latest.tps < self.thresholds['tps_low']:
-            recommendations.append({
-                "type": "performance",
-                "priority": "high",
-                "issue": "Low TPS",
-                "current_value": latest.tps,
-                "recommended_action": "Consider increasing block size or optimizing smart contracts",
-                "expected_improvement": "20-50% TPS increase"
-            })
+        if latest.tps < self.thresholds["tps_low"]:
+            recommendations.append(
+                {
+                    "type": "performance",
+                    "priority": "high",
+                    "issue": "Low TPS",
+                    "current_value": latest.tps,
+                    "recommended_action": "Consider increasing block size or optimizing smart contracts",
+                    "expected_improvement": "20-50% TPS increase",
+                }
+            )
 
         # Block time optimization
-        if latest.avg_block_time > self.thresholds['block_time_high']:
-            recommendations.append({
-                "type": "performance",
-                "priority": "medium",
-                "issue": "High block time",
-                "current_value": latest.avg_block_time,
-                "recommended_action": "Optimize consensus parameters or increase validator count",
-                "expected_improvement": "30-60% block time reduction"
-            })
+        if latest.avg_block_time > self.thresholds["block_time_high"]:
+            recommendations.append(
+                {
+                    "type": "performance",
+                    "priority": "medium",
+                    "issue": "High block time",
+                    "current_value": latest.avg_block_time,
+                    "recommended_action": "Optimize consensus parameters or increase validator count",
+                    "expected_improvement": "30-60% block time reduction",
+                }
+            )
 
         # Memory usage optimization
         if latest.memory_usage_mb > 1000:  # 1GB threshold
-            recommendations.append({
-                "type": "resource",
-                "priority": "medium",
-                "issue": "High memory usage",
-                "current_value": latest.memory_usage_mb,
-                "recommended_action": "Implement data pruning or increase node memory",
-                "expected_improvement": "40-70% memory usage reduction"
-            })
+            recommendations.append(
+                {
+                    "type": "resource",
+                    "priority": "medium",
+                    "issue": "High memory usage",
+                    "current_value": latest.memory_usage_mb,
+                    "recommended_action": "Implement data pruning or increase node memory",
+                    "expected_improvement": "40-70% memory usage reduction",
+                }
+            )
 
         # Node count optimization
         if latest.active_nodes < 3:
-            recommendations.append({
-                "type": "availability",
-                "priority": "high",
-                "issue": "Low node count",
-                "current_value": latest.active_nodes,
-                "recommended_action": "Add more nodes to improve network resilience",
-                "expected_improvement": "Improved fault tolerance and sync speed"
-            })
+            recommendations.append(
+                {
+                    "type": "availability",
+                    "priority": "high",
+                    "issue": "Low node count",
+                    "current_value": latest.active_nodes,
+                    "recommended_action": "Add more nodes to improve network resilience",
+                    "expected_improvement": "Improved fault tolerance and sync speed",
+                }
+            )
 
         return recommendations
 
@@ -411,52 +410,60 @@ class ChainAnalytics:
         alerts = []
 
         # TPS alerts
-        if metrics.tps < self.thresholds['tps_low']:
-            alerts.append(ChainAlert(
-                chain_id=metrics.chain_id,
-                alert_type="tps_low",
-                severity="warning",
-                message=f"Low TPS detected: {metrics.tps:.2f}",
-                timestamp=metrics.timestamp,
-                threshold=self.thresholds['tps_low'],
-                current_value=metrics.tps
-            ))
+        if metrics.tps < self.thresholds["tps_low"]:
+            alerts.append(
+                ChainAlert(
+                    chain_id=metrics.chain_id,
+                    alert_type="tps_low",
+                    severity="warning",
+                    message=f"Low TPS detected: {metrics.tps:.2f}",
+                    timestamp=metrics.timestamp,
+                    threshold=self.thresholds["tps_low"],
+                    current_value=metrics.tps,
+                )
+            )
 
         # Block time alerts
-        if metrics.avg_block_time > self.thresholds['block_time_high']:
-            alerts.append(ChainAlert(
-                chain_id=metrics.chain_id,
-                alert_type="block_time_high",
-                severity="warning",
-                message=f"High block time: {metrics.avg_block_time:.2f}s",
-                timestamp=metrics.timestamp,
-                threshold=self.thresholds['block_time_high'],
-                current_value=metrics.avg_block_time
-            ))
+        if metrics.avg_block_time > self.thresholds["block_time_high"]:
+            alerts.append(
+                ChainAlert(
+                    chain_id=metrics.chain_id,
+                    alert_type="block_time_high",
+                    severity="warning",
+                    message=f"High block time: {metrics.avg_block_time:.2f}s",
+                    timestamp=metrics.timestamp,
+                    threshold=self.thresholds["block_time_high"],
+                    current_value=metrics.avg_block_time,
+                )
+            )
 
         # Memory usage alerts
         if metrics.memory_usage_mb > 2000:  # 2GB threshold
-            alerts.append(ChainAlert(
-                chain_id=metrics.chain_id,
-                alert_type="memory_high",
-                severity="critical",
-                message=f"High memory usage: {metrics.memory_usage_mb:.1f}MB",
-                timestamp=metrics.timestamp,
-                threshold=2000,
-                current_value=metrics.memory_usage_mb
-            ))
+            alerts.append(
+                ChainAlert(
+                    chain_id=metrics.chain_id,
+                    alert_type="memory_high",
+                    severity="critical",
+                    message=f"High memory usage: {metrics.memory_usage_mb:.1f}MB",
+                    timestamp=metrics.timestamp,
+                    threshold=2000,
+                    current_value=metrics.memory_usage_mb,
+                )
+            )
 
         # Node count alerts
-        if metrics.active_nodes < self.thresholds['node_count_low']:
-            alerts.append(ChainAlert(
-                chain_id=metrics.chain_id,
-                alert_type="node_count_low",
-                severity="critical",
-                message=f"Low node count: {metrics.active_nodes}",
-                timestamp=metrics.timestamp,
-                threshold=self.thresholds['node_count_low'],
-                current_value=metrics.active_nodes
-            ))
+        if metrics.active_nodes < self.thresholds["node_count_low"]:
+            alerts.append(
+                ChainAlert(
+                    chain_id=metrics.chain_id,
+                    alert_type="node_count_low",
+                    severity="critical",
+                    message=f"Low node count: {metrics.active_nodes}",
+                    timestamp=metrics.timestamp,
+                    threshold=self.thresholds["node_count_low"],
+                    current_value=metrics.active_nodes,
+                )
+            )
 
         # Add to alerts list
         self.alerts.extend(alerts)
@@ -485,8 +492,7 @@ class ChainAnalytics:
         memory_score = max(0, 100 - (latest.memory_usage_mb / 1000) * 50)  # 1GB = 50% penalty
 
         # Weighted average
-        health_score = (tps_score * 0.3 + block_time_score * 0.3 +
-                        node_score * 0.3 + memory_score * 0.1)
+        health_score = tps_score * 0.3 + block_time_score * 0.3 + node_score * 0.3 + memory_score * 0.1
 
         self.health_scores[chain_id] = max(0, min(100, health_score))
 
@@ -497,7 +503,7 @@ class ChainAnalytics:
             "chain_summaries": {},
             "alerts": [asdict(alert) for alert in self.alerts[-20:]],  # Last 20 alerts
             "predictions": {},
-            "recommendations": {}
+            "recommendations": {},
         }
 
         # Chain summaries
@@ -507,8 +513,6 @@ class ChainAnalytics:
 
             # Latest predictions
             if chain_id in self.predictions:
-                dashboard["predictions"][chain_id] = [
-                    asdict(pred) for pred in self.predictions[chain_id][-5:]
-                ]
+                dashboard["predictions"][chain_id] = [asdict(pred) for pred in self.predictions[chain_id][-5:]]
 
         return dashboard

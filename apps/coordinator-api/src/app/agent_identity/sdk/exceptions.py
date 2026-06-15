@@ -28,6 +28,12 @@ class NetworkError(AgentIdentityError):
     pass
 
 
+class ConnectionError(AgentIdentityError):
+    """Exception raised during connection failures"""
+
+    pass
+
+
 class ValidationError(AgentIdentityError):
     """Exception raised during input validation"""
 

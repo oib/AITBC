@@ -28,14 +28,14 @@ class QualityMetricsTracker:
             "bug_escape_rate": {"total_bugs": 0, "escaped_bugs": 0, "rate": 0.0},
             "test_flakiness": {"total_runs": 0, "flaky_runs": 0, "rate": 0.0},
             "code_review_coverage": {"total_prs": 0, "reviewed_prs": 0, "rate": 0.0},
-            "last_updated": None
+            "last_updated": None,
         }
 
     def _save_metrics(self):
         """Save metrics to file"""
         self.metrics["last_updated"] = datetime.now().isoformat()
         self.metrics_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.metrics_file, 'w') as f:
+        with open(self.metrics_file, "w") as f:
             json.dump(self.metrics, f, indent=2)
 
     def record_bug(self, escaped: bool = False):

@@ -38,10 +38,7 @@ class TestConfig:
         from config_data import Config
 
         config = Config(
-            coordinator_url="http://custom:8203",
-            api_key="test_key",
-            role="admin",
-            blockchain_rpc_url="http://custom:8202"
+            coordinator_url="http://custom:8203", api_key="test_key", role="admin", blockchain_rpc_url="http://custom:8202"
         )
 
         # URLs are enforced to localhost in __post_init__
@@ -49,11 +46,7 @@ class TestConfig:
         assert config.api_key == "test_key"
         assert config.role == "admin"
 
-    @patch.dict('os.environ', {
-        'AITBC_URL': 'http://env:8203',
-        'AITBC_API_KEY': 'env_key',
-        'AITBC_ROLE': 'client'
-    })
+    @patch.dict("os.environ", {"AITBC_URL": "http://env:8203", "AITBC_API_KEY": "env_key", "AITBC_ROLE": "client"})
     def test_config_env_override(self):
         """Test Config with environment variable overrides"""
         from config_data import Config
@@ -69,10 +62,7 @@ class TestConfig:
         from config_data import Config
 
         # Use a non-localhost URL to trigger validation
-        config = Config(
-            coordinator_url="http://remote:8203",
-            blockchain_rpc_url="http://remote:8202"
-        )
+        config = Config(coordinator_url="http://remote:8203", blockchain_rpc_url="http://remote:8202")
 
         # Should force to localhost (127.0.0.1 is also valid localhost)
         assert config.coordinator_url in ["http://localhost:8011", "http://127.0.0.1:8011"]
@@ -85,13 +75,9 @@ class TestConfig:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "config.yaml"
-            config_data = {
-                'coordinator_url': 'http://file:8203',
-                'api_key': 'file_key',
-                'role': 'miner'
-            }
+            config_data = {"coordinator_url": "http://file:8203", "api_key": "file_key", "role": "miner"}
 
-            with open(config_file, 'w') as f:
+            with open(config_file, "w") as f:
                 yaml.dump(config_data, f)
 
             config = Config(config_file=str(config_file))
@@ -117,10 +103,7 @@ class TestConfig:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "config.yaml"
             config = Config(
-                config_file=str(config_file),
-                coordinator_url="http://localhost:8011",
-                api_key="test_key",
-                role="admin"
+                config_file=str(config_file), coordinator_url="http://localhost:8011", api_key="test_key", role="admin"
             )
 
             config.save_to_file()
@@ -130,9 +113,9 @@ class TestConfig:
             with open(config_file) as f:
                 loaded_data = yaml.safe_load(f)
 
-            assert loaded_data['coordinator_url'] == "http://localhost:8011"
-            assert loaded_data['api_key'] == "test_key"
-            assert loaded_data['role'] == "admin"
+            assert loaded_data["coordinator_url"] == "http://localhost:8011"
+            assert loaded_data["api_key"] == "test_key"
+            assert loaded_data["role"] == "admin"
 
     def test_save_to_file_no_config_file(self):
         """Test saving when no config file is set"""
@@ -181,9 +164,9 @@ class TestGetConfig:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "config.yaml"
-            config_data = {'coordinator_url': 'http://custom:8203'}
+            config_data = {"coordinator_url": "http://custom:8203"}
 
-            with open(config_file, 'w') as f:
+            with open(config_file, "w") as f:
                 yaml.dump(config_data, f)
 
             config = get_config(config_file=str(config_file))

@@ -22,8 +22,9 @@ class TestGenesisCommands:
         """Test that genesis command group exists"""
         try:
             from aitbc_cli.commands.genesis import genesis
+
             assert genesis is not None
-            assert hasattr(genesis, 'name')
+            assert hasattr(genesis, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import genesis commands: {e}")
 
@@ -31,12 +32,13 @@ class TestGenesisCommands:
         """Test genesis group name"""
         try:
             from aitbc_cli.commands.genesis import genesis
+
             assert genesis.name == "genesis"
         except ImportError as e:
             pytest.skip(f"Cannot import genesis commands: {e}")
 
-    @patch('aitbc_cli.commands.genesis.output')
-    @patch('aitbc_cli.commands.genesis.error')
+    @patch("aitbc_cli.commands.genesis.output")
+    @patch("aitbc_cli.commands.genesis.error")
     def test_genesis_init_command(self, mock_error, mock_output):
         """Test genesis init command - skip due to complex subprocess and httpx dependencies"""
         pytest.skip("Genesis commands have complex subprocess and httpx dependencies")

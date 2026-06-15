@@ -16,6 +16,7 @@ from sqlmodel import Field, SQLModel
 
 class TransactionPriority(StrEnum):
     """Transaction priority levels"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -25,6 +26,7 @@ class TransactionPriority(StrEnum):
 
 class TransactionType(StrEnum):
     """Transaction types"""
+
     TRANSFER = "transfer"
     SWAP = "swap"
     BRIDGE = "bridge"
@@ -36,6 +38,7 @@ class TransactionType(StrEnum):
 
 class TransactionStatus(StrEnum):
     """Enhanced transaction status"""
+
     QUEUED = "queued"
     PENDING = "pending"
     PROCESSING = "processing"
@@ -50,6 +53,7 @@ class TransactionStatus(StrEnum):
 
 class RoutingStrategy(StrEnum):
     """Transaction routing strategies"""
+
     FASTEST = "fastest"
     CHEAPEST = "cheapest"
     BALANCED = "balanced"

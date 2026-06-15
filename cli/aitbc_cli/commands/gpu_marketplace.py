@@ -34,8 +34,8 @@ def discover(ctx):
 
 
 @gpu.command()
-@click.argument('gpu_id')
-@click.option('--specs', help='GPU specifications (JSON string) - auto-discovered if not provided')
+@click.argument("gpu_id")
+@click.option("--specs", help="GPU specifications (JSON string) - auto-discovered if not provided")
 @click.pass_context
 def register(ctx, gpu_id: str, specs: str | None):
     """Register a GPU with the gpu-service (no island credentials required)"""
@@ -63,7 +63,7 @@ def register(ctx, gpu_id: str, specs: str | None):
 
 
 @gpu.command()
-@click.argument('gpu_id')
+@click.argument("gpu_id")
 @click.pass_context
 def unregister(ctx, gpu_id: str):
     """Unregister/delete a GPU from the gpu-service"""
@@ -81,9 +81,9 @@ def unregister(ctx, gpu_id: str):
 
 
 @gpu.command()
-@click.argument('gpu_id')
-@click.option('--pricing', help='Updated pricing model (JSON string)')
-@click.option('--status', help='Update GPU status')
+@click.argument("gpu_id")
+@click.option("--pricing", help="Updated pricing model (JSON string)")
+@click.option("--status", help="Update GPU status")
 @click.pass_context
 def update(ctx, gpu_id: str, pricing: str | None, status: str | None):
     """Update GPU registration with the gpu-service (no island credentials required)"""
@@ -145,18 +145,20 @@ def list(ctx):
             # Format output for GPU registry data
             gpu_data = []
             for gpu in transactions:
-                gpu_data.append({
-                    "GPU ID": gpu.get('id'),
-                    "Model": gpu.get('model'),
-                    "Memory (GB)": gpu.get('memory_gb'),
-                    "Price/Hour": f"{gpu.get('price_per_hour', 0):.4f} AIT",
-                    "Status": gpu.get('status'),
-                    "Region": gpu.get('region') or 'N/A',
-                    "Miner ID": gpu.get('miner_id', '')[:16] + "...",
-                    "Created": gpu.get('created_at', '')[:19] if gpu.get('created_at') else 'N/A'
-                })
+                gpu_data.append(
+                    {
+                        "GPU ID": gpu.get("id"),
+                        "Model": gpu.get("model"),
+                        "Memory (GB)": gpu.get("memory_gb"),
+                        "Price/Hour": f"{gpu.get('price_per_hour', 0):.4f} AIT",
+                        "Status": gpu.get("status"),
+                        "Region": gpu.get("region") or "N/A",
+                        "Miner ID": gpu.get("miner_id", "")[:16] + "...",
+                        "Created": gpu.get("created_at", "")[:19] if gpu.get("created_at") else "N/A",
+                    }
+                )
 
-            output(gpu_data, ctx.obj.get('output_format', 'table'), title="Local Registered GPUs")
+            output(gpu_data, ctx.obj.get("output_format", "table"), title="Local Registered GPUs")
         except NetworkError as e:
             error(f"Network error querying GPU service: {e}")
             raise click.Abort()

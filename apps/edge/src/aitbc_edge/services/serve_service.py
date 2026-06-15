@@ -13,7 +13,9 @@ from ..storage import get_session
 class ServeService:
     """Service for edge serve operations"""
 
-    async def submit_compute_request(self, gpu_id: str, model_name: str, input_data: dict[str, Any], priority: str = "normal") -> dict[str, Any]:
+    async def submit_compute_request(
+        self, gpu_id: str, model_name: str, input_data: dict[str, Any], priority: str = "normal"
+    ) -> dict[str, Any]:
         """Submit compute request"""
         async with get_session() as session:
             request_id = f"req_{uuid4().hex[:8]}"
@@ -24,7 +26,7 @@ class ServeService:
                 model_name=model_name,
                 input_data=input_data,
                 priority=priority,
-                status="queued"
+                status="queued",
             )
             session.add(request)
             await session.commit()
@@ -33,7 +35,7 @@ class ServeService:
                 "success": True,
                 "request_id": request_id,
                 "status": "queued",
-                "message": f"Compute request {request_id} submitted"
+                "message": f"Compute request {request_id} submitted",
             }
 
     async def get_compute_request(self, request_id: str) -> dict[str, Any] | None:
@@ -54,7 +56,7 @@ class ServeService:
                     "started_at": req.started_at.isoformat() if req.started_at else None,
                     "completed_at": req.completed_at.isoformat() if req.completed_at else None,
                     "error": req.error,
-                    "extra_data": req.extra_data
+                    "extra_data": req.extra_data,
                 }
             return None
 
@@ -91,7 +93,7 @@ class ServeService:
                     "model_name": req.model_name,
                     "priority": req.priority,
                     "status": req.status,
-                    "created_at": req.created_at.isoformat() if req.created_at else None
+                    "created_at": req.created_at.isoformat() if req.created_at else None,
                 }
                 for req in requests
             ]
@@ -110,6 +112,6 @@ class ServeService:
                     "metrics": res.metrics,  # type: ignore[attr-defined]
                     "status": res.status,  # type: ignore[attr-defined]
                     "created_at": res.created_at.isoformat() if res.created_at else None,
-                    "extra_data": res.extra_data  # type: ignore[attr-defined]
+                    "extra_data": res.extra_data,  # type: ignore[attr-defined]
                 }
             return None

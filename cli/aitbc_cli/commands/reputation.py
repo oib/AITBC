@@ -3,7 +3,6 @@ Reputation Management CLI Commands
 Provides CLI commands for managing agent reputation, trust scores, and community feedback
 """
 
-
 import click
 
 from ..utils.http_client import get_logger
@@ -72,9 +71,17 @@ def get_profile(agent_id: str, format: str):
 @click.option("--value", type=float, default=3.0, help="Value rating (1-5)")
 @click.option("--text", default="", help="Feedback text")
 @click.option("--tag", multiple=True, help="Feedback tags")
-def add_feedback(agent_id: str, reviewer_id: str, overall: float, performance: float,
-                communication: float, reliability: float, value: float,
-                text: str, tag: tuple):
+def add_feedback(
+    agent_id: str,
+    reviewer_id: str,
+    overall: float,
+    performance: float,
+    communication: float,
+    reliability: float,
+    value: float,
+    text: str,
+    tag: tuple,
+):
     """Add community feedback for an agent"""
     import json
     from pathlib import Path
@@ -96,15 +103,10 @@ def add_feedback(agent_id: str, reviewer_id: str, overall: float, performance: f
             "performance": performance,
             "communication": communication,
             "reliability": reliability,
-            "value": value
+            "value": value,
         }
 
-        payload = {
-            "reviewer_id": reviewer_id,
-            "ratings": ratings,
-            "feedback_text": text,
-            "tags": list(tag)
-        }
+        payload = {"reviewer_id": reviewer_id, "ratings": ratings, "feedback_text": text, "tags": list(tag)}
 
         response = requests.post(f"{api_url}/reputation/feedback/{agent_id}", json=payload, timeout=10)
 
@@ -143,10 +145,7 @@ def leaderboard(category: str, limit: int, region: str, format: str):
         else:
             api_url = "http://localhost:8203"
 
-        params = {
-            "category": category,
-            "limit": limit
-        }
+        params = {"category": category, "limit": limit}
         if region:
             params["region"] = region
 
@@ -160,7 +159,9 @@ def leaderboard(category: str, limit: int, region: str, format: str):
                 click.echo(f"{'Rank':<6} {'Agent ID':<20} {'Trust Score':<12} {'Level':<12} {'Transactions':<12}")
                 click.echo("-" * 72)
                 for entry in data:
-                    click.echo(f"{entry['rank']:<6} {entry['agent_id']:<20} {entry['trust_score']:<12.2f} {entry['reputation_level']:<12} {entry['transaction_count']:<12}")
+                    click.echo(
+                        f"{entry['rank']:<6} {entry['agent_id']:<20} {entry['trust_score']:<12.2f} {entry['reputation_level']:<12} {entry['transaction_count']:<12}"
+                    )
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
     except Exception as e:
@@ -240,10 +241,10 @@ def metrics(format: str):
                 click.echo(f"Total Agents: {data['total_agents']}")
                 click.echo(f"Average Trust Score: {data['average_trust_score']:.2f}/1000")
                 click.echo("\nLevel Distribution:")
-                for level, count in data['level_distribution'].items():
+                for level, count in data["level_distribution"].items():
                     click.echo(f"  {level}: {count}")
                 click.echo("\nTop Regions:")
-                for region in data['top_regions'][:5]:
+                for region in data["top_regions"][:5]:
                     click.echo(f"  {region['region']}: {region['count']}")
                 click.echo("\nRecent Activity (24h):")
                 click.echo(f"  Events: {data['recent_activity']['events_last_24h']}")

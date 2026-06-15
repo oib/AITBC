@@ -1,13 +1,14 @@
 """Schemas for Hermes autonomous resource management."""
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class ResourceType(str, Enum):
+class ResourceType(StrEnum):
     """Types of resources that can be managed."""
+
     GPU = "gpu"
     CPU = "cpu"
     MEMORY = "memory"
@@ -15,8 +16,9 @@ class ResourceType(str, Enum):
     NETWORK = "network"
 
 
-class ResourceStatus(str, Enum):
+class ResourceStatus(StrEnum):
     """Status of resources."""
+
     AVAILABLE = "available"
     ALLOCATED = "allocated"
     RESERVED = "reserved"
@@ -24,8 +26,9 @@ class ResourceStatus(str, Enum):
     OFFLINE = "offline"
 
 
-class AllocationStrategy(str, Enum):
+class AllocationStrategy(StrEnum):
     """Resource allocation strategies."""
+
     DEMAND_BASED = "demand_based"
     PRIORITY_BASED = "priority_based"
     ROUND_ROBIN = "round_robin"
@@ -34,6 +37,7 @@ class AllocationStrategy(str, Enum):
 
 class Resource(BaseModel):
     """Resource definition."""
+
     resource_id: str
     resource_type: ResourceType
     agent_id: str
@@ -46,6 +50,7 @@ class Resource(BaseModel):
 
 class ResourceAllocationRequest(BaseModel):
     """Request to allocate resources."""
+
     resource_type: ResourceType
     agent_id: str
     required_capacity: float = Field(gt=0.0)
@@ -57,6 +62,7 @@ class ResourceAllocationRequest(BaseModel):
 
 class ResourceAllocationResponse(BaseModel):
     """Response to resource allocation request."""
+
     allocation_id: str
     resource_id: str
     allocated_capacity: float
@@ -67,12 +73,14 @@ class ResourceAllocationResponse(BaseModel):
 
 class ResourceReleaseRequest(BaseModel):
     """Request to release allocated resources."""
+
     allocation_id: str
     agent_id: str
 
 
 class ResourceReleaseResponse(BaseModel):
     """Response to resource release request."""
+
     allocation_id: str
     status: str
     message: str
@@ -81,6 +89,7 @@ class ResourceReleaseResponse(BaseModel):
 
 class PricingAdjustment(BaseModel):
     """Pricing adjustment for resources."""
+
     resource_id: str
     current_price: float
     new_price: float
@@ -91,6 +100,7 @@ class PricingAdjustment(BaseModel):
 
 class ResourcePool(BaseModel):
     """Resource pool for management."""
+
     pool_id: str
     resource_type: ResourceType
     total_capacity: float

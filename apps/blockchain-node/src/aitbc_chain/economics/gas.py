@@ -21,12 +21,14 @@ class GasType(Enum):
     GPU_MARKETPLACE = "gpu_marketplace"
     EXCHANGE = "exchange"
 
+
 @dataclass
 class GasSchedule:
     gas_type: GasType
     base_gas: int
     gas_per_byte: int
     complexity_multiplier: float
+
 
 @dataclass
 class GasPrice:
@@ -35,6 +37,7 @@ class GasPrice:
     block_height: int
     congestion_level: float
 
+
 @dataclass
 class TransactionGas:
     gas_used: int
@@ -42,6 +45,7 @@ class TransactionGas:
     gas_price: Decimal
     total_fee: Decimal
     refund: Decimal
+
 
 class GasManager:
     """Manages gas fees and pricing"""
@@ -54,8 +58,8 @@ class GasManager:
         self.congestion_history: list[float] = []
 
         # Gas parameters
-        self.max_gas_price = self.base_gas_price * Decimal('100')  # 100x base price
-        self.min_gas_price = self.base_gas_price * Decimal('0.1')   # 10% of base price
+        self.max_gas_price = self.base_gas_price * Decimal("100")  # 100x base price
+        self.min_gas_price = self.base_gas_price * Decimal("0.1")  # 10% of base price
         self.congestion_threshold = 0.8  # 80% block utilization triggers price increase
         self.price_adjustment_factor = 1.1  # 10% price adjustment
 
@@ -66,45 +70,24 @@ class GasManager:
         """Initialize gas schedules for different transaction types"""
         self.gas_schedules = {
             GasType.TRANSFER: GasSchedule(
-                gas_type=GasType.TRANSFER,
-                base_gas=21000,
-                gas_per_byte=0,
-                complexity_multiplier=1.0
+                gas_type=GasType.TRANSFER, base_gas=21000, gas_per_byte=0, complexity_multiplier=1.0
             ),
             GasType.SMART_CONTRACT: GasSchedule(
-                gas_type=GasType.SMART_CONTRACT,
-                base_gas=21000,
-                gas_per_byte=16,
-                complexity_multiplier=1.5
+                gas_type=GasType.SMART_CONTRACT, base_gas=21000, gas_per_byte=16, complexity_multiplier=1.5
             ),
             GasType.VALIDATOR_STAKE: GasSchedule(
-                gas_type=GasType.VALIDATOR_STAKE,
-                base_gas=50000,
-                gas_per_byte=0,
-                complexity_multiplier=1.2
+                gas_type=GasType.VALIDATOR_STAKE, base_gas=50000, gas_per_byte=0, complexity_multiplier=1.2
             ),
             GasType.AGENT_OPERATION: GasSchedule(
-                gas_type=GasType.AGENT_OPERATION,
-                base_gas=100000,
-                gas_per_byte=32,
-                complexity_multiplier=2.0
+                gas_type=GasType.AGENT_OPERATION, base_gas=100000, gas_per_byte=32, complexity_multiplier=2.0
             ),
             GasType.CONSENSUS: GasSchedule(
-                gas_type=GasType.CONSENSUS,
-                base_gas=80000,
-                gas_per_byte=0,
-                complexity_multiplier=1.0
+                gas_type=GasType.CONSENSUS, base_gas=80000, gas_per_byte=0, complexity_multiplier=1.0
             ),
-            GasType.MESSAGE: GasSchedule(
-                gas_type=GasType.MESSAGE,
-                base_gas=21000,
-                gas_per_byte=0,
-                complexity_multiplier=1.0
-            )
+            GasType.MESSAGE: GasSchedule(gas_type=GasType.MESSAGE, base_gas=21000, gas_per_byte=0, complexity_multiplier=1.0),
         }
 
-    def estimate_gas(self, gas_type: GasType, data_size: int = 0,
-                    complexity_score: float = 1.0) -> int:
+    def estimate_gas(self, gas_type: GasType, data_size: int = 0, complexity_score: float = 1.0) -> int:
         """Estimate gas required for transaction"""
         schedule = self.gas_schedules.get(gas_type)
         if not schedule:
@@ -122,9 +105,9 @@ class GasManager:
 
         return gas
 
-    def calculate_transaction_fee(self, gas_type: GasType, data_size: int = 0,
-                                complexity_score: float = 1.0,
-                                gas_price: Decimal | None = None) -> TransactionGas:
+    def calculate_transaction_fee(
+        self, gas_type: GasType, data_size: int = 0, complexity_score: float = 1.0, gas_price: Decimal | None = None
+    ) -> TransactionGas:
         """Calculate transaction fee"""
         # Estimate gas
         gas_limit = self.estimate_gas(gas_type, data_size, complexity_score)
@@ -140,11 +123,10 @@ class GasManager:
             gas_limit=gas_limit,
             gas_price=price,
             total_fee=total_fee,
-            refund=Decimal('0')
+            refund=Decimal("0"),
         )
 
-    def update_gas_price(self, block_utilization: float, transaction_pool_size: int,
-                        block_height: int) -> GasPrice:
+    def update_gas_price(self, block_utilization: float, transaction_pool_size: int, block_height: int) -> GasPrice:
         """Update gas price based on network conditions"""
         # Calculate congestion level
         congestion_level = max(block_utilization, transaction_pool_size / 1000)  # Normalize pool size
@@ -174,10 +156,7 @@ class GasManager:
 
         # Record price history
         gas_price = GasPrice(
-            price_per_gas=new_price,
-            timestamp=time.time(),
-            block_height=block_height,
-            congestion_level=congestion_level
+            price_per_gas=new_price, timestamp=time.time(), block_height=block_height, congestion_level=congestion_level
         )
 
         self.price_history.append(gas_price)
@@ -190,10 +169,10 @@ class GasManager:
         """Get optimal gas price based on priority"""
         if priority == "fast":
             # 2x current price for fast inclusion
-            return min(self.current_gas_price * Decimal('2'), self.max_gas_price)
+            return min(self.current_gas_price * Decimal("2"), self.max_gas_price)
         elif priority == "slow":
             # 0.5x current price for slow inclusion
-            return max(self.current_gas_price * Decimal('0.5'), self.min_gas_price)
+            return max(self.current_gas_price * Decimal("0.5"), self.min_gas_price)
         else:
             # Standard price
             return self.current_gas_price
@@ -220,10 +199,10 @@ class GasManager:
         """Get gas system statistics"""
         if not self.price_history:
             return {
-                'current_price': float(self.current_gas_price),
-                'price_history_length': 0,
-                'average_price': float(self.current_gas_price),
-                'price_volatility': 0.0
+                "current_price": float(self.current_gas_price),
+                "price_history_length": 0,
+                "average_price": float(self.current_gas_price),
+                "price_volatility": 0.0,
             }
 
         prices = [p.price_per_gas for p in self.price_history]
@@ -232,20 +211,23 @@ class GasManager:
         # Calculate volatility (standard deviation)
         if len(prices) > 1:
             variance = sum((p - avg_price) ** 2 for p in prices) / len(prices)  # type: ignore
-            volatility = (variance ** 0.5) / avg_price
+            volatility = (variance**0.5) / avg_price
         else:
             volatility = 0.0
 
         return {
-            'current_price': float(self.current_gas_price),
-            'price_history_length': len(self.price_history),
-            'average_price': float(avg_price),
-            'price_volatility': float(volatility),
-            'min_price': float(min(prices)),
-            'max_price': float(max(prices)),
-            'congestion_history_length': len(self.congestion_history),
-            'average_congestion': sum(self.congestion_history) / len(self.congestion_history) if self.congestion_history else 0.0
+            "current_price": float(self.current_gas_price),
+            "price_history_length": len(self.price_history),
+            "average_price": float(avg_price),
+            "price_volatility": float(volatility),
+            "min_price": float(min(prices)),
+            "max_price": float(max(prices)),
+            "congestion_history_length": len(self.congestion_history),
+            "average_congestion": sum(self.congestion_history) / len(self.congestion_history)
+            if self.congestion_history
+            else 0.0,
         }
+
 
 class GasOptimizer:
     """Optimizes gas usage and fees"""
@@ -254,8 +236,7 @@ class GasOptimizer:
         self.gas_manager = gas_manager
         self.optimization_history: list[dict[str, Any]] = []
 
-    def optimize_transaction(self, gas_type: GasType, data: bytes,
-                          priority: str = "standard") -> dict[str, Any]:
+    def optimize_transaction(self, gas_type: GasType, data: bytes, priority: str = "standard") -> dict[str, Any]:
         """Optimize transaction for gas efficiency"""
         data_size = len(data)
 
@@ -270,42 +251,48 @@ class GasOptimizer:
 
         # Data optimization
         if data_size > 1000 and gas_type == GasType.SMART_CONTRACT:
-            optimizations.append({
-                'type': 'data_compression',
-                'potential_savings': data_size * 8,  # 8 gas per byte
-                'description': 'Compress transaction data to reduce gas costs'
-            })
+            optimizations.append(
+                {
+                    "type": "data_compression",
+                    "potential_savings": data_size * 8,  # 8 gas per byte
+                    "description": "Compress transaction data to reduce gas costs",
+                }
+            )
 
         # Timing optimization
         if priority == "standard":
-            fast_price = self.gas_manager.get_optimal_gas_price("fast")
+            self.gas_manager.get_optimal_gas_price("fast")
             slow_price = self.gas_manager.get_optimal_gas_price("slow")
 
             if slow_price < optimal_price:
                 savings = (optimal_price - slow_price) * base_gas
-                optimizations.append({
-                    'type': 'timing_optimization',
-                    'potential_savings': float(savings),
-                    'description': 'Use slower priority for lower fees'
-                })
+                optimizations.append(
+                    {
+                        "type": "timing_optimization",
+                        "potential_savings": float(savings),
+                        "description": "Use slower priority for lower fees",
+                    }
+                )
 
         # Bundle similar transactions
         if gas_type in [GasType.TRANSFER, GasType.VALIDATOR_STAKE]:
-            optimizations.append({
-                'type': 'transaction_bundling',
-                'potential_savings': base_gas * 0.3,  # 30% savings estimate
-                'description': 'Bundle similar transactions to share base gas costs'
-            })
+            optimizations.append(
+                {
+                    "type": "transaction_bundling",
+                    "potential_savings": base_gas * 0.3,  # 30% savings estimate
+                    "description": "Bundle similar transactions to share base gas costs",
+                }
+            )
 
         # Record optimization
         optimization_result = {
-            'gas_type': gas_type.value,
-            'data_size': data_size,
-            'base_gas': base_gas,
-            'optimal_price': float(optimal_price),
-            'estimated_fee': float(base_gas * optimal_price),
-            'optimizations': optimizations,
-            'timestamp': time.time()
+            "gas_type": gas_type.value,
+            "data_size": data_size,
+            "base_gas": base_gas,
+            "optimal_price": float(optimal_price),
+            "estimated_fee": float(base_gas * optimal_price),
+            "optimizations": optimizations,
+            "timestamp": time.time(),
         }
 
         self.optimization_history.append(optimization_result)
@@ -315,38 +302,37 @@ class GasOptimizer:
     def get_optimization_summary(self) -> dict[str, Any]:
         """Get optimization summary statistics"""
         if not self.optimization_history:
-            return {
-                'total_optimizations': 0,
-                'average_savings': 0.0,
-                'most_common_type': None
-            }
+            return {"total_optimizations": 0, "average_savings": 0.0, "most_common_type": None}
 
         total_savings = 0
         type_counts: dict[str, int] = {}
 
         for opt in self.optimization_history:
-            for suggestion in opt['optimizations']:
-                total_savings += suggestion['potential_savings']
-                opt_type = suggestion['type']
+            for suggestion in opt["optimizations"]:
+                total_savings += suggestion["potential_savings"]
+                opt_type = suggestion["type"]
                 type_counts[opt_type] = type_counts.get(opt_type, 0) + 1
 
         most_common_type = max(type_counts.items(), key=lambda x: x[1])[0] if type_counts else None
 
         return {
-            'total_optimizations': len(self.optimization_history),
-            'total_potential_savings': total_savings,
-            'average_savings': total_savings / len(self.optimization_history) if self.optimization_history else 0,
-            'most_common_type': most_common_type,
-            'optimization_types': list(type_counts.keys())
+            "total_optimizations": len(self.optimization_history),
+            "total_potential_savings": total_savings,
+            "average_savings": total_savings / len(self.optimization_history) if self.optimization_history else 0,
+            "most_common_type": most_common_type,
+            "optimization_types": list(type_counts.keys()),
         }
+
 
 # Global gas manager and optimizer
 gas_manager: GasManager | None = None
 gas_optimizer: GasOptimizer | None = None
 
+
 def get_gas_manager() -> GasManager | None:
     """Get global gas manager"""
     return gas_manager
+
 
 def create_gas_manager(base_gas_price: float = 0.001) -> GasManager:
     """Create and set global gas manager"""
@@ -354,9 +340,11 @@ def create_gas_manager(base_gas_price: float = 0.001) -> GasManager:
     gas_manager = GasManager(base_gas_price)
     return gas_manager
 
+
 def get_gas_optimizer() -> GasOptimizer | None:
     """Get global gas optimizer"""
     return gas_optimizer
+
 
 def create_gas_optimizer(gas_manager: GasManager) -> GasOptimizer:
     """Create and set global gas optimizer"""

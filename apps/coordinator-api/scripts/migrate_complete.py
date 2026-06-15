@@ -16,8 +16,9 @@ PG_CONFIG = {
     "database": "aitbc_coordinator",
     "user": "aitbc_user",
     "password": "aitbc_password",
-    "port": 5432
+    "port": 5432,
 }
+
 
 def migrate_all_data():
     """Migrate all data from SQLite to PostgreSQL"""
@@ -38,24 +39,24 @@ def migrate_all_data():
     tables = [row[0] for row in sqlite_cursor.fetchall()]
 
     for table_name in tables:
-        if table_name == 'sqlite_sequence':
+        if table_name == "sqlite_sequence":
             continue
 
         print(f"\nMigrating {table_name}...")
 
         # Get table schema
         # Validate table name to prevent SQL injection
-        allowed_tables = ['user', 'wallet', 'transaction', 'agent', 'job', 'receipt', 'marketplace_listing']
+        allowed_tables = ["user", "wallet", "transaction", "agent", "job", "receipt", "marketplace_listing"]
         if table_name not in allowed_tables:
             print(f"  Skipping table {table_name} (not in allowed list)")
             continue
 
-        sqlite_cursor.execute(f"PRAGMA table_info(\"{table_name}\")")
+        sqlite_cursor.execute(f'PRAGMA table_info("{table_name}")')
         columns = sqlite_cursor.fetchall()
         column_names = [col[1] for col in columns]
 
         # Get data
-        sqlite_cursor.execute(f"SELECT * FROM \"{table_name}\"")
+        sqlite_cursor.execute(f'SELECT * FROM "{table_name}"')
         rows = sqlite_cursor.fetchall()
 
         if not rows:
@@ -63,15 +64,15 @@ def migrate_all_data():
             continue
 
         # Build insert query
-        if table_name == 'user':
+        if table_name == "user":
             insert_sql = f'''
-                INSERT INTO "{table_name}" ({', '.join(column_names)})
-                VALUES ({', '.join(['%s'] * len(column_names))})
+                INSERT INTO "{table_name}" ({", ".join(column_names)})
+                VALUES ({", ".join(["%s"] * len(column_names))})
             '''
         else:
             insert_sql = f'''
-                INSERT INTO "{table_name}" ({', '.join(column_names)})
-                VALUES ({', '.join(['%s'] * len(column_names))})
+                INSERT INTO "{table_name}" ({", ".join(column_names)})
+                VALUES ({", ".join(["%s"] * len(column_names))})
             '''
 
         # Insert data
@@ -81,14 +82,27 @@ def migrate_all_data():
             for i, value in enumerate(row):
                 col_name = column_names[i]
                 # Handle special cases
-                if col_name in ['payload', 'constraints', 'result', 'receipt', 'capabilities',
-                              'extra_metadata', 'sla', 'attributes', 'metadata'] and value:
+                if (
+                    col_name
+                    in [
+                        "payload",
+                        "constraints",
+                        "result",
+                        "receipt",
+                        "capabilities",
+                        "extra_metadata",
+                        "sla",
+                        "attributes",
+                        "metadata",
+                    ]
+                    and value
+                ):
                     if isinstance(value, str):
                         try:
                             value = json.loads(value)
                         except Exception:
                             pass
-                elif col_name in ['balance', 'price', 'average_job_duration_ms'] and value is not None:
+                elif col_name in ["balance", "price", "average_job_duration_ms"] and value is not None:
                     value = Decimal(str(value))
                 values.append(value)
 
@@ -106,6 +120,7 @@ def migrate_all_data():
     pg_conn.close()
 
     print("\n✅ Complete migration finished!")
+
 
 if __name__ == "__main__":
     migrate_all_data()

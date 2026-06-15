@@ -1,6 +1,5 @@
 """Shared configuration base for all AITBC services."""
 
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from aitbc.constants import DATA_DIR, LOG_DIR
@@ -26,17 +25,13 @@ class DatabaseConfig(BaseSettings):
 
         return f"{self.adapter}://localhost:5432/service"
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
 
 class ServiceSettings(BaseSettings):
     """Base settings for all AITBC microservices."""
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
     # Environment
     service_name: str = "aitbc-service"

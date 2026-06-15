@@ -44,8 +44,10 @@ def proposer_config() -> ProposerConfig:
 @pytest.fixture
 def mock_session_factory(test_db: Session) -> Generator[callable]:
     """Create a mock session factory."""
+
     def factory():
         return test_db
+
     yield factory
 
 
@@ -87,6 +89,7 @@ class TestCircuitBreaker:
 
         # Wait for timeout
         import time
+
         time.sleep(0.2)
 
         assert breaker.state == "half-open"
@@ -113,6 +116,7 @@ class TestCircuitBreaker:
         # Trigger open then wait for timeout
         breaker.record_failure()
         import time
+
         time.sleep(0.2)
 
         assert breaker.state == "half-open"
@@ -168,8 +172,8 @@ class TestPoAProposer:
     @pytest.mark.asyncio
     async def test_propose_block_genesis(self, proposer: PoAProposer, test_db: Session, mock_mempool: Mock) -> None:
         """Test proposing a genesis block."""
-        with patch('aitbc_chain.mempool.get_mempool', return_value=mock_mempool):
-            with patch('aitbc_chain.consensus.poa.gossip_broker', new=AsyncMock()):
+        with patch("aitbc_chain.mempool.get_mempool", return_value=mock_mempool):
+            with patch("aitbc_chain.consensus.poa.gossip_broker", new=AsyncMock()):
                 await proposer._propose_block()
 
                 # Verify genesis block was created
@@ -202,12 +206,14 @@ class TestPoAProposer:
         mock_tx.content = {"sender": "alice", "recipient": "bob", "amount": 100}
         mock_mempool.drain.return_value = [mock_tx]
 
-        with patch('aitbc_chain.mempool.get_mempool', return_value=mock_mempool):
-            with patch('aitbc_chain.consensus.poa.gossip_broker', new=AsyncMock()):
+        with patch("aitbc_chain.mempool.get_mempool", return_value=mock_mempool):
+            with patch("aitbc_chain.consensus.poa.gossip_broker", new=AsyncMock()):
                 await proposer._propose_block()
 
                 # Verify new block was created
-                block = test_db.exec(select(Block).where(Block.chain_id == proposer._config.chain_id).order_by(Block.height.desc())).first()
+                block = test_db.exec(
+                    select(Block).where(Block.chain_id == proposer._config.chain_id).order_by(Block.height.desc())
+                ).first()
                 assert block is not None
                 assert block.height == 1
                 assert block.parent_hash == "0xparent"
@@ -271,8 +277,8 @@ class TestPoAProposer:
     @pytest.mark.asyncio
     async def test_run_loop_stops_on_event(self, proposer: PoAProposer, mock_mempool: Mock) -> None:
         """Test that run loop stops when stop event is set."""
-        with patch('aitbc_chain.mempool.get_mempool', return_value=mock_mempool):
-            with patch('aitbc_chain.consensus.poa.gossip_broker', new=AsyncMock()):
+        with patch("aitbc_chain.mempool.get_mempool", return_value=mock_mempool):
+            with patch("aitbc_chain.consensus.poa.gossip_broker", new=AsyncMock()):
                 # Start the loop
                 proposer._stop_event.clear()
                 task = asyncio.create_task(proposer._run_loop())

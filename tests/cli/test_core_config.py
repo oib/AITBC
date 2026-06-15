@@ -25,13 +25,7 @@ class TestNodeConfig:
         """Test NodeConfig creation with all fields"""
         from aitbc_cli.core.config import NodeConfig
 
-        config = NodeConfig(
-            id="node1",
-            endpoint="http://localhost:8202",
-            timeout=30,
-            retry_count=3,
-            max_connections=10
-        )
+        config = NodeConfig(id="node1", endpoint="http://localhost:8202", timeout=30, retry_count=3, max_connections=10)
 
         assert config.id == "node1"
         assert config.endpoint == "http://localhost:8202"
@@ -100,7 +94,7 @@ class TestLoadMultichainConfig:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yaml"
 
-            with patch('pathlib.Path.home', return_value=Path(tmpdir)):
+            with patch("pathlib.Path.home", return_value=Path(tmpdir)):
                 config = load_multichain_config(str(config_path))
 
             assert config is not None
@@ -119,14 +113,14 @@ class TestLoadMultichainConfig:
                     "default_gas_price": 20000000000,
                     "max_block_size": 1048576,
                     "backup_path": "./backups",
-                    "max_concurrent_chains": 100
+                    "max_concurrent_chains": 100,
                 },
                 "logging_level": "DEBUG",
                 "enable_caching": False,
-                "cache_ttl": 600
+                "cache_ttl": 600,
             }
 
-            with open(config_path, 'w') as f:
+            with open(config_path, "w") as f:
                 yaml.dump(config_data, f)
 
             config = load_multichain_config(str(config_path))

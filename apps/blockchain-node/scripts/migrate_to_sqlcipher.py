@@ -23,10 +23,10 @@ except ImportError:
 
 def migrate_to_sqlcipher(db_path: Path, key_path: Path) -> None:
     """Migrate database to SQLCipher encrypted format.
-    
+
     Uses SQLCipher's built-in sqlcipher_export function to properly
     encrypt the database while maintaining SQLite's internal structure.
-    
+
     Args:
         db_path: Path to the existing SQLite database
         key_path: Path to the encryption key file
@@ -40,20 +40,21 @@ def migrate_to_sqlcipher(db_path: Path, key_path: Path) -> None:
         sys.exit(1)
 
     # Read encryption key (stored as raw binary bytes)
-    with open(key_path, 'rb') as f:
+    with open(key_path, "rb") as f:
         key_bytes = f.read()
 
     # Convert raw bytes to hex for SQLCipher
     key_hex = key_bytes.hex()
 
     # Create backup
-    backup_path = db_path.with_suffix('.db.backup')
+    backup_path = db_path.with_suffix(".db.backup")
     print(f"Creating backup: {backup_path}")
     import shutil
+
     shutil.copy2(db_path, backup_path)
 
     # Create temporary encrypted database
-    temp_encrypted_path = db_path.with_suffix('.db.encrypted')
+    temp_encrypted_path = db_path.with_suffix(".db.encrypted")
 
     # Open unencrypted database
     print(f"Opening unencrypted database: {db_path}")
@@ -85,7 +86,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Migrate SQLite database to SQLCipher encrypted format")
     parser.add_argument("--db-path", type=Path, required=True, help="Path to the SQLite database")
-    parser.add_argument("--key-path", type=Path, default=Path("/etc/aitbc/secrets/db_encryption.key"), help="Path to the encryption key file")
+    parser.add_argument(
+        "--key-path", type=Path, default=Path("/etc/aitbc/secrets/db_encryption.key"), help="Path to the encryption key file"
+    )
 
     args = parser.parse_args()
 

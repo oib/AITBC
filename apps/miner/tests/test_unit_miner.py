@@ -56,7 +56,7 @@ def test_classify_architecture_case_insensitive():
 
 
 @pytest.mark.unit
-@patch('production_miner.subprocess.run')
+@patch("production_miner.subprocess.run")
 def test_detect_cuda_version_success(mock_run):
     """Test CUDA version detection success"""
     mock_run.return_value = Mock(returncode=0, stdout="12.0")
@@ -65,7 +65,7 @@ def test_detect_cuda_version_success(mock_run):
 
 
 @pytest.mark.unit
-@patch('production_miner.subprocess.run')
+@patch("production_miner.subprocess.run")
 def test_detect_cuda_version_failure(mock_run):
     """Test CUDA version detection failure"""
     mock_run.side_effect = Exception("nvidia-smi not found")
@@ -74,13 +74,10 @@ def test_detect_cuda_version_failure(mock_run):
 
 
 @pytest.mark.unit
-@patch('production_miner.subprocess.run')
+@patch("production_miner.subprocess.run")
 def test_get_gpu_info_success(mock_run):
     """Test GPU info retrieval success"""
-    mock_run.return_value = Mock(
-        returncode=0,
-        stdout="NVIDIA GeForce RTX 4090, 24576, 1024, 45"
-    )
+    mock_run.return_value = Mock(returncode=0, stdout="NVIDIA GeForce RTX 4090, 24576, 1024, 45")
     result = production_miner.get_gpu_info()
     assert result is not None
     assert result["name"] == "NVIDIA GeForce RTX 4090"
@@ -90,7 +87,7 @@ def test_get_gpu_info_success(mock_run):
 
 
 @pytest.mark.unit
-@patch('production_miner.subprocess.run')
+@patch("production_miner.subprocess.run")
 def test_get_gpu_info_failure(mock_run):
     """Test GPU info retrieval failure"""
     mock_run.side_effect = Exception("nvidia-smi not found")
@@ -99,9 +96,9 @@ def test_get_gpu_info_failure(mock_run):
 
 
 @pytest.mark.unit
-@patch('production_miner.get_gpu_info')
-@patch('production_miner.detect_cuda_version')
-@patch('production_miner.classify_architecture')
+@patch("production_miner.get_gpu_info")
+@patch("production_miner.detect_cuda_version")
+@patch("production_miner.classify_architecture")
 def test_build_gpu_capabilities(mock_arch, mock_cuda, mock_gpu):
     """Test building GPU capabilities"""
     mock_gpu.return_value = {"name": "RTX 4090", "memory_total": 24576}
@@ -117,7 +114,7 @@ def test_build_gpu_capabilities(mock_arch, mock_cuda, mock_gpu):
 
 
 @pytest.mark.unit
-@patch('production_miner.get_gpu_info')
+@patch("production_miner.get_gpu_info")
 def test_build_gpu_capabilities_no_gpu(mock_gpu):
     """Test building GPU capabilities when no GPU"""
     mock_gpu.return_value = None
@@ -129,13 +126,12 @@ def test_build_gpu_capabilities_no_gpu(mock_gpu):
 
 
 @pytest.mark.unit
-@patch('production_miner.classify_architecture')
+@patch("production_miner.classify_architecture")
 def test_build_gpu_capabilities_edge_optimized(mock_arch):
     """Test edge optimization flag"""
     mock_arch.return_value = "ada_lovelace"
 
-    with patch('production_miner.get_gpu_info') as mock_gpu, \
-         patch('production_miner.detect_cuda_version') as mock_cuda:
+    with patch("production_miner.get_gpu_info") as mock_gpu, patch("production_miner.detect_cuda_version") as mock_cuda:
         mock_gpu.return_value = {"name": "RTX 4090", "memory_total": 24576}
         mock_cuda.return_value = "12.0"
 
@@ -144,13 +140,12 @@ def test_build_gpu_capabilities_edge_optimized(mock_arch):
 
 
 @pytest.mark.unit
-@patch('production_miner.classify_architecture')
+@patch("production_miner.classify_architecture")
 def test_build_gpu_capabilities_not_edge_optimized(mock_arch):
     """Test edge optimization flag for non-edge GPU"""
     mock_arch.return_value = "pascal"
 
-    with patch('production_miner.get_gpu_info') as mock_gpu, \
-         patch('production_miner.detect_cuda_version') as mock_cuda:
+    with patch("production_miner.get_gpu_info") as mock_gpu, patch("production_miner.detect_cuda_version") as mock_cuda:
         mock_gpu.return_value = {"name": "GTX 1080", "memory_total": 8192}
         mock_cuda.return_value = "11.0"
 
@@ -159,7 +154,7 @@ def test_build_gpu_capabilities_not_edge_optimized(mock_arch):
 
 
 @pytest.mark.unit
-@patch('production_miner.httpx.get')
+@patch("production_miner.httpx.get")
 def test_measure_coordinator_latency_success(mock_get):
     """Test coordinator latency measurement success"""
     mock_get.return_value = Mock(status_code=200)
@@ -168,7 +163,7 @@ def test_measure_coordinator_latency_success(mock_get):
 
 
 @pytest.mark.unit
-@patch('production_miner.httpx.get')
+@patch("production_miner.httpx.get")
 def test_measure_coordinator_latency_failure(mock_get):
     """Test coordinator latency measurement failure"""
     mock_get.side_effect = Exception("Connection error")

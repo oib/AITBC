@@ -12,18 +12,14 @@ from fastapi.testclient import TestClient
 class TestBlockchainPaymentsIntegration:
     """Test integration between blockchain and payment services"""
 
-    @patch('app.routers.blockchain.AITBCHTTPClient')
-    @patch('app.routers.payments.AITBCHTTPClient')
+    @patch("app.routers.blockchain.AITBCHTTPClient")
+    @patch("app.routers.payments.AITBCHTTPClient")
     def test_payment_recorded_on_blockchain(self, mock_payments_client, mock_blockchain_client):
         """Test that a payment is recorded on the blockchain"""
         # Setup mocks
         mock_blockchain = Mock()
         mock_blockchain_client.return_value = mock_blockchain
-        mock_blockchain.get.return_value = {
-            "height": 1000,
-            "hash": "0xabc123",
-            "tx_count": 50
-        }
+        mock_blockchain.get.return_value = {"height": 1000, "hash": "0xabc123", "tx_count": 50}
 
         mock_payments = Mock()
         mock_payments_client.return_value = mock_payments
@@ -31,7 +27,7 @@ class TestBlockchainPaymentsIntegration:
             "id": "payment1",
             "amount": 100.0,
             "status": "pending",
-            "transaction_hash": "0xdef456"
+            "transaction_hash": "0xdef456",
         }
 
         # Import and test
@@ -45,11 +41,7 @@ class TestBlockchainPaymentsIntegration:
         client = TestClient(app)
 
         # Create payment
-        response = client.post("/payments", json={
-            "amount": 100.0,
-            "currency": "USDC",
-            "recipient": "wallet123"
-        })
+        response = client.post("/payments", json={"amount": 100.0, "currency": "USDC", "recipient": "wallet123"})
         assert response.status_code == 200
         payment_data = response.json()
         assert payment_data["transaction_hash"] == "0xdef456"

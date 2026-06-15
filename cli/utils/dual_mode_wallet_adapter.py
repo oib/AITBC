@@ -42,16 +42,16 @@ class DualModeWalletAdapter:
             return {"status": "disabled", "message": "Daemon mode not enabled"}
         return self.daemon_client.get_status()
 
-    def create_wallet(self, wallet_name: str, password: str, wallet_type: str = "hd",
-                     metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+    def create_wallet(
+        self, wallet_name: str, password: str, wallet_type: str = "hd", metadata: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Create a wallet using the appropriate mode"""
         if self.use_daemon:
             return self._create_wallet_daemon(wallet_name, password, metadata)
         else:
             return self._create_wallet_file(wallet_name, password, wallet_type)
 
-    def _create_wallet_daemon(self, wallet_name: str, password: str,
-                            metadata: dict[str, Any] | None) -> dict[str, Any]:
+    def _create_wallet_daemon(self, wallet_name: str, password: str, metadata: dict[str, Any] | None) -> dict[str, Any]:
         """Create wallet using daemon"""
         try:
             if not self.is_daemon_available():
@@ -68,7 +68,7 @@ class DualModeWalletAdapter:
                 "public_key": wallet_info.public_key,
                 "address": wallet_info.address,
                 "created_at": wallet_info.created_at,
-                "metadata": wallet_info.metadata
+                "metadata": wallet_info.metadata,
             }
         except Exception as e:
             error(f"Failed to create daemon wallet: {str(e)}")
@@ -102,7 +102,7 @@ class DualModeWalletAdapter:
             "private_key": private_key,
             "transactions": [],
             "created_at": datetime.now().isoformat(),
-            "wallet_type": wallet_type
+            "wallet_type": wallet_type,
         }
 
         # Save wallet
@@ -116,7 +116,7 @@ class DualModeWalletAdapter:
             "address": address,
             "balance": 0.0,
             "wallet_type": wallet_type,
-            "created_at": wallet_data["created_at"]
+            "created_at": wallet_data["created_at"],
         }
 
     def list_wallets(self) -> list[dict[str, Any]]:
@@ -142,7 +142,7 @@ class DualModeWalletAdapter:
                     "public_key": w.public_key,
                     "address": w.address,
                     "created_at": w.created_at,
-                    "metadata": w.metadata
+                    "metadata": w.metadata,
                 }
                 for w in wallets
             ]
@@ -159,15 +159,17 @@ class DualModeWalletAdapter:
                 with open(wallet_file) as f:
                     wallet_data = json.load(f)
 
-                wallets.append({
-                    "mode": "file",
-                    "wallet_name": wallet_data.get("name") or wallet_data.get("wallet_id") or wallet_file.stem,
-                    "address": wallet_data.get("address"),
-                    "balance": wallet_data.get("balance", 0.0),
-                    "wallet_type": wallet_data.get("wallet_type", "hd"),
-                    "created_at": wallet_data.get("created_at"),
-                    "encrypted": wallet_data.get("encrypted", False)
-                })
+                wallets.append(
+                    {
+                        "mode": "file",
+                        "wallet_name": wallet_data.get("name") or wallet_data.get("wallet_id") or wallet_file.stem,
+                        "address": wallet_data.get("address"),
+                        "balance": wallet_data.get("balance", 0.0),
+                        "wallet_type": wallet_data.get("wallet_type", "hd"),
+                        "created_at": wallet_data.get("created_at"),
+                        "encrypted": wallet_data.get("encrypted", False),
+                    }
+                )
             except Exception as e:
                 error(f"Error reading wallet file {wallet_file}: {str(e)}")
 
@@ -195,7 +197,7 @@ class DualModeWalletAdapter:
                     "public_key": wallet_info.public_key,
                     "address": wallet_info.address,
                     "created_at": wallet_info.created_at,
-                    "metadata": wallet_info.metadata
+                    "metadata": wallet_info.metadata,
                 }
             return None
         except Exception as e:
@@ -222,7 +224,7 @@ class DualModeWalletAdapter:
                 "wallet_type": wallet_data.get("wallet_type", "hd"),
                 "created_at": wallet_data.get("created_at"),
                 "encrypted": wallet_data.get("encrypted", False),
-                "transactions": wallet_data.get("transactions", [])
+                "transactions": wallet_data.get("transactions", []),
             }
         except Exception as e:
             error(f"Failed to get file wallet info: {str(e)}")
@@ -256,16 +258,18 @@ class DualModeWalletAdapter:
             return wallet_info.get("balance", 0.0)
         return None
 
-    def send_transaction(self, wallet_name: str, password: str, to_address: str,
-                        amount: float, description: str | None = None) -> dict[str, Any]:
+    def send_transaction(
+        self, wallet_name: str, password: str, to_address: str, amount: float, description: str | None = None
+    ) -> dict[str, Any]:
         """Send transaction using the appropriate mode"""
         if self.use_daemon:
             return self._send_transaction_daemon(wallet_name, password, to_address, amount, description)
         else:
             return self._send_transaction_file(wallet_name, password, to_address, amount, description)
 
-    def _send_transaction_daemon(self, wallet_name: str, password: str, to_address: str,
-                              amount: float, description: str | None) -> dict[str, Any]:
+    def _send_transaction_daemon(
+        self, wallet_name: str, password: str, to_address: str, amount: float, description: str | None
+    ) -> dict[str, Any]:
         """Send transaction using daemon"""
         try:
             if not self.is_daemon_available():
@@ -282,14 +286,15 @@ class DualModeWalletAdapter:
                 "amount": amount,
                 "description": description,
                 "tx_hash": result.get("tx_hash"),
-                "timestamp": result.get("timestamp")
+                "timestamp": result.get("timestamp"),
             }
         except Exception as e:
             error(f"Failed to send daemon transaction: {str(e)}")
             raise
 
-    def _send_transaction_file(self, wallet_name: str, password: str, to_address: str,
-                             amount: float, description: str | None) -> dict[str, Any]:
+    def _send_transaction_file(
+        self, wallet_name: str, password: str, to_address: str, amount: float, description: str | None
+    ) -> dict[str, Any]:
         """Send transaction using file-based storage and blockchain RPC"""
         from datetime import datetime
 
@@ -336,7 +341,7 @@ class DualModeWalletAdapter:
             "nonce": nonce,
             "fee": 0,
             "payload": {"to": to_address, "value": amount},
-            "sig": "mock_signature" # Replace with real signature when implemented
+            "sig": "mock_signature",  # Replace with real signature when implemented
         }
 
         try:
@@ -357,7 +362,7 @@ class DualModeWalletAdapter:
             "description": description or "",
             "timestamp": datetime.now().isoformat(),
             "tx_hash": tx_hash,
-            "status": "pending"
+            "status": "pending",
         }
 
         if "transactions" not in wallet_data:
@@ -381,7 +386,7 @@ class DualModeWalletAdapter:
             "amount": amount,
             "description": description,
             "tx_hash": tx_hash,
-            "timestamp": transaction["timestamp"]
+            "timestamp": transaction["timestamp"],
         }
 
     def delete_wallet(self, wallet_name: str, password: str) -> bool:
@@ -437,7 +442,7 @@ class DualModeWalletAdapter:
                     "created_at": chain.created_at,
                     "updated_at": chain.updated_at,
                     "wallet_count": chain.wallet_count,
-                    "recent_activity": chain.recent_activity
+                    "recent_activity": chain.recent_activity,
                 }
                 for chain in chains
             ]
@@ -445,8 +450,9 @@ class DualModeWalletAdapter:
             error(f"Failed to list chains: {str(e)}")
             return []
 
-    def create_chain(self, chain_id: str, name: str, coordinator_url: str,
-                    coordinator_api_key: str, metadata: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    def create_chain(
+        self, chain_id: str, name: str, coordinator_url: str, coordinator_api_key: str, metadata: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
         """Create a new blockchain chain"""
         if not self.use_daemon or not self.is_daemon_available():
             error("Chain creation requires daemon mode")
@@ -462,14 +468,15 @@ class DualModeWalletAdapter:
                 "created_at": chain.created_at,
                 "updated_at": chain.updated_at,
                 "wallet_count": chain.wallet_count,
-                "recent_activity": chain.recent_activity
+                "recent_activity": chain.recent_activity,
             }
         except Exception as e:
             error(f"Failed to create chain: {str(e)}")
             return None
 
-    def create_wallet_in_chain(self, chain_id: str, wallet_name: str, password: str,
-                              wallet_type: str = "hd", metadata: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    def create_wallet_in_chain(
+        self, chain_id: str, wallet_name: str, password: str, wallet_type: str = "hd", metadata: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
         """Create a wallet in a specific chain"""
         if not self.use_daemon or not self.is_daemon_available():
             error("Chain-specific wallet creation requires daemon mode")
@@ -485,7 +492,7 @@ class DualModeWalletAdapter:
                 "address": wallet.address,
                 "created_at": wallet.created_at,
                 "wallet_type": wallet_type,
-                "metadata": wallet.metadata or {}
+                "metadata": wallet.metadata or {},
             }
         except Exception as e:
             error(f"Failed to create wallet in chain {chain_id}: {str(e)}")
@@ -507,7 +514,7 @@ class DualModeWalletAdapter:
                     "public_key": wallet.public_key,
                     "address": wallet.address,
                     "created_at": wallet.created_at,
-                    "metadata": wallet.metadata or {}
+                    "metadata": wallet.metadata or {},
                 }
                 for wallet in wallets
             ]
@@ -531,7 +538,7 @@ class DualModeWalletAdapter:
                     "public_key": wallet.public_key,
                     "address": wallet.address,
                     "created_at": wallet.created_at,
-                    "metadata": wallet.metadata or {}
+                    "metadata": wallet.metadata or {},
                 }
             return None
         except Exception as e:
@@ -575,8 +582,9 @@ class DualModeWalletAdapter:
             error(f"Failed to sign message in chain {chain_id}: {str(e)}")
             return None
 
-    def migrate_wallet(self, source_chain_id: str, target_chain_id: str, wallet_name: str,
-                      password: str, new_password: str | None = None) -> dict[str, Any] | None:
+    def migrate_wallet(
+        self, source_chain_id: str, target_chain_id: str, wallet_name: str, password: str, new_password: str | None = None
+    ) -> dict[str, Any] | None:
         """Migrate a wallet from one chain to another"""
         if not self.use_daemon or not self.is_daemon_available():
             error("Wallet migration requires daemon mode")
@@ -591,15 +599,15 @@ class DualModeWalletAdapter:
                         "chain_id": result.source_wallet.chain_id,
                         "wallet_name": result.source_wallet.wallet_id,
                         "public_key": result.source_wallet.public_key,
-                        "address": result.source_wallet.address
+                        "address": result.source_wallet.address,
                     },
                     "target_wallet": {
                         "chain_id": result.target_wallet.chain_id,
                         "wallet_name": result.target_wallet.wallet_id,
                         "public_key": result.target_wallet.public_key,
-                        "address": result.target_wallet.address
+                        "address": result.target_wallet.address,
                     },
-                    "migration_timestamp": result.migration_timestamp
+                    "migration_timestamp": result.migration_timestamp,
                 }
             return None
         except Exception as e:

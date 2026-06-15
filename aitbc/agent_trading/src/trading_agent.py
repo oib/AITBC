@@ -10,13 +10,14 @@ import sys
 from typing import Any
 
 # Add parent directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 
 from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceBridge
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
+
 
 class TradingAgent:
     """Automated trading agent"""
@@ -34,11 +35,14 @@ class TradingAgent:
         """Start trading agent"""
         try:
             # Register with service bridge
-            success = await self.bridge.start_agent(self.agent_id, {
-                "type": "trading",
-                "capabilities": ["market_analysis", "trading", "risk_management"],
-                "endpoint": "http://localhost:8005"
-            })
+            success = await self.bridge.start_agent(
+                self.agent_id,
+                {
+                    "type": "trading",
+                    "capabilities": ["market_analysis", "trading", "risk_management"],
+                    "endpoint": "http://localhost:8005",
+                },
+            )
 
             if success:
                 self.is_running = True
@@ -75,11 +79,7 @@ class TradingAgent:
         """Analyze market and execute trades"""
         try:
             # Perform market analysis
-            analysis_task = {
-                "type": "market_analysis",
-                "symbol": symbol,
-                "strategy": self.trading_strategy
-            }
+            analysis_task = {"type": "market_analysis", "symbol": symbol, "strategy": self.trading_strategy}
 
             analysis_result = await self.bridge.execute_agent_task(self.agent_id, analysis_task)
 
@@ -111,7 +111,7 @@ class TradingAgent:
                     "symbol": symbol,
                     "side": "buy",
                     "amount": self.config.get("trade_amount", 0.1),
-                    "strategy": self.trading_strategy
+                    "strategy": self.trading_strategy,
                 }
             elif recommendation == "sell":
                 trade_task = {
@@ -119,7 +119,7 @@ class TradingAgent:
                     "symbol": symbol,
                     "side": "sell",
                     "amount": self.config.get("trade_amount", 0.1),
-                    "strategy": self.trading_strategy
+                    "strategy": self.trading_strategy,
                 }
             else:
                 return
@@ -138,16 +138,12 @@ class TradingAgent:
         """Get agent status"""
         return await self.bridge.get_agent_status(self.agent_id)
 
+
 # Main execution
 async def main():
     """Main trading agent execution"""
     agent_id = "trading-agent-001"
-    config = {
-        "strategy": "basic",
-        "symbols": ["AITBC/BTC"],
-        "trade_interval": 30,
-        "trade_amount": 0.1
-    }
+    config = {"strategy": "basic", "symbols": ["AITBC/BTC"], "trade_interval": 30, "trade_amount": 0.1}
 
     agent = TradingAgent(agent_id, config)
 
@@ -162,6 +158,7 @@ async def main():
             await agent.stop()
     else:
         logger.error("Failed to start trading agent")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

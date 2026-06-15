@@ -2,6 +2,7 @@
 Staking Management Service
 Business logic for AI agent staking system with reputation-based yield farming
 """
+
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -13,6 +14,7 @@ from aitbc import get_logger
 from ....domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
 
 logger = get_logger(__name__)
+
 
 class StakingService:
     """Service for managing AI agent staking"""
@@ -44,17 +46,28 @@ class StakingService:
         staking_pool.last_distribution_time = self._ensure_utc_datetime(staking_pool.last_distribution_time)  # type: ignore[assignment]
         return staking_pool
 
-    async def create_stake(self, staker_address: str, agent_wallet: str, amount: float, lock_period: int, auto_compound: bool) -> AgentStake:
+    async def create_stake(
+        self, staker_address: str, agent_wallet: str, amount: float, lock_period: int, auto_compound: bool
+    ) -> AgentStake:
         """Create a new stake on an agent wallet"""
         try:
             agent_metrics = await self.get_agent_metrics(agent_wallet)
             if not agent_metrics:
-                raise ValueError('Agent not supported for staking')
+                raise ValueError("Agent not supported for staking")
             if amount < 100:
-                raise ValueError('Stake amount must be at least 100 AITBC')
+                raise ValueError("Stake amount must be at least 100 AITBC")
             current_apy = await self.calculate_apy(agent_wallet, lock_period)
             end_time = datetime.now(UTC) + timedelta(days=lock_period)
-            stake = AgentStake(staker_address=staker_address, agent_wallet=agent_wallet, amount=amount, lock_period=lock_period, end_time=end_time, current_apy=current_apy, agent_tier=agent_metrics.current_tier, auto_compound=auto_compound)
+            stake = AgentStake(
+                staker_address=staker_address,
+                agent_wallet=agent_wallet,
+                amount=amount,
+                lock_period=lock_period,
+                end_time=end_time,
+                current_apy=current_apy,
+                agent_tier=agent_metrics.current_tier,
+                auto_compound=auto_compound,
+            )
             self.session.add(stake)
             agent_metrics.total_staked += amount
             existing_stakes = await self.get_user_stakes(staker_address, agent_wallet=agent_wallet)
@@ -63,10 +76,10 @@ class StakingService:
             await self._update_staking_pool(agent_wallet, staker_address, amount, True)
             self.session.commit()
             self.session.refresh(stake)
-            logger.info('Created stake %s: %s on %s', stake.stake_id, amount, agent_wallet)
+            logger.info("Created stake %s: %s on %s", stake.stake_id, amount, agent_wallet)
             return self._normalize_stake_datetimes(stake)
         except Exception as e:
-            logger.error('Failed to create stake: %s', e)
+            logger.error("Failed to create stake: %s", e)
             self.session.rollback()
             raise
 
@@ -76,15 +89,26 @@ class StakingService:
             stmt = select(AgentStake).where(AgentStake.stake_id == stake_id)  # type: ignore[arg-type]
             result = self.session.execute(stmt).scalar_one_or_none()
             if not result:
-                raise ValueError('Stake not found')
+                raise ValueError("Stake not found")
             return self._normalize_stake_datetimes(result)
         except ValueError:
             raise
         except Exception as e:
-            logger.error('Failed to get stake %s: %s', stake_id, e)
+            logger.error("Failed to get stake %s: %s", stake_id, e)
             raise
 
-    async def get_user_stakes(self, user_address: str, status: StakeStatus | None=None, agent_wallet: str | None=None, min_amount: float | None=None, max_amount: float | None=None, agent_tier: PerformanceTier | None=None, auto_compound: bool | None=None, page: int=1, limit: int=20) -> list[AgentStake]:
+    async def get_user_stakes(
+        self,
+        user_address: str,
+        status: StakeStatus | None = None,
+        agent_wallet: str | None = None,
+        min_amount: float | None = None,
+        max_amount: float | None = None,
+        agent_tier: PerformanceTier | None = None,
+        auto_compound: bool | None = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> list[AgentStake]:
         """Get filtered list of user's stakes"""
         try:
             query = select(AgentStake).where(AgentStake.staker_address == user_address)  # type: ignore[arg-type]
@@ -106,7 +130,7 @@ class StakingService:
             result = self.session.execute(query).scalars().all()
             return [self._normalize_stake_datetimes(stake) for stake in result]
         except Exception as e:
-            logger.error('Failed to get user stakes: %s', e)
+            logger.error("Failed to get user stakes: %s", e)
             raise
 
     async def add_to_stake(self, stake_id: str, additional_amount: float) -> AgentStake:
@@ -114,9 +138,9 @@ class StakingService:
         try:
             stake = await self.get_stake(stake_id)
             if not stake:
-                raise ValueError('Stake not found')
+                raise ValueError("Stake not found")
             if stake.status != StakeStatus.ACTIVE:
-                raise ValueError('Stake is not active')
+                raise ValueError("Stake is not active")
             stake.amount += additional_amount
             stake.current_apy = await self.calculate_apy(stake.agent_wallet, stake.lock_period)
             agent_metrics = await self.get_agent_metrics(stake.agent_wallet)
@@ -125,10 +149,10 @@ class StakingService:
             await self._update_staking_pool(stake.agent_wallet, stake.staker_address, additional_amount, True)
             self.session.commit()
             self.session.refresh(stake)
-            logger.info('Added %s to stake %s', additional_amount, stake_id)
+            logger.info("Added %s to stake %s", additional_amount, stake_id)
             return stake
         except Exception as e:
-            logger.error('Failed to add to stake: %s', e)
+            logger.error("Failed to add to stake: %s", e)
             self.session.rollback()
             raise
 
@@ -137,20 +161,20 @@ class StakingService:
         try:
             stake = await self.get_stake(stake_id)
             if not stake:
-                raise ValueError('Stake not found')
+                raise ValueError("Stake not found")
             if stake.status != StakeStatus.ACTIVE:
-                raise ValueError('Stake is not active')
+                raise ValueError("Stake is not active")
             if datetime.now(UTC) < stake.end_time:
-                raise ValueError('Lock period has not ended')
+                raise ValueError("Lock period has not ended")
             await self._calculate_rewards(stake_id)
             stake.status = StakeStatus.UNBONDING
             stake.unbonding_time = datetime.now(UTC)
             self.session.commit()
             self.session.refresh(stake)
-            logger.info('Initiated unbonding for stake %s', stake_id)
+            logger.info("Initiated unbonding for stake %s", stake_id)
             return stake
         except Exception as e:
-            logger.error('Failed to unbond stake: %s', e)
+            logger.error("Failed to unbond stake: %s", e)
             self.session.rollback()
             raise
 
@@ -159,9 +183,9 @@ class StakingService:
         try:
             stake = await self.get_stake(stake_id)
             if not stake:
-                raise ValueError('Stake not found')
+                raise ValueError("Stake not found")
             if stake.status != StakeStatus.UNBONDING:
-                raise ValueError('Stake is not unbonding')
+                raise ValueError("Stake is not unbonding")
             penalty = 0.0
             total_amount = stake.amount
             if stake.unbonding_time and datetime.now(UTC) < stake.unbonding_time + timedelta(days=30):
@@ -171,16 +195,18 @@ class StakingService:
             agent_metrics = await self.get_agent_metrics(stake.agent_wallet)
             if agent_metrics:
                 agent_metrics.total_staked -= stake.amount
-                remaining_stakes = await self.get_user_stakes(stake.staker_address, agent_wallet=stake.agent_wallet, status=StakeStatus.ACTIVE)
+                remaining_stakes = await self.get_user_stakes(
+                    stake.staker_address, agent_wallet=stake.agent_wallet, status=StakeStatus.ACTIVE
+                )
                 if not remaining_stakes:
                     agent_metrics.staker_count -= 1
             await self._update_staking_pool(stake.agent_wallet, stake.staker_address, stake.amount, False)
             self.session.commit()
-            result = {'total_amount': total_amount, 'total_rewards': stake.accumulated_rewards, 'penalty': penalty}
-            logger.info('Completed unbonding for stake %s', stake_id)
+            result = {"total_amount": total_amount, "total_rewards": stake.accumulated_rewards, "penalty": penalty}
+            logger.info("Completed unbonding for stake %s", stake_id)
             return result
         except Exception as e:
-            logger.error('Failed to complete unbonding: %s', e)
+            logger.error("Failed to complete unbonding: %s", e)
             self.session.rollback()
             raise
 
@@ -189,7 +215,7 @@ class StakingService:
         try:
             stake = await self.get_stake(stake_id)
             if not stake:
-                raise ValueError('Stake not found')
+                raise ValueError("Stake not found")
             if stake.status != StakeStatus.ACTIVE:
                 return stake.accumulated_rewards
             time_elapsed = datetime.now(UTC) - stake.last_reward_time
@@ -197,7 +223,7 @@ class StakingService:
             current_rewards = yearly_rewards * time_elapsed.total_seconds() / (365 * 24 * 3600)
             return stake.accumulated_rewards + current_rewards
         except Exception as e:
-            logger.error('Failed to calculate rewards: %s', e)
+            logger.error("Failed to calculate rewards: %s", e)
             raise
 
     async def get_agent_metrics(self, agent_wallet: str) -> AgentMetrics | None:
@@ -207,7 +233,7 @@ class StakingService:
             result = self.session.execute(stmt).scalar_one_or_none()
             return self._normalize_agent_metrics_datetimes(result) if result else None
         except Exception as e:
-            logger.error('Failed to get agent metrics: %s', e)
+            logger.error("Failed to get agent metrics: %s", e)
             raise
 
     async def get_staking_pool(self, agent_wallet: str) -> StakingPool | None:
@@ -217,7 +243,7 @@ class StakingService:
             result = self.session.execute(stmt).scalar_one_or_none()
             return self._normalize_staking_pool_datetimes(result) if result else None
         except Exception as e:
-            logger.error('Failed to get staking pool: %s', e)
+            logger.error("Failed to get staking pool: %s", e)
             raise
 
     async def calculate_apy(self, agent_wallet: str, lock_period: int) -> float:
@@ -227,17 +253,31 @@ class StakingService:
             agent_metrics = await self.get_agent_metrics(agent_wallet)
             if not agent_metrics:
                 return base_apy
-            tier_multipliers = {PerformanceTier.BRONZE: 1.0, PerformanceTier.SILVER: 1.2, PerformanceTier.GOLD: 1.5, PerformanceTier.PLATINUM: 2.0, PerformanceTier.DIAMOND: 3.0}
+            tier_multipliers = {
+                PerformanceTier.BRONZE: 1.0,
+                PerformanceTier.SILVER: 1.2,
+                PerformanceTier.GOLD: 1.5,
+                PerformanceTier.PLATINUM: 2.0,
+                PerformanceTier.DIAMOND: 3.0,
+            }
             tier_multiplier = tier_multipliers.get(agent_metrics.current_tier, 1.0)
             lock_multipliers = {30: 1.1, 90: 1.25, 180: 1.5, 365: 2.0}
             lock_multiplier = lock_multipliers.get(lock_period, 1.0)
             apy = base_apy * tier_multiplier * lock_multiplier
             return min(apy, 20.0)
         except Exception as e:
-            logger.error('Failed to calculate APY: %s', e)
+            logger.error("Failed to calculate APY: %s", e)
             return 5.0
 
-    async def update_agent_performance(self, agent_wallet: str, accuracy: float, successful: bool, response_time: float | None=None, compute_power: float | None=None, energy_efficiency: float | None=None) -> AgentMetrics:
+    async def update_agent_performance(
+        self,
+        agent_wallet: str,
+        accuracy: float,
+        successful: bool,
+        response_time: float | None = None,
+        compute_power: float | None = None,
+        energy_efficiency: float | None = None,
+    ) -> AgentMetrics:
         """Update agent performance metrics"""
         try:
             agent_metrics = await self.get_agent_metrics(agent_wallet)
@@ -266,24 +306,28 @@ class StakingService:
             agent_metrics.last_update_time = datetime.now(UTC)
             self.session.commit()
             self.session.refresh(agent_metrics)
-            logger.info('Updated performance for agent %s', agent_wallet)
+            logger.info("Updated performance for agent %s", agent_wallet)
             return agent_metrics
         except Exception as e:
-            logger.error('Failed to update agent performance: %s', e)
+            logger.error("Failed to update agent performance: %s", e)
             self.session.rollback()
             raise
 
-    async def distribute_earnings(self, agent_wallet: str, total_earnings: float, distribution_data: dict[str, Any]) -> dict[str, Any]:
+    async def distribute_earnings(
+        self, agent_wallet: str, total_earnings: float, distribution_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """Distribute agent earnings to stakers"""
         try:
             pool = await self.get_staking_pool(agent_wallet)
             if not pool or pool.total_staked == 0:
-                raise ValueError('No stakers in pool')
+                raise ValueError("No stakers in pool")
             platform_fee = total_earnings * 0.01
             distributable_amount = total_earnings - platform_fee
             total_distributed = 0.0
             staker_count = 0
-            stmt = select(AgentStake).where(and_(AgentStake.agent_wallet == agent_wallet, AgentStake.status == StakeStatus.ACTIVE))  # type: ignore[arg-type]
+            stmt = select(AgentStake).where(
+                and_(AgentStake.agent_wallet == agent_wallet, AgentStake.status == StakeStatus.ACTIVE)
+            )  # type: ignore[arg-type]
             stakes = self.session.execute(stmt).scalars().all()
             for stake in stakes:
                 staker_share = distributable_amount * stake.amount / pool.total_staked
@@ -297,15 +341,17 @@ class StakingService:
             if agent_metrics:
                 agent_metrics.total_rewards_distributed += total_distributed
             self.session.commit()
-            result = {'total_distributed': total_distributed, 'staker_count': staker_count, 'platform_fee': platform_fee}
-            logger.info('Distributed %s earnings to %s stakers', total_distributed, staker_count)
+            result = {"total_distributed": total_distributed, "staker_count": staker_count, "platform_fee": platform_fee}
+            logger.info("Distributed %s earnings to %s stakers", total_distributed, staker_count)
             return result
         except Exception as e:
-            logger.error('Failed to distribute earnings: %s', e)
+            logger.error("Failed to distribute earnings: %s", e)
             self.session.rollback()
             raise
 
-    async def get_supported_agents(self, page: int=1, limit: int=50, tier: PerformanceTier | None=None) -> list[dict[str, Any]]:
+    async def get_supported_agents(
+        self, page: int = 1, limit: int = 50, tier: PerformanceTier | None = None
+    ) -> list[dict[str, Any]]:
         """Get list of supported agents for staking"""
         try:
             query = select(AgentMetrics)
@@ -317,81 +363,137 @@ class StakingService:
             result = self.session.execute(query).scalars().all()
             agents = []
             for metrics in result:
-                agents.append({'agent_wallet': metrics.agent_wallet, 'total_staked': metrics.total_staked, 'staker_count': metrics.staker_count, 'current_tier': metrics.current_tier, 'average_accuracy': metrics.average_accuracy, 'success_rate': metrics.success_rate, 'current_apy': await self.calculate_apy(metrics.agent_wallet, 30)})
+                agents.append(
+                    {
+                        "agent_wallet": metrics.agent_wallet,
+                        "total_staked": metrics.total_staked,
+                        "staker_count": metrics.staker_count,
+                        "current_tier": metrics.current_tier,
+                        "average_accuracy": metrics.average_accuracy,
+                        "success_rate": metrics.success_rate,
+                        "current_apy": await self.calculate_apy(metrics.agent_wallet, 30),
+                    }
+                )
             return agents
         except Exception as e:
-            logger.error('Failed to get supported agents: %s', e)
+            logger.error("Failed to get supported agents: %s", e)
             raise
 
-    async def get_staking_stats(self, period: str='daily') -> dict[str, Any]:
+    async def get_staking_stats(self, period: str = "daily") -> dict[str, Any]:
         """Get staking system statistics"""
         try:
-            if period == 'hourly':
+            if period == "hourly":
                 start_date = datetime.now(UTC) - timedelta(hours=1)
-            elif period == 'daily':
+            elif period == "daily":
                 start_date = datetime.now(UTC) - timedelta(days=1)
-            elif period == 'weekly':
+            elif period == "weekly":
                 start_date = datetime.now(UTC) - timedelta(weeks=1)
-            elif period == 'monthly':
+            elif period == "monthly":
                 start_date = datetime.now(UTC) - timedelta(days=30)
             else:
                 start_date = datetime.now(UTC) - timedelta(days=1)
             total_staked_stmt = select(func.sum(AgentStake.amount)).where(AgentStake.start_time >= start_date)  # type: ignore[arg-type]
             total_staked = self.session.execute(total_staked_stmt).scalar() or 0.0
-            active_stakes_stmt = select(func.count(AgentStake.stake_id)).where(and_(AgentStake.start_time >= start_date, AgentStake.status == StakeStatus.ACTIVE))  # type: ignore[arg-type]
+            active_stakes_stmt = select(func.count(AgentStake.stake_id)).where(
+                and_(AgentStake.start_time >= start_date, AgentStake.status == StakeStatus.ACTIVE)
+            )  # type: ignore[arg-type]
             active_stakes = self.session.execute(active_stakes_stmt).scalar() or 0
-            unique_stakers_stmt = select(func.count(func.distinct(AgentStake.staker_address))).where(AgentStake.start_time >= start_date)  # type: ignore[arg-type]
+            unique_stakers_stmt = select(func.count(func.distinct(AgentStake.staker_address))).where(
+                AgentStake.start_time >= start_date
+            )  # type: ignore[arg-type]
             unique_stakers = self.session.execute(unique_stakers_stmt).scalar() or 0
             avg_apy_stmt = select(func.avg(AgentStake.current_apy)).where(AgentStake.start_time >= start_date)  # type: ignore[arg-type]
             avg_apy = self.session.execute(avg_apy_stmt).scalar() or 0.0
-            total_rewards_stmt = select(func.sum(AgentMetrics.total_rewards_distributed)).where(AgentMetrics.last_update_time >= start_date)  # type: ignore[arg-type]
+            total_rewards_stmt = select(func.sum(AgentMetrics.total_rewards_distributed)).where(
+                AgentMetrics.last_update_time >= start_date
+            )  # type: ignore[arg-type]
             total_rewards = self.session.execute(total_rewards_stmt).scalar() or 0.0
-            tier_stmt = select(AgentStake.agent_tier, func.count(AgentStake.stake_id).label('count')).where(AgentStake.start_time >= start_date).group_by(AgentStake.agent_tier)  # type: ignore[call-overload, arg-type]
+            tier_stmt = (
+                select(AgentStake.agent_tier, func.count(AgentStake.stake_id).label("count"))
+                .where(AgentStake.start_time >= start_date)
+                .group_by(AgentStake.agent_tier)
+            )  # type: ignore[call-overload, arg-type]
             tier_result = self.session.execute(tier_stmt).all()
             tier_distribution = {row.agent_tier.value: row.count for row in tier_result}
-            return {'total_staked': total_staked, 'total_stakers': unique_stakers, 'active_stakes': active_stakes, 'average_apy': avg_apy, 'total_rewards_distributed': total_rewards, 'tier_distribution': tier_distribution}
+            return {
+                "total_staked": total_staked,
+                "total_stakers": unique_stakers,
+                "active_stakes": active_stakes,
+                "average_apy": avg_apy,
+                "total_rewards_distributed": total_rewards,
+                "tier_distribution": tier_distribution,
+            }
         except Exception as e:
-            logger.error('Failed to get staking stats: %s', e)
+            logger.error("Failed to get staking stats: %s", e)
             raise
 
-    async def get_leaderboard(self, period: str='weekly', metric: str='total_staked', limit: int=50) -> list[dict[str, Any]]:
+    async def get_leaderboard(
+        self, period: str = "weekly", metric: str = "total_staked", limit: int = 50
+    ) -> list[dict[str, Any]]:
         """Get staking leaderboard"""
         try:
-            if period == 'daily':
+            if period == "daily":
                 start_date = datetime.now(UTC) - timedelta(days=1)
-            elif period == 'weekly':
+            elif period == "weekly":
                 start_date = datetime.now(UTC) - timedelta(weeks=1)
-            elif period == 'monthly':
+            elif period == "monthly":
                 start_date = datetime.now(UTC) - timedelta(days=30)
             else:
                 start_date = datetime.now(UTC) - timedelta(weeks=1)
-            if metric == 'total_staked':
-                stmt = select(AgentStake.agent_wallet, func.sum(AgentStake.amount).label('total_staked'), func.count(AgentStake.stake_id).label('stake_count')).where(AgentStake.start_time >= start_date).group_by(AgentStake.agent_wallet).order_by(func.sum(AgentStake.amount).desc()).limit(limit)  # type: ignore[call-overload, arg-type]
-            elif metric == 'total_rewards':
-                stmt = select(AgentMetrics.agent_wallet, AgentMetrics.total_rewards_distributed, AgentMetrics.staker_count).where(AgentMetrics.last_update_time >= start_date).order_by(AgentMetrics.total_rewards_distributed.desc()).limit(limit)  # type: ignore[call-overload, attr-defined]
-            elif metric == 'apy':
-                stmt = select(AgentStake.agent_wallet, func.avg(AgentStake.current_apy).label('avg_apy'), func.count(AgentStake.stake_id).label('stake_count')).where(AgentStake.start_time >= start_date).group_by(AgentStake.agent_wallet).order_by(func.avg(AgentStake.current_apy).desc()).limit(limit)  # type: ignore[call-overload, arg-type]
+            if metric == "total_staked":
+                stmt = (
+                    select(
+                        AgentStake.agent_wallet,
+                        func.sum(AgentStake.amount).label("total_staked"),
+                        func.count(AgentStake.stake_id).label("stake_count"),
+                    )
+                    .where(AgentStake.start_time >= start_date)
+                    .group_by(AgentStake.agent_wallet)
+                    .order_by(func.sum(AgentStake.amount).desc())
+                    .limit(limit)
+                )  # type: ignore[call-overload, arg-type]
+            elif metric == "total_rewards":
+                stmt = (
+                    select(AgentMetrics.agent_wallet, AgentMetrics.total_rewards_distributed, AgentMetrics.staker_count)
+                    .where(AgentMetrics.last_update_time >= start_date)
+                    .order_by(AgentMetrics.total_rewards_distributed.desc())
+                    .limit(limit)
+                )  # type: ignore[call-overload, attr-defined]
+            elif metric == "apy":
+                stmt = (
+                    select(
+                        AgentStake.agent_wallet,
+                        func.avg(AgentStake.current_apy).label("avg_apy"),
+                        func.count(AgentStake.stake_id).label("stake_count"),
+                    )
+                    .where(AgentStake.start_time >= start_date)
+                    .group_by(AgentStake.agent_wallet)
+                    .order_by(func.avg(AgentStake.current_apy).desc())
+                    .limit(limit)
+                )  # type: ignore[call-overload, arg-type]
             result = self.session.execute(stmt).all()
             leaderboard: list[dict[str, Any]] = []
             for row in result:
-                leaderboard.append({'agent_wallet': row.agent_wallet, 'rank': len(leaderboard) + 1, **row._asdict()})
+                leaderboard.append({"agent_wallet": row.agent_wallet, "rank": len(leaderboard) + 1, **row._asdict()})
             return leaderboard
         except Exception as e:
-            logger.error('Failed to get leaderboard: %s', e)
+            logger.error("Failed to get leaderboard: %s", e)
             raise
 
-    async def get_user_rewards(self, user_address: str, period: str='monthly') -> dict[str, Any]:
+    async def get_user_rewards(self, user_address: str, period: str = "monthly") -> dict[str, Any]:
         """Get user's staking rewards"""
         try:
-            if period == 'daily':
+            if period == "daily":
                 start_date = datetime.now(UTC) - timedelta(days=1)
-            elif period == 'weekly':
+            elif period == "weekly":
                 start_date = datetime.now(UTC) - timedelta(weeks=1)
-            elif period == 'monthly':
+            elif period == "monthly":
                 start_date = datetime.now(UTC) - timedelta(days=30)
             else:
                 start_date = datetime.now(UTC) - timedelta(days=30)
-            stmt = select(AgentStake).where(and_(AgentStake.staker_address == user_address, AgentStake.start_time >= start_date))  # type: ignore[arg-type]
+            stmt = select(AgentStake).where(
+                and_(AgentStake.staker_address == user_address, AgentStake.start_time >= start_date)
+            )  # type: ignore[arg-type]
             stakes = self.session.execute(stmt).scalars().all()
             total_rewards = 0.0
             total_staked = 0.0
@@ -401,9 +503,16 @@ class StakingService:
                 total_staked += stake.amount
                 if stake.status == StakeStatus.ACTIVE:
                     active_stakes += 1
-            return {'user_address': user_address, 'period': period, 'total_rewards': total_rewards, 'total_staked': total_staked, 'active_stakes': active_stakes, 'average_apy': total_rewards / total_staked * 100 if total_staked > 0 else 0.0}
+            return {
+                "user_address": user_address,
+                "period": period,
+                "total_rewards": total_rewards,
+                "total_staked": total_staked,
+                "active_stakes": active_stakes,
+                "average_apy": total_rewards / total_staked * 100 if total_staked > 0 else 0.0,
+            }
         except Exception as e:
-            logger.error('Failed to get user rewards: %s', e)
+            logger.error("Failed to get user rewards: %s", e)
             raise
 
     async def claim_rewards(self, stake_ids: list[str]) -> dict[str, Any]:
@@ -418,9 +527,9 @@ class StakingService:
                 stake.accumulated_rewards = 0.0
                 stake.last_reward_time = datetime.now(UTC)
             self.session.commit()
-            return {'total_rewards': total_rewards, 'claimed_stakes': len(stake_ids)}
+            return {"total_rewards": total_rewards, "claimed_stakes": len(stake_ids)}
         except Exception as e:
-            logger.error('Failed to claim rewards: %s', e)
+            logger.error("Failed to claim rewards: %s", e)
             self.session.rollback()
             raise
 
@@ -429,18 +538,29 @@ class StakingService:
         try:
             agent_metrics = await self.get_agent_metrics(agent_wallet)
             if not agent_metrics:
-                raise ValueError('Agent not found')
-            risk_factors = {'performance_risk': max(0, 100 - agent_metrics.average_accuracy) / 100, 'volatility_risk': 0.1 if agent_metrics.success_rate < 80 else 0.05, 'concentration_risk': min(1.0, agent_metrics.total_staked / 100000), 'new_agent_risk': 0.2 if agent_metrics.total_submissions < 10 else 0.0}
+                raise ValueError("Agent not found")
+            risk_factors = {
+                "performance_risk": max(0, 100 - agent_metrics.average_accuracy) / 100,
+                "volatility_risk": 0.1 if agent_metrics.success_rate < 80 else 0.05,
+                "concentration_risk": min(1.0, agent_metrics.total_staked / 100000),
+                "new_agent_risk": 0.2 if agent_metrics.total_submissions < 10 else 0.0,
+            }
             risk_score = sum(risk_factors.values()) / len(risk_factors)
             if risk_score < 0.2:
-                risk_level = 'low'
+                risk_level = "low"
             elif risk_score < 0.5:
-                risk_level = 'medium'
+                risk_level = "medium"
             else:
-                risk_level = 'high'
-            return {'agent_wallet': agent_wallet, 'risk_score': risk_score, 'risk_level': risk_level, 'risk_factors': risk_factors, 'recommendations': self._get_risk_recommendations(risk_level, risk_factors)}
+                risk_level = "high"
+            return {
+                "agent_wallet": agent_wallet,
+                "risk_score": risk_score,
+                "risk_level": risk_level,
+                "risk_factors": risk_factors,
+                "recommendations": self._get_risk_recommendations(risk_level, risk_factors),
+            }
         except Exception as e:
-            logger.error('Failed to get risk assessment: %s', e)
+            logger.error("Failed to get risk assessment: %s", e)
             raise
 
     async def _update_staking_pool(self, agent_wallet: str, staker_address: str, amount: float, is_stake: bool) -> None:
@@ -467,7 +587,7 @@ class StakingService:
             self.session.commit()
             self.session.refresh(pool)
         except Exception as e:
-            logger.error('Failed to update staking pool: %s', e)
+            logger.error("Failed to update staking pool: %s", e)
             raise
 
     async def _calculate_rewards(self, stake_id: str) -> None:
@@ -485,7 +605,7 @@ class StakingService:
                 stake.amount += current_rewards
                 stake.accumulated_rewards = 0.0
         except Exception as e:
-            logger.error('Failed to calculate rewards: %s', e)
+            logger.error("Failed to calculate rewards: %s", e)
             raise
 
     async def _calculate_agent_tier(self, agent_metrics: AgentMetrics) -> PerformanceTier:
@@ -506,33 +626,41 @@ class StakingService:
 
     async def _get_tier_score(self, tier: PerformanceTier) -> float:
         """Get score for a tier"""
-        tier_scores = {PerformanceTier.DIAMOND: 95.0, PerformanceTier.PLATINUM: 90.0, PerformanceTier.GOLD: 80.0, PerformanceTier.SILVER: 70.0, PerformanceTier.BRONZE: 60.0}
+        tier_scores = {
+            PerformanceTier.DIAMOND: 95.0,
+            PerformanceTier.PLATINUM: 90.0,
+            PerformanceTier.GOLD: 80.0,
+            PerformanceTier.SILVER: 70.0,
+            PerformanceTier.BRONZE: 60.0,
+        }
         return tier_scores.get(tier, 60.0)
 
     async def _update_stake_apy_for_agent(self, agent_wallet: str, new_tier: PerformanceTier) -> None:
         """Update APY for all active stakes on an agent"""
         try:
-            stmt = select(AgentStake).where(and_(AgentStake.agent_wallet == agent_wallet, AgentStake.status == StakeStatus.ACTIVE))  # type: ignore[arg-type]
+            stmt = select(AgentStake).where(
+                and_(AgentStake.agent_wallet == agent_wallet, AgentStake.status == StakeStatus.ACTIVE)
+            )  # type: ignore[arg-type]
             stakes = self.session.execute(stmt).scalars().all()
             for stake in stakes:
                 stake.current_apy = await self.calculate_apy(agent_wallet, stake.lock_period)
                 stake.agent_tier = new_tier
         except Exception as e:
-            logger.error('Failed to update stake APY: %s', e)
+            logger.error("Failed to update stake APY: %s", e)
             raise
 
     def _get_risk_recommendations(self, risk_level: str, risk_factors: dict[str, float]) -> list[str]:
         """Get risk recommendations based on risk level and factors"""
         recommendations = []
-        if risk_level == 'high':
-            recommendations.append('Consider staking a smaller amount')
-            recommendations.append('Monitor agent performance closely')
-        if risk_factors.get('performance_risk', 0) > 0.3:
-            recommendations.append('Agent has low accuracy - consider waiting for improvement')
-        if risk_factors.get('concentration_risk', 0) > 0.5:
-            recommendations.append('High concentration - diversify across multiple agents')
-        if risk_factors.get('new_agent_risk', 0) > 0.1:
-            recommendations.append('New agent - consider waiting for more performance data')
+        if risk_level == "high":
+            recommendations.append("Consider staking a smaller amount")
+            recommendations.append("Monitor agent performance closely")
+        if risk_factors.get("performance_risk", 0) > 0.3:
+            recommendations.append("Agent has low accuracy - consider waiting for improvement")
+        if risk_factors.get("concentration_risk", 0) > 0.5:
+            recommendations.append("High concentration - diversify across multiple agents")
+        if risk_factors.get("new_agent_risk", 0) > 0.1:
+            recommendations.append("New agent - consider waiting for more performance data")
         if not recommendations:
-            recommendations.append('Agent appears to be low risk for staking')
+            recommendations.append("Agent appears to be low risk for staking")
         return recommendations

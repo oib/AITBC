@@ -240,9 +240,7 @@ def verify_receipt(receipt: dict[str, Any]) -> ReceiptVerification:
     miner_validation = _verify_signature(payload, miner_sig)
 
     attestations = receipt.get("attestations") or []
-    att_validations = [
-        _verify_signature(payload, att) for att in attestations if isinstance(att, dict)
-    ]
+    att_validations = [_verify_signature(payload, att) for att in attestations if isinstance(att, dict)]
 
     return ReceiptVerification(
         receipt=receipt,

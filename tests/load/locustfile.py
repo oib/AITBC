@@ -43,11 +43,7 @@ class MarketplaceUser(HttpUser):
             "password": f"pass_{self.user_id}",
         }
 
-        response = self.client.post(
-            "/v1/wallets",
-            json=wallet_data,
-            headers=self.auth_headers
-        )
+        response = self.client.post("/v1/wallets", json=wallet_data, headers=self.auth_headers)
 
         if response.status_code == 201:
             self.wallet_id = response.json()["id"]
@@ -60,12 +56,14 @@ class MarketplaceUser(HttpUser):
         params = {
             "limit": 20,
             "offset": random.randint(0, 100),
-            "service_type": random.choice([
-                "ai_inference",
-                "image_generation",
-                "video_processing",
-                "data_analytics",
-            ]),
+            "service_type": random.choice(
+                [
+                    "ai_inference",
+                    "image_generation",
+                    "video_processing",
+                    "data_analytics",
+                ]
+            ),
         }
 
         with self.client.get(
@@ -107,13 +105,15 @@ class MarketplaceUser(HttpUser):
             return  # Insufficient balance
 
         offer_data = {
-            "service_type": random.choice([
-                "ai_inference",
-                "image_generation",
-                "video_processing",
-                "data_analytics",
-                "scientific_computing",
-            ]),
+            "service_type": random.choice(
+                [
+                    "ai_inference",
+                    "image_generation",
+                    "video_processing",
+                    "data_analytics",
+                    "scientific_computing",
+                ]
+            ),
             "pricing": {
                 "per_hour": round(random.uniform(0.1, 5.0), 2),
                 "per_unit": round(random.uniform(0.001, 0.1), 4),
@@ -257,13 +257,15 @@ class MarketplaceUser(HttpUser):
     @task(1)
     def search_services(self):
         """Search for specific services"""
-        query = random.choice([
-            "AI inference",
-            "image generation",
-            "video rendering",
-            "data processing",
-            "machine learning",
-        ])
+        query = random.choice(
+            [
+                "AI inference",
+                "image generation",
+                "video rendering",
+                "data processing",
+                "machine learning",
+            ]
+        )
 
         params = {
             "q": query,
@@ -323,11 +325,7 @@ class MarketplaceProvider(HttpUser):
             },
         }
 
-        self.client.post(
-            "/v1/marketplace/providers/register",
-            json=provider_data,
-            headers=self.auth_headers
-        )
+        self.client.post("/v1/marketplace/providers/register", json=provider_data, headers=self.auth_headers)
 
     @task(4)
     def update_service_status(self):
@@ -362,11 +360,13 @@ class MarketplaceProvider(HttpUser):
 
         for _ in range(random.randint(5, 15)):
             offer_data = {
-                "service_type": random.choice([
-                    "ai_inference",
-                    "image_generation",
-                    "video_processing",
-                ]),
+                "service_type": random.choice(
+                    [
+                        "ai_inference",
+                        "image_generation",
+                        "video_processing",
+                    ]
+                ),
                 "pricing": {
                     "per_hour": round(random.uniform(0.5, 3.0), 2),
                 },
@@ -418,9 +418,7 @@ class MarketplaceProvider(HttpUser):
             }
 
             if action == "counter":
-                response_data["counter_price"] = round(
-                    bid["max_price"] * random.uniform(1.05, 1.15), 2
-                )
+                response_data["counter_price"] = round(bid["max_price"] * random.uniform(1.05, 1.15), 2)
 
             with self.client.post(
                 "/v1/marketplace/bids/respond",
@@ -456,6 +454,7 @@ class MarketplaceAdmin(HttpUser):
     def on_start(self):
         """Initialize admin"""
         import os
+
         admin_token = os.getenv("LOCUST_ADMIN_TOKEN")
         if not admin_token:
             raise ValueError("LOCUST_ADMIN_TOKEN environment variable must be set for load testing")

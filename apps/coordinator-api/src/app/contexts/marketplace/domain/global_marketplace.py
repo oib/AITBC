@@ -212,13 +212,13 @@ class GlobalMarketplaceTransaction(SQLModel, table=True):
     __table_args__ = {
         "extend_existing": True,
         # # # "indexes": [
-#    #        # Index(        Index("idx_global_tx_buyer", "buyer_id"),)
-#    #        # Index(        Index("idx_global_tx_seller", "seller_id"),)
-#    #        # Index(        Index("idx_global_tx_offer", "offer_id"),)
-#    #        # Index(        Index("idx_global_tx_status", "status"),)
-#    #        # Index(        Index("idx_global_tx_created", "created_at"),)
-#    #        # Index(        Index("idx_global_tx_chain", "source_chain", "target_chain"),)
-###        ]
+        #    #        # Index(        Index("idx_global_tx_buyer", "buyer_id"),)
+        #    #        # Index(        Index("idx_global_tx_seller", "seller_id"),)
+        #    #        # Index(        Index("idx_global_tx_offer", "offer_id"),)
+        #    #        # Index(        Index("idx_global_tx_status", "status"),)
+        #    #        # Index(        Index("idx_global_tx_created", "created_at"),)
+        #    #        # Index(        Index("idx_global_tx_chain", "source_chain", "target_chain"),)
+        ###        ]
     }
 
 
@@ -272,10 +272,10 @@ class GlobalMarketplaceAnalytics(SQLModel, table=True):
     __table_args__ = {
         "extend_existing": True,
         # # # "indexes": [
-#    #        # Index(        Index("idx_global_analytics_period", "period_type", "period_start"),)
-#    #        # Index(        Index("idx_global_analytics_region", "region"),)
-#    #        # Index(        Index("idx_global_analytics_created", "created_at"),)
-###        ]
+        #    #        # Index(        Index("idx_global_analytics_period", "period_type", "period_start"),)
+        #    #        # Index(        Index("idx_global_analytics_region", "region"),)
+        #    #        # Index(        Index("idx_global_analytics_created", "created_at"),)
+        ###        ]
     }
 
 
@@ -321,10 +321,10 @@ class GlobalMarketplaceGovernance(SQLModel, table=True):
     __table_args__ = {
         "extend_existing": True,
         # # # "indexes": [
-#    #        # Index(        Index("idx_global_gov_rule_type", "rule_type"),)
-#    #        # Index(        Index("idx_global_gov_active", "is_active"),)
-#    #        # Index(        Index("idx_global_gov_effective", "effective_from", "expires_at"),)
-###        ]
+        #    #        # Index(        Index("idx_global_gov_rule_type", "rule_type"),)
+        #    #        # Index(        Index("idx_global_gov_active", "is_active"),)
+        #    #        # Index(        Index("idx_global_gov_effective", "effective_from", "expires_at"),)
+        ###        ]
     }
 
 

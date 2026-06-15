@@ -28,7 +28,7 @@ class TestChainConfig:
             rpc_url="http://localhost:8202",
             explorer_url="http://localhost:8203",
             is_testnet=False,
-            native_currency="AITBC"
+            native_currency="AITBC",
         )
 
         assert config.chain_id == "ait-mainnet"
@@ -42,11 +42,7 @@ class TestChainConfig:
         """Test ChainConfig with default values"""
         from config_data.chains import ChainConfig
 
-        config = ChainConfig(
-            chain_id="ait-test",
-            name="Test Chain",
-            rpc_url="http://localhost:8025"
-        )
+        config = ChainConfig(chain_id="ait-test", name="Test Chain", rpc_url="http://localhost:8025")
 
         assert config.explorer_url is None
         assert config.is_testnet is False
@@ -133,11 +129,7 @@ class TestChainRegistry:
         from config_data.chains import ChainConfig, ChainRegistry
 
         registry = ChainRegistry()
-        new_chain = ChainConfig(
-            chain_id="ait-custom",
-            name="Custom Chain",
-            rpc_url="http://localhost:9000"
-        )
+        new_chain = ChainConfig(chain_id="ait-custom", name="Custom Chain", rpc_url="http://localhost:9000")
 
         registry.register_chain("ait-custom", new_chain)
 
@@ -163,11 +155,14 @@ class TestChainRegistry:
 
         assert result is False
 
-    @patch.dict('os.environ', {
-        'AITBC_CHAIN_CUSTOM_RPC_URL': 'http://localhost:9000',
-        'AITBC_CHAIN_CUSTOM_NAME': 'Custom Chain',
-        'AITBC_CHAIN_CUSTOM_IS_TESTNET': 'true'
-    })
+    @patch.dict(
+        "os.environ",
+        {
+            "AITBC_CHAIN_CUSTOM_RPC_URL": "http://localhost:9000",
+            "AITBC_CHAIN_CUSTOM_NAME": "Custom Chain",
+            "AITBC_CHAIN_CUSTOM_IS_TESTNET": "true",
+        },
+    )
     def test_load_from_env(self):
         """Test loading chains from environment variables"""
         from config_data.chains import ChainRegistry

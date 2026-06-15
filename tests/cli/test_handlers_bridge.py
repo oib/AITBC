@@ -21,6 +21,7 @@ class TestBridgeHandlers:
         """Test that handle_bridge_health function exists"""
         try:
             from handlers.bridge import handle_bridge_health
+
             assert handle_bridge_health is not None
         except ImportError as e:
             pytest.skip(f"Cannot import bridge handlers: {e}")

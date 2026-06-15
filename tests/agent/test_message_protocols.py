@@ -39,10 +39,7 @@ class TestMessageTypes:
     def test_task_message_creation(self):
         """Test creating a task message"""
         task_msg = TaskMessage(
-            task_id="task_001",
-            task_type="data_processing",
-            task_data={"input": "test_data"},
-            priority=Priority.HIGH
+            task_id="task_001", task_type="data_processing", task_data={"input": "test_data"}, priority=Priority.HIGH
         )
 
         assert task_msg.task_id == "task_001"
@@ -55,11 +52,7 @@ class TestMessageTypes:
         past_deadline = datetime.now(UTC) - timedelta(hours=1)
 
         with pytest.raises(ValueError):
-            TaskMessage(
-                task_id="task_002",
-                task_type="test",
-                deadline=past_deadline
-            )
+            TaskMessage(task_id="task_002", task_type="test", deadline=past_deadline)
 
     def test_coordination_message_creation(self):
         """Test creating a coordination message"""
@@ -67,7 +60,7 @@ class TestMessageTypes:
             coordination_id="coord_001",
             coordination_type="consensus",
             participants=["agent_001", "agent_002"],
-            coordination_data={"proposal": "test"}
+            coordination_data={"proposal": "test"},
         )
 
         assert coord_msg.coordination_id == "coord_001"
@@ -82,7 +75,7 @@ class TestMessageTypes:
             status_type="health",
             status_data={"cpu": 80, "memory": 60},
             health_score=0.95,
-            capabilities=["compute", "storage"]
+            capabilities=["compute", "storage"],
         )
 
         assert status_msg.agent_id == "agent_001"
@@ -97,7 +90,7 @@ class TestMessageTypes:
             agent_type="compute",
             capabilities=["gpu", "cpu"],
             services=["inference", "training"],
-            endpoints={"http": "http://localhost:8080"}
+            endpoints={"http": "http://localhost:8080"},
         )
 
         assert discovery_msg.agent_id == "agent_001"
@@ -112,7 +105,7 @@ class TestMessageTypes:
             consensus_id="consensus_001",
             proposal={"action": "deploy"},
             voting_options=[{"id": "yes"}, {"id": "no"}],
-            voting_deadline=voting_deadline
+            voting_deadline=voting_deadline,
         )
 
         assert consensus_msg.consensus_id == "consensus_001"
@@ -126,10 +119,7 @@ class TestRoutingRules:
     def test_routing_rule_creation(self):
         """Test creating a routing rule"""
         rule = RoutingRule(
-            name="high_priority_filter",
-            condition={"priority": "high"},
-            action="forward",
-            target="special_queue"
+            name="high_priority_filter", condition={"priority": "high"}, action="forward", target="special_queue"
         )
 
         assert rule.name == "high_priority_filter"
@@ -139,32 +129,20 @@ class TestRoutingRules:
 
     def test_routing_rule_matching(self):
         """Test routing rule message matching"""
-        rule = RoutingRule(
-            condition={"message_type": MessageType.TASK_ASSIGNMENT},
-            action="forward"
-        )
+        rule = RoutingRule(condition={"message_type": MessageType.TASK_ASSIGNMENT}, action="forward")
 
         message = AgentMessage(
-            sender_id="agent_001",
-            receiver_id="agent_002",
-            message_type=MessageType.TASK_ASSIGNMENT,
-            priority=Priority.NORMAL
+            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.NORMAL
         )
 
         assert rule.matches(message) is True
 
     def test_routing_rule_non_matching(self):
         """Test routing rule non-matching"""
-        rule = RoutingRule(
-            condition={"message_type": MessageType.BROADCAST},
-            action="forward"
-        )
+        rule = RoutingRule(condition={"message_type": MessageType.BROADCAST}, action="forward")
 
         message = AgentMessage(
-            sender_id="agent_001",
-            receiver_id="agent_002",
-            message_type=MessageType.TASK_ASSIGNMENT,
-            priority=Priority.NORMAL
+            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.NORMAL
         )
 
         assert rule.matches(message) is False
@@ -192,7 +170,7 @@ class TestMessageRouter:
             condition={"message_type": MessageType.TASK_ASSIGNMENT},
             action="forward",
             target="queue_1",
-            priority=10
+            priority=10,
         )
 
         router.add_routing_rule(rule)
@@ -204,11 +182,7 @@ class TestMessageRouter:
         """Test removing routing rules"""
         router = MessageRouter(agent_id="agent_001")
 
-        rule = RoutingRule(
-            name="test_rule",
-            condition={"message_type": MessageType.TASK_ASSIGNMENT},
-            action="forward"
-        )
+        rule = RoutingRule(name="test_rule", condition={"message_type": MessageType.TASK_ASSIGNMENT}, action="forward")
 
         router.add_routing_rule(rule)
         router.remove_routing_rule(rule.rule_id)
@@ -219,18 +193,11 @@ class TestMessageRouter:
         """Test message routing"""
         router = MessageRouter(agent_id="agent_001")
 
-        rule = RoutingRule(
-            condition={"message_type": MessageType.TASK_ASSIGNMENT},
-            action="forward",
-            target="agent_002"
-        )
+        rule = RoutingRule(condition={"message_type": MessageType.TASK_ASSIGNMENT}, action="forward", target="agent_002")
         router.add_routing_rule(rule)
 
         message = AgentMessage(
-            sender_id="agent_001",
-            receiver_id="agent_002",
-            message_type=MessageType.TASK_ASSIGNMENT,
-            priority=Priority.NORMAL
+            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.NORMAL
         )
 
         route = await router.route_message(message)
@@ -241,18 +208,11 @@ class TestMessageRouter:
         """Test routing statistics"""
         router = MessageRouter(agent_id="agent_001")
 
-        rule = RoutingRule(
-            condition={"message_type": MessageType.TASK_ASSIGNMENT},
-            action="forward",
-            target="agent_002"
-        )
+        rule = RoutingRule(condition={"message_type": MessageType.TASK_ASSIGNMENT}, action="forward", target="agent_002")
         router.add_routing_rule(rule)
 
         message = AgentMessage(
-            sender_id="agent_001",
-            receiver_id="agent_002",
-            message_type=MessageType.TASK_ASSIGNMENT,
-            priority=Priority.NORMAL
+            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.NORMAL
         )
 
         await router.route_message(message)
@@ -336,10 +296,7 @@ class TestMessageQueue:
         queue = MessageQueue()
 
         message = AgentMessage(
-            sender_id="agent_001",
-            receiver_id="agent_002",
-            message_type=MessageType.TASK_ASSIGNMENT,
-            priority=Priority.HIGH
+            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.HIGH
         )
 
         success = await queue.enqueue(message)
@@ -355,7 +312,7 @@ class TestMessageQueue:
             sender_id="agent_001",
             receiver_id="agent_002",
             message_type=MessageType.TASK_ASSIGNMENT,
-            priority=Priority.CRITICAL
+            priority=Priority.CRITICAL,
         )
 
         await queue.enqueue(message)
@@ -371,24 +328,18 @@ class TestMessageQueue:
 
         # Add messages with different priorities
         low_msg = AgentMessage(
-            sender_id="agent_001",
-            receiver_id="agent_002",
-            message_type=MessageType.TASK_ASSIGNMENT,
-            priority=Priority.LOW
+            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.LOW
         )
 
         high_msg = AgentMessage(
-            sender_id="agent_001",
-            receiver_id="agent_002",
-            message_type=MessageType.TASK_ASSIGNMENT,
-            priority=Priority.HIGH
+            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.HIGH
         )
 
         critical_msg = AgentMessage(
             sender_id="agent_001",
             receiver_id="agent_002",
             message_type=MessageType.TASK_ASSIGNMENT,
-            priority=Priority.CRITICAL
+            priority=Priority.CRITICAL,
         )
 
         await queue.enqueue(low_msg)
@@ -405,10 +356,7 @@ class TestMessageQueue:
         queue = MessageQueue()
 
         message = AgentMessage(
-            sender_id="agent_001",
-            receiver_id="agent_002",
-            message_type=MessageType.TASK_ASSIGNMENT,
-            priority=Priority.NORMAL
+            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.NORMAL
         )
 
         await queue.enqueue(message)
@@ -423,10 +371,7 @@ class TestMessageQueue:
         queue = MessageQueue()
 
         message = AgentMessage(
-            sender_id="agent_001",
-            receiver_id="agent_002",
-            message_type=MessageType.TASK_ASSIGNMENT,
-            priority=Priority.NORMAL
+            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.NORMAL
         )
 
         await queue.enqueue(message)
@@ -442,10 +387,7 @@ class TestMessageFactoryFunctions:
     def test_create_task_message(self):
         """Test task message factory function"""
         message = create_task_message(
-            sender_id="agent_001",
-            receiver_id="agent_002",
-            task_type="inference",
-            task_data={"model": "gpt-4"}
+            sender_id="agent_001", receiver_id="agent_002", task_type="inference", task_data={"model": "gpt-4"}
         )
 
         assert message.sender_id == "agent_001"
@@ -459,7 +401,7 @@ class TestMessageFactoryFunctions:
             sender_id="agent_001",
             coordination_type="consensus",
             participants=["agent_001", "agent_002"],
-            data={"proposal": "test"}
+            data={"proposal": "test"},
         )
 
         assert message.sender_id == "agent_001"
@@ -468,11 +410,7 @@ class TestMessageFactoryFunctions:
 
     def test_create_status_message(self):
         """Test status message factory function"""
-        message = create_status_message(
-            agent_id="agent_001",
-            status_type="health",
-            status_data={"cpu": 80}
-        )
+        message = create_status_message(agent_id="agent_001", status_type="health", status_data={"cpu": 80})
 
         assert message.sender_id == "agent_001"
         assert message.message_type == MessageType.STATUS_UPDATE
@@ -481,10 +419,7 @@ class TestMessageFactoryFunctions:
     def test_create_discovery_message(self):
         """Test discovery message factory function"""
         message = create_discovery_message(
-            agent_id="agent_001",
-            agent_type="compute",
-            capabilities=["gpu"],
-            services=["inference"]
+            agent_id="agent_001", agent_type="compute", capabilities=["gpu"], services=["inference"]
         )
 
         assert message.sender_id == "agent_001"
@@ -495,10 +430,7 @@ class TestMessageFactoryFunctions:
         """Test consensus message factory function"""
         deadline = datetime.now(UTC) + timedelta(hours=1)
         message = create_consensus_message(
-            sender_id="agent_001",
-            proposal={"action": "deploy"},
-            voting_options=[{"id": "yes"}],
-            deadline=deadline
+            sender_id="agent_001", proposal={"action": "deploy"}, voting_options=[{"id": "yes"}], deadline=deadline
         )
 
         assert message.sender_id == "agent_001"

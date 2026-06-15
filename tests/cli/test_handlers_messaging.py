@@ -21,6 +21,7 @@ class TestMessagingHandlers:
         """Test that handle_messaging_deploy function exists"""
         try:
             from handlers.messaging import handle_messaging_deploy
+
             assert handle_messaging_deploy is not None
         except ImportError as e:
             pytest.skip(f"Cannot import messaging handlers: {e}")

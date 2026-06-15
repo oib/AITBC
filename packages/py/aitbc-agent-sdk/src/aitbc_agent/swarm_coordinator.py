@@ -5,7 +5,7 @@ Swarm Coordinator - for agents participating in collective intelligence
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Dict, List, Optional  # noqa: F401
+from typing import Any  # noqa: F401
 
 import httpx
 
@@ -92,9 +92,7 @@ class SwarmCoordinator(Agent):
             # Start swarm participation tasks
             asyncio.create_task(self._swarm_participation_loop(swarm_id))
 
-            logger.info(
-                "Joined swarm: %s as %s", swarm_id, config.get('role', 'participant')
-            )
+            logger.info("Joined swarm: %s as %s", swarm_id, config.get("role", "participant"))
             return True
 
         except Exception as e:
@@ -150,9 +148,7 @@ class SwarmCoordinator(Agent):
             # Update contribution count
             self.joined_swarms[message.swarm_id]["contribution_count"] += 1
 
-            logger.info(
-                "Broadcasted to swarm %s: %s", message.swarm_id, message.message_type
-            )
+            logger.info("Broadcasted to swarm %s: %s", message.swarm_id, message.message_type)
             return True
 
         except Exception as e:
@@ -192,10 +188,7 @@ class SwarmCoordinator(Agent):
         """Get actual load balancing metrics from coordinator"""
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self.coordinator_url}/v1/load-balancing/metrics",
-                    timeout=10
-                )
+                response = await client.get(f"{self.coordinator_url}/v1/load-balancing/metrics", timeout=10)
                 if response.status_code == 200:
                     return response.json()
                 else:
@@ -220,10 +213,7 @@ class SwarmCoordinator(Agent):
         """Get actual pricing data from coordinator marketplace API"""
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self.coordinator_url}/v1/marketplace/pricing/trends",
-                    timeout=10
-                )
+                response = await client.get(f"{self.coordinator_url}/v1/marketplace/pricing/trends", timeout=10)
                 if response.status_code == 200:
                     return response.json()
                 else:
@@ -247,10 +237,7 @@ class SwarmCoordinator(Agent):
         """Get actual security metrics from coordinator security API"""
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self.coordinator_url}/v1/security/metrics",
-                    timeout=10
-                )
+                response = await client.get(f"{self.coordinator_url}/v1/security/metrics", timeout=10)
                 if response.status_code == 200:
                     return response.json()
                 else:
@@ -302,9 +289,7 @@ class SwarmCoordinator(Agent):
             # Submit to swarm for coordination
             coordination_result = await self._submit_coordination_proposal(proposal)
 
-            logger.info(
-                "Task coordination initiated: %s with %s collaborators", task, collaborators
-            )
+            logger.info("Task coordination initiated: %s with %s collaborators", task, collaborators)
             return coordination_result
 
         except Exception as e:
@@ -349,21 +334,13 @@ class SwarmCoordinator(Agent):
         """Analyze benefits of swarm participation"""
         try:
             # Calculate benefits based on swarm participation
-            total_contributions = sum(
-                swarm["contribution_count"] for swarm in self.joined_swarms.values()
-            )
+            total_contributions = sum(swarm["contribution_count"] for swarm in self.joined_swarms.values())
 
-            avg_reputation = (
-                sum(self.swarm_reputation.values()) / len(self.swarm_reputation)
-                if self.swarm_reputation
-                else 0
-            )
+            avg_reputation = sum(self.swarm_reputation.values()) / len(self.swarm_reputation) if self.swarm_reputation else 0
 
             # Simulate benefit analysis
             earnings_boost = total_contributions * 0.15  # 15% boost per contribution
-            utilization_improvement = (
-                avg_reputation * 0.25
-            )  # 25% utilization improvement
+            utilization_improvement = avg_reputation * 0.25  # 25% utilization improvement
 
             return {
                 "earnings_boost": f"{earnings_boost:.1%}",
@@ -377,19 +354,14 @@ class SwarmCoordinator(Agent):
             logger.error("Failed to analyze swarm benefits: %s", e)
             return {"error": str(e)}
 
-    async def _register_with_swarm(
-        self, swarm_id: str, registration: dict[str, Any]
-    ) -> None:
+    async def _register_with_swarm(self, swarm_id: str, registration: dict[str, Any]) -> None:
         """Register with swarm coordinator via API"""
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.coordinator_url}/v1/swarm/{swarm_id}/register",
-                    json={
-                        "agent_id": self.identity.id,
-                        "registration": registration
-                    },
-                    timeout=10
+                    json={"agent_id": self.identity.id, "registration": registration},
+                    timeout=10,
                 )
                 if response.status_code == 201:
                     logger.info("Successfully registered with swarm: %s", swarm_id)
@@ -403,9 +375,7 @@ class SwarmCoordinator(Agent):
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"{self.coordinator_url}/v1/swarm/{message.swarm_id}/broadcast",
-                    json=message.__dict__,
-                    timeout=10
+                    f"{self.coordinator_url}/v1/swarm/{message.swarm_id}/broadcast", json=message.__dict__, timeout=10
                 )
                 if response.status_code == 200:
                     logger.info("Message broadcast to swarm: %s", message.swarm_id)
@@ -418,13 +388,10 @@ class SwarmCoordinator(Agent):
         """Process incoming swarm messages via API"""
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self.coordinator_url}/v1/swarm/{swarm_id}/messages",
-                    timeout=10
-                )
+                response = await client.get(f"{self.coordinator_url}/v1/swarm/{swarm_id}/messages", timeout=10)
                 if response.status_code == 200:
                     messages = response.json()
-                    logger.info("Received %s messages from swarm", len(messages.get('messages', [])))
+                    logger.info("Received %s messages from swarm", len(messages.get("messages", [])))
                 else:
                     logger.warning("Failed to get swarm messages: %s", response.status_code)
         except Exception as e:
@@ -437,7 +404,7 @@ class SwarmCoordinator(Agent):
                 response = await client.post(
                     f"{self.coordinator_url}/v1/swarm/{swarm_id}/decisions/participate",
                     json={"agent_id": self.identity.id},
-                    timeout=10
+                    timeout=10,
                 )
                 if response.status_code == 200:
                     logger.info("Participating in decisions for swarm: %s", swarm_id)
@@ -446,20 +413,16 @@ class SwarmCoordinator(Agent):
         except Exception as e:
             logger.error("Error participating in swarm decisions: %s", e)
 
-    async def _submit_coordination_proposal(
-        self, proposal: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def _submit_coordination_proposal(self, proposal: dict[str, Any]) -> dict[str, Any]:
         """Submit coordination proposal to swarm via API"""
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"{self.coordinator_url}/v1/swarm/coordination/proposals",
-                    json=proposal,
-                    timeout=10
+                    f"{self.coordinator_url}/v1/swarm/coordination/proposals", json=proposal, timeout=10
                 )
                 if response.status_code == 201:
                     result = response.json()
-                    logger.info("Coordination proposal submitted: %s", proposal['task_id'])
+                    logger.info("Coordination proposal submitted: %s", proposal["task_id"])
                     return result
                 else:
                     logger.warning("Failed to submit coordination proposal: %s", response.status_code)
@@ -467,13 +430,8 @@ class SwarmCoordinator(Agent):
                         "success": False,
                         "proposal_id": proposal["task_id"],
                         "status": "failed",
-                        "error": f"HTTP {response.status_code}"
+                        "error": f"HTTP {response.status_code}",
                     }
         except Exception as e:
             logger.error("Error submitting coordination proposal: %s", e)
-            return {
-                "success": False,
-                "proposal_id": proposal["task_id"],
-                "status": "error",
-                "error": str(e)
-            }
+            return {"success": False, "proposal_id": proposal["task_id"], "status": "error", "error": str(e)}

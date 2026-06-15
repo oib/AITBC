@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 
 import aiohttp
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -35,7 +35,7 @@ class ChaosTestDatabase:
             "error_count": 0,
             "success_count": 0,
             "scenario": "database_failure",
-            "failure_type": None
+            "failure_type": None,
         }
 
     async def __aenter__(self):
@@ -49,10 +49,15 @@ class ChaosTestDatabase:
     def get_postgresql_pod(self) -> str | None:
         """Get PostgreSQL pod name"""
         cmd = [
-            "kubectl", "get", "pods",
-            "-n", self.namespace,
-            "-l", "app.kubernetes.io/name=postgresql",
-            "-o", "jsonpath={.items[0].metadata.name}"
+            "kubectl",
+            "get",
+            "pods",
+            "-n",
+            self.namespace,
+            "-l",
+            "app.kubernetes.io/name=postgresql",
+            "-o",
+            "jsonpath={.items[0].metadata.name}",
         ]
 
         try:
@@ -72,15 +77,41 @@ class ChaosTestDatabase:
         try:
             # Block incoming connections to PostgreSQL
             cmd = [
-                "kubectl", "exec", "-n", self.namespace, pod, "--",
-                "iptables", "-A", "INPUT", "-p", "tcp", "--dport", "5432", "-j", "DROP"
+                "kubectl",
+                "exec",
+                "-n",
+                self.namespace,
+                pod,
+                "--",
+                "iptables",
+                "-A",
+                "INPUT",
+                "-p",
+                "tcp",
+                "--dport",
+                "5432",
+                "-j",
+                "DROP",
             ]
             subprocess.run(cmd, check=True)
 
             # Block outgoing connections from PostgreSQL
             cmd = [
-                "kubectl", "exec", "-n", self.namespace, pod, "--",
-                "iptables", "-A", "OUTPUT", "-p", "tcp", "--sport", "5432", "-j", "DROP"
+                "kubectl",
+                "exec",
+                "-n",
+                self.namespace,
+                pod,
+                "--",
+                "iptables",
+                "-A",
+                "OUTPUT",
+                "-p",
+                "tcp",
+                "--sport",
+                "5432",
+                "-j",
+                "DROP",
             ]
             subprocess.run(cmd, check=True)
 
@@ -101,8 +132,21 @@ class ChaosTestDatabase:
         try:
             # Add latency to PostgreSQL traffic
             cmd = [
-                "kubectl", "exec", "-n", self.namespace, pod, "--",
-                "tc", "qdisc", "add", "dev", "eth0", "root", "netem", "delay", f"{latency_ms}ms"
+                "kubectl",
+                "exec",
+                "-n",
+                self.namespace,
+                pod,
+                "--",
+                "tc",
+                "qdisc",
+                "add",
+                "dev",
+                "eth0",
+                "root",
+                "netem",
+                "delay",
+                f"{latency_ms}ms",
             ]
             subprocess.run(cmd, check=True)
 
@@ -122,23 +166,14 @@ class ChaosTestDatabase:
 
         try:
             # Remove iptables rules
-            cmd = [
-                "kubectl", "exec", "-n", self.namespace, pod, "--",
-                "iptables", "-F", "INPUT"
-            ]
+            cmd = ["kubectl", "exec", "-n", self.namespace, pod, "--", "iptables", "-F", "INPUT"]
             subprocess.run(cmd, check=False)  # May fail if rules don't exist
 
-            cmd = [
-                "kubectl", "exec", "-n", self.namespace, pod, "--",
-                "iptables", "-F", "OUTPUT"
-            ]
+            cmd = ["kubectl", "exec", "-n", self.namespace, pod, "--", "iptables", "-F", "OUTPUT"]
             subprocess.run(cmd, check=False)
 
             # Remove netem qdisc
-            cmd = [
-                "kubectl", "exec", "-n", self.namespace, pod, "--",
-                "tc", "qdisc", "del", "dev", "eth0", "root"
-            ]
+            cmd = ["kubectl", "exec", "-n", self.namespace, pod, "--", "tc", "qdisc", "del", "dev", "eth0", "root"]
             subprocess.run(cmd, check=False)
 
             logger.info("Restored PostgreSQL connections on pod %s", pod)
@@ -153,10 +188,15 @@ class ChaosTestDatabase:
         try:
             # Get coordinator pod
             cmd = [
-                "kubectl", "get", "pods",
-                "-n", self.namespace,
-                "-l", "app.kubernetes.io/name=coordinator",
-                "-o", "jsonpath={.items[0].metadata.name}"
+                "kubectl",
+                "get",
+                "pods",
+                "-n",
+                self.namespace,
+                "-l",
+                "app.kubernetes.io/name=coordinator",
+                "-o",
+                "jsonpath={.items[0].metadata.name}",
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             coordinator_pod = result.stdout.strip()
@@ -166,8 +206,15 @@ class ChaosTestDatabase:
 
             # Test database connection from coordinator
             cmd = [
-                "kubectl", "exec", "-n", self.namespace, coordinator_pod, "--",
-                "python", "-c", "import psycopg2; psycopg2.connect('postgresql://aitbc:password@postgresql:5432/aitbc'); print('OK')"
+                "kubectl",
+                "exec",
+                "-n",
+                self.namespace,
+                coordinator_pod,
+                "--",
+                "python",
+                "-c",
+                "import psycopg2; psycopg2.connect('postgresql://aitbc:password@postgresql:5432/aitbc'); print('OK')",
             ]
             result = subprocess.run(cmd, capture_output=True, text=True)
 
@@ -181,18 +228,20 @@ class ChaosTestDatabase:
         try:
             # Get service URL
             cmd = [
-                "kubectl", "get", "svc", "coordinator",
-                "-n", self.namespace,
-                "-o", "jsonpath={.spec.clusterIP}:{.spec.ports[0].port}"
+                "kubectl",
+                "get",
+                "svc",
+                "coordinator",
+                "-n",
+                self.namespace,
+                "-o",
+                "jsonpath={.spec.clusterIP}:{.spec.ports[0].port}",
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             service_url = f"http://{result.stdout.strip()}/v1/health"
 
             # Test health endpoint
-            response = subprocess.run(
-                ["curl", "-s", "--max-time", "5", service_url],
-                capture_output=True, text=True
-            )
+            response = subprocess.run(["curl", "-s", "--max-time", "5", service_url], capture_output=True, text=True)
 
             return response.returncode == 0 and "ok" in response.stdout
 
@@ -205,9 +254,14 @@ class ChaosTestDatabase:
 
         # Get service URL
         cmd = [
-            "kubectl", "get", "svc", "coordinator",
-            "-n", self.namespace,
-            "-o", "jsonpath={.spec.clusterIP}:{.spec.ports[0].port}"
+            "kubectl",
+            "get",
+            "svc",
+            "coordinator",
+            "-n",
+            self.namespace,
+            "-o",
+            "jsonpath={.spec.clusterIP}:{.spec.ports[0].port}",
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         base_url = f"http://{result.stdout.strip()}"
@@ -236,7 +290,9 @@ class ChaosTestDatabase:
             # Brief pause
             await asyncio.sleep(1)
 
-        logger.info("Load generation completed. Success: %s, Errors: %s", self.metrics['success_count'], self.metrics['error_count'])
+        logger.info(
+            "Load generation completed. Success: %s, Errors: %s", self.metrics["success_count"], self.metrics["error_count"]
+        )
 
     async def wait_for_recovery(self, timeout: int = 300) -> bool:
         """Wait for database and API to recover"""
@@ -352,7 +408,7 @@ class ChaosTestDatabase:
         print(f"Failure Type: {self.metrics['failure_type']}")
         print(f"Test Duration: {self.metrics['test_start']} to {self.metrics['test_end']}")
         print(f"Failure Duration: {self.metrics['failure_start']} to {self.metrics['failure_end']}")
-        print(f"MTTR: {self.metrics['mttr']:.2f} seconds" if self.metrics['mttr'] else "MTTR: N/A")
+        print(f"MTTR: {self.metrics['mttr']:.2f} seconds" if self.metrics["mttr"] else "MTTR: N/A")
         print(f"Success Requests: {self.metrics['success_count']}")
         print(f"Error Requests: {self.metrics['error_count']}")
 
@@ -360,7 +416,9 @@ class ChaosTestDatabase:
 async def main():
     parser = argparse.ArgumentParser(description="Chaos test for database failure")
     parser.add_argument("--namespace", default="default", help="Kubernetes namespace")
-    parser.add_argument("--failure-type", choices=["connection", "latency"], default="connection", help="Type of failure to simulate")
+    parser.add_argument(
+        "--failure-type", choices=["connection", "latency"], default="connection", help="Type of failure to simulate"
+    )
     parser.add_argument("--failure-duration", type=int, default=60, help="Failure duration in seconds")
     parser.add_argument("--dry-run", action="store_true", help="Dry run without actual chaos")
 

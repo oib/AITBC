@@ -48,10 +48,7 @@ class DatabaseConnection:
             DatabaseError: If connection fails
         """
         try:
-            self._connection = sqlite3.connect(
-                self.db_path,
-                timeout=self.timeout
-            )
+            self._connection = sqlite3.connect(self.db_path, timeout=self.timeout)
             self._connection.row_factory = sqlite3.Row
             return self._connection
         except sqlite3.Error as e:
@@ -74,7 +71,7 @@ class DatabaseConnection:
     def get_monitoring_stats(self) -> dict[str, Any] | None:
         """
         Get query monitoring statistics
-        
+
         Returns:
             Dictionary of monitoring statistics or None if monitoring disabled
         """
@@ -85,10 +82,10 @@ class DatabaseConnection:
     def get_slow_queries(self, limit: int = 10) -> list:
         """
         Get slow queries
-        
+
         Args:
             limit: Maximum number of slow queries to return
-            
+
         Returns:
             List of slow query metrics
         """
@@ -116,11 +113,7 @@ class DatabaseConnection:
         finally:
             cursor.close()
 
-    def execute(
-        self,
-        query: str,
-        params: tuple[Any, ...] | None = None
-    ) -> sqlite3.Cursor:
+    def execute(self, query: str, params: tuple[Any, ...] | None = None) -> sqlite3.Cursor:
         """
         Execute a SQL query.
 
@@ -148,7 +141,7 @@ class DatabaseConnection:
                         query=query,
                         execution_time_ms=execution_time_ms,
                         success=True,
-                        row_count=cursor.rowcount if hasattr(cursor, 'rowcount') else 0
+                        row_count=cursor.rowcount if hasattr(cursor, "rowcount") else 0,
                     )
 
                 return cursor
@@ -156,18 +149,11 @@ class DatabaseConnection:
             if self.monitor:
                 execution_time_ms = (time.time() - start_time) * 1000
                 self.monitor.record_query(
-                    query=query,
-                    execution_time_ms=execution_time_ms,
-                    success=False,
-                    error_message=str(e)
+                    query=query, execution_time_ms=execution_time_ms, success=False, error_message=str(e)
                 )
             raise DatabaseError(f"Query execution failed: {e}") from e
 
-    def fetch_one(
-        self,
-        query: str,
-        params: tuple[Any, ...] | None = None
-    ) -> dict[str, Any] | None:
+    def fetch_one(self, query: str, params: tuple[Any, ...] | None = None) -> dict[str, Any] | None:
         """
         Fetch a single row from query.
 
@@ -186,11 +172,7 @@ class DatabaseConnection:
             row = cursor.fetchone()
             return dict(row) if row else None
 
-    def fetch_all(
-        self,
-        query: str,
-        params: tuple[Any, ...] | None = None
-    ) -> list[dict[str, Any]]:
+    def fetch_all(self, query: str, params: tuple[Any, ...] | None = None) -> list[dict[str, Any]]:
         """
         Fetch all rows from query.
 
@@ -209,11 +191,7 @@ class DatabaseConnection:
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
 
-    def execute_many(
-        self,
-        query: str,
-        params_list: list[tuple[Any, ...]]
-    ) -> None:
+    def execute_many(self, query: str, params_list: list[tuple[Any, ...]]) -> None:
         """
         Execute query with multiple parameter sets.
 
@@ -232,18 +210,12 @@ class DatabaseConnection:
                 if self.monitor:
                     execution_time_ms = (time.time() - start_time) * 1000
                     self.monitor.record_query(
-                        query=query,
-                        execution_time_ms=execution_time_ms,
-                        success=True,
-                        row_count=len(params_list)
+                        query=query, execution_time_ms=execution_time_ms, success=True, row_count=len(params_list)
                     )
         except sqlite3.Error as e:
             if self.monitor:
                 execution_time_ms = (time.time() - start_time) * 1000
                 self.monitor.record_query(
-                    query=query,
-                    execution_time_ms=execution_time_ms,
-                    success=False,
-                    error_message=str(e)
+                    query=query, execution_time_ms=execution_time_ms, success=False, error_message=str(e)
                 )
             raise DatabaseError(f"Batch query execution failed: {e}") from e

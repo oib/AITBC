@@ -1,6 +1,5 @@
 """Unit tests for plugin marketplace service"""
 
-
 import pytest
 from main import DeveloperApplication, MarketplaceReview, PluginPurchase, app
 
@@ -23,7 +22,7 @@ def test_marketplace_review_model():
         title="Great plugin",
         content="Excellent functionality",
         pros=["Easy to use", "Fast"],
-        cons=["Learning curve"]
+        cons=["Learning curve"],
     )
     assert review.plugin_id == "plugin_123"
     assert review.rating == 5
@@ -36,11 +35,7 @@ def test_marketplace_review_model():
 def test_marketplace_review_defaults():
     """Test MarketplaceReview with default values"""
     review = MarketplaceReview(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        rating=4,
-        title="Good plugin",
-        content="Nice functionality"
+        plugin_id="plugin_123", user_id="user_123", rating=4, title="Good plugin", content="Nice functionality"
     )
     assert review.pros == []
     assert review.cons == []
@@ -49,12 +44,7 @@ def test_marketplace_review_defaults():
 @pytest.mark.unit
 def test_plugin_purchase_model():
     """Test PluginPurchase model"""
-    purchase = PluginPurchase(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        price=99.99,
-        payment_method="credit_card"
-    )
+    purchase = PluginPurchase(plugin_id="plugin_123", user_id="user_123", price=99.99, payment_method="credit_card")
     assert purchase.plugin_id == "plugin_123"
     assert purchase.price == 99.99
     assert purchase.payment_method == "credit_card"
@@ -63,12 +53,7 @@ def test_plugin_purchase_model():
 @pytest.mark.unit
 def test_plugin_purchase_negative_price():
     """Test PluginPurchase with negative price"""
-    purchase = PluginPurchase(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        price=-99.99,
-        payment_method="credit_card"
-    )
+    purchase = PluginPurchase(plugin_id="plugin_123", user_id="user_123", price=-99.99, payment_method="credit_card")
     assert purchase.price == -99.99
 
 
@@ -82,7 +67,7 @@ def test_developer_application_model():
         experience="5 years",
         portfolio_url="https://portfolio.com",
         github_username="devuser",
-        description="Experienced developer"
+        description="Experienced developer",
     )
     assert application.developer_name == "Dev Name"
     assert application.email == "dev@example.com"
@@ -94,10 +79,7 @@ def test_developer_application_model():
 def test_developer_application_defaults():
     """Test DeveloperApplication with optional fields"""
     application = DeveloperApplication(
-        developer_name="Dev Name",
-        email="dev@example.com",
-        experience="3 years",
-        description="New developer"
+        developer_name="Dev Name", email="dev@example.com", experience="3 years", description="New developer"
     )
     assert application.company is None
     assert application.portfolio_url is None

@@ -28,15 +28,21 @@ from .node_client import NodeClient
 
 class ChainAlreadyExistsError(Exception):
     """Chain already exists error"""
+
     pass
+
 
 class ChainNotFoundError(Exception):
     """Chain not found error"""
+
     pass
+
 
 class NodeNotAvailableError(Exception):
     """Node not available error"""
+
     pass
+
 
 class ChainManager:
     """Multi-chain manager"""
@@ -47,16 +53,13 @@ class ChainManager:
         self._node_clients: dict[str, Any] = {}
 
     async def list_chains(
-        self,
-        chain_type: ChainType | None = None,
-        include_private: bool = False,
-        sort_by: str = "id"
+        self, chain_type: ChainType | None = None, include_private: bool = False, sort_by: str = "id"
     ) -> list[ChainInfo]:
         """List all available chains"""
         chains = []
 
         # Get chains from all available nodes
-        for node_id, node_config in self.config.nodes.items():
+        for node_id, _node_config in self.config.nodes.items():
             try:
                 node_chains = await self._get_node_chains(node_id)
                 for chain in node_chains:
@@ -144,7 +147,7 @@ class ChainManager:
 
     async def delete_chain(self, chain_id: str, force: bool = False) -> bool:
         """Delete a chain"""
-        chain_info = await self.get_chain_info(chain_id)
+        _ = await self.get_chain_info(chain_id)
 
         # Get all nodes hosting this chain
         hosting_nodes = await self._get_chain_hosting_nodes(chain_id)
@@ -230,7 +233,7 @@ class ChainManager:
                 blocks_transferred=0,
                 transfer_time_seconds=0,
                 verification_passed=False,
-                error=None if migration_plan.feasible else "Migration not feasible"
+                error=None if migration_plan.feasible else "Migration not feasible",
             )
 
         if not migration_plan.feasible:
@@ -242,16 +245,18 @@ class ChainManager:
                 blocks_transferred=0,
                 transfer_time_seconds=0,
                 verification_passed=False,
-                error="; ".join(migration_plan.issues)
+                error="; ".join(migration_plan.issues),
             )
 
         # Execute migration
         return await self._execute_migration(chain_id, from_node, to_node)
 
-    async def backup_chain(self, chain_id: str, backup_path: str | None = None, compress: bool = False, verify: bool = False) -> ChainBackupResult:
+    async def backup_chain(
+        self, chain_id: str, backup_path: str | None = None, compress: bool = False, verify: bool = False
+    ) -> ChainBackupResult:
         """Backup a chain"""
         # Get chain info
-        chain_info = await self.get_chain_info(chain_id)
+        _ = await self.get_chain_info(chain_id)
 
         # Get hosting node
         hosting_nodes = await self._get_chain_hosting_nodes(chain_id)
@@ -333,19 +338,11 @@ class ChainManager:
         timestamp = datetime.now()
 
         # Create state root (placeholder)
-        state_data = {
-            "chain_id": chain_id,
-            "config": chain_config.dict(),
-            "timestamp": timestamp.isoformat()
-        }
+        state_data = {"chain_id": chain_id, "config": chain_config.dict(), "timestamp": timestamp.isoformat()}
         state_root = hashlib.sha256(json.dumps(state_data, sort_keys=True).encode()).hexdigest()
 
         # Create genesis hash
-        genesis_data = {
-            "chain_id": chain_id,
-            "timestamp": timestamp.isoformat(),
-            "state_root": state_root
-        }
+        genesis_data = {"chain_id": chain_id, "timestamp": timestamp.isoformat(), "state_root": state_root}
         genesis_hash = hashlib.sha256(json.dumps(genesis_data, sort_keys=True).encode()).hexdigest()
 
         return GenesisBlock(
@@ -359,7 +356,7 @@ class ChainManager:
             privacy=chain_config.privacy,
             parameters=chain_config.parameters,
             state_root=state_root,
-            hash=genesis_hash
+            hash=genesis_hash,
         )
 
     async def _create_chain_on_node(self, node_id: str, genesis_block: GenesisBlock) -> None:
@@ -425,7 +422,9 @@ class ChainManager:
                 return node_id
         return None
 
-    async def _create_migration_plan(self, chain_id: str, from_node: str, to_node: str, chain_info: ChainInfo) -> ChainMigrationPlan:
+    async def _create_migration_plan(
+        self, chain_id: str, from_node: str, to_node: str, chain_info: ChainInfo
+    ) -> ChainMigrationPlan:
         """Create a migration plan"""
         # This would analyze the migration and create a detailed plan
         return ChainMigrationPlan(
@@ -437,7 +436,7 @@ class ChainManager:
             required_space_mb=chain_info.size_mb * 1.5,  # 50% extra space
             available_space_mb=10000,  # Placeholder
             feasible=True,
-            issues=[]
+            issues=[],
         )
 
     async def _execute_migration(self, chain_id: str, from_node: str, to_node: str) -> ChainMigrationResult:
@@ -452,10 +451,12 @@ class ChainManager:
             success=True,
             blocks_transferred=1000,  # Placeholder
             transfer_time_seconds=300,  # Placeholder
-            verification_passed=True
+            verification_passed=True,
         )
 
-    async def _execute_backup(self, chain_id: str, node_id: str, backup_path: str, compress: bool, verify: bool) -> ChainBackupResult:
+    async def _execute_backup(
+        self, chain_id: str, node_id: str, backup_path: str, compress: bool, verify: bool
+    ) -> ChainBackupResult:
         """Execute the actual backup"""
         if node_id not in self.config.nodes:
             raise NodeNotAvailableError(f"Node {node_id} not configured")
@@ -473,7 +474,7 @@ class ChainManager:
                     backup_size_mb=backup_info["backup_size_mb"],
                     compression_ratio=backup_info["original_size_mb"] / backup_info["backup_size_mb"],
                     checksum=backup_info["checksum"],
-                    verification_passed=verify
+                    verification_passed=verify,
                 )
         except Exception as e:
             logger.error("Error during backup: %s", e)
@@ -494,7 +495,7 @@ class ChainManager:
                     chain_id=restore_info["chain_id"],
                     node_id=node_id,
                     blocks_restored=restore_info["blocks_restored"],
-                    verification_passed=restore_info["verification_passed"]
+                    verification_passed=restore_info["verification_passed"],
                 )
         except Exception as e:
             logger.error("Error during restore: %s", e)

@@ -25,9 +25,9 @@ class TestDatabaseService:
 
     def test_database_service_has_abstract_methods(self):
         """Test DatabaseService defines required abstract methods"""
-        assert hasattr(DatabaseService, 'execute_query')
-        assert hasattr(DatabaseService, 'execute_update')
-        assert hasattr(DatabaseService, 'execute_transaction')
+        assert hasattr(DatabaseService, "execute_query")
+        assert hasattr(DatabaseService, "execute_update")
+        assert hasattr(DatabaseService, "execute_transaction")
 
 
 class TestSQLiteDatabaseService:
@@ -48,7 +48,7 @@ class TestSQLiteDatabaseService:
         """Test initialization creates parent directory"""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "subdir" / "test.db"
-            service = SQLiteDatabaseService(db_path)
+            SQLiteDatabaseService(db_path)
 
             assert db_path.parent.exists()
             assert db_path.exists()
@@ -185,7 +185,7 @@ class TestSQLiteDatabaseService:
             queries = [
                 ("INSERT INTO test (id, name) VALUES (?, ?)", (1, "Alice")),
                 ("INSERT INTO test (id, name) VALUES (?, ?)", (2, "Bob")),
-                ("INSERT INTO test (id, name) VALUES (?, ?)", (3, "Charlie"))
+                ("INSERT INTO test (id, name) VALUES (?, ?)", (3, "Charlie")),
             ]
 
             result = service.execute_transaction(queries)
@@ -206,7 +206,7 @@ class TestSQLiteDatabaseService:
             queries = [
                 ("INSERT INTO test (id, name) VALUES (?, ?)", (1, "Alice")),
                 ("INSERT INTO test (id, name) VALUES (?, ?)", (2, "Bob")),
-                ("INSERT INTO test (id, name, invalid) VALUES (?, ?, ?)", (3, "Charlie", "error"))  # Invalid
+                ("INSERT INTO test (id, name, invalid) VALUES (?, ?, ?)", (3, "Charlie", "error")),  # Invalid
             ]
 
             with pytest.raises(Exception):
@@ -223,14 +223,14 @@ class TestSQLiteDatabaseService:
             service = SQLiteDatabaseService(db_path, pool_size=3)
 
             # Get multiple connections
-            conn1 = service._get_connection()
-            conn2 = service._get_connection()
-            conn3 = service._get_connection()
+            service._get_connection()
+            service._get_connection()
+            service._get_connection()
 
             assert len(service._connections) == 3
 
             # Should reuse connections
-            conn4 = service._get_connection()
+            service._get_connection()
             assert len(service._connections) == 3
 
     def test_close(self):

@@ -186,9 +186,7 @@ async def test_import_chain_dedupes_duplicate_heights_and_preserves_transaction_
                 "tx_count": 1,
             },
         ],
-        "accounts": [
-            {"chain_id": "chain-a", "address": "alice", "balance": 25, "nonce": 2}
-        ],
+        "accounts": [{"chain_id": "chain-a", "address": "alice", "balance": 25, "nonce": 2}],
         "transactions": [
             {
                 "chain_id": "chain-a",
@@ -215,18 +213,10 @@ async def test_import_chain_dedupes_duplicate_heights_and_preserves_transaction_
     assert result["imported_transactions"] == 1
 
     with Session(isolated_engine) as session:
-        chain_a_blocks = session.exec(
-            select(Block).where(Block.chain_id == "chain-a").order_by(Block.height)
-        ).all()
-        chain_b_blocks = session.exec(
-            select(Block).where(Block.chain_id == "chain-b").order_by(Block.height)
-        ).all()
-        chain_a_accounts = session.exec(
-            select(Account).where(Account.chain_id == "chain-a")
-        ).all()
-        chain_a_transactions = session.exec(
-            select(Transaction).where(Transaction.chain_id == "chain-a")
-        ).all()
+        chain_a_blocks = session.exec(select(Block).where(Block.chain_id == "chain-a").order_by(Block.height)).all()
+        chain_b_blocks = session.exec(select(Block).where(Block.chain_id == "chain-b").order_by(Block.height)).all()
+        chain_a_accounts = session.exec(select(Account).where(Account.chain_id == "chain-a")).all()
+        chain_a_transactions = session.exec(select(Transaction).where(Transaction.chain_id == "chain-a")).all()
 
     assert [block.height for block in chain_a_blocks] == [0, 1]
     assert chain_a_blocks[0].hash == _hex("incoming-block-0-new")
@@ -291,9 +281,7 @@ async def test_import_chain_clears_hash_conflicts_across_chains(isolated_engine)
         session.commit()
 
     with Session(isolated_engine) as session:
-        chain_a_blocks = session.exec(
-            select(Block).where(Block.chain_id == "chain-a").order_by(Block.height)
-        ).all()
+        chain_a_blocks = session.exec(select(Block).where(Block.chain_id == "chain-a").order_by(Block.height)).all()
 
     conflicting_hash = chain_a_blocks[0].hash
 
@@ -327,12 +315,8 @@ async def test_import_chain_clears_hash_conflicts_across_chains(isolated_engine)
     assert result["imported_blocks"] == 2
 
     with Session(isolated_engine) as session:
-        chain_c_blocks = session.exec(
-            select(Block).where(Block.chain_id == "chain-c").order_by(Block.height)
-        ).all()
-        chain_a_blocks_after = session.exec(
-            select(Block).where(Block.chain_id == "chain-a").order_by(Block.height)
-        ).all()
+        chain_c_blocks = session.exec(select(Block).where(Block.chain_id == "chain-c").order_by(Block.height)).all()
+        chain_a_blocks_after = session.exec(select(Block).where(Block.chain_id == "chain-a").order_by(Block.height)).all()
 
     assert [block.height for block in chain_c_blocks] == [0, 1]
     assert chain_c_blocks[0].hash == conflicting_hash

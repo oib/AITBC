@@ -33,14 +33,7 @@ def reset_state():
 @pytest.mark.unit
 def test_kyc_request_empty_fields():
     """Test KYCRequest with empty fields"""
-    kyc = KYCRequest(
-        user_id="",
-        name="",
-        email="",
-        document_type="",
-        document_number="",
-        address={}
-    )
+    kyc = KYCRequest(user_id="", name="", email="", document_type="", document_number="", address={})
     assert kyc.user_id == ""
     assert kyc.name == ""
 
@@ -52,7 +45,7 @@ def test_compliance_report_invalid_severity():
         report_type="test",
         description="test",
         severity="invalid",  # Not in low/medium/high/critical
-        details={}
+        details={},
     )
     assert report.severity == "invalid"
 
@@ -66,7 +59,7 @@ def test_transaction_monitoring_zero_amount():
         amount=0.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
     assert tx.amount == 0.0
 
@@ -80,7 +73,7 @@ def test_transaction_monitoring_negative_amount():
         amount=-1000.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
     assert tx.amount == -1000.0
 
@@ -95,7 +88,7 @@ def test_kyc_with_missing_address_fields():
         email="john@example.com",
         document_type="passport",
         document_number="ABC123",
-        address={"city": "New York"}  # Missing other fields
+        address={"city": "New York"},  # Missing other fields
     )
     response = client.post("/api/v1/kyc/submit", json=kyc.model_dump())
     assert response.status_code == 200
@@ -105,12 +98,7 @@ def test_kyc_with_missing_address_fields():
 def test_compliance_report_empty_details():
     """Test compliance report with empty details"""
     client = TestClient(app)
-    report = ComplianceReport(
-        report_type="test",
-        description="test",
-        severity="low",
-        details={}
-    )
+    report = ComplianceReport(report_type="test", description="test", severity="low", details={})
     response = client.post("/api/v1/compliance/report", json=report.model_dump())
     assert response.status_code == 200
 
@@ -151,9 +139,9 @@ def test_monitor_transaction_with_future_timestamp():
         amount=1000.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime(2030, 1, 1)  # Future timestamp
+        timestamp=datetime(2030, 1, 1),  # Future timestamp
     )
-    response = client.post("/api/v1/monitoring/transaction", json=tx.model_dump(mode='json'))
+    response = client.post("/api/v1/monitoring/transaction", json=tx.model_dump(mode="json"))
     assert response.status_code == 200
 
 
@@ -167,9 +155,9 @@ def test_monitor_transaction_with_past_timestamp():
         amount=1000.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime(2020, 1, 1)  # Past timestamp
+        timestamp=datetime(2020, 1, 1),  # Past timestamp
     )
-    response = client.post("/api/v1/monitoring/transaction", json=tx.model_dump(mode='json'))
+    response = client.post("/api/v1/monitoring/transaction", json=tx.model_dump(mode="json"))
     assert response.status_code == 200
 
 
@@ -186,7 +174,7 @@ def test_kyc_list_with_multiple_records():
             email=f"user{i}@example.com",
             document_type="passport",
             document_number=f"ABC{i}",
-            address={"city": "New York"}
+            address={"city": "New York"},
         )
         client.post("/api/v1/kyc/submit", json=kyc.model_dump())
 

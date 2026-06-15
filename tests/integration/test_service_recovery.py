@@ -167,9 +167,7 @@ class TestSecretLoading:
         # The script may exit non-zero if it can't write to /var/log,
         # but we only care that the .env file is produced
         env_file = run_dir / ".env"
-        assert env_file.is_file(), (
-            f".env file not created. stdout={result.stdout} stderr={result.stderr}"
-        )
+        assert env_file.is_file(), f".env file not created. stdout={result.stdout} stderr={result.stderr}"
 
         env_content = env_file.read_text()
         assert "API_KEY_HASH_SECRET=super-secret-hash" in env_content

@@ -4,6 +4,7 @@ WebSocket Stream Manager with Backpressure Control
 Advanced WebSocket stream architecture with per-stream flow control,
 bounded queues, and event loop protection for multi-modal fusion.
 """
+
 import asyncio
 import json
 import time
@@ -24,25 +25,31 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+
 class StreamStatus(Enum):
     """Stream connection status"""
-    CONNECTING = 'connecting'
-    CONNECTED = 'connected'
-    SLOW_CONSUMER = 'slow_consumer'
-    BACKPRESSURE = 'backpressure'
-    DISCONNECTED = 'disconnected'
-    ERROR = 'error'
+
+    CONNECTING = "connecting"
+    CONNECTED = "connected"
+    SLOW_CONSUMER = "slow_consumer"
+    BACKPRESSURE = "backpressure"
+    DISCONNECTED = "disconnected"
+    ERROR = "error"
+
 
 class MessageType(Enum):
     """Message types for stream classification"""
-    CRITICAL = 'critical'
-    IMPORTANT = 'important'
-    BULK = 'bulk'
-    CONTROL = 'control'
+
+    CRITICAL = "critical"
+    IMPORTANT = "important"
+    BULK = "bulk"
+    CONTROL = "control"
+
 
 @dataclass
 class StreamMessage:
     """Message with priority and metadata"""
+
     data: Any
     message_type: MessageType
     timestamp: float = field(default_factory=time.time)
@@ -51,11 +58,13 @@ class StreamMessage:
     max_retries: int = 3
 
     def to_dict(self) -> dict[str, Any]:
-        return {'id': self.message_id, 'type': self.message_type.value, 'timestamp': self.timestamp, 'data': self.data}
+        return {"id": self.message_id, "type": self.message_type.value, "timestamp": self.timestamp, "data": self.data}
+
 
 @dataclass
 class StreamMetrics:
     """Metrics for stream performance monitoring"""
+
     messages_sent: int = 0
     messages_dropped: int = 0
     bytes_sent: int = 0
@@ -75,9 +84,11 @@ class StreamMetrics:
         else:
             self.avg_send_time = (self.avg_send_time * (self.messages_sent - 1) + send_time) / self.messages_sent
 
+
 @dataclass
 class StreamConfig:
     """Configuration for individual streams"""
+
     max_queue_size: int = 1000
     send_timeout: float = 5.0
     heartbeat_interval: float = 30.0
@@ -87,12 +98,18 @@ class StreamConfig:
     enable_compression: bool = True
     priority_send: bool = True
 
+
 class BoundedMessageQueue:
     """Bounded queue with priority and backpressure handling"""
 
-    def __init__(self, max_size: int=1000):
+    def __init__(self, max_size: int = 1000):
         self.max_size = max_size
-        self.queues: dict[MessageType, deque[StreamMessage]] = {MessageType.CRITICAL: deque(maxlen=max_size // 4), MessageType.IMPORTANT: deque(maxlen=max_size // 2), MessageType.BULK: deque(maxlen=max_size // 4), MessageType.CONTROL: deque(maxlen=100)}
+        self.queues: dict[MessageType, deque[StreamMessage]] = {
+            MessageType.CRITICAL: deque(maxlen=max_size // 4),
+            MessageType.IMPORTANT: deque(maxlen=max_size // 2),
+            MessageType.BULK: deque(maxlen=max_size // 4),
+            MessageType.CONTROL: deque(maxlen=100),
+        }
         self.total_size = 0
         self._lock = asyncio.Lock()
 
@@ -134,6 +151,7 @@ class BoundedMessageQueue:
         """Get queue fill ratio"""
         return self.total_size / self.max_size
 
+
 class WebSocketStream:
     """Individual WebSocket stream with backpressure control"""
 
@@ -160,7 +178,7 @@ class WebSocketStream:
         self.status = StreamStatus.CONNECTED
         self._sender_task = asyncio.create_task(self._sender_loop())
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
-        logger.info('Stream %s started', self.stream_id)
+        logger.info("Stream %s started", self.stream_id)
 
     async def stop(self) -> None:
         """Stop stream processing"""
@@ -180,9 +198,9 @@ class WebSocketStream:
                 await self._heartbeat_task
             except asyncio.CancelledError:
                 pass
-        logger.info('Stream %s stopped', self.stream_id)
+        logger.info("Stream %s stopped", self.stream_id)
 
-    async def send_message(self, data: Any, message_type: MessageType=MessageType.IMPORTANT) -> bool:
+    async def send_message(self, data: Any, message_type: MessageType = MessageType.IMPORTANT) -> bool:
         """Send message with backpressure handling"""
         if not self._running:
             return False
@@ -219,17 +237,17 @@ class WebSocketStream:
                         await self.queue.put(message)
                     else:
                         self.metrics.messages_dropped += 1
-                        logger.warning('Message %s dropped after max retries', message.message_id)
+                        logger.warning("Message %s dropped after max retries", message.message_id)
                 if send_time > self.config.slow_consumer_threshold:
                     self.slow_consumer_count += 1
                     self.metrics.slow_consumer_events += 1
                     if self.slow_consumer_count > 5:
                         self.status = StreamStatus.SLOW_CONSUMER
-                        logger.warning('Stream %s detected as slow consumer', self.stream_id)
+                        logger.warning("Stream %s detected as slow consumer", self.stream_id)
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error('Error in sender loop for stream %s: %s', self.stream_id, e)
+                logger.error("Error in sender loop for stream %s: %s", self.stream_id, e)
                 await asyncio.sleep(0.1)
 
     async def _send_with_backpressure(self, message: StreamMessage) -> bool:
@@ -238,23 +256,23 @@ class WebSocketStream:
             async with self._send_lock:
                 message_data = message.to_dict()
                 if self.config.enable_compression:
-                    message_str = json.dumps(message_data, separators=(',', ':'))
+                    message_str = json.dumps(message_data, separators=(",", ":"))
                     if len(message_str) > 1024:
-                        message_data['_compressed'] = True
-                        message_str = json.dumps(message_data, separators=(',', ':'))
+                        message_data["_compressed"] = True
+                        message_str = json.dumps(message_data, separators=(",", ":"))
                 else:
                     message_str = json.dumps(message_data)
                 await asyncio.wait_for(self.websocket.send(message_str), timeout=self.config.send_timeout)
                 return True
         except TimeoutError:
-            logger.warning('Send timeout for stream %s', self.stream_id)
+            logger.warning("Send timeout for stream %s", self.stream_id)
             return False
         except ConnectionClosed:
-            logger.info('Connection closed for stream %s', self.stream_id)
+            logger.info("Connection closed for stream %s", self.stream_id)
             await self.stop()
             return False
         except Exception as e:
-            logger.error('Send error for stream %s: %s', self.stream_id, e)
+            logger.error("Send error for stream %s: %s", self.stream_id, e)
             return False
 
     async def _heartbeat_loop(self) -> None:
@@ -262,27 +280,46 @@ class WebSocketStream:
         while self._running:
             try:
                 await asyncio.sleep(self.config.heartbeat_interval)
-                heartbeat_msg = {'type': 'heartbeat', 'timestamp': time.time(), 'stream_id': self.stream_id, 'queue_size': self.queue.size(), 'status': self.status.value}
+                heartbeat_msg = {
+                    "type": "heartbeat",
+                    "timestamp": time.time(),
+                    "stream_id": self.stream_id,
+                    "queue_size": self.queue.size(),
+                    "status": self.status.value,
+                }
                 await self.send_message(heartbeat_msg, MessageType.CONTROL)
                 self.last_heartbeat = time.time()
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error('Heartbeat error for stream %s: %s', self.stream_id, e)
+                logger.error("Heartbeat error for stream %s: %s", self.stream_id, e)
 
     def get_metrics(self) -> dict[str, Any]:
         """Get stream metrics"""
-        return {'stream_id': self.stream_id, 'status': self.status.value, 'queue_size': self.queue.size(), 'queue_fill_ratio': self.queue.fill_ratio(), 'messages_sent': self.metrics.messages_sent, 'messages_dropped': self.metrics.messages_dropped, 'bytes_sent': self.metrics.bytes_sent, 'avg_send_time': self.metrics.avg_send_time, 'backpressure_events': self.metrics.backpressure_events, 'slow_consumer_events': self.metrics.slow_consumer_events, 'last_heartbeat': self.last_heartbeat}
+        return {
+            "stream_id": self.stream_id,
+            "status": self.status.value,
+            "queue_size": self.queue.size(),
+            "queue_fill_ratio": self.queue.fill_ratio(),
+            "messages_sent": self.metrics.messages_sent,
+            "messages_dropped": self.metrics.messages_dropped,
+            "bytes_sent": self.metrics.bytes_sent,
+            "avg_send_time": self.metrics.avg_send_time,
+            "backpressure_events": self.metrics.backpressure_events,
+            "slow_consumer_events": self.metrics.slow_consumer_events,
+            "last_heartbeat": self.last_heartbeat,
+        }
 
     def _cleanup(self) -> None:
         """Cleanup resources"""
         if self._running:
-            logger.warning('Stream %s cleanup called while running', self.stream_id)
+            logger.warning("Stream %s cleanup called while running", self.stream_id)
+
 
 class WebSocketStreamManager:
     """Manages multiple WebSocket streams with backpressure control"""
 
-    def __init__(self, default_config: StreamConfig | None=None):
+    def __init__(self, default_config: StreamConfig | None = None):
         self.default_config = default_config or StreamConfig()
         self.streams: dict[str, WebSocketStream] = {}
         self.stream_configs: dict[str, StreamConfig] = {}
@@ -302,7 +339,7 @@ class WebSocketStreamManager:
         self._running = True
         self._cleanup_task = asyncio.create_task(self._cleanup_loop())
         self._broadcast_task = asyncio.create_task(self._broadcast_loop())
-        logger.info('WebSocket Stream Manager started')
+        logger.info("WebSocket Stream Manager started")
 
     async def stop(self) -> None:
         """Stop the stream manager"""
@@ -324,9 +361,9 @@ class WebSocketStreamManager:
                 await self._broadcast_task
             except asyncio.CancelledError:
                 pass
-        logger.info('WebSocket Stream Manager stopped')
+        logger.info("WebSocket Stream Manager stopped")
 
-    async def manage_stream(self, websocket: Any, config: StreamConfig | None=None) -> AsyncGenerator['WebSocketStream']:
+    async def manage_stream(self, websocket: Any, config: StreamConfig | None = None) -> AsyncGenerator["WebSocketStream"]:
         """Context manager for stream lifecycle"""
         stream_id = str(uuid.uuid4())
         stream_config = config or self.default_config
@@ -338,10 +375,10 @@ class WebSocketStreamManager:
                 self.streams[stream_id] = stream
                 self.stream_configs[stream_id] = stream_config
                 self.total_connections += 1
-            logger.info('Stream %s added to manager', stream_id)
+            logger.info("Stream %s added to manager", stream_id)
             yield stream
         except Exception as e:
-            logger.error('Error managing stream %s: %s', stream_id, e)
+            logger.error("Error managing stream %s: %s", stream_id, e)
             raise
         finally:
             if stream and stream_id in self.streams:
@@ -351,19 +388,19 @@ class WebSocketStreamManager:
                     if stream_id in self.stream_configs:
                         del self.stream_configs[stream_id]
                     self.total_connections -= 1
-                logger.info('Stream %s removed from manager', stream_id)
+                logger.info("Stream %s removed from manager", stream_id)
 
-    async def broadcast_to_all(self, data: Any, message_type: MessageType=MessageType.IMPORTANT) -> None:
+    async def broadcast_to_all(self, data: Any, message_type: MessageType = MessageType.IMPORTANT) -> None:
         """Broadcast message to all streams"""
         if not self._running:
             return
         try:
             await self._broadcast_queue.put((data, message_type))
         except asyncio.QueueFull:
-            logger.warning('Broadcast queue full, dropping message')
+            logger.warning("Broadcast queue full, dropping message")
             self.total_messages_dropped += 1
 
-    async def broadcast_to_stream(self, stream_id: str, data: Any, message_type: MessageType=MessageType.IMPORTANT) -> None:
+    async def broadcast_to_stream(self, stream_id: str, data: Any, message_type: MessageType = MessageType.IMPORTANT) -> None:
         """Send message to specific stream"""
         async with self._manager_lock:
             stream = self.streams.get(stream_id)
@@ -385,12 +422,12 @@ class WebSocketStreamManager:
                     try:
                         await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=1.0)
                     except TimeoutError:
-                        logger.warning('Broadcast timeout, some streams may be slow')
+                        logger.warning("Broadcast timeout, some streams may be slow")
                 self.total_messages_sent += 1
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error('Error in broadcast loop: %s', e)
+                logger.error("Error in broadcast loop: %s", e)
                 await asyncio.sleep(0.1)
 
     async def _cleanup_loop(self) -> None:
@@ -411,11 +448,11 @@ class WebSocketStreamManager:
                         if stream_id in self.stream_configs:
                             del self.stream_configs[stream_id]
                         self.total_connections -= 1
-                        logger.info('Cleaned up disconnected stream %s', stream_id)
+                        logger.info("Cleaned up disconnected stream %s", stream_id)
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error('Error in cleanup loop: %s', e)
+                logger.error("Error in cleanup loop: %s", e)
 
     async def get_manager_metrics(self) -> dict[str, Any]:
         """Get comprehensive manager metrics"""
@@ -423,24 +460,35 @@ class WebSocketStreamManager:
             stream_metrics = []
             for stream in self.streams.values():
                 stream_metrics.append(stream.get_metrics())
-            total_queue_size = sum(m['queue_size'] for m in stream_metrics)
-            total_messages_sent = sum(m['messages_sent'] for m in stream_metrics)
-            total_messages_dropped = sum(m['messages_dropped'] for m in stream_metrics)
-            total_bytes_sent = sum(m['bytes_sent'] for m in stream_metrics)
+            total_queue_size = sum(m["queue_size"] for m in stream_metrics)
+            total_messages_sent = sum(m["messages_sent"] for m in stream_metrics)
+            total_messages_dropped = sum(m["messages_dropped"] for m in stream_metrics)
+            total_bytes_sent = sum(m["bytes_sent"] for m in stream_metrics)
             status_counts: dict[str, int] = {}
             for stream in self.streams.values():
                 status = stream.status.value
                 status_counts[status] = status_counts.get(status, 0) + 1
-            return {'manager_status': 'running' if self._running else 'stopped', 'total_connections': self.total_connections, 'active_streams': len(self.streams), 'total_queue_size': total_queue_size, 'total_messages_sent': total_messages_sent, 'total_messages_dropped': total_messages_dropped, 'total_bytes_sent': total_bytes_sent, 'broadcast_queue_size': self._broadcast_queue.qsize(), 'stream_status_distribution': status_counts, 'stream_metrics': stream_metrics}
+            return {
+                "manager_status": "running" if self._running else "stopped",
+                "total_connections": self.total_connections,
+                "active_streams": len(self.streams),
+                "total_queue_size": total_queue_size,
+                "total_messages_sent": total_messages_sent,
+                "total_messages_dropped": total_messages_dropped,
+                "total_bytes_sent": total_bytes_sent,
+                "broadcast_queue_size": self._broadcast_queue.qsize(),
+                "stream_status_distribution": status_counts,
+                "stream_metrics": stream_metrics,
+            }
 
     async def update_stream_config(self, stream_id: str, config: StreamConfig) -> None:
         """Update configuration for specific stream"""
         async with self._manager_lock:
             if stream_id in self.streams:
                 self.stream_configs[stream_id] = config
-                logger.info('Updated config for stream %s', stream_id)
+                logger.info("Updated config for stream %s", stream_id)
 
-    def get_slow_streams(self, threshold: float=0.8) -> list[str]:
+    def get_slow_streams(self, threshold: float = 0.8) -> list[str]:
         """Get streams with high queue fill ratios"""
         slow_streams = []
         for stream_id, stream in self.streams.items():
@@ -448,20 +496,24 @@ class WebSocketStreamManager:
                 slow_streams.append(stream_id)
         return slow_streams
 
-    async def handle_slow_consumer(self, stream_id: str, action: str='warn') -> None:
+    async def handle_slow_consumer(self, stream_id: str, action: str = "warn") -> None:
         """Handle slow consumer streams"""
         async with self._manager_lock:
             stream = self.streams.get(stream_id)
             if not stream:
                 return
-            if action == 'warn':
-                logger.warning('Slow consumer detected: %s', stream_id)
-                await stream.send_message({'warning': 'Slow consumer detected', 'stream_id': stream_id}, MessageType.CONTROL)
-            elif action == 'throttle':
-                new_config = StreamConfig(max_queue_size=stream.config.max_queue_size // 2, send_timeout=stream.config.send_timeout * 2)
+            if action == "warn":
+                logger.warning("Slow consumer detected: %s", stream_id)
+                await stream.send_message({"warning": "Slow consumer detected", "stream_id": stream_id}, MessageType.CONTROL)
+            elif action == "throttle":
+                new_config = StreamConfig(
+                    max_queue_size=stream.config.max_queue_size // 2, send_timeout=stream.config.send_timeout * 2
+                )
                 await self.update_stream_config(stream_id, new_config)
-                logger.info('Throttled slow consumer: %s', stream_id)
-            elif action == 'disconnect':
-                logger.warning('Disconnecting slow consumer: %s', stream_id)
+                logger.info("Throttled slow consumer: %s", stream_id)
+            elif action == "disconnect":
+                logger.warning("Disconnecting slow consumer: %s", stream_id)
                 await stream.stop()
+
+
 stream_manager = WebSocketStreamManager()

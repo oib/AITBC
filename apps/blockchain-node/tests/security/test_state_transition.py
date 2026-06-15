@@ -5,7 +5,6 @@ Tests that balance changes only occur through validated transactions.
 import sys
 """
 
-
 from aitbc_chain.state.state_transition import StateTransition
 
 
@@ -14,19 +13,11 @@ class TestStateTransition:
 
     def test_transaction_validation_insufficient_balance(self):
         """Test that transactions with insufficient balance are rejected."""
-        state_transition = StateTransition()
+        StateTransition()
 
         # Mock session and transaction data
         # This would require a full database setup
         # For now, we test the validation logic
-
-        tx_data = {
-            "from": "test_sender",
-            "to": "test_recipient",
-            "value": 1000,
-            "fee": 10,
-            "nonce": 0
-        }
 
         # This test would require database setup
         # For now, we document the test structure
@@ -34,15 +25,7 @@ class TestStateTransition:
 
     def test_transaction_validation_invalid_nonce(self):
         """Test that transactions with invalid nonce are rejected."""
-        state_transition = StateTransition()
-
-        tx_data = {
-            "from": "test_sender",
-            "to": "test_recipient",
-            "value": 100,
-            "fee": 10,
-            "nonce": 999  # Invalid nonce
-        }
+        StateTransition()
 
         # This test would require database setup
         pass

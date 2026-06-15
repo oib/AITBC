@@ -52,6 +52,7 @@ class ConfidentialTransactionService:
         if not raw:
             return {}
         import ast
+
         encrypted = EncryptedData.from_dict(ast.literal_eval(raw.decode()))
         participants: list[str] = list(transaction.participants) if transaction.participants else []
         requester = participants[0] if participants else ""

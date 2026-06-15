@@ -32,7 +32,7 @@ def safe_load_credentials():
 
 
 # Supported trading pairs
-SUPPORTED_PAIRS = ['AIT/BTC', 'AIT/ETH']
+SUPPORTED_PAIRS = ["AIT/BTC", "AIT/ETH"]
 
 
 @click.group()
@@ -42,9 +42,9 @@ def exchange_island():
 
 
 @exchange_island.command()
-@click.argument('ait_amount', type=float)
-@click.argument('quote_currency', type=click.Choice(['BTC', 'ETH']))
-@click.option('--max-price', type=float, help='Maximum price to pay per AIT')
+@click.argument("ait_amount", type=float)
+@click.argument("quote_currency", type=click.Choice(["BTC", "ETH"]))
+@click.option("--max-price", type=float, help="Maximum price to pay per AIT")
 @click.pass_context
 def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
     """Buy AIT with BTC or ETH"""
@@ -64,16 +64,16 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
         # Get user node ID
         hostname = socket.gethostname()
         local_address = socket.gethostbyname(hostname)
-        p2p_port = credentials.get('credentials', {}).get('p2p_port', 8001)
+        p2p_port = credentials.get("credentials", {}).get("p2p_port", 8001)
 
         # Get public key for node ID generation
-        keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
+        keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
         if os.path.exists(keystore_path):
             with open(keystore_path) as f:
                 keys = json.load(f)
                 public_key_pem = None
-                for key_id, key_data in keys.items():
-                    public_key_pem = key_data.get('public_key_pem')
+                for _key_id, key_data in keys.items():
+                    public_key_pem = key_data.get("public_key_pem")
                     break
                 if public_key_pem:
                     content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
@@ -92,24 +92,24 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
 
         # Create buy order transaction
         buy_order_data = {
-            'type': 'exchange',
-            'action': 'buy',
-            'order_id': order_id,
-            'user_id': user_id,
-            'pair': pair,
-            'side': 'buy',
-            'amount': float(ait_amount),
-            'max_price': float(max_price) if max_price else None,
-            'status': 'open',
-            'island_id': island_id,
-            'chain_id': chain_id,
-            'created_at': datetime.now().isoformat()
+            "type": "exchange",
+            "action": "buy",
+            "order_id": order_id,
+            "user_id": user_id,
+            "pair": pair,
+            "side": "buy",
+            "amount": float(ait_amount),
+            "max_price": float(max_price) if max_price else None,
+            "status": "open",
+            "island_id": island_id,
+            "chain_id": chain_id,
+            "created_at": datetime.now().isoformat(),
         }
 
         # Submit transaction to blockchain
         try:
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            result = http_client.post("/transaction", json=buy_order_data)
+            _ = http_client.post("/transaction", json=buy_order_data)
             success("Buy order created successfully!")
             success(f"Order ID: {order_id}")
             success(f"Buying {ait_amount} AIT with {quote_currency}")
@@ -125,9 +125,9 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
                 "Max Price": f"{max_price:.8f} {quote_currency}/AIT" if max_price else "Market",
                 "Status": "open",
                 "User": user_id[:16] + "...",
-                "Island": island_id[:16] + "..."
+                "Island": island_id[:16] + "...",
             }
-            output(order_info, ctx.obj.get('output_format', 'table'))
+            output(order_info, ctx.obj.get("output_format", "table"))
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
             raise click.Abort()
@@ -141,9 +141,9 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
 
 
 @exchange_island.command()
-@click.argument('ait_amount', type=float)
-@click.argument('quote_currency', type=click.Choice(['BTC', 'ETH']))
-@click.option('--min-price', type=float, help='Minimum price to accept per AIT')
+@click.argument("ait_amount", type=float)
+@click.argument("quote_currency", type=click.Choice(["BTC", "ETH"]))
+@click.option("--min-price", type=float, help="Minimum price to accept per AIT")
 @click.pass_context
 def sell(ctx, ait_amount: float, quote_currency: str, min_price: float | None):
     """Sell AIT for BTC or ETH"""
@@ -163,16 +163,16 @@ def sell(ctx, ait_amount: float, quote_currency: str, min_price: float | None):
         # Get user node ID
         hostname = socket.gethostname()
         local_address = socket.gethostbyname(hostname)
-        p2p_port = credentials.get('credentials', {}).get('p2p_port', 8001)
+        p2p_port = credentials.get("credentials", {}).get("p2p_port", 8001)
 
         # Get public key for node ID generation
-        keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
+        keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
         if os.path.exists(keystore_path):
             with open(keystore_path) as f:
                 keys = json.load(f)
                 public_key_pem = None
-                for key_id, key_data in keys.items():
-                    public_key_pem = key_data.get('public_key_pem')
+                for _key_id, key_data in keys.items():
+                    public_key_pem = key_data.get("public_key_pem")
                     break
                 if public_key_pem:
                     content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
@@ -191,24 +191,24 @@ def sell(ctx, ait_amount: float, quote_currency: str, min_price: float | None):
 
         # Create sell order transaction
         sell_order_data = {
-            'type': 'exchange',
-            'action': 'sell',
-            'order_id': order_id,
-            'user_id': user_id,
-            'pair': pair,
-            'side': 'sell',
-            'amount': float(ait_amount),
-            'min_price': float(min_price) if min_price else None,
-            'status': 'open',
-            'island_id': island_id,
-            'chain_id': chain_id,
-            'created_at': datetime.now().isoformat()
+            "type": "exchange",
+            "action": "sell",
+            "order_id": order_id,
+            "user_id": user_id,
+            "pair": pair,
+            "side": "sell",
+            "amount": float(ait_amount),
+            "min_price": float(min_price) if min_price else None,
+            "status": "open",
+            "island_id": island_id,
+            "chain_id": chain_id,
+            "created_at": datetime.now().isoformat(),
         }
 
         # Submit transaction to blockchain
         try:
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            result = http_client.post("/transaction", json=sell_order_data)
+            _ = http_client.post("/transaction", json=sell_order_data)
             success("Sell order created successfully!")
             success(f"Order ID: {order_id}")
             success(f"Selling {ait_amount} AIT for {quote_currency}")
@@ -224,9 +224,9 @@ def sell(ctx, ait_amount: float, quote_currency: str, min_price: float | None):
                 "Min Price": f"{min_price:.8f} {quote_currency}/AIT" if min_price else "Market",
                 "Status": "open",
                 "User": user_id[:16] + "...",
-                "Island": island_id[:16] + "..."
+                "Island": island_id[:16] + "...",
             }
-            output(order_info, ctx.obj.get('output_format', 'table'))
+            output(order_info, ctx.obj.get("output_format", "table"))
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
             raise click.Abort()
@@ -236,8 +236,8 @@ def sell(ctx, ait_amount: float, quote_currency: str, min_price: float | None):
 
 
 @exchange_island.command()
-@click.argument('pair', type=click.Choice(SUPPORTED_PAIRS))
-@click.option('--limit', type=int, default=20, help='Order book depth')
+@click.argument("pair", type=click.Choice(SUPPORTED_PAIRS))
+@click.option("--limit", type=int, default=20, help="Order book depth")
 @click.pass_context
 def orderbook(ctx, pair: str, limit: int):
     """View the order book for a trading pair"""
@@ -252,11 +252,11 @@ def orderbook(ctx, pair: str, limit: int):
         # Query blockchain for exchange orders
         try:
             params = {
-                'transaction_type': 'exchange',
-                'island_id': island_id,
-                'pair': pair,
-                'status': 'open',
-                'limit': limit * 2  # Get both buys and sells
+                "transaction_type": "exchange",
+                "island_id": island_id,
+                "pair": pair,
+                "status": "open",
+                "limit": limit * 2,  # Get both buys and sells
             }
 
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
@@ -267,15 +267,15 @@ def orderbook(ctx, pair: str, limit: int):
             sell_orders = []
 
             for order in transactions:
-                if order.get('side') == 'buy':
+                if order.get("side") == "buy":
                     buy_orders.append(order)
-                elif order.get('side') == 'sell':
+                elif order.get("side") == "sell":
                     sell_orders.append(order)
 
             # Sort buy orders by price descending (highest first)
-            buy_orders.sort(key=lambda x: x.get('max_price', 0), reverse=True)
+            buy_orders.sort(key=lambda x: x.get("max_price", 0), reverse=True)
             # Sort sell orders by price ascending (lowest first)
-            sell_orders.sort(key=lambda x: x.get('min_price', float('inf')))
+            sell_orders.sort(key=lambda x: x.get("min_price", float("inf")))
 
             if not buy_orders and not sell_orders:
                 info(f"No open orders for {pair}")
@@ -285,34 +285,38 @@ def orderbook(ctx, pair: str, limit: int):
             if sell_orders:
                 asks_data = []
                 for order in sell_orders[:limit]:
-                    asks_data.append({
-                        "Price": f"{order.get('min_price', 0):.8f}",
-                        "Amount": f"{order.get('amount', 0):.4f} AIT",
-                        "Total": f"{order.get('min_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
-                        "User": order.get('user_id', '')[:16] + "...",
-                        "Order": order.get('order_id', '')[:16] + "..."
-                    })
+                    asks_data.append(
+                        {
+                            "Price": f"{order.get('min_price', 0):.8f}",
+                            "Amount": f"{order.get('amount', 0):.4f} AIT",
+                            "Total": f"{order.get('min_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
+                            "User": order.get("user_id", "")[:16] + "...",
+                            "Order": order.get("order_id", "")[:16] + "...",
+                        }
+                    )
 
-                output(asks_data, ctx.obj.get('output_format', 'table'), title=f"Sell Orders (Asks) - {pair}")
+                output(asks_data, ctx.obj.get("output_format", "table"), title=f"Sell Orders (Asks) - {pair}")
 
             # Display buy orders (bids)
             if buy_orders:
                 bids_data = []
                 for order in buy_orders[:limit]:
-                    bids_data.append({
-                        "Price": f"{order.get('max_price', 0):.8f}",
-                        "Amount": f"{order.get('amount', 0):.4f} AIT",
-                        "Total": f"{order.get('max_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
-                        "User": order.get('user_id', '')[:16] + "...",
-                        "Order": order.get('order_id', '')[:16] + "..."
-                    })
+                    bids_data.append(
+                        {
+                            "Price": f"{order.get('max_price', 0):.8f}",
+                            "Amount": f"{order.get('amount', 0):.4f} AIT",
+                            "Total": f"{order.get('max_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
+                            "User": order.get("user_id", "")[:16] + "...",
+                            "Order": order.get("order_id", "")[:16] + "...",
+                        }
+                    )
 
-                output(bids_data, ctx.obj.get('output_format', 'table'), title=f"Buy Orders (Bids) - {pair}")
+                output(bids_data, ctx.obj.get("output_format", "table"), title=f"Buy Orders (Bids) - {pair}")
 
             # Calculate spread if both exist
             if sell_orders and buy_orders:
-                best_ask = sell_orders[0].get('min_price', 0)
-                best_bid = buy_orders[0].get('max_price', 0)
+                best_ask = sell_orders[0].get("min_price", 0)
+                best_bid = buy_orders[0].get("max_price", 0)
                 spread = best_ask - best_bid
                 if best_bid > 0:
                     spread_pct = (spread / best_bid) * 100
@@ -344,38 +348,34 @@ def rates(ctx):
             rates_data = []
 
             for pair in SUPPORTED_PAIRS:
-                params = {
-                    'transaction_type': 'exchange',
-                    'island_id': island_id,
-                    'pair': pair,
-                    'status': 'open',
-                    'limit': 100
-                }
+                params = {"transaction_type": "exchange", "island_id": island_id, "pair": pair, "status": "open", "limit": 100}
 
                 http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
                 orders = http_client.get("/transactions", params=params)
 
                 # Calculate rates from order book
-                buy_orders = [o for o in orders if o.get('side') == 'buy']
-                sell_orders = [o for o in orders if o.get('side') == 'sell']
+                buy_orders = [o for o in orders if o.get("side") == "buy"]
+                sell_orders = [o for o in orders if o.get("side") == "sell"]
 
                 # Get best bid and ask
-                best_bid = max([o.get('max_price', 0) for o in buy_orders]) if buy_orders else 0
-                best_ask = min([o.get('min_price', float('inf')) for o in sell_orders]) if sell_orders else 0
+                best_bid = max([o.get("max_price", 0) for o in buy_orders]) if buy_orders else 0
+                best_ask = min([o.get("min_price", float("inf")) for o in sell_orders]) if sell_orders else 0
 
                 # Calculate mid price
-                mid_price = (best_bid + best_ask) / 2 if best_bid > 0 and best_ask < float('inf') else 0
+                mid_price = (best_bid + best_ask) / 2 if best_bid > 0 and best_ask < float("inf") else 0
 
-                rates_data.append({
-                    "Pair": pair,
-                    "Best Bid": f"{best_bid:.8f}" if best_bid > 0 else "N/A",
-                    "Best Ask": f"{best_ask:.8f}" if best_ask < float('inf') else "N/A",
-                    "Mid Price": f"{mid_price:.8f}" if mid_price > 0 else "N/A",
-                    "Buy Orders": len(buy_orders),
-                    "Sell Orders": len(sell_orders)
-                })
+                rates_data.append(
+                    {
+                        "Pair": pair,
+                        "Best Bid": f"{best_bid:.8f}" if best_bid > 0 else "N/A",
+                        "Best Ask": f"{best_ask:.8f}" if best_ask < float("inf") else "N/A",
+                        "Mid Price": f"{mid_price:.8f}" if mid_price > 0 else "N/A",
+                        "Buy Orders": len(buy_orders),
+                        "Sell Orders": len(sell_orders),
+                    }
+                )
 
-            output(rates_data, ctx.obj.get('output_format', 'table'), title="Exchange Rates")
+            output(rates_data, ctx.obj.get("output_format", "table"), title="Exchange Rates")
 
         except Exception as e:
             error(f"Network error querying blockchain: {e}")
@@ -387,9 +387,9 @@ def rates(ctx):
 
 
 @exchange_island.command()
-@click.option('--user', help='Filter by user ID')
-@click.option('--status', help='Filter by status (open, filled, partially_filled, cancelled)')
-@click.option('--pair', type=click.Choice(SUPPORTED_PAIRS), help='Filter by trading pair')
+@click.option("--user", help="Filter by user ID")
+@click.option("--status", help="Filter by status (open, filled, partially_filled, cancelled)")
+@click.option("--pair", type=click.Choice(SUPPORTED_PAIRS), help="Filter by trading pair")
 @click.pass_context
 def orders(ctx, user: str | None, status: str | None, pair: str | None):
     """List exchange orders"""
@@ -403,16 +403,13 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
 
         # Query blockchain for exchange orders
         try:
-            params = {
-                'transaction_type': 'exchange',
-                'island_id': island_id
-            }
+            params = {"transaction_type": "exchange", "island_id": island_id}
             if user:
-                params['user_id'] = user
+                params["user_id"] = user
             if status:
-                params['status'] = status
+                params["status"] = status
             if pair:
-                params['pair'] = pair
+                params["pair"] = pair
 
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
             orders = http_client.get("/transactions", params=params)
@@ -424,18 +421,22 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
             # Format output
             orders_data = []
             for order in orders:
-                orders_data.append({
-                    "Order ID": order.get('order_id', '')[:20] + "...",
-                    "Pair": order.get('pair'),
-                    "Side": order.get('side', '').upper(),
-                    "Amount": f"{order.get('amount', 0):.4f} AIT",
-                    "Price": f"{order.get('max_price', order.get('min_price', 0)):.8f}" if order.get('max_price') or order.get('min_price') else "Market",
-                    "Status": order.get('status'),
-                    "User": order.get('user_id', '')[:16] + "...",
-                    "Created": order.get('created_at', '')[:19]
-                })
+                orders_data.append(
+                    {
+                        "Order ID": order.get("order_id", "")[:20] + "...",
+                        "Pair": order.get("pair"),
+                        "Side": order.get("side", "").upper(),
+                        "Amount": f"{order.get('amount', 0):.4f} AIT",
+                        "Price": f"{order.get('max_price', order.get('min_price', 0)):.8f}"
+                        if order.get("max_price") or order.get("min_price")
+                        else "Market",
+                        "Status": order.get("status"),
+                        "User": order.get("user_id", "")[:16] + "...",
+                        "Created": order.get("created_at", "")[:19],
+                    }
+                )
 
-            output(orders_data, ctx.obj.get('output_format', 'table'), title=f"Exchange Orders ({island_id[:16]}...)")
+            output(orders_data, ctx.obj.get("output_format", "table"), title=f"Exchange Orders ({island_id[:16]}...)")
         except NetworkError as e:
             error(f"Network error querying blockchain: {e}")
             raise click.Abort()
@@ -446,7 +447,7 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
 
 
 @exchange_island.command()
-@click.argument('order_id')
+@click.argument("order_id")
 @click.pass_context
 def cancel(ctx, order_id: str):
     """Cancel an exchange order"""
@@ -462,15 +463,15 @@ def cancel(ctx, order_id: str):
         # Get local node ID
         hostname = socket.gethostname()
         local_address = socket.gethostbyname(hostname)
-        p2p_port = credentials.get('credentials', {}).get('p2p_port', 8001)
+        p2p_port = credentials.get("credentials", {}).get("p2p_port", 8001)
 
-        keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
+        keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
         if os.path.exists(keystore_path):
             with open(keystore_path) as f:
                 keys = json.load(f)
                 public_key_pem = None
-                for key_id, key_data in keys.items():
-                    public_key_pem = key_data.get('public_key_pem')
+                for _key_id, key_data in keys.items():
+                    public_key_pem = key_data.get("public_key_pem")
                     break
                 if public_key_pem:
                     content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
@@ -478,20 +479,20 @@ def cancel(ctx, order_id: str):
 
         # Create cancel transaction
         cancel_data = {
-            'type': 'exchange',
-            'action': 'cancel',
-            'order_id': order_id,
-            'user_id': local_node_id,
-            'status': 'cancelled',
-            'cancelled_at': datetime.now().isoformat(),
-            'island_id': island_id,
-            'chain_id': chain_id
+            "type": "exchange",
+            "action": "cancel",
+            "order_id": order_id,
+            "user_id": local_node_id,
+            "status": "cancelled",
+            "cancelled_at": datetime.now().isoformat(),
+            "island_id": island_id,
+            "chain_id": chain_id,
         }
 
         # Submit transaction to blockchain
         try:
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            result = http_client.post("/transaction", json=cancel_data)
+            _ = http_client.post("/transaction", json=cancel_data)
             success(f"Order {order_id} cancelled successfully!")
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")

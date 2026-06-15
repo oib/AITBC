@@ -34,7 +34,7 @@ class SecureAuditLogger:
                 "last_hash": None,
                 "entry_count": 0,
                 "created_at": datetime.now(UTC).isoformat(),
-                "version": "1.0"
+                "version": "1.0",
             }
             with open(self.integrity_file, "w") as f:
                 json.dump(integrity_data, f, indent=2)
@@ -61,11 +61,11 @@ class SecureAuditLogger:
     def _create_entry_hash(self, entry: dict, previous_hash: str | None = None) -> str:
         """
         Create cryptographic hash for audit entry
-        
+
         Args:
             entry: Audit entry data
             previous_hash: Hash of previous entry for chain integrity
-            
+
         Returns:
             Entry hash
         """
@@ -76,17 +76,17 @@ class SecureAuditLogger:
             "user": entry["user"],
             "details": entry["details"],
             "previous_hash": previous_hash,
-            "nonce": entry.get("nonce", "")
+            "nonce": entry.get("nonce", ""),
         }
 
         # Sort keys for deterministic ordering
-        entry_str = json.dumps(entry_data, sort_keys=True, separators=(',', ':'))
+        entry_str = json.dumps(entry_data, sort_keys=True, separators=(",", ":"))
         return keccak(entry_str.encode()).hex()
 
     def log(self, action: str, details: dict = None, user: str = None):
         """
         Log an audit event with cryptographic integrity
-        
+
         Args:
             action: Action being logged
             details: Additional details
@@ -102,7 +102,7 @@ class SecureAuditLogger:
             "action": action,
             "user": user or "unknown",
             "details": details or {},
-            "nonce": secrets.token_hex(16)
+            "nonce": secrets.token_hex(16),
         }
 
         # Create entry hash
@@ -120,7 +120,7 @@ class SecureAuditLogger:
     def verify_integrity(self) -> tuple[bool, list[str]]:
         """
         Verify the integrity of the entire audit log
-        
+
         Returns:
             Tuple of (is_valid, issues)
         """
@@ -170,12 +170,12 @@ class SecureAuditLogger:
     def get_logs(self, limit: int = 50, action_filter: str = None, verify: bool = True) -> list[dict]:
         """
         Read audit log entries with optional integrity verification
-        
+
         Args:
             limit: Maximum number of entries
             action_filter: Filter by action type
             verify: Whether to verify integrity
-            
+
         Returns:
             List of audit entries
         """
@@ -202,10 +202,10 @@ class SecureAuditLogger:
     def export_audit_report(self, output_file: Path | None = None) -> dict:
         """
         Export comprehensive audit report with integrity verification
-        
+
         Args:
             output_file: Optional file to write report
-            
+
         Returns:
             Audit report data
         """
@@ -240,24 +240,21 @@ class SecureAuditLogger:
         report = {
             "audit_report": {
                 "generated_at": datetime.now(UTC).isoformat(),
-                "integrity": {
-                    "is_valid": is_valid,
-                    "issues": issues
-                },
+                "integrity": {"is_valid": is_valid, "issues": issues},
                 "statistics": {
                     "total_entries": len(all_entries),
                     "unique_actions": len(action_counts),
                     "unique_users": len(user_counts),
                     "date_range": {
                         "first_entry": all_entries[0]["timestamp"] if all_entries else None,
-                        "last_entry": all_entries[-1]["timestamp"] if all_entries else None
-                    }
+                        "last_entry": all_entries[-1]["timestamp"] if all_entries else None,
+                    },
                 },
                 "action_breakdown": action_counts,
                 "user_breakdown": user_counts,
-                "recent_activity": hourly_counts
+                "recent_activity": hourly_counts,
             },
-            "sample_entries": all_entries[-10:]  # Last 10 entries
+            "sample_entries": all_entries[-10:],  # Last 10 entries
         }
 
         # Write to file if specified
@@ -270,11 +267,11 @@ class SecureAuditLogger:
     def search_logs(self, query: str, limit: int = 50) -> list[dict]:
         """
         Search audit logs for specific content
-        
+
         Args:
             query: Search query
             limit: Maximum results
-            
+
         Returns:
             Matching entries
         """
@@ -297,7 +294,7 @@ class SecureAuditLogger:
     def get_chain_info(self) -> dict:
         """
         Get information about the audit chain
-        
+
         Returns:
             Chain information
         """
@@ -311,7 +308,7 @@ class SecureAuditLogger:
             "last_updated": integrity_data.get("last_updated"),
             "version": integrity_data["version"],
             "log_file": str(self.log_file),
-            "integrity_file": str(self.integrity_file)
+            "integrity_file": str(self.integrity_file),
         }
 
 

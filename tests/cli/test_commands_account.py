@@ -22,8 +22,9 @@ class TestAccountCommands:
         """Test that account command group exists"""
         try:
             from aitbc_cli.commands.account import account
+
             assert account is not None
-            assert hasattr(account, 'name')
+            assert hasattr(account, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import account commands: {e}")
 
@@ -31,12 +32,13 @@ class TestAccountCommands:
         """Test account group name"""
         try:
             from aitbc_cli.commands.account import account
+
             assert account.name == "account"
         except ImportError as e:
             pytest.skip(f"Cannot import account commands: {e}")
 
-    @patch('aitbc_cli.commands.account.output')
-    @patch('aitbc_cli.commands.account.error')
+    @patch("aitbc_cli.commands.account.output")
+    @patch("aitbc_cli.commands.account.error")
     def test_account_get_command(self, mock_error, mock_output):
         """Test account get command - skip due to Click context issues"""
         pytest.skip("Click context mocking requires complex setup")

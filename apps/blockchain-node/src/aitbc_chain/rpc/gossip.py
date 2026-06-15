@@ -2,7 +2,6 @@
 Gossip-related RPC endpoints.
 """
 
-
 from fastapi import Request
 from pydantic import BaseModel, Field
 from sqlmodel import select
@@ -19,6 +18,7 @@ _logger = get_logger(__name__)
 
 class GetLogsRequest(BaseModel):
     """Request model for eth_getLogs RPC endpoint."""
+
     address: str | None = Field(None, description="Contract address to filter logs")
     from_block: int | None = Field(None, description="Starting block height")
     to_block: int | None = Field(None, description="Ending block height")
@@ -27,6 +27,7 @@ class GetLogsRequest(BaseModel):
 
 class LogEntry(BaseModel):
     """Single log entry from smart contract event."""
+
     address: str
     topics: list[str]
     data: str
@@ -37,16 +38,13 @@ class LogEntry(BaseModel):
 
 class GetLogsResponse(BaseModel):
     """Response model for eth_getLogs RPC endpoint."""
+
     logs: list[LogEntry]
     count: int
 
 
 @rate_limit(rate=200, per=60)
-async def get_logs(
-    request: Request,
-    logs_request: GetLogsRequest,
-    chain_id: str | None = None
-) -> GetLogsResponse:
+async def get_logs(request: Request, logs_request: GetLogsRequest, chain_id: str | None = None) -> GetLogsResponse:
     """
     Query smart contract event logs using eth_getLogs-compatible endpoint.
     Filters Receipt model for logs matching contract address and event topics.
@@ -90,7 +88,7 @@ async def get_logs(
                     data=str(event.get("data", "")),
                     block_number=receipt.block_height or 0,
                     transaction_hash=receipt.receipt_id,
-                    log_index=event.get("logIndex", 0)
+                    log_index=event.get("logIndex", 0),
                 )
                 logs.append(log_entry)
 

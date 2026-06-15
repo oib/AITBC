@@ -113,9 +113,7 @@ class StageValidator:
             params = op.get("parameters", {})
 
             # Check if operation requires currency
-            requires_currency = any(
-                param in CURRENCY_REQUIRED_PARAMS for param in params.keys()
-            )
+            requires_currency = any(param in CURRENCY_REQUIRED_PARAMS for param in params.keys())
 
             if requires_currency and "currency" not in params:
                 self.errors.append(
@@ -149,7 +147,7 @@ class StageValidator:
                         required_resources.append((i, op_name, resource_type, pattern))
 
         # Validate that required resources have corresponding create operations
-        for index, op_name, resource_type, pattern in required_resources:
+        for index, op_name, resource_type, _pattern in required_resources:
             if resource_type not in created_resources:
                 self.errors.append(
                     f"Operation '{op_name}' (index {index}) requires '{resource_type}' "

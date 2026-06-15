@@ -33,7 +33,7 @@ class TestInternalHealthEndpoints:
         # This test verifies the health endpoints are accessible
         # without requiring full database setup
 
-        with patch('app.main.create_app') as mock_create_app:
+        with patch("app.main.create_app") as mock_create_app:
             mock_app = Mock()
             mock_app.router.routes.__len__ = Mock(return_value=10)
             mock_app.title = "AITBC Coordinator API"
@@ -42,6 +42,7 @@ class TestInternalHealthEndpoints:
 
             # Import and test the health endpoint logic
             from app.main import create_app
+
             app = create_app()
 
             # Verify app creation succeeded
@@ -72,8 +73,7 @@ class TestEnhancedServicesHealth:
     """Test enhanced services health endpoints (integration script functionality)"""
 
     @pytest.mark.skipif(
-        not os.getenv("TEST_ENHANCED_SERVICES"),
-        reason="TEST_ENHANCED_SERVICES not set; enhanced services test skipped"
+        not os.getenv("TEST_ENHANCED_SERVICES"), reason="TEST_ENHANCED_SERVICES not set; enhanced services test skipped"
     )
     def test_enhanced_services_health_check(self):
         """Test enhanced services health endpoints (converted from integration script)"""
@@ -109,7 +109,7 @@ class TestEnhancedServicesHealth:
                 "name": "hermes Enhanced Service",
                 "port": 8007,
                 "url": "http://localhost:8007",
-            }
+            },
         }
 
         # Test each service health endpoint

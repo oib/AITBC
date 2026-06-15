@@ -69,16 +69,11 @@ class TestJob:
 
     def test_job_creation(self):
         """Test Job creation"""
+
         def test_func():
             return 42
 
-        job = Job(
-            priority=JobPriority.MEDIUM.value,
-            job_id="test_id",
-            func=test_func,
-            args=(1, 2),
-            kwargs={"key": "value"}
-        )
+        job = Job(priority=JobPriority.MEDIUM.value, job_id="test_id", func=test_func, args=(1, 2), kwargs={"key": "value"})
 
         assert job.job_id == "test_id"
         assert job.func == test_func
@@ -88,6 +83,7 @@ class TestJob:
 
     def test_job_defaults(self):
         """Test Job with default values"""
+
         def test_func():
             return 42
 
@@ -102,6 +98,7 @@ class TestJob:
 
     def test_job_ordering_by_priority(self):
         """Test Job ordering by priority"""
+
         def test_func():
             return 42
 
@@ -323,6 +320,7 @@ class TestJobScheduler:
         await scheduler.start()
 
         import asyncio
+
         await asyncio.sleep(0.2)
 
         await scheduler.stop()
@@ -411,6 +409,7 @@ class TestBackgroundTaskManager:
 
         async def test_func():
             import asyncio
+
             await asyncio.sleep(10)
             return 42
 
@@ -448,6 +447,7 @@ class TestBackgroundTaskManager:
 
         async def test_func():
             import asyncio
+
             await asyncio.sleep(10)
             return 42
 
@@ -517,11 +517,7 @@ class TestWorkerPool:
         def test_func(x):
             return x * 2
 
-        results = await asyncio.gather(
-            pool.submit(test_func, 1),
-            pool.submit(test_func, 2),
-            pool.submit(test_func, 3)
-        )
+        results = await asyncio.gather(pool.submit(test_func, 1), pool.submit(test_func, 2), pool.submit(test_func, 3))
 
         assert results == [2, 4, 6]
         await pool.stop()
@@ -534,6 +530,7 @@ class TestWorkerPool:
 
         async def slow_func(x):
             import asyncio
+
             await asyncio.sleep(0.1)
             return x
 
@@ -542,6 +539,7 @@ class TestWorkerPool:
         task2 = pool.submit(slow_func, 2)
 
         import asyncio
+
         await asyncio.sleep(0.05)
 
         size = await pool.get_queue_size()

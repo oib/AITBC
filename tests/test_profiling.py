@@ -28,12 +28,7 @@ class TestProfilingResult:
     def test_creation(self):
         """Test ProfilingResult creation"""
         result = ProfilingResult(
-            function_name="test_func",
-            total_time=1.0,
-            call_count=10,
-            avg_time=0.1,
-            max_time=0.2,
-            min_time=0.05
+            function_name="test_func", total_time=1.0, call_count=10, avg_time=0.1, max_time=0.2, min_time=0.05
         )
 
         assert result.function_name == "test_func"
@@ -44,7 +39,7 @@ class TestProfilingResult:
 class TestPerformanceProfiler:
     """Tests for PerformanceProfiler"""
 
-    @patch('aitbc.profiling.logger')
+    @patch("aitbc.profiling.logger")
     def test_initialization(self, mock_logger):
         """Test PerformanceProfiler initialization"""
         profiler = PerformanceProfiler()
@@ -52,7 +47,7 @@ class TestPerformanceProfiler:
         assert profiler._enabled is True
         assert len(profiler._stats) == 0
 
-    @patch('aitbc.profiling.logger')
+    @patch("aitbc.profiling.logger")
     def test_enable(self, mock_logger):
         """Test enable profiling"""
         profiler = PerformanceProfiler()
@@ -62,7 +57,7 @@ class TestPerformanceProfiler:
         assert profiler._enabled is True
         mock_logger.info.assert_called()
 
-    @patch('aitbc.profiling.logger')
+    @patch("aitbc.profiling.logger")
     def test_disable(self, mock_logger):
         """Test disable profiling"""
         profiler = PerformanceProfiler()
@@ -127,7 +122,7 @@ class TestPerformanceProfiler:
         assert "func2" in stats
         assert len(stats) == 2
 
-    @patch('aitbc.profiling.logger')
+    @patch("aitbc.profiling.logger")
     def test_clear_stats(self, mock_logger):
         """Test clear_stats"""
         profiler = PerformanceProfiler()
@@ -138,7 +133,7 @@ class TestPerformanceProfiler:
         assert len(profiler._stats) == 0
         mock_logger.info.assert_called()
 
-    @patch('aitbc.profiling.logger')
+    @patch("aitbc.profiling.logger")
     def test_print_stats_single(self, mock_logger):
         """Test print_stats for single function"""
         profiler = PerformanceProfiler()
@@ -148,7 +143,7 @@ class TestPerformanceProfiler:
 
         assert mock_logger.info.called
 
-    @patch('aitbc.profiling.logger')
+    @patch("aitbc.profiling.logger")
     def test_print_stats_all(self, mock_logger):
         """Test print_stats for all functions"""
         profiler = PerformanceProfiler()
@@ -165,6 +160,7 @@ class TestProfileFunctionDecorator:
 
     def test_decorator_with_global_profiler(self):
         """Test decorator with global profiler"""
+
         @profile_function()
         def test_func():
             time.sleep(0.01)
@@ -194,6 +190,7 @@ class TestProfileFunctionDecorator:
 
     def test_decorator_preserves_function_name(self):
         """Test decorator preserves function name"""
+
         @profile_function()
         def test_func():
             return "result"
@@ -237,9 +234,10 @@ class TestProfileContext:
 class TestProfileCProfile:
     """Tests for profile_cprofile decorator"""
 
-    @patch('aitbc.profiling.logger')
+    @patch("aitbc.profiling.logger")
     def test_cprofile_decorator(self, mock_logger):
         """Test cProfile decorator"""
+
         @profile_cprofile
         def test_func():
             time.sleep(0.01)
@@ -252,6 +250,7 @@ class TestProfileCProfile:
 
     def test_cprofile_preserves_function_name(self):
         """Test cProfile decorator preserves function name"""
+
         @profile_cprofile
         def test_func():
             return "result"
@@ -269,7 +268,7 @@ class TestGlobalProfilerFunctions:
 
         assert profiler1 is profiler2
 
-    @patch('aitbc.profiling.logger')
+    @patch("aitbc.profiling.logger")
     def test_enable_global_profiling(self, mock_logger):
         """Test enable_global_profiling"""
         disable_global_profiling()
@@ -278,7 +277,7 @@ class TestGlobalProfilerFunctions:
         profiler = get_global_profiler()
         assert profiler._enabled is True
 
-    @patch('aitbc.profiling.logger')
+    @patch("aitbc.profiling.logger")
     def test_disable_global_profiling(self, mock_logger):
         """Test disable_global_profiling"""
         disable_global_profiling()
@@ -295,7 +294,7 @@ class TestGlobalProfilerFunctions:
 
         assert "test_func" in summary
 
-    @patch('aitbc.profiling.logger')
+    @patch("aitbc.profiling.logger")
     def test_print_profiling_summary(self, mock_logger):
         """Test print_profiling_summary"""
         profiler = get_global_profiler()
@@ -305,7 +304,7 @@ class TestGlobalProfilerFunctions:
 
         assert mock_logger.info.called
 
-    @patch('aitbc.profiling.logger')
+    @patch("aitbc.profiling.logger")
     def test_clear_profiling_data(self, mock_logger):
         """Test clear_profiling_data"""
         profiler = get_global_profiler()

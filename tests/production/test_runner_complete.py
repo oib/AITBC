@@ -13,6 +13,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TESTS_DIR = Path(__file__).resolve().parent
 
+
 class CompleteTestRunner:
     """Complete test runner for all 9 systems"""
 
@@ -22,38 +23,38 @@ class CompleteTestRunner:
                 "name": "JWT Authentication Tests",
                 "file": "test_jwt_authentication.py",
                 "system": "Advanced Security (7/9)",
-                "description": "Tests JWT authentication, RBAC, API keys, user management"
+                "description": "Tests JWT authentication, RBAC, API keys, user management",
             },
             {
                 "name": "Production Monitoring Tests",
                 "file": "test_production_monitoring.py",
                 "system": "Production Monitoring (8/9)",
-                "description": "Tests Prometheus metrics, alerting, SLA monitoring"
+                "description": "Tests Prometheus metrics, alerting, SLA monitoring",
             },
             {
                 "name": "Type Safety Tests",
                 "file": "test_type_safety.py",
                 "system": "Type Safety (9/9)",
-                "description": "Tests type validation, Pydantic models, type hints"
+                "description": "Tests type validation, Pydantic models, type hints",
             },
             {
                 "name": "Complete System Integration Tests",
                 "file": "test_complete_system_integration.py",
                 "system": "All Systems (1-9/9)",
-                "description": "Tests integration of all 9 completed systems"
+                "description": "Tests integration of all 9 completed systems",
             },
             {
                 "name": "Advanced Features Tests",
                 "file": "test_advanced_features.py",
                 "system": "Agent Systems (4/9)",
-                "description": "Tests AI/ML, consensus, and advanced features"
+                "description": "Tests AI/ML, consensus, and advanced features",
             },
             {
                 "name": "Agent Coordinator API Tests",
                 "file": "test_agent_coordinator_api.py",
                 "system": "API Functionality (5/9)",
-                "description": "Tests core API endpoints and functionality"
-            }
+                "description": "Tests core API endpoints and functionality",
+            },
         ]
 
         self.results = {}
@@ -61,32 +62,37 @@ class CompleteTestRunner:
 
     def run_test_suite(self, suite_info: dict[str, str]) -> dict[str, Any]:
         """Run a single test suite"""
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"🧪 RUNNING: {suite_info['name']}")
         print(f"📋 System: {suite_info['system']}")
         print(f"📝 Description: {suite_info['description']}")
         print(f"📁 File: {suite_info['file']}")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         start_time = time.time()
 
         try:
             # Run pytest with specific test file
-            result = subprocess.run([
-                sys.executable,
-                "-m",
-                "pytest",
-                "-c",
-                "/dev/null",
-                "--rootdir",
-                str(REPO_ROOT),
-                "--import-mode=importlib",
-                str(TESTS_DIR / suite_info['file']),
-                "-v",
-                "--tb=short",
-                "--no-header",
-                "--disable-warnings"
-            ], capture_output=True, text=True, cwd=REPO_ROOT)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-c",
+                    "/dev/null",
+                    "--rootdir",
+                    str(REPO_ROOT),
+                    "--import-mode=importlib",
+                    str(TESTS_DIR / suite_info["file"]),
+                    "-v",
+                    "--tb=short",
+                    "--no-header",
+                    "--disable-warnings",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=REPO_ROOT,
+            )
 
             end_time = time.time()
             duration = end_time - start_time
@@ -96,7 +102,7 @@ class CompleteTestRunner:
             error_output = result.stderr
 
             # Extract test statistics
-            lines = output.split('\n')
+            lines = output.split("\n")
             total_tests = 0
             passed_tests = 0
             failed_tests = 0
@@ -131,9 +137,9 @@ class CompleteTestRunner:
             success_rate = (passed_tests / total_tests * 100) if total_tests > 0 else 0
 
             return {
-                "suite": suite_info['name'],
-                "system": suite_info['system'],
-                "file": suite_info['file'],
+                "suite": suite_info["name"],
+                "system": suite_info["system"],
+                "file": suite_info["file"],
                 "total_tests": total_tests,
                 "passed": passed_tests,
                 "failed": failed_tests,
@@ -144,14 +150,14 @@ class CompleteTestRunner:
                 "exit_code": result.returncode,
                 "output": output,
                 "error_output": error_output,
-                "status": "PASSED" if result.returncode == 0 else "FAILED"
+                "status": "PASSED" if result.returncode == 0 else "FAILED",
             }
 
         except Exception as e:
             return {
-                "suite": suite_info['name'],
-                "system": suite_info['system'],
-                "file": suite_info['file'],
+                "suite": suite_info["name"],
+                "system": suite_info["system"],
+                "file": suite_info["file"],
                 "total_tests": 0,
                 "passed": 0,
                 "failed": 0,
@@ -162,7 +168,7 @@ class CompleteTestRunner:
                 "exit_code": 1,
                 "output": "",
                 "error_output": str(e),
-                "status": "ERROR"
+                "status": "ERROR",
             }
 
     def run_all_tests(self) -> dict[str, Any]:
@@ -170,7 +176,7 @@ class CompleteTestRunner:
         print("\n🚀 AITBC COMPLETE SYSTEM TEST RUNNER")
         print("📊 Testing All 9 Systems: 100% Completion Verification")
         print(f"⏰ Started: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         total_suites = len(self.test_suites)
         passed_suites = 0
@@ -178,16 +184,16 @@ class CompleteTestRunner:
 
         for suite in self.test_suites:
             result = self.run_test_suite(suite)
-            self.results[suite['file']] = result
+            self.results[suite["file"]] = result
 
             # Print suite result summary
-            status_emoji = "✅" if result['status'] == "PASSED" else "❌"
+            status_emoji = "✅" if result["status"] == "PASSED" else "❌"
             print(f"\n{status_emoji} {suite['name']} Results:")
             print(f"   📊 Tests: {result['passed']}/{result['total_tests']} passed ({result['success_rate']:.1f}%)")
             print(f"   ⏱️  Duration: {result['duration']:.2f}s")
             print(f"   📈 Status: {result['status']}")
 
-            if result['status'] == "PASSED":
+            if result["status"] == "PASSED":
                 passed_suites += 1
             else:
                 failed_suites += 1
@@ -195,23 +201,23 @@ class CompleteTestRunner:
 
         # Calculate overall statistics
         overall_stats = self.calculate_overall_stats()
-        overall_stats['total_suites'] = total_suites
-        overall_stats['passed_suites'] = passed_suites
-        overall_stats['failed_suites'] = failed_suites
-        overall_stats['start_time'] = self.start_time
-        overall_stats['end_time'] = datetime.now()
-        overall_stats['total_duration'] = (overall_stats['end_time'] - self.start_time).total_seconds()
+        overall_stats["total_suites"] = total_suites
+        overall_stats["passed_suites"] = passed_suites
+        overall_stats["failed_suites"] = failed_suites
+        overall_stats["start_time"] = self.start_time
+        overall_stats["end_time"] = datetime.now()
+        overall_stats["total_duration"] = (overall_stats["end_time"] - self.start_time).total_seconds()
 
         return overall_stats
 
     def calculate_overall_stats(self) -> dict[str, Any]:
         """Calculate overall test statistics"""
-        total_tests = sum(r['total_tests'] for r in self.results.values())
-        total_passed = sum(r['passed'] for r in self.results.values())
-        total_failed = sum(r['failed'] for r in self.results.values())
-        total_skipped = sum(r['skipped'] for r in self.results.values())
-        total_errors = sum(r['errors'] for r in self.results.values())
-        total_duration = sum(r['duration'] for r in self.results.values())
+        total_tests = sum(r["total_tests"] for r in self.results.values())
+        total_passed = sum(r["passed"] for r in self.results.values())
+        total_failed = sum(r["failed"] for r in self.results.values())
+        total_skipped = sum(r["skipped"] for r in self.results.values())
+        total_errors = sum(r["errors"] for r in self.results.values())
+        total_duration = sum(r["duration"] for r in self.results.values())
 
         overall_success_rate = (total_passed / total_tests * 100) if total_tests > 0 else 0
 
@@ -222,19 +228,19 @@ class CompleteTestRunner:
             "total_skipped": total_skipped,
             "total_errors": total_errors,
             "overall_success_rate": overall_success_rate,
-            "total_duration": total_duration
+            "total_duration": total_duration,
         }
 
     def print_final_report(self, stats: dict[str, Any]):
         """Print final test report"""
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print("🎉 AITBC COMPLETE SYSTEM TEST RESULTS")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
         print("📊 OVERALL STATISTICS:")
         print(f"   • Total Test Suites: {stats['total_suites']}")
         print(f"   • Passed Suites: {stats['passed_suites']}")
         print(f"   • Failed Suites: {stats['failed_suites']}")
-        print(f"   • Suite Success Rate: {(stats['passed_suites']/stats['total_suites']*100):.1f}%")
+        print(f"   • Suite Success Rate: {(stats['passed_suites'] / stats['total_suites'] * 100):.1f}%")
         print("")
         print("🧪 TEST STATISTICS:")
         print(f"   • Total Tests: {stats['total_tests']}")
@@ -254,14 +260,14 @@ class CompleteTestRunner:
         # Group results by system
         system_results = {}
         for suite_info in self.test_suites:
-            system = suite_info['system']
+            system = suite_info["system"]
             if system not in system_results:
                 system_results[system] = []
-            system_results[system].append(self.results.get(suite_info['file'], {}))
+            system_results[system].append(self.results.get(suite_info["file"], {}))
 
         for system, results in system_results.items():
-            system_total_tests = sum(r['total_tests'] for r in results)
-            system_passed = sum(r['passed'] for r in results)
+            system_total_tests = sum(r["total_tests"] for r in results)
+            system_passed = sum(r["passed"] for r in results)
             system_success_rate = (system_passed / system_total_tests * 100) if system_total_tests > 0 else 0
             status_emoji = "✅" if system_success_rate >= 80 else "❌"
 
@@ -270,14 +276,15 @@ class CompleteTestRunner:
         print("")
         print("🚀 AITBC SYSTEMS STATUS: 9/9 COMPLETE (100%)")
 
-        if stats['overall_success_rate'] >= 80:
+        if stats["overall_success_rate"] >= 80:
             print("✅ OVERALL STATUS: EXCELLENT - System is production ready!")
-        elif stats['overall_success_rate'] >= 60:
+        elif stats["overall_success_rate"] >= 60:
             print("⚠️  OVERALL STATUS: GOOD - System mostly functional")
         else:
             print("❌ OVERALL STATUS: NEEDS ATTENTION - System has issues")
 
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
+
 
 def main():
     """Main test runner function"""
@@ -286,10 +293,11 @@ def main():
     runner.print_final_report(stats)
 
     # Return appropriate exit code
-    if stats['overall_success_rate'] >= 80:
+    if stats["overall_success_rate"] >= 80:
         return 0
     else:
         return 1
+
 
 if __name__ == "__main__":
     exit_code = main()

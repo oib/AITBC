@@ -22,6 +22,7 @@ CHAIN_PARAMS = {
     "fee_per_byte": 1,
 }
 
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate production genesis data")
     parser.add_argument(
@@ -81,9 +82,7 @@ def build_genesis(chain_id: str, allocations: list[dict[str, Any]], authorities:
         "timestamp": timestamp,
         "params": CHAIN_PARAMS.copy(),
         "allocations": allocations,  # Renamed from 'accounts' to avoid confusion
-        "authorities": [
-            {"address": addr, "weight": 1} for addr in authorities
-        ],
+        "authorities": [{"address": addr, "weight": 1} for addr in authorities],
     }
 
 

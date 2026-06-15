@@ -17,9 +17,7 @@ class AlertDispatcher:
         self._history: deque[dict[str, Any]] = deque(maxlen=max_history)
 
     def dispatch(self, alerts: dict[str, dict[str, Any]]) -> dict[str, Any]:
-        triggered = {
-            name: alert for name, alert in alerts.items() if alert.get("triggered")
-        }
+        triggered = {name: alert for name, alert in alerts.items() if alert.get("triggered")}
         results: dict[str, Any] = {
             "triggered_count": len(triggered),
             "sent": [],

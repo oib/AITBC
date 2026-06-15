@@ -3,7 +3,6 @@ Edge API CLI Commands
 Commands for interacting with the Edge API service
 """
 
-
 import click
 import httpx
 
@@ -56,9 +55,9 @@ def balance(ctx):
 
 
 @edge.command()
-@click.argument('to_address')
-@click.argument('amount', type=float)
-@click.option('--note', help='Transfer note')
+@click.argument("to_address")
+@click.argument("amount", type=float)
+@click.option("--note", help="Transfer note")
 @click.pass_context
 def transfer(ctx, to_address: str, amount: float, note: str | None):
     """Transfer edge tokens to another address"""
@@ -66,10 +65,7 @@ def transfer(ctx, to_address: str, amount: float, note: str | None):
 
     try:
         http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
-        transfer_data = {
-            "to_address": to_address,
-            "amount": amount
-        }
+        transfer_data = {"to_address": to_address, "amount": amount}
         if note:
             transfer_data["note"] = note
 
@@ -96,22 +92,19 @@ def island():
 
 
 @island.command()
-@click.argument('island_id')
-@click.argument('island_name')
-@click.argument('chain_id')
-@click.option('--role', default='compute-provider', help='Island role')
-@click.option('--is-hub', is_flag=True, help='Mark as hub node')
+@click.argument("island_id")
+@click.argument("island_name")
+@click.argument("chain_id")
+@click.option("--role", default="compute-provider", help="Island role")
+@click.option("--is-hub", is_flag=True, help="Mark as hub node")
 def join(island_id: str, island_name: str, chain_id: str, role: str, is_hub: bool):
     """Join an island"""
     try:
         client = get_edge_client()
-        response = client.post("/v1/islands/join", json={
-            "island_id": island_id,
-            "island_name": island_name,
-            "chain_id": chain_id,
-            "role": role,
-            "is_hub": is_hub
-        })
+        response = client.post(
+            "/v1/islands/join",
+            json={"island_id": island_id, "island_name": island_name, "chain_id": chain_id, "role": role, "is_hub": is_hub},
+        )
         response.raise_for_status()
         result = response.json()
 
@@ -125,7 +118,7 @@ def join(island_id: str, island_name: str, chain_id: str, role: str, is_hub: boo
 
 
 @island.command()
-@click.argument('island_id')
+@click.argument("island_id")
 def leave(island_id: str):
     """Leave an island"""
     try:
@@ -143,7 +136,7 @@ def leave(island_id: str):
         error(f"Error leaving island: {str(e)}")
 
 
-@island.command(name='list')
+@island.command(name="list")
 def list_islands():
     """List all islands"""
     try:
@@ -162,7 +155,7 @@ def list_islands():
 
 
 @island.command()
-@click.argument('island_id')
+@click.argument("island_id")
 def get(island_id: str):
     """Get island details"""
     try:
@@ -176,7 +169,7 @@ def get(island_id: str):
 
 
 @island.command()
-@click.argument('target_island_id')
+@click.argument("target_island_id")
 def bridge(target_island_id: str):
     """Request bridge to another island"""
     try:
@@ -201,9 +194,9 @@ def gpu():
 
 
 @gpu.command()
-@click.option('--architecture', help='Filter by GPU architecture')
-@click.option('--edge-optimized', is_flag=True, help='Filter edge-optimized GPUs')
-@click.option('--min-memory-gb', type=int, help='Minimum memory in GB')
+@click.option("--architecture", help="Filter by GPU architecture")
+@click.option("--edge-optimized", is_flag=True, help="Filter edge-optimized GPUs")
+@click.option("--min-memory-gb", type=int, help="Minimum memory in GB")
 def list_gpus(architecture: str | None, edge_optimized: bool, min_memory_gb: int | None):
     """List available GPUs"""
     try:
@@ -230,7 +223,7 @@ def list_gpus(architecture: str | None, edge_optimized: bool, min_memory_gb: int
 
 
 @gpu.command()
-@click.argument('gpu_id')
+@click.argument("gpu_id")
 def get_gpu(gpu_id: str):
     """Get GPU details"""
     try:
@@ -244,7 +237,7 @@ def get_gpu(gpu_id: str):
 
 
 @gpu.command()
-@click.argument('gpu_id')
+@click.argument("gpu_id")
 def remove_gpu(gpu_id: str):
     """Remove GPU from listing"""
     try:
@@ -258,7 +251,7 @@ def remove_gpu(gpu_id: str):
 
 
 @gpu.command()
-@click.argument('miner_id')
+@click.argument("miner_id")
 def scan_gpus(miner_id: str):
     """Scan GPUs for a miner"""
     try:
@@ -273,8 +266,8 @@ def scan_gpus(miner_id: str):
 
 
 @gpu.command()
-@click.argument('gpu_id')
-@click.option('--limit', type=int, default=100, help='Number of metrics to return')
+@click.argument("gpu_id")
+@click.option("--limit", type=int, default=100, help="Number of metrics to return")
 def gpu_metrics(gpu_id: str, limit: int):
     """Get GPU metrics"""
     try:
@@ -294,18 +287,16 @@ def database():
 
 
 @database.command()
-@click.argument('database_id')
-@click.argument('island_id')
-@click.argument('capacity_gb', type=int)
+@click.argument("database_id")
+@click.argument("island_id")
+@click.argument("capacity_gb", type=int)
 def init_db(database_id: str, island_id: str, capacity_gb: int):
     """Initialize edge database"""
     try:
         client = get_edge_client()
-        response = client.post("/v1/database/init", json={
-            "database_id": database_id,
-            "island_id": island_id,
-            "capacity_gb": capacity_gb
-        })
+        response = client.post(
+            "/v1/database/init", json={"database_id": database_id, "island_id": island_id, "capacity_gb": capacity_gb}
+        )
         response.raise_for_status()
         result = response.json()
 
@@ -319,7 +310,7 @@ def init_db(database_id: str, island_id: str, capacity_gb: int):
 
 
 @database.command()
-@click.option('--island-id', help='Filter by island ID')
+@click.option("--island-id", help="Filter by island ID")
 def list_dbs(island_id: str | None):
     """List edge databases"""
     try:
@@ -342,7 +333,7 @@ def list_dbs(island_id: str | None):
 
 
 @database.command()
-@click.argument('database_id')
+@click.argument("database_id")
 def get_db(database_id: str):
     """Get database details"""
     try:
@@ -356,7 +347,7 @@ def get_db(database_id: str):
 
 
 @database.command()
-@click.argument('database_id')
+@click.argument("database_id")
 def delete_db(database_id: str):
     """Delete database"""
     try:
@@ -370,7 +361,7 @@ def delete_db(database_id: str):
 
 
 @database.command()
-@click.argument('database_id')
+@click.argument("database_id")
 def sync_db(database_id: str):
     """Sync database"""
     try:
@@ -395,21 +386,20 @@ def serve():
 
 
 @serve.command()
-@click.argument('gpu_id')
-@click.argument('model_name')
-@click.argument('input_data')
-@click.option('--priority', default='normal', help='Request priority')
+@click.argument("gpu_id")
+@click.argument("model_name")
+@click.argument("input_data")
+@click.option("--priority", default="normal", help="Request priority")
 def submit_request(gpu_id: str, model_name: str, input_data: str, priority: str):
     """Submit compute request"""
     try:
         import json
+
         client = get_edge_client()
-        response = client.post("/v1/serve/requests", json={
-            "gpu_id": gpu_id,
-            "model_name": model_name,
-            "input_data": json.loads(input_data),
-            "priority": priority
-        })
+        response = client.post(
+            "/v1/serve/requests",
+            json={"gpu_id": gpu_id, "model_name": model_name, "input_data": json.loads(input_data), "priority": priority},
+        )
         response.raise_for_status()
         result = response.json()
 
@@ -423,8 +413,8 @@ def submit_request(gpu_id: str, model_name: str, input_data: str, priority: str)
 
 
 @serve.command()
-@click.option('--gpu-id', help='Filter by GPU ID')
-@click.option('--status', help='Filter by status')
+@click.option("--gpu-id", help="Filter by GPU ID")
+@click.option("--status", help="Filter by status")
 def list_requests(gpu_id: str | None, status: str | None):
     """List compute requests"""
     try:
@@ -449,7 +439,7 @@ def list_requests(gpu_id: str | None, status: str | None):
 
 
 @serve.command()
-@click.argument('request_id')
+@click.argument("request_id")
 def get_request(request_id: str):
     """Get compute request details"""
     try:
@@ -463,7 +453,7 @@ def get_request(request_id: str):
 
 
 @serve.command()
-@click.argument('request_id')
+@click.argument("request_id")
 def cancel_request(request_id: str):
     """Cancel compute request"""
     try:
@@ -477,7 +467,7 @@ def cancel_request(request_id: str):
 
 
 @serve.command()
-@click.argument('request_id')
+@click.argument("request_id")
 def get_result(request_id: str):
     """Get compute result"""
     try:
@@ -497,17 +487,15 @@ def metrics():
 
 
 @metrics.command()
-@click.argument('gpu_id')
-@click.argument('metrics')
+@click.argument("gpu_id")
+@click.argument("metrics")
 def record(gpu_id: str, metrics: str):
     """Record edge metrics"""
     try:
         import json
+
         client = get_edge_client()
-        response = client.post("/v1/metrics/", json={
-            "gpu_id": gpu_id,
-            "metrics": json.loads(metrics)
-        })
+        response = client.post("/v1/metrics/", json={"gpu_id": gpu_id, "metrics": json.loads(metrics)})
         response.raise_for_status()
         result = response.json()
 
@@ -521,8 +509,8 @@ def record(gpu_id: str, metrics: str):
 
 
 @metrics.command()
-@click.option('--gpu-id', help='Filter by GPU ID')
-@click.option('--limit', type=int, default=100, help='Number of metrics to return')
+@click.option("--gpu-id", help="Filter by GPU ID")
+@click.option("--limit", type=int, default=100, help="Number of metrics to return")
 def list_metrics(gpu_id: str | None, limit: int):
     """List edge metrics"""
     try:
@@ -545,7 +533,7 @@ def list_metrics(gpu_id: str | None, limit: int):
 
 
 @metrics.command()
-@click.argument('metric_id')
+@click.argument("metric_id")
 def get_metric(metric_id: str):
     """Get metric details"""
     try:
@@ -559,7 +547,7 @@ def get_metric(metric_id: str):
 
 
 @metrics.command()
-@click.argument('metric_id')
+@click.argument("metric_id")
 def delete_metric(metric_id: str):
     """Delete metric"""
     try:

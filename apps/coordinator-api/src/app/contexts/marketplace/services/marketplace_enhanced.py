@@ -11,7 +11,6 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from ..domain import MarketplaceOffer  # type: ignore[attr-defined]
 from ..domain.marketplace import MarketplaceOffer
 
 

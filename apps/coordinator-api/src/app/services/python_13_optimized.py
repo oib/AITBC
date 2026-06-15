@@ -314,6 +314,7 @@ class ServiceFactory:
 # Usage Examples
 # ============================================================================
 
+
 async def demo_optimized_services() -> None:
     logger.info("Python 3.13.5 Optimized Services Demo")
     logger.info("Features:")

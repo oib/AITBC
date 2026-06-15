@@ -17,10 +17,7 @@ def _service_available(host: str = "localhost", port: int = 9001) -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(
-    not _service_available(),
-    reason="Agent coordinator service not running on localhost:9001"
-)
+pytestmark = pytest.mark.skipif(not _service_available(), reason="Agent coordinator service not running on localhost:9001")
 
 
 class TestTypeValidation:
@@ -37,13 +34,11 @@ class TestTypeValidation:
             "capabilities": ["compute", "storage"],
             "services": ["task_processing"],
             "endpoints": {"main": "http://localhost:8001"},
-            "metadata": {"version": "1.0.0"}
+            "metadata": {"version": "1.0.0"},
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/agents/register",
-            json=valid_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/agents/register", json=valid_data, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -59,13 +54,11 @@ class TestTypeValidation:
             "agent_id": "test_agent_002",
             "agent_type": 123,  # Should be string
             "capabilities": ["compute"],
-            "services": ["task_processing"]
+            "services": ["task_processing"],
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/agents/register",
-            json=invalid_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/agents/register", json=invalid_data, headers={"Content-Type": "application/json"}
         )
 
         # Should return validation error
@@ -75,22 +68,13 @@ class TestTypeValidation:
         """Test task submission type validation"""
         # Test valid task submission
         valid_data = {
-            "task_data": {
-                "task_id": "task_001",
-                "task_type": "compute",
-                "requirements": {"cpu": 2, "memory": "4GB"}
-            },
+            "task_data": {"task_id": "task_001", "task_type": "compute", "requirements": {"cpu": 2, "memory": "4GB"}},
             "priority": "normal",
-            "requirements": {
-                "min_agents": 1,
-                "max_execution_time": 300
-            }
+            "requirements": {"min_agents": 1, "max_execution_time": 300},
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/tasks/submit",
-            json=valid_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/tasks/submit", json=valid_data, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -102,20 +86,15 @@ class TestTypeValidation:
         """Test task submission with invalid types"""
         # Test with invalid priority
         invalid_data = {
-            "task_data": {
-                "task_id": "task_002",
-                "task_type": "compute"
-            },
+            "task_data": {"task_id": "task_002", "task_type": "compute"},
             "priority": 123,  # Should be string
             "requirements": {
                 "min_agents": "1"  # Should be integer
-            }
+            },
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/tasks/submit",
-            json=invalid_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/tasks/submit", json=invalid_data, headers={"Content-Type": "application/json"}
         )
 
         # Should return validation error
@@ -124,9 +103,7 @@ class TestTypeValidation:
     def test_load_balancer_strategy_validation(self):
         """Test load balancer strategy type validation"""
         # Test valid strategy
-        response = requests.put(
-            f"{self.BASE_URL}/load-balancer/strategy?strategy=round_robin"
-        )
+        response = requests.put(f"{self.BASE_URL}/load-balancer/strategy?strategy=round_robin")
 
         assert response.status_code == 200
         data = response.json()
@@ -136,13 +113,12 @@ class TestTypeValidation:
 
     def test_load_balancer_invalid_strategy(self):
         """Test invalid load balancer strategy"""
-        response = requests.put(
-            f"{self.BASE_URL}/load-balancer/strategy?strategy=invalid_strategy"
-        )
+        response = requests.put(f"{self.BASE_URL}/load-balancer/strategy?strategy=invalid_strategy")
 
         assert response.status_code == 400
         data = response.json()
         assert "Invalid strategy" in data["detail"]
+
 
 class TestAPIResponseTypes:
     """Test API response type consistency"""
@@ -176,23 +152,13 @@ class TestAPIResponseTypes:
     def test_agent_discovery_response_types(self):
         """Test agent discovery response types"""
         # Register an agent first
-        agent_data = {
-            "agent_id": "discovery_test_agent",
-            "agent_type": "worker",
-            "capabilities": ["test"]
-        }
+        agent_data = {"agent_id": "discovery_test_agent", "agent_type": "worker", "capabilities": ["test"]}
 
-        requests.post(
-            f"{self.BASE_URL}/agents/register",
-            json=agent_data,
-            headers={"Content-Type": "application/json"}
-        )
+        requests.post(f"{self.BASE_URL}/agents/register", json=agent_data, headers={"Content-Type": "application/json"})
 
         # Test agent discovery
         response = requests.post(
-            f"{self.BASE_URL}/agents/discover",
-            json={"status": "active"},
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/agents/discover", json={"status": "active"}, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -249,6 +215,7 @@ class TestAPIResponseTypes:
         assert isinstance(system.get("total_tasks"), int)
         assert isinstance(system.get("load_balancer_strategy"), str)
 
+
 class TestErrorHandlingTypes:
     """Test error handling response types"""
 
@@ -279,9 +246,7 @@ class TestErrorHandlingTypes:
         """Test validation error response types"""
         # Send invalid data to trigger validation error
         response = requests.post(
-            f"{self.BASE_URL}/agents/register",
-            json={"invalid": "data"},
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/agents/register", json={"invalid": "data"}, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code in [422, 400]
@@ -314,15 +279,12 @@ class TestErrorHandlingTypes:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "user", "password": "user123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Try to access admin endpoint
-        response = requests.get(
-            f"{self.BASE_URL}/protected/admin",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/protected/admin", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 403
         data = response.json()
@@ -339,6 +301,7 @@ class TestErrorHandlingTypes:
             assert "required_roles" in data["detail"]
             assert "current_role" in data["detail"]
 
+
 class TestAdvancedFeaturesTypeSafety:
     """Test type safety in advanced features"""
 
@@ -349,7 +312,7 @@ class TestAdvancedFeaturesTypeSafety:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         return response.json()["access_token"]
 
@@ -359,29 +322,18 @@ class TestAdvancedFeaturesTypeSafety:
 
         # Test valid experience data
         valid_experience = {
-            "context": {
-                "system_load": 0.7,
-                "agents": 5,
-                "task_queue_size": 25
-            },
+            "context": {"system_load": 0.7, "agents": 5, "task_queue_size": 25},
             "action": "scale_resources",
             "outcome": "success",
-            "performance_metrics": {
-                "response_time": 0.5,
-                "throughput": 100,
-                "error_rate": 0.02
-            },
+            "performance_metrics": {"response_time": 0.5, "throughput": 100, "error_rate": 0.02},
             "reward": 0.8,
-            "metadata": {"test": True}
+            "metadata": {"test": True},
         }
 
         response = requests.post(
             f"{self.BASE_URL}/ai/learning/experience",
             json=valid_experience,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -410,16 +362,13 @@ class TestAdvancedFeaturesTypeSafety:
             "input_size": 10,
             "hidden_sizes": [64, 32],
             "output_size": 1,
-            "learning_rate": 0.01
+            "learning_rate": 0.01,
         }
 
         response = requests.post(
             f"{self.BASE_URL}/ai/neural-network/create",
             json=valid_config,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -453,20 +402,13 @@ class TestAdvancedFeaturesTypeSafety:
         # Test valid proposal
         valid_proposal = {
             "proposer_id": "node_001",
-            "content": {
-                "action": "system_update",
-                "version": "1.1.0",
-                "description": "Update system to new version"
-            }
+            "content": {"action": "system_update", "version": "1.1.0", "description": "Update system to new version"},
         }
 
         response = requests.post(
             f"{self.BASE_URL}/consensus/proposal/create",
             json=valid_proposal,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -487,6 +429,7 @@ class TestAdvancedFeaturesTypeSafety:
         assert isinstance(data["deadline"], str)
         assert isinstance(data["algorithm"], str)
 
+
 class TestTypeSafetyIntegration:
     """Test type safety across integrated systems"""
 
@@ -499,13 +442,11 @@ class TestTypeSafetyIntegration:
             "agent_id": "type_test_agent",
             "agent_type": "worker",
             "capabilities": ["compute", "storage"],
-            "services": ["task_processing"]
+            "services": ["task_processing"],
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/agents/register",
-            json=agent_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/agents/register", json=agent_data, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -514,19 +455,11 @@ class TestTypeSafetyIntegration:
 
         # 2. Submit task with proper types
         task_data = {
-            "task_data": {
-                "task_id": "type_test_task",
-                "task_type": "compute",
-                "requirements": {"cpu": 1}
-            },
-            "priority": "normal"
+            "task_data": {"task_id": "type_test_task", "task_type": "compute", "requirements": {"cpu": 1}},
+            "priority": "normal",
         }
 
-        response = requests.post(
-            f"{self.BASE_URL}/tasks/submit",
-            json=task_data,
-            headers={"Content-Type": "application/json"}
-        )
+        response = requests.post(f"{self.BASE_URL}/tasks/submit", json=task_data, headers={"Content-Type": "application/json"})
 
         assert response.status_code == 200
         task_response = response.json()
@@ -540,7 +473,14 @@ class TestTypeSafetyIntegration:
 
         # Verify all numeric fields are proper types
         perf = metrics_response["performance"]
-        numeric_fields = ["avg_response_time", "p95_response_time", "p99_response_time", "error_rate", "total_requests", "uptime_seconds"]
+        numeric_fields = [
+            "avg_response_time",
+            "p95_response_time",
+            "p99_response_time",
+            "error_rate",
+            "total_requests",
+            "uptime_seconds",
+        ]
 
         for field in numeric_fields:
             assert field in perf
@@ -548,9 +488,7 @@ class TestTypeSafetyIntegration:
 
         # 4. Check agent discovery returns consistent types
         response = requests.post(
-            f"{self.BASE_URL}/agents/discover",
-            json={"status": "active"},
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/agents/discover", json={"status": "active"}, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -577,14 +515,11 @@ class TestTypeSafetyIntegration:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "user", "password": "user123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
-        response = requests.get(
-            f"{self.BASE_URL}/protected/admin",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/protected/admin", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 403
         error_403 = response.json()
         # 403 errors can be either string or object format
@@ -599,13 +534,12 @@ class TestTypeSafetyIntegration:
 
         # Test validation error
         response = requests.post(
-            f"{self.BASE_URL}/agents/register",
-            json={"invalid": "data"},
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/agents/register", json={"invalid": "data"}, headers={"Content-Type": "application/json"}
         )
         assert response.status_code in [422, 400]
         error_validation = response.json()
         assert isinstance(error_validation["detail"], (str, list))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     pytest.main([__file__])

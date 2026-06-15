@@ -2,6 +2,7 @@
 Advanced Load Balancing - Phase 6.4 Implementation
 Intelligent traffic distribution with AI-powered auto-scaling and performance optimization
 """
+
 import statistics
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -12,33 +13,41 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+
 class LoadBalancingAlgorithm(StrEnum):
     """Load balancing algorithms"""
-    ROUND_ROBIN = 'round_robin'
-    WEIGHTED_ROUND_ROBIN = 'weighted_round_robin'
-    LEAST_CONNECTIONS = 'least_connections'
-    LEAST_RESPONSE_TIME = 'least_response_time'
-    RESOURCE_BASED = 'resource_based'
-    PREDICTIVE_AI = 'predictive_ai'
-    ADAPTIVE = 'adaptive'
+
+    ROUND_ROBIN = "round_robin"
+    WEIGHTED_ROUND_ROBIN = "weighted_round_robin"
+    LEAST_CONNECTIONS = "least_connections"
+    LEAST_RESPONSE_TIME = "least_response_time"
+    RESOURCE_BASED = "resource_based"
+    PREDICTIVE_AI = "predictive_ai"
+    ADAPTIVE = "adaptive"
+
 
 class ScalingPolicy(StrEnum):
     """Auto-scaling policies"""
-    MANUAL = 'manual'
-    THRESHOLD_BASED = 'threshold_based'
-    PREDICTIVE = 'predictive'
-    HYBRID = 'hybrid'
+
+    MANUAL = "manual"
+    THRESHOLD_BASED = "threshold_based"
+    PREDICTIVE = "predictive"
+    HYBRID = "hybrid"
+
 
 class HealthStatus(StrEnum):
     """Health status"""
-    HEALTHY = 'healthy'
-    UNHEALTHY = 'unhealthy'
-    DRAINING = 'draining'
-    MAINTENANCE = 'maintenance'
+
+    HEALTHY = "healthy"
+    UNHEALTHY = "unhealthy"
+    DRAINING = "draining"
+    MAINTENANCE = "maintenance"
+
 
 @dataclass
 class BackendServer:
     """Backend server configuration"""
+
     server_id: str
     host: str
     port: int
@@ -53,12 +62,14 @@ class BackendServer:
     health_status: HealthStatus = HealthStatus.HEALTHY
     last_health_check: datetime = field(default_factory=lambda: datetime.now(UTC))
     capabilities: dict[str, Any] = field(default_factory=dict)
-    region: str = 'default'
+    region: str = "default"
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
 
 @dataclass
 class ScalingMetric:
     """Scaling metric configuration"""
+
     metric_name: str
     threshold_min: float
     threshold_max: float
@@ -66,15 +77,18 @@ class ScalingMetric:
     cooldown_period: timedelta
     measurement_window: timedelta
 
+
 @dataclass
 class TrafficPattern:
     """Traffic pattern for predictive scaling"""
+
     pattern_id: str
     name: str
     time_windows: list[dict[str, Any]]
     day_of_week: int
     seasonal_factor: float = 1.0
     confidence_score: float = 0.0
+
 
 class PredictiveScaler:
     """AI-powered predictive auto-scaling"""
@@ -84,14 +98,25 @@ class PredictiveScaler:
         self.scaling_predictions: dict[str, Any] = {}
         self.traffic_patterns: dict[str, TrafficPattern] = {}
         self.model_weights: dict[str, float] = {}
-        self.logger = get_logger('predictive_scaler')
+        self.logger = get_logger("predictive_scaler")
 
-    async def record_traffic(self, timestamp: datetime, request_count: int, response_time_ms: float, error_rate: float) -> None:
+    async def record_traffic(
+        self, timestamp: datetime, request_count: int, response_time_ms: float, error_rate: float
+    ) -> None:
         """Record traffic metrics"""
-        traffic_record = {'timestamp': timestamp, 'request_count': request_count, 'response_time_ms': response_time_ms, 'error_rate': error_rate, 'hour': timestamp.hour, 'day_of_week': timestamp.weekday(), 'day_of_month': timestamp.day, 'month': timestamp.month}
+        traffic_record = {
+            "timestamp": timestamp,
+            "request_count": request_count,
+            "response_time_ms": response_time_ms,
+            "error_rate": error_rate,
+            "hour": timestamp.hour,
+            "day_of_week": timestamp.weekday(),
+            "day_of_month": timestamp.day,
+            "month": timestamp.month,
+        }
         self.traffic_history.append(traffic_record)
         cutoff = datetime.now(UTC) - timedelta(days=30)
-        self.traffic_history = [record for record in self.traffic_history if record['timestamp'] > cutoff]
+        self.traffic_history = [record for record in self.traffic_history if record["timestamp"] > cutoff]
         await self._update_traffic_patterns()
 
     async def _update_traffic_patterns(self) -> None:
@@ -102,25 +127,46 @@ class PredictiveScaler:
         for record in self.traffic_history:
             key = f"{record['day_of_week']}_{record['hour']}"
             if key not in patterns:
-                patterns[key] = {'request_counts': [], 'response_times': [], 'error_rates': []}
-            patterns[key]['request_counts'].append(record['request_count'])
-            patterns[key]['response_times'].append(record['response_time_ms'])
-            patterns[key]['error_rates'].append(record['error_rate'])
+                patterns[key] = {"request_counts": [], "response_times": [], "error_rates": []}
+            patterns[key]["request_counts"].append(record["request_count"])
+            patterns[key]["response_times"].append(record["response_time_ms"])
+            patterns[key]["error_rates"].append(record["error_rate"])
         for key, data in patterns.items():
-            day_of_week, hour = key.split('_')
-            pattern = TrafficPattern(pattern_id=key, name=f'Pattern Day {day_of_week} Hour {hour}', time_windows=[{'hour': int(hour), 'avg_requests': statistics.mean(data['request_counts']), 'max_requests': max(data['request_counts']), 'min_requests': min(data['request_counts']), 'std_requests': statistics.stdev(data['request_counts']) if len(data['request_counts']) > 1 else 0, 'avg_response_time': statistics.mean(data['response_times']), 'avg_error_rate': statistics.mean(data['error_rates'])}], day_of_week=int(day_of_week), confidence_score=min(len(data['request_counts']) / 100, 1.0))
+            day_of_week, hour = key.split("_")
+            pattern = TrafficPattern(
+                pattern_id=key,
+                name=f"Pattern Day {day_of_week} Hour {hour}",
+                time_windows=[
+                    {
+                        "hour": int(hour),
+                        "avg_requests": statistics.mean(data["request_counts"]),
+                        "max_requests": max(data["request_counts"]),
+                        "min_requests": min(data["request_counts"]),
+                        "std_requests": statistics.stdev(data["request_counts"]) if len(data["request_counts"]) > 1 else 0,
+                        "avg_response_time": statistics.mean(data["response_times"]),
+                        "avg_error_rate": statistics.mean(data["error_rates"]),
+                    }
+                ],
+                day_of_week=int(day_of_week),
+                confidence_score=min(len(data["request_counts"]) / 100, 1.0),
+            )
             self.traffic_patterns[key] = pattern
 
-    async def predict_traffic(self, prediction_window: timedelta=timedelta(hours=1)) -> dict[str, Any]:
+    async def predict_traffic(self, prediction_window: timedelta = timedelta(hours=1)) -> dict[str, Any]:
         """Predict traffic for the next time window"""
         try:
             current_time = datetime.now(UTC)
             current_time + prediction_window
-            current_pattern_key = f'{current_time.weekday()}_{current_time.hour}'
+            current_pattern_key = f"{current_time.weekday()}_{current_time.hour}"
             current_pattern = self.traffic_patterns.get(current_pattern_key)
             if not current_pattern:
                 return await self._simple_prediction(prediction_window)
-            similar_patterns = [pattern for pattern in self.traffic_patterns.values() if pattern.day_of_week == current_time.weekday() and abs(pattern.time_windows[0]['hour'] - current_time.hour) <= 2]
+            similar_patterns = [
+                pattern
+                for pattern in self.traffic_patterns.values()
+                if pattern.day_of_week == current_time.weekday()
+                and abs(pattern.time_windows[0]["hour"] - current_time.hour) <= 2
+            ]
             if not similar_patterns:
                 return await self._simple_prediction(prediction_window)
             total_weight = 0.0
@@ -130,9 +176,9 @@ class PredictiveScaler:
             for pattern in similar_patterns:
                 weight = pattern.confidence_score
                 window_data = pattern.time_windows[0]
-                weighted_requests += window_data['avg_requests'] * weight
-                weighted_response_time += window_data['avg_response_time'] * weight
-                weighted_error_rate += window_data['avg_error_rate'] * weight
+                weighted_requests += window_data["avg_requests"] * weight
+                weighted_response_time += window_data["avg_response_time"] * weight
+                weighted_error_rate += window_data["avg_error_rate"] * weight
                 total_weight += weight
             if total_weight > 0:
                 predicted_requests = weighted_requests / total_weight
@@ -142,20 +188,45 @@ class PredictiveScaler:
                 return await self._simple_prediction(prediction_window)
             seasonal_factor = self._get_seasonal_factor(current_time)
             predicted_requests *= seasonal_factor
-            return {'prediction_window_hours': prediction_window.total_seconds() / 3600, 'predicted_requests_per_hour': int(predicted_requests), 'predicted_response_time_ms': predicted_response_time, 'predicted_error_rate': predicted_error_rate, 'confidence_score': min(total_weight / len(similar_patterns), 1.0), 'seasonal_factor': seasonal_factor, 'pattern_based': True, 'prediction_timestamp': current_time.isoformat()}
+            return {
+                "prediction_window_hours": prediction_window.total_seconds() / 3600,
+                "predicted_requests_per_hour": int(predicted_requests),
+                "predicted_response_time_ms": predicted_response_time,
+                "predicted_error_rate": predicted_error_rate,
+                "confidence_score": min(total_weight / len(similar_patterns), 1.0),
+                "seasonal_factor": seasonal_factor,
+                "pattern_based": True,
+                "prediction_timestamp": current_time.isoformat(),
+            }
         except Exception as e:
-            self.logger.error('Traffic prediction failed: %s', e)
+            self.logger.error("Traffic prediction failed: %s", e)
             return await self._simple_prediction(prediction_window)
 
     async def _simple_prediction(self, prediction_window: timedelta) -> dict[str, Any]:
         """Simple prediction based on recent averages"""
         if not self.traffic_history:
-            return {'prediction_window_hours': prediction_window.total_seconds() / 3600, 'predicted_requests_per_hour': 1000, 'predicted_response_time_ms': 100.0, 'predicted_error_rate': 0.01, 'confidence_score': 0.1, 'pattern_based': False, 'prediction_timestamp': datetime.now(UTC).isoformat()}
+            return {
+                "prediction_window_hours": prediction_window.total_seconds() / 3600,
+                "predicted_requests_per_hour": 1000,
+                "predicted_response_time_ms": 100.0,
+                "predicted_error_rate": 0.01,
+                "confidence_score": 0.1,
+                "pattern_based": False,
+                "prediction_timestamp": datetime.now(UTC).isoformat(),
+            }
         recent_records = self.traffic_history[-24:]
-        avg_requests = statistics.mean([r['request_count'] for r in recent_records])
-        avg_response_time = statistics.mean([r['response_time_ms'] for r in recent_records])
-        avg_error_rate = statistics.mean([r['error_rate'] for r in recent_records])
-        return {'prediction_window_hours': prediction_window.total_seconds() / 3600, 'predicted_requests_per_hour': int(avg_requests), 'predicted_response_time_ms': avg_response_time, 'predicted_error_rate': avg_error_rate, 'confidence_score': 0.3, 'pattern_based': False, 'prediction_timestamp': datetime.now(UTC).isoformat()}
+        avg_requests = statistics.mean([r["request_count"] for r in recent_records])
+        avg_response_time = statistics.mean([r["response_time_ms"] for r in recent_records])
+        avg_error_rate = statistics.mean([r["error_rate"] for r in recent_records])
+        return {
+            "prediction_window_hours": prediction_window.total_seconds() / 3600,
+            "predicted_requests_per_hour": int(avg_requests),
+            "predicted_response_time_ms": avg_response_time,
+            "predicted_error_rate": avg_error_rate,
+            "confidence_score": 0.3,
+            "pattern_based": False,
+            "prediction_timestamp": datetime.now(UTC).isoformat(),
+        }
 
     def _get_seasonal_factor(self, timestamp: datetime) -> float:
         """Get seasonal adjustment factor"""
@@ -167,23 +238,37 @@ class PredictiveScaler:
         """Get scaling recommendation based on predictions"""
         try:
             prediction = await self.predict_traffic(timedelta(hours=1))
-            predicted_requests = prediction['predicted_requests_per_hour']
+            predicted_requests = prediction["predicted_requests_per_hour"]
             current_capacity_per_server = current_capacity // max(current_servers, 1)
             required_servers = max(1, int(predicted_requests / current_capacity_per_server))
             required_servers = int(required_servers * 1.2)
-            scaling_action = 'none'
+            scaling_action = "none"
             if required_servers > current_servers:
-                scaling_action = 'scale_up'
+                scaling_action = "scale_up"
                 scale_to = required_servers
             elif required_servers < current_servers * 0.7:
-                scaling_action = 'scale_down'
+                scaling_action = "scale_down"
                 scale_to = max(1, required_servers)
             else:
                 scale_to = current_servers
-            return {'current_servers': current_servers, 'recommended_servers': scale_to, 'scaling_action': scaling_action, 'predicted_load': predicted_requests, 'current_capacity_per_server': current_capacity_per_server, 'confidence_score': prediction['confidence_score'], 'reason': f'Predicted {predicted_requests} requests/hour vs current capacity {current_servers * current_capacity_per_server}', 'recommendation_timestamp': datetime.now(UTC).isoformat()}
+            return {
+                "current_servers": current_servers,
+                "recommended_servers": scale_to,
+                "scaling_action": scaling_action,
+                "predicted_load": predicted_requests,
+                "current_capacity_per_server": current_capacity_per_server,
+                "confidence_score": prediction["confidence_score"],
+                "reason": f"Predicted {predicted_requests} requests/hour vs current capacity {current_servers * current_capacity_per_server}",
+                "recommendation_timestamp": datetime.now(UTC).isoformat(),
+            }
         except Exception as e:
-            self.logger.error('Scaling recommendation failed: %s', e)
-            return {'scaling_action': 'none', 'reason': f'Prediction failed: {str(e)}', 'recommendation_timestamp': datetime.now(UTC).isoformat()}
+            self.logger.error("Scaling recommendation failed: %s", e)
+            return {
+                "scaling_action": "none",
+                "reason": f"Prediction failed: {str(e)}",
+                "recommendation_timestamp": datetime.now(UTC).isoformat(),
+            }
+
 
 class AdvancedLoadBalancer:
     """Advanced load balancer with multiple algorithms and AI optimization"""
@@ -196,17 +281,23 @@ class AdvancedLoadBalancer:
         self.performance_metrics: dict[str, dict[str, Any]] = {}
         self.predictive_scaler = PredictiveScaler()
         self.scaling_metrics: dict[str, Any] = {}
-        self.logger = get_logger('advanced_load_balancer')
+        self.logger = get_logger("advanced_load_balancer")
 
     async def add_backend(self, server: BackendServer) -> bool:
         """Add backend server"""
         try:
             self.backends[server.server_id] = server
-            self.performance_metrics[server.server_id] = {'avg_response_time': 0.0, 'error_rate': 0.0, 'throughput': 0.0, 'uptime': 1.0, 'last_updated': datetime.now(UTC)}
-            self.logger.info('Backend server added: %s', server.server_id)
+            self.performance_metrics[server.server_id] = {
+                "avg_response_time": 0.0,
+                "error_rate": 0.0,
+                "throughput": 0.0,
+                "uptime": 1.0,
+                "last_updated": datetime.now(UTC),
+            }
+            self.logger.info("Backend server added: %s", server.server_id)
             return True
         except Exception as e:
-            self.logger.error('Failed to add backend server: %s', e)
+            self.logger.error("Failed to add backend server: %s", e)
             return False
 
     async def remove_backend(self, server_id: str) -> bool:
@@ -214,14 +305,16 @@ class AdvancedLoadBalancer:
         if server_id in self.backends:
             del self.backends[server_id]
             del self.performance_metrics[server_id]
-            self.logger.info('Backend server removed: %s', server_id)
+            self.logger.info("Backend server removed: %s", server_id)
             return True
         return False
 
-    async def select_backend(self, request_context: dict[str, Any] | None=None) -> str | None:
+    async def select_backend(self, request_context: dict[str, Any] | None = None) -> str | None:
         """Select backend server based on algorithm"""
         try:
-            healthy_backends = {sid: server for sid, server in self.backends.items() if server.health_status == HealthStatus.HEALTHY}
+            healthy_backends = {
+                sid: server for sid, server in self.backends.items() if server.health_status == HealthStatus.HEALTHY
+            }
             if not healthy_backends:
                 return None
             if self.algorithm == LoadBalancingAlgorithm.ROUND_ROBIN:
@@ -239,7 +332,7 @@ class AdvancedLoadBalancer:
             elif self.algorithm == LoadBalancingAlgorithm.ADAPTIVE:
                 return await self._select_adaptive(healthy_backends, request_context)
         except Exception as e:
-            self.logger.error('Backend selection failed: %s', e)
+            self.logger.error("Backend selection failed: %s", e)
             return None
 
     async def _select_round_robin(self, backends: dict[str, BackendServer]) -> str | None:
@@ -257,6 +350,7 @@ class AdvancedLoadBalancer:
         if total_weight <= 0:
             return await self._select_round_robin(backends)
         import random
+
         rand_value = random.uniform(0, total_weight)
         current_weight = 0.0
         for server_id, server in backends.items():
@@ -267,7 +361,7 @@ class AdvancedLoadBalancer:
 
     async def _select_least_connections(self, backends: dict[str, BackendServer]) -> str | None:
         """Select backend with least connections"""
-        min_connections = float('inf')
+        min_connections = float("inf")
         selected_backend: str | None = None
         for server_id, server in backends.items():
             if server.current_connections < min_connections:
@@ -277,7 +371,7 @@ class AdvancedLoadBalancer:
 
     async def _select_least_response_time(self, backends: dict[str, BackendServer]) -> str | None:
         """Select backend with least response time"""
-        min_response_time = float('inf')
+        min_response_time = float("inf")
         selected_backend: str | None = None
         for server_id, server in backends.items():
             if server.response_time_ms < min_response_time:
@@ -299,12 +393,19 @@ class AdvancedLoadBalancer:
                 selected_backend = server_id
         return selected_backend
 
-    async def _select_predictive_ai(self, backends: dict[str, BackendServer], request_context: dict[str, Any] | None) -> str | None:
+    async def _select_predictive_ai(
+        self, backends: dict[str, BackendServer], request_context: dict[str, Any] | None
+    ) -> str | None:
         """AI-powered predictive selection"""
         backend_scores = {}
         for server_id, server in backends.items():
             self.performance_metrics.get(server_id, {})
-            predicted_response_time = server.response_time_ms * (1 + server.cpu_usage / 100) * (1 + server.memory_usage / 100) * (1 + server.current_connections / server.max_connections)
+            predicted_response_time = (
+                server.response_time_ms
+                * (1 + server.cpu_usage / 100)
+                * (1 + server.memory_usage / 100)
+                * (1 + server.current_connections / server.max_connections)
+            )
             score = 1.0 / (1.0 + predicted_response_time / 100.0)
             if request_context:
                 context_multiplier = await self._calculate_context_multiplier(server, request_context)
@@ -328,31 +429,38 @@ class AdvancedLoadBalancer:
     async def _calculate_context_multiplier(self, server: BackendServer, request_context: dict[str, Any]) -> float:
         """Calculate context-based multiplier for backend selection"""
         multiplier = 1.0
-        if 'user_location' in request_context and 'region' in server.capabilities:
-            user_region = request_context['user_location'].get('region')
-            server_region = server.capabilities['region']
+        if "user_location" in request_context and "region" in server.capabilities:
+            user_region = request_context["user_location"].get("region")
+            server_region = server.capabilities["region"]
             if user_region == server_region:
                 multiplier *= 1.2
             elif self._regions_in_same_continent(user_region, server_region):
                 multiplier *= 1.1
-        request_type = request_context.get('request_type', 'general')
-        server_specializations = server.capabilities.get('specializations', [])
+        request_type = request_context.get("request_type", "general")
+        server_specializations = server.capabilities.get("specializations", [])
         if request_type in server_specializations:
             multiplier *= 1.3
-        user_tier = request_context.get('user_tier', 'standard')
-        if user_tier == 'premium' and server.capabilities.get('premium_support', False):
+        user_tier = request_context.get("user_tier", "standard")
+        if user_tier == "premium" and server.capabilities.get("premium_support", False):
             multiplier *= 1.15
         return multiplier
 
     def _regions_in_same_continent(self, region1: str, region2: str) -> bool:
         """Check if two regions are in the same continent"""
-        continent_mapping = {'NA': ['US', 'CA', 'MX'], 'EU': ['GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'BE', 'AT', 'CH', 'SE', 'NO', 'DK', 'FI'], 'APAC': ['JP', 'KR', 'SG', 'AU', 'IN', 'TH', 'MY', 'ID', 'PH', 'VN'], 'LATAM': ['BR', 'MX', 'AR', 'CL', 'CO', 'PE', 'VE']}
+        continent_mapping = {
+            "NA": ["US", "CA", "MX"],
+            "EU": ["GB", "DE", "FR", "IT", "ES", "NL", "BE", "AT", "CH", "SE", "NO", "DK", "FI"],
+            "APAC": ["JP", "KR", "SG", "AU", "IN", "TH", "MY", "ID", "PH", "VN"],
+            "LATAM": ["BR", "MX", "AR", "CL", "CO", "PE", "VE"],
+        }
         for _continent, regions in continent_mapping.items():
             if region1 in regions and region2 in regions:
                 return True
         return False
 
-    async def record_request(self, server_id: str, response_time_ms: float, success: bool, timestamp: datetime | None=None) -> None:
+    async def record_request(
+        self, server_id: str, response_time_ms: float, success: bool, timestamp: datetime | None = None
+    ) -> None:
         """Record request metrics"""
         if timestamp is None:
             timestamp = datetime.now(UTC)
@@ -362,13 +470,20 @@ class AdvancedLoadBalancer:
             server.response_time_ms = server.response_time_ms * 0.9 + response_time_ms * 0.1
             if not success:
                 server.error_count += 1
-        request_record = {'timestamp': timestamp, 'server_id': server_id, 'response_time_ms': response_time_ms, 'success': success}
+        request_record = {
+            "timestamp": timestamp,
+            "server_id": server_id,
+            "response_time_ms": response_time_ms,
+            "success": success,
+        }
         self.request_history.append(request_record)
         if len(self.request_history) > 10000:
             self.request_history = self.request_history[-10000:]
         await self.predictive_scaler.record_traffic(timestamp, 1, response_time_ms, 0.0 if success else 1.0)
 
-    async def update_backend_health(self, server_id: str, health_status: HealthStatus, cpu_usage: float, memory_usage: float, current_connections: int) -> None:
+    async def update_backend_health(
+        self, server_id: str, health_status: HealthStatus, cpu_usage: float, memory_usage: float, current_connections: int
+    ) -> None:
         """Update backend health metrics"""
         if server_id in self.backends:
             server = self.backends[server_id]
@@ -390,39 +505,84 @@ class AdvancedLoadBalancer:
                 avg_response_time = statistics.mean([server.response_time_ms for server in self.backends.values()])
             backend_distribution = {}
             for server_id, server in self.backends.items():
-                backend_distribution[server_id] = {'requests': server.request_count, 'errors': server.error_count, 'connections': server.current_connections, 'response_time_ms': server.response_time_ms, 'cpu_usage': server.cpu_usage, 'memory_usage': server.memory_usage, 'health_status': server.health_status.value, 'weight': server.weight}
-            scaling_recommendation = await self.predictive_scaler.get_scaling_recommendation(len(self.backends), sum(server.max_connections for server in self.backends.values()))
-            return {'total_backends': len(self.backends), 'healthy_backends': len([s for s in self.backends.values() if s.health_status == HealthStatus.HEALTHY]), 'total_requests': total_requests, 'total_errors': total_errors, 'error_rate': error_rate, 'average_response_time_ms': avg_response_time, 'total_connections': total_connections, 'algorithm': self.algorithm.value, 'backend_distribution': backend_distribution, 'scaling_recommendation': scaling_recommendation, 'timestamp': datetime.now(UTC).isoformat()}
+                backend_distribution[server_id] = {
+                    "requests": server.request_count,
+                    "errors": server.error_count,
+                    "connections": server.current_connections,
+                    "response_time_ms": server.response_time_ms,
+                    "cpu_usage": server.cpu_usage,
+                    "memory_usage": server.memory_usage,
+                    "health_status": server.health_status.value,
+                    "weight": server.weight,
+                }
+            scaling_recommendation = await self.predictive_scaler.get_scaling_recommendation(
+                len(self.backends), sum(server.max_connections for server in self.backends.values())
+            )
+            return {
+                "total_backends": len(self.backends),
+                "healthy_backends": len([s for s in self.backends.values() if s.health_status == HealthStatus.HEALTHY]),
+                "total_requests": total_requests,
+                "total_errors": total_errors,
+                "error_rate": error_rate,
+                "average_response_time_ms": avg_response_time,
+                "total_connections": total_connections,
+                "algorithm": self.algorithm.value,
+                "backend_distribution": backend_distribution,
+                "scaling_recommendation": scaling_recommendation,
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
         except Exception as e:
-            self.logger.error('Metrics retrieval failed: %s', e)
-            return {'error': str(e)}
+            self.logger.error("Metrics retrieval failed: %s", e)
+            return {"error": str(e)}
 
     async def set_algorithm(self, algorithm: LoadBalancingAlgorithm) -> None:
         """Set load balancing algorithm"""
         self.algorithm = algorithm
-        self.logger.info('Load balancing algorithm changed to: %s', algorithm.value)
+        self.logger.info("Load balancing algorithm changed to: %s", algorithm.value)
 
-    async def auto_scale(self, min_servers: int=1, max_servers: int=10) -> dict[str, Any]:
+    async def auto_scale(self, min_servers: int = 1, max_servers: int = 10) -> dict[str, Any]:
         """Perform auto-scaling based on predictions"""
         try:
-            recommendation = await self.predictive_scaler.get_scaling_recommendation(len(self.backends), sum(server.max_connections for server in self.backends.values()))
-            action = recommendation['scaling_action']
-            target_servers = recommendation['recommended_servers']
+            recommendation = await self.predictive_scaler.get_scaling_recommendation(
+                len(self.backends), sum(server.max_connections for server in self.backends.values())
+            )
+            action = recommendation["scaling_action"]
+            target_servers = recommendation["recommended_servers"]
             target_servers = max(min_servers, min(max_servers, target_servers))
-            scaling_result = {'action': action, 'current_servers': len(self.backends), 'target_servers': target_servers, 'confidence': recommendation.get('confidence_score', 0.0), 'reason': recommendation.get('reason', ''), 'timestamp': datetime.now(UTC).isoformat()}
-            self.logger.info('Auto-scaling recommendation: %s to %s servers', action, target_servers)
+            scaling_result = {
+                "action": action,
+                "current_servers": len(self.backends),
+                "target_servers": target_servers,
+                "confidence": recommendation.get("confidence_score", 0.0),
+                "reason": recommendation.get("reason", ""),
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+            self.logger.info("Auto-scaling recommendation: %s to %s servers", action, target_servers)
             return scaling_result
         except Exception as e:
-            self.logger.error('Auto-scaling failed: %s', e)
-            return {'error': str(e)}
+            self.logger.error("Auto-scaling failed: %s", e)
+            return {"error": str(e)}
+
+
 advanced_load_balancer = None
+
 
 async def get_advanced_load_balancer() -> AdvancedLoadBalancer:
     """Get or create global advanced load balancer"""
     global advanced_load_balancer
     if advanced_load_balancer is None:
         advanced_load_balancer = AdvancedLoadBalancer()
-        default_backends = [BackendServer(server_id='backend_1', host='10.0.1.10', port=8080, weight=1.0, max_connections=1000, region='us_east'), BackendServer(server_id='backend_2', host='10.0.1.11', port=8080, weight=1.0, max_connections=1000, region='us_east'), BackendServer(server_id='backend_3', host='10.0.1.12', port=8080, weight=0.8, max_connections=800, region='eu_west')]
+        default_backends = [
+            BackendServer(
+                server_id="backend_1", host="10.0.1.10", port=8080, weight=1.0, max_connections=1000, region="us_east"
+            ),
+            BackendServer(
+                server_id="backend_2", host="10.0.1.11", port=8080, weight=1.0, max_connections=1000, region="us_east"
+            ),
+            BackendServer(
+                server_id="backend_3", host="10.0.1.12", port=8080, weight=0.8, max_connections=800, region="eu_west"
+            ),
+        ]
         for backend in default_backends:
             await advanced_load_balancer.add_backend(backend)
     return advanced_load_balancer

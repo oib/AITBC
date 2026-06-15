@@ -42,11 +42,7 @@ class TestAPIResponse:
 
     def test_api_response_creation(self):
         """Test APIResponse creation"""
-        response = APIResponse(
-            success=True,
-            message="Test message",
-            data={"key": "value"}
-        )
+        response = APIResponse(success=True, message="Test message", data={"key": "value"})
         assert response.success is True
         assert response.message == "Test message"
         assert response.data == {"key": "value"}
@@ -65,12 +61,7 @@ class TestPaginatedResponse:
 
     def test_paginated_response_creation(self):
         """Test PaginatedResponse creation"""
-        response = PaginatedResponse(
-            success=True,
-            message="Success",
-            data=[1, 2, 3],
-            pagination={"page": 1, "total": 10}
-        )
+        response = PaginatedResponse(success=True, message="Success", data=[1, 2, 3], pagination={"page": 1, "total": 10})
         assert response.success is True
         assert response.data == [1, 2, 3]
         assert response.pagination == {"page": 1, "total": 10}
@@ -272,11 +263,7 @@ class TestHeaderBuilders:
 
     def test_build_cors_headers_custom(self):
         """Test build_cors_headers with custom values"""
-        headers = build_cors_headers(
-            allowed_origins=["http://localhost:3000"],
-            allowed_methods=["GET", "POST"],
-            max_age=7200
-        )
+        headers = build_cors_headers(allowed_origins=["http://localhost:3000"], allowed_methods=["GET", "POST"], max_age=7200)
 
         assert "http://localhost:3000" in headers["Access-Control-Allow-Origin"]
         assert "GET, POST" in headers["Access-Control-Allow-Methods"]
@@ -292,11 +279,7 @@ class TestHeaderBuilders:
 
     def test_build_standard_headers_with_options(self):
         """Test build_standard_headers with options"""
-        headers = build_standard_headers(
-            content_type="application/xml",
-            cache_control="no-cache",
-            x_request_id="req-123"
-        )
+        headers = build_standard_headers(content_type="application/xml", cache_control="no-cache", x_request_id="req-123")
 
         assert headers["Content-Type"] == "application/xml"
         assert headers["Cache-Control"] == "no-cache"
@@ -335,11 +318,7 @@ class TestSortValidation:
 
     def test_build_sort_params_valid(self):
         """Test build_sort_params with valid parameters"""
-        params = build_sort_params(
-            sort_by="name",
-            sort_order="ASC",
-            allowed_fields=["name", "email"]
-        )
+        params = build_sort_params(sort_by="name", sort_order="ASC", allowed_fields=["name", "email"])
         assert params == {"sort_by": "name", "sort_order": "ASC"}
 
     def test_build_sort_params_no_sort(self):
@@ -385,10 +364,7 @@ class TestSanitizeResponse:
 
     def test_sanitize_response_list(self):
         """Test sanitize_response with list"""
-        data = [
-            {"username": "john", "token": "abc123"},
-            {"username": "jane", "token": "xyz789"}
-        ]
+        data = [{"username": "john", "token": "abc123"}, {"username": "jane", "token": "xyz789"}]
         result = sanitize_response(data)
 
         assert result[0]["username"] == "john"
@@ -512,11 +488,7 @@ class TestRequestHelpers:
     def test_build_request_metadata(self):
         """Test build_request_metadata function"""
         request = Mock()
-        request.headers = {
-            "X-Forwarded-For": "192.168.1.1",
-            "User-Agent": "Mozilla/5.0",
-            "X-Request-ID": "req-123"
-        }
+        request.headers = {"X-Forwarded-For": "192.168.1.1", "User-Agent": "Mozilla/5.0", "X-Request-ID": "req-123"}
         request.client = Mock()
         request.client.host = "192.168.1.1"
 

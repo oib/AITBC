@@ -24,7 +24,9 @@ class GPUServiceClient:
         response.raise_for_status()
         return cast(dict[str, Any], response.json())
 
-    async def get_gpu_profiles(self, architecture: str | None = None, edge_optimized: bool | None = None, min_memory_gb: int | None = None) -> list[dict[str, Any]]:
+    async def get_gpu_profiles(
+        self, architecture: str | None = None, edge_optimized: bool | None = None, min_memory_gb: int | None = None
+    ) -> list[dict[str, Any]]:
         """Get GPU profiles via GPU service"""
         params: dict[str, str | int | bool] = {}
         if architecture:

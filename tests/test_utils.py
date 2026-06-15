@@ -80,6 +80,7 @@ class TestPaths:
     def test_ensure_dir(self):
         """Test ensure_dir creates directory"""
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             test_path = Path(tmpdir) / "test" / "nested"
             result = ensure_dir(test_path)
@@ -89,6 +90,7 @@ class TestPaths:
     def test_ensure_file_dir(self):
         """Test ensure_file_dir creates parent directory"""
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             test_path = Path(tmpdir) / "test" / "nested" / "file.txt"
             result = ensure_file_dir(test_path)

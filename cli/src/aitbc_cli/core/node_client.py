@@ -13,6 +13,7 @@ from .config import NodeConfig
 
 logger = logging.getLogger(__name__)
 
+
 class NodeClient:
     """Client for communicating with AITBC nodes"""
 
@@ -26,8 +27,7 @@ class NodeClient:
     async def __aenter__(self):
         """Async context manager entry"""
         self._client = httpx.AsyncClient(
-            timeout=httpx.Timeout(self.config.timeout),
-            limits=httpx.Limits(max_connections=self.config.max_connections)
+            timeout=httpx.Timeout(self.config.timeout), limits=httpx.Limits(max_connections=self.config.max_connections)
         )
         await self._authenticate()
         return self
@@ -42,10 +42,7 @@ class NodeClient:
         try:
             # For now, we'll use a simple authentication
             # In production, this would use proper authentication
-            response = await self._client.post(
-                f"{self.config.endpoint}/api/auth",
-                json={"action": "authenticate"}
-            )
+            response = await self._client.post(f"{self.config.endpoint}/api/auth", json={"action": "authenticate"})
             if response.status_code == 200:
                 data = response.json()
                 self._session_id = data.get("session_id")
@@ -69,7 +66,9 @@ class NodeClient:
             # Return mock data for development
             if self._dev_mocks_enabled:
                 self._mock_fallback_count += 1
-                logger.warning("[DEV_MODE] Using mock node info for %s (fallback #%s)", self.config.id, self._mock_fallback_count)
+                logger.warning(
+                    "[DEV_MODE] Using mock node info for %s (fallback #%s)", self.config.id, self._mock_fallback_count
+                )
                 return self._get_mock_node_info()
             else:
                 logger.error("Failed to get node info for %s: %s", self.config.id, e)
@@ -102,20 +101,24 @@ class NodeClient:
                     except Exception:
                         pass
 
-                    result.append(self._parse_chain_info({
-                        "id": cid,
-                        "name": f"AITBC {cid.split('-')[-1].capitalize()} Chain",
-                        "type": "topic" if "health" in cid else "main",
-                        "purpose": "specialized" if "health" in cid else "general",
-                        "status": "active",
-                        "size_mb": 50.5,
-                        "nodes": 3,
-                        "smart_contracts": 5,
-                        "active_clients": 25,
-                        "active_miners": 8,
-                        "block_height": block_height,
-                        "privacy": {"visibility": "public"}
-                    }))
+                    result.append(
+                        self._parse_chain_info(
+                            {
+                                "id": cid,
+                                "name": f"AITBC {cid.split('-')[-1].capitalize()} Chain",
+                                "type": "topic" if "health" in cid else "main",
+                                "purpose": "specialized" if "health" in cid else "general",
+                                "status": "active",
+                                "size_mb": 50.5,
+                                "nodes": 3,
+                                "smart_contracts": 5,
+                                "active_clients": 25,
+                                "active_miners": 8,
+                                "block_height": block_height,
+                                "privacy": {"visibility": "public"},
+                            }
+                        )
+                    )
                 return result
             else:
                 return self._get_mock_chains()
@@ -147,20 +150,22 @@ class NodeClient:
                     except Exception:
                         pass
 
-                    return self._parse_chain_info({
-                        "id": chain_id,
-                        "name": f"AITBC {chain_id.split('-')[-1].capitalize()} Chain",
-                        "type": "topic" if "health" in chain_id else "main",
-                        "purpose": "specialized" if "health" in chain_id else "general",
-                        "status": "active",
-                        "size_mb": 50.5,
-                        "nodes": 3,
-                        "smart_contracts": 5,
-                        "active_clients": 25,
-                        "active_miners": 8,
-                        "block_height": block_height,
-                        "privacy": {"visibility": "public"}
-                    })
+                    return self._parse_chain_info(
+                        {
+                            "id": chain_id,
+                            "name": f"AITBC {chain_id.split('-')[-1].capitalize()} Chain",
+                            "type": "topic" if "health" in chain_id else "main",
+                            "purpose": "specialized" if "health" in chain_id else "general",
+                            "status": "active",
+                            "size_mb": 50.5,
+                            "nodes": 3,
+                            "smart_contracts": 5,
+                            "active_clients": 25,
+                            "active_miners": 8,
+                            "block_height": block_height,
+                            "privacy": {"visibility": "public"},
+                        }
+                    )
             return None
         except Exception:
             # Fallback to pure mock
@@ -173,10 +178,7 @@ class NodeClient:
     async def create_chain(self, genesis_block: dict[str, Any]) -> str:
         """Create a new chain on this node"""
         try:
-            response = await self._client.post(
-                f"{self.config.endpoint}/api/chains",
-                json=genesis_block
-            )
+            response = await self._client.post(f"{self.config.endpoint}/api/chains", json=genesis_block)
             if response.status_code == 201:
                 data = response.json()
                 return data["chain_id"]
@@ -217,8 +219,7 @@ class NodeClient:
         """Backup a chain"""
         try:
             response = await self._client.post(
-                f"{self.config.endpoint}/api/chains/{chain_id}/backup",
-                json={"backup_path": backup_path}
+                f"{self.config.endpoint}/api/chains/{chain_id}/backup", json={"backup_path": backup_path}
             )
             if response.status_code == 200:
                 return response.json()
@@ -231,17 +232,16 @@ class NodeClient:
                 "backup_file": f"{backup_path}/{chain_id}_backup.tar.gz",
                 "original_size_mb": 100.0,
                 "backup_size_mb": 50.0,
-                "checksum": "mock_checksum_12345"
+                "checksum": "mock_checksum_12345",
             }
-            logger.info("Mock backed up chain %s to %s", chain_id, backup_info['backup_file'])
+            logger.info("Mock backed up chain %s to %s", chain_id, backup_info["backup_file"])
             return backup_info
 
     async def restore_chain(self, backup_file: str, chain_id: str | None = None) -> dict[str, Any]:
         """Restore a chain from backup"""
         try:
             response = await self._client.post(
-                f"{self.config.endpoint}/api/chains/restore",
-                json={"backup_file": backup_file, "chain_id": chain_id}
+                f"{self.config.endpoint}/api/chains/restore", json={"backup_file": backup_file, "chain_id": chain_id}
             )
             if response.status_code == 200:
                 return response.json()
@@ -252,7 +252,7 @@ class NodeClient:
             restore_info = {
                 "chain_id": chain_id or "RESTORED-MOCK-CHAIN",
                 "blocks_restored": 1000,
-                "verification_passed": True
+                "verification_passed": True,
             }
             logger.info("Mock restored chain from %s", backup_file)
             return restore_info
@@ -290,8 +290,8 @@ class NodeClient:
             disk_usage_mb=chain_data.get("disk_usage_mb", 0.0),
             privacy=PrivacyConfig(
                 visibility=chain_data.get("privacy", {}).get("visibility", "public"),
-                access_control=chain_data.get("privacy", {}).get("access_control", "open")
-            )
+                access_control=chain_data.get("privacy", {}).get("access_control", "open"),
+            ),
         )
 
     def _get_mock_node_info(self) -> dict[str, Any]:
@@ -308,7 +308,7 @@ class NodeClient:
             "memory_usage_mb": 1024.0,
             "disk_usage_mb": 10240.0,
             "network_in_mb": 10.5,
-            "network_out_mb": 8.2
+            "network_out_mb": 8.2,
         }
 
     def _get_mock_chains(self) -> list[ChainInfo]:
@@ -343,7 +343,7 @@ class NodeClient:
                 gas_price=20000000000,
                 memory_usage_mb=256.0,
                 disk_usage_mb=512.0,
-                privacy=PrivacyConfig(visibility="public", access_control="open")
+                privacy=PrivacyConfig(visibility="public", access_control="open"),
             ),
             ChainInfo(
                 id="AITBC-PRIVATE-COLLAB-001",
@@ -370,8 +370,8 @@ class NodeClient:
                 gas_price=15000000000,
                 memory_usage_mb=128.0,
                 disk_usage_mb=256.0,
-                privacy=PrivacyConfig(visibility="private", access_control="invite_only")
-            )
+                privacy=PrivacyConfig(visibility="private", access_control="invite_only"),
+            ),
         ]
 
     def _get_mock_chain_stats(self, chain_id: str) -> dict[str, Any]:
@@ -388,5 +388,5 @@ class NodeClient:
             "client_count": 25,
             "miner_count": 8,
             "agent_count": 12,
-            "last_block_time": "2024-03-02T10:00:00Z"
+            "last_block_time": "2024-03-02T10:00:00Z",
         }

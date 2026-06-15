@@ -2,6 +2,7 @@
 Caching utilities for AITBC
 Provides caching strategies for expensive operations including blockchain-specific caching
 """
+
 import functools
 import hashlib
 import json
@@ -11,12 +12,34 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 from .aitbc_logging import get_logger
+
 logger = get_logger(__name__)
-__all__ = ['CacheEntry', 'BlockchainCache', 'CacheMetrics', 'LRUCache', 'TTLCache', 'cached', 'cached_lru', 'cached_blockchain', 'clear_global_caches', 'get_global_lru_cache', 'get_global_ttl_cache', 'CacheInvalidator', 'get_blockchain_cache', 'get_cache_metrics', 'RedisCache', 'get_cache', '_generate_cache_key', 'generate_cache_key']
+__all__ = [
+    "CacheEntry",
+    "BlockchainCache",
+    "CacheMetrics",
+    "LRUCache",
+    "TTLCache",
+    "cached",
+    "cached_lru",
+    "cached_blockchain",
+    "clear_global_caches",
+    "get_global_lru_cache",
+    "get_global_ttl_cache",
+    "CacheInvalidator",
+    "get_blockchain_cache",
+    "get_cache_metrics",
+    "RedisCache",
+    "get_cache",
+    "_generate_cache_key",
+    "generate_cache_key",
+]
+
 
 @dataclass
 class CacheEntry:
     """Cache entry with value and expiration"""
+
     value: Any
     expires_at: datetime | None = None
     hit_count: int = 0
@@ -39,16 +62,18 @@ class CacheEntry:
         """Update last access time"""
         self.last_accessed = datetime.now()
 
+
 class BlockchainCache:
     """
     Specialized cache for blockchain operations with intelligent invalidation
     """
-    PREFIX_ACCOUNT_BALANCE = 'account_balance'
-    PREFIX_BLOCK = 'block'
-    PREFIX_TRANSACTION = 'transaction'
-    PREFIX_CONTRACT_STATE = 'contract_state'
-    PREFIX_CHAIN_STATE = 'chain_state'
-    PREFIX_MARKET_DATA = 'market_data'
+
+    PREFIX_ACCOUNT_BALANCE = "account_balance"
+    PREFIX_BLOCK = "block"
+    PREFIX_TRANSACTION = "transaction"
+    PREFIX_CONTRACT_STATE = "contract_state"
+    PREFIX_CHAIN_STATE = "chain_state"
+    PREFIX_MARKET_DATA = "market_data"
     TTL_ACCOUNT_BALANCE = 30
     TTL_BLOCK = 3600
     TTL_TRANSACTION = 86400
@@ -59,7 +84,7 @@ class BlockchainCache:
     def __init__(self, redis_cache=None):
         """
         Initialize blockchain cache
-        
+
         Args:
             redis_cache: Optional RedisCache instance for distributed caching
         """
@@ -68,28 +93,28 @@ class BlockchainCache:
 
     def generate_account_key(self, address: str, chain_id: int) -> str:
         """Generate cache key for account balance"""
-        return f'{self.PREFIX_ACCOUNT_BALANCE}:{chain_id}:{address.lower()}'
+        return f"{self.PREFIX_ACCOUNT_BALANCE}:{chain_id}:{address.lower()}"
 
     def generate_block_key(self, block_number: int, chain_id: int) -> str:
         """Generate cache key for block data"""
-        return f'{self.PREFIX_BLOCK}:{chain_id}:{block_number}'
+        return f"{self.PREFIX_BLOCK}:{chain_id}:{block_number}"
 
     def generate_transaction_key(self, tx_hash: str, chain_id: int) -> str:
         """Generate cache key for transaction"""
-        return f'{self.PREFIX_TRANSACTION}:{chain_id}:{tx_hash.lower()}'
+        return f"{self.PREFIX_TRANSACTION}:{chain_id}:{tx_hash.lower()}"
 
-    def generate_contract_state_key(self, contract_address: str, chain_id: int, slot: str='') -> str:
+    def generate_contract_state_key(self, contract_address: str, chain_id: int, slot: str = "") -> str:
         """Generate cache key for contract state"""
-        slot_suffix = f':{slot}' if slot else ''
-        return f'{self.PREFIX_CONTRACT_STATE}:{chain_id}:{contract_address.lower()}{slot_suffix}'
+        slot_suffix = f":{slot}" if slot else ""
+        return f"{self.PREFIX_CONTRACT_STATE}:{chain_id}:{contract_address.lower()}{slot_suffix}"
 
     def generate_chain_state_key(self, chain_id: int, state_type: str) -> str:
         """Generate cache key for chain state"""
-        return f'{self.PREFIX_CHAIN_STATE}:{chain_id}:{state_type}'
+        return f"{self.PREFIX_CHAIN_STATE}:{chain_id}:{state_type}"
 
     def generate_market_data_key(self, market_type: str, asset_pair: str) -> str:
         """Generate cache key for market data"""
-        return f'{self.PREFIX_MARKET_DATA}:{market_type}:{asset_pair}'
+        return f"{self.PREFIX_MARKET_DATA}:{market_type}:{asset_pair}"
 
     def get_account_balance(self, address: str, chain_id: int) -> Any | None:
         """Get cached account balance"""
@@ -139,7 +164,7 @@ class BlockchainCache:
         if self.redis_cache:
             success = self.redis_cache.delete(key)
             if success:
-                self._notify_subscribers('account', {'address': address, 'chain_id': chain_id})
+                self._notify_subscribers("account", {"address": address, "chain_id": chain_id})
             return success
         return False
 
@@ -149,41 +174,41 @@ class BlockchainCache:
         if self.redis_cache:
             success = self.redis_cache.delete(key)
             if success:
-                self._notify_subscribers('block', {'block_number': block_number, 'chain_id': chain_id})
+                self._notify_subscribers("block", {"block_number": block_number, "chain_id": chain_id})
             return success
         return False
 
-    def invalidate_contract_state(self, contract_address: str, chain_id: int, slot: str='') -> bool:
+    def invalidate_contract_state(self, contract_address: str, chain_id: int, slot: str = "") -> bool:
         """Invalidate cached contract state"""
         key = self.generate_contract_state_key(contract_address, chain_id, slot)
         if self.redis_cache:
             success = self.redis_cache.delete(key)
             if success:
-                self._notify_subscribers('contract', {'address': contract_address, 'chain_id': chain_id, 'slot': slot})
+                self._notify_subscribers("contract", {"address": contract_address, "chain_id": chain_id, "slot": slot})
             return success
         return False
 
-    def invalidate_chain_state(self, chain_id: int, state_type: str | None=None) -> int:
+    def invalidate_chain_state(self, chain_id: int, state_type: str | None = None) -> int:
         """Invalidate chain state cache entries"""
         if state_type:
             key = self.generate_chain_state_key(chain_id, state_type)
             if self.redis_cache:
                 success = self.redis_cache.delete(key)
                 if success:
-                    self._notify_subscribers('chain_state', {'chain_id': chain_id, 'state_type': state_type})
+                    self._notify_subscribers("chain_state", {"chain_id": chain_id, "state_type": state_type})
                 return 1 if success else 0
             return 0
         else:
-            pattern = f'{self.PREFIX_CHAIN_STATE}:{chain_id}:*'
+            pattern = f"{self.PREFIX_CHAIN_STATE}:{chain_id}:*"
             if self.redis_cache and self.redis_cache._client:
                 try:
                     keys = self.redis_cache._client.keys(pattern)
                     if keys:
                         deleted = self.redis_cache._client.delete(*keys)
-                        self._notify_subscribers('chain_state', {'chain_id': chain_id, 'all': True})
+                        self._notify_subscribers("chain_state", {"chain_id": chain_id, "all": True})
                         return deleted
                 except Exception as e:
-                    logger.error('Error invalidating chain state: %s', e)
+                    logger.error("Error invalidating chain state: %s", e)
             return 0
 
     def subscribe_to_invalidation(self, callback: Callable) -> None:
@@ -196,12 +221,32 @@ class BlockchainCache:
             try:
                 callback(cache_type, data)
             except Exception as e:
-                logger.error('Error in cache invalidation callback: %s', e)
+                logger.error("Error in cache invalidation callback: %s", e)
 
     def get_cache_stats(self) -> dict[str, Any]:
         """Get blockchain cache statistics"""
-        stats = {'redis_available': self.redis_cache is not None and self.redis_cache.is_available(), 'subscribers': len(self.invalidation_subscribers), 'prefixes': {'account_balance': self.PREFIX_ACCOUNT_BALANCE, 'block': self.PREFIX_BLOCK, 'transaction': self.PREFIX_TRANSACTION, 'contract_state': self.PREFIX_CONTRACT_STATE, 'chain_state': self.PREFIX_CHAIN_STATE, 'market_data': self.PREFIX_MARKET_DATA}, 'default_ttl': {'account_balance': self.TTL_ACCOUNT_BALANCE, 'block': self.TTL_BLOCK, 'transaction': self.TTL_TRANSACTION, 'contract_state': self.TTL_CONTRACT_STATE, 'chain_state': self.TTL_CHAIN_STATE, 'market_data': self.TTL_MARKET_DATA}}
+        stats = {
+            "redis_available": self.redis_cache is not None and self.redis_cache.is_available(),
+            "subscribers": len(self.invalidation_subscribers),
+            "prefixes": {
+                "account_balance": self.PREFIX_ACCOUNT_BALANCE,
+                "block": self.PREFIX_BLOCK,
+                "transaction": self.PREFIX_TRANSACTION,
+                "contract_state": self.PREFIX_CONTRACT_STATE,
+                "chain_state": self.PREFIX_CHAIN_STATE,
+                "market_data": self.PREFIX_MARKET_DATA,
+            },
+            "default_ttl": {
+                "account_balance": self.TTL_ACCOUNT_BALANCE,
+                "block": self.TTL_BLOCK,
+                "transaction": self.TTL_TRANSACTION,
+                "contract_state": self.TTL_CONTRACT_STATE,
+                "chain_state": self.TTL_CHAIN_STATE,
+                "market_data": self.TTL_MARKET_DATA,
+            },
+        }
         return stats
+
 
 class CacheMetrics:
     """Track cache performance metrics"""
@@ -218,35 +263,35 @@ class CacheMetrics:
         """Record a cache hit"""
         self.total_requests += 1
         self.total_hits += 1
-        self._record_operation(operation, duration_ms, 'hit')
+        self._record_operation(operation, duration_ms, "hit")
 
     def record_miss(self, operation: str, duration_ms: float) -> None:
         """Record a cache miss"""
         self.total_requests += 1
         self.total_misses += 1
-        self._record_operation(operation, duration_ms, 'miss')
+        self._record_operation(operation, duration_ms, "miss")
 
     def record_error(self, operation: str, duration_ms: float) -> None:
         """Record a cache error"""
         self.total_requests += 1
         self.total_errors += 1
-        self._record_operation(operation, duration_ms, 'error')
+        self._record_operation(operation, duration_ms, "error")
 
     def _record_operation(self, operation: str, duration_ms: float, result: str) -> None:
         """Record individual operation details"""
         if operation not in self.cache_operations:
-            self.cache_operations[operation] = {'hits': 0, 'misses': 0, 'errors': 0, 'total': 0, 'avg_duration_ms': []}
+            self.cache_operations[operation] = {"hits": 0, "misses": 0, "errors": 0, "total": 0, "avg_duration_ms": []}
         op_stats = self.cache_operations[operation]
-        op_stats['total'] += 1
-        if result == 'hit':
-            op_stats['hits'] += 1
-        elif result == 'miss':
-            op_stats['misses'] += 1
-        elif result == 'error':
-            op_stats['errors'] += 1
-        op_stats['avg_duration_ms'].append(duration_ms)
-        if len(op_stats['avg_duration_ms']) > 100:
-            op_stats['avg_duration_ms'] = op_stats['avg_duration_ms'][-100:]
+        op_stats["total"] += 1
+        if result == "hit":
+            op_stats["hits"] += 1
+        elif result == "miss":
+            op_stats["misses"] += 1
+        elif result == "error":
+            op_stats["errors"] += 1
+        op_stats["avg_duration_ms"].append(duration_ms)
+        if len(op_stats["avg_duration_ms"]) > 100:
+            op_stats["avg_duration_ms"] = op_stats["avg_duration_ms"][-100:]
 
     def get_stats(self) -> dict[str, Any]:
         """Get cache performance statistics"""
@@ -255,9 +300,25 @@ class CacheMetrics:
         error_rate = self.total_errors / self.total_requests if self.total_requests > 0 else 0
         operation_stats = {}
         for op, stats in self.cache_operations.items():
-            avg_duration = sum(stats['avg_duration_ms']) / len(stats['avg_duration_ms']) if stats['avg_duration_ms'] else 0
-            operation_stats[op] = {'hits': stats['hits'], 'misses': stats['misses'], 'errors': stats['errors'], 'total': stats['total'], 'hit_rate': stats['hits'] / stats['total'] if stats['total'] > 0 else 0, 'avg_duration_ms': avg_duration}
-        return {'total_requests': self.total_requests, 'total_hits': self.total_hits, 'total_misses': self.total_misses, 'total_errors': self.total_errors, 'hit_rate': hit_rate, 'miss_rate': miss_rate, 'error_rate': error_rate, 'operation_stats': operation_stats}
+            avg_duration = sum(stats["avg_duration_ms"]) / len(stats["avg_duration_ms"]) if stats["avg_duration_ms"] else 0
+            operation_stats[op] = {
+                "hits": stats["hits"],
+                "misses": stats["misses"],
+                "errors": stats["errors"],
+                "total": stats["total"],
+                "hit_rate": stats["hits"] / stats["total"] if stats["total"] > 0 else 0,
+                "avg_duration_ms": avg_duration,
+            }
+        return {
+            "total_requests": self.total_requests,
+            "total_hits": self.total_hits,
+            "total_misses": self.total_misses,
+            "total_errors": self.total_errors,
+            "hit_rate": hit_rate,
+            "miss_rate": miss_rate,
+            "error_rate": error_rate,
+            "operation_stats": operation_stats,
+        }
 
     def reset(self) -> None:
         """Reset all metrics"""
@@ -267,7 +328,10 @@ class CacheMetrics:
         self.total_errors = 0
         self.operation_times = []
         self.cache_operations = {}
+
+
 _global_metrics: CacheMetrics | None = None
+
 
 def get_cache_metrics() -> CacheMetrics:
     """Get global cache metrics instance"""
@@ -276,13 +340,14 @@ def get_cache_metrics() -> CacheMetrics:
         _global_metrics = CacheMetrics()
     return _global_metrics
 
+
 class LRUCache:
     """
     Least Recently Used (LRU) cache implementation.
     Automatically evicts least recently used items when capacity is reached.
     """
 
-    def __init__(self, capacity: int=128):
+    def __init__(self, capacity: int = 128):
         """
         Initialize LRU cache
 
@@ -317,7 +382,7 @@ class LRUCache:
         self._hits += 1
         return entry.value
 
-    def set(self, key: str, value: Any, ttl: int | None=None) -> None:
+    def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         """
         Set value in cache
 
@@ -339,7 +404,7 @@ class LRUCache:
     def clear(self) -> None:
         """Clear all cache entries"""
         self.cache.clear()
-        logger.info('LRU cache cleared')
+        logger.info("LRU cache cleared")
 
     def get_stats(self) -> dict[str, Any]:
         """
@@ -350,17 +415,25 @@ class LRUCache:
         """
         total_requests = self._hits + self._misses
         hit_rate = self._hits / total_requests if total_requests > 0 else 0
-        return {'capacity': self.capacity, 'size': len(self.cache), 'hits': self._hits, 'misses': self._misses, 'hit_rate': hit_rate, 'total_requests': total_requests}
+        return {
+            "capacity": self.capacity,
+            "size": len(self.cache),
+            "hits": self._hits,
+            "misses": self._misses,
+            "hit_rate": hit_rate,
+            "total_requests": total_requests,
+        }
 
     def print_stats(self) -> None:
         """Print cache statistics"""
         stats = self.get_stats()
-        logger.info('LRU Cache Statistics:')
-        logger.info('  Capacity: %s', stats['capacity'])
-        logger.info('  Size: %s', stats['size'])
-        logger.info('  Hits: %s', stats['hits'])
-        logger.info('  Misses: %s', stats['misses'])
-        logger.info('  Hit rate: %s', stats['hit_rate'])
+        logger.info("LRU Cache Statistics:")
+        logger.info("  Capacity: %s", stats["capacity"])
+        logger.info("  Size: %s", stats["size"])
+        logger.info("  Hits: %s", stats["hits"])
+        logger.info("  Misses: %s", stats["misses"])
+        logger.info("  Hit rate: %s", stats["hit_rate"])
+
 
 class TTLCache:
     """
@@ -368,7 +441,7 @@ class TTLCache:
     Items expire after a specified time regardless of usage.
     """
 
-    def __init__(self, default_ttl: int=300):
+    def __init__(self, default_ttl: int = 300):
         """
         Initialize TTL cache
 
@@ -402,7 +475,7 @@ class TTLCache:
         self._hits += 1
         return entry.value
 
-    def set(self, key: str, value: Any, ttl: int | None=None) -> None:
+    def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         """
         Set value in cache
 
@@ -419,7 +492,7 @@ class TTLCache:
     def clear(self) -> None:
         """Clear all cache entries"""
         self.cache.clear()
-        logger.info('TTL cache cleared')
+        logger.info("TTL cache cleared")
 
     def cleanup_expired(self) -> int:
         """
@@ -432,7 +505,7 @@ class TTLCache:
         for key in expired_keys:
             del self.cache[key]
         if expired_keys:
-            logger.info('Removed %s expired cache entries', len(expired_keys))
+            logger.info("Removed %s expired cache entries", len(expired_keys))
         return len(expired_keys)
 
     def get_stats(self) -> dict[str, Any]:
@@ -444,9 +517,17 @@ class TTLCache:
         """
         total_requests = self._hits + self._misses
         hit_rate = self._hits / total_requests if total_requests > 0 else 0
-        return {'size': len(self.cache), 'default_ttl': self.default_ttl, 'hits': self._hits, 'misses': self._misses, 'hit_rate': hit_rate, 'total_requests': total_requests}
+        return {
+            "size": len(self.cache),
+            "default_ttl": self.default_ttl,
+            "hits": self._hits,
+            "misses": self._misses,
+            "hit_rate": hit_rate,
+            "total_requests": total_requests,
+        }
 
-def cached(ttl: int=300, cache_instance: LRUCache | TTLCache | None=None):
+
+def cached(ttl: int = 300, cache_instance: LRUCache | TTLCache | None = None):
     """
     Decorator to cache function results
 
@@ -471,11 +552,14 @@ def cached(ttl: int=300, cache_instance: LRUCache | TTLCache | None=None):
             result = func(*args, **kwargs)
             cache_instance.set(cache_key, result, ttl=ttl)
             return result
+
         wrapper.cache = cache_instance
         return wrapper
+
     return decorator
 
-def cached_lru(capacity: int=128, ttl: int | None=None):
+
+def cached_lru(capacity: int = 128, ttl: int | None = None):
     """
     Decorator to cache function results with LRU eviction
 
@@ -499,9 +583,12 @@ def cached_lru(capacity: int=128, ttl: int | None=None):
             result = func(*args, **kwargs)
             cache_instance.set(cache_key, result, ttl=ttl)
             return result
+
         wrapper.cache = cache_instance
         return wrapper
+
     return decorator
+
 
 def _generate_cache_key(func_name: str, args: tuple, kwargs: dict) -> str:
     """
@@ -524,10 +611,11 @@ def _generate_cache_key(func_name: str, args: tuple, kwargs: dict) -> str:
     for key in sorted(kwargs.keys()):
         value = kwargs[key]
         if isinstance(value, (str, int, float, bool, type(None))):
-            key_parts.append(f'{key}={value}')
+            key_parts.append(f"{key}={value}")
         else:
-            key_parts.append(f'{key}={hashlib.md5(json.dumps(value, sort_keys=True).encode()).hexdigest()}')
-    return ':'.join(key_parts)
+            key_parts.append(f"{key}={hashlib.md5(json.dumps(value, sort_keys=True).encode()).hexdigest()}")
+    return ":".join(key_parts)
+
 
 def generate_cache_key(prefix: str, *args: Any, **kwargs: Any) -> str:
     """Generate a consistent cache key from arguments.
@@ -538,44 +626,57 @@ def generate_cache_key(prefix: str, *args: Any, **kwargs: Any) -> str:
     key_parts = [prefix]
     key_parts.extend((str(arg) for arg in args))
     for k in sorted(kwargs.keys()):
-        key_parts.append(f'{k}={kwargs[k]}')
-    key_string = ':'.join(key_parts)
+        key_parts.append(f"{k}={kwargs[k]}")
+    key_string = ":".join(key_parts)
     if len(key_string) > 200:
         key_hash = hashlib.sha256(key_string.encode()).hexdigest()[:16]
-        return f'{prefix}:{key_hash}'
+        return f"{prefix}:{key_hash}"
     return key_string
+
+
 _global_lru_cache = LRUCache(capacity=256)
 _global_ttl_cache = TTLCache(default_ttl=300)
+
 
 def get_global_lru_cache() -> LRUCache:
     """Get global LRU cache instance"""
     return _global_lru_cache
 
+
 def get_global_ttl_cache() -> TTLCache:
     """Get global TTL cache instance"""
     return _global_ttl_cache
+
 
 def clear_global_caches() -> None:
     """Clear all global caches"""
     _global_lru_cache.clear()
     _global_ttl_cache.clear()
-    logger.info('All global caches cleared')
+    logger.info("All global caches cleared")
 
-def cached_blockchain(operation: str, ttl: int | None=None):
+
+def cached_blockchain(operation: str, ttl: int | None = None):
     """
     Decorator for caching blockchain operations with automatic invalidation
-    
+
     Args:
         operation: Type of blockchain operation (account_balance, block, transaction, etc.)
         ttl: Custom TTL in seconds, or None to use blockchain cache defaults
-    
+
     Returns:
         Decorated function with blockchain caching
     """
     redis_cache = get_cache()
     blockchain_cache = BlockchainCache(redis_cache=redis_cache)
     if ttl is None:
-        ttl_map = {'account_balance': BlockchainCache.TTL_ACCOUNT_BALANCE, 'block': BlockchainCache.TTL_BLOCK, 'transaction': BlockchainCache.TTL_TRANSACTION, 'contract_state': BlockchainCache.TTL_CONTRACT_STATE, 'chain_state': BlockchainCache.TTL_CHAIN_STATE, 'market_data': BlockchainCache.TTL_MARKET_DATA}
+        ttl_map = {
+            "account_balance": BlockchainCache.TTL_ACCOUNT_BALANCE,
+            "block": BlockchainCache.TTL_BLOCK,
+            "transaction": BlockchainCache.TTL_TRANSACTION,
+            "contract_state": BlockchainCache.TTL_CONTRACT_STATE,
+            "chain_state": BlockchainCache.TTL_CHAIN_STATE,
+            "market_data": BlockchainCache.TTL_MARKET_DATA,
+        }
         ttl = ttl_map.get(operation, 300)
 
     def decorator(func: Callable) -> Callable:
@@ -589,51 +690,55 @@ def cached_blockchain(operation: str, ttl: int | None=None):
                 cached_value = redis_cache.get(cache_key)
                 if cached_value is not None:
                     duration_ms = (datetime.now() - start_time).total_seconds() * 1000
-                    metrics.record_hit(f'blockchain_{operation}', duration_ms)
+                    metrics.record_hit(f"blockchain_{operation}", duration_ms)
                     return cached_value
             try:
                 result = func(*args, **kwargs)
                 duration_ms = (datetime.now() - start_time).total_seconds() * 1000
                 if redis_cache:
                     redis_cache.set(cache_key, result, ttl=ttl)
-                metrics.record_miss(f'blockchain_{operation}', duration_ms)
+                metrics.record_miss(f"blockchain_{operation}", duration_ms)
                 return result
             except Exception:
                 duration_ms = (datetime.now() - start_time).total_seconds() * 1000
-                metrics.record_error(f'blockchain_{operation}', duration_ms)
+                metrics.record_error(f"blockchain_{operation}", duration_ms)
                 raise
+
         wrapper.blockchain_cache = blockchain_cache
         wrapper.cache_operation = operation
         return wrapper
+
     return decorator
+
 
 def _generate_blockchain_cache_key(operation: str, args: tuple, kwargs: dict) -> str:
     """
     Generate cache key for blockchain operations
-    
+
     Args:
         operation: Type of blockchain operation
         args: Function positional arguments
         kwargs: Function keyword arguments
-    
+
     Returns:
         Cache key string
     """
-    key_parts = [f'bc:{operation}']
-    if 'address' in kwargs:
+    key_parts = [f"bc:{operation}"]
+    if "address" in kwargs:
         key_parts.append(f"addr:{kwargs['address'].lower()}")
-    if 'chain_id' in kwargs:
+    if "chain_id" in kwargs:
         key_parts.append(f"chain:{kwargs['chain_id']}")
-    if 'block_number' in kwargs:
+    if "block_number" in kwargs:
         key_parts.append(f"block:{kwargs['block_number']}")
-    if 'tx_hash' in kwargs:
+    if "tx_hash" in kwargs:
         key_parts.append(f"tx:{kwargs['tx_hash'].lower()}")
-    if 'contract_address' in kwargs:
+    if "contract_address" in kwargs:
         key_parts.append(f"contract:{kwargs['contract_address'].lower()}")
     other_args = str(args) + str(sorted(kwargs.items()))
     args_hash = hashlib.md5(other_args.encode()).hexdigest()[:8]
-    key_parts.append(f'hash:{args_hash}')
-    return ':'.join(key_parts)
+    key_parts.append(f"hash:{args_hash}")
+    return ":".join(key_parts)
+
 
 class CacheInvalidator:
     """
@@ -643,21 +748,26 @@ class CacheInvalidator:
     def __init__(self, blockchain_cache: BlockchainCache):
         """
         Initialize cache invalidator
-        
+
         Args:
             blockchain_cache: BlockchainCache instance to manage invalidation
         """
         self.blockchain_cache = blockchain_cache
-        self.invalidation_rules = {'new_block': self._on_new_block, 'new_transaction': self._on_new_transaction, 'contract_state_changed': self._on_contract_state_changed, 'account_balance_changed': self._on_account_balance_changed}
+        self.invalidation_rules = {
+            "new_block": self._on_new_block,
+            "new_transaction": self._on_new_transaction,
+            "contract_state_changed": self._on_contract_state_changed,
+            "account_balance_changed": self._on_account_balance_changed,
+        }
 
     def handle_event(self, event_type: str, event_data: dict[str, Any]) -> int:
         """
         Handle blockchain event and invalidate appropriate cache entries
-        
+
         Args:
             event_type: Type of blockchain event
             event_data: Event data with relevant information
-            
+
         Returns:
             Number of cache entries invalidated
         """
@@ -666,14 +776,14 @@ class CacheInvalidator:
             try:
                 return handler(event_data)
             except Exception as e:
-                logger.error('Error in cache invalidation handler for %s: %s', event_type, e)
+                logger.error("Error in cache invalidation handler for %s: %s", event_type, e)
                 return 0
         return 0
 
     def _on_new_block(self, event_data: dict[str, Any]) -> int:
         """Invalidate cache entries when a new block is mined"""
-        chain_id = event_data.get('chain_id')
-        block_number = event_data.get('block_number')
+        chain_id = event_data.get("chain_id")
+        block_number = event_data.get("block_number")
         invalidated = 0
         if chain_id and block_number:
             if self.blockchain_cache.invalidate_block(block_number, chain_id):
@@ -682,15 +792,15 @@ class CacheInvalidator:
             invalidated += self.blockchain_cache.invalidate_chain_state(chain_id)
         if chain_id:
             invalidated += self._invalidate_all_account_balances(chain_id)
-        logger.info('Invalidated %s cache entries for new block %s on chain %s', invalidated, block_number, chain_id)
+        logger.info("Invalidated %s cache entries for new block %s on chain %s", invalidated, block_number, chain_id)
         return invalidated
 
     def _on_new_transaction(self, event_data: dict[str, Any]) -> int:
         """Invalidate cache entries when a new transaction is processed"""
-        chain_id = event_data.get('chain_id')
-        from_address = event_data.get('from_address')
-        to_address = event_data.get('to_address')
-        contract_address = event_data.get('contract_address')
+        chain_id = event_data.get("chain_id")
+        from_address = event_data.get("from_address")
+        to_address = event_data.get("to_address")
+        contract_address = event_data.get("contract_address")
         invalidated = 0
         if chain_id and from_address:
             if self.blockchain_cache.invalidate_account(from_address, chain_id):
@@ -701,29 +811,29 @@ class CacheInvalidator:
         if chain_id and contract_address:
             if self.blockchain_cache.invalidate_contract_state(contract_address, chain_id):
                 invalidated += 1
-        logger.info('Invalidated %s cache entries for new transaction on chain %s', invalidated, chain_id)
+        logger.info("Invalidated %s cache entries for new transaction on chain %s", invalidated, chain_id)
         return invalidated
 
     def _on_contract_state_changed(self, event_data: dict[str, Any]) -> int:
         """Invalidate cache entries when contract state changes"""
-        chain_id = event_data.get('chain_id')
-        contract_address = event_data.get('contract_address')
-        slot = event_data.get('slot')
+        chain_id = event_data.get("chain_id")
+        contract_address = event_data.get("contract_address")
+        slot = event_data.get("slot")
         if chain_id and contract_address:
             invalidated = self.blockchain_cache.invalidate_contract_state(contract_address, chain_id, slot)
             if not slot:
                 invalidated += self.blockchain_cache.invalidate_contract_state(contract_address, chain_id)
-            logger.info('Invalidated %s contract cache entries for %s', invalidated, contract_address)
+            logger.info("Invalidated %s contract cache entries for %s", invalidated, contract_address)
             return invalidated
         return 0
 
     def _on_account_balance_changed(self, event_data: dict[str, Any]) -> int:
         """Invalidate cache entries when account balance changes"""
-        chain_id = event_data.get('chain_id')
-        address = event_data.get('address')
+        chain_id = event_data.get("chain_id")
+        address = event_data.get("address")
         if chain_id and address:
             if self.blockchain_cache.invalidate_account(address, chain_id):
-                logger.info('Invalidated account cache for %s on chain %s', address, chain_id)
+                logger.info("Invalidated account cache for %s on chain %s", address, chain_id)
                 return 1
         return 0
 
@@ -731,26 +841,30 @@ class CacheInvalidator:
         """Invalidate all account balances for a chain (conservative approach)"""
         if self.blockchain_cache.redis_cache and self.blockchain_cache.redis_cache._client:
             try:
-                pattern = f'{BlockchainCache.PREFIX_ACCOUNT_BALANCE}:{chain_id}:*'
+                pattern = f"{BlockchainCache.PREFIX_ACCOUNT_BALANCE}:{chain_id}:*"
                 keys = self.blockchain_cache.redis_cache._client.keys(pattern)
                 if keys:
                     deleted = self.blockchain_cache.redis_cache._client.delete(*keys)
                     return deleted
             except Exception as e:
-                logger.error('Error invalidating all account balances: %s', e)
+                logger.error("Error invalidating all account balances: %s", e)
         return 0
+
 
 class RedisCache:
     """Minimal Redis cache wrapper for backward compatibility."""
 
-    def __init__(self, redis_url: str | None=None, max_connections: int=10, timeout: int=5, default_ttl: int=3600) -> None:
+    def __init__(
+        self, redis_url: str | None = None, max_connections: int = 10, timeout: int = 5, default_ttl: int = 3600
+    ) -> None:
         self._url = redis_url
         self._default_ttl = default_ttl
         self._client: Any = None
         self._data: dict[str, Any] = {}
         try:
             import redis
-            self._client = redis.from_url(redis_url or 'redis://localhost:6379/0')
+
+            self._client = redis.from_url(redis_url or "redis://localhost:6379/0")
             self._client.ping()
         except Exception:
             self._client = None
@@ -763,7 +877,7 @@ class RedisCache:
                 pass
         return self._data.get(key)
 
-    def set(self, key: str, value: Any, ttl: int | None=None) -> bool:
+    def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         if self._client:
             try:
                 self._client.setex(key, ttl or self._default_ttl, value)
@@ -783,16 +897,24 @@ class RedisCache:
 
     def is_available(self) -> bool:
         return self._client is not None
+
+
 _global_redis_cache: RedisCache | None = None
 
-def get_cache(redis_url: str | None=None, max_connections: int=10, timeout: int=5, default_ttl: int=3600) -> RedisCache:
+
+def get_cache(
+    redis_url: str | None = None, max_connections: int = 10, timeout: int = 5, default_ttl: int = 3600
+) -> RedisCache:
     """Get or create a Redis cache instance."""
     global _global_redis_cache
     if _global_redis_cache is None:
-        _global_redis_cache = RedisCache(redis_url=redis_url, max_connections=max_connections, timeout=timeout, default_ttl=default_ttl)
+        _global_redis_cache = RedisCache(
+            redis_url=redis_url, max_connections=max_connections, timeout=timeout, default_ttl=default_ttl
+        )
     return _global_redis_cache
 
-def get_blockchain_cache(redis_url: str | None=None) -> BlockchainCache:
+
+def get_blockchain_cache(redis_url: str | None = None) -> BlockchainCache:
     """
     Get or create global blockchain cache instance
 

@@ -76,13 +76,10 @@ class PrerequisiteChecker:
             provider_stage = resource_dep.get("stage")
             if provider_stage:
                 if provider_stage not in STAGE_ORDER:
-                    self.errors.append(
-                        f"{stage_name}: resource_depends references unknown stage '{provider_stage}'"
-                    )
+                    self.errors.append(f"{stage_name}: resource_depends references unknown stage '{provider_stage}'")
                 elif provider_stage not in depends_on and provider_stage != stage_name:
                     self.warnings.append(
-                        f"{stage_name}: resource_depends stage '{provider_stage}' "
-                        f"not in depends_on (should be added)"
+                        f"{stage_name}: resource_depends stage '{provider_stage}' not in depends_on (should be added)"
                     )
 
         return len(self.errors) == 0
@@ -177,14 +174,16 @@ class PrerequisiteChecker:
         if depends_on:
             script_lines.append("# Stage dependencies")
             for dep_stage in depends_on:
-                script_lines.extend([
-                    f"if [ ! -f \"$(dirname \"$0\")/{dep_stage}.json\" ]; then",
-                    f'  echo "❌ Missing prerequisite stage: {dep_stage}"',
-                    "  exit 1",
-                    "fi",
-                    f'echo "✅ Prerequisite stage found: {dep_stage}"',
-                    "",
-                ])
+                script_lines.extend(
+                    [
+                        f'if [ ! -f "$(dirname "$0")/{dep_stage}.json" ]; then',
+                        f'  echo "❌ Missing prerequisite stage: {dep_stage}"',
+                        "  exit 1",
+                        "fi",
+                        f'echo "✅ Prerequisite stage found: {dep_stage}"',
+                        "",
+                    ]
+                )
 
         # Check resource dependencies
         if resource_depends:
@@ -192,17 +191,21 @@ class PrerequisiteChecker:
             for res_dep in resource_depends:
                 resource_type = res_dep.get("resource", "")
                 condition = res_dep.get("condition", "")
-                script_lines.extend([
-                    f"# Check {resource_type}: {condition}",
-                    f"# TODO: Implement resource check for {resource_type}",
-                    f'echo "⚠️  Resource check not implemented: {resource_type}"',
-                    "",
-                ])
+                script_lines.extend(
+                    [
+                        f"# Check {resource_type}: {condition}",
+                        f"# TODO: Implement resource check for {resource_type}",
+                        f'echo "⚠️  Resource check not implemented: {resource_type}"',
+                        "",
+                    ]
+                )
 
-        script_lines.extend([
-            f'echo "✅ All prerequisites satisfied for {stage_name}"',
-            "exit 0",
-        ])
+        script_lines.extend(
+            [
+                f'echo "✅ All prerequisites satisfied for {stage_name}"',
+                "exit 0",
+            ]
+        )
 
         return "\n".join(script_lines)
 

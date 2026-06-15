@@ -13,10 +13,12 @@ from aitbc import AITBCHTTPClient
 BASE_URL = "https://hub.aitbc.bubuit.net/rpc"
 CHAIN_ID = "ait-mainnet"
 
+
 def compute_block_hash(height, parent_hash, timestamp):
     """Compute block hash using the same algorithm as PoA proposer"""
     payload = f"{CHAIN_ID}|{height}|{parent_hash}|{timestamp}".encode()
     return "0x" + hashlib.sha256(payload).hexdigest()
+
 
 def test_block_import_complete():
     """Complete test suite for block import endpoint"""
@@ -44,8 +46,8 @@ def test_block_import_complete():
             "proposer": "test",
             "timestamp": "2026-01-29T10:20:00",
             "tx_count": 0,
-            "chain_id": CHAIN_ID
-        }
+            "chain_id": CHAIN_ID,
+        },
     )
     if response.status_code == 422 and "greater_than" in response.json()["detail"][0]["msg"]:
         print("✅ PASS: Correctly rejected height 0")
@@ -65,8 +67,8 @@ def test_block_import_complete():
             "proposer": "test",
             "timestamp": "2026-01-29T10:20:00",
             "tx_count": 0,
-            "chain_id": CHAIN_ID
-        }
+            "chain_id": CHAIN_ID,
+        },
     )
     if response.status_code == 400 and "Invalid block hash" in response.json().get("detail", ""):
         print("✅ PASS: Correctly rejected invalid hash format")
@@ -89,8 +91,8 @@ def test_block_import_complete():
             "proposer": head.get("proposer", "test"),
             "timestamp": head["timestamp"],
             "tx_count": head.get("tx_count", 0),
-            "chain_id": CHAIN_ID
-        }
+            "chain_id": CHAIN_ID,
+        },
     )
     if response.status_code == 200 and response.json().get("success") == True:
         print("✅ PASS: Correctly handled existing block")
@@ -113,8 +115,8 @@ def test_block_import_complete():
             "proposer": "test",
             "timestamp": "2026-01-29T10:20:00",
             "tx_count": 0,
-            "chain_id": CHAIN_ID
-        }
+            "chain_id": CHAIN_ID,
+        },
     )
     if response.status_code == 400 and "Invalid block hash" in response.json()["detail"]:
         print("✅ PASS: Correctly rejected invalid hash")
@@ -134,8 +136,8 @@ def test_block_import_complete():
             "proposer": "test",
             "timestamp": "2026-01-29T10:20:00",
             "tx_count": 0,
-            "chain_id": CHAIN_ID
-        }
+            "chain_id": CHAIN_ID,
+        },
     )
     if response.status_code == 400 and "Parent block not found" in response.json()["detail"]:
         print("✅ PASS: Correctly rejected missing parent")
@@ -162,8 +164,8 @@ def test_block_import_complete():
             "timestamp": "2026-01-29T10:20:00",
             "tx_count": 0,
             "transactions": [],
-            "chain_id": CHAIN_ID
-        }
+            "chain_id": CHAIN_ID,
+        },
     )
     if response.status_code == 200 and response.json().get("success") == True:
         print("✅ PASS: Successfully imported block without transactions")
@@ -190,13 +192,10 @@ def test_block_import_complete():
             "timestamp": "2026-01-29T10:20:00",
             "tx_count": 1,
             "chain_id": CHAIN_ID,
-            "transactions": [{
-                "tx_hash": "0xtx123",
-                "sender": "0xsender",
-                "recipient": "0xrecipient",
-                "payload": {"test": "data"}
-            }]
-        }
+            "transactions": [
+                {"tx_hash": "0xtx123", "sender": "0xsender", "recipient": "0xrecipient", "payload": {"test": "data"}}
+            ],
+        },
     )
     if response.status_code == 500:
         print("⚠️  EXPECTED FAILURE: Transaction import fails with 500 error")
@@ -233,6 +232,7 @@ def test_block_import_complete():
         print(f"\n⚠️  {failed} test(s) failed - review required")
 
     return passed, failed, known_issues
+
 
 if __name__ == "__main__":
     test_block_import_complete()

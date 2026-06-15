@@ -22,8 +22,9 @@ class TestWorkflowCommands:
         """Test that workflow command group exists"""
         try:
             from aitbc_cli.commands.workflow import workflow
+
             assert workflow is not None
-            assert hasattr(workflow, 'name')
+            assert hasattr(workflow, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import workflow commands: {e}")
 
@@ -31,12 +32,13 @@ class TestWorkflowCommands:
         """Test workflow group name"""
         try:
             from aitbc_cli.commands.workflow import workflow
+
             assert workflow.name == "workflow"
         except ImportError as e:
             pytest.skip(f"Cannot import workflow commands: {e}")
 
-    @patch('aitbc_cli.commands.workflow.success')
-    @patch('aitbc_cli.commands.workflow.click')
+    @patch("aitbc_cli.commands.workflow.success")
+    @patch("aitbc_cli.commands.workflow.click")
     def test_workflow_run_dry_run(self, mock_click, mock_success):
         """Test workflow run with dry-run flag"""
         try:
@@ -44,15 +46,15 @@ class TestWorkflowCommands:
             from click.testing import CliRunner
 
             runner = CliRunner()
-            result = runner.invoke(run, ['test-workflow', '--dry-run'])
+            result = runner.invoke(run, ["test-workflow", "--dry-run"])
 
             assert result.exit_code == 0
             assert mock_success.called
         except Exception as e:
             pytest.skip(f"Cannot test workflow run dry-run: {e}")
 
-    @patch('aitbc_cli.commands.workflow.success')
-    @patch('aitbc_cli.commands.workflow.click')
+    @patch("aitbc_cli.commands.workflow.success")
+    @patch("aitbc_cli.commands.workflow.click")
     def test_workflow_run_normal(self, mock_click, mock_success):
         """Test workflow run without dry-run"""
         try:
@@ -60,7 +62,7 @@ class TestWorkflowCommands:
             from click.testing import CliRunner
 
             runner = CliRunner()
-            result = runner.invoke(run, ['test-workflow'])
+            result = runner.invoke(run, ["test-workflow"])
 
             assert result.exit_code == 0
             assert mock_success.called

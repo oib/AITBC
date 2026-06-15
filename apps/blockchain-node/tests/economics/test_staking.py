@@ -16,17 +16,13 @@ class TestStakingManager:
         self.staking_manager = StakingManager(min_stake_amount=1000.0)
 
         # Register a test validator
-        success, message = self.staking_manager.register_validator(
-            "0xvalidator1", 2000.0, 0.05
-        )
+        success, message = self.staking_manager.register_validator("0xvalidator1", 2000.0, 0.05)
         assert success, f"Failed to register validator: {message}"
 
     def test_register_validator(self):
         """Test validator registration"""
         # Valid registration
-        success, message = self.staking_manager.register_validator(
-            "0xvalidator2", 1500.0, 0.03
-        )
+        success, message = self.staking_manager.register_validator("0xvalidator2", 1500.0, 0.03)
         assert success, f"Validator registration failed: {message}"
 
         # Check validator info
@@ -38,33 +34,29 @@ class TestStakingManager:
 
     def test_register_validator_insufficient_stake(self):
         """Test validator registration with insufficient stake"""
-        success, message = self.staking_manager.register_validator(
-            "0xvalidator3", 500.0, 0.05
-        )
+        success, message = self.staking_manager.register_validator("0xvalidator3", 500.0, 0.05)
         assert not success
         assert "insufficient stake" in message.lower()
 
     def test_register_validator_invalid_commission(self):
         """Test validator registration with invalid commission"""
         success, message = self.staking_manager.register_validator(
-            "0xvalidator4", 1500.0, 0.15  # Too high
+            "0xvalidator4",
+            1500.0,
+            0.15,  # Too high
         )
         assert not success
         assert "commission" in message.lower()
 
     def test_register_duplicate_validator(self):
         """Test registering duplicate validator"""
-        success, message = self.staking_manager.register_validator(
-            "0xvalidator1", 2000.0, 0.05
-        )
+        success, message = self.staking_manager.register_validator("0xvalidator1", 2000.0, 0.05)
         assert not success
         assert "already registered" in message.lower()
 
     def test_stake_to_validator(self):
         """Test staking to validator"""
-        success, message = self.staking_manager.stake(
-            "0xvalidator1", "0xdelegator1", 1200.0
-        )
+        success, message = self.staking_manager.stake("0xvalidator1", "0xdelegator1", 1200.0)
         assert success, f"Staking failed: {message}"
 
         # Check stake position
@@ -77,17 +69,13 @@ class TestStakingManager:
 
     def test_stake_insufficient_amount(self):
         """Test staking insufficient amount"""
-        success, message = self.staking_manager.stake(
-            "0xvalidator1", "0xdelegator2", 500.0
-        )
+        success, message = self.staking_manager.stake("0xvalidator1", "0xdelegator2", 500.0)
         assert not success
         assert "at least" in message.lower()
 
     def test_stake_to_nonexistent_validator(self):
         """Test staking to non-existent validator"""
-        success, message = self.staking_manager.stake(
-            "0xnonexistent", "0xdelegator3", 1200.0
-        )
+        success, message = self.staking_manager.stake("0xnonexistent", "0xdelegator3", 1200.0)
         assert not success
         assert "not found" in message.lower() or "not active" in message.lower()
 
@@ -227,12 +215,13 @@ class TestStakingManager:
         """Test staking statistics"""
         stats = self.staking_manager.get_staking_statistics()
 
-        assert 'total_validators' in stats
-        assert 'total_staked' in stats
-        assert 'total_delegators' in stats
-        assert 'average_stake_per_validator' in stats
-        assert stats['total_validators'] >= 1
-        assert stats['total_staked'] >= 2000.0  # At least the initial validator stake
+        assert "total_validators" in stats
+        assert "total_staked" in stats
+        assert "total_delegators" in stats
+        assert "average_stake_per_validator" in stats
+        assert stats["total_validators"] >= 1
+        assert stats["total_staked"] >= 2000.0  # At least the initial validator stake
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

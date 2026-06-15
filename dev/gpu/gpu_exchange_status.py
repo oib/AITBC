@@ -4,7 +4,6 @@ GPU Exchange Integration Demo
 Shows how the GPU miner is integrated with the exchange
 """
 
-
 import httpx
 
 print("🔗 AITBC GPU Exchange Integration")

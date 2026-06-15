@@ -52,19 +52,11 @@ def sync_http_client() -> Generator[httpx.Client]:
 def test_data():
     """Test data fixture"""
     return {
-        "test_user": {
-            "user_id": "e2e-test-user-001",
-            "email": "e2e-test@example.com",
-            "wallet_address": "ait1e2etestuser001"
-        },
+        "test_user": {"user_id": "e2e-test-user-001", "email": "e2e-test@example.com", "wallet_address": "ait1e2etestuser001"},
         "test_job": {
             "job_type": "ai_inference",
-            "parameters": {
-                "model": "gpt-4",
-                "prompt": "E2E test prompt",
-                "max_tokens": 100
-            }
-        }
+            "parameters": {"model": "gpt-4", "prompt": "E2E test prompt", "max_tokens": 100},
+        },
     }
 
 

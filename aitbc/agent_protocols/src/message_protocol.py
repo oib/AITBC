@@ -11,12 +11,14 @@ from typing import Any
 
 class MessageTypes(Enum):
     """Message type enumeration"""
+
     TASK_REQUEST = "task_request"
     TASK_RESPONSE = "task_response"
     HEARTBEAT = "heartbeat"
     STATUS_UPDATE = "status_update"
     ERROR = "error"
     DATA = "data"
+
 
 class MessageProtocol:
     """Message protocol handler for agent communication"""
@@ -31,7 +33,7 @@ class MessageProtocol:
         receiver_id: str,
         message_type: MessageTypes,
         content: dict[str, Any],
-        message_id: str | None = None
+        message_id: str | None = None,
     ) -> dict[str, Any]:
         """Create a new message"""
         if message_id is None:
@@ -44,7 +46,7 @@ class MessageProtocol:
             "message_type": message_type.value,
             "content": content,
             "timestamp": datetime.now(UTC).isoformat(),
-            "status": "pending"
+            "status": "pending",
         }
 
         self.messages.append(message)
@@ -71,10 +73,8 @@ class MessageProtocol:
 
     def get_messages_by_agent(self, agent_id: str) -> list[dict[str, Any]]:
         """Get all messages for a specific agent"""
-        return [
-            msg for msg in self.messages
-            if msg["sender_id"] == agent_id or msg["receiver_id"] == agent_id
-        ]
+        return [msg for msg in self.messages if msg["sender_id"] == agent_id or msg["receiver_id"] == agent_id]
+
 
 class AgentMessageClient:
     """Client for agent message communication"""
@@ -84,18 +84,10 @@ class AgentMessageClient:
         self.protocol = protocol
         self.received_messages = []
 
-    def send_message(
-        self,
-        receiver_id: str,
-        message_type: MessageTypes,
-        content: dict[str, Any]
-    ) -> dict[str, Any]:
+    def send_message(self, receiver_id: str, message_type: MessageTypes, content: dict[str, Any]) -> dict[str, Any]:
         """Send a message to another agent"""
         message = self.protocol.create_message(
-            sender_id=self.agent_id,
-            receiver_id=receiver_id,
-            message_type=message_type,
-            content=content
+            sender_id=self.agent_id, receiver_id=receiver_id, message_type=message_type, content=content
         )
         self.protocol.send_message(message)
         return message
@@ -104,9 +96,11 @@ class AgentMessageClient:
         """Receive all pending messages for this agent"""
         messages = []
         for message in self.protocol.messages:
-            if (message["receiver_id"] == self.agent_id and
-                message["status"] == "sent" and
-                message not in self.received_messages):
+            if (
+                message["receiver_id"] == self.agent_id
+                and message["status"] == "sent"
+                and message not in self.received_messages
+            ):
                 self.protocol.receive_message(message["message_id"])
                 self.received_messages.append(message)
                 messages.append(message)

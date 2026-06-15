@@ -57,7 +57,7 @@ class TestNodeClient:
         os.environ["DEV_MOCKS_ENABLED"] = "false"
 
     @pytest.mark.asyncio
-    @patch('aitbc_cli.core.node_client.httpx.AsyncClient')
+    @patch("aitbc_cli.core.node_client.httpx.AsyncClient")
     async def test_aenter(self, mock_client):
         """Test async context manager entry"""
         from aitbc_cli.core.config import NodeConfig
@@ -81,7 +81,7 @@ class TestNodeClient:
             assert client._session_id == "sess123"
 
     @pytest.mark.asyncio
-    @patch('aitbc_cli.core.node_client.httpx.AsyncClient')
+    @patch("aitbc_cli.core.node_client.httpx.AsyncClient")
     async def test_aexit(self, mock_client):
         """Test async context manager exit"""
         from aitbc_cli.core.config import NodeConfig
@@ -107,7 +107,7 @@ class TestNodeClient:
         mock_http.aclose.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch('aitbc_cli.core.node_client.httpx.AsyncClient')
+    @patch("aitbc_cli.core.node_client.httpx.AsyncClient")
     async def test_authenticate_success(self, mock_client):
         """Test successful authentication"""
         from aitbc_cli.core.config import NodeConfig
@@ -132,7 +132,7 @@ class TestNodeClient:
         assert client._session_id == "sess123"
 
     @pytest.mark.asyncio
-    @patch('aitbc_cli.core.node_client.httpx.AsyncClient')
+    @patch("aitbc_cli.core.node_client.httpx.AsyncClient")
     async def test_authenticate_failure_dev_mode(self, mock_client):
         """Test authentication failure in dev mode"""
         from aitbc_cli.core.config import NodeConfig
@@ -161,7 +161,7 @@ class TestNodeClient:
         os.environ["DEV_MOCKS_ENABLED"] = "false"
 
     @pytest.mark.asyncio
-    @patch('aitbc_cli.core.node_client.httpx.AsyncClient')
+    @patch("aitbc_cli.core.node_client.httpx.AsyncClient")
     async def test_get_node_info_success(self, mock_client):
         """Test getting node info successfully"""
         from aitbc_cli.core.config import NodeConfig
@@ -187,7 +187,7 @@ class TestNodeClient:
         assert info["version"] == "1.0"
 
     @pytest.mark.asyncio
-    @patch('aitbc_cli.core.node_client.httpx.AsyncClient')
+    @patch("aitbc_cli.core.node_client.httpx.AsyncClient")
     async def test_get_node_info_dev_mode(self, mock_client):
         """Test getting node info in dev mode with mock fallback"""
         from aitbc_cli.core.config import NodeConfig
@@ -216,7 +216,7 @@ class TestNodeClient:
         os.environ["DEV_MOCKS_ENABLED"] = "false"
 
     @pytest.mark.asyncio
-    @patch('aitbc_cli.core.node_client.httpx.AsyncClient')
+    @patch("aitbc_cli.core.node_client.httpx.AsyncClient")
     async def test_get_hosted_chains_success(self, mock_client):
         """Test getting hosted chains successfully - skip due to Pydantic validation"""
         from aitbc_cli.core.config import NodeConfig
@@ -228,7 +228,7 @@ class TestNodeClient:
         config.timeout = 30
         config.max_connections = 10
 
-        client = NodeClient(config)
+        NodeClient(config)
 
         # Skip this test due to Pydantic validation issues with ChainInfo
         pytest.skip("ChainInfo Pydantic validation requires complex setup")

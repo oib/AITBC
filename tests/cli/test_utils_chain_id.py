@@ -50,7 +50,7 @@ class TestValidateChainId:
 class TestGetChainIdFromHealth:
     """Test get_chain_id_from_health function"""
 
-    @patch('aitbc_cli.utils.chain_id.AITBCHTTPClient')
+    @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
     def test_get_chain_id_from_health_success(self, mock_client):
         """Test successful chain ID detection from health endpoint"""
         from aitbc_cli.utils.chain_id import get_chain_id_from_health
@@ -63,7 +63,7 @@ class TestGetChainIdFromHealth:
 
         assert result == "ait-devnet"
 
-    @patch('aitbc_cli.utils.chain_id.AITBCHTTPClient')
+    @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
     def test_get_chain_id_from_health_no_chains(self, mock_client):
         """Test health endpoint with no supported chains"""
         from aitbc_cli.utils.chain_id import get_chain_id_from_health
@@ -76,7 +76,7 @@ class TestGetChainIdFromHealth:
 
         assert result == "ait-mainnet"  # Fallback to default
 
-    @patch('aitbc_cli.utils.chain_id.AITBCHTTPClient')
+    @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
     def test_get_chain_id_from_health_network_error(self, mock_client):
         """Test network error during health check"""
         from aitbc_cli.utils.chain_id import NetworkError, get_chain_id_from_health
@@ -89,7 +89,7 @@ class TestGetChainIdFromHealth:
 
         assert result == "ait-mainnet"  # Fallback to default
 
-    @patch('aitbc_cli.utils.chain_id.AITBCHTTPClient')
+    @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
     def test_get_chain_id_from_health_generic_error(self, mock_client):
         """Test generic error during health check"""
         from aitbc_cli.utils.chain_id import get_chain_id_from_health
@@ -106,7 +106,7 @@ class TestGetChainIdFromHealth:
 class TestGetChainId:
     """Test get_chain_id function"""
 
-    @patch('aitbc_cli.utils.chain_id.get_chain_id_from_health')
+    @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")
     def test_get_chain_id_with_override_known(self, mock_get_from_health):
         """Test get_chain_id with known override"""
         from aitbc_cli.utils.chain_id import get_chain_id
@@ -116,7 +116,7 @@ class TestGetChainId:
         assert result == "ait-devnet"
         mock_get_from_health.assert_not_called()
 
-    @patch('aitbc_cli.utils.chain_id.get_chain_id_from_health')
+    @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")
     def test_get_chain_id_with_override_unknown(self, mock_get_from_health):
         """Test get_chain_id with unknown override (still uses it)"""
         from aitbc_cli.utils.chain_id import get_chain_id
@@ -126,7 +126,7 @@ class TestGetChainId:
         assert result == "custom-chain"
         mock_get_from_health.assert_not_called()
 
-    @patch('aitbc_cli.utils.chain_id.get_chain_id_from_health')
+    @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")
     def test_get_chain_id_without_override(self, mock_get_from_health):
         """Test get_chain_id without override (uses auto-detection)"""
         from aitbc_cli.utils.chain_id import get_chain_id
@@ -138,7 +138,7 @@ class TestGetChainId:
         assert result == "ait-testnet"
         mock_get_from_health.assert_called_once()
 
-    @patch('aitbc_cli.utils.chain_id.get_chain_id_from_health')
+    @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")
     def test_get_chain_id_with_custom_timeout(self, mock_get_from_health):
         """Test get_chain_id with custom timeout"""
         from aitbc_cli.utils.chain_id import get_chain_id

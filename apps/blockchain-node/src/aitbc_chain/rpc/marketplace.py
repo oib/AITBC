@@ -19,6 +19,7 @@ _marketplace_listings: list[dict[str, Any]] = []
 
 class MarketplaceListing(BaseModel):
     """Marketplace listing model"""
+
     listing_id: str | None = None
     seller_address: str = Field(..., description="Seller wallet address")
     item_type: str = Field(..., description="Type of item (GPU, compute, etc.)")
@@ -27,12 +28,15 @@ class MarketplaceListing(BaseModel):
     status: str = Field(default="active", description="Listing status")
     created_at: datetime | None = None
 
+
 class MarketplaceCreateRequest(BaseModel):
     """Request to create marketplace listing"""
+
     seller_address: str
     item_type: str
     price: float
     description: str
+
 
 @router.get("/marketplace/listings", summary="List marketplace items", tags=["marketplace"])
 async def marketplace_listings() -> dict[str, Any]:
@@ -68,20 +72,17 @@ async def marketplace_listings() -> dict[str, Any]:
                         "price": payload.get("price", 0.0),
                         "description": payload.get("description", ""),
                         "status": "active",
-                        "created_at": timestamp or datetime.now().isoformat()
+                        "created_at": timestamp or datetime.now().isoformat(),
                     }
                     listings.append(listing)
                 except json.JSONDecodeError:
                     continue
 
-        return {
-            "listings": listings,
-            "total": len(listings),
-            "timestamp": datetime.now().isoformat()
-        }
+        return {"listings": listings, "total": len(listings), "timestamp": datetime.now().isoformat()}
     except Exception as e:
         metrics_registry.increment("rpc_marketplace_listings_errors_total")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/marketplace/create", summary="Create marketplace listing", tags=["marketplace"])
 async def marketplace_create(request: MarketplaceCreateRequest) -> dict[str, Any]:
@@ -92,9 +93,7 @@ async def marketplace_create(request: MarketplaceCreateRequest) -> dict[str, Any
         # Security validation: validate amount
         if not SecurityValidator.validate_amount(request.price):
             log_security_event(
-                action="marketplace_create_invalid_amount",
-                details={"price": request.price},
-                severity="WARNING"
+                action="marketplace_create_invalid_amount", details={"price": request.price}, severity="WARNING"
             )
             raise HTTPException(status_code=400, detail="Invalid price: must be a non-negative number")
 
@@ -104,7 +103,7 @@ async def marketplace_create(request: MarketplaceCreateRequest) -> dict[str, Any
         log_security_event(
             action="marketplace_listing_created",
             details={"seller_address": request.seller_address, "item_type": request.item_type, "price": request.price},
-            severity="INFO"
+            severity="INFO",
         )
 
         # Generate unique listing ID
@@ -118,7 +117,7 @@ async def marketplace_create(request: MarketplaceCreateRequest) -> dict[str, Any
             "price": request.price,
             "description": description,
             "status": "active",
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
         }
 
         # Add to storage
@@ -128,12 +127,13 @@ async def marketplace_create(request: MarketplaceCreateRequest) -> dict[str, Any
             "listing_id": listing_id,
             "status": "created",
             "message": "Marketplace listing created successfully",
-            "listing": new_listing
+            "listing": new_listing,
         }
 
     except Exception as e:
         metrics_registry.increment("rpc_marketplace_create_errors_total")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/marketplace/listing/{listing_id}", summary="Get marketplace listing by ID", tags=["marketplace"])
 async def marketplace_get_listing(listing_id: str) -> dict[str, Any]:
@@ -144,10 +144,7 @@ async def marketplace_get_listing(listing_id: str) -> dict[str, Any]:
         # Find listing
         for listing in _marketplace_listings:
             if listing.get("listing_id") == listing_id:
-                return {
-                    "listing": listing,
-                    "found": True
-                }
+                return {"listing": listing, "found": True}
 
         raise HTTPException(status_code=404, detail="Listing not found")
 
@@ -156,6 +153,7 @@ async def marketplace_get_listing(listing_id: str) -> dict[str, Any]:
     except Exception as e:
         metrics_registry.increment("rpc_marketplace_get_errors_total")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.delete("/marketplace/listing/{listing_id}", summary="Delete marketplace listing", tags=["marketplace"])
 async def marketplace_delete_listing(listing_id: str) -> dict[str, Any]:
@@ -167,11 +165,7 @@ async def marketplace_delete_listing(listing_id: str) -> dict[str, Any]:
         for i, listing in enumerate(_marketplace_listings):
             if listing.get("listing_id") == listing_id:
                 _marketplace_listings.pop(i)
-                return {
-                    "listing_id": listing_id,
-                    "status": "deleted",
-                    "message": "Marketplace listing deleted successfully"
-                }
+                return {"listing_id": listing_id, "status": "deleted", "message": "Marketplace listing deleted successfully"}
 
         raise HTTPException(status_code=404, detail="Listing not found")
 

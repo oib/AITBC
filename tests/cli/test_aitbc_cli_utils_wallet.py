@@ -33,16 +33,16 @@ class TestDecryptPrivateKey:
                     "cipher": "aes-256-gcm",
                     "kdfparams": {
                         "salt": "0" * 64,  # 32 bytes in hex
-                        "c": 100000
+                        "c": 100000,
                     },
                     "cipherparams": {
                         "nonce": "0" * 48  # 24 bytes in hex
                     },
-                    "ciphertext": "0" * 64  # Mock ciphertext
+                    "ciphertext": "0" * 64,  # Mock ciphertext
                 }
             }
 
-            with open(keystore_path, 'w') as f:
+            with open(keystore_path, "w") as f:
                 json.dump(keystore_data, f)
 
             # This will fail during actual decryption but tests the path
@@ -66,14 +66,12 @@ class TestDecryptPrivateKey:
             keystore_data = {
                 "crypto": {
                     "cipher": "fernet",
-                    "kdfparams": {
-                        "salt": salt
-                    },
-                    "ciphertext": base64.b64encode(b"encrypted_data").decode()
+                    "kdfparams": {"salt": salt},
+                    "ciphertext": base64.b64encode(b"encrypted_data").decode(),
                 }
             }
 
-            with open(keystore_path, 'w') as f:
+            with open(keystore_path, "w") as f:
                 json.dump(keystore_data, f)
 
             # This will fail during actual decryption but tests the path
@@ -92,14 +90,9 @@ class TestDecryptPrivateKey:
         with tempfile.TemporaryDirectory() as tmpdir:
             keystore_path = Path(tmpdir) / "keystore.json"
 
-            keystore_data = {
-                "crypto": {
-                    "cipher": "unsupported-cipher",
-                    "ciphertext": "data"
-                }
-            }
+            keystore_data = {"crypto": {"cipher": "unsupported-cipher", "ciphertext": "data"}}
 
-            with open(keystore_path, 'w') as f:
+            with open(keystore_path, "w") as f:
                 json.dump(keystore_data, f)
 
             with pytest.raises(ValueError, match="Unsupported cipher"):
@@ -114,13 +107,11 @@ class TestDecryptPrivateKey:
 
             keystore_data = {
                 "cipher": "fernet",
-                "kdfparams": {
-                    "salt": base64.b64encode(b"test_salt").decode()
-                },
-                "ciphertext": base64.b64encode(b"encrypted_data").decode()
+                "kdfparams": {"salt": base64.b64encode(b"test_salt").decode()},
+                "ciphertext": base64.b64encode(b"encrypted_data").decode(),
             }
 
-            with open(keystore_path, 'w') as f:
+            with open(keystore_path, "w") as f:
                 json.dump(keystore_data, f)
 
             # This will fail during actual decryption but tests the path

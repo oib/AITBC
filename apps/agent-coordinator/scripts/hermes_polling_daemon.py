@@ -33,20 +33,12 @@ class HermesWebSocketDaemon:
 
         # Setup logging
         logging.basicConfig(
-            level=getattr(logging, log_level.upper()),
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            level=getattr(logging, log_level.upper()), format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         self.logger = logging.getLogger(__name__)
 
     async def send_message(self, recipient: str, content: str):
         """Send a message via WebSocket"""
-        message = {
-            "type": "message",
-            "payload": {
-                "recipient_id": recipient,
-                "content": content
-            }
-        }
 
         # This would be sent through the active WebSocket connection
         # For now, we'll implement it as a separate function
@@ -88,13 +80,13 @@ class HermesWebSocketDaemon:
         message_type = data.get("type", "unknown")
 
         if message_type == "connection_established":
-            self.logger.info("WebSocket connection established: %s", data.get('message'))
+            self.logger.info("WebSocket connection established: %s", data.get("message"))
 
         elif message_type == "PONG":
-            self.logger.info("Received PONG: %s", data.get('content'))
+            self.logger.info("Received PONG: %s", data.get("content"))
 
         elif message_type == "handler_acknowledgment":
-            self.logger.info("Handler triggered: %s", data.get('handler_results'))
+            self.logger.info("Handler triggered: %s", data.get("handler_results"))
 
         elif message_type == "message":
             sender = data.get("sender_id", "unknown")
@@ -123,28 +115,20 @@ def main():
     parser.add_argument(
         "--coordinator-url",
         default=DEFAULT_COORDINATOR_URL,
-        help=f"Agent Coordinator endpoint (default: {DEFAULT_COORDINATOR_URL})"
+        help=f"Agent Coordinator endpoint (default: {DEFAULT_COORDINATOR_URL})",
     )
-    parser.add_argument(
-        "--agent-id",
-        required=True,
-        help="Agent ID for WebSocket connection"
-    )
+    parser.add_argument("--agent-id", required=True, help="Agent ID for WebSocket connection")
     parser.add_argument(
         "--log-level",
         default=DEFAULT_LOG_LEVEL,
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        help=f"Logging level (default: {DEFAULT_LOG_LEVEL})"
+        help=f"Logging level (default: {DEFAULT_LOG_LEVEL})",
     )
 
     args = parser.parse_args()
 
     # Create and run daemon
-    daemon = HermesWebSocketDaemon(
-        coordinator_url=args.coordinator_url,
-        agent_id=args.agent_id,
-        log_level=args.log_level
-    )
+    daemon = HermesWebSocketDaemon(coordinator_url=args.coordinator_url, agent_id=args.agent_id, log_level=args.log_level)
 
     daemon.run()
 

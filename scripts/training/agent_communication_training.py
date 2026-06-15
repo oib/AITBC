@@ -30,7 +30,7 @@ class CommunicationTrainingStage:
             "broadcast_success": 0,
             "broadcast_total": 0,
             "avg_latency_ms": 0,
-            "latency_samples": []
+            "latency_samples": [],
         }
 
     async def send_message(
@@ -39,7 +39,7 @@ class CommunicationTrainingStage:
         message_type: str,
         payload: dict[str, Any],
         protocol: str = "hierarchical",
-        priority: str = "normal"
+        priority: str = "normal",
     ) -> dict[str, Any]:
         """Send a message via coordinator API"""
         start_time = time.time()
@@ -53,8 +53,8 @@ class CommunicationTrainingStage:
                         "message_type": message_type,
                         "payload": payload,
                         "priority": priority,
-                        "protocol": protocol
-                    }
+                        "protocol": protocol,
+                    },
                 ) as response:
                     latency_ms = (time.time() - start_time) * 1000
                     self.metrics["latency_samples"].append(latency_ms)
@@ -102,28 +102,21 @@ class CommunicationTrainingStage:
         payload: dict[str, Any],
         agent_type: str = None,
         capabilities: list[str] = None,
-        priority: str = "normal"
+        priority: str = "normal",
     ) -> dict[str, Any]:
         """Broadcast a message to multiple agents"""
         start_time = time.time()
 
         try:
             async with aiohttp.ClientSession() as session:
-                request_body = {
-                    "message_type": message_type,
-                    "payload": payload,
-                    "priority": priority
-                }
+                request_body = {"message_type": message_type, "payload": payload, "priority": priority}
 
                 if agent_type:
                     request_body["agent_type"] = agent_type
                 if capabilities:
                     request_body["capabilities"] = capabilities
 
-                async with session.post(
-                    f"{self.coordinator_url}/messages/broadcast",
-                    json=request_body
-                ) as response:
+                async with session.post(f"{self.coordinator_url}/messages/broadcast", json=request_body) as response:
                     latency_ms = (time.time() - start_time) * 1000
                     self.metrics["latency_samples"].append(latency_ms)
 
@@ -145,12 +138,7 @@ class CommunicationTrainingStage:
             self.metrics["broadcast_total"] += 1
             return {"success": False, "error": str(e), "latency_ms": latency_ms}
 
-    async def get_message_history(
-        self,
-        sender_id: str = None,
-        receiver_id: str = None,
-        limit: int = 100
-    ) -> dict[str, Any]:
+    async def get_message_history(self, sender_id: str = None, receiver_id: str = None, limit: int = 100) -> dict[str, Any]:
         """Retrieve message history"""
         try:
             async with aiohttp.ClientSession() as session:
@@ -160,10 +148,7 @@ class CommunicationTrainingStage:
                 if receiver_id:
                     params["receiver_id"] = receiver_id
 
-                async with session.get(
-                    f"{self.coordinator_url}/messages/history",
-                    params=params
-                ) as response:
+                async with session.get(f"{self.coordinator_url}/messages/history", params=params) as response:
                     if response.status == 200:
                         data = await response.json()
                         return {"success": True, "data": data}
@@ -179,8 +164,7 @@ class CommunicationTrainingStage:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    f"{self.coordinator_url}/peers/add",
-                    params={"agent_id": agent_id, "peer_id": peer_id}
+                    f"{self.coordinator_url}/peers/add", params={"agent_id": agent_id, "peer_id": peer_id}
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -237,23 +221,28 @@ class CommunicationTrainingStage:
             "hierarchical_protocol": {
                 "total": self.metrics["hierarchical_total"],
                 "successful": self.metrics["hierarchical_success"],
-                "success_rate_percent": round(hierarchical_rate, 2)
+                "success_rate_percent": round(hierarchical_rate, 2),
             },
             "peer_to_peer_protocol": {
                 "total": self.metrics["peer_to_peer_total"],
                 "successful": self.metrics["peer_to_peer_success"],
-                "success_rate_percent": round(peer_to_peer_rate, 2)
+                "success_rate_percent": round(peer_to_peer_rate, 2),
             },
             "broadcast_protocol": {
                 "total": self.metrics["broadcast_total"],
                 "successful": self.metrics["broadcast_success"],
-                "success_rate_percent": round((self.metrics["broadcast_success"] / self.metrics["broadcast_total"] * 100) if self.metrics["broadcast_total"] > 0 else 0, 2)
+                "success_rate_percent": round(
+                    (self.metrics["broadcast_success"] / self.metrics["broadcast_total"] * 100)
+                    if self.metrics["broadcast_total"] > 0
+                    else 0,
+                    2,
+                ),
             },
             "performance": {
                 "avg_latency_ms": round(self.metrics["avg_latency_ms"], 2),
                 "min_latency_ms": round(min(self.metrics["latency_samples"]) if self.metrics["latency_samples"] else 0, 2),
-                "max_latency_ms": round(max(self.metrics["latency_samples"]) if self.metrics["latency_samples"] else 0, 2)
-            }
+                "max_latency_ms": round(max(self.metrics["latency_samples"]) if self.metrics["latency_samples"] else 0, 2),
+            },
         }
 
 
@@ -267,7 +256,7 @@ async def run_hierarchical_training(trainer: CommunicationTrainingStage, num_age
             receiver_id=agent_id,
             message_type="direct",
             payload={"training_step": i, "task": f"hierarchical_task_{i}"},
-            protocol="hierarchical"
+            protocol="hierarchical",
         )
 
         if result["success"]:
@@ -294,7 +283,7 @@ async def run_peer_to_peer_training(trainer: CommunicationTrainingStage, num_age
             receiver_id=agent_id,
             message_type="direct",
             payload={"training_step": i, "task": f"peer_to_peer_task_{i}"},
-            protocol="peer_to_peer"
+            protocol="peer_to_peer",
         )
 
         if result["success"]:
@@ -313,7 +302,7 @@ async def run_broadcast_training(trainer: CommunicationTrainingStage):
         result = await trainer.broadcast_message(
             message_type="broadcast",
             payload={"training_step": i, "announcement": f"broadcast_announcement_{i}"},
-            agent_type="worker"
+            agent_type="worker",
         )
 
         if result["success"]:

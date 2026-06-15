@@ -21,6 +21,7 @@ class TestNetworkHandlers:
         """Test that handle_network_status function exists"""
         try:
             from handlers.network import handle_network_status
+
             assert handle_network_status is not None
         except ImportError as e:
             pytest.skip(f"Cannot import network handlers: {e}")
@@ -29,6 +30,7 @@ class TestNetworkHandlers:
         """Test that handle_network_peers function exists"""
         try:
             from handlers.network import handle_network_peers
+
             assert handle_network_peers is not None
         except ImportError as e:
             pytest.skip(f"Cannot import network handlers: {e}")

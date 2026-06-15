@@ -1,6 +1,5 @@
 """Unit tests for agent registry service"""
 
-
 import pytest
 from app import Agent, AgentRegistration, app
 
@@ -23,7 +22,7 @@ def test_agent_model():
         capabilities=["trading", "analysis"],
         chain_id="ait-devnet",
         endpoint="http://localhost:8000",
-        metadata={"region": "us-east"}
+        metadata={"region": "us-east"},
     )
     assert agent.id == "agent_123"
     assert agent.name == "Test Agent"
@@ -40,7 +39,7 @@ def test_agent_model_empty_capabilities():
         type="trading",
         capabilities=[],
         chain_id="ait-devnet",
-        endpoint="http://localhost:8000"
+        endpoint="http://localhost:8000",
     )
     assert agent.capabilities == []
 
@@ -54,7 +53,7 @@ def test_agent_model_no_metadata():
         type="trading",
         capabilities=["trading"],
         chain_id="ait-devnet",
-        endpoint="http://localhost:8000"
+        endpoint="http://localhost:8000",
     )
     assert agent.metadata == {}
 
@@ -68,7 +67,7 @@ def test_agent_registration_model():
         capabilities=["trading", "analysis"],
         chain_id="ait-devnet",
         endpoint="http://localhost:8000",
-        metadata={"region": "us-east"}
+        metadata={"region": "us-east"},
     )
     assert registration.name == "Test Agent"
     assert registration.type == "trading"
@@ -79,11 +78,7 @@ def test_agent_registration_model():
 def test_agent_registration_model_empty_capabilities():
     """Test AgentRegistration with empty capabilities"""
     registration = AgentRegistration(
-        name="Test Agent",
-        type="trading",
-        capabilities=[],
-        chain_id="ait-devnet",
-        endpoint="http://localhost:8000"
+        name="Test Agent", type="trading", capabilities=[], chain_id="ait-devnet", endpoint="http://localhost:8000"
     )
     assert registration.capabilities == []
 
@@ -92,10 +87,6 @@ def test_agent_registration_model_empty_capabilities():
 def test_agent_registration_model_no_metadata():
     """Test AgentRegistration with default metadata"""
     registration = AgentRegistration(
-        name="Test Agent",
-        type="trading",
-        capabilities=["trading"],
-        chain_id="ait-devnet",
-        endpoint="http://localhost:8000"
+        name="Test Agent", type="trading", capabilities=["trading"], chain_id="ait-devnet", endpoint="http://localhost:8000"
     )
     assert registration.metadata == {}

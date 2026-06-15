@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 
 import aiohttp
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -34,7 +34,7 @@ class ChaosTestCoordinator:
             "mttr": None,
             "error_count": 0,
             "success_count": 0,
-            "scenario": "coordinator_outage"
+            "scenario": "coordinator_outage",
         }
 
     async def __aenter__(self):
@@ -48,10 +48,15 @@ class ChaosTestCoordinator:
     def get_coordinator_pods(self) -> list[str]:
         """Get list of coordinator pods"""
         cmd = [
-            "kubectl", "get", "pods",
-            "-n", self.namespace,
-            "-l", "app.kubernetes.io/name=coordinator",
-            "-o", "jsonpath={.items[*].metadata.name}"
+            "kubectl",
+            "get",
+            "pods",
+            "-n",
+            self.namespace,
+            "-l",
+            "app.kubernetes.io/name=coordinator",
+            "-o",
+            "jsonpath={.items[*].metadata.name}",
         ]
 
         try:
@@ -66,10 +71,15 @@ class ChaosTestCoordinator:
         """Delete all coordinator pods to simulate outage"""
         try:
             cmd = [
-                "kubectl", "delete", "pods",
-                "-n", self.namespace,
-                "-l", "app.kubernetes.io/name=coordinator",
-                "--force", "--grace-period=0"
+                "kubectl",
+                "delete",
+                "pods",
+                "-n",
+                self.namespace,
+                "-l",
+                "app.kubernetes.io/name=coordinator",
+                "--force",
+                "--grace-period=0",
             ]
             subprocess.run(cmd, check=True)
             logger.info("Coordinator pods deleted successfully")
@@ -106,10 +116,15 @@ class ChaosTestCoordinator:
 
                 # Check if at least one pod is ready
                 ready_cmd = [
-                    "kubectl", "get", "pods",
-                    "-n", self.namespace,
-                    "-l", "app.kubernetes.io/name=coordinator",
-                    "-o", "jsonpath={.items[?(@.status.phase=='Running')].metadata.name}"
+                    "kubectl",
+                    "get",
+                    "pods",
+                    "-n",
+                    self.namespace,
+                    "-l",
+                    "app.kubernetes.io/name=coordinator",
+                    "-o",
+                    "jsonpath={.items[?(@.status.phase=='Running')].metadata.name}",
                 ]
                 result = subprocess.run(ready_cmd, capture_output=True, text=True)
                 if result.stdout.strip():
@@ -133,18 +148,20 @@ class ChaosTestCoordinator:
         try:
             # Get service URL
             cmd = [
-                "kubectl", "get", "svc", "coordinator",
-                "-n", self.namespace,
-                "-o", "jsonpath={.spec.clusterIP}:{.spec.ports[0].port}"
+                "kubectl",
+                "get",
+                "svc",
+                "coordinator",
+                "-n",
+                self.namespace,
+                "-o",
+                "jsonpath={.spec.clusterIP}:{.spec.ports[0].port}",
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             service_url = f"http://{result.stdout.strip()}/v1/health"
 
             # Test health endpoint
-            response = subprocess.run(
-                ["curl", "-s", "--max-time", "5", service_url],
-                capture_output=True, text=True
-            )
+            response = subprocess.run(["curl", "-s", "--max-time", "5", service_url], capture_output=True, text=True)
 
             return response.returncode == 0 and "ok" in response.stdout
         except Exception:
@@ -156,9 +173,14 @@ class ChaosTestCoordinator:
 
         # Get service URL
         cmd = [
-            "kubectl", "get", "svc", "coordinator",
-            "-n", self.namespace,
-            "-o", "jsonpath={.spec.clusterIP}:{.spec.ports[0].port}"
+            "kubectl",
+            "get",
+            "svc",
+            "coordinator",
+            "-n",
+            self.namespace,
+            "-o",
+            "jsonpath={.spec.clusterIP}:{.spec.ports[0].port}",
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         base_url = f"http://{result.stdout.strip()}"
@@ -187,7 +209,9 @@ class ChaosTestCoordinator:
             # Brief pause
             await asyncio.sleep(1)
 
-        logger.info("Load generation completed. Success: %s, Errors: %s", self.metrics['success_count'], self.metrics['error_count'])
+        logger.info(
+            "Load generation completed. Success: %s, Errors: %s", self.metrics["success_count"], self.metrics["error_count"]
+        )
 
     async def run_test(self, outage_duration: int = 60, load_duration: int = 120):
         """Run the complete chaos test"""
@@ -251,10 +275,12 @@ class ChaosTestCoordinator:
         print(f"Scenario: {self.metrics['scenario']}")
         print(f"Test Duration: {self.metrics['test_start']} to {self.metrics['test_end']}")
         print(f"Outage Duration: {self.metrics['outage_start']} to {self.metrics['outage_end']}")
-        print(f"MTTR: {self.metrics['mttr']:.2f} seconds" if self.metrics['mttr'] else "MTTR: N/A")
+        print(f"MTTR: {self.metrics['mttr']:.2f} seconds" if self.metrics["mttr"] else "MTTR: N/A")
         print(f"Success Requests: {self.metrics['success_count']}")
         print(f"Error Requests: {self.metrics['error_count']}")
-        print(f"Error Rate: {(self.metrics['error_count'] / (self.metrics['success_count'] + self.metrics['error_count']) * 100):.2f}%")
+        print(
+            f"Error Rate: {(self.metrics['error_count'] / (self.metrics['success_count'] + self.metrics['error_count']) * 100):.2f}%"
+        )
 
 
 async def main():

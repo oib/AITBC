@@ -1,5 +1,3 @@
-
-
 """
 Enhanced Marketplace Service - FastAPI Entry Point
 """

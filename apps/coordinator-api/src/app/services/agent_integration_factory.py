@@ -46,7 +46,7 @@ _shared_service: AgentIntegrationService | None = None
 def get_shared_agent_integration_service() -> AgentIntegrationService:
     """
     Get or create the shared AgentIntegrationService singleton.
-    
+
     Returns:
         Shared AgentIntegrationService instance
     """
@@ -55,6 +55,7 @@ def get_shared_agent_integration_service() -> AgentIntegrationService:
         from sqlmodel import Session as SQLModelSession
 
         from ..storage.db import get_engine
+
         with SQLModelSession(get_engine()) as _sess:
             _shared_service = create_agent_integration_service(_sess)
     return _shared_service

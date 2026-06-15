@@ -96,6 +96,7 @@ class TestHandleCLIError:
 
     def test_handle_cli_error_success(self):
         """Test successful function execution"""
+
         @handle_cli_error
         def successful_func():
             return "success"
@@ -105,6 +106,7 @@ class TestHandleCLIError:
 
     def test_handle_cli_error_cli_error(self):
         """Test handling CLIError"""
+
         @handle_cli_error
         def failing_func():
             raise CLIError("Test error")
@@ -115,6 +117,7 @@ class TestHandleCLIError:
 
     def test_handle_cli_error_keyboard_interrupt(self):
         """Test handling KeyboardInterrupt"""
+
         @handle_cli_error
         def interrupt_func():
             raise KeyboardInterrupt()
@@ -125,6 +128,7 @@ class TestHandleCLIError:
 
     def test_handle_cli_error_generic_exception(self):
         """Test handling generic exception"""
+
         @handle_cli_error
         def error_func():
             raise ValueError("Generic error")
@@ -140,6 +144,7 @@ class TestHandleAsyncCLIError:
     @pytest.mark.asyncio
     async def test_handle_async_cli_error_success(self):
         """Test successful async function execution"""
+
         @handle_async_cli_error
         async def successful_func():
             return "success"
@@ -150,6 +155,7 @@ class TestHandleAsyncCLIError:
     @pytest.mark.asyncio
     async def test_handle_async_cli_error_cli_error(self):
         """Test handling CLIError in async"""
+
         @handle_async_cli_error
         async def failing_func():
             raise CLIError("Test error")
@@ -161,6 +167,7 @@ class TestHandleAsyncCLIError:
     @pytest.mark.asyncio
     async def test_handle_async_cli_error_keyboard_interrupt(self):
         """Test handling KeyboardInterrupt in async"""
+
         @handle_async_cli_error
         async def interrupt_func():
             raise KeyboardInterrupt()
@@ -180,17 +187,17 @@ class TestSafeExecute:
 
     def test_safe_execute_error_default(self):
         """Test operation returning default on error"""
-        result = safe_execute(lambda: 1/0, default_return="error")
+        result = safe_execute(lambda: 1 / 0, default_return="error")
         assert result == "error"
 
     def test_safe_execute_error_raise(self):
         """Test operation raising on error"""
         with pytest.raises(ZeroDivisionError):
-            safe_execute(lambda: 1/0, raise_on_error=True)
+            safe_execute(lambda: 1 / 0, raise_on_error=True)
 
     def test_safe_execute_custom_error_message(self):
         """Test custom error message"""
-        result = safe_execute(lambda: 1/0, error_message="Calculation failed")
+        result = safe_execute(lambda: 1 / 0, error_message="Calculation failed")
         assert result is None
 
 

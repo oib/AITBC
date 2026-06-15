@@ -22,8 +22,9 @@ class TestSystemCommands:
         """Test that system command group exists"""
         try:
             from aitbc_cli.commands.system import system
+
             assert system is not None
-            assert hasattr(system, 'name')
+            assert hasattr(system, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import system commands: {e}")
 
@@ -31,12 +32,13 @@ class TestSystemCommands:
         """Test system group name"""
         try:
             from aitbc_cli.commands.system import system
+
             assert system.name == "system"
         except ImportError as e:
             pytest.skip(f"Cannot import system commands: {e}")
 
-    @patch('aitbc_cli.commands.system.output')
-    @patch('aitbc_cli.commands.system.error')
+    @patch("aitbc_cli.commands.system.output")
+    @patch("aitbc_cli.commands.system.error")
     def test_system_architect_command(self, mock_error, mock_output):
         """Test system architect command - skip due to Click context issues"""
         pytest.skip("Click context mocking requires complex setup")

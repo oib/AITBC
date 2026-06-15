@@ -3,16 +3,16 @@
 Integrate GPU Miner with existing Trade Exchange
 """
 
-
 # Configuration
 EXCHANGE_URL = "http://localhost:3002"
 GPU_REGISTRY_URL = "http://localhost:8091"
+
 
 def update_exchange_with_gpu():
     """Update the exchange frontend to show registered GPUs"""
 
     # Read the exchange HTML
-    with open('/home/oib/windsurf/aitbc/apps/trade-exchange/index.html') as f:
+    with open("/home/oib/windsurf/aitbc/apps/trade-exchange/index.html") as f:
         html_content = f.read()
 
     # Add GPU marketplace integration
@@ -23,7 +23,7 @@ def update_exchange_with_gpu():
         try {
             const response = await fetch('http://localhost:8091/miners/list');
             const data = await response.json();
-            
+
             if (data.gpus && data.gpus.length > 0) {
                 displayRealGPUOffers(data.gpus);
             } else {
@@ -34,11 +34,11 @@ def update_exchange_with_gpu():
             displayDemoOffers();
         }
     }
-    
+
     function displayRealGPUOffers(gpus) {
         const container = document.getElementById('gpuList');
         container.innerHTML = '';
-        
+
         gpus.forEach(gpu => {
             const gpuCard = `
                 <div class="bg-white rounded-lg shadow-lg p-6 card-hover">
@@ -62,10 +62,10 @@ def update_exchange_with_gpu():
             `;
             container.innerHTML += gpuCard;
         });
-        
+
         lucide.createIcons();
     }
-    
+
     // Override the loadGPUOffers function
     const originalLoadGPUOffers = loadGPUOffers;
     loadGPUOffers = loadRealGPUOffers;
@@ -73,16 +73,17 @@ def update_exchange_with_gpu():
     """
 
     # Insert before closing body tag
-    if '</body>' in html_content:
-        html_content = html_content.replace('</body>', gpu_integration + '</body>')
+    if "</body>" in html_content:
+        html_content = html_content.replace("</body>", gpu_integration + "</body>")
 
         # Write back to file
-        with open('/home/oib/windsurf/aitbc/apps/trade-exchange/index.html', 'w') as f:
+        with open("/home/oib/windsurf/aitbc/apps/trade-exchange/index.html", "w") as f:
             f.write(html_content)
 
         print("✅ Updated exchange with GPU integration!")
     else:
         print("❌ Could not find </body> tag in exchange HTML")
+
 
 def create_gpu_api_endpoint():
     """Create an API endpoint in the exchange to serve GPU data"""
@@ -99,7 +100,7 @@ async def get_gpu_offers():
             return {"offers": data.get("gpus", [])}
     except (httpx.RequestException, KeyError, ValueError):
         pass
-    
+
     # Return demo data if registry not available
     return {
         "offers": [{
@@ -114,6 +115,7 @@ async def get_gpu_offers():
 
     print("\n📝 To add GPU API endpoint to exchange, add this code to simple_exchange_api.py:")
     print(api_code)
+
 
 def main():
     print("🔗 Integrating GPU Miner with Trade Exchange...")
@@ -136,6 +138,7 @@ def main():
     print("   python simple_exchange_api.py")
     print("2. Open http://localhost:3002 in browser")
     print("3. Click 'Browse GPU Marketplace'")
+
 
 if __name__ == "__main__":
     main()

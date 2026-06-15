@@ -17,13 +17,16 @@ logger = logging.getLogger(__name__)
 # Initialize GPU manager
 gpu_manager = create_gpu_manager()
 
+
 class FieldOperation(BaseModel):
     a: list[int]
     b: list[int]
 
+
 class MultiScalarOperation(BaseModel):
     scalars: list[list[int]]
     points: list[list[int]]
+
 
 @app.post("/field/add")
 async def field_add(op: FieldOperation):
@@ -36,6 +39,7 @@ async def field_add(op: FieldOperation):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/field/mul")
 async def field_mul(op: FieldOperation):
     """Perform field multiplication."""
@@ -47,10 +51,12 @@ async def field_mul(op: FieldOperation):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/backend/info")
 async def backend_info():
     """Get backend information."""
     return gpu_manager.get_backend_info()
+
 
 @app.get("/performance/metrics")
 async def performance_metrics():

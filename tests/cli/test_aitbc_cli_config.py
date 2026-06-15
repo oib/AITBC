@@ -21,7 +21,7 @@ import pytest
 class TestGetConfig:
     """Test get_config function"""
 
-    @patch.dict('os.environ', {}, clear=True)
+    @patch.dict("os.environ", {}, clear=True)
     def test_get_config_default(self):
         """Test get_config with default values"""
         try:
@@ -35,7 +35,7 @@ class TestGetConfig:
         except ImportError:
             pytest.skip("BaseAITBCConfig import failed - expected for this module")
 
-    @patch.dict('os.environ', {}, clear=True)
+    @patch.dict("os.environ", {}, clear=True)
     def test_get_config_with_file(self):
         """Test get_config with config file"""
         try:
@@ -44,13 +44,13 @@ class TestGetConfig:
             with tempfile.TemporaryDirectory() as tmpdir:
                 config_file = Path(tmpdir) / "config.yaml"
                 config_data = {
-                    'coordinator_url': 'http://custom:8203',
-                    'wallet_url': 'http://custom:8003',
-                    'api_key': 'test_key',
-                    'timeout': 60
+                    "coordinator_url": "http://custom:8203",
+                    "wallet_url": "http://custom:8003",
+                    "api_key": "test_key",
+                    "timeout": 60,
                 }
 
-                with open(config_file, 'w') as f:
+                with open(config_file, "w") as f:
                     yaml.dump(config_data, f)
 
                 config = get_config(str(config_file))
@@ -62,7 +62,7 @@ class TestGetConfig:
         except ImportError:
             pytest.skip("BaseAITBCConfig import failed - expected for this module")
 
-    @patch.dict('os.environ', {}, clear=True)
+    @patch.dict("os.environ", {}, clear=True)
     def test_get_config_with_nonexistent_file(self):
         """Test get_config with nonexistent file"""
         try:

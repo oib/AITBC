@@ -22,37 +22,39 @@ class ScalabilityValidator:
         """Measure performance of a single endpoint"""
         start_time = time.time()
 
-        headers = kwargs.pop('headers', {})
-        headers['X-Api-Key'] = self.api_key
+        headers = kwargs.pop("headers", {})
+        headers["X-Api-Key"] = self.api_key
 
         try:
-            async with session.request(method, f"{self.base_url}{endpoint}",
-                                      headers=headers, timeout=30, **kwargs) as response:
+            async with session.request(
+                method, f"{self.base_url}{endpoint}", headers=headers, timeout=30, **kwargs
+            ) as response:
                 content = await response.text()
                 end_time = time.time()
 
                 return {
-                    'endpoint': endpoint,
-                    'method': method,
-                    'status_code': response.status,
-                    'response_time': end_time - start_time,
-                    'content_length': len(content),
-                    'success': response.status < 400
+                    "endpoint": endpoint,
+                    "method": method,
+                    "status_code": response.status,
+                    "response_time": end_time - start_time,
+                    "content_length": len(content),
+                    "success": response.status < 400,
                 }
         except Exception as e:
             end_time = time.time()
             return {
-                'endpoint': endpoint,
-                'method': method,
-                'status_code': 0,
-                'response_time': end_time - start_time,
-                'content_length': 0,
-                'success': False,
-                'error': str(e)
+                "endpoint": endpoint,
+                "method": method,
+                "status_code": 0,
+                "response_time": end_time - start_time,
+                "content_length": 0,
+                "success": False,
+                "error": str(e),
             }
 
-    async def load_test_endpoint(self, endpoint, method="GET", concurrent_users=10,
-                               requests_per_user=5, ramp_up_time=5, **kwargs):
+    async def load_test_endpoint(
+        self, endpoint, method="GET", concurrent_users=10, requests_per_user=5, ramp_up_time=5, **kwargs
+    ):
         """Perform load testing with gradual ramp-up"""
         print(f"🧪 Load Testing {method} {endpoint}")
         print(f"   Users: {concurrent_users}, Requests/User: {requests_per_user}")
@@ -71,7 +73,7 @@ class ScalabilityValidator:
                     await asyncio.sleep(ramp_up_time / concurrent_users)
 
                 # Create requests for this user
-                for req in range(requests_per_user):
+                for _req in range(requests_per_user):
                     task = self.measure_endpoint_performance(session, method, endpoint, **kwargs)
                     tasks.append(task)
 
@@ -80,24 +82,26 @@ class ScalabilityValidator:
 
             # Filter valid results
             valid_results = [r for r in results if isinstance(r, dict)]
-            successful_results = [r for r in valid_results if r['success']]
+            successful_results = [r for r in valid_results if r["success"]]
 
             # Calculate metrics
-            response_times = [r['response_time'] for r in successful_results]
+            response_times = [r["response_time"] for r in successful_results]
 
             return {
-                'endpoint': endpoint,
-                'total_requests': len(valid_results),
-                'successful_requests': len(successful_results),
-                'failed_requests': len(valid_results) - len(successful_results),
-                'success_rate': len(successful_results) / len(valid_results) * 100 if valid_results else 0,
-                'avg_response_time': statistics.mean(response_times) if response_times else 0,
-                'min_response_time': min(response_times) if response_times else 0,
-                'max_response_time': max(response_times) if response_times else 0,
-                'median_response_time': statistics.median(response_times) if response_times else 0,
-                'p95_response_time': statistics.quantiles(response_times, n=20)[18] if len(response_times) > 20 else 0,
-                'p99_response_time': statistics.quantiles(response_times, n=100)[98] if len(response_times) > 100 else 0,
-                'requests_per_second': len(successful_results) / (max(response_times) - min(response_time)) if len(response_times) > 1 else 0
+                "endpoint": endpoint,
+                "total_requests": len(valid_results),
+                "successful_requests": len(successful_results),
+                "failed_requests": len(valid_results) - len(successful_results),
+                "success_rate": len(successful_results) / len(valid_results) * 100 if valid_results else 0,
+                "avg_response_time": statistics.mean(response_times) if response_times else 0,
+                "min_response_time": min(response_times) if response_times else 0,
+                "max_response_time": max(response_times) if response_times else 0,
+                "median_response_time": statistics.median(response_times) if response_times else 0,
+                "p95_response_time": statistics.quantiles(response_times, n=20)[18] if len(response_times) > 20 else 0,
+                "p99_response_time": statistics.quantiles(response_times, n=100)[98] if len(response_times) > 100 else 0,
+                "requests_per_second": len(successful_results) / (max(response_times) - min(response_time))
+                if len(response_times) > 1
+                else 0,
             }
 
     def get_system_metrics(self):
@@ -106,10 +110,10 @@ class ScalabilityValidator:
             # CPU usage (parse /proc/stat)
             cpu_usage = 0.0
             try:
-                with open('/proc/stat') as f:
+                with open("/proc/stat") as f:
                     line = f.readline()
                     fields = line.split()
-                    if fields[0] == 'cpu' and len(fields) >= 5:
+                    if fields[0] == "cpu" and len(fields) >= 5:
                         user, nice, system, idle = int(fields[1]), int(fields[2]), int(fields[3]), int(fields[4])
                         total = user + nice + system + idle
                         if total > 0:
@@ -121,12 +125,12 @@ class ScalabilityValidator:
             memory_usage = 0.0
             try:
                 meminfo = {}
-                with open('/proc/meminfo') as f:
+                with open("/proc/meminfo") as f:
                     for line in f:
-                        key, value = line.split(':')
+                        key, value = line.split(":")
                         meminfo[key.strip()] = int(value.split()[0])
-                total = meminfo.get('MemTotal', 0)
-                available = meminfo.get('MemAvailable', meminfo.get('MemFree', 0))
+                total = meminfo.get("MemTotal", 0)
+                available = meminfo.get("MemAvailable", meminfo.get("MemFree", 0))
                 if total > 0:
                     memory_usage = round((total - available) / total * 100, 1)
             except Exception:
@@ -136,20 +140,21 @@ class ScalabilityValidator:
             disk_usage = 0.0
             try:
                 import shutil
-                usage = shutil.disk_usage('/')
+
+                usage = shutil.disk_usage("/")
                 if usage.total > 0:
                     disk_usage = round((usage.total - usage.free) / usage.total * 100, 1)
             except Exception:
                 pass
 
             return {
-                'cpu_usage': float(cpu_usage) if cpu_usage else 0,
-                'memory_usage': float(memory_usage) if memory_usage else 0,
-                'disk_usage': float(disk_usage) if disk_usage else 0
+                "cpu_usage": float(cpu_usage) if cpu_usage else 0,
+                "memory_usage": float(memory_usage) if memory_usage else 0,
+                "disk_usage": float(disk_usage) if disk_usage else 0,
             }
         except Exception as e:
             print(f"⚠️  Could not get system metrics: {e}")
-            return {'cpu_usage': 0, 'memory_usage': 0, 'disk_usage': 0}
+            return {"cpu_usage": 0, "memory_usage": 0, "disk_usage": 0}
 
     async def run_scalability_tests(self):
         """Run comprehensive scalability tests"""
@@ -167,16 +172,13 @@ class ScalabilityValidator:
         # Test scenarios with increasing load
         test_scenarios = [
             # Light load
-            {'endpoint': '/health', 'method': 'GET', 'users': 5, 'requests': 5, 'name': 'Light Load'},
-
+            {"endpoint": "/health", "method": "GET", "users": 5, "requests": 5, "name": "Light Load"},
             # Medium load
-            {'endpoint': '/health', 'method': 'GET', 'users': 20, 'requests': 10, 'name': 'Medium Load'},
-
+            {"endpoint": "/health", "method": "GET", "users": 20, "requests": 10, "name": "Medium Load"},
             # Heavy load
-            {'endpoint': '/health', 'method': 'GET', 'users': 50, 'requests': 10, 'name': 'Heavy Load'},
-
+            {"endpoint": "/health", "method": "GET", "users": 50, "requests": 10, "name": "Heavy Load"},
             # Stress test
-            {'endpoint': '/health', 'method': 'GET', 'users': 100, 'requests': 5, 'name': 'Stress Test'},
+            {"endpoint": "/health", "method": "GET", "users": 100, "requests": 5, "name": "Stress Test"},
         ]
 
         results = []
@@ -184,26 +186,26 @@ class ScalabilityValidator:
         for scenario in test_scenarios:
             print(f"🎯 Scenario: {scenario['name']}")
 
-            endpoint = scenario['endpoint']
-            method = scenario['method']
-            users = scenario['users']
-            requests = scenario['requests']
+            endpoint = scenario["endpoint"]
+            method = scenario["method"]
+            users = scenario["users"]
+            requests = scenario["requests"]
 
             # Get metrics before test
             before_metrics = self.get_system_metrics()
 
             # Run load test
             result = await self.load_test_endpoint(endpoint, method, users, requests)
-            result['scenario'] = scenario['name']
-            result['concurrent_users'] = users
-            result['requests_per_user'] = requests
+            result["scenario"] = scenario["name"]
+            result["concurrent_users"] = users
+            result["requests_per_user"] = requests
 
             # Get metrics after test
             after_metrics = self.get_system_metrics()
 
             # Calculate resource impact
-            result['cpu_impact'] = after_metrics['cpu_usage'] - before_metrics['cpu_usage']
-            result['memory_impact'] = after_metrics['memory_usage'] - before_metrics['memory_usage']
+            result["cpu_impact"] = after_metrics["cpu_usage"] - before_metrics["cpu_usage"]
+            result["memory_impact"] = after_metrics["memory_usage"] - before_metrics["memory_usage"]
 
             results.append(result)
 
@@ -217,7 +219,7 @@ class ScalabilityValidator:
 
     def print_scenario_results(self, result):
         """Print results for a single scenario"""
-        status = "✅" if result['success_rate'] >= 95 else "⚠️" if result['success_rate'] >= 80 else "❌"
+        status = "✅" if result["success_rate"] >= 95 else "⚠️" if result["success_rate"] >= 80 else "❌"
 
         print(f"   {status} {result['scenario']}:")
         print(f"      Success Rate: {result['success_rate']:.1f}%")
@@ -235,8 +237,8 @@ class ScalabilityValidator:
         print("=" * 60)
 
         # Overall statistics
-        total_requests = sum(r['total_requests'] for r in results)
-        total_successful = sum(r['successful_requests'] for r in results)
+        total_requests = sum(r["total_requests"] for r in results)
+        total_successful = sum(r["successful_requests"] for r in results)
         overall_success_rate = (total_successful / total_requests * 100) if total_requests > 0 else 0
 
         print("📊 Overall Performance:")
@@ -248,32 +250,34 @@ class ScalabilityValidator:
         # Performance by scenario
         print("🎯 Performance by Scenario:")
         for result in results:
-            status = "✅" if result['success_rate'] >= 95 else "⚠️" if result['success_rate'] >= 80 else "❌"
+            status = "✅" if result["success_rate"] >= 95 else "⚠️" if result["success_rate"] >= 80 else "❌"
             print(f"   {status} {result['scenario']} ({result['concurrent_users']} users)")
-            print(f"      Success: {result['success_rate']:.1f}% | "
-                  f"Avg: {result['avg_response_time']:.3f}s | "
-                  f"P95: {result['p95_response_time']:.3f}s | "
-                  f"RPS: {result['requests_per_second']:.1f}")
+            print(
+                f"      Success: {result['success_rate']:.1f}% | "
+                f"Avg: {result['avg_response_time']:.3f}s | "
+                f"P95: {result['p95_response_time']:.3f}s | "
+                f"RPS: {result['requests_per_second']:.1f}"
+            )
         print()
 
         # Scalability analysis
         print("📈 Scalability Analysis:")
 
         # Response time scalability
-        response_times = [(r['concurrent_users'], r['avg_response_time']) for r in results]
+        response_times = [(r["concurrent_users"], r["avg_response_time"]) for r in results]
         print("   Response Time Scalability:")
         for users, avg_time in response_times:
             print(f"      {users} users: {avg_time:.3f}s avg")
 
         # Success rate scalability
-        success_rates = [(r['concurrent_users'], r['success_rate']) for r in results]
+        success_rates = [(r["concurrent_users"], r["success_rate"]) for r in results]
         print("   Success Rate Scalability:")
         for users, success_rate in success_rates:
             print(f"      {users} users: {success_rate:.1f}% success")
 
         # Resource impact analysis
-        cpu_impacts = [r['cpu_impact'] for r in results]
-        memory_impacts = [r['memory_impact'] for r in results]
+        cpu_impacts = [r["cpu_impact"] for r in results]
+        memory_impacts = [r["memory_impact"] for r in results]
 
         print("   Resource Impact:")
         print(f"      Max CPU Impact: +{max(cpu_impacts):.1f}%")
@@ -284,8 +288,8 @@ class ScalabilityValidator:
         print("💡 Scalability Recommendations:")
 
         # Check if performance degrades significantly
-        max_response_time = max(r['avg_response_time'] for r in results)
-        min_success_rate = min(r['success_rate'] for r in results)
+        max_response_time = max(r["avg_response_time"] for r in results)
+        min_success_rate = min(r["success_rate"] for r in results)
 
         if max_response_time < 0.5 and min_success_rate >= 95:
             print("   🎉 Excellent scalability - system handles load well!")
@@ -307,6 +311,7 @@ class ScalabilityValidator:
         print("   ⚠️  Good: <1s response, >90% success at 50+ users")
         print("   ❌ Needs Work: >1s response or <90% success rate")
 
+
 async def main():
     """Main scalability validation"""
     validator = ScalabilityValidator()
@@ -316,8 +321,8 @@ async def main():
         validator.generate_scalability_report(results)
 
         # Determine if system is production-ready
-        min_success_rate = min(r['success_rate'] for r in results)
-        max_response_time = max(r['avg_response_time'] for r in results)
+        min_success_rate = min(r["success_rate"] for r in results)
+        max_response_time = max(r["avg_response_time"] for r in results)
 
         if min_success_rate >= 90 and max_response_time < 1.0:
             print("\n✅ SCALABILITY VALIDATION PASSED")
@@ -331,6 +336,7 @@ async def main():
     except Exception as e:
         print(f"❌ Scalability validation failed: {e}")
         return 1
+
 
 if __name__ == "__main__":
     exit_code = asyncio.run(main())

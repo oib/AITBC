@@ -22,7 +22,7 @@ class TestCoreInit:
         import aitbc_cli.core as core_module
 
         # Check if __version__ exists as an attribute
-        assert hasattr(core_module, '__version__')
+        assert hasattr(core_module, "__version__")
         version = core_module.__version__
 
         # It could be a string or a module (if __version__.py is imported)
@@ -30,13 +30,13 @@ class TestCoreInit:
             assert version is not None
         else:
             # If it's a module, check for the string attribute inside
-            assert hasattr(version, '__version__')
+            assert hasattr(version, "__version__")
 
     def test_author_attribute(self):
         """Test that __author__ attribute exists"""
         import aitbc_cli.core as core_module
 
-        assert hasattr(core_module, '__author__')
+        assert hasattr(core_module, "__author__")
         author = core_module.__author__
         assert author is not None
         assert isinstance(author, str)
@@ -45,7 +45,7 @@ class TestCoreInit:
         """Test that __email__ attribute exists"""
         import aitbc_cli.core as core_module
 
-        assert hasattr(core_module, '__email__')
+        assert hasattr(core_module, "__email__")
         email = core_module.__email__
         assert email is not None
         assert isinstance(email, str)
@@ -58,7 +58,7 @@ class TestCoreInit:
 
         # If it's a module, get the string from inside
         if not isinstance(version, str):
-            version = getattr(version, '__version__', '0.1.0')
+            version = getattr(version, "__version__", "0.1.0")
 
         # Should follow major.minor.patch format
         parts = version.split(".")

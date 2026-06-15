@@ -40,82 +40,82 @@ class TestMetricsDefinitions:
     def test_service_info_exists(self):
         """Test service_info metric is defined"""
         assert service_info is not None
-        assert service_info._name == 'service_info'
+        assert service_info._name == "service_info"
 
     def test_block_processing_duration_exists(self):
         """Test block_processing_duration metric is defined"""
         assert block_processing_duration is not None
-        assert block_processing_duration._name == 'block_processing_duration_seconds'
+        assert block_processing_duration._name == "block_processing_duration_seconds"
 
     def test_block_height_exists(self):
         """Test block_height metric is defined"""
         assert block_height is not None
-        assert block_height._name == 'block_height'
+        assert block_height._name == "block_height"
 
     def test_block_validation_duration_exists(self):
         """Test block_validation_duration metric is defined"""
         assert block_validation_duration is not None
-        assert block_validation_duration._name == 'block_validation_duration_seconds'
+        assert block_validation_duration._name == "block_validation_duration_seconds"
 
     def test_block_propagation_duration_exists(self):
         """Test block_propagation_duration metric is defined"""
         assert block_propagation_duration is not None
-        assert block_propagation_duration._name == 'block_propagation_duration_seconds'
+        assert block_propagation_duration._name == "block_propagation_duration_seconds"
 
     def test_job_submission_duration_exists(self):
         """Test job_submission_duration metric is defined"""
         assert job_submission_duration is not None
-        assert job_submission_duration._name == 'job_submission_duration_seconds'
+        assert job_submission_duration._name == "job_submission_duration_seconds"
 
     def test_job_processing_duration_exists(self):
         """Test job_processing_duration metric is defined"""
         assert job_processing_duration is not None
-        assert job_processing_duration._name == 'job_processing_duration_seconds'
+        assert job_processing_duration._name == "job_processing_duration_seconds"
 
     def test_job_queue_duration_exists(self):
         """Test job_queue_duration metric is defined"""
         assert job_queue_duration is not None
-        assert job_queue_duration._name == 'job_queue_duration_seconds'
+        assert job_queue_duration._name == "job_queue_duration_seconds"
 
     def test_job_execution_duration_exists(self):
         """Test job_execution_duration metric is defined"""
         assert job_execution_duration is not None
-        assert job_execution_duration._name == 'job_execution_duration_seconds'
+        assert job_execution_duration._name == "job_execution_duration_seconds"
 
     def test_jobs_total_exists(self):
         """Test jobs_total metric is defined"""
         assert jobs_total is not None
-        assert jobs_total._name == 'jobs'
+        assert jobs_total._name == "jobs"
 
     def test_jobs_failed_total_exists(self):
         """Test jobs_failed_total metric is defined"""
         assert jobs_failed_total is not None
-        assert jobs_failed_total._name == 'jobs_failed'
+        assert jobs_failed_total._name == "jobs_failed"
 
     def test_jobs_in_queue_exists(self):
         """Test jobs_in_queue metric is defined"""
         assert jobs_in_queue is not None
-        assert jobs_in_queue._name == 'jobs_in_queue'
+        assert jobs_in_queue._name == "jobs_in_queue"
 
     def test_http_requests_total_exists(self):
         """Test http_requests_total metric is defined"""
         assert http_requests_total is not None
-        assert http_requests_total._name == 'http_requests'
+        assert http_requests_total._name == "http_requests"
 
     def test_http_request_duration_exists(self):
         """Test http_request_duration metric is defined"""
         assert http_request_duration is not None
-        assert http_request_duration._name == 'http_request_duration_seconds'
+        assert http_request_duration._name == "http_request_duration_seconds"
 
     def test_service_uptime_seconds_exists(self):
         """Test service_uptime_seconds metric is defined"""
         assert service_uptime_seconds is not None
-        assert service_uptime_seconds._name == 'service_uptime_seconds'
+        assert service_uptime_seconds._name == "service_uptime_seconds"
 
     def test_service_restart_count_exists(self):
         """Test service_restart_count metric is defined"""
         assert service_restart_count is not None
-        assert service_restart_count._name == 'service_restart_count'
+        assert service_restart_count._name == "service_restart_count"
 
 
 class TestHelperFunctions:
@@ -156,6 +156,7 @@ class TestDecorators:
     @pytest.mark.asyncio
     async def test_track_block_processing_success(self):
         """Test track_block_processing decorator on successful execution"""
+
         @track_block_processing
         async def process_block():
             return "block_processed"
@@ -168,6 +169,7 @@ class TestDecorators:
     @pytest.mark.asyncio
     async def test_track_block_processing_failure(self):
         """Test track_block_processing decorator on exception"""
+
         @track_block_processing
         async def process_block():
             raise ValueError("block error")
@@ -180,6 +182,7 @@ class TestDecorators:
     @pytest.mark.asyncio
     async def test_track_job_processing_success(self):
         """Test track_job_processing decorator on successful execution"""
+
         @track_job_processing
         async def process_job():
             return "job_completed"
@@ -192,6 +195,7 @@ class TestDecorators:
     @pytest.mark.asyncio
     async def test_track_job_processing_failure(self):
         """Test track_job_processing decorator on exception"""
+
         @track_job_processing
         async def process_job():
             raise ValueError("job error")
@@ -219,6 +223,7 @@ class TestDecorators:
     @pytest.mark.asyncio
     async def test_track_http_request_failure(self):
         """Test track_http_request decorator on exception"""
+
         @track_http_request
         async def handle_request():
             raise ValueError("request error")
@@ -231,6 +236,7 @@ class TestDecorators:
     @pytest.mark.asyncio
     async def test_track_http_request_without_status_code(self):
         """Test track_http_request with response without status_code"""
+
         @track_http_request
         async def handle_request():
             return "success"  # No status_code attribute
@@ -247,4 +253,4 @@ class TestMetricsApp:
     def test_metrics_app_exists(self):
         """Test metrics_app is created"""
         assert metrics_app is not None
-        assert hasattr(metrics_app, '__call__')
+        assert hasattr(metrics_app, "__call__")

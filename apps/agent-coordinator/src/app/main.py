@@ -29,15 +29,11 @@ def create_app() -> FastAPI:
     )
 
     # Add rate limiting middleware
-    app.add_middleware(
-        RateLimitMiddleware,
-        rate=100,
-        per=60
-    )
+    app.add_middleware(RateLimitMiddleware, rate=100, per=60)
 
     for router in ROUTERS:
         # Check if router already has a prefix (like agent_messaging.router)
-        if hasattr(router, 'prefix') and router.prefix.startswith('/api'):
+        if hasattr(router, "prefix") and router.prefix.startswith("/api"):
             app.include_router(router)
         else:
             app.include_router(router, prefix="/v1")

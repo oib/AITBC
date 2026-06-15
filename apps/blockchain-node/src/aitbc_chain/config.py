@@ -19,11 +19,15 @@ class ProposerConfig(BaseModel):
     max_txs_per_block: int
     default_peer_rpc_url: str | None = None
 
+
 # Default island ID for new installations
 DEFAULT_ISLAND_ID = str(uuid.uuid4())
 
+
 class ChainSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file="/etc/aitbc/blockchain.env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file="/etc/aitbc/blockchain.env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+    )
 
     # Node profiles (set during setup.sh)
     blockchain_mode: str = "follower"  # follower or hub
@@ -44,10 +48,10 @@ class ChainSettings(BaseSettings):
 
     def get_db_path(self, chain_id: str = "") -> Path:
         """Get database path for a specific chain.
-        
+
         Args:
             chain_id: Chain ID to get path for. If empty, uses self.chain_id or default.
-        
+
         Returns:
             Path to chain-specific database file.
         """
@@ -58,7 +62,11 @@ class ChainSettings(BaseSettings):
         return DATA_DIR / "data" / resolved_chain_id / "chain.db"
 
     # CORS configuration
-    cors_origins: list[str] = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if os.getenv("CORS_ORIGINS") else ["http://localhost:3000"]
+    cors_origins: list[str] = (
+        os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+        if os.getenv("CORS_ORIGINS")
+        else ["http://localhost:3000"]
+    )
 
     rpc_bind_host: str = "0.0.0.0"  # nosec B104: intentional for distributed blockchain
     rpc_bind_port: int = 8080
@@ -107,9 +115,9 @@ class ChainSettings(BaseSettings):
     # Sync settings
     trusted_proposers: str = ""  # comma-separated list of trusted proposer IDs
     genesis_candidates: ClassVar[list[str]] = [
-        str(DATA_DIR / 'data' / 'genesis.json'),
+        str(DATA_DIR / "data" / "genesis.json"),
         f"{DATA_DIR}/data/{chain_id}/genesis.json",
-        f'{DATA_DIR}/data/ait-mainnet/genesis.json',
+        f"{DATA_DIR}/data/ait-mainnet/genesis.json",
     ]
     max_reorg_depth: int = 10  # max blocks to reorg on conflict
     sync_validate_signatures: bool = True  # validate proposer signatures on import
@@ -149,7 +157,9 @@ class ChainSettings(BaseSettings):
 
     # Cross-site synchronization settings
     cross_site_sync_enabled: bool = True
-    cross_site_remote_endpoints: list[str] = os.getenv("CROSS_SITE_REMOTE_ENDPOINTS", "").split(",") if os.getenv("CROSS_SITE_REMOTE_ENDPOINTS") else []
+    cross_site_remote_endpoints: list[str] = (
+        os.getenv("CROSS_SITE_REMOTE_ENDPOINTS", "").split(",") if os.getenv("CROSS_SITE_REMOTE_ENDPOINTS") else []
+    )
     cross_site_poll_interval: int = 10
 
     # NAT Traversal (STUN/TURN)

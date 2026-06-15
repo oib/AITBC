@@ -29,21 +29,21 @@ def main():
     html_content = response.text
 
     # Check for toggle button
-    if 'dataModeBtn' in html_content:
+    if "dataModeBtn" in html_content:
         print("❌ Data mode toggle button still present!")
         return
     else:
         print("✅ Data mode toggle button removed")
 
     # Check for mode-button class
-    if 'mode-button' in html_content:
+    if "mode-button" in html_content:
         print("❌ Mode button class still found!")
         return
     else:
         print("✅ Mode button class removed")
 
     # Check for data-mode-toggle
-    if 'data-mode-toggle' in html_content:
+    if "data-mode-toggle" in html_content:
         print("❌ Data mode toggle component still present!")
         return
     else:
@@ -56,7 +56,7 @@ def main():
         if js_response.status_code == 200:
             js_content = js_response.text
 
-            if 'initDataModeToggle' in js_content:
+            if "initDataModeToggle" in js_content:
                 print("❌ Data mode toggle initialization still in JS!")
                 return
             else:
@@ -79,6 +79,7 @@ def main():
     print("   • Has no mock/live toggle button")
     print("   • Shows real blockchain data")
     print("   • Is cleaner and more professional")
+
 
 if __name__ == "__main__":
     main()

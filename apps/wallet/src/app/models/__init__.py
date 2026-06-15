@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aitbc_sdk.receipts import SignatureValidation  # type: ignore[import-not-found]
 from pydantic import BaseModel
@@ -135,6 +135,7 @@ class WalletMigrationResponse(BaseModel):
 
 class WalletTransactionRequest(BaseModel):
     """Request to send a transaction from a wallet"""
+
     password: str
     recipient: str
     amount: int
@@ -146,6 +147,7 @@ class WalletTransactionRequest(BaseModel):
 
 class WalletTransactionResponse(BaseModel):
     """Response after submitting a transaction"""
+
     success: bool
     tx_hash: str
     status: str

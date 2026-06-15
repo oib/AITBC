@@ -5,7 +5,6 @@ Tests that state root verification prevents silent tampering.
 import sys
 """
 
-
 from aitbc_chain.models import Account
 from aitbc_chain.state.merkle_patricia_trie import MerklePatriciaTrie, StateManager
 
@@ -35,7 +34,7 @@ class TestStateRootVerification:
         root = trie.get_root()
 
         # Root should not be empty
-        assert root != b'\x00' * 32
+        assert root != b"\x00" * 32
         assert len(root) == 32
 
     def test_merkle_patricia_trie_delete(self):
@@ -66,7 +65,7 @@ class TestStateRootVerification:
             assert trie.get(key) == value
 
         assert trie.get(b"account:unknown") is None
-        assert trie.get_root() != b'\x00' * 32
+        assert trie.get_root() != b"\x00" * 32
 
     def test_merkle_patricia_trie_update_changes_value_and_root(self):
         trie = MerklePatriciaTrie()
@@ -106,7 +105,7 @@ class TestStateRootVerification:
         assert trie.get(b"account:alicia") is None
         assert trie.get(b"account:alice") == b"1000:0"
         assert trie.get(b"account:bob") == b"3000:2"
-        assert trie.get_root() != b'\x00' * 32
+        assert trie.get_root() != b"\x00" * 32
 
     def test_merkle_patricia_trie_proof_verification(self):
         trie = MerklePatriciaTrie()
@@ -133,7 +132,7 @@ class TestStateRootVerification:
 
         # Root should be 32 bytes
         assert len(root) == 32
-        assert root != b'\x00' * 32
+        assert root != b"\x00" * 32
 
     def test_state_manager_verify_state_root(self):
         """Test that StateManager can verify state root."""
@@ -150,7 +149,7 @@ class TestStateRootVerification:
         assert state_manager.verify_state_root(accounts, expected_root)
 
         # Verify should fail with incorrect root
-        fake_root = b'\x00' * 32
+        fake_root = b"\x00" * 32
         assert not state_manager.verify_state_root(accounts, fake_root)
 
     def test_state_manager_different_state_different_root(self):

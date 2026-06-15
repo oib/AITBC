@@ -491,7 +491,9 @@ async def check_compliance_status(
 @router.get("/health", response_model=dict[str, Any])
 @rate_limit(rate=1000, per=60)
 async def get_governance_system_health(
-    request: Request, session: Session = Depends(get_session), governance_service: GovernanceService = Depends(get_governance_service)
+    request: Request,
+    session: Session = Depends(get_session),
+    governance_service: GovernanceService = Depends(get_governance_service),
 ) -> dict[str, Any]:
     """Get overall governance system health status"""
 
@@ -540,7 +542,9 @@ async def get_governance_system_health(
 @router.get("/status", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def get_governance_platform_status(
-    request: Request, session: Session = Depends(get_session), governance_service: GovernanceService = Depends(get_governance_service)
+    request: Request,
+    session: Session = Depends(get_session),
+    governance_service: GovernanceService = Depends(get_governance_service),
 ) -> dict[str, Any]:
     """Get comprehensive platform status information"""
 

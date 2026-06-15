@@ -175,8 +175,9 @@ class MinerRepository:
             load_factor = 1.0 - utilization
         price_factor = 1.0 if miner.base_price <= 0 else min(1.0, 1.0 / miner.base_price)
         trust_factor = max(miner.trust_score, 0.0)
-        return (settings.default_score_weights.capability * 1.0) + (
-            settings.default_score_weights.price * price_factor
-        ) + (settings.default_score_weights.load * load_factor) + (
-            settings.default_score_weights.trust * trust_factor
+        return (
+            (settings.default_score_weights.capability * 1.0)
+            + (settings.default_score_weights.price * price_factor)
+            + (settings.default_score_weights.load * load_factor)
+            + (settings.default_score_weights.trust * trust_factor)
         )

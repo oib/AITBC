@@ -2,6 +2,7 @@
 Distributed Consensus Implementation for AITBC Agent Coordinator
 Implements various consensus algorithms for distributed decision making
 """
+
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -12,9 +13,11 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+
 @dataclass
 class ConsensusProposal:
     """Represents a consensus proposal"""
+
     proposal_id: str
     proposer_id: str
     proposal_data: dict[str, Any]
@@ -22,17 +25,20 @@ class ConsensusProposal:
     deadline: datetime
     required_votes: int
     current_votes: dict[str, bool] = field(default_factory=dict)
-    status: str = 'pending'
+    status: str = "pending"
+
 
 @dataclass
 class ConsensusNode:
     """Represents a node in the consensus network"""
+
     node_id: str
     endpoint: str
     last_seen: datetime
     reputation_score: float = 1.0
     voting_power: float = 1.0
     is_active: bool = True
+
 
 class DistributedConsensus:
     """Distributed consensus implementation with multiple algorithms"""
@@ -41,42 +47,67 @@ class DistributedConsensus:
         self.nodes: dict[str, ConsensusNode] = {}
         self.proposals: dict[str, ConsensusProposal] = {}
         self.consensus_history: list[dict[str, Any]] = []
-        self.current_algorithm = 'majority_vote'
+        self.current_algorithm = "majority_vote"
         self.voting_timeout = timedelta(minutes=5)
         self.min_participation = 0.5
 
     async def register_node(self, node_data: dict[str, Any]) -> dict[str, Any]:
         """Register a new node in the consensus network"""
         try:
-            node_id = node_data.get('node_id', str(uuid.uuid4()))
-            endpoint = node_data.get('endpoint', '')
-            node = ConsensusNode(node_id=node_id, endpoint=endpoint, last_seen=datetime.now(UTC), reputation_score=node_data.get('reputation_score', 1.0), voting_power=node_data.get('voting_power', 1.0), is_active=True)
+            node_id = node_data.get("node_id", str(uuid.uuid4()))
+            endpoint = node_data.get("endpoint", "")
+            node = ConsensusNode(
+                node_id=node_id,
+                endpoint=endpoint,
+                last_seen=datetime.now(UTC),
+                reputation_score=node_data.get("reputation_score", 1.0),
+                voting_power=node_data.get("voting_power", 1.0),
+                is_active=True,
+            )
             self.nodes[node_id] = node
-            return {'status': 'success', 'node_id': node_id, 'registered_at': datetime.now(UTC).isoformat(), 'total_nodes': len(self.nodes)}
+            return {
+                "status": "success",
+                "node_id": node_id,
+                "registered_at": datetime.now(UTC).isoformat(),
+                "total_nodes": len(self.nodes),
+            }
         except Exception as e:
-            logger.error('Error registering node: %s', e)
-            return {'status': 'error', 'message': str(e)}
+            logger.error("Error registering node: %s", e)
+            return {"status": "error", "message": str(e)}
 
     async def create_proposal(self, proposal_data: dict[str, Any]) -> dict[str, Any]:
         """Create a new consensus proposal"""
         try:
             proposal_id = str(uuid.uuid4())
-            proposer_id = proposal_data.get('proposer_id', '')
-            if self.current_algorithm == 'majority_vote':
+            proposer_id = proposal_data.get("proposer_id", "")
+            if self.current_algorithm == "majority_vote":
                 required_votes = max(1, len(self.nodes) // 2 + 1)
-            elif self.current_algorithm == 'supermajority':
+            elif self.current_algorithm == "supermajority":
                 required_votes = max(1, int(len(self.nodes) * 0.67))
-            elif self.current_algorithm == 'unanimous':
+            elif self.current_algorithm == "unanimous":
                 required_votes = len(self.nodes)
             else:
                 required_votes = max(1, len(self.nodes) // 2 + 1)
-            proposal = ConsensusProposal(proposal_id=proposal_id, proposer_id=proposer_id, proposal_data=proposal_data.get('content', {}), timestamp=datetime.now(UTC), deadline=datetime.now(UTC) + self.voting_timeout, required_votes=required_votes)
+            proposal = ConsensusProposal(
+                proposal_id=proposal_id,
+                proposer_id=proposer_id,
+                proposal_data=proposal_data.get("content", {}),
+                timestamp=datetime.now(UTC),
+                deadline=datetime.now(UTC) + self.voting_timeout,
+                required_votes=required_votes,
+            )
             self.proposals[proposal_id] = proposal
             await self._initiate_voting(proposal)
-            return {'status': 'success', 'proposal_id': proposal_id, 'required_votes': required_votes, 'deadline': proposal.deadline.isoformat(), 'algorithm': self.current_algorithm}
+            return {
+                "status": "success",
+                "proposal_id": proposal_id,
+                "required_votes": required_votes,
+                "deadline": proposal.deadline.isoformat(),
+                "algorithm": self.current_algorithm,
+            }
         except Exception as e:
-            logger.error('Error creating proposal: %s', e)
-            return {'status': 'error', 'message': str(e)}
+            logger.error("Error creating proposal: %s", e)
+            return {"status": "error", "message": str(e)}
 
     async def _initiate_voting(self, proposal: ConsensusProposal) -> None:
         """Initiate voting for a proposal"""
@@ -86,7 +117,7 @@ class DistributedConsensus:
                 await self._simulate_node_vote(proposal, node.node_id)
             await self._check_consensus(proposal)
         except Exception as e:
-            logger.error('Error initiating voting: %s', e)
+            logger.error("Error initiating voting: %s", e)
 
     async def _simulate_node_vote(self, proposal: ConsensusProposal, node_id: str) -> None:
         """Simulate a node's voting decision"""
@@ -95,117 +126,153 @@ class DistributedConsensus:
             if not node or not node.is_active:
                 return
             import random
+
             vote_probability = 0.5
             vote_probability += node.reputation_score * 0.2
-            if proposal.proposal_data.get('priority') == 'high':
+            if proposal.proposal_data.get("priority") == "high":
                 vote_probability += 0.1
             vote_probability += random.uniform(-0.2, 0.2)
             vote = random.random() < vote_probability
             await self.cast_vote(proposal.proposal_id, node_id, vote)
         except Exception as e:
-            logger.error('Error simulating node vote: %s', e)
+            logger.error("Error simulating node vote: %s", e)
 
     async def cast_vote(self, proposal_id: str, node_id: str, vote: bool) -> dict[str, Any]:
         """Cast a vote for a proposal"""
         try:
             if proposal_id not in self.proposals:
-                return {'status': 'error', 'message': 'Proposal not found'}
+                return {"status": "error", "message": "Proposal not found"}
             proposal = self.proposals[proposal_id]
-            if proposal.status != 'pending':
-                return {'status': 'error', 'message': f'Proposal is {proposal.status}'}
+            if proposal.status != "pending":
+                return {"status": "error", "message": f"Proposal is {proposal.status}"}
             if node_id not in self.nodes:
-                return {'status': 'error', 'message': 'Node not registered'}
+                return {"status": "error", "message": "Node not registered"}
             proposal.current_votes[node_id] = vote
             self.nodes[node_id].last_seen = datetime.now(UTC)
             await self._check_consensus(proposal)
-            return {'status': 'success', 'proposal_id': proposal_id, 'node_id': node_id, 'vote': vote, 'votes_count': len(proposal.current_votes), 'required_votes': proposal.required_votes}
+            return {
+                "status": "success",
+                "proposal_id": proposal_id,
+                "node_id": node_id,
+                "vote": vote,
+                "votes_count": len(proposal.current_votes),
+                "required_votes": proposal.required_votes,
+            }
         except Exception as e:
-            logger.error('Error casting vote: %s', e)
-            return {'status': 'error', 'message': str(e)}
+            logger.error("Error casting vote: %s", e)
+            return {"status": "error", "message": str(e)}
 
     async def _check_consensus(self, proposal: ConsensusProposal) -> None:
         """Check if consensus is reached for a proposal"""
         try:
-            if proposal.status != 'pending':
+            if proposal.status != "pending":
                 return
             yes_votes = sum(1 for vote in proposal.current_votes.values() if vote)
             no_votes = len(proposal.current_votes) - yes_votes
             total_votes = len(proposal.current_votes)
             if datetime.now(UTC) > proposal.deadline:
-                proposal.status = 'expired'
-                await self._finalize_proposal(proposal, False, 'Deadline expired')
+                proposal.status = "expired"
+                await self._finalize_proposal(proposal, False, "Deadline expired")
                 return
             active_nodes = sum(1 for node in self.nodes.values() if node.is_active)
             if total_votes < active_nodes * self.min_participation:
                 return
-            if self.current_algorithm == 'majority_vote':
+            if self.current_algorithm == "majority_vote":
                 if yes_votes >= proposal.required_votes:
-                    proposal.status = 'approved'
-                    await self._finalize_proposal(proposal, True, f'Majority reached: {yes_votes}/{total_votes}')
+                    proposal.status = "approved"
+                    await self._finalize_proposal(proposal, True, f"Majority reached: {yes_votes}/{total_votes}")
                 elif no_votes >= proposal.required_votes:
-                    proposal.status = 'rejected'
-                    await self._finalize_proposal(proposal, False, f'Majority against: {no_votes}/{total_votes}')
-            elif self.current_algorithm == 'supermajority':
+                    proposal.status = "rejected"
+                    await self._finalize_proposal(proposal, False, f"Majority against: {no_votes}/{total_votes}")
+            elif self.current_algorithm == "supermajority":
                 if yes_votes >= proposal.required_votes:
-                    proposal.status = 'approved'
-                    await self._finalize_proposal(proposal, True, f'Supermajority reached: {yes_votes}/{total_votes}')
+                    proposal.status = "approved"
+                    await self._finalize_proposal(proposal, True, f"Supermajority reached: {yes_votes}/{total_votes}")
                 elif no_votes >= proposal.required_votes:
-                    proposal.status = 'rejected'
-                    await self._finalize_proposal(proposal, False, f'Supermajority against: {no_votes}/{total_votes}')
-            elif self.current_algorithm == 'unanimous':
+                    proposal.status = "rejected"
+                    await self._finalize_proposal(proposal, False, f"Supermajority against: {no_votes}/{total_votes}")
+            elif self.current_algorithm == "unanimous":
                 if total_votes == len(self.nodes) and yes_votes == total_votes:
-                    proposal.status = 'approved'
-                    await self._finalize_proposal(proposal, True, 'Unanimous approval')
+                    proposal.status = "approved"
+                    await self._finalize_proposal(proposal, True, "Unanimous approval")
                 elif no_votes > 0:
-                    proposal.status = 'rejected'
-                    await self._finalize_proposal(proposal, False, f'Not unanimous: {yes_votes}/{total_votes}')
+                    proposal.status = "rejected"
+                    await self._finalize_proposal(proposal, False, f"Not unanimous: {yes_votes}/{total_votes}")
         except Exception as e:
-            logger.error('Error checking consensus: %s', e)
+            logger.error("Error checking consensus: %s", e)
 
     async def _finalize_proposal(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
         """Finalize a proposal decision"""
         try:
-            history_record = {'proposal_id': proposal.proposal_id, 'proposer_id': proposal.proposer_id, 'proposal_data': proposal.proposal_data, 'approved': approved, 'reason': reason, 'votes': dict(proposal.current_votes), 'required_votes': proposal.required_votes, 'finalized_at': datetime.now(UTC).isoformat(), 'algorithm': self.current_algorithm}
+            history_record = {
+                "proposal_id": proposal.proposal_id,
+                "proposer_id": proposal.proposer_id,
+                "proposal_data": proposal.proposal_data,
+                "approved": approved,
+                "reason": reason,
+                "votes": dict(proposal.current_votes),
+                "required_votes": proposal.required_votes,
+                "finalized_at": datetime.now(UTC).isoformat(),
+                "algorithm": self.current_algorithm,
+            }
             self.consensus_history.append(history_record)
             await self._cleanup_old_proposals()
-            logger.info('Proposal %s %s: %s', proposal.proposal_id, 'approved' if approved else 'rejected', reason)
+            logger.info("Proposal %s %s: %s", proposal.proposal_id, "approved" if approved else "rejected", reason)
         except Exception as e:
-            logger.error('Error finalizing proposal: %s', e)
+            logger.error("Error finalizing proposal: %s", e)
 
     async def _cleanup_old_proposals(self) -> None:
         """Clean up old and expired proposals"""
         try:
             current_time = datetime.now(UTC)
-            expired_proposals = [pid for pid, proposal in self.proposals.items() if proposal.deadline < current_time or proposal.status in ['approved', 'rejected', 'expired']]
+            expired_proposals = [
+                pid
+                for pid, proposal in self.proposals.items()
+                if proposal.deadline < current_time or proposal.status in ["approved", "rejected", "expired"]
+            ]
             for pid in expired_proposals:
                 del self.proposals[pid]
         except Exception as e:
-            logger.error('Error cleaning up proposals: %s', e)
+            logger.error("Error cleaning up proposals: %s", e)
 
     async def get_proposal_status(self, proposal_id: str) -> dict[str, Any]:
         """Get the status of a proposal"""
         try:
             if proposal_id not in self.proposals:
-                return {'status': 'error', 'message': 'Proposal not found'}
+                return {"status": "error", "message": "Proposal not found"}
             proposal = self.proposals[proposal_id]
             yes_votes = sum(1 for vote in proposal.current_votes.values() if vote)
             no_votes = len(proposal.current_votes) - yes_votes
-            return {'status': 'success', 'proposal_id': proposal_id, 'status': proposal.status, 'proposer_id': proposal.proposer_id, 'created_at': proposal.timestamp.isoformat(), 'deadline': proposal.deadline.isoformat(), 'required_votes': proposal.required_votes, 'current_votes': {'yes': yes_votes, 'no': no_votes, 'total': len(proposal.current_votes), 'details': proposal.current_votes}, 'algorithm': self.current_algorithm}
+            return {
+                "status": proposal.status,
+                "proposal_id": proposal_id,
+                "proposer_id": proposal.proposer_id,
+                "created_at": proposal.timestamp.isoformat(),
+                "deadline": proposal.deadline.isoformat(),
+                "required_votes": proposal.required_votes,
+                "current_votes": {
+                    "yes": yes_votes,
+                    "no": no_votes,
+                    "total": len(proposal.current_votes),
+                    "details": proposal.current_votes,
+                },
+                "algorithm": self.current_algorithm,
+            }
         except Exception as e:
-            logger.error('Error getting proposal status: %s', e)
-            return {'status': 'error', 'message': str(e)}
+            logger.error("Error getting proposal status: %s", e)
+            return {"status": "error", "message": str(e)}
 
     async def set_consensus_algorithm(self, algorithm: str) -> dict[str, Any]:
         """Set the consensus algorithm"""
         try:
-            valid_algorithms = ['majority_vote', 'supermajority', 'unanimous']
+            valid_algorithms = ["majority_vote", "supermajority", "unanimous"]
             if algorithm not in valid_algorithms:
-                return {'status': 'error', 'message': f'Invalid algorithm. Valid options: {valid_algorithms}'}
+                return {"status": "error", "message": f"Invalid algorithm. Valid options: {valid_algorithms}"}
             self.current_algorithm = algorithm
-            return {'status': 'success', 'algorithm': algorithm, 'changed_at': datetime.now(UTC).isoformat()}
+            return {"status": "success", "algorithm": algorithm, "changed_at": datetime.now(UTC).isoformat()}
         except Exception as e:
-            logger.error('Error setting consensus algorithm: %s', e)
-            return {'status': 'error', 'message': str(e)}
+            logger.error("Error setting consensus algorithm: %s", e)
+            return {"status": "error", "message": str(e)}
 
     async def get_consensus_statistics(self) -> dict[str, Any]:
         """Get comprehensive consensus statistics"""
@@ -213,35 +280,65 @@ class DistributedConsensus:
             total_proposals = len(self.consensus_history)
             active_nodes = sum(1 for node in self.nodes.values() if node.is_active)
             if total_proposals == 0:
-                return {'status': 'success', 'total_proposals': 0, 'active_nodes': active_nodes, 'current_algorithm': self.current_algorithm, 'message': 'No proposals processed yet'}
-            approved_proposals = sum(1 for record in self.consensus_history if record['approved'])
+                return {
+                    "status": "success",
+                    "total_proposals": 0,
+                    "active_nodes": active_nodes,
+                    "current_algorithm": self.current_algorithm,
+                    "message": "No proposals processed yet",
+                }
+            approved_proposals = sum(1 for record in self.consensus_history if record["approved"])
             rejected_proposals = total_proposals - approved_proposals
-            algorithm_stats: defaultdict[str, dict[str, Any]] = defaultdict(lambda: {'approved': 0, 'total': 0})
+            algorithm_stats: defaultdict[str, dict[str, Any]] = defaultdict(lambda: {"approved": 0, "total": 0})
             for record in self.consensus_history:
-                algorithm = record['algorithm']
-                algorithm_stats[algorithm]['total'] += 1
-                if record['approved']:
-                    algorithm_stats[algorithm]['approved'] += 1
-            for algorithm, stats in algorithm_stats.items():
-                stats['success_rate'] = stats['approved'] / stats['total'] if stats['total'] > 0 else 0
+                algorithm = record["algorithm"]
+                algorithm_stats[algorithm]["total"] += 1
+                if record["approved"]:
+                    algorithm_stats[algorithm]["approved"] += 1
+            for _algorithm, stats in algorithm_stats.items():
+                stats["success_rate"] = stats["approved"] / stats["total"] if stats["total"] > 0 else 0
             node_participation = {}
             for node_id, node in self.nodes.items():
-                votes_cast = sum(1 for record in self.consensus_history if node_id in record['votes'])
-                node_participation[node_id] = {'votes_cast': votes_cast, 'participation_rate': votes_cast / total_proposals if total_proposals > 0 else 0, 'reputation_score': node.reputation_score}
-            return {'status': 'success', 'total_proposals': total_proposals, 'approved_proposals': approved_proposals, 'rejected_proposals': rejected_proposals, 'success_rate': approved_proposals / total_proposals, 'active_nodes': active_nodes, 'total_nodes': len(self.nodes), 'current_algorithm': self.current_algorithm, 'algorithm_performance': dict(algorithm_stats), 'node_participation': node_participation, 'active_proposals': len(self.proposals), 'last_updated': datetime.now(UTC).isoformat()}
+                votes_cast = sum(1 for record in self.consensus_history if node_id in record["votes"])
+                node_participation[node_id] = {
+                    "votes_cast": votes_cast,
+                    "participation_rate": votes_cast / total_proposals if total_proposals > 0 else 0,
+                    "reputation_score": node.reputation_score,
+                }
+            return {
+                "status": "success",
+                "total_proposals": total_proposals,
+                "approved_proposals": approved_proposals,
+                "rejected_proposals": rejected_proposals,
+                "success_rate": approved_proposals / total_proposals,
+                "active_nodes": active_nodes,
+                "total_nodes": len(self.nodes),
+                "current_algorithm": self.current_algorithm,
+                "algorithm_performance": dict(algorithm_stats),
+                "node_participation": node_participation,
+                "active_proposals": len(self.proposals),
+                "last_updated": datetime.now(UTC).isoformat(),
+            }
         except Exception as e:
-            logger.error('Error getting consensus statistics: %s', e)
-            return {'status': 'error', 'message': str(e)}
+            logger.error("Error getting consensus statistics: %s", e)
+            return {"status": "error", "message": str(e)}
 
     async def update_node_status(self, node_id: str, is_active: bool) -> dict[str, Any]:
         """Update a node's active status"""
         try:
             if node_id not in self.nodes:
-                return {'status': 'error', 'message': 'Node not found'}
+                return {"status": "error", "message": "Node not found"}
             self.nodes[node_id].is_active = is_active
             self.nodes[node_id].last_seen = datetime.now(UTC)
-            return {'status': 'success', 'node_id': node_id, 'is_active': is_active, 'updated_at': datetime.now(UTC).isoformat()}
+            return {
+                "status": "success",
+                "node_id": node_id,
+                "is_active": is_active,
+                "updated_at": datetime.now(UTC).isoformat(),
+            }
         except Exception as e:
-            logger.error('Error updating node status: %s', e)
-            return {'status': 'error', 'message': str(e)}
+            logger.error("Error updating node status: %s", e)
+            return {"status": "error", "message": str(e)}
+
+
 distributed_consensus = DistributedConsensus()

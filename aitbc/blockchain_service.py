@@ -2,16 +2,20 @@
 Blockchain service layer for AITBC
 Provides high-level blockchain interaction services with abstraction over RPC calls
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 from aitbc.aitbc_logging import get_logger
 from aitbc.network.http_client import AITBCHTTPClient
+
 logger = get_logger(__name__)
+
 
 @dataclass
 class Block:
     """Block data structure"""
+
     height: int
     hash: str
     parent_hash: str
@@ -21,9 +25,11 @@ class Block:
     gas_used: int | None = None
     gas_limit: int | None = None
 
+
 @dataclass
 class Transaction:
     """Transaction data structure"""
+
     hash: str
     from_address: str
     to_address: str
@@ -36,12 +42,15 @@ class Transaction:
     block_number: int | None = None
     status: str | None = None
 
+
 @dataclass
 class Account:
     """Account data structure"""
+
     address: str
     balance: int
     nonce: int
+
 
 class BlockchainService(ABC):
     """Abstract base class for blockchain service implementations"""
@@ -76,10 +85,11 @@ class BlockchainService(ABC):
         """Get blockchain node status"""
         pass
 
+
 class RPCBlockchainService(BlockchainService):
     """RPC-based blockchain service implementation"""
 
-    def __init__(self, rpc_url: str, timeout: int=30):
+    def __init__(self, rpc_url: str, timeout: int = 30):
         """
         Initialize RPC blockchain service
 
@@ -89,7 +99,7 @@ class RPCBlockchainService(BlockchainService):
         """
         self.rpc_url = rpc_url
         self.client = AITBCHTTPClient(base_url=rpc_url, timeout=timeout)
-        logger.info('Initialized RPC blockchain service for %s', rpc_url)
+        logger.info("Initialized RPC blockchain service for %s", rpc_url)
 
     def get_block(self, block_identifier: int | str) -> Block:
         """
@@ -107,14 +117,23 @@ class RPCBlockchainService(BlockchainService):
         """
         try:
             if isinstance(block_identifier, int):
-                endpoint = f'/rpc/blocks/{block_identifier}'
+                endpoint = f"/rpc/blocks/{block_identifier}"
             else:
-                endpoint = f'/rpc/block/{block_identifier}'
+                endpoint = f"/rpc/block/{block_identifier}"
             response = self.client.get(endpoint)
             data = response.json()
-            return Block(height=data.get('height', 0), hash=data.get('hash', ''), parent_hash=data.get('parent_hash', ''), timestamp=data.get('timestamp', 0), transactions=data.get('transactions', []), miner=data.get('miner'), gas_used=data.get('gas_used'), gas_limit=data.get('gas_limit'))
+            return Block(
+                height=data.get("height", 0),
+                hash=data.get("hash", ""),
+                parent_hash=data.get("parent_hash", ""),
+                timestamp=data.get("timestamp", 0),
+                transactions=data.get("transactions", []),
+                miner=data.get("miner"),
+                gas_used=data.get("gas_used"),
+                gas_limit=data.get("gas_limit"),
+            )
         except Exception as e:
-            logger.error('Failed to get block %s: %s', block_identifier, e)
+            logger.error("Failed to get block %s: %s", block_identifier, e)
             raise
 
     def get_head_block(self) -> Block:
@@ -128,11 +147,20 @@ class RPCBlockchainService(BlockchainService):
             NetworkError: If RPC call fails
         """
         try:
-            response = self.client.get('/rpc/head')
+            response = self.client.get("/rpc/head")
             data = response.json()
-            return Block(height=data.get('height', 0), hash=data.get('hash', ''), parent_hash=data.get('parent_hash', ''), timestamp=data.get('timestamp', 0), transactions=data.get('transactions', []), miner=data.get('miner'), gas_used=data.get('gas_used'), gas_limit=data.get('gas_limit'))
+            return Block(
+                height=data.get("height", 0),
+                hash=data.get("hash", ""),
+                parent_hash=data.get("parent_hash", ""),
+                timestamp=data.get("timestamp", 0),
+                transactions=data.get("transactions", []),
+                miner=data.get("miner"),
+                gas_used=data.get("gas_used"),
+                gas_limit=data.get("gas_limit"),
+            )
         except Exception as e:
-            logger.error('Failed to get head block: %s', e)
+            logger.error("Failed to get head block: %s", e)
             raise
 
     def get_transaction(self, tx_hash: str) -> Transaction:
@@ -150,11 +178,23 @@ class RPCBlockchainService(BlockchainService):
             NetworkError: If RPC call fails
         """
         try:
-            response = self.client.get(f'/rpc/transaction/{tx_hash}')
+            response = self.client.get(f"/rpc/transaction/{tx_hash}")
             data = response.json()
-            return Transaction(hash=data.get('hash', ''), from_address=data.get('from', ''), to_address=data.get('to', ''), value=data.get('value', '0'), nonce=data.get('nonce', 0), gas=data.get('gas', 0), gas_price=data.get('gas_price'), input_data=data.get('input'), block_hash=data.get('block_hash'), block_number=data.get('block_number'), status=data.get('status'))
+            return Transaction(
+                hash=data.get("hash", ""),
+                from_address=data.get("from", ""),
+                to_address=data.get("to", ""),
+                value=data.get("value", "0"),
+                nonce=data.get("nonce", 0),
+                gas=data.get("gas", 0),
+                gas_price=data.get("gas_price"),
+                input_data=data.get("input"),
+                block_hash=data.get("block_hash"),
+                block_number=data.get("block_number"),
+                status=data.get("status"),
+            )
         except Exception as e:
-            logger.error('Failed to get transaction %s: %s', tx_hash, e)
+            logger.error("Failed to get transaction %s: %s", tx_hash, e)
             raise
 
     def get_account_balance(self, address: str) -> Account:
@@ -172,11 +212,11 @@ class RPCBlockchainService(BlockchainService):
             NetworkError: If RPC call fails
         """
         try:
-            response = self.client.get(f'/rpc/account/{address}')
+            response = self.client.get(f"/rpc/account/{address}")
             data = response.json()
-            return Account(address=address, balance=int(data.get('balance', 0)), nonce=data.get('nonce', 0))
+            return Account(address=address, balance=int(data.get("balance", 0)), nonce=data.get("nonce", 0))
         except Exception as e:
-            logger.error('Failed to get account balance for %s: %s', address, e)
+            logger.error("Failed to get account balance for %s: %s", address, e)
             raise
 
     def send_transaction(self, tx_data: dict[str, Any]) -> str:
@@ -194,15 +234,15 @@ class RPCBlockchainService(BlockchainService):
             NetworkError: If RPC call fails
         """
         try:
-            response = self.client.post('/rpc/sendTx', json=tx_data)
+            response = self.client.post("/rpc/sendTx", json=tx_data)
             data = response.json()
-            tx_hash = data.get('hash') or data.get('tx_hash')
+            tx_hash = data.get("hash") or data.get("tx_hash")
             if not tx_hash:
-                raise ValueError('Transaction hash not found in response')
-            logger.info('Transaction sent successfully: %s', tx_hash)
+                raise ValueError("Transaction hash not found in response")
+            logger.info("Transaction sent successfully: %s", tx_hash)
             return tx_hash
         except Exception as e:
-            logger.error('Failed to send transaction: %s', e)
+            logger.error("Failed to send transaction: %s", e)
             raise
 
     def get_status(self) -> dict[str, Any]:
@@ -216,17 +256,18 @@ class RPCBlockchainService(BlockchainService):
             NetworkError: If RPC call fails
         """
         try:
-            response = self.client.get('/rpc/status')
+            response = self.client.get("/rpc/status")
             return response.json()
         except Exception as e:
-            logger.error('Failed to get node status: %s', e)
+            logger.error("Failed to get node status: %s", e)
             raise
+
 
 class BlockchainServiceFactory:
     """Factory for creating blockchain service instances"""
 
     @staticmethod
-    def create_rpc_service(rpc_url: str, timeout: int=30) -> RPCBlockchainService:
+    def create_rpc_service(rpc_url: str, timeout: int = 30) -> RPCBlockchainService:
         """
         Create RPC blockchain service
 
@@ -240,7 +281,7 @@ class BlockchainServiceFactory:
         return RPCBlockchainService(rpc_url, timeout)
 
     @staticmethod
-    def create_service(service_type: str='rpc', **kwargs) -> BlockchainService:
+    def create_service(service_type: str = "rpc", **kwargs) -> BlockchainService:
         """
         Create blockchain service by type
 
@@ -254,7 +295,7 @@ class BlockchainServiceFactory:
         Raises:
             ValueError: If service type is unknown
         """
-        if service_type == 'rpc':
+        if service_type == "rpc":
             return BlockchainServiceFactory.create_rpc_service(**kwargs)
         else:
-            raise ValueError(f'Unknown service type: {service_type}')
+            raise ValueError(f"Unknown service type: {service_type}")

@@ -28,14 +28,14 @@ def generate_api_key(prefix: str = "aitbc") -> str:
 
 def validate_token_format(token: str, min_length: int = 16) -> bool:
     """Validate token format"""
-    return bool(token) and len(token) >= min_length and all(c.isalnum() or c in '-_' for c in token)
+    return bool(token) and len(token) >= min_length and all(c.isalnum() or c in "-_" for c in token)
 
 
 def validate_api_key(api_key: str, prefix: str = "aitbc") -> bool:
     """Validate API key format"""
     if not api_key or not api_key.startswith(f"{prefix}_"):
         return False
-    token_part = api_key[len(prefix)+1:]
+    token_part = api_key[len(prefix) + 1 :]
     return validate_token_format(token_part)
 
 
@@ -54,7 +54,7 @@ class SessionManager:
             "user_id": user_id,
             "data": data or {},
             "created_at": time.time(),
-            "expires_at": time.time() + self.session_timeout
+            "expires_at": time.time() + self.session_timeout,
         }
         return session_id
 
@@ -90,10 +90,7 @@ class SessionManager:
     def cleanup_expired_sessions(self) -> int:
         """Clean up expired sessions"""
         current_time = time.time()
-        expired_keys = [
-            key for key, session in self.sessions.items()
-            if current_time > session["expires_at"]
-        ]
+        expired_keys = [key for key, session in self.sessions.items() if current_time > session["expires_at"]]
 
         for key in expired_keys:
             del self.sessions[key]
@@ -120,7 +117,7 @@ class APIKeyManager:
             "scopes": scopes or ["read"],
             "name": name,
             "created_at": datetime.now(UTC).isoformat(),
-            "last_used": None
+            "last_used": None,
         }
 
         if self.storage_path:
@@ -152,10 +149,7 @@ class APIKeyManager:
 
     def list_user_keys(self, user_id: str) -> list[str]:
         """List all API keys for a user"""
-        return [
-            key for key, data in self.items()
-            if data["user_id"] == user_id
-        ]
+        return [key for key, data in self.items() if data["user_id"] == user_id]
 
     def _load_keys(self):
         """Load keys from storage"""
@@ -170,7 +164,7 @@ class APIKeyManager:
         """Save keys to storage"""
         if self.storage_path:
             try:
-                with open(self.storage_path, 'w') as f:
+                with open(self.storage_path, "w") as f:
                     json.dump(self.keys, f)
             except Exception:
                 pass
@@ -195,7 +189,7 @@ class SecretManager:
 
     def __init__(self, encryption_key: str | None = None, default_ttl_hours: int = 24):
         """Initialize secret manager
-        
+
         Args:
             encryption_key: Optional encryption key. If None, generates a new key.
             default_ttl_hours: Default time-to-live for secrets in hours
@@ -211,29 +205,29 @@ class SecretManager:
 
     def set_secret(self, key: str, value: str, ttl_hours: int | None = None) -> None:
         """Store an encrypted secret with expiration tracking
-        
+
         Args:
             key: Secret identifier
             value: Secret value to encrypt and store
             ttl_hours: Time-to-live in hours. Uses default if None.
         """
         ttl_hours = ttl_hours or self.default_ttl_hours
-        encrypted = self.fernet.encrypt(value.encode('utf-8'))
+        encrypted = self.fernet.encrypt(value.encode("utf-8"))
 
         self.secrets[key] = {
-            "encrypted_value": encrypted.decode('utf-8'),
+            "encrypted_value": encrypted.decode("utf-8"),
             "created_at": datetime.now(UTC).isoformat(),
             "expires_at": (datetime.now(UTC) + timedelta(hours=ttl_hours)).isoformat(),
             "version": 1,
-            "rotated_at": None
+            "rotated_at": None,
         }
 
     def get_secret(self, key: str) -> str | None:
         """Retrieve and decrypt a secret, checking expiration
-        
+
         Args:
             key: Secret identifier
-            
+
         Returns:
             Decrypted secret value or None if expired/not found
         """
@@ -248,19 +242,19 @@ class SecretManager:
 
         try:
             encrypted = secret_data["encrypted_value"]
-            decrypted = self.fernet.decrypt(encrypted.encode('utf-8'))
-            return decrypted.decode('utf-8')
+            decrypted = self.fernet.decrypt(encrypted.encode("utf-8"))
+            return decrypted.decode("utf-8")
         except Exception:
             return None
 
     def rotate_secret(self, key: str, new_value: str, ttl_hours: int | None = None) -> bool:
         """Rotate a secret with version tracking
-        
+
         Args:
             key: Secret identifier
             new_value: New secret value
             ttl_hours: New time-to-live in hours
-            
+
         Returns:
             True if rotation successful, False if secret not found
         """
@@ -270,14 +264,14 @@ class SecretManager:
         old_secret = self.secrets[key]
         ttl_hours = ttl_hours or self.default_ttl_hours
 
-        encrypted = self.fernet.encrypt(new_value.encode('utf-8'))
+        encrypted = self.fernet.encrypt(new_value.encode("utf-8"))
 
         self.secrets[key] = {
-            "encrypted_value": encrypted.decode('utf-8'),
+            "encrypted_value": encrypted.decode("utf-8"),
             "created_at": old_secret["created_at"],  # Keep original creation time
             "expires_at": (datetime.now(UTC) + timedelta(hours=ttl_hours)).isoformat(),
             "version": old_secret["version"] + 1,
-            "rotated_at": datetime.now(UTC).isoformat()
+            "rotated_at": datetime.now(UTC).isoformat(),
         }
 
         return True
@@ -291,10 +285,10 @@ class SecretManager:
 
     def list_secrets(self, include_expired: bool = False) -> list[str]:
         """List all secret keys
-        
+
         Args:
             include_expired: Whether to include expired secrets
-            
+
         Returns:
             List of secret keys
         """
@@ -303,17 +297,14 @@ class SecretManager:
 
         # Only return non-expired secrets
         current_time = datetime.now(UTC)
-        return [
-            key for key, data in self.secrets.items()
-            if current_time <= datetime.fromisoformat(data["expires_at"])
-        ]
+        return [key for key, data in self.secrets.items() if current_time <= datetime.fromisoformat(data["expires_at"])]
 
     def get_secret_metadata(self, key: str) -> dict[str, Any] | None:
         """Get metadata about a secret without decrypting it
-        
+
         Args:
             key: Secret identifier
-            
+
         Returns:
             Secret metadata or None if not found
         """
@@ -327,20 +318,17 @@ class SecretManager:
             "expires_at": secret_data["expires_at"],
             "version": secret_data["version"],
             "rotated_at": secret_data["rotated_at"],
-            "is_expired": datetime.now(UTC) > datetime.fromisoformat(secret_data["expires_at"])
+            "is_expired": datetime.now(UTC) > datetime.fromisoformat(secret_data["expires_at"]),
         }
 
     def cleanup_expired_secrets(self) -> int:
         """Remove expired secrets from storage
-        
+
         Returns:
             Number of secrets cleaned up
         """
         current_time = datetime.now(UTC)
-        expired_keys = [
-            key for key, data in self.secrets.items()
-            if current_time > datetime.fromisoformat(data["expires_at"])
-        ]
+        expired_keys = [key for key, data in self.secrets.items() if current_time > datetime.fromisoformat(data["expires_at"])]
 
         for key in expired_keys:
             del self.secrets[key]
@@ -349,10 +337,10 @@ class SecretManager:
 
     def rotate_encryption_key(self, new_key: str) -> bool:
         """Rotate the master encryption key and re-encrypt all secrets
-        
+
         Args:
             new_key: New encryption key
-            
+
         Returns:
             True if rotation successful
         """
@@ -362,13 +350,13 @@ class SecretManager:
 
             for key, data in self.secrets.items():
                 # Decrypt with old key
-                decrypted = self.fernet.decrypt(data["encrypted_value"].encode('utf-8'))
+                decrypted = self.fernet.decrypt(data["encrypted_value"].encode("utf-8"))
                 # Re-encrypt with new key
                 reencrypted = new_fernet.encrypt(decrypted)
                 reencrypted_secrets[key] = {
                     **data,
-                    "encrypted_value": reencrypted.decode('utf-8'),
-                    "rotated_at": datetime.now(UTC).isoformat()
+                    "encrypted_value": reencrypted.decode("utf-8"),
+                    "rotated_at": datetime.now(UTC).isoformat(),
                 }
 
             self.fernet = new_fernet
@@ -380,14 +368,15 @@ class SecretManager:
     def get_encryption_key(self) -> str:
         """Get the encryption key (for backup purposes)"""
         import base64
-        return base64.b64encode(self.fernet._signing_key).decode('utf-8')
+
+        return base64.b64encode(self.fernet._signing_key).decode("utf-8")
 
     def export_secrets(self, include_values: bool = False) -> dict[str, Any]:
         """Export secret metadata for backup/audit
-        
+
         Args:
             include_values: Whether to include decrypted secret values (use with caution)
-            
+
         Returns:
             Dictionary of secret metadata
         """
@@ -399,7 +388,7 @@ class SecretManager:
                 "expires_at": data["expires_at"],
                 "version": data["version"],
                 "rotated_at": data["rotated_at"],
-                "is_expired": datetime.now(UTC) > datetime.fromisoformat(data["expires_at"])
+                "is_expired": datetime.now(UTC) > datetime.fromisoformat(data["expires_at"]),
             }
 
             if include_values:
@@ -408,7 +397,6 @@ class SecretManager:
                     export_data[key]["value"] = decrypted
 
         return export_data
-
 
     def start_rotation_scheduler(self, check_interval_hours: int = 1) -> None:
         """Start a background thread to periodically clean up expired secrets.
@@ -420,17 +408,15 @@ class SecretManager:
 
         def _rotation_loop():
             import time
+
             interval_secs = check_interval_hours * 3600
             while True:
                 time.sleep(interval_secs)
                 cleaned = self.cleanup_expired_secrets()
                 if cleaned:
                     from aitbc.security_hardening import log_security_event
-                    log_security_event(
-                        action="secret_rotation_cleanup",
-                        details={"cleaned_count": cleaned},
-                        severity="INFO"
-                    )
+
+                    log_security_event(action="secret_rotation_cleanup", details={"cleaned_count": cleaned}, severity="INFO")
 
         thread = threading.Thread(target=_rotation_loop, daemon=True, name="secret-rotation-scheduler")
         thread.start()
@@ -453,8 +439,7 @@ def get_secret_manager(encryption_key: str | None = None, default_ttl_hours: int
     global _global_secret_manager
     if _global_secret_manager is None:
         _global_secret_manager = SecretManager(
-            encryption_key=encryption_key or os.getenv("AITBC_SECRET_MANAGER_KEY"),
-            default_ttl_hours=default_ttl_hours
+            encryption_key=encryption_key or os.getenv("AITBC_SECRET_MANAGER_KEY"), default_ttl_hours=default_ttl_hours
         )
         _global_secret_manager.start_rotation_scheduler()
     return _global_secret_manager
@@ -474,11 +459,11 @@ def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
-        salt=salt.encode('utf-8'),
+        salt=salt.encode("utf-8"),
         iterations=100000,
     )
-    hashed = kdf.derive(password.encode('utf-8'))
-    return base64.b64encode(hashed).decode('utf-8'), salt
+    hashed = kdf.derive(password.encode("utf-8"))
+    return base64.b64encode(hashed).decode("utf-8"), salt
 
 
 def verify_password(password: str, hashed_password: str, salt: str) -> bool:
@@ -495,11 +480,8 @@ def generate_nonce(length: int = 16) -> str:
 def generate_hmac(data: str, secret: str) -> str:
     """Generate HMAC-SHA256 signature"""
     import hmac
-    return hmac.new(
-        secret.encode('utf-8'),
-        data.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
+
+    return hmac.new(secret.encode("utf-8"), data.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def verify_hmac(data: str, signature: str, secret: str) -> bool:

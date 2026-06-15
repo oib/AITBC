@@ -12,6 +12,7 @@ from ..settings import settings
 
 class ValidationResult:
     """Validation result for a service configuration"""
+
     def __init__(self) -> None:
         self.valid = True
         self.errors: list[str] = []
@@ -27,12 +28,7 @@ class HardwareValidator:
     def __init__(self) -> None:
         self.registry_url = f"{settings.coordinator_billing_url}/v1/registry"
 
-    async def validate_service_for_miner(
-        self,
-        miner: Miner,
-        service_id: str,
-        config: dict[str, Any]
-    ) -> ValidationResult:
+    async def validate_service_for_miner(self, miner: Miner, service_id: str, config: dict[str, Any]) -> ValidationResult:
         """Validate if a miner can run a specific service"""
         result = ValidationResult()
 
@@ -78,11 +74,7 @@ class HardwareValidator:
         except Exception:
             return None
 
-    def _check_hardware_requirements(
-        self,
-        miner: Miner,
-        service: dict[str, Any]
-    ) -> ValidationResult:
+    def _check_hardware_requirements(self, miner: Miner, service: dict[str, Any]) -> ValidationResult:
         """Check if miner meets hardware requirements"""
         result = ValidationResult()
         requirements = service.get("requirements", [])
@@ -102,15 +94,10 @@ class HardwareValidator:
             # Check minimum requirement
             if not self._meets_requirement(miner_value, min_value, component):
                 result.valid = False
-                result.errors.append(
-                    f"Insufficient {component}: have {miner_value}{unit}, need {min_value}{unit}"
+                result.errors.append(f"Insufficient {component}: have {miner_value}{unit}, need {min_value}{unit}")
+                result.missing_requirements.append(
+                    {"component": component, "have": miner_value, "need": min_value, "unit": unit}
                 )
-                result.missing_requirements.append({
-                    "component": component,
-                    "have": miner_value,
-                    "need": min_value,
-                    "unit": unit
-                })
             # Check against recommended
             elif recommended and not self._meets_requirement(miner_value, recommended, component):
                 result.warnings.append(
@@ -154,11 +141,7 @@ class HardwareValidator:
             return have >= need  # Both are 0 or 1
         return have >= need
 
-    def _check_configuration_parameters(
-        self,
-        service: dict[str, Any],
-        config: dict[str, Any]
-    ) -> ValidationResult:
+    def _check_configuration_parameters(self, service: dict[str, Any], config: dict[str, Any]) -> ValidationResult:
         """Check if configuration parameters are valid"""
         result = ValidationResult()
         input_params = service.get("input_parameters", [])
@@ -190,33 +173,22 @@ class HardwareValidator:
 
             # Value constraints
             if "min_value" in param and value < param["min_value"]:
-                result.errors.append(
-                    f"Parameter {name} must be >= {param['min_value']}"
-                )
+                result.errors.append(f"Parameter {name} must be >= {param['min_value']}")
             if "max_value" in param and value > param["max_value"]:
-                result.errors.append(
-                    f"Parameter {name} must be <= {param['max_value']}"
-                )
+                result.errors.append(f"Parameter {name} must be <= {param['max_value']}")
             if "options" in param and value not in param["options"]:
-                result.errors.append(
-                    f"Parameter {name} must be one of: {', '.join(param['options'])}"
-                )
+                result.errors.append(f"Parameter {name} must be one of: {', '.join(param['options'])}")
 
         return result
 
-    def _estimate_performance_impact(
-        self,
-        miner: Miner,
-        service: dict[str, Any],
-        config: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _estimate_performance_impact(self, miner: Miner, service: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
         """Estimate performance impact based on hardware and configuration"""
         impact: dict[str, Any] = {
             "level": "low",  # low, medium, high
             "expected_fps": None,
             "expected_throughput": None,
             "bottleneck": None,
-            "recommendations": []
+            "recommendations": [],
         }
 
         # Analyze based on service type

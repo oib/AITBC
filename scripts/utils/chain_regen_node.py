@@ -78,7 +78,9 @@ def _allocation_digest(genesis: dict[str, Any]) -> str | None:
     allocations = genesis.get("allocations")
     if allocations is None:
         return None
-    canonical = json.dumps(sorted(allocations, key=lambda item: item.get("address", "")), sort_keys=True, separators=(",", ":"))
+    canonical = json.dumps(
+        sorted(allocations, key=lambda item: item.get("address", "")), sort_keys=True, separators=(",", ":")
+    )
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
@@ -104,7 +106,12 @@ def _live_db_files(chain_id: str) -> list[Path]:
 def _backup_sources(chain_id: str) -> list[Path]:
     chain_dir = DATA_ROOT / chain_id
     sources: list[Path] = []
-    for pattern in [str(chain_dir / "chain.db*"), str(chain_dir / "genesis.json"), str(DATA_ROOT / "mempool.db*"), str(chain_dir / "mempool.db*")]:
+    for pattern in [
+        str(chain_dir / "chain.db*"),
+        str(chain_dir / "genesis.json"),
+        str(DATA_ROOT / "mempool.db*"),
+        str(chain_dir / "mempool.db*"),
+    ]:
         sources.extend(Path(path) for path in glob.glob(pattern))
     sources.extend(path for path in ENV_FILES if path.exists())
     unique: dict[str, Path] = {}
@@ -154,7 +161,9 @@ def _db_snapshot(chain_id: str, db_path: Path) -> dict[str, Any]:
             computed_root_hex = "0x" + computed_root.hex()
             data.update(
                 {
-                    "head": None if head is None else {
+                    "head": None
+                    if head is None
+                    else {
                         "height": head.height,
                         "hash": head.hash,
                         "state_root": head.state_root,
@@ -164,11 +173,16 @@ def _db_snapshot(chain_id: str, db_path: Path) -> dict[str, Any]:
                     "block_count": len(blocks),
                     "transaction_count": len(transactions),
                     "account_count": len(accounts),
-                    "account_digest": hashlib.sha256(json.dumps(
-                        [{"address": account.address, "balance": account.balance, "nonce": account.nonce} for account in accounts],
-                        sort_keys=True,
-                        separators=(",", ":"),
-                    ).encode()).hexdigest(),
+                    "account_digest": hashlib.sha256(
+                        json.dumps(
+                            [
+                                {"address": account.address, "balance": account.balance, "nonce": account.nonce}
+                                for account in accounts
+                            ],
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ).encode()
+                    ).hexdigest(),
                     "computed_state_root": computed_root_hex,
                     "head_state_root_matches_computed": bool(head and head.state_root == computed_root_hex),
                 }
@@ -229,7 +243,9 @@ def backup(chain_id: str, service_name: str, backup_root: Path, timestamp: str |
                 "backup": str(destination),
                 "size_bytes": source.stat().st_size,
                 "sha256": _sha256_file(source),
-                "integrity_check": _integrity_check(destination) if source.name.startswith("chain.db") or source.name.startswith("mempool.db") else None,
+                "integrity_check": _integrity_check(destination)
+                if source.name.startswith("chain.db") or source.name.startswith("mempool.db")
+                else None,
             }
         )
     manifest_path = target / "manifest.json"

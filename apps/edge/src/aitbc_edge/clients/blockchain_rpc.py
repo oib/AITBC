@@ -18,27 +18,20 @@ class BlockchainRPCClient:
         """Close the HTTP client"""
         await self.client.aclose()
 
-    async def join_island(self, island_id: str, island_name: str, chain_id: str, role: str = "compute-provider", is_hub: bool = False) -> dict[str, Any]:
+    async def join_island(
+        self, island_id: str, island_name: str, chain_id: str, role: str = "compute-provider", is_hub: bool = False
+    ) -> dict[str, Any]:
         """Join island via blockchain RPC"""
         response = await self.client.post(
             f"{self.base_url}/rpc/islands/join",
-            json={
-                "island_id": island_id,
-                "island_name": island_name,
-                "chain_id": chain_id,
-                "role": role,
-                "is_hub": is_hub
-            }
+            json={"island_id": island_id, "island_name": island_name, "chain_id": chain_id, "role": role, "is_hub": is_hub},
         )
         response.raise_for_status()
         return cast(dict[str, Any], response.json())
 
     async def leave_island(self, island_id: str) -> dict[str, Any]:
         """Leave island via blockchain RPC"""
-        response = await self.client.post(
-            f"{self.base_url}/rpc/islands/leave",
-            json={"island_id": island_id}
-        )
+        response = await self.client.post(f"{self.base_url}/rpc/islands/leave", json={"island_id": island_id})
         response.raise_for_status()
         return cast(dict[str, Any], response.json())
 
@@ -58,9 +51,6 @@ class BlockchainRPCClient:
 
     async def request_bridge(self, target_island_id: str) -> dict[str, Any]:
         """Request bridge via blockchain RPC"""
-        response = await self.client.post(
-            f"{self.base_url}/rpc/islands/bridge",
-            json={"target_island_id": target_island_id}
-        )
+        response = await self.client.post(f"{self.base_url}/rpc/islands/bridge", json={"target_island_id": target_island_id})
         response.raise_for_status()
         return cast(dict[str, Any], response.json())

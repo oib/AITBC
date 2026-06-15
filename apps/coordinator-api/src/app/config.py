@@ -41,12 +41,7 @@ class DatabaseConfig(BaseSettings):
 class Settings(BaseAITBCConfig):
     """Unified application settings with environment-based configuration."""
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="allow"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
     # Override defaults for coordinator-api
     app_name: str = Field(default="AITBC Coordinator API", description="Application name")
@@ -72,6 +67,7 @@ class Settings(BaseAITBCConfig):
     @classmethod
     def parse_api_keys(cls, v: str | list[str]) -> list[str]:
         import json
+
         if isinstance(v, str):
             try:
                 parsed = json.loads(v)
@@ -118,7 +114,7 @@ class Settings(BaseAITBCConfig):
             "http://localhost:8015",  # hermes Enhanced
             "http://localhost:8016",  # Web UI
         ],
-        description="CORS allowed origins"
+        description="CORS allowed origins",
     )
 
     # Job Configuration

@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field
 
 from ..domain.dao_governance import ProposalType

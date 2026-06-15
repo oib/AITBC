@@ -31,6 +31,7 @@ def get_keystore(config: Settings = Depends(get_settings)) -> PersistentKeystore
 def get_ledger(config: Settings = Depends(get_settings)) -> SQLiteLedgerAdapter:
     return SQLiteLedgerAdapter(config.ledger_db_path)
 
+
 # Temporarily disable multi-chain dependency functions
 # @lru_cache
 # def get_chain_manager() -> ChainManager:

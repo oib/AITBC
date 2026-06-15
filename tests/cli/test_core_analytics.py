@@ -38,7 +38,7 @@ class TestChainMetrics:
             miner_count=3,
             agent_count=7,
             network_in_mb=100.0,
-            network_out_mb=50.0
+            network_out_mb=50.0,
         )
 
         assert metrics.chain_id == "aitbc-main"
@@ -60,7 +60,7 @@ class TestChainAlert:
             message="TPS below threshold",
             timestamp=datetime.now(),
             threshold=5.0,
-            current_value=2.5
+            current_value=2.5,
         )
 
         assert alert.chain_id == "aitbc-main"
@@ -81,7 +81,7 @@ class TestChainPrediction:
             predicted_value=15.0,
             confidence=0.85,
             time_horizon_hours=24,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         assert prediction.chain_id == "aitbc-main"
@@ -92,7 +92,7 @@ class TestChainPrediction:
 class TestChainAnalytics:
     """Test ChainAnalytics class"""
 
-    @patch('aitbc_cli.core.analytics.NodeClient')
+    @patch("aitbc_cli.core.analytics.NodeClient")
     def test_init(self, mock_node_client):
         """Test ChainAnalytics initialization"""
         from aitbc_cli.core.analytics import ChainAnalytics, MultiChainConfig
@@ -103,10 +103,10 @@ class TestChainAnalytics:
         assert analytics.config == config
         assert analytics.alerts == []
         assert analytics.health_scores == {}
-        assert 'tps_low' in analytics.thresholds
-        assert analytics.thresholds['tps_low'] == 1.0
+        assert "tps_low" in analytics.thresholds
+        assert analytics.thresholds["tps_low"] == 1.0
 
-    @patch('aitbc_cli.core.analytics.NodeClient')
+    @patch("aitbc_cli.core.analytics.NodeClient")
     def test_thresholds(self, mock_node_client):
         """Test alert thresholds"""
         from aitbc_cli.core.analytics import ChainAnalytics, MultiChainConfig
@@ -114,15 +114,15 @@ class TestChainAnalytics:
         config = Mock(spec=MultiChainConfig)
         analytics = ChainAnalytics(config)
 
-        assert analytics.thresholds['tps_low'] == 1.0
-        assert analytics.thresholds['tps_high'] == 100.0
-        assert analytics.thresholds['block_time_high'] == 10.0
-        assert analytics.thresholds['memory_usage_high'] == 80.0
-        assert analytics.thresholds['disk_usage_high'] == 85.0
-        assert analytics.thresholds['node_count_low'] == 1
-        assert analytics.thresholds['client_count_low'] == 5
+        assert analytics.thresholds["tps_low"] == 1.0
+        assert analytics.thresholds["tps_high"] == 100.0
+        assert analytics.thresholds["block_time_high"] == 10.0
+        assert analytics.thresholds["memory_usage_high"] == 80.0
+        assert analytics.thresholds["disk_usage_high"] == 85.0
+        assert analytics.thresholds["node_count_low"] == 1
+        assert analytics.thresholds["client_count_low"] == 5
 
-    @patch('aitbc_cli.core.analytics.NodeClient')
+    @patch("aitbc_cli.core.analytics.NodeClient")
     def test_health_scores_initialization(self, mock_node_client):
         """Test health scores initialization"""
         from aitbc_cli.core.analytics import ChainAnalytics, MultiChainConfig
@@ -133,7 +133,7 @@ class TestChainAnalytics:
         assert isinstance(analytics.health_scores, dict)
         assert len(analytics.health_scores) == 0
 
-    @patch('aitbc_cli.core.analytics.NodeClient')
+    @patch("aitbc_cli.core.analytics.NodeClient")
     def test_metrics_history_initialization(self, mock_node_client):
         """Test metrics history initialization"""
         from aitbc_cli.core.analytics import ChainAnalytics, MultiChainConfig
@@ -144,7 +144,7 @@ class TestChainAnalytics:
         assert isinstance(analytics.metrics_history, dict)
         assert len(analytics.metrics_history) == 0
 
-    @patch('aitbc_cli.core.analytics.NodeClient')
+    @patch("aitbc_cli.core.analytics.NodeClient")
     def test_alerts_initialization(self, mock_node_client):
         """Test alerts initialization"""
         from aitbc_cli.core.analytics import ChainAnalytics, MultiChainConfig
@@ -155,7 +155,7 @@ class TestChainAnalytics:
         assert isinstance(analytics.alerts, list)
         assert len(analytics.alerts) == 0
 
-    @patch('aitbc_cli.core.analytics.NodeClient')
+    @patch("aitbc_cli.core.analytics.NodeClient")
     def test_predictions_initialization(self, mock_node_client):
         """Test predictions initialization"""
         from aitbc_cli.core.analytics import ChainAnalytics, MultiChainConfig

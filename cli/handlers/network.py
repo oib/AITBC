@@ -9,10 +9,10 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-
 def handle_network_status(args, default_rpc_url, get_network_snapshot):
     """Handle network status query."""
     import click
+
     snapshot = get_network_snapshot(getattr(args, "rpc_url", default_rpc_url))
     click.echo("Network status:")
     click.echo(f"  Connected nodes: {snapshot['connected_count']}")
@@ -21,17 +21,22 @@ def handle_network_status(args, default_rpc_url, get_network_snapshot):
         health = "healthy" if node["healthy"] else "unreachable"
         click.echo(f"  {label}: {health}")
     click.echo(f"  Sync status: {snapshot['sync_status']}")
+
+
 def handle_network_peers(args, default_rpc_url, get_network_snapshot):
     """Handle network peers query."""
     snapshot = get_network_snapshot(getattr(args, "rpc_url", default_rpc_url))
     logger.info("Network peers:")
     for node in snapshot["nodes"]:
         endpoint = urlparse(node["rpc_url"]).netloc
-        status = "Connected" if node["healthy"] else "Unreachable (%s)" % (node['error'] or 'unknown error')
-        logger.info("  - %s (%s) - %s", node['name'], endpoint, status)
+        status = "Connected" if node["healthy"] else "Unreachable (%s)" % (node["error"] or "unknown error")
+        logger.info("  - %s (%s) - %s", node["name"], endpoint, status)
+
+
 def handle_network_sync(args, default_rpc_url, get_network_snapshot):
     """Handle network sync status query."""
     import click
+
     snapshot = get_network_snapshot(getattr(args, "rpc_url", default_rpc_url))
     click.echo("Network sync status:")
     click.echo(f"  Status: {snapshot['sync_status']}")
@@ -40,6 +45,8 @@ def handle_network_sync(args, default_rpc_url, get_network_snapshot):
         click.echo(f"  {node['name']} height: {height}")
     local_timestamp = snapshot["nodes"][0].get("timestamp") if snapshot["nodes"] else None
     click.echo(f"  Last local block: {local_timestamp or 'unknown'}")
+
+
 def handle_network_ping(args, default_rpc_url, read_blockchain_env, normalize_rpc_url, first, probe_rpc_node):
     """Handle network ping command."""
     env_config = read_blockchain_env()
@@ -59,6 +66,8 @@ def handle_network_ping(args, default_rpc_url, read_blockchain_env, normalize_rp
     if target["latency_ms"] is not None:
         print(f"  Latency: {target['latency_ms']}ms")
     print(f"  Status: {'connected' if target['healthy'] else 'error'}")
+
+
 def handle_network_propagate(args, default_rpc_url, get_network_snapshot, first):
     """Handle network data propagation."""
     data = first(getattr(args, "data_opt", None), getattr(args, "data", None), "test-data")
@@ -66,6 +75,8 @@ def handle_network_propagate(args, default_rpc_url, get_network_snapshot, first)
     print("Data propagation: Complete")
     print(f"  Data: {data}")
     print(f"  Nodes: {snapshot['connected_count']}/{len(snapshot['nodes'])} reachable")
+
+
 def handle_network_force_sync(args, default_rpc_url, render_mapping):
     """Handle network force sync command."""
     rpc_url = args.rpc_url or default_rpc_url

@@ -362,8 +362,3 @@ class PluginConfig(SQLModel, table=True):
     config_type: str = Field(default="string")  # string, number, boolean, json
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
-
-
-
-
-

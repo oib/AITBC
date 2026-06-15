@@ -18,5 +18,5 @@ __all__ = [
     "MultiChainLedgerAdapter",
     "ChainLedgerRecord",
     "ChainWalletMetadata",
-    "ChainAwareWalletService"
+    "ChainAwareWalletService",
 ]

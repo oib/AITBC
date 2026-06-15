@@ -9,10 +9,7 @@ from .config import settings
 if settings.get_effective_database_url().startswith("sqlite"):
     engine = create_engine(
         settings.get_effective_database_url(),
-        connect_args={
-            "check_same_thread": False,
-            "timeout": 30
-        },
+        connect_args={"check_same_thread": False, "timeout": 30},
         poolclass=StaticPool,
         echo=settings.database_echo,
         pool_pre_ping=settings.database_pool_pre_ping,

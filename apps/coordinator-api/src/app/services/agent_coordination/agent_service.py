@@ -2,6 +2,7 @@
 AI Agent Service for Verifiable AI Agent Orchestration
 Implements core orchestration logic and state management for AI agent workflows
 """
+
 import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -27,7 +28,9 @@ from ...domain.agent import (
 
 class CoordinatorClient:
     """Mock coordinator client for agent orchestration"""
+
     pass
+
 
 class AgentStateManager:
     """Manages persistent state for AI agent executions"""
@@ -35,23 +38,29 @@ class AgentStateManager:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    async def create_execution(self, workflow_id: str, client_id: str, verification_level: VerificationLevel=VerificationLevel.BASIC) -> AgentExecution:
+    async def create_execution(
+        self, workflow_id: str, client_id: str, verification_level: VerificationLevel = VerificationLevel.BASIC
+    ) -> AgentExecution:
         """Create a new agent execution record"""
         execution = AgentExecution(workflow_id=workflow_id, client_id=client_id, verification_level=verification_level)
         self.session.add(execution)
         self.session.commit()
         self.session.refresh(execution)
-        logger.info('Created agent execution: %s', execution.id)
+        logger.info("Created agent execution: %s", execution.id)
         return execution
 
     async def update_execution_status(self, execution_id: str, status: AgentStatus, **kwargs: Any) -> AgentExecution:
         """Update execution status and related fields"""
-        stmt = update(AgentExecution).where(AgentExecution.id == execution_id).values(status=status, updated_at=datetime.now(UTC), **kwargs)  # type: ignore[arg-type]
+        stmt = (
+            update(AgentExecution)
+            .where(AgentExecution.id == execution_id)
+            .values(status=status, updated_at=datetime.now(UTC), **kwargs)
+        )  # type: ignore[arg-type]
         self.session.execute(stmt)
         self.session.commit()
         execution = self.session.get(AgentExecution, execution_id)
-        logger.info('Updated execution %s status to %s', execution_id, status)
-        return execution # type: ignore[return-value]
+        logger.info("Updated execution %s status to %s", execution_id, status)
+        return execution  # type: ignore[return-value]
 
     async def get_execution(self, execution_id: str) -> AgentExecution | None:
         """Get execution by ID"""
@@ -64,7 +73,7 @@ class AgentStateManager:
     async def get_workflow_steps(self, workflow_id: str) -> list[AgentStep]:
         """Get all steps for a workflow"""
         stmt = select(AgentStep).where(AgentStep.workflow_id == workflow_id).order_by(AgentStep.step_order)  # type: ignore[arg-type]
-        return self.session.execute(stmt).all() # type: ignore[return-value]
+        return self.session.execute(stmt).all()  # type: ignore[return-value]
 
     async def create_step_execution(self, execution_id: str, step_id: str) -> AgentStepExecution:
         """Create a step execution record"""
@@ -76,21 +85,33 @@ class AgentStateManager:
 
     async def update_step_execution(self, step_execution_id: str, **kwargs: Any) -> AgentStepExecution:
         """Update step execution"""
-        stmt = update(AgentStepExecution).where(AgentStepExecution.id == step_execution_id).values(updated_at=datetime.now(UTC), **kwargs)  # type: ignore[arg-type]
+        stmt = (
+            update(AgentStepExecution)
+            .where(AgentStepExecution.id == step_execution_id)
+            .values(updated_at=datetime.now(UTC), **kwargs)
+        )  # type: ignore[arg-type]
         self.session.execute(stmt)
         self.session.commit()
         step_execution = self.session.get(AgentStepExecution, step_execution_id)
-        return step_execution # type: ignore[return-value]
+        return step_execution  # type: ignore[return-value]
+
 
 class AgentVerifier:
     """Handles verification of agent executions"""
 
-    def __init__(self, cuda_accelerator: Any=None) -> None:
+    def __init__(self, cuda_accelerator: Any = None) -> None:
         self.cuda_accelerator = cuda_accelerator
 
-    async def verify_step_execution(self, step_execution: AgentStepExecution, verification_level: VerificationLevel) -> dict[str, Any]:
+    async def verify_step_execution(
+        self, step_execution: AgentStepExecution, verification_level: VerificationLevel
+    ) -> dict[str, Any]:
         """Verify a single step execution"""
-        verification_result = {'verified': False, 'proof': None, 'verification_time': 0.0, 'verification_level': verification_level}
+        verification_result = {
+            "verified": False,
+            "proof": None,
+            "verification_time": 0.0,
+            "verification_level": verification_level,
+        }
         try:
             if verification_level == VerificationLevel.ZERO_KNOWLEDGE:
                 verification_result = await self._zk_verify_step(step_execution)
@@ -99,36 +120,52 @@ class AgentVerifier:
             else:
                 verification_result = await self._basic_verify_step(step_execution)
         except Exception as e:
-            logger.error('Step verification failed: %s', e)
-            verification_result['error'] = str(e)  # type: ignore[assignment]
+            logger.error("Step verification failed: %s", e)
+            verification_result["error"] = str(e)  # type: ignore[assignment]
         return verification_result
 
     async def _basic_verify_step(self, step_execution: AgentStepExecution) -> dict[str, Any]:
         """Basic verification of step execution"""
         start_time = datetime.now(UTC)
-        verified = step_execution.status == AgentStatus.COMPLETED and step_execution.output_data is not None and (step_execution.error_message is None)
+        verified = (
+            step_execution.status == AgentStatus.COMPLETED
+            and step_execution.output_data is not None
+            and (step_execution.error_message is None)
+        )
         verification_time = (datetime.now(UTC) - start_time).total_seconds()
-        return {'verified': verified, 'proof': None, 'verification_time': verification_time, 'verification_level': VerificationLevel.BASIC, 'checks': ['completion', 'output_presence', 'error_free']}
+        return {
+            "verified": verified,
+            "proof": None,
+            "verification_time": verification_time,
+            "verification_level": VerificationLevel.BASIC,
+            "checks": ["completion", "output_presence", "error_free"],
+        }
 
     async def _full_verify_step(self, step_execution: AgentStepExecution) -> dict[str, Any]:
         """Full verification with additional checks"""
         start_time = datetime.now(UTC)
         basic_result = await self._basic_verify_step(step_execution)
-        if not basic_result['verified']:
+        if not basic_result["verified"]:
             return basic_result
         additional_checks = []
         if step_execution.execution_time and step_execution.execution_time < 3600:
-            additional_checks.append('reasonable_execution_time')
+            additional_checks.append("reasonable_execution_time")
         else:
-            basic_result['verified'] = False
+            basic_result["verified"] = False
         if step_execution.memory_usage and step_execution.memory_usage < 8192:
-            additional_checks.append('reasonable_memory_usage')
+            additional_checks.append("reasonable_memory_usage")
         verification_time = (datetime.now(UTC) - start_time).total_seconds()
-        return {'verified': basic_result['verified'], 'proof': None, 'verification_time': verification_time, 'verification_level': VerificationLevel.FULL, 'checks': basic_result['checks'] + additional_checks}
+        return {
+            "verified": basic_result["verified"],
+            "proof": None,
+            "verification_time": verification_time,
+            "verification_level": VerificationLevel.FULL,
+            "checks": basic_result["checks"] + additional_checks,
+        }
 
     async def _zk_verify_step(self, step_execution: AgentStepExecution) -> dict[str, Any]:
         """Zero-knowledge proof verification
-        
+
         Note: Full ZK proof implementation requires integration with ZK-SNARKs/ZK-STARKs libraries.
         Currently using full verification as fallback. Future implementation should:
         1. Generate ZK proof from step execution
@@ -137,9 +174,10 @@ class AgentVerifier:
         """
         datetime.now(UTC)
         result = await self._full_verify_step(step_execution)
-        result['verification_level'] = VerificationLevel.ZERO_KNOWLEDGE
-        result['note'] = 'ZK verification using full verification fallback (requires ZK-SNARKs integration)'
+        result["verification_level"] = VerificationLevel.ZERO_KNOWLEDGE
+        result["note"] = "ZK verification using full verification fallback (requires ZK-SNARKs integration)"
         return result
+
 
 class AIAgentOrchestrator:
     """Orchestrates execution of AI agent workflows"""
@@ -154,12 +192,26 @@ class AIAgentOrchestrator:
         """Execute an AI agent workflow with verification"""
         workflow = await self.state_manager.get_workflow(request.workflow_id)
         if not workflow:
-            raise ValueError(f'Workflow not found: {request.workflow_id}')
-        execution = await self.state_manager.create_execution(workflow_id=request.workflow_id, client_id=client_id, verification_level=request.verification_level)  # type: ignore[arg-type]
+            raise ValueError(f"Workflow not found: {request.workflow_id}")
+        execution = await self.state_manager.create_execution(
+            workflow_id=request.workflow_id, client_id=client_id, verification_level=request.verification_level
+        )  # type: ignore[arg-type]
         try:
-            await self.state_manager.update_execution_status(execution.id, status=AgentStatus.RUNNING, started_at=datetime.now(UTC), total_steps=len(workflow.steps))
+            await self.state_manager.update_execution_status(
+                execution.id, status=AgentStatus.RUNNING, started_at=datetime.now(UTC), total_steps=len(workflow.steps)
+            )
             asyncio.create_task(self._execute_steps_async(execution.id, request.inputs))
-            return AgentExecutionResponse(execution_id=execution.id, workflow_id=workflow.id, status=execution.status, current_step=0, total_steps=len(workflow.steps), started_at=execution.started_at, estimated_completion=self._estimate_completion(execution), current_cost=0.0, estimated_total_cost=self._estimate_cost(workflow))
+            return AgentExecutionResponse(
+                execution_id=execution.id,
+                workflow_id=workflow.id,
+                status=execution.status,
+                current_step=0,
+                total_steps=len(workflow.steps),
+                started_at=execution.started_at,
+                estimated_completion=self._estimate_completion(execution),
+                current_cost=0.0,
+                estimated_total_cost=self._estimate_cost(workflow),
+            )
         except Exception as e:
             await self._handle_execution_failure(execution.id, e)
             raise
@@ -168,8 +220,22 @@ class AIAgentOrchestrator:
         """Get current execution status"""
         execution = await self.state_manager.get_execution(execution_id)
         if not execution:
-            raise ValueError(f'Execution not found: {execution_id}')
-        return AgentExecutionStatus(execution_id=execution.id, workflow_id=execution.workflow_id, status=execution.status, current_step=execution.current_step, total_steps=execution.total_steps, step_states=execution.step_states, final_result=execution.final_result, error_message=execution.error_message, started_at=execution.started_at, completed_at=execution.completed_at, total_execution_time=execution.total_execution_time, total_cost=execution.total_cost, verification_proof=execution.verification_proof)
+            raise ValueError(f"Execution not found: {execution_id}")
+        return AgentExecutionStatus(
+            execution_id=execution.id,
+            workflow_id=execution.workflow_id,
+            status=execution.status,
+            current_step=execution.current_step,
+            total_steps=execution.total_steps,
+            step_states=execution.step_states,
+            final_result=execution.final_result,
+            error_message=execution.error_message,
+            started_at=execution.started_at,
+            completed_at=execution.completed_at,
+            total_execution_time=execution.total_execution_time,
+            total_cost=execution.total_cost,
+            verification_proof=execution.verification_proof,
+        )
 
     async def _execute_steps_async(self, execution_id: str, inputs: dict[str, Any]) -> None:
         """Execute workflow steps in dependency order"""
@@ -186,7 +252,12 @@ class AIAgentOrchestrator:
                 step_results[step_id] = step_result
                 if step_result.output_data:
                     current_inputs.update(step_result.output_data)
-                await self.state_manager.update_execution_status(execution_id, current_step=execution.current_step + 1, completed_steps=execution.completed_steps + 1, step_states=step_results)  # type: ignore[union-attr, call-arg]
+                await self.state_manager.update_execution_status(
+                    execution_id,
+                    current_step=execution.current_step + 1,
+                    completed_steps=execution.completed_steps + 1,
+                    step_states=step_results,
+                )  # type: ignore[union-attr, call-arg]
             await self._complete_execution(execution_id, step_results)
         except Exception as e:
             await self._handle_execution_failure(execution_id, e)
@@ -195,7 +266,9 @@ class AIAgentOrchestrator:
         """Execute a single step"""
         step_execution = await self.state_manager.create_step_execution(execution_id, step.id)
         try:
-            await self.state_manager.update_step_execution(step_execution.id, status=AgentStatus.RUNNING, started_at=datetime.now(UTC), input_data=inputs)
+            await self.state_manager.update_step_execution(
+                step_execution.id, status=AgentStatus.RUNNING, started_at=datetime.now(UTC), input_data=inputs
+            )
             if step.step_type == StepType.INFERENCE:
                 result = await self._execute_inference_step(step, inputs)
             elif step.step_type == StepType.TRAINING:
@@ -204,18 +277,32 @@ class AIAgentOrchestrator:
                 result = await self._execute_data_processing_step(step, inputs)
             else:
                 result = await self._execute_custom_step(step, inputs)
-            await self.state_manager.update_step_execution(step_execution.id, status=AgentStatus.COMPLETED, completed_at=datetime.now(UTC), output_data=result.get('output'), execution_time=result.get('execution_time', 0.0), gpu_accelerated=result.get('gpu_accelerated', False), memory_usage=result.get('memory_usage'))
+            await self.state_manager.update_step_execution(
+                step_execution.id,
+                status=AgentStatus.COMPLETED,
+                completed_at=datetime.now(UTC),
+                output_data=result.get("output"),
+                execution_time=result.get("execution_time", 0.0),
+                gpu_accelerated=result.get("gpu_accelerated", False),
+                memory_usage=result.get("memory_usage"),
+            )
             if step.requires_proof:
                 verification_result = await self.verifier.verify_step_execution(step_execution, step.verification_level)
-                await self.state_manager.update_step_execution(step_execution.id, step_proof=verification_result, verification_status='verified' if verification_result['verified'] else 'failed')
+                await self.state_manager.update_step_execution(
+                    step_execution.id,
+                    step_proof=verification_result,
+                    verification_status="verified" if verification_result["verified"] else "failed",
+                )
             return step_execution
         except Exception as e:
-            await self.state_manager.update_step_execution(step_execution.id, status=AgentStatus.FAILED, completed_at=datetime.now(UTC), error_message=str(e))
+            await self.state_manager.update_step_execution(
+                step_execution.id, status=AgentStatus.FAILED, completed_at=datetime.now(UTC), error_message=str(e)
+            )
             raise
 
     async def _execute_inference_step(self, step: AgentStep, inputs: dict[str, Any]) -> dict[str, Any]:
         """Execute inference step
-        
+
         Note: ML inference service integration requires:
         1. Connection to inference service (Ollama, custom API, etc.)
         2. Model selection and loading
@@ -226,11 +313,16 @@ class AIAgentOrchestrator:
         start_time = datetime.now(UTC)
         await asyncio.sleep(0.1)
         execution_time = (datetime.now(UTC) - start_time).total_seconds()
-        return {'output': {'prediction': 'simulated_result', 'confidence': 0.95}, 'execution_time': execution_time, 'gpu_accelerated': False, 'memory_usage': 128.5}
+        return {
+            "output": {"prediction": "simulated_result", "confidence": 0.95},
+            "execution_time": execution_time,
+            "gpu_accelerated": False,
+            "memory_usage": 128.5,
+        }
 
     async def _execute_training_step(self, step: AgentStep, inputs: dict[str, Any]) -> dict[str, Any]:
         """Execute training step
-        
+
         Note: ML training service integration requires:
         1. Connection to training infrastructure (GPU clusters, distributed training)
         2. Dataset loading and preprocessing
@@ -241,21 +333,36 @@ class AIAgentOrchestrator:
         start_time = datetime.now(UTC)
         await asyncio.sleep(0.5)
         execution_time = (datetime.now(UTC) - start_time).total_seconds()
-        return {'output': {'model_updated': True, 'training_loss': 0.123}, 'execution_time': execution_time, 'gpu_accelerated': True, 'memory_usage': 512.0}
+        return {
+            "output": {"model_updated": True, "training_loss": 0.123},
+            "execution_time": execution_time,
+            "gpu_accelerated": True,
+            "memory_usage": 512.0,
+        }
 
     async def _execute_data_processing_step(self, step: AgentStep, inputs: dict[str, Any]) -> dict[str, Any]:
         """Execute data processing step"""
         start_time = datetime.now(UTC)
         await asyncio.sleep(0.05)
         execution_time = (datetime.now(UTC) - start_time).total_seconds()
-        return {'output': {'processed_records': 1000, 'data_validated': True}, 'execution_time': execution_time, 'gpu_accelerated': False, 'memory_usage': 64.0}
+        return {
+            "output": {"processed_records": 1000, "data_validated": True},
+            "execution_time": execution_time,
+            "gpu_accelerated": False,
+            "memory_usage": 64.0,
+        }
 
     async def _execute_custom_step(self, step: AgentStep, inputs: dict[str, Any]) -> dict[str, Any]:
         """Execute custom step"""
         start_time = datetime.now(UTC)
         await asyncio.sleep(0.2)
         execution_time = (datetime.now(UTC) - start_time).total_seconds()
-        return {'output': {'custom_result': 'completed', 'metadata': inputs}, 'execution_time': execution_time, 'gpu_accelerated': False, 'memory_usage': 256.0}
+        return {
+            "output": {"custom_result": "completed", "metadata": inputs},
+            "execution_time": execution_time,
+            "gpu_accelerated": False,
+            "memory_usage": 256.0,
+        }
 
     def _build_execution_order(self, steps: list[AgentStep], dependencies: dict[str, list[str]]) -> list[str]:
         """Build execution order based on dependencies"""
@@ -269,7 +376,7 @@ class AIAgentOrchestrator:
                 if all(dep in ordered_steps for dep in step_deps):
                     ready_steps.append(step_id)
             if not ready_steps:
-                raise ValueError('Circular dependency detected in workflow')
+                raise ValueError("Circular dependency detected in workflow")
             for step_id in ready_steps:
                 ordered_steps.append(step_id)
                 remaining_steps.remove(step_id)
@@ -280,11 +387,19 @@ class AIAgentOrchestrator:
         completed_at = datetime.now(UTC)
         execution = await self.state_manager.get_execution(execution_id)
         total_execution_time = (completed_at - execution.started_at).total_seconds() if execution.started_at else 0.0  # type: ignore[union-attr]
-        await self.state_manager.update_execution_status(execution_id, status=AgentStatus.COMPLETED, completed_at=completed_at, total_execution_time=total_execution_time, final_result={'step_results': step_results})
+        await self.state_manager.update_execution_status(
+            execution_id,
+            status=AgentStatus.COMPLETED,
+            completed_at=completed_at,
+            total_execution_time=total_execution_time,
+            final_result={"step_results": step_results},
+        )
 
     async def _handle_execution_failure(self, execution_id: str, error: Exception) -> None:
         """Handle execution failure"""
-        await self.state_manager.update_execution_status(execution_id, status=AgentStatus.FAILED, completed_at=datetime.now(UTC), error_message=str(error))
+        await self.state_manager.update_execution_status(
+            execution_id, status=AgentStatus.FAILED, completed_at=datetime.now(UTC), error_message=str(error)
+        )
 
     def _estimate_completion(self, execution: AgentExecution) -> datetime | None:
         """Estimate completion time"""

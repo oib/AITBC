@@ -22,6 +22,7 @@ class TestTracingFallbacks:
 
     def test_setup_tracing_no_opentelemetry(self):
         from aitbc.tracing import setup_tracing
+
         setup_tracing("test-service")  # should not raise
 
     def test_instrument_fastapi_no_opentelemetry(self):
@@ -55,7 +56,6 @@ class TestTracingFallbacks:
 class TestTracingWithMockOpentelemetry:
     def test_trace_span_with_tracer(self):
         with patch("aitbc.tracing.OPENTELEMETRY_AVAILABLE", True):
-            with patch("aitbc.tracing._tracer") as mock_tracer:
-                mock_span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
+            with patch("aitbc.tracing._tracer"):
                 with trace_span("test") as span:
                     assert span is not None

@@ -12,6 +12,7 @@ from sqlmodel import Field, SQLModel
 
 class JobState(StrEnum):
     """Job execution states."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"

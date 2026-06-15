@@ -43,16 +43,9 @@ def reject_bridge_command(ctx, request_id, reason):
 def list_bridges_command(ctx):
     """List bridge connections"""
     try:
-        bridges = [
-            {
-                "Bridge ID": "bridge-1",
-                "Source Island": "island-a",
-                "Target Island": "island-b",
-                "Status": "Active"
-            }
-        ]
+        bridges = [{"Bridge ID": "bridge-1", "Source Island": "island-a", "Target Island": "island-b", "Status": "Active"}]
 
-        output(bridges, ctx.obj.get('output_format', 'table'), title="Bridge Connections")
+        output(bridges, ctx.obj.get("output_format", "table"), title="Bridge Connections")
 
     except Exception as e:
         error(f"Error listing bridges: {str(e)}")

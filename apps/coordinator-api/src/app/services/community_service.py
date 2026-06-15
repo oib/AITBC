@@ -33,7 +33,11 @@ class DeveloperEcosystemService:
         self.session = session
 
     async def create_developer_profile(
-        self, user_id: str, username: str, bio: str = None, skills: list[str] = None  # type: ignore[assignment]
+        self,
+        user_id: str,
+        username: str,
+        bio: str = None,
+        skills: list[str] = None,  # type: ignore[assignment]
     ) -> DeveloperProfile:
         """Create a new developer profile"""
         profile = DeveloperProfile(user_id=user_id, username=username, bio=bio, skills=skills or [])

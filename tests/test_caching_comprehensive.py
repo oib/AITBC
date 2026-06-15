@@ -430,6 +430,7 @@ class TestRedisCache:
 class TestGetCache:
     def test_get_cache_singleton(self):
         import aitbc.caching as caching
+
         caching._global_redis_cache = None
         with patch("redis.from_url", side_effect=Exception("No Redis")):
             c1 = get_cache()
@@ -438,6 +439,7 @@ class TestGetCache:
 
     def test_get_blockchain_cache(self):
         import aitbc.caching as caching
+
         caching._global_redis_cache = None
         with patch("redis.from_url", side_effect=Exception("No Redis")):
             bc = get_blockchain_cache()

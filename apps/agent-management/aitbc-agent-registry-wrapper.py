@@ -32,6 +32,6 @@ exec_cmd = [
     "--port",
     "8204",
     "--app-dir",
-    f"{REPO_DIR}/aitbc/agent_registry/src"
+    f"{REPO_DIR}/aitbc/agent_registry/src",
 ]
 os.execvp(exec_cmd[0], exec_cmd)

@@ -71,7 +71,7 @@ def agent_metrics(db_session, agent_wallet):
         successful_submissions=9,
         success_rate=90.0,
         current_tier=PerformanceTier.GOLD,
-        tier_score=80.0
+        tier_score=80.0,
     )
     db_session.add(metrics)
     db_session.commit()
@@ -83,23 +83,13 @@ def agent_metrics(db_session, agent_wallet):
 class TestStakingLifecycle:
     """Test 3.1.1: Complete staking lifecycle integration test"""
 
-    async def test_complete_staking_lifecycle(
-        self,
-        staking_service,
-        agent_metrics,
-        staker_address,
-        agent_wallet
-    ):
+    async def test_complete_staking_lifecycle(self, staking_service, agent_metrics, staker_address, agent_wallet):
         """Test complete staking lifecycle: create stake → unbond → complete"""
 
         # Step 1: Create stake
         print("\n=== Step 1: Creating stake ===")
         stake = await staking_service.create_stake(
-            staker_address=staker_address,
-            agent_wallet=agent_wallet,
-            amount=1000.0,
-            lock_period=30,
-            auto_compound=False
+            staker_address=staker_address, agent_wallet=agent_wallet, amount=1000.0, lock_period=30, auto_compound=False
         )
 
         assert stake is not None
@@ -175,22 +165,12 @@ class TestStakingLifecycle:
 
         print("\n=== Complete staking lifecycle test PASSED ===")
 
-    async def test_stake_accumulation_over_time(
-        self,
-        staking_service,
-        agent_metrics,
-        staker_address,
-        agent_wallet
-    ):
+    async def test_stake_accumulation_over_time(self, staking_service, agent_metrics, staker_address, agent_wallet):
         """Test rewards accumulation over time"""
 
         # Create stake
         stake = await staking_service.create_stake(
-            staker_address=staker_address,
-            agent_wallet=agent_wallet,
-            amount=1000.0,
-            lock_period=30,
-            auto_compound=False
+            staker_address=staker_address, agent_wallet=agent_wallet, amount=1000.0, lock_period=30, auto_compound=False
         )
 
         # Calculate initial rewards
@@ -209,31 +189,17 @@ class TestStakingLifecycle:
         assert rewards_after_10_days >= initial_rewards
         print("✓ Rewards accumulated over time")
 
-    async def test_multiple_stakes_same_agent(
-        self,
-        staking_service,
-        agent_metrics,
-        staker_address,
-        agent_wallet
-    ):
+    async def test_multiple_stakes_same_agent(self, staking_service, agent_metrics, staker_address, agent_wallet):
         """Test multiple stakes on the same agent"""
 
         # Create first stake
         stake1 = await staking_service.create_stake(
-            staker_address=staker_address,
-            agent_wallet=agent_wallet,
-            amount=500.0,
-            lock_period=30,
-            auto_compound=False
+            staker_address=staker_address, agent_wallet=agent_wallet, amount=500.0, lock_period=30, auto_compound=False
         )
 
         # Create second stake
         stake2 = await staking_service.create_stake(
-            staker_address=staker_address,
-            agent_wallet=agent_wallet,
-            amount=1500.0,
-            lock_period=60,
-            auto_compound=True
+            staker_address=staker_address, agent_wallet=agent_wallet, amount=1500.0, lock_period=60, auto_compound=True
         )
 
         # Verify both stakes exist
@@ -253,13 +219,7 @@ class TestStakingLifecycle:
 
         print("✓ Multiple stakes on same agent created successfully")
 
-    async def test_stake_with_different_tiers(
-        self,
-        staking_service,
-        db_session,
-        staker_address,
-        agent_wallet
-    ):
+    async def test_stake_with_different_tiers(self, staking_service, db_session, staker_address, agent_wallet):
         """Test stakes on agents with different performance tiers"""
 
         # Create agents with different tiers
@@ -277,7 +237,7 @@ class TestStakingLifecycle:
             successful_submissions=7,
             success_rate=70.0,
             current_tier=PerformanceTier.BRONZE,
-            tier_score=60.0
+            tier_score=60.0,
         )
 
         silver_metrics = AgentMetrics(
@@ -290,7 +250,7 @@ class TestStakingLifecycle:
             successful_submissions=8,
             success_rate=80.0,
             current_tier=PerformanceTier.SILVER,
-            tier_score=70.0
+            tier_score=70.0,
         )
 
         gold_metrics = AgentMetrics(
@@ -303,7 +263,7 @@ class TestStakingLifecycle:
             successful_submissions=9,
             success_rate=90.0,
             current_tier=PerformanceTier.GOLD,
-            tier_score=80.0
+            tier_score=80.0,
         )
 
         db_session.add_all([bronze_metrics, silver_metrics, gold_metrics])
@@ -311,27 +271,15 @@ class TestStakingLifecycle:
 
         # Create stakes on each agent
         bronze_stake = await staking_service.create_stake(
-            staker_address=staker_address,
-            agent_wallet=bronze_agent,
-            amount=1000.0,
-            lock_period=30,
-            auto_compound=False
+            staker_address=staker_address, agent_wallet=bronze_agent, amount=1000.0, lock_period=30, auto_compound=False
         )
 
         silver_stake = await staking_service.create_stake(
-            staker_address=staker_address,
-            agent_wallet=silver_agent,
-            amount=1000.0,
-            lock_period=30,
-            auto_compound=False
+            staker_address=staker_address, agent_wallet=silver_agent, amount=1000.0, lock_period=30, auto_compound=False
         )
 
         gold_stake = await staking_service.create_stake(
-            staker_address=staker_address,
-            agent_wallet=gold_agent,
-            amount=1000.0,
-            lock_period=30,
-            auto_compound=False
+            staker_address=staker_address, agent_wallet=gold_agent, amount=1000.0, lock_period=30, auto_compound=False
         )
 
         # Verify APY increases with tier

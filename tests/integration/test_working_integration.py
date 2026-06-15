@@ -17,8 +17,9 @@ def test_coordinator_app_imports():
     """Test that we can import the coordinator app"""
     try:
         from app.main import app
+
         assert app is not None
-        assert hasattr(app, 'title')
+        assert hasattr(app, "title")
         assert app.title == "AITBC Coordinator API"
     except ImportError as e:
         pytest.skip(f"Cannot import app: {e}")
@@ -56,11 +57,7 @@ def test_job_endpoint_structure():
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
 
         # Test with API key but invalid data
-        response = client.post(
-            "/v1/jobs",
-            json={},
-            headers={"X-Api-Key": "${CLIENT_API_KEY}"}
-        )
+        response = client.post("/v1/jobs", json={}, headers={"X-Api-Key": "${CLIENT_API_KEY}"})
         # Should get validation error, not auth or not found
         assert response.status_code in [400, 422], f"Expected validation error, got {response.status_code}"
 
@@ -82,11 +79,7 @@ def test_miner_endpoint_structure():
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
 
         # Test with miner API key
-        response = client.post(
-            "/v1/miners/register",
-            json={},
-            headers={"X-Api-Key": "${MINER_API_KEY}"}
-        )
+        response = client.post("/v1/miners/register", json={}, headers={"X-Api-Key": "${MINER_API_KEY}"})
         # Should get validation error, not auth or not found
         assert response.status_code in [400, 422], f"Expected validation error, got {response.status_code}"
 
@@ -119,11 +112,7 @@ def test_api_key_validation():
             assert response.status_code == 401, f"{method} {endpoint} should require auth"
 
         # Test with wrong API key
-        response = client.post(
-            "/v1/jobs",
-            json={},
-            headers={"X-Api-Key": "wrong-key"}
-        )
+        response = client.post("/v1/jobs", json={}, headers={"X-Api-Key": "wrong-key"})
         assert response.status_code == 401, "Wrong API key should be rejected"
 
     except ImportError:
@@ -146,13 +135,7 @@ def test_job_schema_validation():
         from app.types import Constraints
 
         # Valid job creation data
-        job_data = {
-            "payload": {
-                "job_type": "ai_inference",
-                "parameters": {"model": "gpt-4"}
-            },
-            "ttl_seconds": 900
-        }
+        job_data = {"payload": {"job_type": "ai_inference", "parameters": {"model": "gpt-4"}}, "ttl_seconds": 900}
 
         job = JobCreate(**job_data)
         assert job.payload["job_type"] == "ai_inference"

@@ -1,6 +1,5 @@
 """Configuration settings for blockchain event bridge."""
 
-
 from pydantic import Field
 from pydantic_settings import BaseSettings
 

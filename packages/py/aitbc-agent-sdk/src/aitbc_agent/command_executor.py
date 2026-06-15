@@ -16,7 +16,7 @@ class CommandExecutor:
     def __init__(self, cli_path: str = "/opt/aitbc/aitbc-cli"):
         """
         Initialize command executor
-        
+
         Args:
             cli_path: Path to CLI executable (default: /opt/aitbc/aitbc-cli)
         """
@@ -26,14 +26,9 @@ class CommandExecutor:
         """Execute CLI command and return result"""
         try:
             cmd = [self.cli_path] + command.split() + args
-            logger.debug("Executing command: %s", ' '.join(cmd))
+            logger.debug("Executing command: %s", " ".join(cmd))
 
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
             if result.returncode == 0:
                 try:
@@ -41,17 +36,10 @@ class CommandExecutor:
                 except json.JSONDecodeError:
                     data = {"output": result.stdout}
 
-                return {
-                    "success": True,
-                    "output": result.stdout,
-                    "data": data
-                }
+                return {"success": True, "output": result.stdout, "data": data}
             else:
                 logger.error("Command failed: %s", result.stderr)
-                return {
-                    "success": False,
-                    "error": result.stderr
-                }
+                return {"success": False, "error": result.stderr}
         except subprocess.TimeoutExpired:
             logger.error("Command timeout")
             return {"success": False, "error": "Command timeout"}

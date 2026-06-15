@@ -61,11 +61,7 @@ class TestGenesisAccount:
         """Test GenesisAccount creation"""
         from aitbc_cli.models.chain import GenesisAccount
 
-        account = GenesisAccount(
-            address="0xabc123",
-            balance="1000000000000000000",
-            type="regular"
-        )
+        account = GenesisAccount(address="0xabc123", balance="1000000000000000000", type="regular")
 
         assert account.address == "0xabc123"
         assert account.balance == "1000000000000000000"
@@ -75,10 +71,7 @@ class TestGenesisAccount:
         """Test GenesisAccount with defaults"""
         from aitbc_cli.models.chain import GenesisAccount
 
-        account = GenesisAccount(
-            address="0xabc123",
-            balance="1000000000000000000"
-        )
+        account = GenesisAccount(address="0xabc123", balance="1000000000000000000")
 
         assert account.type == "regular"
 
@@ -90,12 +83,7 @@ class TestGenesisContract:
         """Test GenesisContract creation"""
         from aitbc_cli.models.chain import GenesisContract
 
-        contract = GenesisContract(
-            name="TestContract",
-            address="0xdef456",
-            bytecode="0x606060",
-            abi={"name": "test"}
-        )
+        contract = GenesisContract(name="TestContract", address="0xdef456", bytecode="0x606060", abi={"name": "test"})
 
         assert contract.name == "TestContract"
         assert contract.address == "0xdef456"
@@ -124,11 +112,7 @@ class TestConsensusConfig:
         """Test ConsensusConfig creation"""
         from aitbc_cli.models.chain import ConsensusAlgorithm, ConsensusConfig
 
-        config = ConsensusConfig(
-            algorithm=ConsensusAlgorithm.POS,
-            block_time=10,
-            max_validators=50
-        )
+        config = ConsensusConfig(algorithm=ConsensusAlgorithm.POS, block_time=10, max_validators=50)
 
         assert config.algorithm == ConsensusAlgorithm.POS
         assert config.block_time == 10
@@ -183,7 +167,7 @@ class TestGenesisConfig:
             chain_type=ChainType.MAIN,
             purpose="test",
             name="TestChain",
-            consensus=ConsensusConfig(algorithm=ConsensusAlgorithm.POW)
+            consensus=ConsensusConfig(algorithm=ConsensusAlgorithm.POW),
         )
 
         assert config.chain_type == ChainType.MAIN
@@ -198,7 +182,7 @@ class TestGenesisConfig:
             chain_type=ChainType.TOPIC,
             purpose="test",
             name="TestChain",
-            consensus=ConsensusConfig(algorithm=ConsensusAlgorithm.POS)
+            consensus=ConsensusConfig(algorithm=ConsensusAlgorithm.POS),
         )
 
         assert config.parent_hash == "0x0000000000000000000000000000000000000000000000000000000000000000"

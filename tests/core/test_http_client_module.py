@@ -18,25 +18,21 @@ def load_module_from_path(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-http_client = load_module_from_path(
-    "aitbc.network.http_client",
-    Path("/opt/aitbc/aitbc/network/http_client.py")
-)
+
+http_client = load_module_from_path("aitbc.network.http_client", Path("/opt/aitbc/aitbc/network/http_client.py"))
 
 
 # ============================================================================
 # AITBCHTTPClient Tests
 # ============================================================================
 
+
 class TestAITBCHTTPClient:
     """Test AITBCHTTPClient class"""
 
     def test_client_initialization(self):
         client = http_client.AITBCHTTPClient(
-            base_url="https://api.example.com",
-            timeout=30,
-            headers={"Authorization": "Bearer token"},
-            max_retries=3
+            base_url="https://api.example.com", timeout=30, headers={"Authorization": "Bearer token"}, max_retries=3
         )
         assert client.base_url == "https://api.example.com"
         assert client.timeout == 30
@@ -57,23 +53,16 @@ class TestAITBCHTTPClient:
         assert client.cache_ttl == 300
 
     def test_client_initialization_with_cache(self):
-        client = http_client.AITBCHTTPClient(
-            enable_cache=True,
-            cache_ttl=600
-        )
+        client = http_client.AITBCHTTPClient(enable_cache=True, cache_ttl=600)
         assert client.enable_cache is True
         assert client.cache_ttl == 600
 
     def test_client_initialization_with_circuit_breaker(self):
-        client = http_client.AITBCHTTPClient(
-            circuit_breaker_threshold=10
-        )
+        client = http_client.AITBCHTTPClient(circuit_breaker_threshold=10)
         assert client.circuit_breaker_threshold == 10
 
     def test_client_initialization_with_rate_limit(self):
-        client = http_client.AITBCHTTPClient(
-            rate_limit=100
-        )
+        client = http_client.AITBCHTTPClient(rate_limit=100)
         assert client.rate_limit == 100
 
     def test_build_url_with_base(self):
@@ -180,6 +169,7 @@ class TestAITBCHTTPClient:
     def test_get_cache_expired(self):
         client = http_client.AITBCHTTPClient(enable_cache=True, cache_ttl=0.01)
         import time
+
         client._cache["test_key"] = ({"data": "value"}, datetime.now())
         time.sleep(0.02)
         result = client._get_cache("test_key")
@@ -196,7 +186,7 @@ class TestAITBCHTTPClient:
         client._set_cache("test_key", {"data": "value"})
         assert "test_key" in client._cache
 
-    @patch('requests.Session.get')
+    @patch("requests.Session.get")
     def test_get_success(self, mock_get):
         mock_response = Mock()
         mock_response.json.return_value = {"result": "success"}
@@ -209,7 +199,7 @@ class TestAITBCHTTPClient:
         assert result == {"result": "success"}
         mock_get.assert_called_once()
 
-    @patch('requests.Session.get')
+    @patch("requests.Session.get")
     def test_get_with_cache_hit(self, mock_get):
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com", enable_cache=True)
         client._cache["https://api.example.com/test"] = ({"cached": True}, datetime.now())
@@ -219,7 +209,7 @@ class TestAITBCHTTPClient:
         assert result == {"cached": True}
         mock_get.assert_not_called()
 
-    @patch('requests.Session.get')
+    @patch("requests.Session.get")
     def test_get_with_cache_miss(self, mock_get):
         mock_response = Mock()
         mock_response.json.return_value = {"result": "success"}
@@ -232,7 +222,7 @@ class TestAITBCHTTPClient:
         assert result == {"result": "success"}
         assert "https://api.example.com/test" in client._cache
 
-    @patch('requests.Session.get')
+    @patch("requests.Session.get")
     def test_get_circuit_breaker_open(self, mock_get):
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
         client._circuit_open = True
@@ -241,7 +231,7 @@ class TestAITBCHTTPClient:
         with pytest.raises(http_client.CircuitBreakerOpenError):
             client.get("/test")
 
-    @patch('requests.Session.get')
+    @patch("requests.Session.get")
     def test_get_rate_limit_exceeded(self, mock_get):
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com", rate_limit=1)
         client._request_times = [datetime.now()]
@@ -249,7 +239,7 @@ class TestAITBCHTTPClient:
         with pytest.raises(http_client.RateLimitError):
             client.get("/test")
 
-    @patch('requests.Session.get')
+    @patch("requests.Session.get")
     def test_get_with_params(self, mock_get):
         mock_response = Mock()
         mock_response.json.return_value = {"result": "success"}
@@ -262,7 +252,7 @@ class TestAITBCHTTPClient:
         assert result == {"result": "success"}
         mock_get.assert_called_once()
 
-    @patch('requests.Session.get')
+    @patch("requests.Session.get")
     def test_get_with_headers(self, mock_get):
         mock_response = Mock()
         mock_response.json.return_value = {"result": "success"}
@@ -274,7 +264,7 @@ class TestAITBCHTTPClient:
 
         assert result == {"result": "success"}
 
-    @patch('requests.Session.post')
+    @patch("requests.Session.post")
     def test_post_success(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {"result": "success"}
@@ -287,7 +277,7 @@ class TestAITBCHTTPClient:
         assert result == {"result": "success"}
         mock_post.assert_called_once()
 
-    @patch('requests.Session.post')
+    @patch("requests.Session.post")
     def test_post_circuit_breaker_open(self, mock_post):
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
         client._circuit_open = True
@@ -296,7 +286,7 @@ class TestAITBCHTTPClient:
         with pytest.raises(http_client.CircuitBreakerOpenError):
             client.post("/test")
 
-    @patch('requests.Session.put')
+    @patch("requests.Session.put")
     def test_put_success(self, mock_put):
         mock_response = Mock()
         mock_response.json.return_value = {"result": "success"}
@@ -309,7 +299,7 @@ class TestAITBCHTTPClient:
         assert result == {"result": "success"}
         mock_put.assert_called_once()
 
-    @patch('requests.Session.delete')
+    @patch("requests.Session.delete")
     def test_delete_success(self, mock_delete):
         mock_response = Mock()
         mock_response.json.return_value = {"result": "success"}
@@ -322,7 +312,7 @@ class TestAITBCHTTPClient:
         assert result == {"result": "success"}
         mock_delete.assert_called_once()
 
-    @patch('requests.Session.delete')
+    @patch("requests.Session.delete")
     def test_delete_empty_response(self, mock_delete):
         mock_response = Mock()
         mock_response.content = b""
@@ -350,15 +340,13 @@ class TestAITBCHTTPClient:
 # AsyncAITBCHTTPClient Tests
 # ============================================================================
 
+
 class TestAsyncAITBCHTTPClient:
     """Test AsyncAITBCHTTPClient class"""
 
     def test_async_client_initialization(self):
         client = http_client.AsyncAITBCHTTPClient(
-            base_url="https://api.example.com",
-            timeout=30,
-            headers={"Authorization": "Bearer token"},
-            max_retries=3
+            base_url="https://api.example.com", timeout=30, headers={"Authorization": "Bearer token"}, max_retries=3
         )
         assert client.base_url == "https://api.example.com"
         assert client.timeout == 30
