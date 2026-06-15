@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlmodel import Session, col, desc, select
+from sqlmodel import Session, desc, select
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -480,12 +480,12 @@ async def get_security_dashboard(
     try:
         from ..services.agent_security import AgentAuditLog, AgentSandboxConfig
 
-        recent_audits = list(session.exec(select(AgentAuditLog).order_by(desc(col(AgentAuditLog.timestamp))).limit(50)).all())
+        recent_audits = list(session.exec(select(AgentAuditLog).order_by(desc(AgentAuditLog.timestamp)).limit(50)).all())
         high_risk_events = list(
             session.exec(
                 select(AgentAuditLog)
                 .where(AgentAuditLog.requires_investigation)
-                .order_by(desc(col(AgentAuditLog.timestamp)))
+                .order_by(desc(AgentAuditLog.timestamp))
                 .limit(10)
             ).all()
         )
