@@ -6,11 +6,12 @@ Polls Agent Coordinator REST API for messages and forwards them to Hermes Servic
 import argparse
 import asyncio
 import hashlib
-import logging
 import os
 from typing import Any
 
 import httpx
+
+from aitbc import get_logger
 
 DEFAULT_COORDINATOR_URL = "http://localhost:8107"
 DEFAULT_HERMES_URL = "http://localhost:8103"
@@ -27,8 +28,7 @@ class HermesRestPollingDaemon:
         self.agent_id = agent_id
         self.poll_interval = poll_interval
         self.running = True
-        logging.basicConfig(level=getattr(logging, log_level.upper()), format="[%(levelname)s] %(message)s")
-        self.logger = logging.getLogger("hermes-polling")
+        self.logger = get_logger("hermes-polling")
         self._seen_messages: set[str] = set()
 
     def _message_hash(self, message: dict[str, Any]) -> str:

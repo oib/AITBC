@@ -4,11 +4,12 @@ Simple HTTP server for the AITBC Trade Exchange
 """
 
 import argparse
-import logging
 import os
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class CORSHTTPRequestHandler(SimpleHTTPRequestHandler):

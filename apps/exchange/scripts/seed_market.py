@@ -1,12 +1,12 @@
 """Seed initial market price for the exchange"""
 
-import logging
 import sqlite3
 from datetime import UTC, datetime
 
+from aitbc import get_logger
 from aitbc.constants import DATA_DIR
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def seed_initial_price():

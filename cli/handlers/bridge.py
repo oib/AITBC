@@ -1,11 +1,10 @@
 """Blockchain event bridge handlers."""
 
-import logging
 import subprocess
 
-from aitbc import AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def handle_bridge_health(args):
