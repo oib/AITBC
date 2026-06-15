@@ -35,7 +35,6 @@ NoNewPrivileges=true
 LimitNOFILE=65536
 LimitNPROC=4096
 MemoryMax=256M
-MemoryLimit=256M
 CPUQuota=50%
 
 [Install]
