@@ -6,40 +6,39 @@ Simple FastAPI service for AITBC GPU Multimodal (Port 8203)
 import os
 import sys
 
-sys.path.insert(0, '/opt/aitbc/apps/coordinator-api/src')
+sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
 
 import uvicorn
 from fastapi import FastAPI
 
-app = FastAPI(title='AITBC GPU Multimodal Service', version='1.0.0')
+app = FastAPI(title="AITBC GPU Multimodal Service", version="1.0.0")
 
-@app.get('/health')
+
+@app.get("/health")
 def health():
-    return {
-        'status': 'ok',
-        'service': 'gpu-multimodal',
-        'port': 8203,
-        'python_version': sys.version.split()[0]
-    }
+    return {"status": "ok", "service": "gpu-multimodal", "port": 8203, "python_version": sys.version.split()[0]}
 
-@app.get('/gpu/multimodal')
+
+@app.get("/gpu/multimodal")
 def gpu_multimodal():
     return {
-        'gpu_available': True,
-        'multimodal_capabilities': True,
-        'service': 'gpu-multimodal',
-        'features': ['text_processing', 'image_processing', 'audio_processing']
+        "gpu_available": True,
+        "multimodal_capabilities": True,
+        "service": "gpu-multimodal",
+        "features": ["text_processing", "image_processing", "audio_processing"],
     }
 
-@app.get('/')
+
+@app.get("/")
 def root():
     return {
-        'service': 'AITBC GPU Multimodal Service',
-        'port': 8203,
-        'status': 'running',
-        'endpoints': ['/health', '/gpu/multimodal']
+        "service": "AITBC GPU Multimodal Service",
+        "port": 8203,
+        "status": "running",
+        "endpoints": ["/health", "/gpu/multimodal"],
     }
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8203))
-    uvicorn.run(app, host='0.0.0.0', port=port)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8203))
+    uvicorn.run(app, host="0.0.0.0", port=port)

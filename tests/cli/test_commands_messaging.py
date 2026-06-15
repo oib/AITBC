@@ -22,8 +22,9 @@ class TestMessagingCommands:
         """Test that messaging command group exists"""
         try:
             from aitbc_cli.commands.messaging import messaging
+
             assert messaging is not None
-            assert hasattr(messaging, 'name')
+            assert hasattr(messaging, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import messaging commands: {e}")
 
@@ -31,12 +32,13 @@ class TestMessagingCommands:
         """Test messaging group name"""
         try:
             from aitbc_cli.commands.messaging import messaging
+
             assert messaging.name == "messaging"
         except ImportError as e:
             pytest.skip(f"Cannot import messaging commands: {e}")
 
-    @patch('aitbc_cli.commands.messaging.output')
-    @patch('aitbc_cli.commands.messaging.error')
+    @patch("aitbc_cli.commands.messaging.output")
+    @patch("aitbc_cli.commands.messaging.error")
     def test_messaging_send_command(self, mock_error, mock_output):
         """Test messaging send command - skip due to Click context issues"""
         pytest.skip("Click context mocking requires complex setup")

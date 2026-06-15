@@ -1,6 +1,7 @@
 """
 Audit logging service for privacy compliance
 """
+
 import asyncio
 import gzip
 import hashlib
@@ -16,9 +17,11 @@ from ...config import settings
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AuditEvent:
     """Structured audit event"""
+
     event_id: str
     timestamp: datetime
     event_type: str
@@ -33,13 +36,14 @@ class AuditEvent:
     authorization: str | None
     signature: str | None
 
+
 class AuditLogger:
     """Tamper-evident audit logging for privacy compliance"""
 
-    def __init__(self, log_dir: str | None=None) -> None:
-        if os.getenv('PYTEST_CURRENT_TEST'):
+    def __init__(self, log_dir: str | None = None) -> None:
+        if os.getenv("PYTEST_CURRENT_TEST"):
             project_root = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
-            test_log_dir = project_root / 'logs' / 'audit'
+            test_log_dir = project_root / "logs" / "audit"
             log_path = log_dir or str(test_log_dir)
         else:
             log_path = log_dir or settings.audit_log_dir
@@ -67,38 +71,102 @@ class AuditLogger:
                 pass
             self.writer_task = None
 
-    def log_access(self, participant_id: str, transaction_id: str | None, action: str, outcome: str, details: dict[str, Any] | None=None, ip_address: str | None=None, user_agent: str | None=None, authorization: str | None=None) -> None:
+    def log_access(
+        self,
+        participant_id: str,
+        transaction_id: str | None,
+        action: str,
+        outcome: str,
+        details: dict[str, Any] | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        authorization: str | None = None,
+    ) -> None:
         """Log access to confidential data (synchronous for tests)."""
-        event = AuditEvent(event_id=self._generate_event_id(), timestamp=datetime.now(UTC), event_type='access', participant_id=participant_id, transaction_id=transaction_id, action=action, resource='confidential_transaction', outcome=outcome, details=details or {}, ip_address=ip_address, user_agent=user_agent, authorization=authorization, signature=None)
+        event = AuditEvent(
+            event_id=self._generate_event_id(),
+            timestamp=datetime.now(UTC),
+            event_type="access",
+            participant_id=participant_id,
+            transaction_id=transaction_id,
+            action=action,
+            resource="confidential_transaction",
+            outcome=outcome,
+            details=details or {},
+            ip_address=ip_address,
+            user_agent=user_agent,
+            authorization=authorization,
+            signature=None,
+        )
         event.signature = self._sign_event(event)
         self._write_event_sync(event)
         self._in_memory_events.append(event)
 
-    def log_key_operation(self, participant_id: str, operation: str, key_version: int, outcome: str, details: dict[str, Any] | None=None) -> None:
+    def log_key_operation(
+        self, participant_id: str, operation: str, key_version: int, outcome: str, details: dict[str, Any] | None = None
+    ) -> None:
         """Log key management operations (synchronous for tests)."""
-        event = AuditEvent(event_id=self._generate_event_id(), timestamp=datetime.now(UTC), event_type='key_operation', participant_id=participant_id, transaction_id=None, action=operation, resource='encryption_key', outcome=outcome, details={**(details or {}), 'key_version': key_version}, ip_address=None, user_agent=None, authorization=None, signature=None)
+        event = AuditEvent(
+            event_id=self._generate_event_id(),
+            timestamp=datetime.now(UTC),
+            event_type="key_operation",
+            participant_id=participant_id,
+            transaction_id=None,
+            action=operation,
+            resource="encryption_key",
+            outcome=outcome,
+            details={**(details or {}), "key_version": key_version},
+            ip_address=None,
+            user_agent=None,
+            authorization=None,
+            signature=None,
+        )
         event.signature = self._sign_event(event)
         self._write_event_sync(event)
         self._in_memory_events.append(event)
 
     def _write_event_sync(self, event: AuditEvent) -> None:
         """Write event immediately (used in tests)."""
-        log_file = self.log_dir / 'audit.log'
+        log_file = self.log_dir / "audit.log"
         payload = asdict(event)
-        payload['timestamp'] = payload['timestamp'].isoformat()
-        with open(log_file, 'a') as f:
-            f.write(json.dumps(payload) + '\n')
+        payload["timestamp"] = payload["timestamp"].isoformat()
+        with open(log_file, "a") as f:
+            f.write(json.dumps(payload) + "\n")
 
-    async def log_policy_change(self, participant_id: str, policy_id: str, change_type: str, outcome: str, details: dict[str, Any] | None=None) -> None:
+    async def log_policy_change(
+        self, participant_id: str, policy_id: str, change_type: str, outcome: str, details: dict[str, Any] | None = None
+    ) -> None:
         """Log access policy changes"""
-        event = AuditEvent(event_id=self._generate_event_id(), timestamp=datetime.now(UTC), event_type='policy_change', participant_id=participant_id, transaction_id=None, action=change_type, resource='access_policy', outcome=outcome, details={**(details or {}), 'policy_id': policy_id}, ip_address=None, user_agent=None, authorization=None, signature=None)
+        event = AuditEvent(
+            event_id=self._generate_event_id(),
+            timestamp=datetime.now(UTC),
+            event_type="policy_change",
+            participant_id=participant_id,
+            transaction_id=None,
+            action=change_type,
+            resource="access_policy",
+            outcome=outcome,
+            details={**(details or {}), "policy_id": policy_id},
+            ip_address=None,
+            user_agent=None,
+            authorization=None,
+            signature=None,
+        )
         event.signature = self._sign_event(event)
         await self.write_queue.put(event)
 
-    def query_logs(self, participant_id: str | None=None, transaction_id: str | None=None, event_type: str | None=None, start_time: datetime | None=None, end_time: datetime | None=None, limit: int=100) -> list[AuditEvent]:
+    def query_logs(
+        self,
+        participant_id: str | None = None,
+        transaction_id: str | None = None,
+        event_type: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int = 100,
+    ) -> list[AuditEvent]:
         """Query audit logs"""
         results = []
-        log_file = self.log_dir / 'audit.log'
+        log_file = self.log_dir / "audit.log"
         if not log_file.exists():
             log_file.touch()
         for event in reversed(self._in_memory_events):
@@ -109,11 +177,14 @@ class AuditLogger:
         log_files = self._get_log_files(start_time, end_time)
         for log_file in log_files:
             try:
-                if log_file.suffix == '.gz':
-                    with gzip.open(log_file, 'rt') as f:
+                if log_file.suffix == ".gz":
+                    with gzip.open(log_file, "rt") as f:
                         for line in f:
                             parsed = self._parse_log_line(line.strip())
-                            if self._matches_query(parsed, participant_id, transaction_id, event_type, start_time, end_time) and parsed is not None:
+                            if (
+                                self._matches_query(parsed, participant_id, transaction_id, event_type, start_time, end_time)
+                                and parsed is not None
+                            ):
                                 results.append(parsed)
                                 if len(results) >= limit:
                                     return results
@@ -121,17 +192,20 @@ class AuditLogger:
                     with open(log_file) as f:
                         for line in f:
                             parsed = self._parse_log_line(line.strip())
-                            if self._matches_query(parsed, participant_id, transaction_id, event_type, start_time, end_time) and parsed is not None:
+                            if (
+                                self._matches_query(parsed, participant_id, transaction_id, event_type, start_time, end_time)
+                                and parsed is not None
+                            ):
                                 results.append(parsed)
                                 if len(results) >= limit:
                                     return results
             except Exception as e:
-                logger.error('Failed to read log file %s: %s', log_file, e)
+                logger.error("Failed to read log file %s: %s", log_file, e)
                 continue
         results.sort(key=lambda x: x.timestamp, reverse=True)
         return results[:limit]
 
-    def verify_integrity(self, start_date: datetime | None=None) -> dict[str, Any]:
+    def verify_integrity(self, start_date: datetime | None = None) -> dict[str, Any]:
         """Verify integrity of audit logs"""
         if start_date is None:
             start_date = datetime.now(UTC) - timedelta(days=30)
@@ -146,45 +220,84 @@ class AuditLogger:
                 file_hash = self._calculate_file_hash(log_file)
                 stored_hash = self._get_stored_hash(log_file)
                 if file_hash != stored_hash:
-                    integrity_violations.append({'file': str(log_file), 'expected': stored_hash, 'actual': file_hash})
+                    integrity_violations.append({"file": str(log_file), "expected": stored_hash, "actual": file_hash})
                     chain_valid = False
                 else:
                     verified_files += 1
             except Exception as e:
-                logger.error('Failed to verify %s: %s', log_file, e)
-                integrity_violations.append({'file': str(log_file), 'error': str(e)})
+                logger.error("Failed to verify %s: %s", log_file, e)
+                integrity_violations.append({"file": str(log_file), "error": str(e)})
                 chain_valid = False
-        return {'verified_files': verified_files, 'total_files': total_files, 'integrity_violations': integrity_violations, 'chain_valid': chain_valid}
+        return {
+            "verified_files": verified_files,
+            "total_files": total_files,
+            "integrity_violations": integrity_violations,
+            "chain_valid": chain_valid,
+        }
 
-    def export_logs(self, start_time: datetime, end_time: datetime, format: str='json', include_signatures: bool=True) -> str:
+    def export_logs(
+        self, start_time: datetime, end_time: datetime, format: str = "json", include_signatures: bool = True
+    ) -> str:
         """Export audit logs for compliance reporting"""
         events = self.query_logs(start_time=start_time, end_time=end_time, limit=10000)
-        if format == 'json':
-            export_data = {'export_metadata': {'start_time': start_time.isoformat(), 'end_time': end_time.isoformat(), 'event_count': len(events), 'exported_at': datetime.now(UTC).isoformat(), 'include_signatures': include_signatures}, 'events': []}
+        if format == "json":
+            export_data = {
+                "export_metadata": {
+                    "start_time": start_time.isoformat(),
+                    "end_time": end_time.isoformat(),
+                    "event_count": len(events),
+                    "exported_at": datetime.now(UTC).isoformat(),
+                    "include_signatures": include_signatures,
+                },
+                "events": [],
+            }
             for event in events:
                 event_dict = asdict(event)
-                event_dict['timestamp'] = event.timestamp.isoformat()
+                event_dict["timestamp"] = event.timestamp.isoformat()
                 if not include_signatures:
-                    event_dict.pop('signature', None)
-                cast(list[Any], export_data['events']).append(event_dict)
+                    event_dict.pop("signature", None)
+                cast(list[Any], export_data["events"]).append(event_dict)
             return json.dumps(export_data, indent=2)
-        elif format == 'csv':
+        elif format == "csv":
             import csv
             import io
+
             output = io.StringIO()
             writer = csv.writer(output)
-            header = ['event_id', 'timestamp', 'event_type', 'participant_id', 'transaction_id', 'action', 'resource', 'outcome', 'ip_address', 'user_agent']
+            header = [
+                "event_id",
+                "timestamp",
+                "event_type",
+                "participant_id",
+                "transaction_id",
+                "action",
+                "resource",
+                "outcome",
+                "ip_address",
+                "user_agent",
+            ]
             if include_signatures:
-                header.append('signature')
+                header.append("signature")
             writer.writerow(header)
             for event in events:
-                row = [event.event_id, event.timestamp.isoformat(), event.event_type, event.participant_id, event.transaction_id, event.action, event.resource, event.outcome, event.ip_address, event.user_agent]
+                row = [
+                    event.event_id,
+                    event.timestamp.isoformat(),
+                    event.event_type,
+                    event.participant_id,
+                    event.transaction_id,
+                    event.action,
+                    event.resource,
+                    event.outcome,
+                    event.ip_address,
+                    event.user_agent,
+                ]
                 if include_signatures:
                     row.append(event.signature)
                 writer.writerow(row)
             return output.getvalue()
         else:
-            raise ValueError(f'Unsupported export format: {format}')
+            raise ValueError(f"Unsupported export format: {format}")
 
     async def _background_writer(self) -> None:
         """Background task for writing audit events"""
@@ -202,7 +315,7 @@ class AuditLogger:
                 if events:
                     self._write_events(events)
             except Exception as e:
-                logger.error('Background writer error: %s', e)
+                logger.error("Background writer error: %s", e)
                 await asyncio.sleep(1)
 
     def _write_events(self, events: list[AuditEvent]) -> None:
@@ -210,16 +323,16 @@ class AuditLogger:
         try:
             self._rotate_if_needed()
             assert self.current_file is not None
-            with open(self.current_file, 'a') as f:
+            with open(self.current_file, "a") as f:
                 for event in events:
                     event_dict = asdict(event)
-                    event_dict['timestamp'] = event.timestamp.isoformat()
-                    line = json.dumps(event_dict, separators=(',', ':')) + '\n'
+                    event_dict["timestamp"] = event.timestamp.isoformat()
+                    line = json.dumps(event_dict, separators=(",", ":")) + "\n"
                     f.write(line)
                     f.flush()
             self._update_chain_hash(events[-1])
         except Exception as e:
-            logger.error('Failed to write audit events: %s', e)
+            logger.error("Failed to write audit events: %s", e)
 
     def _rotate_if_needed(self) -> None:
         """Rotate log file if needed"""
@@ -228,51 +341,62 @@ class AuditLogger:
         if self.current_file is None:
             self._new_log_file(today)
         else:
-            file_date = datetime.fromisoformat(self.current_file.stem.split('_')[1]).date()
+            file_date = datetime.fromisoformat(self.current_file.stem.split("_")[1]).date()
             if file_date != today:
                 self._new_log_file(today)
 
     def _new_log_file(self, date: Any) -> None:
         """Create new log file for date"""
-        filename = f'audit_{date.isoformat()}.log'
+        filename = f"audit_{date.isoformat()}.log"
         self.current_file = self.log_dir / filename
         if not self.current_file.exists():
-            header = {'created_at': datetime.now(UTC).isoformat(), 'version': '1.0', 'format': 'jsonl', 'previous_hash': self.chain_hash}
-            with open(self.current_file, 'w') as f:
-                f.write(f'# {json.dumps(header)}\n')
+            header = {
+                "created_at": datetime.now(UTC).isoformat(),
+                "version": "1.0",
+                "format": "jsonl",
+                "previous_hash": self.chain_hash,
+            }
+            with open(self.current_file, "w") as f:
+                f.write(f"# {json.dumps(header)}\n")
 
     def _generate_event_id(self) -> str:
         """Generate unique event ID"""
-        return f'evt_{datetime.now(UTC).timestamp()}_{os.urandom(4).hex()}'
+        return f"evt_{datetime.now(UTC).timestamp()}_{os.urandom(4).hex()}"
 
     def _sign_event(self, event: AuditEvent) -> str:
         """Sign event for tamper-evidence"""
-        event_data = {'event_id': event.event_id, 'timestamp': event.timestamp.isoformat(), 'participant_id': event.participant_id, 'action': event.action, 'outcome': event.outcome}
-        data = json.dumps(event_data, separators=(',', ':'), sort_keys=True)
-        combined = f'{self.chain_hash}:{data}'.encode()
+        event_data = {
+            "event_id": event.event_id,
+            "timestamp": event.timestamp.isoformat(),
+            "participant_id": event.participant_id,
+            "action": event.action,
+            "outcome": event.outcome,
+        }
+        data = json.dumps(event_data, separators=(",", ":"), sort_keys=True)
+        combined = f"{self.chain_hash}:{data}".encode()
         return hashlib.sha256(combined).hexdigest()
 
     def _update_chain_hash(self, last_event: AuditEvent) -> None:
         """Update chain hash with new event"""
         self.chain_hash = last_event.signature or self.chain_hash
-        chain_file = self.log_dir / 'chain.hash'
-        with open(chain_file, 'w') as f:
+        chain_file = self.log_dir / "chain.hash"
+        with open(chain_file, "w") as f:
             f.write(self.chain_hash)
 
     def _load_chain_hash(self) -> str:
         """Load previous chain hash"""
-        chain_file = self.log_dir / 'chain.hash'
+        chain_file = self.log_dir / "chain.hash"
         if chain_file.exists():
             with open(chain_file) as f:
                 return f.read().strip()
-        return '0' * 64
+        return "0" * 64
 
     def _get_log_files(self, start_time: datetime | None, end_time: datetime | None) -> list[Path]:
         """Get list of log files to search"""
         files = []
-        for file in self.log_dir.glob('audit_*.log*'):
+        for file in self.log_dir.glob("audit_*.log*"):
             try:
-                date_str = file.stem.split('_')[1]
+                date_str = file.stem.split("_")[1]
                 file_date = datetime.fromisoformat(date_str).date()
                 file_start = datetime.combine(file_date, datetime.min.time())
                 file_end = file_start + timedelta(days=1)
@@ -284,17 +408,25 @@ class AuditLogger:
 
     def _parse_log_line(self, line: str) -> AuditEvent | None:
         """Parse log line into event"""
-        if line.startswith('#'):
+        if line.startswith("#"):
             return None
         try:
             data = json.loads(line)
-            data['timestamp'] = datetime.fromisoformat(data['timestamp'])
+            data["timestamp"] = datetime.fromisoformat(data["timestamp"])
             return AuditEvent(**data)
         except Exception as e:
-            logger.error('Failed to parse log line: %s', e)
+            logger.error("Failed to parse log line: %s", e)
             return None
 
-    def _matches_query(self, event: AuditEvent | None, participant_id: str | None, transaction_id: str | None, event_type: str | None, start_time: datetime | None, end_time: datetime | None) -> bool:
+    def _matches_query(
+        self,
+        event: AuditEvent | None,
+        participant_id: str | None,
+        transaction_id: str | None,
+        event_type: str | None,
+        start_time: datetime | None,
+        end_time: datetime | None,
+    ) -> bool:
         """Check if event matches query criteria"""
         if not event:
             return False
@@ -313,16 +445,18 @@ class AuditLogger:
     def _calculate_file_hash(self, file_path: Path) -> str:
         """Calculate SHA-256 hash of file"""
         hash_sha256 = hashlib.sha256()
-        with open(file_path, 'rb') as f:
-            for chunk in iter(lambda: f.read(4096), b''):
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
                 hash_sha256.update(chunk)
         return hash_sha256.hexdigest()
 
     def _get_stored_hash(self, file_path: Path) -> str:
         """Get stored hash for file"""
-        hash_file = file_path.with_suffix('.hash')
+        hash_file = file_path.with_suffix(".hash")
         if hash_file.exists():
             with open(hash_file) as f:
                 return f.read().strip()
-        return ''
+        return ""
+
+
 audit_logger = AuditLogger()

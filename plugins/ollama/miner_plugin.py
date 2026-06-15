@@ -18,6 +18,7 @@ from service import ollama_service
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class OllamaMiner:
     """Miner plugin that processes LLM jobs using Ollama"""
 
@@ -37,33 +38,26 @@ class OllamaMiner:
 
         capabilities = {
             "service": "ollama",
-            "gpu": {
-                "model": "NVIDIA GeForce RTX 4060 Ti",
-                "memory_gb": 16,
-                "cuda_version": "12.1"
-            },
+            "gpu": {"model": "NVIDIA GeForce RTX 4060 Ti", "memory_gb": 16, "cuda_version": "12.1"},
             "ollama": {
                 "models": model_list,
                 "total_models": len(model_list),
                 "supports_chat": True,
-                "supports_generate": True
+                "supports_generate": True,
             },
             "compute": {
                 "type": "GPU",
                 "platform": "CUDA + Ollama",
                 "supported_tasks": ["inference", "chat", "completion", "code-generation"],
-                "max_concurrent_jobs": 2
-            }
+                "max_concurrent_jobs": 2,
+            },
         }
 
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/miners/register?miner_id={self.miner_id}",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Api-Key": self.api_key
-                },
-                json={"capabilities": capabilities}
+                headers={"Content-Type": "application/json", "X-Api-Key": self.api_key},
+                json={"capabilities": capabilities},
             )
 
             if response.status_code == 200:
@@ -93,20 +87,17 @@ class OllamaMiner:
                     prompt=payload.get("prompt", ""),
                     system_prompt=payload.get("system_prompt"),
                     temperature=payload.get("temperature", 0.7),
-                    max_tokens=payload.get("max_tokens")
+                    max_tokens=payload.get("max_tokens"),
                 )
             elif job_type == "chat":
                 result = await ollama_service.chat(
                     model=model,
                     messages=payload.get("messages", []),
                     temperature=payload.get("temperature", 0.7),
-                    max_tokens=payload.get("max_tokens")
+                    max_tokens=payload.get("max_tokens"),
                 )
             else:
-                result = {
-                    "success": False,
-                    "error": f"Unknown job type: {job_type}"
-                }
+                result = {"success": False, "error": f"Unknown job type: {job_type}"}
 
             if result["success"]:
                 # Add job metadata
@@ -125,11 +116,7 @@ class OllamaMiner:
 
         except Exception as e:
             logger.error("❌ Job processing failed: %s", e)
-            return {
-                "success": False,
-                "error": str(e),
-                "job_id": job["job_id"]
-            }
+            return {"success": False, "error": str(e), "job_id": job["job_id"]}
 
     async def submit_result(self, job_id: str, result: dict[str, Any]) -> bool:
         """Submit job result to coordinator"""
@@ -142,23 +129,20 @@ class OllamaMiner:
                 "tokens": result.get("total_tokens", 0),
                 "duration": result.get("duration_seconds", 0),
                 "cost": result.get("cost", 0),
-                "aitbc_earned": result.get("aitbc_earned", 0)
+                "aitbc_earned": result.get("aitbc_earned", 0),
             },
             "metrics": {
                 "compute_time": result.get("duration_seconds", 0),
                 "energy_used": 0.05,
-                "aitbc_earned": result.get("aitbc_earned", 0)
-            }
+                "aitbc_earned": result.get("aitbc_earned", 0),
+            },
         }
 
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/miners/{job_id}/result",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Api-Key": self.api_key
-                },
-                json=payload
+                headers={"Content-Type": "application/json", "X-Api-Key": self.api_key},
+                json=payload,
             )
 
             return response.status_code == 200
@@ -180,18 +164,15 @@ class OllamaMiner:
                 "gpu_memory_used": 10000,
                 "gpu_temperature": 70,
                 "ollama_models": len(await ollama_service.get_models()),
-                "service": "ollama"
-            }
+                "service": "ollama",
+            },
         }
 
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/miners/heartbeat?miner_id={self.miner_id}",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Api-Key": self.api_key
-                },
-                json=heartbeat_data
+                headers={"Content-Type": "application/json", "X-Api-Key": self.api_key},
+                json=heartbeat_data,
             )
 
             return response.status_code == 200
@@ -216,7 +197,6 @@ class OllamaMiner:
 
         try:
             while self.running and (max_jobs is None or jobs_completed < max_jobs):
-
                 # Send heartbeat every 30 seconds
                 if time.time() - last_heartbeat > 30:
                     await self.send_heartbeat()
@@ -225,22 +205,19 @@ class OllamaMiner:
                 # Poll for jobs
                 response = self.client.post(
                     f"{self.coordinator_url}/v1/miners/poll",
-                    headers={
-                        "Content-Type": "application/json",
-                        "X-Api-Key": self.api_key
-                    },
-                    json={"max_wait_seconds": 5}
+                    headers={"Content-Type": "application/json", "X-Api-Key": self.api_key},
+                    json={"max_wait_seconds": 5},
                 )
 
                 if response.status_code == 200:
                     job = response.json()
-                    logger.info("📋 Got job: %s", job['job_id'])
+                    logger.info("📋 Got job: %s", job["job_id"])
 
                     # Process job
                     result = await self.process_job(job)
 
                     # Submit result
-                    if await self.submit_result(job['job_id'], result):
+                    if await self.submit_result(job["job_id"], result):
                         jobs_completed += 1
                         total_earned = sum(r.get("aitbc_earned", 0) for r in [result])
                         logger.info("💰 Total earned: %s AITBC", total_earned)
@@ -258,6 +235,7 @@ class OllamaMiner:
         finally:
             self.running = False
             logger.info("✅ Mining complete - Jobs processed: %s", jobs_completed)
+
 
 # Main execution
 if __name__ == "__main__":

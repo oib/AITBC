@@ -18,6 +18,7 @@ class ValidatorRole(Enum):
     VALIDATOR = "validator"
     STANDBY = "standby"
 
+
 @dataclass
 class Validator:
     address: str
@@ -27,6 +28,7 @@ class Validator:
     last_proposed: int
     is_active: bool
     hybrid_score: float = 0.0
+
 
 class MultiValidatorPoA:
     """Multi-Validator Proof of Authority consensus mechanism"""
@@ -53,12 +55,7 @@ class MultiValidatorPoA:
             return False
 
         self.validators[address] = Validator(
-            address=address,
-            stake=stake,
-            reputation=1.0,
-            role=ValidatorRole.STANDBY,
-            last_proposed=0,
-            is_active=True
+            address=address, stake=stake, reputation=1.0, role=ValidatorRole.STANDBY, last_proposed=0, is_active=True
         )
         return True
 
@@ -75,8 +72,7 @@ class MultiValidatorPoA:
     def select_proposer(self, block_height: int) -> str | None:
         """Select proposer for the current block using round-robin"""
         active_validators = [
-            v for v in self.validators.values()
-            if v.is_active and v.role in [ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR]
+            v for v in self.validators.values() if v.is_active and v.role in [ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR]
         ]
 
         if not active_validators:
@@ -105,7 +101,8 @@ class MultiValidatorPoA:
     def get_consensus_participants(self) -> list[str]:
         """Get list of active consensus participants"""
         return [
-            v.address for v in self.validators.values()
+            v.address
+            for v in self.validators.values()
             if v.is_active and v.role in [ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR]
         ]
 
@@ -134,7 +131,7 @@ class MultiValidatorPoA:
         await asyncio.sleep(0.001)
 
         # Basic validation
-        if not hasattr(transaction, 'tx_id'):
+        if not hasattr(transaction, "tx_id"):
             return False
 
         return True
@@ -168,20 +165,12 @@ class MultiValidatorPoA:
 
         # Check for conflicting messages (Byzantine detection)
         for msg in self.prepare_messages[validator]:
-            if msg['round'] == round and msg['block_hash'] != block_hash:
+            if msg["round"] == round and msg["block_hash"] != block_hash:
                 # Conflicting message detected - still record it
-                self.prepare_messages[validator].append({
-                    'block_hash': block_hash,
-                    'round': round,
-                    'timestamp': time.time()
-                })
+                self.prepare_messages[validator].append({"block_hash": block_hash, "round": round, "timestamp": time.time()})
                 return True  # Return True even if conflicting
 
-        self.prepare_messages[validator].append({
-            'block_hash': block_hash,
-            'round': round,
-            'timestamp': time.time()
-        })
+        self.prepare_messages[validator].append({"block_hash": block_hash, "round": round, "timestamp": time.time()})
 
         return True
 
@@ -197,9 +186,9 @@ class MultiValidatorPoA:
         # Check for conflicting messages in same round
         rounds: dict[int, set[str]] = {}
         for msg in messages:
-            if msg['round'] not in rounds:
-                rounds[msg['round']] = set()
-            rounds[msg['round']].add(msg['block_hash'])
+            if msg["round"] not in rounds:
+                rounds[msg["round"]] = set()
+            rounds[msg["round"]].add(msg["block_hash"])
 
         # Byzantine if any round has multiple block hashes
         for block_hashes in rounds.values():
@@ -211,25 +200,21 @@ class MultiValidatorPoA:
     def get_state_snapshot(self) -> dict[str, Any]:
         """Get a snapshot of the current blockchain state"""
         return {
-            'chain_id': self.chain_id,
-            'validators': {
-                addr: {
-                    'stake': v.stake,
-                    'role': v.role.value,
-                    'is_active': v.is_active,
-                    'reputation': v.reputation
-                }
+            "chain_id": self.chain_id,
+            "validators": {
+                addr: {"stake": v.stake, "role": v.role.value, "is_active": v.is_active, "reputation": v.reputation}
                 for addr, v in self.validators.items()
             },
-            'network_partitioned': self.network_partitioned,
-            'partitioned_validators': list(self.partitioned_validators),
-            'consensus_attempts': self.consensus_attempts,
-            'timestamp': time.time()
+            "network_partitioned": self.network_partitioned,
+            "partitioned_validators": list(self.partitioned_validators),
+            "consensus_attempts": self.consensus_attempts,
+            "timestamp": time.time(),
         }
 
     def calculate_state_hash(self, state: dict[str, Any]) -> str:
         """Calculate hash of blockchain state"""
         import json
+
         state_str = json.dumps(state, sort_keys=True)
         return hashlib.sha256(state_str.encode()).hexdigest()
 
@@ -237,15 +222,15 @@ class MultiValidatorPoA:
         """Create a new block"""
         proposer = self.select_proposer(len(self.validators))
         return {
-            'block_height': len(self.validators),
-            'proposer': proposer,
-            'timestamp': time.time(),
-            'hash': hashlib.sha256(str(time.time()).encode()).hexdigest()
+            "block_height": len(self.validators),
+            "proposer": proposer,
+            "timestamp": time.time(),
+            "hash": hashlib.sha256(str(time.time()).encode()).hexdigest(),
         }
 
     def add_transaction(self, transaction: object) -> bool:
         """Add a transaction to the block"""
-        return hasattr(transaction, 'tx_id')
+        return hasattr(transaction, "tx_id")
 
     def simulate_crash(self) -> None:
         """Simulate a crash (for testing)"""
@@ -253,24 +238,24 @@ class MultiValidatorPoA:
 
     def recover_from_crash(self) -> None:
         """Recover from a crash (for testing)"""
-        if hasattr(self, '_crashed_state'):
+        if hasattr(self, "_crashed_state"):
             self._crashed_state = None  # type: ignore[assignment]
 
     def recover_state(self, state: dict[str, Any]) -> bool:
         """Recover state from snapshot (for testing)"""
         try:
             self.validators = {}
-            for addr, v_data in state.get('validators', {}).items():
+            for addr, v_data in state.get("validators", {}).items():
                 self.validators[addr] = Validator(
                     address=addr,
-                    stake=v_data.get('stake', 1000.0),
-                    reputation=v_data.get('reputation', 1.0),
-                    role=ValidatorRole(v_data.get('role', 'STANDBY')),
+                    stake=v_data.get("stake", 1000.0),
+                    reputation=v_data.get("reputation", 1.0),
+                    role=ValidatorRole(v_data.get("role", "STANDBY")),
                     last_proposed=0,
-                    is_active=v_data.get('is_active', True)
+                    is_active=v_data.get("is_active", True),
                 )
-            self.network_partitioned = state.get('network_partitioned', False)
-            self.consensus_attempts = state.get('consensus_attempts', 0)
+            self.network_partitioned = state.get("network_partitioned", False)
+            self.consensus_attempts = state.get("consensus_attempts", 0)
             return True
         except Exception:
             return False
@@ -284,8 +269,10 @@ class MultiValidatorPoA:
         validator.reputation = max(0.0, min(1.0, validator.reputation + delta))
         return True
 
+
 # Global consensus instance
 consensus_instances: dict[str, MultiValidatorPoA] = {}
+
 
 def get_consensus(chain_id: str) -> MultiValidatorPoA:
     """Get or create consensus instance for chain"""

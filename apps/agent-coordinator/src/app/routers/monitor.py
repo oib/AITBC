@@ -1,6 +1,5 @@
 """Monitor router for AITBC Agent Coordinator."""
 
-
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -16,17 +15,9 @@ async def get_dashboard(request: Request) -> dict[str, Any]:
     """Get monitoring dashboard data."""
     return {
         "overall_status": "operational",
-        "services": {
-            "coordinator": "online",
-            "exchange": "online",
-            "blockchain": "online"
-        },
-        "metrics": {
-            "active_agents": 0,
-            "active_jobs": 0,
-            "total_jobs": 0
-        },
-        "alerts": []
+        "services": {"coordinator": "online", "exchange": "online", "blockchain": "online"},
+        "metrics": {"active_agents": 0, "active_jobs": 0, "total_jobs": 0},
+        "alerts": [],
     }
 
 
@@ -34,12 +25,7 @@ async def get_dashboard(request: Request) -> dict[str, Any]:
 @rate_limit(rate=1000, per=60)
 async def get_status(request: Request) -> dict[str, Any]:
     """Get coordinator status."""
-    return {
-        "status": "online",
-        "version": "1.0.0",
-        "uptime": 3600,
-        "timestamp": "2026-05-08T12:00:00Z"
-    }
+    return {"status": "online", "version": "1.0.0", "uptime": 3600, "timestamp": "2026-05-08T12:00:00Z"}
 
 
 @router.get("/miners", response_model=list[dict[str, Any]])

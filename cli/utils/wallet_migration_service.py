@@ -41,8 +41,9 @@ class WalletMigrationService:
             return []
         return self.daemon_adapter.list_wallets()
 
-    def migrate_to_daemon(self, wallet_name: str, password: str | None = None,
-                         new_password: str | None = None, force: bool = False) -> dict[str, Any]:
+    def migrate_to_daemon(
+        self, wallet_name: str, password: str | None = None, new_password: str | None = None, force: bool = False
+    ) -> dict[str, Any]:
         """Migrate a file-based wallet to daemon storage"""
         try:
             # Check if wallet exists in file storage
@@ -70,7 +71,7 @@ class WalletMigrationService:
                 "original_wallet_type": wallet_data.get("wallet_type", "hd"),
                 "original_balance": wallet_data.get("balance", 0.0),
                 "transaction_count": len(wallet_data.get("transactions", [])),
-                "original_created_at": wallet_data.get("created_at")
+                "original_created_at": wallet_data.get("created_at"),
             }
 
             # Use provided password or default
@@ -78,9 +79,7 @@ class WalletMigrationService:
 
             # Create wallet in daemon
             if self.is_daemon_available():
-                daemon_wallet_info = self.daemon_adapter.create_wallet(
-                    wallet_name, migration_password, metadata=metadata
-                )
+                daemon_wallet_info = self.daemon_adapter.create_wallet(wallet_name, migration_password, metadata=metadata)
 
                 success(f"Migrated wallet '{wallet_name}' to daemon")
 
@@ -92,7 +91,7 @@ class WalletMigrationService:
                     "original_balance": wallet_data.get("balance", 0.0),
                     "transaction_count": len(wallet_data.get("transactions", [])),
                     "daemon_wallet_id": daemon_wallet_info.get("wallet_id"),
-                    "backup_file": str(wallet_path)
+                    "backup_file": str(wallet_path),
                 }
             else:
                 error("Wallet daemon is not available for migration")
@@ -102,8 +101,9 @@ class WalletMigrationService:
             error(f"Failed to migrate wallet to daemon: {str(e)}")
             raise
 
-    def migrate_to_file(self, wallet_name: str, password: str | None = None,
-                       new_password: str | None = None, force: bool = False) -> dict[str, Any]:
+    def migrate_to_file(
+        self, wallet_name: str, password: str | None = None, new_password: str | None = None, force: bool = False
+    ) -> dict[str, Any]:
         """Migrate a daemon-based wallet to file storage"""
         try:
             if not self.is_daemon_available():
@@ -140,13 +140,13 @@ class WalletMigrationService:
                     "migration_date": datetime.now().isoformat(),
                     "original_wallet_id": daemon_wallet.get("wallet_id"),
                     "original_public_key": daemon_wallet.get("public_key"),
-                    "daemon_metadata": daemon_wallet.get("metadata", {})
-                }
+                    "daemon_metadata": daemon_wallet.get("metadata", {}),
+                },
             }
 
             # Save to file
             wallet_path = self.wallet_dir / f"{wallet_name}.json"
-            with open(wallet_path, 'w') as f:
+            with open(wallet_path, "w") as f:
                 json.dump(wallet_data, f, indent=2)
 
             success(f"Migrated wallet '{wallet_name}' to file storage")
@@ -158,7 +158,7 @@ class WalletMigrationService:
                 "migrated_at": datetime.now().isoformat(),
                 "balance": wallet_data["balance"],
                 "wallet_file": str(wallet_path),
-                "original_wallet_id": daemon_wallet.get("wallet_id")
+                "original_wallet_id": daemon_wallet.get("wallet_id"),
             }
 
         except Exception as e:
@@ -207,7 +207,7 @@ class WalletMigrationService:
             "file_balance": file_balance,
             "daemon_balance": daemon_balance,
             "balance_difference": abs(file_balance - daemon_balance),
-            "sync_required": file_balance != daemon_balance
+            "sync_required": file_balance != daemon_balance,
         }
 
         if sync_info["sync_required"]:
@@ -244,7 +244,7 @@ class WalletMigrationService:
             "file_balance": file_balance,
             "daemon_balance": daemon_balance,
             "balance_difference": abs(file_balance - daemon_balance),
-            "sync_required": file_balance != daemon_balance
+            "sync_required": file_balance != daemon_balance,
         }
 
         if sync_info["sync_required"]:
@@ -276,17 +276,14 @@ class WalletMigrationService:
                 "daemon_only_wallets": list(daemon_only),
                 "both_modes_wallets": list(both_modes),
                 "migration_candidates": list(file_only),
-                "sync_candidates": list(both_modes)
+                "sync_candidates": list(both_modes),
             }
 
             return status
 
         except Exception as e:
             error(f"Failed to get migration status: {str(e)}")
-            return {
-                "daemon_available": False,
-                "error": str(e)
-            }
+            return {"daemon_available": False, "error": str(e)}
 
     def backup_wallet(self, wallet_name: str, backup_path: str | None = None) -> str:
         """Create a backup of a wallet file"""

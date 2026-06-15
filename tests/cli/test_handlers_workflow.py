@@ -21,6 +21,7 @@ class TestWorkflowHandlers:
         """Test that handle_workflow_create function exists"""
         try:
             from handlers.workflow import handle_workflow_create
+
             assert handle_workflow_create is not None
         except ImportError as e:
             pytest.skip(f"Cannot import workflow handlers: {e}")

@@ -21,6 +21,7 @@ class TestPoolHubHandlers:
         """Test that handle_pool_hub_sla_metrics function exists"""
         try:
             from handlers.pool_hub import handle_pool_hub_sla_metrics
+
             assert handle_pool_hub_sla_metrics is not None
         except ImportError as e:
             pytest.skip(f"Cannot import pool_hub handlers: {e}")

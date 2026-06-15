@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-'\nGPU-Accelerated Multi-Modal Processing - Enhanced Implementation\nAdvanced GPU optimization for cross-modal attention mechanisms\nPhase 5.2: System Optimization and Performance Enhancement\n'
+"\nGPU-Accelerated Multi-Modal Processing - Enhanced Implementation\nAdvanced GPU optimization for cross-modal attention mechanisms\nPhase 5.2: System Optimization and Performance Enhancement\n"
 import torch
 import torch.nn.functional as F
 
@@ -24,15 +24,22 @@ class CUDAKernelOptimizer:
     """Custom CUDA kernel optimization for GPU operations"""
 
     def __init__(self) -> None:
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.kernel_cache: dict[str, Any] = {}
         self.performance_metrics: dict[str, Any] = {}
 
     def optimize_attention_kernel(self, seq_len: int, embed_dim: int, num_heads: int) -> dict[str, Any]:
         """Optimize attention computation with custom CUDA kernels"""
-        kernel_key = f'attention_{seq_len}_{embed_dim}_{num_heads}'
+        kernel_key = f"attention_{seq_len}_{embed_dim}_{num_heads}"
         if kernel_key not in self.kernel_cache:
-            optimization_config = {'use_flash_attention': seq_len > 512, 'use_memory_efficient': embed_dim > 512, 'block_size': self._calculate_optimal_block_size(seq_len, embed_dim), 'num_warps': self._calculate_optimal_warps(num_heads), 'shared_memory_size': min(embed_dim * 4, 48 * 1024), 'kernel_fusion': True}
+            optimization_config = {
+                "use_flash_attention": seq_len > 512,
+                "use_memory_efficient": embed_dim > 512,
+                "block_size": self._calculate_optimal_block_size(seq_len, embed_dim),
+                "num_warps": self._calculate_optimal_warps(num_heads),
+                "shared_memory_size": min(embed_dim * 4, 48 * 1024),
+                "kernel_fusion": True,
+            }
             self.kernel_cache[kernel_key] = optimization_config
         return self.kernel_cache[kernel_key]  # type: ignore[no-any-return]
 
@@ -54,15 +61,22 @@ class CUDAKernelOptimizer:
         if operation not in self.performance_metrics:
             baseline_time = input_size * 0.001
             optimized_time = baseline_time * 0.3
-            self.performance_metrics[operation] = {'baseline_time_ms': baseline_time * 1000, 'optimized_time_ms': optimized_time * 1000, 'speedup_factor': baseline_time / optimized_time, 'memory_bandwidth_gb_s': input_size * 4 / (optimized_time * 1000000000.0), 'compute_utilization': 0.85}
+            self.performance_metrics[operation] = {
+                "baseline_time_ms": baseline_time * 1000,
+                "optimized_time_ms": optimized_time * 1000,
+                "speedup_factor": baseline_time / optimized_time,
+                "memory_bandwidth_gb_s": input_size * 4 / (optimized_time * 1000000000.0),
+                "compute_utilization": 0.85,
+            }
         return self.performance_metrics[operation]  # type: ignore[no-any-return]
+
 
 class GPUFeatureCache:
     """GPU memory management and feature caching system"""
 
-    def __init__(self, max_cache_size_gb: float=4.0) -> None:
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.max_cache_size = max_cache_size_gb * 1024 ** 3
+    def __init__(self, max_cache_size_gb: float = 4.0) -> None:
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.max_cache_size = max_cache_size_gb * 1024**3
         self.current_cache_size = 0
         self.feature_cache: dict[str, Any] = {}
         self.access_frequency: dict[str, int] = {}
@@ -100,16 +114,32 @@ class GPUFeatureCache:
 
     def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics"""
-        return {'cache_size_gb': self.current_cache_size / 1024 ** 3, 'max_cache_size_gb': self.max_cache_size / 1024 ** 3, 'utilization_percent': self.current_cache_size / self.max_cache_size * 100, 'cached_items': len(self.feature_cache), 'total_accesses': sum(self.access_frequency.values())}
+        return {
+            "cache_size_gb": self.current_cache_size / 1024**3,
+            "max_cache_size_gb": self.max_cache_size / 1024**3,
+            "utilization_percent": self.current_cache_size / self.max_cache_size * 100,
+            "cached_items": len(self.feature_cache),
+            "total_accesses": sum(self.access_frequency.values()),
+        }
+
 
 class GPUAttentionOptimizer:
     """GPU-optimized attention mechanisms"""
 
     def __init__(self) -> None:
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.cuda_optimizer = CUDAKernelOptimizer()
 
-    def optimized_scaled_dot_product_attention(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, attention_mask: torch.Tensor | None=None, dropout_p: float=0.0, is_causal: bool=False, scale: float | None=None) -> tuple[torch.Tensor, torch.Tensor]:
+    def optimized_scaled_dot_product_attention(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        dropout_p: float = 0.0,
+        is_causal: bool = False,
+        scale: float | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Optimized scaled dot-product attention with CUDA acceleration
 
@@ -131,20 +161,33 @@ class GPUAttentionOptimizer:
         optimization_config = self.cuda_optimizer.optimize_attention_kernel(seq_len_q, head_dim, num_heads)
         if scale is None:
             scale = head_dim ** (-0.5)
-        if optimization_config.get('use_flash_attention', False) and seq_len_q > 512:
-            attention_output, attention_weights = self._flash_attention(query, key, value, attention_mask, dropout_p, is_causal, scale)
+        if optimization_config.get("use_flash_attention", False) and seq_len_q > 512:
+            attention_output, attention_weights = self._flash_attention(
+                query, key, value, attention_mask, dropout_p, is_causal, scale
+            )
         else:
-            attention_output, attention_weights = self._standard_optimized_attention(query, key, value, attention_mask, dropout_p, is_causal, scale)
+            attention_output, attention_weights = self._standard_optimized_attention(
+                query, key, value, attention_mask, dropout_p, is_causal, scale
+            )
         return (attention_output, attention_weights)
 
-    def _flash_attention(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, attention_mask: torch.Tensor | None, dropout_p: float, is_causal: bool, scale: float) -> tuple[torch.Tensor, torch.Tensor]:
+    def _flash_attention(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        attention_mask: torch.Tensor | None,
+        dropout_p: float,
+        is_causal: bool,
+        scale: float,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Flash Attention implementation for long sequences"""
         batch_size, num_heads, seq_len_q, head_dim = query.size()
         seq_len_k = key.size(2)
         scores = torch.matmul(query, key.transpose(-2, -1)) * scale
         if is_causal:
             causal_mask = torch.triu(torch.ones(seq_len_q, seq_len_k), diagonal=1).bool()
-            scores = scores.masked_fill(causal_mask, float('-inf'))
+            scores = scores.masked_fill(causal_mask, float("-inf"))
         if attention_mask is not None:
             scores = scores + attention_mask
         attention_weights = F.softmax(scores, dim=-1)
@@ -153,14 +196,23 @@ class GPUAttentionOptimizer:
         attention_output = torch.matmul(attention_weights, value)
         return (attention_output, attention_weights)
 
-    def _standard_optimized_attention(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, attention_mask: torch.Tensor | None, dropout_p: float, is_causal: bool, scale: float) -> tuple[torch.Tensor, torch.Tensor]:
+    def _standard_optimized_attention(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        attention_mask: torch.Tensor | None,
+        dropout_p: float,
+        is_causal: bool,
+        scale: float,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Standard attention with GPU optimizations"""
         batch_size, num_heads, seq_len_q, head_dim = query.size()
         seq_len_k = key.size(2)
         scores = torch.matmul(query, key.transpose(-2, -1)) * scale
         if is_causal:
             causal_mask = torch.triu(torch.ones(seq_len_q, seq_len_k), diagonal=1).bool()
-            scores = scores.masked_fill(causal_mask, float('-inf'))
+            scores = scores.masked_fill(causal_mask, float("-inf"))
         if attention_mask is not None:
             scores = scores + attention_mask
         attention_weights = F.softmax(scores, dim=-1)
@@ -169,12 +221,13 @@ class GPUAttentionOptimizer:
         attention_output = torch.matmul(attention_weights, value)
         return (attention_output, attention_weights)
 
+
 class GPUAcceleratedMultiModal:
     """GPU-accelerated multi-modal processing with enhanced CUDA optimization"""
 
     def __init__(self, session: Annotated[Session, Depends(get_session)]):
         self.session = session
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._cuda_available = self._check_cuda_availability()
         self._attention_optimizer = GPUAttentionOptimizer()
         self._feature_cache = GPUFeatureCache()
@@ -185,17 +238,19 @@ class GPUAcceleratedMultiModal:
         """Check if CUDA is available for GPU acceleration"""
         try:
             if torch.cuda.is_available():
-                logger.info('CUDA available: %s', torch.cuda.get_device_name())
-                logger.info('CUDA memory: %s GB', torch.cuda.get_device_properties(0).total_memory / 1000000000.0)
+                logger.info("CUDA available: %s", torch.cuda.get_device_name())
+                logger.info("CUDA memory: %s GB", torch.cuda.get_device_properties(0).total_memory / 1000000000.0)
                 return True
             else:
-                logger.warning('CUDA not available, falling back to CPU')
+                logger.warning("CUDA not available, falling back to CPU")
                 return False
         except Exception as e:
-            logger.warning('CUDA check failed: %s', e)
+            logger.warning("CUDA check failed: %s", e)
             return False
 
-    async def accelerated_cross_modal_attention(self, modality_features: dict[str, Any], attention_config: dict[str, Any] | None=None) -> dict[str, Any]:
+    async def accelerated_cross_modal_attention(
+        self, modality_features: dict[str, Any], attention_config: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Perform GPU-accelerated cross-modal attention with enhanced optimization
 
@@ -207,7 +262,7 @@ class GPUAcceleratedMultiModal:
             Attention results with performance metrics
         """
         start_time = time.time()
-        default_config = {'embed_dim': 512, 'num_heads': 8, 'dropout': 0.1, 'use_cache': True, 'optimize_memory': True}
+        default_config = {"embed_dim": 512, "num_heads": 8, "dropout": 0.1, "use_cache": True, "optimize_memory": True}
         if attention_config:
             default_config.update(attention_config)
         tensor_features = {}
@@ -216,11 +271,15 @@ class GPUAcceleratedMultiModal:
                 tensor_features[modality] = torch.from_numpy(features).float().to(self.device)
             else:
                 tensor_features[modality] = features.to(self.device)
-        cache_key = f'cross_attention_{hash(str(modality_features.keys()))}'
-        if default_config['use_cache']:
+        cache_key = f"cross_attention_{hash(str(modality_features.keys()))}"
+        if default_config["use_cache"]:
             cached_result = self._feature_cache.get_cached_features(cache_key)
             if cached_result is not None:
-                return {'fused_features': cached_result.cpu().numpy(), 'cache_hit': True, 'processing_time_ms': (time.time() - start_time) * 1000}
+                return {
+                    "fused_features": cached_result.cpu().numpy(),
+                    "cache_hit": True,
+                    "processing_time_ms": (time.time() - start_time) * 1000,
+                }
         modality_names = list(tensor_features.keys())
         fused_results = {}
         for _i, modality in enumerate(modality_names):
@@ -230,25 +289,36 @@ class GPUAcceleratedMultiModal:
                 keys = torch.cat([tensor_features[m] for m in other_modalities], dim=1)
                 values = torch.cat([tensor_features[m] for m in other_modalities], dim=1)
                 batch_size, seq_len, embed_dim = query.size()
-                head_dim = default_config['embed_dim'] // default_config['num_heads']
-                query = query.view(batch_size, seq_len, default_config['num_heads'], head_dim).transpose(1, 2)  # type: ignore[call-overload]
-                keys = keys.view(batch_size, -1, default_config['num_heads'], head_dim).transpose(1, 2)  # type: ignore[call-overload]
-                values = values.view(batch_size, -1, default_config['num_heads'], head_dim).transpose(1, 2)  # type: ignore[call-overload]
-                attended_output, attention_weights = self._attention_optimizer.optimized_scaled_dot_product_attention(query, keys, values, dropout_p=default_config['dropout'])
-                attended_output = attended_output.transpose(1, 2).contiguous().view(batch_size, seq_len, default_config['embed_dim'])  # type: ignore[call-overload]
+                head_dim = default_config["embed_dim"] // default_config["num_heads"]
+                query = query.view(batch_size, seq_len, default_config["num_heads"], head_dim).transpose(1, 2)  # type: ignore[call-overload]
+                keys = keys.view(batch_size, -1, default_config["num_heads"], head_dim).transpose(1, 2)  # type: ignore[call-overload]
+                values = values.view(batch_size, -1, default_config["num_heads"], head_dim).transpose(1, 2)  # type: ignore[call-overload]
+                attended_output, attention_weights = self._attention_optimizer.optimized_scaled_dot_product_attention(
+                    query, keys, values, dropout_p=default_config["dropout"]
+                )
+                attended_output = (
+                    attended_output.transpose(1, 2).contiguous().view(batch_size, seq_len, default_config["embed_dim"])
+                )  # type: ignore[call-overload]
                 fused_results[modality] = attended_output
         global_fused = torch.cat(list(fused_results.values()), dim=1)
         global_pooled = torch.mean(global_fused, dim=1)
-        if default_config['use_cache']:
+        if default_config["use_cache"]:
             self._feature_cache.cache_features(cache_key, global_pooled)
         processing_time = (time.time() - start_time) * 1000
-        performance_metrics = self._cuda_optimizer.benchmark_kernel_performance('cross_modal_attention', global_pooled.numel())
-        return {'fused_features': global_pooled.cpu().numpy(), 'cache_hit': False, 'processing_time_ms': processing_time, 'performance_metrics': performance_metrics, 'cache_stats': self._feature_cache.get_cache_stats(), 'modalities_processed': modality_names}
+        performance_metrics = self._cuda_optimizer.benchmark_kernel_performance("cross_modal_attention", global_pooled.numel())
+        return {
+            "fused_features": global_pooled.cpu().numpy(),
+            "cache_hit": False,
+            "processing_time_ms": processing_time,
+            "performance_metrics": performance_metrics,
+            "cache_stats": self._feature_cache.get_cache_stats(),
+            "modalities_processed": modality_names,
+        }
 
     async def benchmark_gpu_performance(self, test_data: dict[str, np.ndarray]) -> dict[str, Any]:
         """Benchmark GPU performance against CPU baseline"""
         if not self._cuda_available:
-            return {'error': 'CUDA not available for benchmarking'}
+            return {"error": "CUDA not available for benchmarking"}
         gpu_start = time.time()
         await self.accelerated_cross_modal_attention(test_data)
         gpu_time = time.time() - gpu_start
@@ -256,22 +326,36 @@ class GPUAcceleratedMultiModal:
         cpu_time = gpu_time * 5.0
         speedup = cpu_time / gpu_time
         efficiency = (cpu_time - gpu_time) / cpu_time * 100
-        return {'gpu_time_ms': gpu_time * 1000, 'cpu_time_ms': cpu_time * 1000, 'speedup_factor': speedup, 'efficiency_percent': efficiency, 'gpu_memory_utilization': self._get_gpu_memory_info(), 'cache_stats': self._feature_cache.get_cache_stats()}
+        return {
+            "gpu_time_ms": gpu_time * 1000,
+            "cpu_time_ms": cpu_time * 1000,
+            "speedup_factor": speedup,
+            "efficiency_percent": efficiency,
+            "gpu_memory_utilization": self._get_gpu_memory_info(),
+            "cache_stats": self._feature_cache.get_cache_stats(),
+        }
 
     def _get_gpu_memory_info(self) -> dict[str, float]:
         """Get GPU memory utilization information"""
         if not torch.cuda.is_available():
-            return {'error': -1.0}
-        allocated = torch.cuda.memory_allocated() / 1024 ** 3
-        cached = torch.cuda.memory_reserved() / 1024 ** 3
-        total = torch.cuda.get_device_properties(0).total_memory / 1024 ** 3
-        return {'allocated_gb': allocated, 'cached_gb': cached, 'total_gb': total, 'utilization_percent': allocated / total * 100}
+            return {"error": -1.0}
+        allocated = torch.cuda.memory_allocated() / 1024**3
+        cached = torch.cuda.memory_reserved() / 1024**3
+        total = torch.cuda.get_device_properties(0).total_memory / 1024**3
+        return {
+            "allocated_gb": allocated,
+            "cached_gb": cached,
+            "total_gb": total,
+            "utilization_percent": allocated / total * 100,
+        }
 
-    async def _apply_gpu_attention(self, gpu_features: dict[str, Any], attention_matrices: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    async def _apply_gpu_attention(
+        self, gpu_features: dict[str, Any], attention_matrices: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Apply attention weights to features on GPU"""
         attended_features = {}
         for modality, feature_data in gpu_features.items():
-            features = feature_data['device_array']
+            features = feature_data["device_array"]
             relevant_matrices = []
             for matrix_key, matrix in attention_matrices.items():
                 if modality in matrix_key:
@@ -294,7 +378,9 @@ class GPUAcceleratedMultiModal:
             cpu_features[modality] = features
         return cpu_features
 
-    async def _cpu_attention_fallback(self, modality_features: dict[str, np.ndarray], attention_config: dict[str, Any] | None=None) -> dict[str, Any]:
+    async def _cpu_attention_fallback(
+        self, modality_features: dict[str, np.ndarray], attention_config: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """CPU fallback for attention processing"""
         start_time = datetime.now(UTC)
         attended_features = {}
@@ -310,11 +396,19 @@ class GPUAcceleratedMultiModal:
             else:
                 attended = features
             attended_features[modality] = attended
-            attention_matrices[f'{modality}_self'] = attention_matrix
+            attention_matrices[f"{modality}_self"] = attention_matrix
         processing_time = (datetime.now(UTC) - start_time).total_seconds()
-        return {'attended_features': attended_features, 'attention_matrices': attention_matrices, 'processing_time_seconds': processing_time, 'acceleration_method': 'cpu_fallback', 'gpu_utilization': 0.0}
+        return {
+            "attended_features": attended_features,
+            "attention_matrices": attention_matrices,
+            "processing_time_seconds": processing_time,
+            "acceleration_method": "cpu_fallback",
+            "gpu_utilization": 0.0,
+        }
 
-    def _calculate_gpu_performance_metrics(self, modality_features: dict[str, np.ndarray], processing_time: float) -> dict[str, Any]:
+    def _calculate_gpu_performance_metrics(
+        self, modality_features: dict[str, np.ndarray], processing_time: float
+    ) -> dict[str, Any]:
         """Calculate GPU performance metrics"""
         total_memory_mb = sum(features.nbytes / (1024 * 1024) for features in modality_features.values())
         gpu_utilization = min(0.95, total_memory_mb / 1000)
@@ -322,7 +416,15 @@ class GPUAcceleratedMultiModal:
         compute_tflops = 82.6
         estimated_cpu_time = processing_time * 10
         speedup_factor = estimated_cpu_time / processing_time
-        return {'gpu_utilization': gpu_utilization, 'memory_usage_mb': total_memory_mb, 'memory_bandwidth_gbps': memory_bandwidth_gbps, 'compute_tflops': compute_tflops, 'speedup_factor': speedup_factor, 'efficiency_score': min(1.0, gpu_utilization * speedup_factor / 10)}
+        return {
+            "gpu_utilization": gpu_utilization,
+            "memory_usage_mb": total_memory_mb,
+            "memory_bandwidth_gbps": memory_bandwidth_gbps,
+            "compute_tflops": compute_tflops,
+            "speedup_factor": speedup_factor,
+            "efficiency_score": min(1.0, gpu_utilization * speedup_factor / 10),
+        }
+
 
 class GPUAttentionOptimizerV2:
     """GPU attention optimization strategies"""
@@ -330,25 +432,34 @@ class GPUAttentionOptimizerV2:
     def __init__(self) -> None:
         self._optimization_cache: dict[str, Any] = {}
 
-    async def optimize_attention_config(self, modality_types: list[ModalityType], feature_dimensions: dict[str, int], performance_constraints: dict[str, Any]) -> dict[str, Any]:
+    async def optimize_attention_config(
+        self, modality_types: list[ModalityType], feature_dimensions: dict[str, int], performance_constraints: dict[str, Any]
+    ) -> dict[str, Any]:
         """Optimize attention configuration for GPU processing"""
         cache_key = self._generate_cache_key(modality_types, feature_dimensions)
         if cache_key in self._optimization_cache:
             return self._optimization_cache[cache_key]  # type: ignore[no-any-return]
         num_modalities = len(modality_types)
         max_dim = max(feature_dimensions.values()) if feature_dimensions else 512
-        config = {'attention_type': self._select_attention_type(num_modalities, max_dim), 'num_heads': self._optimize_num_heads(max_dim), 'block_size': self._optimize_block_size(max_dim), 'memory_layout': self._optimize_memory_layout(modality_types), 'precision': self._select_precision(performance_constraints), 'optimization_level': self._select_optimization_level(performance_constraints)}
+        config = {
+            "attention_type": self._select_attention_type(num_modalities, max_dim),
+            "num_heads": self._optimize_num_heads(max_dim),
+            "block_size": self._optimize_block_size(max_dim),
+            "memory_layout": self._optimize_memory_layout(modality_types),
+            "precision": self._select_precision(performance_constraints),
+            "optimization_level": self._select_optimization_level(performance_constraints),
+        }
         self._optimization_cache[cache_key] = config
         return config
 
     def _select_attention_type(self, num_modalities: int, max_dim: int) -> str:
         """Select optimal attention type"""
         if num_modalities > 3:
-            return 'cross_modal_multi_head'
+            return "cross_modal_multi_head"
         elif max_dim > 1024:
-            return 'efficient_attention'
+            return "efficient_attention"
         else:
-            return 'scaled_dot_product'
+            return "scaled_dot_product"
 
     def _optimize_num_heads(self, feature_dim: int) -> int:
         """Optimize number of attention heads"""
@@ -376,75 +487,81 @@ class GPUAttentionOptimizerV2:
     def _optimize_memory_layout(self, modality_types: list[ModalityType]) -> str:
         """Optimize memory layout for modalities"""
         if ModalityType.VIDEO in modality_types or ModalityType.IMAGE in modality_types:
-            return 'channels_first'
+            return "channels_first"
         else:
-            return 'interleaved'
+            return "interleaved"
 
     def _select_precision(self, constraints: dict[str, Any]) -> str:
         """Select numerical precision"""
-        memory_constraint = constraints.get('memory_constraint', 'high')
-        if memory_constraint == 'low':
-            return 'fp16'
-        elif memory_constraint == 'medium':
-            return 'mixed'
+        memory_constraint = constraints.get("memory_constraint", "high")
+        if memory_constraint == "low":
+            return "fp16"
+        elif memory_constraint == "medium":
+            return "mixed"
         else:
-            return 'fp32'
+            return "fp32"
 
     def _select_optimization_level(self, constraints: dict[str, Any]) -> str:
         """Select optimization level"""
-        performance_requirement = constraints.get('performance_requirement', 'high')
-        if performance_requirement == 'maximum':
-            return 'aggressive'
-        elif performance_requirement == 'high':
-            return 'balanced'
+        performance_requirement = constraints.get("performance_requirement", "high")
+        if performance_requirement == "maximum":
+            return "aggressive"
+        elif performance_requirement == "high":
+            return "balanced"
         else:
-            return 'conservative'
+            return "conservative"
 
     def _generate_cache_key(self, modality_types: list[ModalityType], feature_dimensions: dict[str, int]) -> str:
         """Generate cache key for optimization configuration"""
-        modality_str = '_'.join(sorted(m.value for m in modality_types))
-        dim_str = '_'.join((f'{k}:{v}' for k, v in sorted(feature_dimensions.items())))
-        return f'{modality_str}_{dim_str}'
+        modality_str = "_".join(sorted(m.value for m in modality_types))
+        dim_str = "_".join((f"{k}:{v}" for k, v in sorted(feature_dimensions.items())))
+        return f"{modality_str}_{dim_str}"
+
 
 class GPUFeatureCacheV2:
     """GPU feature caching for performance optimization"""
 
     def __init__(self) -> None:
         self._cache: dict[str, Any] = {}
-        self._cache_stats = {'hits': 0, 'misses': 0, 'evictions': 0}
+        self._cache_stats = {"hits": 0, "misses": 0, "evictions": 0}
 
     async def get_cached_features(self, modality: str, feature_hash: str) -> np.ndarray | None:
         """Get cached features"""
-        cache_key = f'{modality}_{feature_hash}'
+        cache_key = f"{modality}_{feature_hash}"
         if cache_key in self._cache:
-            self._cache_stats['hits'] += 1
-            return self._cache[cache_key]['features']  # type: ignore[no-any-return]
+            self._cache_stats["hits"] += 1
+            return self._cache[cache_key]["features"]  # type: ignore[no-any-return]
         else:
-            self._cache_stats['misses'] += 1
+            self._cache_stats["misses"] += 1
             return None
 
-    async def cache_features(self, modality: str, feature_hash: str, features: np.ndarray, priority: int=1) -> None:
+    async def cache_features(self, modality: str, feature_hash: str, features: np.ndarray, priority: int = 1) -> None:
         """Cache features with priority"""
-        cache_key = f'{modality}_{feature_hash}'
+        cache_key = f"{modality}_{feature_hash}"
         max_cache_size = 1000
         if len(self._cache) >= max_cache_size:
             await self._evict_low_priority_items()
-        self._cache[cache_key] = {'features': features, 'priority': priority, 'timestamp': datetime.now(UTC), 'size_mb': features.nbytes / (1024 * 1024)}
+        self._cache[cache_key] = {
+            "features": features,
+            "priority": priority,
+            "timestamp": datetime.now(UTC),
+            "size_mb": features.nbytes / (1024 * 1024),
+        }
 
     async def _evict_low_priority_items(self) -> None:
         """Evict lowest priority items from cache"""
         if not self._cache:
             return
-        sorted_items = sorted(self._cache.items(), key=lambda x: (x[1]['priority'], x[1]['timestamp']))
+        sorted_items = sorted(self._cache.items(), key=lambda x: (x[1]["priority"], x[1]["timestamp"]))
         num_to_evict = max(1, len(sorted_items) // 10)
         for i in range(num_to_evict):
             cache_key = sorted_items[i][0]
             del self._cache[cache_key]
-            self._cache_stats['evictions'] += 1
+            self._cache_stats["evictions"] += 1
 
     def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics"""
-        total_requests = self._cache_stats['hits'] + self._cache_stats['misses']
-        hit_rate = self._cache_stats['hits'] / total_requests if total_requests > 0 else 0
-        total_memory_mb = sum(item['size_mb'] for item in self._cache.values())
-        return {**self._cache_stats, 'hit_rate': hit_rate, 'cache_size': len(self._cache), 'total_memory_mb': total_memory_mb}
+        total_requests = self._cache_stats["hits"] + self._cache_stats["misses"]
+        hit_rate = self._cache_stats["hits"] / total_requests if total_requests > 0 else 0
+        total_memory_mb = sum(item["size_mb"] for item in self._cache.values())
+        return {**self._cache_stats, "hit_rate": hit_rate, "cache_size": len(self._cache), "total_memory_mb": total_memory_mb}

@@ -31,7 +31,9 @@ def get_identity_manager(session: Session = Depends(get_session)) -> AgentIdenti
 
 
 @router.post("/identities", response_model=dict[str, Any])
-async def create_agent_identity(request: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)) -> JSONResponse:
+async def create_agent_identity(
+    request: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)
+) -> JSONResponse:
     """Create a new agent identity with cross-chain mappings"""
     try:
         result = await manager.create_agent_identity(
@@ -45,6 +47,7 @@ async def create_agent_identity(request: dict[str, Any], manager: AgentIdentityM
         return JSONResponse(content=result, status_code=201)
     except Exception as e:
         import traceback
+
         error_detail = f"Failed to create agent identity: {str(e)}\n{traceback.format_exc()}"
         raise HTTPException(status_code=400, detail=error_detail)
 
@@ -119,7 +122,9 @@ async def register_cross_chain_identity(
 
 
 @router.get("/identities/{agent_id}/cross-chain/mapping", response_model=list[CrossChainMappingResponse])
-async def get_cross_chain_mapping(agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)) -> list[CrossChainMappingResponse]:
+async def get_cross_chain_mapping(
+    agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)
+) -> list[CrossChainMappingResponse]:
     """Get all cross-chain mappings for an agent"""
     try:
         mappings = await manager.registry.get_all_cross_chain_mappings(agent_id)
@@ -251,7 +256,9 @@ async def create_agent_wallet(
 
 
 @router.get("/identities/{agent_id}/wallets/{chain_id}/balance", response_model=dict[str, Any])
-async def get_wallet_balance(agent_id: str, chain_id: int, manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
+async def get_wallet_balance(
+    agent_id: str, chain_id: int, manager: AgentIdentityManager = Depends(get_identity_manager)
+) -> dict[str, Any]:
     """Get wallet balance for an agent on a specific chain"""
     try:
         balance = await manager.wallet_adapter.get_wallet_balance(agent_id, chain_id)
@@ -298,7 +305,9 @@ async def get_wallet_transaction_history(
 
 
 @router.get("/identities/{agent_id}/wallets", response_model=dict[str, Any])
-async def get_all_agent_wallets(agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
+async def get_all_agent_wallets(
+    agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)
+) -> dict[str, Any]:
     """Get all wallets for an agent across all chains"""
     try:
         wallets = await manager.wallet_adapter.get_all_agent_wallets(agent_id)
@@ -340,7 +349,9 @@ async def export_agent_wallet(
 
         # Get wallet from database
         stmt = select(AgentWallet).where(
-            AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active  # type: ignore[arg-type]
+            AgentWallet.agent_id == agent_id,
+            AgentWallet.chain_id == chain_id,
+            AgentWallet.is_active,  # type: ignore[arg-type]
         )
         wallet = manager.session.execute(stmt).scalars().first()
 
@@ -378,7 +389,9 @@ async def delete_agent_wallet(
 
         # Get wallet from database
         stmt = select(AgentWallet).where(
-            AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active  # type: ignore[arg-type]
+            AgentWallet.agent_id == agent_id,
+            AgentWallet.chain_id == chain_id,
+            AgentWallet.is_active,  # type: ignore[arg-type]
         )
         wallet = manager.session.execute(stmt).scalars().first()
 
@@ -413,10 +426,11 @@ async def sign_message(
 
         from sqlalchemy import select
 
-
         # Get wallet from database
         stmt = select(AgentWallet).where(
-            AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active  # type: ignore[arg-type]
+            AgentWallet.agent_id == agent_id,
+            AgentWallet.chain_id == chain_id,
+            AgentWallet.is_active,  # type: ignore[arg-type]
         )
         wallet = manager.session.execute(stmt).scalars().first()
 
@@ -483,7 +497,9 @@ async def search_agent_identities(
 
 
 @router.post("/identities/{agent_id}/sync-reputation", response_model=dict[str, Any])
-async def sync_agent_reputation(agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
+async def sync_agent_reputation(
+    agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)
+) -> dict[str, Any]:
     """Sync agent reputation across all chains"""
     try:
         result = await manager.sync_agent_reputation(agent_id)
@@ -527,7 +543,9 @@ async def get_supported_chains(manager: AgentIdentityManager = Depends(get_ident
 
 @router.post("/identities/{agent_id}/export", response_model=dict[str, Any])
 async def export_agent_identity(
-    agent_id: str, request: dict[str, Any] = None, manager: AgentIdentityManager = Depends(get_identity_manager)  # type: ignore[assignment]
+    agent_id: str,
+    request: dict[str, Any] = None,
+    manager: AgentIdentityManager = Depends(get_identity_manager),  # type: ignore[assignment]
 ) -> dict[str, Any]:
     """Export agent identity data for backup or migration"""
     try:
@@ -539,7 +557,9 @@ async def export_agent_identity(
 
 
 @router.post("/identities/import", response_model=dict[str, Any])
-async def import_agent_identity(export_data: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
+async def import_agent_identity(
+    export_data: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)
+) -> dict[str, Any]:
     """Import agent identity data from backup or migration"""
     try:
         result = await manager.import_agent_identity(export_data)
@@ -571,7 +591,9 @@ async def batch_verify_identities(
 
 
 @router.get("/identities/{agent_id}/resolve/{chain_id}", response_model=dict[str, Any])
-async def resolve_agent_identity(agent_id: str, chain_id: int, manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
+async def resolve_agent_identity(
+    agent_id: str, chain_id: int, manager: AgentIdentityManager = Depends(get_identity_manager)
+) -> dict[str, Any]:
     """Resolve agent identity to chain-specific address"""
     try:
         address = await manager.registry.resolve_agent_identity(agent_id, chain_id)

@@ -47,6 +47,7 @@ def load_genesis_accounts(genesis_path: str = "data/devnet/genesis.json"):
     print("\nGenesis accounts loaded successfully!")
     return True
 
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         genesis_path = sys.argv[1]

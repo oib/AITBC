@@ -2,6 +2,7 @@
 Global Marketplace Integration Service
 Integration service that combines global marketplace operations with cross-chain capabilities
 """
+
 import hashlib
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -22,19 +23,23 @@ from ..services.global_marketplace import GlobalMarketplaceService, RegionManage
 
 class IntegrationStatus(StrEnum):
     """Global marketplace integration status"""
-    ACTIVE = 'active'
-    INACTIVE = 'inactive'
-    MAINTENANCE = 'maintenance'
-    DEGRADED = 'degraded'
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    MAINTENANCE = "maintenance"
+    DEGRADED = "degraded"
+
 
 class CrossChainOfferStatus(StrEnum):
     """Cross-chain offer status"""
-    AVAILABLE = 'available'
-    PENDING = 'pending'
-    ACTIVE = 'active'
-    COMPLETED = 'completed'
-    CANCELLED = 'cancelled'
-    EXPIRED = 'expired'
+
+    AVAILABLE = "available"
+    PENDING = "pending"
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+
 
 class GlobalMarketplaceIntegrationService:
     """Service that integrates global marketplace with cross-chain capabilities"""
@@ -46,146 +51,317 @@ class GlobalMarketplaceIntegrationService:
         self.bridge_service: CrossChainBridgeService | None = None
         self.tx_manager: MultiChainTransactionManager | None = None
         self.reputation_engine = CrossChainReputationEngine(session)
-        self.integration_config = {'auto_cross_chain_listing': True, 'cross_chain_pricing_enabled': True, 'regional_pricing_enabled': True, 'reputation_based_ranking': True, 'auto_bridge_execution': True, 'multi_chain_wallet_support': True}
-        self.metrics = {'total_integrated_offers': 0, 'cross_chain_transactions': 0, 'regional_distributions': 0, 'integration_success_rate': 0.0, 'average_integration_time': 0.0}
+        self.integration_config = {
+            "auto_cross_chain_listing": True,
+            "cross_chain_pricing_enabled": True,
+            "regional_pricing_enabled": True,
+            "reputation_based_ranking": True,
+            "auto_bridge_execution": True,
+            "multi_chain_wallet_support": True,
+        }
+        self.metrics = {
+            "total_integrated_offers": 0,
+            "cross_chain_transactions": 0,
+            "regional_distributions": 0,
+            "integration_success_rate": 0.0,
+            "average_integration_time": 0.0,
+        }
 
-    async def initialize_integration(self, chain_configs: dict[int, dict[str, Any]], bridge_config: dict[str, Any], tx_manager_config: dict[str, Any]) -> None:
+    async def initialize_integration(
+        self, chain_configs: dict[int, dict[str, Any]], bridge_config: dict[str, Any], tx_manager_config: dict[str, Any]
+    ) -> None:
         """Initialize global marketplace integration services"""
         try:
             self.bridge_service = CrossChainBridgeService(self.session)
             await self.bridge_service.initialize_bridge(chain_configs)
             self.tx_manager = MultiChainTransactionManager(self.session)
             await self.tx_manager.initialize(chain_configs)
-            logger.info('Global marketplace integration services initialized')
+            logger.info("Global marketplace integration services initialized")
         except Exception as e:
-            logger.error('Error initializing integration services: %s', e)
+            logger.error("Error initializing integration services: %s", e)
             raise
 
-    async def create_cross_chain_marketplace_offer(self, agent_id: str, service_type: str, resource_specification: dict[str, Any], base_price: float, currency: str='USD', total_capacity: int=100, regions_available: list[str] | None=None, supported_chains: list[int] | None=None, cross_chain_pricing: dict[int, float] | None=None, auto_bridge_enabled: bool=True, reputation_threshold: float=500.0, deadline_minutes: int=60) -> dict[str, Any]:
+    async def create_cross_chain_marketplace_offer(
+        self,
+        agent_id: str,
+        service_type: str,
+        resource_specification: dict[str, Any],
+        base_price: float,
+        currency: str = "USD",
+        total_capacity: int = 100,
+        regions_available: list[str] | None = None,
+        supported_chains: list[int] | None = None,
+        cross_chain_pricing: dict[int, float] | None = None,
+        auto_bridge_enabled: bool = True,
+        reputation_threshold: float = 500.0,
+        deadline_minutes: int = 60,
+    ) -> dict[str, Any]:
         """Create a cross-chain enabled marketplace offer"""
         try:
             reputation_summary = await self.reputation_engine.get_agent_reputation_summary(agent_id)
-            if reputation_summary.get('trust_score', 0) < reputation_threshold:
-                raise ValueError(f"Insufficient reputation: {reputation_summary.get('trust_score', 0)} < {reputation_threshold}")
+            if reputation_summary.get("trust_score", 0) < reputation_threshold:
+                raise ValueError(
+                    f"Insufficient reputation: {reputation_summary.get('trust_score', 0)} < {reputation_threshold}"
+                )
             active_regions = await self.region_manager._get_active_regions()  # type: ignore[attr-defined]
             if not regions_available:
                 regions_available = [region.region_code for region in active_regions]
             if not supported_chains:
                 supported_chains = WalletAdapterFactory.get_supported_chains()
-            if not cross_chain_pricing and self.integration_config['cross_chain_pricing_enabled']:
-                cross_chain_pricing = await self._calculate_cross_chain_pricing(base_price, supported_chains, regions_available)
+            if not cross_chain_pricing and self.integration_config["cross_chain_pricing_enabled"]:
+                cross_chain_pricing = await self._calculate_cross_chain_pricing(
+                    base_price, supported_chains, regions_available
+                )
             from ..domain.global_marketplace import GlobalMarketplaceOfferRequest
-            offer_request = GlobalMarketplaceOfferRequest(agent_id=agent_id, service_type=service_type, resource_specification=resource_specification, base_price=base_price, currency=currency, total_capacity=total_capacity, regions_available=regions_available, supported_chains=supported_chains, dynamic_pricing_enabled=self.integration_config['regional_pricing_enabled'], expires_at=datetime.now(UTC) + timedelta(minutes=deadline_minutes))
-            global_offer = await self.marketplace_service.create_global_offer(offer_request, None) # type: ignore[arg-type]
+
+            offer_request = GlobalMarketplaceOfferRequest(
+                agent_id=agent_id,
+                service_type=service_type,
+                resource_specification=resource_specification,
+                base_price=base_price,
+                currency=currency,
+                total_capacity=total_capacity,
+                regions_available=regions_available,
+                supported_chains=supported_chains,
+                dynamic_pricing_enabled=self.integration_config["regional_pricing_enabled"],
+                expires_at=datetime.now(UTC) + timedelta(minutes=deadline_minutes),
+            )
+            global_offer = await self.marketplace_service.create_global_offer(offer_request, None)  # type: ignore[arg-type]
             if cross_chain_pricing:
                 global_offer.cross_chain_pricing = cross_chain_pricing
                 self.session.commit()
             cross_chain_listings = []
-            if self.integration_config['auto_cross_chain_listing']:
+            if self.integration_config["auto_cross_chain_listing"]:
                 cross_chain_listings = await self._create_cross_chain_listings(global_offer)
-            logger.info('Created cross-chain marketplace offer %s', global_offer.id)
-            return {'offer_id': global_offer.id, 'agent_id': agent_id, 'service_type': service_type, 'base_price': base_price, 'currency': currency, 'total_capacity': total_capacity, 'available_capacity': global_offer.available_capacity, 'regions_available': global_offer.regions_available, 'supported_chains': global_offer.supported_chains, 'cross_chain_pricing': global_offer.cross_chain_pricing, 'cross_chain_listings': cross_chain_listings, 'auto_bridge_enabled': auto_bridge_enabled, 'status': global_offer.global_status.value, 'created_at': global_offer.created_at.isoformat()}
+            logger.info("Created cross-chain marketplace offer %s", global_offer.id)
+            return {
+                "offer_id": global_offer.id,
+                "agent_id": agent_id,
+                "service_type": service_type,
+                "base_price": base_price,
+                "currency": currency,
+                "total_capacity": total_capacity,
+                "available_capacity": global_offer.available_capacity,
+                "regions_available": global_offer.regions_available,
+                "supported_chains": global_offer.supported_chains,
+                "cross_chain_pricing": global_offer.cross_chain_pricing,
+                "cross_chain_listings": cross_chain_listings,
+                "auto_bridge_enabled": auto_bridge_enabled,
+                "status": global_offer.global_status.value,
+                "created_at": global_offer.created_at.isoformat(),
+            }
         except Exception as e:
-            logger.error('Error creating cross-chain marketplace offer: %s', e)
+            logger.error("Error creating cross-chain marketplace offer: %s", e)
             self.session.rollback()
             raise
 
-    async def execute_cross_chain_transaction(self, buyer_id: str, offer_id: str, quantity: int, source_chain: int | None=None, target_chain: int | None=None, source_region: str='global', target_region: str='global', payment_method: str='crypto', bridge_protocol: BridgeProtocol | None=None, priority: TransactionPriority=TransactionPriority.MEDIUM, auto_execute_bridge: bool=True) -> dict[str, Any]:
+    async def execute_cross_chain_transaction(
+        self,
+        buyer_id: str,
+        offer_id: str,
+        quantity: int,
+        source_chain: int | None = None,
+        target_chain: int | None = None,
+        source_region: str = "global",
+        target_region: str = "global",
+        payment_method: str = "crypto",
+        bridge_protocol: BridgeProtocol | None = None,
+        priority: TransactionPriority = TransactionPriority.MEDIUM,
+        auto_execute_bridge: bool = True,
+    ) -> dict[str, Any]:
         """Execute a cross-chain marketplace transaction"""
         try:
             stmt = select(GlobalMarketplaceOffer).where(GlobalMarketplaceOffer.id == offer_id)
             offer = self.session.execute(stmt).first()
             if not offer:
-                raise ValueError('Offer not found')
+                raise ValueError("Offer not found")
             if offer.available_capacity < quantity:
-                raise ValueError('Insufficient capacity')
+                raise ValueError("Insufficient capacity")
             buyer_reputation = await self.reputation_engine.get_agent_reputation_summary(buyer_id)
-            if buyer_reputation.get('trust_score', 0) < 300:
-                raise ValueError('Insufficient buyer reputation')
+            if buyer_reputation.get("trust_score", 0) < 300:
+                raise ValueError("Insufficient buyer reputation")
             if not source_chain or not target_chain:
-                source_chain, target_chain = await self._determine_optimal_chains(buyer_id, offer, source_region, target_region) # type: ignore[arg-type]
+                source_chain, target_chain = await self._determine_optimal_chains(
+                    buyer_id, offer, source_region, target_region
+                )  # type: ignore[arg-type]
             unit_price = offer.base_price
             if source_chain in offer.cross_chain_pricing:
                 unit_price = offer.cross_chain_pricing[source_chain]
             total_amount = unit_price * quantity
             from ..domain.global_marketplace import GlobalMarketplaceTransactionRequest
-            tx_request = GlobalMarketplaceTransactionRequest(buyer_id=buyer_id, offer_id=offer_id, quantity=quantity, source_region=source_region, target_region=target_region, payment_method=payment_method, source_chain=source_chain, target_chain=target_chain)
-            global_transaction = await self.marketplace_service.create_global_transaction(tx_request, None) # type: ignore[arg-type]
+
+            tx_request = GlobalMarketplaceTransactionRequest(
+                buyer_id=buyer_id,
+                offer_id=offer_id,
+                quantity=quantity,
+                source_region=source_region,
+                target_region=target_region,
+                payment_method=payment_method,
+                source_chain=source_chain,
+                target_chain=target_chain,
+            )
+            global_transaction = await self.marketplace_service.create_global_transaction(tx_request, None)  # type: ignore[arg-type]
             offer.available_capacity -= quantity
             offer.total_transactions += 1
             offer.updated_at = datetime.now(UTC)
             bridge_transaction_id = None
-            if source_chain != target_chain and auto_execute_bridge and self.integration_config['auto_bridge_execution']:
-                bridge_result = await self._execute_cross_chain_bridge(buyer_id, source_chain, target_chain, total_amount, bridge_protocol, priority)
-                bridge_transaction_id = bridge_result['bridge_request_id']
+            if source_chain != target_chain and auto_execute_bridge and self.integration_config["auto_bridge_execution"]:
+                bridge_result = await self._execute_cross_chain_bridge(
+                    buyer_id, source_chain, target_chain, total_amount, bridge_protocol, priority
+                )
+                bridge_transaction_id = bridge_result["bridge_request_id"]
                 global_transaction.bridge_transaction_id = bridge_transaction_id
-                global_transaction.cross_chain_fee = bridge_result.get('total_fee', 0)
+                global_transaction.cross_chain_fee = bridge_result.get("total_fee", 0)
             self.session.commit()
-            logger.info('Executed cross-chain transaction %s', global_transaction.id)
-            return {'transaction_id': global_transaction.id, 'buyer_id': buyer_id, 'seller_id': offer.agent_id, 'offer_id': offer_id, 'service_type': offer.service_type, 'quantity': quantity, 'unit_price': unit_price, 'total_amount': total_amount + global_transaction.cross_chain_fee, 'currency': offer.currency, 'source_chain': source_chain, 'target_chain': target_chain, 'bridge_transaction_id': bridge_transaction_id, 'cross_chain_fee': global_transaction.cross_chain_fee, 'source_region': source_region, 'target_region': target_region, 'status': global_transaction.status, 'created_at': global_transaction.created_at.isoformat()}
+            logger.info("Executed cross-chain transaction %s", global_transaction.id)
+            return {
+                "transaction_id": global_transaction.id,
+                "buyer_id": buyer_id,
+                "seller_id": offer.agent_id,
+                "offer_id": offer_id,
+                "service_type": offer.service_type,
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "total_amount": total_amount + global_transaction.cross_chain_fee,
+                "currency": offer.currency,
+                "source_chain": source_chain,
+                "target_chain": target_chain,
+                "bridge_transaction_id": bridge_transaction_id,
+                "cross_chain_fee": global_transaction.cross_chain_fee,
+                "source_region": source_region,
+                "target_region": target_region,
+                "status": global_transaction.status,
+                "created_at": global_transaction.created_at.isoformat(),
+            }
         except Exception as e:
-            logger.error('Error executing cross-chain transaction: %s', e)
+            logger.error("Error executing cross-chain transaction: %s", e)
             self.session.rollback()
             raise
 
-    async def get_integrated_marketplace_offers(self, region: str | None=None, service_type: str | None=None, chain_id: int | None=None, min_reputation: float | None=None, include_cross_chain: bool=True, limit: int=100, offset: int=0) -> list[dict[str, Any]]:
+    async def get_integrated_marketplace_offers(
+        self,
+        region: str | None = None,
+        service_type: str | None = None,
+        chain_id: int | None = None,
+        min_reputation: float | None = None,
+        include_cross_chain: bool = True,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
         """Get integrated marketplace offers with cross-chain capabilities"""
         try:
-            offers = await self.marketplace_service.get_global_offers(region=region, service_type=service_type, limit=limit, offset=offset)
+            offers = await self.marketplace_service.get_global_offers(
+                region=region, service_type=service_type, limit=limit, offset=offset
+            )
             integrated_offers = []
             for offer in offers:
                 if min_reputation:
                     reputation_summary = await self.reputation_engine.get_agent_reputation_summary(offer.agent_id)
-                    if reputation_summary.get('trust_score', 0) < min_reputation:
+                    if reputation_summary.get("trust_score", 0) < min_reputation:
                         continue
                 if chain_id and chain_id not in offer.supported_chains:
                     continue
-                integrated_offer = {'id': offer.id, 'agent_id': offer.agent_id, 'service_type': offer.service_type, 'resource_specification': offer.resource_specification, 'base_price': offer.base_price, 'currency': offer.currency, 'price_per_region': offer.price_per_region, 'total_capacity': offer.total_capacity, 'available_capacity': offer.available_capacity, 'regions_available': offer.regions_available, 'supported_chains': offer.supported_chains, 'cross_chain_pricing': offer.cross_chain_pricing if include_cross_chain else {}, 'global_status': offer.global_status, 'global_rating': offer.global_rating, 'total_transactions': offer.total_transactions, 'success_rate': offer.success_rate, 'created_at': offer.created_at.isoformat(), 'updated_at': offer.updated_at.isoformat()}
+                integrated_offer = {
+                    "id": offer.id,
+                    "agent_id": offer.agent_id,
+                    "service_type": offer.service_type,
+                    "resource_specification": offer.resource_specification,
+                    "base_price": offer.base_price,
+                    "currency": offer.currency,
+                    "price_per_region": offer.price_per_region,
+                    "total_capacity": offer.total_capacity,
+                    "available_capacity": offer.available_capacity,
+                    "regions_available": offer.regions_available,
+                    "supported_chains": offer.supported_chains,
+                    "cross_chain_pricing": offer.cross_chain_pricing if include_cross_chain else {},
+                    "global_status": offer.global_status,
+                    "global_rating": offer.global_rating,
+                    "total_transactions": offer.total_transactions,
+                    "success_rate": offer.success_rate,
+                    "created_at": offer.created_at.isoformat(),
+                    "updated_at": offer.updated_at.isoformat(),
+                }
                 if include_cross_chain:
-                    integrated_offer['cross_chain_availability'] = await self._get_cross_chain_availability(offer)
+                    integrated_offer["cross_chain_availability"] = await self._get_cross_chain_availability(offer)
                 integrated_offers.append(integrated_offer)
             return integrated_offers
         except Exception as e:
-            logger.error('Error getting integrated marketplace offers: %s', e)
+            logger.error("Error getting integrated marketplace offers: %s", e)
             raise
 
-    async def get_cross_chain_analytics(self, time_period_hours: int=24, region: str | None=None, chain_id: int | None=None) -> dict[str, Any]:
+    async def get_cross_chain_analytics(
+        self, time_period_hours: int = 24, region: str | None = None, chain_id: int | None = None
+    ) -> dict[str, Any]:
         """Get comprehensive cross-chain analytics"""
         try:
             from ..domain.global_marketplace import GlobalMarketplaceAnalyticsRequest
+
             end_time = datetime.now(UTC)
             start_time = end_time - timedelta(hours=time_period_hours)
-            analytics_request = GlobalMarketplaceAnalyticsRequest(period_type='hourly', start_date=start_time, end_date=end_time, region=region or 'global', metrics=[], include_cross_chain=True, include_regional=True)
+            analytics_request = GlobalMarketplaceAnalyticsRequest(
+                period_type="hourly",
+                start_date=start_time,
+                end_date=end_time,
+                region=region or "global",
+                metrics=[],
+                include_cross_chain=True,
+                include_regional=True,
+            )
             marketplace_analytics = await self.marketplace_service.get_marketplace_analytics(analytics_request)
             bridge_stats = await self.bridge_service.get_bridge_statistics(time_period_hours)  # type: ignore[union-attr]
             tx_stats = await self.tx_manager.get_transaction_statistics(time_period_hours, chain_id)  # type: ignore[union-attr]
             cross_chain_metrics = await self._calculate_cross_chain_metrics(time_period_hours, region, chain_id)
-            return {'time_period_hours': time_period_hours, 'region': region or 'global', 'chain_id': chain_id, 'marketplace_analytics': marketplace_analytics, 'bridge_statistics': bridge_stats, 'transaction_statistics': tx_stats, 'cross_chain_metrics': cross_chain_metrics, 'integration_metrics': self.metrics, 'generated_at': datetime.now(UTC).isoformat()}
+            return {
+                "time_period_hours": time_period_hours,
+                "region": region or "global",
+                "chain_id": chain_id,
+                "marketplace_analytics": marketplace_analytics,
+                "bridge_statistics": bridge_stats,
+                "transaction_statistics": tx_stats,
+                "cross_chain_metrics": cross_chain_metrics,
+                "integration_metrics": self.metrics,
+                "generated_at": datetime.now(UTC).isoformat(),
+            }
         except Exception as e:
-            logger.error('Error getting cross-chain analytics: %s', e)
+            logger.error("Error getting cross-chain analytics: %s", e)
             raise
 
-    async def optimize_global_offer_pricing(self, offer_id: str, optimization_strategy: str='balanced', target_regions: list[str] | None=None, target_chains: list[int] | None=None) -> dict[str, Any]:
+    async def optimize_global_offer_pricing(
+        self,
+        offer_id: str,
+        optimization_strategy: str = "balanced",
+        target_regions: list[str] | None = None,
+        target_chains: list[int] | None = None,
+    ) -> dict[str, Any]:
         """Optimize pricing for a global marketplace offer"""
         try:
             stmt = select(GlobalMarketplaceOffer).where(GlobalMarketplaceOffer.id == offer_id)
             offer = self.session.execute(stmt).first()
             if not offer:
-                raise ValueError('Offer not found')
+                raise ValueError("Offer not found")
             market_conditions = await self._analyze_market_conditions(offer.service_type, target_regions, target_chains)
-            optimized_pricing = await self._calculate_optimized_pricing(offer, market_conditions, optimization_strategy) # type: ignore[arg-type]
-            offer.price_per_region = optimized_pricing['regional_pricing']
-            offer.cross_chain_pricing = optimized_pricing['cross_chain_pricing']
+            optimized_pricing = await self._calculate_optimized_pricing(offer, market_conditions, optimization_strategy)  # type: ignore[arg-type]
+            offer.price_per_region = optimized_pricing["regional_pricing"]
+            offer.cross_chain_pricing = optimized_pricing["cross_chain_pricing"]
             offer.updated_at = datetime.now(UTC)
             self.session.commit()
-            logger.info('Optimized pricing for offer %s', offer_id)
-            return {'offer_id': offer_id, 'optimization_strategy': optimization_strategy, 'market_conditions': market_conditions, 'optimized_pricing': optimized_pricing, 'price_improvement': optimized_pricing.get('price_improvement', 0), 'updated_at': offer.updated_at.isoformat()}
+            logger.info("Optimized pricing for offer %s", offer_id)
+            return {
+                "offer_id": offer_id,
+                "optimization_strategy": optimization_strategy,
+                "market_conditions": market_conditions,
+                "optimized_pricing": optimized_pricing,
+                "price_improvement": optimized_pricing.get("price_improvement", 0),
+                "updated_at": offer.updated_at.isoformat(),
+            }
         except Exception as e:
-            logger.error('Error optimizing offer pricing: %s', e)
+            logger.error("Error optimizing offer pricing: %s", e)
             self.session.rollback()
             raise
 
-    async def _calculate_cross_chain_pricing(self, base_price: float, supported_chains: list[int], regions: list[str]) -> dict[int, float]:
+    async def _calculate_cross_chain_pricing(
+        self, base_price: float, supported_chains: list[int], regions: list[str]
+    ) -> dict[int, float]:
         """Calculate cross-chain pricing for different chains"""
         try:
             cross_chain_pricing = {}
@@ -210,7 +386,7 @@ class GlobalMarketplaceIntegrationService:
                 cross_chain_pricing[chain_id] = chain_price
             return cross_chain_pricing
         except Exception as e:
-            logger.error('Error calculating cross-chain pricing: %s', e)
+            logger.error("Error calculating cross-chain pricing: %s", e)
             return {}
 
     async def _create_cross_chain_listings(self, offer: GlobalMarketplaceOffer) -> list[dict[str, Any]]:
@@ -218,14 +394,24 @@ class GlobalMarketplaceIntegrationService:
         try:
             listings = []
             for chain_id in offer.supported_chains:
-                listing = {'offer_id': offer.id, 'chain_id': chain_id, 'price': offer.cross_chain_pricing.get(chain_id, offer.base_price), 'currency': offer.currency, 'capacity': offer.available_capacity, 'status': CrossChainOfferStatus.AVAILABLE.value, 'created_at': datetime.now(UTC).isoformat()}
+                listing = {
+                    "offer_id": offer.id,
+                    "chain_id": chain_id,
+                    "price": offer.cross_chain_pricing.get(chain_id, offer.base_price),
+                    "currency": offer.currency,
+                    "capacity": offer.available_capacity,
+                    "status": CrossChainOfferStatus.AVAILABLE.value,
+                    "created_at": datetime.now(UTC).isoformat(),
+                }
                 listings.append(listing)
             return listings
         except Exception as e:
-            logger.error('Error creating cross-chain listings: %s', e)
+            logger.error("Error creating cross-chain listings: %s", e)
             return []
 
-    async def _determine_optimal_chains(self, buyer_id: str, offer: GlobalMarketplaceOffer, source_region: str, target_region: str) -> tuple[int, int]:
+    async def _determine_optimal_chains(
+        self, buyer_id: str, offer: GlobalMarketplaceOffer, source_region: str, target_region: str
+    ) -> tuple[int, int]:
         """Determine optimal source and target chains"""
         try:
             buyer_chains = WalletAdapterFactory.get_supported_chains()
@@ -234,98 +420,151 @@ class GlobalMarketplaceIntegrationService:
                 common_chains = [1, 137]
             source_chain = common_chains[0]
             if len(common_chains) > 1:
-                min_gas_chain = min(common_chains, key=lambda x: WalletAdapterFactory.get_chain_info(x).get('gas_price', 20))
+                min_gas_chain = min(common_chains, key=lambda x: WalletAdapterFactory.get_chain_info(x).get("gas_price", 20))
                 source_chain = min_gas_chain
             target_chain = source_chain
             return (source_chain, target_chain)
         except Exception as e:
-            logger.error('Error determining optimal chains: %s', e)
+            logger.error("Error determining optimal chains: %s", e)
             return (1, 137)
 
-    async def _execute_cross_chain_bridge(self, user_id: str, source_chain: int, target_chain: int, amount: float, protocol: BridgeProtocol | None, priority: TransactionPriority) -> dict[str, Any]:
+    async def _execute_cross_chain_bridge(
+        self,
+        user_id: str,
+        source_chain: int,
+        target_chain: int,
+        amount: float,
+        protocol: BridgeProtocol | None,
+        priority: TransactionPriority,
+    ) -> dict[str, Any]:
         """Execute cross-chain bridge for transaction"""
         try:
-            user_address = f'0x{hashlib.sha256(user_id.encode()).hexdigest()[:40]}'
-            bridge_request = await self.bridge_service.create_bridge_request(user_address=user_address, source_chain_id=source_chain, target_chain_id=target_chain, amount=amount, protocol=protocol, security_level=BridgeSecurityLevel.MEDIUM, deadline_minutes=30)  # type: ignore[union-attr]
+            user_address = f"0x{hashlib.sha256(user_id.encode()).hexdigest()[:40]}"
+            bridge_request = await self.bridge_service.create_bridge_request(
+                user_address=user_address,
+                source_chain_id=source_chain,
+                target_chain_id=target_chain,
+                amount=amount,
+                protocol=protocol,
+                security_level=BridgeSecurityLevel.MEDIUM,
+                deadline_minutes=30,
+            )  # type: ignore[union-attr]
             return bridge_request
         except Exception as e:
-            logger.error('Error executing cross-chain bridge: %s', e)
+            logger.error("Error executing cross-chain bridge: %s", e)
             raise
 
     async def _get_cross_chain_availability(self, offer: GlobalMarketplaceOffer) -> dict[str, Any]:
         """Get cross-chain availability for an offer"""
         try:
-            availability = {'total_chains': len(offer.supported_chains), 'available_chains': offer.supported_chains, 'pricing_available': bool(offer.cross_chain_pricing), 'bridge_enabled': self.integration_config['auto_bridge_execution'], 'regional_availability': {}}
+            availability = {
+                "total_chains": len(offer.supported_chains),
+                "available_chains": offer.supported_chains,
+                "pricing_available": bool(offer.cross_chain_pricing),
+                "bridge_enabled": self.integration_config["auto_bridge_execution"],
+                "regional_availability": {},
+            }
             for region in offer.regions_available:
-                region_availability = {'available': True, 'chains_available': offer.supported_chains, 'pricing': offer.price_per_region.get(region, offer.base_price)}
-                availability['regional_availability'][region] = region_availability  # type: ignore[index]
+                region_availability = {
+                    "available": True,
+                    "chains_available": offer.supported_chains,
+                    "pricing": offer.price_per_region.get(region, offer.base_price),
+                }
+                availability["regional_availability"][region] = region_availability  # type: ignore[index]
             return availability
         except Exception as e:
-            logger.error('Error getting cross-chain availability: %s', e)
+            logger.error("Error getting cross-chain availability: %s", e)
             return {}
 
-    async def _calculate_cross_chain_metrics(self, time_period_hours: int, region: str | None, chain_id: int | None) -> dict[str, Any]:
+    async def _calculate_cross_chain_metrics(
+        self, time_period_hours: int, region: str | None, chain_id: int | None
+    ) -> dict[str, Any]:
         """Calculate cross-chain specific metrics"""
         try:
-            metrics = {'cross_chain_volume': 0.0, 'cross_chain_transactions': 0, 'average_cross_chain_time': 0.0, 'cross_chain_success_rate': 0.0, 'chain_utilization': {}, 'regional_distribution': {}}
+            metrics = {
+                "cross_chain_volume": 0.0,
+                "cross_chain_transactions": 0,
+                "average_cross_chain_time": 0.0,
+                "cross_chain_success_rate": 0.0,
+                "chain_utilization": {},
+                "regional_distribution": {},
+            }
             for chain_id in WalletAdapterFactory.get_supported_chains():
-                metrics['chain_utilization'][str(chain_id)] = {'volume': 0.0, 'transactions': 0, 'success_rate': 0.0}  # type: ignore[index]
+                metrics["chain_utilization"][str(chain_id)] = {"volume": 0.0, "transactions": 0, "success_rate": 0.0}  # type: ignore[index]
             return metrics
         except Exception as e:
-            logger.error('Error calculating cross-chain metrics: %s', e)
+            logger.error("Error calculating cross-chain metrics: %s", e)
             return {}
 
-    async def _analyze_market_conditions(self, service_type: str, target_regions: list[str] | None, target_chains: list[int] | None) -> dict[str, Any]:
+    async def _analyze_market_conditions(
+        self, service_type: str, target_regions: list[str] | None, target_chains: list[int] | None
+    ) -> dict[str, Any]:
         """Analyze current market conditions"""
         try:
-            conditions = {'demand_level': 'medium', 'competition_level': 'medium', 'price_trend': 'stable', 'regional_conditions': {}, 'chain_conditions': {}}
+            conditions = {
+                "demand_level": "medium",
+                "competition_level": "medium",
+                "price_trend": "stable",
+                "regional_conditions": {},
+                "chain_conditions": {},
+            }
             if target_regions:
                 for region in target_regions:
-                    conditions['regional_conditions'][region] = {'demand': 'medium', 'supply': 'medium', 'price_pressure': 'stable'}  # type: ignore[index]
+                    conditions["regional_conditions"][region] = {
+                        "demand": "medium",
+                        "supply": "medium",
+                        "price_pressure": "stable",
+                    }  # type: ignore[index]
             if target_chains:
                 for chain_id in target_chains:
                     chain_info = WalletAdapterFactory.get_chain_info(chain_id)
-                    conditions['chain_conditions'][str(chain_id)] = {'gas_price': chain_info.get('gas_price', 20), 'network_activity': 'medium', 'congestion': 'low'}  # type: ignore[index]  # type: ignore[index]
+                    conditions["chain_conditions"][str(chain_id)] = {
+                        "gas_price": chain_info.get("gas_price", 20),
+                        "network_activity": "medium",
+                        "congestion": "low",
+                    }  # type: ignore[index]  # type: ignore[index]
             return conditions
         except Exception as e:
-            logger.error('Error analyzing market conditions: %s', e)
+            logger.error("Error analyzing market conditions: %s", e)
             return {}
 
-    async def _calculate_optimized_pricing(self, offer: GlobalMarketplaceOffer, market_conditions: dict[str, Any], strategy: str) -> dict[str, Any]:
+    async def _calculate_optimized_pricing(
+        self, offer: GlobalMarketplaceOffer, market_conditions: dict[str, Any], strategy: str
+    ) -> dict[str, Any]:
         """Calculate optimized pricing based on strategy"""
         try:
-            optimized_pricing = {'regional_pricing': {}, 'cross_chain_pricing': {}, 'price_improvement': 0.0}
+            optimized_pricing = {"regional_pricing": {}, "cross_chain_pricing": {}, "price_improvement": 0.0}
             base_price = offer.base_price
-            if strategy == 'balanced':
+            if strategy == "balanced":
                 for region in offer.regions_available:
-                    regional_condition = market_conditions['regional_conditions'].get(region, {})
+                    regional_condition = market_conditions["regional_conditions"].get(region, {})
                     demand_multiplier = 1.0
-                    if regional_condition.get('demand') == 'high':
+                    if regional_condition.get("demand") == "high":
                         demand_multiplier = 1.1
-                    elif regional_condition.get('demand') == 'low':
+                    elif regional_condition.get("demand") == "low":
                         demand_multiplier = 0.9
-                    optimized_pricing['regional_pricing'][region] = base_price * demand_multiplier  # type: ignore[index]
+                    optimized_pricing["regional_pricing"][region] = base_price * demand_multiplier  # type: ignore[index]
                 for chain_id in offer.supported_chains:
-                    chain_condition = market_conditions['chain_conditions'].get(str(chain_id), {})
+                    chain_condition = market_conditions["chain_conditions"].get(str(chain_id), {})
                     chain_multiplier = 1.0
-                    if chain_condition.get('congestion') == 'high':
+                    if chain_condition.get("congestion") == "high":
                         chain_multiplier = 1.05
-                    elif chain_condition.get('congestion') == 'low':
+                    elif chain_condition.get("congestion") == "low":
                         chain_multiplier = 0.95
-                    optimized_pricing['cross_chain_pricing'][chain_id] = base_price * chain_multiplier  # type: ignore[index]
-            elif strategy == 'aggressive':
+                    optimized_pricing["cross_chain_pricing"][chain_id] = base_price * chain_multiplier  # type: ignore[index]
+            elif strategy == "aggressive":
                 for region in offer.regions_available:
-                    optimized_pricing['regional_pricing'][region] = base_price * 0.9  # type: ignore[index]
+                    optimized_pricing["regional_pricing"][region] = base_price * 0.9  # type: ignore[index]
                 for chain_id in offer.supported_chains:
-                    optimized_pricing['cross_chain_pricing'][chain_id] = base_price * 0.85  # type: ignore[index]
-                optimized_pricing['price_improvement'] = -0.1
-            elif strategy == 'premium':
+                    optimized_pricing["cross_chain_pricing"][chain_id] = base_price * 0.85  # type: ignore[index]
+                optimized_pricing["price_improvement"] = -0.1
+            elif strategy == "premium":
                 for region in offer.regions_available:
-                    optimized_pricing['regional_pricing'][region] = base_price * 1.15  # type: ignore[index]
+                    optimized_pricing["regional_pricing"][region] = base_price * 1.15  # type: ignore[index]
                 for chain_id in offer.supported_chains:
-                    optimized_pricing['cross_chain_pricing'][chain_id] = base_price * 1.1  # type: ignore[index]
-                optimized_pricing['price_improvement'] = 0.1
+                    optimized_pricing["cross_chain_pricing"][chain_id] = base_price * 1.1  # type: ignore[index]
+                optimized_pricing["price_improvement"] = 0.1
             return optimized_pricing
         except Exception as e:
-            logger.error('Error calculating optimized pricing: %s', e)
-            return {'regional_pricing': {}, 'cross_chain_pricing': {}, 'price_improvement': 0.0}
+            logger.error("Error calculating optimized pricing: %s", e)
+            return {"regional_pricing": {}, "cross_chain_pricing": {}, "price_improvement": 0.0}

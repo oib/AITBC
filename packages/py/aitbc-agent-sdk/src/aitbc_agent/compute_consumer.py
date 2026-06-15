@@ -126,9 +126,9 @@ class ComputeConsumer(Agent):
                         "input_data": job.input_data,
                         "requirements": job.requirements,
                         "max_price_per_hour": job.max_price_per_hour,
-                        "priority": job.priority
+                        "priority": job.priority,
                     },
-                    timeout=10
+                    timeout=10,
                 )
                 if response.status_code == 201:
                     result = response.json()
@@ -144,10 +144,7 @@ class ComputeConsumer(Agent):
         """Query coordinator for job status"""
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self.coordinator_url}/v1/jobs/{job_id}",
-                    timeout=10
-                )
+                response = await client.get(f"{self.coordinator_url}/v1/jobs/{job_id}", timeout=10)
                 if response.status_code == 200:
                     return response.json()
                 else:
@@ -171,14 +168,14 @@ class ComputeConsumer(Agent):
 
     async def __aenter__(self) -> "ComputeConsumer":
         """Async context manager entry - register consumer"""
-        await self.register() if hasattr(self, 'register') else None
+        await self.register() if hasattr(self, "register") else None
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit - cleanup consumer resources"""
         # Cancel any pending jobs
         for job in self.pending_jobs[:]:
-            await self.cancel_job(job.job_id if hasattr(job, 'job_id') else str(job))
+            await self.cancel_job(job.job_id if hasattr(job, "job_id") else str(job))
 
         if exc_type is not None:
             logger.error("Consumer %s exiting with exception: %s", self.identity.id, exc_val)

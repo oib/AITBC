@@ -12,6 +12,7 @@ import httpx
 # Add the blockchain-explorer to Python path
 sys.path.append(str(Path(__file__).parent / "apps" / "blockchain-explorer"))
 
+
 async def test_explorer_endpoints():
     """Test if Explorer endpoints are accessible and working"""
 
@@ -21,7 +22,7 @@ async def test_explorer_endpoints():
         "http://localhost:8080",
         "http://localhost:3000",
         "http://127.0.0.1:8000",
-        "http://127.0.0.1:8080"
+        "http://127.0.0.1:8080",
     ]
 
     print("🔍 Testing Explorer endpoints...")
@@ -60,6 +61,7 @@ async def test_explorer_endpoints():
     print("❌ No running Explorer found on common ports")
     return False
 
+
 async def test_explorer_code():
     """Test the Explorer code directly"""
 
@@ -71,7 +73,7 @@ async def test_explorer_code():
 
         # Check if transaction endpoint exists
         for route in app.routes:
-            if hasattr(route, 'path') and '/api/transactions/' in route.path:
+            if hasattr(route, "path") and "/api/transactions/" in route.path:
                 print(f"✅ Transaction endpoint found: {route.path}")
                 break
         else:
@@ -80,7 +82,7 @@ async def test_explorer_code():
 
         # Check if chain head endpoint exists
         for route in app.routes:
-            if hasattr(route, 'path') and '/api/chain/head' in route.path:
+            if hasattr(route, "path") and "/api/chain/head" in route.path:
                 print(f"✅ Chain head endpoint found: {route.path}")
                 break
         else:
@@ -96,6 +98,7 @@ async def test_explorer_code():
     except Exception as e:
         print(f"❌ Error testing Explorer code: {e}")
         return False
+
 
 async def main():
     """Main verification"""
@@ -121,6 +124,7 @@ async def main():
         print("\n🎉 Explorer is fully functional!")
     else:
         print("\n⚠️  Issues found - check implementation")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

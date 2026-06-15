@@ -1,6 +1,5 @@
 """Edge case and error handling tests for plugin security service"""
 
-
 import pytest
 from fastapi.testclient import TestClient
 from main import SecurityScan, app, scan_queue, scan_reports, security_policies, vulnerability_database
@@ -23,13 +22,7 @@ def reset_state():
 @pytest.mark.unit
 def test_security_scan_empty_fields():
     """Test SecurityScan with empty fields"""
-    scan = SecurityScan(
-        plugin_id="",
-        version="",
-        plugin_type="",
-        scan_type="",
-        priority=""
-    )
+    scan = SecurityScan(plugin_id="", version="", plugin_type="", scan_type="", priority="")
     assert scan.plugin_id == ""
     assert scan.version == ""
 
@@ -37,13 +30,7 @@ def test_security_scan_empty_fields():
 @pytest.mark.unit
 def test_vulnerability_empty_description():
     """Test Vulnerability with empty description"""
-    vuln = {
-        "severity": "low",
-        "title": "Test",
-        "description": "",
-        "affected_file": "file.py",
-        "recommendation": "Fix"
-    }
+    vuln = {"severity": "low", "title": "Test", "description": "", "affected_file": "file.py", "recommendation": "Fix"}
     assert vuln["description"] == ""
 
 
@@ -51,9 +38,7 @@ def test_vulnerability_empty_description():
 def test_create_security_policy_minimal():
     """Test creating security policy with minimal fields"""
     client = TestClient(app)
-    policy = {
-        "name": "Minimal Policy"
-    }
+    policy = {"name": "Minimal Policy"}
     response = client.post("/api/v1/security/policies", json=policy)
     assert response.status_code == 200
     data = response.json()
@@ -109,16 +94,12 @@ def test_scan_priority_ordering():
     priorities = ["low", "critical", "medium", "high"]
     for priority in priorities:
         scan = SecurityScan(
-            plugin_id=f"plugin_{priority}",
-            version="1.0.0",
-            plugin_type="cli",
-            scan_type="basic",
-            priority=priority
+            plugin_id=f"plugin_{priority}", version="1.0.0", plugin_type="cli", scan_type="basic", priority=priority
         )
         client.post("/api/v1/security/scan", json=scan.model_dump())
 
     # Critical should be first, low should be last
-    response = client.get("/api/v1/security/scan/nonexistent")
+    client.get("/api/v1/security/scan/nonexistent")
     # This will fail, but we can check queue size
     assert len(scan_queue) == 4
 

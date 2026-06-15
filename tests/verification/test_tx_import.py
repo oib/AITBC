@@ -13,10 +13,12 @@ from aitbc import AITBCHTTPClient
 BASE_URL = "https://hub.aitbc.bubuit.net/rpc"
 CHAIN_ID = "ait-mainnet"
 
+
 def compute_block_hash(height, parent_hash, timestamp):
     """Compute block hash using the same algorithm as PoA proposer"""
     payload = f"{CHAIN_ID}|{height}|{parent_hash}|{timestamp}".encode()
     return "0x" + hashlib.sha256(payload).hexdigest()
+
 
 def test_transaction_import():
     """Test importing a block with a single transaction"""
@@ -43,22 +45,21 @@ def test_transaction_import():
         "timestamp": timestamp,
         "tx_count": 1,
         "chain_id": CHAIN_ID,
-        "transactions": [{
-            "tx_hash": "0xtx123456789",
-            "sender": "0xsender123",
-            "recipient": "0xreceiver456",
-            "payload": {"to": "0xreceiver456", "amount": 1000000}
-        }]
+        "transactions": [
+            {
+                "tx_hash": "0xtx123456789",
+                "sender": "0xsender123",
+                "recipient": "0xreceiver456",
+                "payload": {"to": "0xreceiver456", "amount": 1000000},
+            }
+        ],
     }
 
     print("\nTest block data:")
     print(json.dumps(test_block, indent=2))
 
     # Import the block
-    response = requests.post(
-        f"{BASE_URL}/importBlock",
-        json=test_block
-    )
+    response = requests.post(f"{BASE_URL}/importBlock", json=test_block)
 
     print("\nImport response:")
     print(f"  Status: {response.status_code}")
@@ -67,15 +68,21 @@ def test_transaction_import():
     # Check logs
     print("\nChecking recent logs...")
     import subprocess
+
     result = subprocess.run(
-        ["ssh", "aitbc-cascade", "journalctl -u blockchain-node --since '30 seconds ago' | grep 'Importing transaction' | tail -1"],
+        [
+            "ssh",
+            "aitbc-cascade",
+            "journalctl -u blockchain-node --since '30 seconds ago' | grep 'Importing transaction' | tail -1",
+        ],
         capture_output=True,
-        text=True
+        text=True,
     )
     if result.stdout:
         print(f"Log: {result.stdout.strip()}")
     else:
         print("No transaction import logs found")
+
 
 if __name__ == "__main__":
     test_transaction_import()

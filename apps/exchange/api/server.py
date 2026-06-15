@@ -17,7 +17,7 @@ def run_server(port=8106):
     """Run the server"""
     init_db()
 
-    server = HTTPServer(('localhost', port), ExchangeAPIHandler)
+    server = HTTPServer(("localhost", port), ExchangeAPIHandler)
     logger.info("AITBC Exchange API Server started", port=port, url=f"http://localhost:{port}")
 
     try:
@@ -29,7 +29,7 @@ def run_server(port=8106):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='AITBC Exchange API Server')
-    parser.add_argument('--port', type=int, default=8106, help='Port to run the server on')
+    parser = argparse.ArgumentParser(description="AITBC Exchange API Server")
+    parser.add_argument("--port", type=int, default=8106, help="Port to run the server on")
     args = parser.parse_args()
     run_server(port=args.port)

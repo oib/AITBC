@@ -14,7 +14,9 @@ from .receipts.service import ReceiptVerifierService
 router = APIRouter(tags=["jsonrpc"])
 
 
-def _response(result: dict[str, Any] | None = None, error: dict[str, Any] | None = None, *, request_id: Any = None) -> dict[str, Any]:
+def _response(
+    result: dict[str, Any] | None = None, error: dict[str, Any] | None = None, *, request_id: Any = None
+) -> dict[str, Any]:
     payload: dict[str, Any] = {"jsonrpc": "2.0", "id": request_id}
     if error is not None:
         payload["error"] = error

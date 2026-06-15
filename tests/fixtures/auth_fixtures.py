@@ -28,7 +28,7 @@ def test_user_token(mock_jwt_secret):
         "email": "test@example.com",
         "role": "user",
         "exp": datetime.now(UTC) + timedelta(hours=24),
-        "iat": datetime.now(UTC)
+        "iat": datetime.now(UTC),
     }
     return jwt.encode(payload, mock_jwt_secret, algorithm="HS256")
 
@@ -42,7 +42,7 @@ def test_admin_token(mock_jwt_secret):
         "role": "admin",
         "permissions": ["read", "write", "delete", "admin"],
         "exp": datetime.now(UTC) + timedelta(hours=24),
-        "iat": datetime.now(UTC)
+        "iat": datetime.now(UTC),
     }
     return jwt.encode(payload, mock_jwt_secret, algorithm="HS256")
 
@@ -55,7 +55,7 @@ def expired_token(mock_jwt_secret):
         "email": "test@example.com",
         "role": "user",
         "exp": datetime.now(UTC) - timedelta(hours=1),  # Expired
-        "iat": datetime.now(UTC) - timedelta(hours=25)
+        "iat": datetime.now(UTC) - timedelta(hours=25),
     }
     return jwt.encode(payload, mock_jwt_secret, algorithm="HS256")
 
@@ -119,12 +119,7 @@ def mock_auth_service():
             return None
 
     def mock_generate_token(user_id: str, role: str = "user") -> str:
-        payload = {
-            "user_id": user_id,
-            "role": role,
-            "exp": datetime.now(UTC) + timedelta(hours=24),
-            "iat": datetime.now(UTC)
-        }
+        payload = {"user_id": user_id, "role": role, "exp": datetime.now(UTC) + timedelta(hours=24), "iat": datetime.now(UTC)}
         return jwt.encode(payload, "test_secret_key_for_jwt_signing_please_change_in_production", algorithm="HS256")
 
     service.verify_token = mock_verify_token
@@ -139,7 +134,7 @@ def permission_checker():
     checker = Mock()
 
     def mock_has_permission(user: Any, permission: str) -> bool:
-        if not hasattr(user, 'permissions'):
+        if not hasattr(user, "permissions"):
             return False
         return permission in user.permissions
 
@@ -159,5 +154,5 @@ def mock_api_keys():
     """Mock API keys for testing"""
     return {
         "test-api-key-123456": {"user_id": "test-user-123", "permissions": ["read", "write"]},
-        "admin-api-key-789012": {"user_id": "admin-user-123", "permissions": ["read", "write", "delete", "admin"]}
+        "admin-api-key-789012": {"user_id": "admin-user-123", "permissions": ["read", "write", "delete", "admin"]},
     }

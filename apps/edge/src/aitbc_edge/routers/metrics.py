@@ -12,6 +12,7 @@ router = APIRouter()
 
 class RecordMetricsRequest(BaseModel):
     """Request model for recording metrics"""
+
     gpu_id: str
     metrics: dict[str, Any]
 
@@ -29,7 +30,9 @@ async def record_metrics(request: RecordMetricsRequest, svc: MetricsService = De
 
 
 @router.get("/")
-async def list_metrics(gpu_id: str = Query(None), limit: int = Query(100), svc: MetricsService = Depends(get_metrics_service)) -> dict[str, Any]:
+async def list_metrics(
+    gpu_id: str = Query(None), limit: int = Query(100), svc: MetricsService = Depends(get_metrics_service)
+) -> dict[str, Any]:
     """List metrics, optionally filtered by gpu_id"""
     metrics = await svc.list_metrics(gpu_id, limit)
     return {"metrics": metrics, "total": len(metrics)}

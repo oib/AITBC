@@ -22,8 +22,9 @@ class TestSimulateCommands:
         """Test that simulate command group exists"""
         try:
             from aitbc_cli.commands.simulate import simulate
+
             assert simulate is not None
-            assert hasattr(simulate, 'name')
+            assert hasattr(simulate, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import simulate commands: {e}")
 
@@ -31,12 +32,13 @@ class TestSimulateCommands:
         """Test simulate group name"""
         try:
             from aitbc_cli.commands.simulate import simulate
+
             assert simulate.name == "simulate"
         except ImportError as e:
             pytest.skip(f"Cannot import simulate commands: {e}")
 
-    @patch('aitbc_cli.commands.simulate.output')
-    @patch('aitbc_cli.commands.simulate.error')
+    @patch("aitbc_cli.commands.simulate.output")
+    @patch("aitbc_cli.commands.simulate.error")
     def test_simulate_commands(self, mock_error, mock_output):
         """Test simulate commands - skip due to complex dependencies"""
         pytest.skip("Simulate commands have complex config and simulation dependencies")

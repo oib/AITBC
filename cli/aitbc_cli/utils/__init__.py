@@ -17,7 +17,8 @@ def output(message, format=None, title=None, **kwargs):
     """Print a regular output message (handles strings and structured data)"""
     if not isinstance(message, str):
         import json
-        if format == 'json' or format == 'yaml':
+
+        if format == "json" or format == "yaml":
             message = json.dumps(message, indent=2)
         else:
             # Table format — just JSON for now
@@ -75,20 +76,20 @@ def setup_logging(verbosity: int, debug: bool = False) -> str:
 
 
 __all__ = [
-    'output',
-    'error',
-    'success',
-    'info',
-    'warning',
-    'encrypt_value',
-    'decrypt_value',
-    'setup_logging',
-    'wallet',
-    'blockchain',
-    'chain_id',
-    'island_credentials',
-    'decrypt_private_key',
-    'get_chain_info',
-    'get_network_status',
-    'get_blockchain_analytics',
+    "output",
+    "error",
+    "success",
+    "info",
+    "warning",
+    "encrypt_value",
+    "decrypt_value",
+    "setup_logging",
+    "wallet",
+    "blockchain",
+    "chain_id",
+    "island_credentials",
+    "decrypt_private_key",
+    "get_chain_info",
+    "get_network_status",
+    "get_blockchain_analytics",
 ]

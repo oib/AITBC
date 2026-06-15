@@ -9,11 +9,9 @@ from sqlmodel import Field, SQLModel
 
 class GPURegistration(SQLModel, table=True):
     """On-chain GPU registration record with immutable specs."""
+
     __tablename__ = "gpu_registration"
-    __table_args__ = (
-        UniqueConstraint("chain_id", "gpu_id", name="uix_gpu_registration_chain_gpu"),
-        {"extend_existing": True}
-    )
+    __table_args__ = (UniqueConstraint("chain_id", "gpu_id", name="uix_gpu_registration_chain_gpu"), {"extend_existing": True})
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
@@ -36,10 +34,11 @@ class GPURegistration(SQLModel, table=True):
 
 class GPUAllocation(SQLModel, table=True):
     """On-chain GPU allocation/booking record."""
+
     __tablename__ = "gpu_allocation"
     __table_args__ = (
         UniqueConstraint("chain_id", "allocation_id", name="uix_gpu_allocation_chain_id"),
-        {"extend_existing": True}
+        {"extend_existing": True},
     )
 
     id: int | None = Field(default=None, primary_key=True)

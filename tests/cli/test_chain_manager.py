@@ -51,7 +51,7 @@ class TestNodeNotAvailableError:
 class TestChainManager:
     """Test ChainManager class"""
 
-    @patch('aitbc_cli.core.chain_manager.NodeClient')
+    @patch("aitbc_cli.core.chain_manager.NodeClient")
     def test_init(self, mock_node_client):
         """Test ChainManager initialization"""
         from aitbc_cli.core.chain_manager import ChainManager, MultiChainConfig
@@ -63,7 +63,7 @@ class TestChainManager:
         assert manager._chain_cache == {}
         assert manager._node_clients == {}
 
-    @patch('aitbc_cli.core.chain_manager.NodeClient')
+    @patch("aitbc_cli.core.chain_manager.NodeClient")
     def test_chain_cache_initialization(self, mock_node_client):
         """Test chain cache initialization"""
         from aitbc_cli.core.chain_manager import ChainManager, MultiChainConfig
@@ -74,7 +74,7 @@ class TestChainManager:
         assert isinstance(manager._chain_cache, dict)
         assert len(manager._chain_cache) == 0
 
-    @patch('aitbc_cli.core.chain_manager.NodeClient')
+    @patch("aitbc_cli.core.chain_manager.NodeClient")
     def test_node_clients_initialization(self, mock_node_client):
         """Test node clients initialization"""
         from aitbc_cli.core.chain_manager import ChainManager, MultiChainConfig

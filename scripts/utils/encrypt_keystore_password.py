@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 # Add wallet service to path
-sys.path.insert(0, '/opt/aitbc/apps/wallet/src')
+sys.path.insert(0, "/opt/aitbc/apps/wallet/src")
 
 from secrets import token_bytes
 
@@ -17,9 +17,9 @@ from app.crypto.encryption import EncryptionSuite
 
 
 def main():
-    keystore_dir = Path('/var/lib/aitbc/keystore')
-    password_file = keystore_dir / '.password'
-    encrypted_file = keystore_dir / 'passwords' / 'keystore_password.enc'
+    keystore_dir = Path("/var/lib/aitbc/keystore")
+    password_file = keystore_dir / ".password"
+    encrypted_file = keystore_dir / "passwords" / "keystore_password.enc"
 
     # Ensure passwords directory exists
     encrypted_file.parent.mkdir(parents=True, exist_ok=True)
@@ -31,12 +31,12 @@ def main():
     else:
         # Generate new secure password if none exists
         password = token_bytes(32).hex()
-        with open(password_file, 'w') as f:
+        with open(password_file, "w") as f:
             f.write(password)
         os.chmod(password_file, 0o600)
 
     # Get encryption password from environment or prompt
-    enc_password = os.environ.get('KEYSTORE_ENCRYPTION_PASSWORD')
+    enc_password = os.environ.get("KEYSTORE_ENCRYPTION_PASSWORD")
     if not enc_password:
         print("Error: KEYSTORE_ENCRYPTION_PASSWORD environment variable not set")
         print("Set it with: export KEYSTORE_ENCRYPTION_PASSWORD=<secure-password>")
@@ -49,7 +49,7 @@ def main():
     ciphertext = encryption.encrypt(password=enc_password, plaintext=password.encode(), salt=salt, nonce=nonce)
 
     # Write encrypted file with salt and nonce
-    with open(encrypted_file, 'wb') as f:
+    with open(encrypted_file, "wb") as f:
         f.write(salt)
         f.write(nonce)
         f.write(ciphertext)
@@ -65,5 +65,6 @@ def main():
         password_file.unlink()
         print(f"Removed clear text password file: {password_file}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

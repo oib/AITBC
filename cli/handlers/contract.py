@@ -7,10 +7,9 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-
 def handle_contract_list(args, default_rpc_url: str):
     """Handle contract list command"""
-    rpc_url = args.rpc_url if hasattr(args, 'rpc_url') and args.rpc_url else default_rpc_url
+    rpc_url = args.rpc_url if hasattr(args, "rpc_url") and args.rpc_url else default_rpc_url
 
     try:
         response = requests.get(f"{rpc_url}/rpc/contracts", timeout=30)
@@ -22,22 +21,24 @@ def handle_contract_list(args, default_rpc_url: str):
                 if contracts:
                     logger.info("Deployed contracts (%s):", len(contracts))
                     for contract in contracts:
-                        logger.info("  - Address: %s", contract.get('address', 'N/A'))
-                        logger.info("    Type: %s", contract.get('type', 'N/A'))
-                        logger.info("    Deployed: %s", contract.get('deployed_at', 'N/A'))
+                        logger.info("  - Address: %s", contract.get("address", "N/A"))
+                        logger.info("    Type: %s", contract.get("type", "N/A"))
+                        logger.info("    Deployed: %s", contract.get("deployed_at", "N/A"))
                 else:
                     logger.info("No contracts deployed")
             else:
-                logger.error("Error: %s", data.get('error', 'Unknown error'))
+                logger.error("Error: %s", data.get("error", "Unknown error"))
         else:
             logger.error("Error: RPC returned %s", response.status_code)
     except Exception as e:
         logger.error("Error listing contracts: %s", e)
+
+
 def handle_contract_deploy(args, default_rpc_url: str, read_password, render_mapping):
     """Handle contract deploy command"""
-    rpc_url = args.rpc_url if hasattr(args, 'rpc_url') and args.rpc_url else default_rpc_url
-    contract_name = getattr(args, 'name', None)
-    contract_type = getattr(args, 'type', 'zk-verifier')
+    rpc_url = args.rpc_url if hasattr(args, "rpc_url") and args.rpc_url else default_rpc_url
+    contract_name = getattr(args, "name", None)
+    contract_type = getattr(args, "type", "zk-verifier")
 
     if not contract_name:
         logger.error("Error: Contract name is required (--name)")
@@ -49,16 +50,10 @@ def handle_contract_deploy(args, default_rpc_url: str, read_password, render_map
         return
 
     try:
-        payload = {
-            "name": contract_name,
-            "type": contract_type
-        }
+        payload = {"name": contract_name, "type": contract_type}
 
         response = requests.post(
-            f"{rpc_url}/rpc/contracts/deploy",
-            json=payload,
-            headers={"X-Wallet-Password": password},
-            timeout=60
+            f"{rpc_url}/rpc/contracts/deploy", json=payload, headers={"X-Wallet-Password": password}, timeout=60
         )
 
         if response.status_code == 200:
@@ -66,16 +61,18 @@ def handle_contract_deploy(args, default_rpc_url: str, read_password, render_map
             if data.get("success"):
                 render_mapping("Contract deployed successfully", data)
             else:
-                logger.error("Error: %s", data.get('error', 'Unknown error'))
+                logger.error("Error: %s", data.get("error", "Unknown error"))
         else:
             logger.error("Error: RPC returned %s", response.status_code)
     except Exception as e:
         logger.error("Error deploying contract: %s", e)
+
+
 def handle_contract_call(args, default_rpc_url: str, read_password):
     """Handle contract call command"""
-    rpc_url = args.rpc_url if hasattr(args, 'rpc_url') and args.rpc_url else default_rpc_url
-    contract_address = getattr(args, 'address', None)
-    method = getattr(args, 'method', None)
+    rpc_url = args.rpc_url if hasattr(args, "rpc_url") and args.rpc_url else default_rpc_url
+    contract_address = getattr(args, "address", None)
+    method = getattr(args, "method", None)
 
     if not contract_address:
         logger.error("Error: Contract address is required (--address)")
@@ -88,25 +85,17 @@ def handle_contract_call(args, default_rpc_url: str, read_password):
     password = read_password(args)
 
     try:
-        payload = {
-            "address": contract_address,
-            "method": method
-        }
+        payload = {"address": contract_address, "method": method}
 
         # Add optional parameters
-        if hasattr(args, 'params') and args.params:
+        if hasattr(args, "params") and args.params:
             payload["params"] = args.params
 
         headers = {}
         if password:
             headers["X-Wallet-Password"] = password
 
-        response = requests.post(
-            f"{rpc_url}/rpc/contracts/call",
-            json=payload,
-            headers=headers,
-            timeout=60
-        )
+        response = requests.post(f"{rpc_url}/rpc/contracts/call", json=payload, headers=headers, timeout=60)
 
         if response.status_code == 200:
             data = response.json()
@@ -117,15 +106,17 @@ def handle_contract_call(args, default_rpc_url: str, read_password):
                 logger.info("  Method: %s", method)
                 logger.info("  Result: %s", result)
             else:
-                logger.error("Error: %s", data.get('error', 'Unknown error'))
+                logger.error("Error: %s", data.get("error", "Unknown error"))
         else:
             logger.error("Error: RPC returned %s", response.status_code)
     except Exception as e:
         logger.error("Error calling contract: %s", e)
+
+
 def handle_contract_verify(args, default_rpc_url: str, read_password):
     """Handle contract verify command (for ZK proofs)"""
-    rpc_url = args.rpc_url if hasattr(args, 'rpc_url') and args.rpc_url else default_rpc_url
-    contract_address = getattr(args, 'address', None)
+    rpc_url = args.rpc_url if hasattr(args, "rpc_url") and args.rpc_url else default_rpc_url
+    contract_address = getattr(args, "address", None)
 
     if not contract_address:
         logger.error("Error: Contract address is required (--address)")
@@ -134,13 +125,12 @@ def handle_contract_verify(args, default_rpc_url: str, read_password):
     password = read_password(args)
 
     try:
-        payload = {
-            "address": contract_address
-        }
+        payload = {"address": contract_address}
 
         # Add proof data if available
-        if hasattr(args, 'proof_file') and args.proof_file:
+        if hasattr(args, "proof_file") and args.proof_file:
             import json
+
             with open(args.proof_file) as f:
                 proof_data = json.load(f)
             payload["proof"] = proof_data
@@ -149,12 +139,7 @@ def handle_contract_verify(args, default_rpc_url: str, read_password):
         if password:
             headers["X-Wallet-Password"] = password
 
-        response = requests.post(
-            f"{rpc_url}/rpc/contracts/verify",
-            json=payload,
-            headers=headers,
-            timeout=60
-        )
+        response = requests.post(f"{rpc_url}/rpc/contracts/verify", json=payload, headers=headers, timeout=60)
 
         if response.status_code == 200:
             data = response.json()
@@ -162,11 +147,11 @@ def handle_contract_verify(args, default_rpc_url: str, read_password):
                 result = data.get("result")
                 logger.info("Verification result:")
                 logger.info("  Address: %s", contract_address)
-                logger.info("  Valid: %s", result.get('valid', False))
-                if result.get('receipt_hash'):
-                    logger.info("  Receipt Hash: %s", result.get('receipt_hash'))
+                logger.info("  Valid: %s", result.get("valid", False))
+                if result.get("receipt_hash"):
+                    logger.info("  Receipt Hash: %s", result.get("receipt_hash"))
             else:
-                logger.error("Error: %s", data.get('error', 'Unknown error'))
+                logger.error("Error: %s", data.get("error", "Unknown error"))
         else:
             logger.error("Error: RPC returned %s", response.status_code)
     except Exception as e:

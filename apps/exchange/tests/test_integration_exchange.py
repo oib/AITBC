@@ -10,8 +10,8 @@ from fastapi.testclient import TestClient
 @pytest.fixture(autouse=True)
 def mock_database():
     """Mock database initialization"""
-    with patch('exchange_api.init_db'):
-        with patch('exchange_api.get_db_session') as mock_get_db:
+    with patch("exchange_api.init_db"):
+        with patch("exchange_api.get_db_session") as mock_get_db:
             mock_session = MagicMock()
             mock_get_db.return_value = mock_session
             yield
@@ -21,6 +21,7 @@ def mock_database():
 def test_health_check():
     """Test health check endpoint"""
     from exchange_api import app
+
     client = TestClient(app)
     response = client.get("/api/health")
     assert response.status_code == 200
@@ -32,7 +33,8 @@ def test_health_check():
 def test_login_user():
     """Test user login endpoint"""
     from exchange_api import app
-    client = TestClient(app)
+
+    TestClient(app)
     # This endpoint requires database, skip in unit tests
     pass
 
@@ -41,7 +43,8 @@ def test_login_user():
 def test_logout_user():
     """Test user logout endpoint"""
     from exchange_api import app
-    client = TestClient(app)
+
+    TestClient(app)
     # This endpoint requires authentication, skip in unit tests
     pass
 
@@ -50,7 +53,8 @@ def test_logout_user():
 def test_get_recent_trades():
     """Test getting recent trades"""
     from exchange_api import app
-    client = TestClient(app)
+
+    TestClient(app)
     # This endpoint requires database, skip in unit tests
     pass
 
@@ -59,7 +63,8 @@ def test_get_recent_trades():
 def test_get_orders():
     """Test getting orders"""
     from exchange_api import app
-    client = TestClient(app)
+
+    TestClient(app)
     # This endpoint requires database, skip in unit tests
     pass
 
@@ -68,7 +73,8 @@ def test_get_orders():
 def test_get_my_orders():
     """Test getting my orders"""
     from exchange_api import app
-    client = TestClient(app)
+
+    TestClient(app)
     # This endpoint requires authentication and database, skip in unit tests
     pass
 
@@ -77,7 +83,8 @@ def test_get_my_orders():
 def test_get_orderbook():
     """Test getting order book"""
     from exchange_api import app
-    client = TestClient(app)
+
+    TestClient(app)
     # This endpoint requires database, skip in unit tests
     pass
 
@@ -86,6 +93,7 @@ def test_get_orderbook():
 def test_create_order():
     """Test creating an order"""
     from exchange_api import app
-    client = TestClient(app)
+
+    TestClient(app)
     # This endpoint requires authentication and database, skip in unit tests
     pass

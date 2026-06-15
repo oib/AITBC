@@ -181,9 +181,10 @@ class TestSessionManager:
     def test_cleanup_expired_sessions(self):
         """Test cleanup_expired_sessions method"""
         manager = SessionManager(session_timeout=0)
-        session_id = manager.create_session("user123")
+        manager.create_session("user123")
 
         import time
+
         time.sleep(0.1)
 
         count = manager.cleanup_expired_sessions()

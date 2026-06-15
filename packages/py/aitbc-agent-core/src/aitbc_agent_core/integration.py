@@ -28,7 +28,7 @@ class AgentIntegrationService:
     ):
         """
         Initialize the agent integration service with injected dependencies.
-        
+
         Args:
             session_provider: Provider for database sessions
             security_manager: Manager for security validation
@@ -51,27 +51,23 @@ class AgentIntegrationService:
         """
         Deploy an agent with the given configuration.
         Pure business logic using only protocol interfaces.
-        
+
         Args:
             workflow_id: ID of the workflow to deploy
             deployment_config: Configuration for deployment
             context: Additional context for the operation
-            
+
         Returns:
             Deployment result with deployment_id and status
         """
         # Validate operation using security manager
         if not await self._security_manager.validate_operation(
-            "deploy_agent",
-            {"workflow_id": workflow_id, **(context or {})}
+            "deploy_agent", {"workflow_id": workflow_id, **(context or {})}
         ):
             raise PermissionError("Operation not authorized")
 
         # Execute deployment using orchestrator
-        result = await self._orchestrator.execute_workflow(
-            workflow_id,
-            deployment_config
-        )
+        result = await self._orchestrator.execute_workflow(workflow_id, deployment_config)
 
         # Audit the deployment
         await self._auditor.audit_event(
@@ -80,7 +76,7 @@ class AgentIntegrationService:
                 "workflow_id": workflow_id,
                 "deployment_id": result.get("deployment_id"),
                 "timestamp": datetime.now(UTC).isoformat(),
-            }
+            },
         )
 
         return result
@@ -93,12 +89,12 @@ class AgentIntegrationService:
     ) -> dict[str, Any]:
         """
         Generate ZK proof for agent execution verification.
-        
+
         Args:
             execution_id: ID of the execution to verify
             circuit_name: Name of the ZK circuit
             inputs: Circuit inputs
-            
+
         Returns:
             Proof metadata including proof_id and verification status
         """
@@ -113,7 +109,7 @@ class AgentIntegrationService:
                 "execution_id": execution_id,
                 "proof_id": proof["proof_id"],
                 "circuit_name": circuit_name,
-            }
+            },
         )
 
         return proof
@@ -124,10 +120,10 @@ class AgentIntegrationService:
     ) -> dict[str, Any]:
         """
         Verify a ZK proof for agent execution.
-        
+
         Args:
             proof_id: ID of the proof to verify
-            
+
         Returns:
             Verification result with status and details
         """
@@ -141,7 +137,7 @@ class AgentIntegrationService:
             {
                 "proof_id": proof_id,
                 "verified": verification.get("verified", False),
-            }
+            },
         )
 
         return verification
@@ -152,10 +148,10 @@ class AgentIntegrationService:
     ) -> dict[str, Any]:
         """
         Get the status of an agent execution.
-        
+
         Args:
             execution_id: ID of the execution to query
-            
+
         Returns:
             Current execution status and metadata
         """

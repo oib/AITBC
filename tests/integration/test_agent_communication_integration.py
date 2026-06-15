@@ -39,16 +39,12 @@ class TestMessageEncryption:
         encryptor = get_encryptor()
 
         # Generate key pairs for sender and recipient
-        sender_key = encryptor.generate_key_pair("agent_sender")
-        recipient_key = encryptor.generate_key_pair("agent_recipient")
+        encryptor.generate_key_pair("agent_sender")
+        encryptor.generate_key_pair("agent_recipient")
 
         # Encrypt message
         message = {"content": "Hello, world!", "timestamp": datetime.now(UTC).isoformat()}
-        encrypted = encryptor.encrypt_message(
-            message=message,
-            sender_id="agent_sender",
-            recipient_id="agent_recipient"
-        )
+        encrypted = encryptor.encrypt_message(message=message, sender_id="agent_sender", recipient_id="agent_recipient")
 
         assert encrypted is not None
         assert encrypted.ciphertext is not None
@@ -68,16 +64,12 @@ class TestMessageEncryption:
         encryptor = get_encryptor()
 
         # Generate key pairs
-        sender_key = encryptor.generate_key_pair("agent_sender")
-        recipient_key = encryptor.generate_key_pair("agent_recipient")
+        encryptor.generate_key_pair("agent_sender")
+        encryptor.generate_key_pair("agent_recipient")
 
         # Encrypt and sign message
         message = {"content": "Signed message", "timestamp": datetime.now(UTC).isoformat()}
-        encrypted = encryptor.encrypt_message(
-            message=message,
-            sender_id="agent_sender",
-            recipient_id="agent_recipient"
-        )
+        encrypted = encryptor.encrypt_message(message=message, sender_id="agent_sender", recipient_id="agent_recipient")
 
         # Verify signature
         verified = encryptor.verify_signature(encrypted, "agent_sender")
@@ -96,25 +88,16 @@ class TestWorkflowOrchestration:
         await orchestrator.start()
 
         steps = [
-            {
-                "agent_id": "agent_001",
-                "action": "transcribe",
-                "parameters": {"model": "whisper"},
-                "dependencies": []
-            },
+            {"agent_id": "agent_001", "action": "transcribe", "parameters": {"model": "whisper"}, "dependencies": []},
             {
                 "agent_id": "agent_002",
                 "action": "translate",
                 "parameters": {"target_lang": "en"},
-                "dependencies": ["wf_step_0"]
-            }
+                "dependencies": ["wf_step_0"],
+            },
         ]
 
-        workflow = await orchestrator.create_workflow(
-            name="test_workflow",
-            steps=steps,
-            created_by="test_user"
-        )
+        workflow = await orchestrator.create_workflow(name="test_workflow", steps=steps, created_by="test_user")
 
         assert workflow.workflow_id is not None
         assert workflow.name == "test_workflow"
@@ -131,29 +114,24 @@ class TestWorkflowOrchestration:
         await orchestrator.start()
 
         # Create workflow
-        steps = [
-            {
-                "agent_id": "agent_001",
-                "action": "test_action",
-                "parameters": {},
-                "dependencies": []
-            }
-        ]
+        steps = [{"agent_id": "agent_001", "action": "test_action", "parameters": {}, "dependencies": []}]
 
-        workflow = await orchestrator.create_workflow(
-            name="execution_test",
-            steps=steps,
-            created_by="test_user"
-        )
+        workflow = await orchestrator.create_workflow(name="execution_test", steps=steps, created_by="test_user")
 
         # Execute workflow
         execution = await orchestrator.execute_workflow(
-            workflow_id=workflow.workflow_id,
-            input_parameters={"test_input": "value"}
+            workflow_id=workflow.workflow_id, input_parameters={"test_input": "value"}
         )
 
         assert execution.execution_id is not None
-        assert execution.status in ["running", "WorkflowStatus.RUNNING", WorkflowStatus.RUNNING, "pending", "WorkflowStatus.PENDING", WorkflowStatus.PENDING]
+        assert execution.status in [
+            "running",
+            "WorkflowStatus.RUNNING",
+            WorkflowStatus.RUNNING,
+            "pending",
+            "WorkflowStatus.PENDING",
+            WorkflowStatus.PENDING,
+        ]
         assert execution.workflow_id == workflow.workflow_id
 
         # Wait for execution to start
@@ -162,7 +140,14 @@ class TestWorkflowOrchestration:
         # Check status after execution starts
         status = await orchestrator.get_execution_status(execution.execution_id)
         assert status is not None
-        assert status.status in ["completed", "running", "WorkflowStatus.COMPLETED", "WorkflowStatus.RUNNING", WorkflowStatus.COMPLETED, WorkflowStatus.RUNNING]
+        assert status.status in [
+            "completed",
+            "running",
+            "WorkflowStatus.COMPLETED",
+            "WorkflowStatus.RUNNING",
+            WorkflowStatus.COMPLETED,
+            WorkflowStatus.RUNNING,
+        ]
 
         await orchestrator.stop()
 
@@ -211,7 +196,7 @@ class TestAgentDiscovery:
             endpoints={"http": "http://localhost:8001"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         agent2 = AgentInfo(
@@ -223,7 +208,7 @@ class TestAgentDiscovery:
             endpoints={"http": "http://localhost:8002"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(agent1)
@@ -260,7 +245,7 @@ class TestMessageProtocols:
             receiver_id="agent_002",
             message_type=MessageType.DIRECT,
             priority=Priority.NORMAL,
-            payload={"action": "get_status"}
+            payload={"action": "get_status"},
         )
 
         assert request.message_type == MessageType.DIRECT
@@ -296,11 +281,12 @@ class TestMessageProtocols:
             message_type=MessageType.DIRECT,
             priority=Priority.NORMAL,
             payload={"data": "test"},
-            ttl=1  # 1 second TTL
+            ttl=1,  # 1 second TTL
         )
 
         # Check if expired (simulate time passing)
         from datetime import timedelta
+
         message.timestamp = datetime.now(UTC) - timedelta(seconds=2)
 
         # The protocol would check this during receive_message
@@ -323,12 +309,13 @@ class TestMessagePriorityQueue:
         messages = []
         for i, priority in enumerate(priorities):
             from app.protocols.communication import AgentMessage, MessageType
+
             msg = AgentMessage(
                 sender_id=f"agent_{i}",
                 receiver_id="agent_target",
                 message_type=MessageType.DIRECT,
                 priority=priority,
-                payload={"index": i}
+                payload={"index": i},
             )
             messages.append(msg)
 

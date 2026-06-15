@@ -15,6 +15,7 @@ app = FastAPI(title="Test Agent Endpoint")
 
 class TaskMessage(BaseModel):
     """Task message structure"""
+
     id: str
     sender_id: str
     receiver_id: str | None
@@ -29,6 +30,7 @@ class TaskMessage(BaseModel):
 
 class TaskResponse(BaseModel):
     """Task execution response"""
+
     status: str
     task_id: str
     agent_id: str
@@ -39,20 +41,13 @@ class TaskResponse(BaseModel):
 @app.get("/")
 async def root():
     """Health check endpoint"""
-    return {
-        "status": "running",
-        "agent_id": "test-agent-9997",
-        "timestamp": datetime.utcnow().isoformat()
-    }
+    return {"status": "running", "agent_id": "test-agent-9997", "timestamp": datetime.utcnow().isoformat()}
 
 
 @app.get("/health")
 async def health():
     """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "agent_id": "test-agent-9997"
-    }
+    return {"status": "healthy", "agent_id": "test-agent-9997"}
 
 
 @app.post("/tasks/execute")
@@ -71,18 +66,14 @@ async def execute_task(task: TaskMessage):
         task_type = task_data.get("task_type", "unknown")
 
         # Simple task simulation
-        result = {
-            "status": "completed",
-            "output": f"Task {task_type} executed successfully",
-            "processing_time_ms": 100
-        }
+        result = {"status": "completed", "output": f"Task {task_type} executed successfully", "processing_time_ms": 100}
 
         response = TaskResponse(
             status="success",
             task_id=task.id,
             agent_id="test-agent-9997",
             executed_at=datetime.utcnow().isoformat(),
-            result=result
+            result=result,
         )
 
         print(f"[{datetime.utcnow()}] Task executed successfully")
@@ -95,9 +86,4 @@ async def execute_task(task: TaskMessage):
 
 if __name__ == "__main__":
     print("Starting test agent endpoint on port 9997...")
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=9997,
-        log_level="info"
-    )
+    uvicorn.run(app, host="0.0.0.0", port=9997, log_level="info")

@@ -12,6 +12,7 @@ router = APIRouter()
 
 class ScanGPUsRequest(BaseModel):
     """Request model for scanning GPUs"""
+
     miner_id: str
 
 
@@ -25,7 +26,7 @@ async def list_gpus(
     architecture: str = Query(None),
     edge_optimized: bool = Query(None),
     min_memory_gb: int = Query(None),
-    svc: GPUService = Depends(get_gpu_service)
+    svc: GPUService = Depends(get_gpu_service),
 ) -> dict[str, Any]:
     """List all GPUs"""
     gpus = await svc.list_gpus(architecture=architecture, edge_optimized=edge_optimized, min_memory_gb=min_memory_gb)
@@ -59,11 +60,7 @@ async def scan_gpus(request: ScanGPUsRequest, svc: GPUService = Depends(get_gpu_
 
 
 @router.get("/{gpu_id}/metrics")
-async def get_gpu_metrics(
-    gpu_id: str,
-    limit: int = Query(100),
-    svc: GPUService = Depends(get_gpu_service)
-) -> dict[str, Any]:
+async def get_gpu_metrics(gpu_id: str, limit: int = Query(100), svc: GPUService = Depends(get_gpu_service)) -> dict[str, Any]:
     """Get GPU metrics"""
     metrics = await svc.get_gpu_metrics(gpu_id, limit)
     return {"gpu_id": gpu_id, "metrics": metrics, "total": len(metrics)}

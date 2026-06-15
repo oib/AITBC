@@ -15,10 +15,12 @@ from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
 
+
 @click.group()
 def system():
     """System management commands"""
     pass
+
 
 @system.command()
 def architect():
@@ -28,6 +30,7 @@ def architect():
     click.echo("✅ Config: /etc/aitbc")
     click.echo("✅ Logs: /var/log/aitbc")
     click.echo("✅ Repository: Clean")
+
 
 @system.command()
 def audit():
@@ -39,7 +42,7 @@ def audit():
 
 
 @system.command()
-@click.option('--service', help='Check specific service')
+@click.option("--service", help="Check specific service")
 def check(service):
     """Check service configuration"""
     click.echo(f"=== Service Check: {service or 'All Services'} ===")
@@ -51,7 +54,7 @@ def check(service):
         else:
             click.echo(f"❌ Service file missing: {service_file}")
     else:
-        services = ['marketplace', 'mining-blockchain', 'hermes-ai', 'blockchain-node']
+        services = ["marketplace", "mining-blockchain", "hermes-ai", "blockchain-node"]
         for svc in services:
             service_file = f"/etc/systemd/system/aitbc-{svc}.service"
             if os.path.exists(service_file):
@@ -61,7 +64,7 @@ def check(service):
 
 
 @system.command()
-@click.option('--service', required=True, help='Service to restart (e.g., blockchain-node, wallet)')
+@click.option("--service", required=True, help="Service to restart (e.g., blockchain-node, wallet)")
 @click.pass_context
 def restart(ctx, service: str):
     """Restart a systemd service"""
@@ -69,12 +72,7 @@ def restart(ctx, service: str):
 
     try:
         success(f"Restarting service: {service_name}")
-        result = subprocess.run(
-            ["sudo", "systemctl", "restart", service_name],
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
+        result = subprocess.run(["sudo", "systemctl", "restart", service_name], capture_output=True, text=True, timeout=30)
 
         if result.returncode == 0:
             success(f"Service {service_name} restarted successfully")
@@ -105,7 +103,7 @@ def status(ctx):
 
 
 @system.command()
-@click.option('--show-secrets', is_flag=True, help='Show sensitive values like API keys')
+@click.option("--show-secrets", is_flag=True, help="Show sensitive values like API keys")
 @click.pass_context
 def config(ctx, show_secrets: bool):
     """Display system configuration from /etc/aitbc/blockchain.env"""
@@ -122,11 +120,11 @@ def config(ctx, show_secrets: bool):
         config_data = {}
         for line in config_lines:
             line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
                 # Hide secrets unless explicitly requested
-                if not show_secrets and any(secret in key.lower() for secret in ['key', 'secret', 'password', 'token']):
-                    value = '***HIDDEN***'
+                if not show_secrets and any(secret in key.lower() for secret in ["key", "secret", "password", "token"]):
+                    value = "***HIDDEN***"
                 config_data[key.strip()] = value.strip()
 
         success("System Configuration:")
@@ -134,5 +132,6 @@ def config(ctx, show_secrets: bool):
     except Exception as e:
         error(f"Error reading configuration: {e}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     system()

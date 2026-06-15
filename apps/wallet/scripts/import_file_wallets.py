@@ -31,6 +31,7 @@ def import_wallets():
 
     # Check daemon is up with retry logic
     import time
+
     max_retries = 10
     retry_delay = 1
 
@@ -94,13 +95,13 @@ def import_wallets():
                     "address": address,
                     "imported_from": str(wallet_file),
                     "original_address": address,
-                }
+                },
             }
 
             r = httpx.post(f"{WALLET_DAEMON_URL}/v1/wallets", json=payload, timeout=10)
             if r.status_code in (200, 201):
                 result = r.json()
-                wallet = result.get("wallet", {})
+                result.get("wallet", {})
                 print(f"  OK    {wallet_id} (address={address})")
                 imported += 1
             elif r.status_code == 400 and "already exists" in r.text:

@@ -86,9 +86,7 @@ async def create_payment(
 @router.get("/exchange/payment-status/{payment_id}", response_model=PaymentStatusResponse)
 @rate_limit(rate=200, per=60)
 @cached(**get_cache_config("user_balance"))  # Cache payment status for 30 seconds
-async def get_payment_status(
-    request: Request, payment_id: str
-) -> dict[str, Any]:
+async def get_payment_status(request: Request, payment_id: str) -> dict[str, Any]:
     """Get payment status"""
 
     if payment_id not in payments:
@@ -105,9 +103,7 @@ async def get_payment_status(
 
 @router.post("/exchange/confirm-payment/{payment_id}")
 @rate_limit(rate=50, per=60)
-async def confirm_payment(
-    request: Request, payment_id: str, tx_hash: str
-) -> dict[str, Any]:
+async def confirm_payment(request: Request, payment_id: str, tx_hash: str) -> dict[str, Any]:
     """Confirm payment (webhook from payment processor)"""
 
     if payment_id not in payments:
@@ -139,21 +135,19 @@ async def confirm_payment(
 
 @router.get("/exchange/rates", response_model=ExchangeRatesResponse)
 @rate_limit(rate=500, per=60)
-async def get_exchange_rates(
-    request: Request
-) -> ExchangeRatesResponse:
+async def get_exchange_rates(request: Request) -> ExchangeRatesResponse:
     """Get current exchange rates"""
 
     return ExchangeRatesResponse(
-        btc_to_aitbc=BITCOIN_CONFIG["exchange_rate"], aitbc_to_btc=1.0 / BITCOIN_CONFIG["exchange_rate"], fee_percent=0.5  # type: ignore[operator]
+        btc_to_aitbc=BITCOIN_CONFIG["exchange_rate"],
+        aitbc_to_btc=1.0 / BITCOIN_CONFIG["exchange_rate"],
+        fee_percent=0.5,  # type: ignore[operator]
     )
 
 
 @router.get("/exchange/market-stats", response_model=MarketStatsResponse)
 @rate_limit(rate=500, per=60)
-async def get_market_stats(
-    request: Request
-) -> MarketStatsResponse:
+async def get_market_stats(request: Request) -> MarketStatsResponse:
     """Get market statistics"""
 
     # Calculate 24h volume from payments
@@ -181,9 +175,7 @@ async def get_market_stats(
 
 @router.get("/exchange/wallet/balance", response_model=WalletBalanceResponse)
 @rate_limit(rate=200, per=60)
-async def get_wallet_balance_api(
-    request: Request
-) -> WalletBalanceResponse:
+async def get_wallet_balance_api(request: Request) -> WalletBalanceResponse:
     """Get Bitcoin wallet balance"""
     try:
         balance_data = get_wallet_balance()
@@ -194,9 +186,7 @@ async def get_wallet_balance_api(
 
 @router.get("/exchange/wallet/info", response_model=WalletInfoResponse)
 @rate_limit(rate=200, per=60)
-async def get_wallet_info_api(
-    request: Request
-) -> WalletInfoResponse:
+async def get_wallet_info_api(request: Request) -> WalletInfoResponse:
     """Get comprehensive wallet information"""
     try:
         wallet_data = get_wallet_info()
@@ -227,9 +217,7 @@ async def monitor_payment(payment_id: str) -> None:
 # Agent endpoints temporarily added to exchange router
 @router.get("/agents/test")
 @rate_limit(rate=1000, per=60)
-async def test_agent_endpoint(
-    request: Request
-) -> dict[str, str]:
+async def test_agent_endpoint(request: Request) -> dict[str, str]:
     """Test endpoint to verify agent routes are working"""
     return {"message": "Agent routes are working", "timestamp": datetime.now(UTC).isoformat()}
 

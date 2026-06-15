@@ -1,4 +1,5 @@
 """Stub contracts module for when contract_service is not available."""
+
 from typing import Any
 
 from fastapi import Request

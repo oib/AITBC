@@ -16,14 +16,15 @@ def agent_comm():
     """Cross-chain agent communication commands"""
     pass
 
+
 @agent_comm.command()
-@click.argument('agent_id')
-@click.argument('name')
-@click.argument('chain_id')
-@click.argument('endpoint')
-@click.option('--capabilities', help='Comma-separated list of capabilities')
-@click.option('--reputation', default=0.5, help='Initial reputation score')
-@click.option('--version', default='1.0.0', help='Agent version')
+@click.argument("agent_id")
+@click.argument("name")
+@click.argument("chain_id")
+@click.argument("endpoint")
+@click.option("--capabilities", help="Comma-separated list of capabilities")
+@click.option("--reputation", default=0.5, help="Initial reputation score")
+@click.option("--version", default="1.0.0", help="Agent version")
 @click.pass_context
 def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, version):
     """Register an agent in the cross-chain network"""
@@ -32,7 +33,7 @@ def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, 
         comm = CrossChainAgentCommunication(config)
 
         # Parse capabilities
-        cap_list = capabilities.split(',') if capabilities else []
+        cap_list = capabilities.split(",") if capabilities else []
 
         # Create agent info
         agent_info = AgentInfo(
@@ -45,7 +46,7 @@ def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, 
             reputation_score=reputation,
             last_seen=datetime.now(),
             endpoint=endpoint,
-            version=version
+            version=version,
         )
 
         # Register agent
@@ -62,10 +63,10 @@ def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, 
                 "Capabilities": ", ".join(cap_list),
                 "Reputation": f"{reputation:.2f}",
                 "Endpoint": endpoint,
-                "Version": version
+                "Version": version,
             }
 
-            output(agent_data, ctx.obj.get('output_format', 'table'))
+            output(agent_data, ctx.obj.get("output_format", "table"))
         else:
             error(f"Failed to register agent {agent_id}")
             raise click.Abort()
@@ -74,11 +75,12 @@ def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, 
         error(f"Error registering agent: {str(e)}")
         raise click.Abort()
 
+
 @agent_comm.command()
-@click.option('--chain-id', help='Filter by chain ID')
-@click.option('--status', type=click.Choice(['active', 'inactive', 'busy', 'offline']), help='Filter by status')
-@click.option('--capabilities', help='Filter by capabilities (comma-separated)')
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.option("--chain-id", help="Filter by chain ID")
+@click.option("--status", type=click.Choice(["active", "inactive", "busy", "offline"]), help="Filter by status")
+@click.option("--capabilities", help="Filter by capabilities (comma-separated)")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def list(ctx, chain_id, status, capabilities, format):
     """List registered agents"""
@@ -97,11 +99,11 @@ def list(ctx, chain_id, status, capabilities, format):
             agents = [a for a in agents if a.status.value == status]
 
         if capabilities:
-            required_caps = [cap.strip() for cap in capabilities.split(',')]
+            required_caps = [cap.strip() for cap in capabilities.split(",")]
             agents = [a for a in agents if any(cap in a.capabilities for cap in required_caps)]
 
         if not agents:
-            output("No agents found", ctx.obj.get('output_format', 'table'))
+            output("No agents found", ctx.obj.get("output_format", "table"))
             return
 
         # Format output
@@ -113,21 +115,22 @@ def list(ctx, chain_id, status, capabilities, format):
                 "Status": agent.status.value,
                 "Reputation": f"{agent.reputation_score:.2f}",
                 "Capabilities": ", ".join(agent.capabilities[:3]),  # Show first 3
-                "Last Seen": agent.last_seen.strftime("%Y-%m-%d %H:%M:%S")
+                "Last Seen": agent.last_seen.strftime("%Y-%m-%d %H:%M:%S"),
             }
             for agent in agents
         ]
 
-        output(agent_data, ctx.obj.get('output_format', format), title="Registered Agents")
+        output(agent_data, ctx.obj.get("output_format", format), title="Registered Agents")
 
     except Exception as e:
         error(f"Error listing agents: {str(e)}")
         raise click.Abort()
 
+
 @agent_comm.command()
-@click.argument('chain_id')
-@click.option('--capabilities', help='Required capabilities (comma-separated)')
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.argument("chain_id")
+@click.option("--capabilities", help="Required capabilities (comma-separated)")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def discover(ctx, chain_id, capabilities, format):
     """Discover agents on a specific chain"""
@@ -136,13 +139,13 @@ def discover(ctx, chain_id, capabilities, format):
         comm = CrossChainAgentCommunication(config)
 
         # Parse capabilities
-        cap_list = capabilities.split(',') if capabilities else None
+        cap_list = capabilities.split(",") if capabilities else None
 
         # Discover agents
         agents = asyncio.run(comm.discover_agents(chain_id, cap_list))
 
         if not agents:
-            output(f"No agents found on chain {chain_id}", ctx.obj.get('output_format', 'table'))
+            output(f"No agents found on chain {chain_id}", ctx.obj.get("output_format", "table"))
             return
 
         # Format output
@@ -154,26 +157,27 @@ def discover(ctx, chain_id, capabilities, format):
                 "Reputation": f"{agent.reputation_score:.2f}",
                 "Capabilities": ", ".join(agent.capabilities),
                 "Endpoint": agent.endpoint,
-                "Version": agent.version
+                "Version": agent.version,
             }
             for agent in agents
         ]
 
-        output(agent_data, ctx.obj.get('output_format', format), title=f"Agents on Chain {chain_id}")
+        output(agent_data, ctx.obj.get("output_format", format), title=f"Agents on Chain {chain_id}")
 
     except Exception as e:
         error(f"Error discovering agents: {str(e)}")
         raise click.Abort()
 
+
 @agent_comm.command()
-@click.argument('sender_id')
-@click.argument('receiver_id')
-@click.argument('message_type')
-@click.argument('chain_id')
-@click.option('--payload', help='Message payload (JSON string)')
-@click.option('--target-chain', help='Target chain for cross-chain messages')
-@click.option('--priority', default=5, help='Message priority (1-10)')
-@click.option('--ttl', default=3600, help='Time to live in seconds')
+@click.argument("sender_id")
+@click.argument("receiver_id")
+@click.argument("message_type")
+@click.argument("chain_id")
+@click.option("--payload", help="Message payload (JSON string)")
+@click.option("--target-chain", help="Target chain for cross-chain messages")
+@click.option("--priority", default=5, help="Message priority (1-10)")
+@click.option("--ttl", default=3600, help="Time to live in seconds")
 @click.pass_context
 def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_chain, priority, ttl):
     """Send a message to an agent"""
@@ -210,7 +214,7 @@ def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_ch
             timestamp=datetime.now(),
             signature="auto_generated",  # Would be cryptographically signed
             priority=priority,
-            ttl_seconds=ttl
+            ttl_seconds=ttl,
         )
 
         # Send message
@@ -228,10 +232,10 @@ def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_ch
                 "Target Chain": target_chain or "Same",
                 "Priority": priority,
                 "TTL": f"{ttl}s",
-                "Sent": message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                "Sent": message.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
             }
 
-            output(message_data, ctx.obj.get('output_format', 'table'))
+            output(message_data, ctx.obj.get("output_format", "table"))
         else:
             error(f"Failed to send message to {receiver_id}")
             raise click.Abort()
@@ -240,10 +244,11 @@ def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_ch
         error(f"Error sending message: {str(e)}")
         raise click.Abort()
 
+
 @agent_comm.command()
-@click.argument('agent_ids', nargs=-1, required=True)
-@click.argument('collaboration_type')
-@click.option('--governance', help='Governance rules (JSON string)')
+@click.argument("agent_ids", nargs=-1, required=True)
+@click.argument("collaboration_type")
+@click.option("--governance", help="Governance rules (JSON string)")
 @click.pass_context
 def collaborate(ctx, agent_ids, collaboration_type, governance):
     """Create a multi-agent collaboration"""
@@ -261,9 +266,7 @@ def collaborate(ctx, agent_ids, collaboration_type, governance):
                 raise click.Abort()
 
         # Create collaboration
-        collaboration_id = asyncio.run(comm.create_collaboration(
-            list(agent_ids), collaboration_type, governance_dict
-        ))
+        collaboration_id = asyncio.run(comm.create_collaboration(list(agent_ids), collaboration_type, governance_dict))
 
         if collaboration_id:
             success(f"Collaboration created: {collaboration_id}")
@@ -273,10 +276,10 @@ def collaborate(ctx, agent_ids, collaboration_type, governance):
                 "Type": collaboration_type,
                 "Participants": ", ".join(agent_ids),
                 "Status": "active",
-                "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
-            output(collab_data, ctx.obj.get('output_format', 'table'))
+            output(collab_data, ctx.obj.get("output_format", "table"))
         else:
             error("Failed to create collaboration")
             raise click.Abort()
@@ -285,10 +288,11 @@ def collaborate(ctx, agent_ids, collaboration_type, governance):
         error(f"Error creating collaboration: {str(e)}")
         raise click.Abort()
 
+
 @agent_comm.command()
-@click.argument('agent_id')
-@click.argument('interaction_result', type=click.Choice(['success', 'failure']))
-@click.option('--feedback', type=float, help='Feedback score (0.0-1.0)')
+@click.argument("agent_id")
+@click.argument("interaction_result", type=click.Choice(["success", "failure"]))
+@click.option("--feedback", type=float, help="Feedback score (0.0-1.0)")
 @click.pass_context
 def reputation(ctx, agent_id, interaction_result, feedback):
     """Update agent reputation"""
@@ -297,29 +301,29 @@ def reputation(ctx, agent_id, interaction_result, feedback):
         comm = CrossChainAgentCommunication(config)
 
         # Update reputation
-        success = asyncio.run(comm.update_reputation(
-            agent_id, interaction_result == 'success', feedback
-        ))
+        success = asyncio.run(comm.update_reputation(agent_id, interaction_result == "success", feedback))
 
         if success:
             # Get updated reputation
             agent_status = asyncio.run(comm.get_agent_status(agent_id))
 
-            if agent_status and agent_status.get('reputation'):
-                rep = agent_status['reputation']
+            if agent_status and agent_status.get("reputation"):
+                rep = agent_status["reputation"]
                 success(f"Reputation updated for {agent_id}")
 
                 rep_data = {
                     "Agent ID": agent_id,
                     "Reputation Score": f"{rep['reputation_score']:.3f}",
-                    "Total Interactions": rep['total_interactions'],
-                    "Successful": rep['successful_interactions'],
-                    "Failed": rep['failed_interactions'],
-                    "Success Rate": f"{(rep['successful_interactions'] / rep['total_interactions'] * 100):.1f}%" if rep['total_interactions'] > 0 else "N/A",
-                    "Last Updated": rep['last_updated']
+                    "Total Interactions": rep["total_interactions"],
+                    "Successful": rep["successful_interactions"],
+                    "Failed": rep["failed_interactions"],
+                    "Success Rate": f"{(rep['successful_interactions'] / rep['total_interactions'] * 100):.1f}%"
+                    if rep["total_interactions"] > 0
+                    else "N/A",
+                    "Last Updated": rep["last_updated"],
                 }
 
-                output(rep_data, ctx.obj.get('output_format', 'table'))
+                output(rep_data, ctx.obj.get("output_format", "table"))
             else:
                 success(f"Reputation updated for {agent_id}")
         else:
@@ -330,9 +334,10 @@ def reputation(ctx, agent_id, interaction_result, feedback):
         error(f"Error updating reputation: {str(e)}")
         raise click.Abort()
 
+
 @agent_comm.command()
-@click.argument('agent_id')
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.argument("agent_id")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def status(ctx, agent_id, format):
     """Get detailed agent status"""
@@ -353,23 +358,27 @@ def status(ctx, agent_id, format):
             {"Metric": "Name", "Value": agent_status["agent_info"]["name"]},
             {"Metric": "Chain ID", "Value": agent_status["agent_info"]["chain_id"]},
             {"Metric": "Status", "Value": agent_status["status"]},
-            {"Metric": "Reputation", "Value": f"{agent_status['agent_info']['reputation_score']:.3f}" if agent_status.get('reputation') else "N/A"},
+            {
+                "Metric": "Reputation",
+                "Value": f"{agent_status['agent_info']['reputation_score']:.3f}" if agent_status.get("reputation") else "N/A",
+            },
             {"Metric": "Capabilities", "Value": ", ".join(agent_status["agent_info"]["capabilities"])},
             {"Metric": "Message Queue Size", "Value": agent_status["message_queue_size"]},
             {"Metric": "Active Collaborations", "Value": agent_status["active_collaborations"]},
             {"Metric": "Last Seen", "Value": agent_status["last_seen"]},
             {"Metric": "Endpoint", "Value": agent_status["agent_info"]["endpoint"]},
-            {"Metric": "Version", "Value": agent_status["agent_info"]["version"]}
+            {"Metric": "Version", "Value": agent_status["agent_info"]["version"]},
         ]
 
-        output(status_data, ctx.obj.get('output_format', format), title=f"Agent Status: {agent_id}")
+        output(status_data, ctx.obj.get("output_format", format), title=f"Agent Status: {agent_id}")
 
     except Exception as e:
         error(f"Error getting agent status: {str(e)}")
         raise click.Abort()
 
+
 @agent_comm.command()
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def network(ctx, format):
     """Get cross-chain network overview"""
@@ -394,36 +403,40 @@ def network(ctx, format):
             {"Metric": "Queued Messages", "Value": overview["queued_messages"]},
             {"Metric": "Average Reputation", "Value": f"{overview['average_reputation']:.3f}"},
             {"Metric": "Routing Table Size", "Value": overview["routing_table_size"]},
-            {"Metric": "Discovery Cache Size", "Value": overview["discovery_cache_size"]}
+            {"Metric": "Discovery Cache Size", "Value": overview["discovery_cache_size"]},
         ]
 
-        output(overview_data, ctx.obj.get('output_format', format), title="Network Overview")
+        output(overview_data, ctx.obj.get("output_format", format), title="Network Overview")
 
         # Agents by chain
         if overview["agents_by_chain"]:
             chain_data = [
-                {"Chain ID": chain_id, "Total Agents": count, "Active Agents": overview["active_agents_by_chain"].get(chain_id, 0)}
+                {
+                    "Chain ID": chain_id,
+                    "Total Agents": count,
+                    "Active Agents": overview["active_agents_by_chain"].get(chain_id, 0),
+                }
                 for chain_id, count in overview["agents_by_chain"].items()
             ]
 
-            output(chain_data, ctx.obj.get('output_format', format), title="Agents by Chain")
+            output(chain_data, ctx.obj.get("output_format", format), title="Agents by Chain")
 
         # Collaborations by type
         if overview["collaborations_by_type"]:
             collab_data = [
-                {"Type": collab_type, "Count": count}
-                for collab_type, count in overview["collaborations_by_type"].items()
+                {"Type": collab_type, "Count": count} for collab_type, count in overview["collaborations_by_type"].items()
             ]
 
-            output(collab_data, ctx.obj.get('output_format', format), title="Collaborations by Type")
+            output(collab_data, ctx.obj.get("output_format", format), title="Collaborations by Type")
 
     except Exception as e:
         error(f"Error getting network overview: {str(e)}")
         raise click.Abort()
 
+
 @agent_comm.command()
-@click.option('--realtime', is_flag=True, help='Real-time monitoring')
-@click.option('--interval', default=10, help='Update interval in seconds')
+@click.option("--realtime", is_flag=True, help="Real-time monitoring")
+@click.option("--interval", default=10, help="Update interval in seconds")
 @click.pass_context
 def monitor(ctx, realtime, interval):
     """Monitor cross-chain agent communication"""
@@ -459,7 +472,9 @@ def monitor(ctx, realtime, interval):
                     if overview["agents_by_chain"]:
                         table.add_row("", "")
                         table.add_row("Top Chains by Agents", "")
-                        for chain_id, count in sorted(overview["agents_by_chain"].items(), key=lambda x: x[1], reverse=True)[:3]:
+                        for chain_id, count in sorted(overview["agents_by_chain"].items(), key=lambda x: x[1], reverse=True)[
+                            :3
+                        ]:
                             active = overview["active_agents_by_chain"].get(chain_id, 0)
                             table.add_row(f"  {chain_id}", f"{count} total, {active} active")
 
@@ -486,10 +501,10 @@ def monitor(ctx, realtime, interval):
                 {"Metric": "Total Messages", "Value": overview["total_messages"]},
                 {"Metric": "Queued Messages", "Value": overview["queued_messages"]},
                 {"Metric": "Average Reputation", "Value": f"{overview['average_reputation']:.3f}"},
-                {"Metric": "Routing Table Size", "Value": overview["routing_table_size"]}
+                {"Metric": "Routing Table Size", "Value": overview["routing_table_size"]},
             ]
 
-            output(monitor_data, ctx.obj.get('output_format', 'table'), title="Agent Network Monitor")
+            output(monitor_data, ctx.obj.get("output_format", "table"), title="Agent Network Monitor")
 
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")

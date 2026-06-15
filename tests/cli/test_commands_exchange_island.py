@@ -22,8 +22,9 @@ class TestExchangeIslandCommands:
         """Test that exchange_island command group exists"""
         try:
             from aitbc_cli.commands.exchange_island import exchange_island
+
             assert exchange_island is not None
-            assert hasattr(exchange_island, 'name')
+            assert hasattr(exchange_island, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import exchange_island commands: {e}")
 
@@ -31,12 +32,13 @@ class TestExchangeIslandCommands:
         """Test exchange_island group name"""
         try:
             from aitbc_cli.commands.exchange_island import exchange_island
+
             assert exchange_island.name == "exchange-island"
         except ImportError as e:
             pytest.skip(f"Cannot import exchange_island commands: {e}")
 
-    @patch('aitbc_cli.commands.exchange_island.output')
-    @patch('aitbc_cli.commands.exchange_island.error')
+    @patch("aitbc_cli.commands.exchange_island.output")
+    @patch("aitbc_cli.commands.exchange_island.error")
     def test_exchange_island_balance_command(self, mock_error, mock_output):
         """Test exchange_island balance command - skip due to complex credentials dependencies"""
         pytest.skip("Exchange island commands have complex credentials and socket dependencies")

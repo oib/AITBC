@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 def test_client(db_session: Session):
     """Create test client fixture"""
     from fastapi import FastAPI
+
     app = FastAPI()
     app.include_router(router)
 

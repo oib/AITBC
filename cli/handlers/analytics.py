@@ -6,7 +6,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
 def handle_analytics_metrics(args, default_rpc_url, output_format, render_mapping):
     """Handle analytics metrics command."""
     period = getattr(args, "period", "24h")
@@ -16,7 +15,7 @@ def handle_analytics_metrics(args, default_rpc_url, output_format, render_mappin
         "transactions": 1520,
         "tps": 1250,
         "avg_latency_ms": 45,
-        "timestamp": __import__('datetime').datetime.now().isoformat()
+        "timestamp": __import__("datetime").datetime.now().isoformat(),
     }
 
     if output_format(args) == "json":
@@ -31,12 +30,8 @@ def handle_analytics_report(args, default_rpc_url, output_format, render_mapping
 
     report_data = {
         "type": report_type,
-        "generated_at": __import__('datetime').datetime.now().isoformat(),
-        "summary": {
-            "total_transactions": 1520,
-            "total_blocks": 45,
-            "active_nodes": 2
-        }
+        "generated_at": __import__("datetime").datetime.now().isoformat(),
+        "summary": {"total_transactions": 1520, "total_blocks": 45, "active_nodes": 2},
     }
 
     if output_format(args) == "json":
@@ -53,7 +48,7 @@ def handle_analytics_export(args, default_rpc_url, render_mapping):
         "format": format_type,
         "status": "exported",
         "file": f"analytics_export_{int(__import__('time').time())}.{format_type}",
-        "timestamp": __import__('datetime').datetime.now().isoformat()
+        "timestamp": __import__("datetime").datetime.now().isoformat(),
     }
 
     logger.info("Analytics exported as %s", format_type)
@@ -69,7 +64,7 @@ def handle_analytics_predict(args, default_rpc_url, render_mapping):
         "model": model,
         "target": target,
         "prediction": "85% confidence",
-        "timestamp": __import__('datetime').datetime.now().isoformat()
+        "timestamp": __import__("datetime").datetime.now().isoformat(),
     }
 
     logger.info("Prediction using %s model for %s", model, target)
@@ -85,7 +80,7 @@ def handle_analytics_optimize(args, default_rpc_url, render_mapping):
         "target": target,
         "parameters_optimized": parameters,
         "improvement": "18%",
-        "timestamp": __import__('datetime').datetime.now().isoformat()
+        "timestamp": __import__("datetime").datetime.now().isoformat(),
     }
 
     logger.info("Analytics optimization applied for %s", target)

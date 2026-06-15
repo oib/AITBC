@@ -21,33 +21,30 @@ mock_chain_state = {
     "balances": {
         "aitbc1alice00000000000000000000000000000000000": 1000,
         "aitbc1bob0000000000000000000000000000000000000": 500,
-        "aitbc1charl0000000000000000000000000000000000": 100
+        "aitbc1charl0000000000000000000000000000000000": 100,
     },
-    "transactions": []
+    "transactions": [],
 }
+
 
 @app.get("/openapi.json")
 async def openapi():
     """Return OpenAPI spec"""
-    return {
-        "openapi": "3.0.0",
-        "info": {
-            "title": "AITBC Blockchain API",
-            "version": "0.1.0"
-        },
-        "paths": {}
-    }
+    return {"openapi": "3.0.0", "info": {"title": "AITBC Blockchain API", "version": "0.1.0"}, "paths": {}}
+
 
 @app.get("/rpc/head")
 async def get_chain_head():
     """Get current chain head"""
     return JSONResponse(mock_chain_state)
 
+
 @app.get("/rpc/getBalance/{address}")
 async def get_balance(address: str):
     """Get balance for an address"""
     balance = mock_chain_state["balances"].get(address, 0)
     return JSONResponse({"balance": balance})
+
 
 @app.post("/rpc/admin/mintFaucet")
 async def mint_faucet(request: dict[str, Any]):
@@ -62,6 +59,7 @@ async def mint_faucet(request: dict[str, Any]):
 
     return JSONResponse({"success": True, "new_balance": mock_chain_state["balances"][address]})
 
+
 @app.post("/rpc/sendTx")
 async def send_transaction(request: dict[str, Any]):
     """Send a transaction"""
@@ -69,26 +67,27 @@ async def send_transaction(request: dict[str, Any]):
     tx_hash = f"0x{hash(str(request)) % 1000000000000000000000000000000000000000000000000000000000000000:x}"
 
     # Add to transactions list
-    mock_chain_state["transactions"].append({
-        "hash": tx_hash,
-        "type": request.get("type", "TRANSFER"),
-        "sender": request.get("sender"),
-        "timestamp": time.time()
-    })
+    mock_chain_state["transactions"].append(
+        {"hash": tx_hash, "type": request.get("type", "TRANSFER"), "sender": request.get("sender"), "timestamp": time.time()}
+    )
 
     return JSONResponse({"tx_hash": tx_hash, "status": "pending"})
+
 
 @app.get("/health")
 async def health():
     """Health check endpoint"""
     return JSONResponse({"status": "ok", "height": mock_chain_state["height"]})
 
+
 def run_mock_server(port: int):
     """Run the mock server on specified port"""
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
 
+
 if __name__ == "__main__":
     import sys
+
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8081
     print(f"Starting mock blockchain node on port {port}")
     run_mock_server(port)

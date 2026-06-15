@@ -17,15 +17,14 @@ def load_module_from_path(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-async_helpers = load_module_from_path(
-    "aitbc.async_helpers",
-    Path("/opt/aitbc/aitbc/async_helpers.py")
-)
+
+async_helpers = load_module_from_path("aitbc.async_helpers", Path("/opt/aitbc/aitbc/async_helpers.py"))
 
 
 # ============================================================================
 # Run Sync Tests
 # ============================================================================
+
 
 class TestRunSync:
     """Test run_sync function"""
@@ -48,6 +47,7 @@ class TestRunSync:
 # ============================================================================
 # Gather With Concurrency Tests
 # ============================================================================
+
 
 class TestGatherWithConcurrency:
     """Test gather_with_concurrency function"""
@@ -84,6 +84,7 @@ class TestGatherWithConcurrency:
 # ============================================================================
 # Run With Timeout Tests
 # ============================================================================
+
 
 class TestRunWithTimeout:
     """Test run_with_timeout function"""
@@ -124,6 +125,7 @@ class TestRunWithTimeout:
 # ============================================================================
 # Batch Process Tests
 # ============================================================================
+
 
 class TestBatchProcess:
     """Test batch_process function"""
@@ -172,6 +174,7 @@ class TestBatchProcess:
 # Sync To Async Tests
 # ============================================================================
 
+
 class TestSyncToAsync:
     """Test sync_to_async decorator"""
 
@@ -216,6 +219,7 @@ class TestSyncToAsync:
 # Async To Sync Tests
 # ============================================================================
 
+
 class TestAsyncToSync:
     """Test async_to_sync decorator"""
 
@@ -250,6 +254,7 @@ class TestAsyncToSync:
 # ============================================================================
 # Retry Async Tests
 # ============================================================================
+
 
 class TestRetryAsync:
     """Test retry_async function"""
@@ -324,6 +329,7 @@ class TestRetryAsync:
 # ============================================================================
 # Wait For Condition Tests
 # ============================================================================
+
 
 class TestWaitForCondition:
     """Test wait_for_condition function"""

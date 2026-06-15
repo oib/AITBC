@@ -101,8 +101,8 @@ class TestAPIError:
 class TestHandleCLIError:
     """Test handle_cli_error decorator"""
 
-    @patch('aitbc_cli.utils.error_handling.error')
-    @patch('aitbc_cli.utils.error_handling.sys.exit')
+    @patch("aitbc_cli.utils.error_handling.error")
+    @patch("aitbc_cli.utils.error_handling.sys.exit")
     def test_handle_cli_error_success(self, mock_exit, mock_error):
         """Test successful function execution"""
         from aitbc_cli.utils.error_handling import handle_cli_error
@@ -116,8 +116,8 @@ class TestHandleCLIError:
         assert result == "success"
         mock_exit.assert_not_called()
 
-    @patch('aitbc_cli.utils.error_handling.error')
-    @patch('aitbc_cli.utils.error_handling.sys.exit')
+    @patch("aitbc_cli.utils.error_handling.error")
+    @patch("aitbc_cli.utils.error_handling.sys.exit")
     def test_handle_cli_error_cli_error(self, mock_exit, mock_error):
         """Test handling CLIError"""
         from aitbc_cli.utils.error_handling import CLIError, handle_cli_error
@@ -131,8 +131,8 @@ class TestHandleCLIError:
         mock_error.assert_called_once()
         mock_exit.assert_called_once_with(5)
 
-    @patch('aitbc_cli.utils.error_handling.warning')
-    @patch('aitbc_cli.utils.error_handling.sys.exit')
+    @patch("aitbc_cli.utils.error_handling.warning")
+    @patch("aitbc_cli.utils.error_handling.sys.exit")
     def test_handle_cli_error_keyboard_interrupt(self, mock_exit, mock_warning):
         """Test handling KeyboardInterrupt"""
         from aitbc_cli.utils.error_handling import handle_cli_error
@@ -146,8 +146,8 @@ class TestHandleCLIError:
         mock_warning.assert_called_once()
         mock_exit.assert_called_once_with(130)
 
-    @patch('aitbc_cli.utils.error_handling.error')
-    @patch('aitbc_cli.utils.error_handling.sys.exit')
+    @patch("aitbc_cli.utils.error_handling.error")
+    @patch("aitbc_cli.utils.error_handling.sys.exit")
     def test_handle_cli_error_generic_exception(self, mock_exit, mock_error):
         """Test handling generic exception"""
         from aitbc_cli.utils.error_handling import handle_cli_error
@@ -165,7 +165,7 @@ class TestHandleCLIError:
 class TestSafeExecute:
     """Test safe_execute function"""
 
-    @patch('aitbc_cli.utils.error_handling.error')
+    @patch("aitbc_cli.utils.error_handling.error")
     def test_safe_execute_success(self, mock_error):
         """Test successful operation execution"""
         from aitbc_cli.utils.error_handling import safe_execute
@@ -178,7 +178,7 @@ class TestSafeExecute:
         assert result == "success"
         mock_error.assert_not_called()
 
-    @patch('aitbc_cli.utils.error_handling.error')
+    @patch("aitbc_cli.utils.error_handling.error")
     def test_safe_execute_error_with_default(self, mock_error):
         """Test operation error with default return"""
         from aitbc_cli.utils.error_handling import safe_execute
@@ -191,7 +191,7 @@ class TestSafeExecute:
         assert result == "default"
         mock_error.assert_called_once()
 
-    @patch('aitbc_cli.utils.error_handling.error')
+    @patch("aitbc_cli.utils.error_handling.error")
     def test_safe_execute_error_with_custom_message(self, mock_error):
         """Test operation error with custom message"""
         from aitbc_cli.utils.error_handling import safe_execute

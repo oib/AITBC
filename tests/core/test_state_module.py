@@ -19,35 +19,27 @@ def load_module_from_path(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-state = load_module_from_path(
-    "aitbc.state",
-    Path("/opt/aitbc/aitbc/state.py")
-)
+
+state = load_module_from_path("aitbc.state", Path("/opt/aitbc/aitbc/state.py"))
 
 
 # ============================================================================
 # State Transition Tests
 # ============================================================================
 
+
 class TestStateTransition:
     """Test StateTransition dataclass"""
 
     def test_state_transition_creation(self):
-        transition = state.StateTransition(
-            from_state="idle",
-            to_state="running"
-        )
+        transition = state.StateTransition(from_state="idle", to_state="running")
         assert transition.from_state == "idle"
         assert transition.to_state == "running"
         assert transition.timestamp is not None
         assert transition.data == {}
 
     def test_state_transition_with_data(self):
-        transition = state.StateTransition(
-            from_state="idle",
-            to_state="running",
-            data={"reason": "start"}
-        )
+        transition = state.StateTransition(from_state="idle", to_state="running", data={"reason": "start"})
         assert transition.data == {"reason": "start"}
 
 
@@ -55,76 +47,50 @@ class TestStateTransition:
 # State Machine Tests
 # ============================================================================
 
+
 class TestConfigurableStateMachine:
     """Test ConfigurableStateMachine (concrete implementation of StateMachine)"""
 
     def test_configurable_initialization(self):
-        transitions = {
-            "idle": ["running", "stopped"],
-            "running": ["stopped"],
-            "stopped": []
-        }
+        transitions = {"idle": ["running", "stopped"], "running": ["stopped"], "stopped": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         assert machine.current_state == "idle"
         assert len(machine.transitions) == 0
 
     def test_get_valid_transitions(self):
-        transitions = {
-            "idle": ["running", "stopped"],
-            "running": ["stopped"],
-            "stopped": []
-        }
+        transitions = {"idle": ["running", "stopped"], "running": ["stopped"], "stopped": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         valid = machine.get_valid_transitions("idle")
         assert "running" in valid
         assert "stopped" in valid
 
     def test_can_transition(self):
-        transitions = {
-            "idle": ["running"],
-            "running": ["stopped"],
-            "stopped": []
-        }
+        transitions = {"idle": ["running"], "running": ["stopped"], "stopped": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         assert machine.can_transition("running") is True
         assert machine.can_transition("stopped") is False
 
     def test_transition_valid(self):
-        transitions = {
-            "idle": ["running"],
-            "running": ["stopped"],
-            "stopped": []
-        }
+        transitions = {"idle": ["running"], "running": ["stopped"], "stopped": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         machine.transition("running")
         assert machine.current_state == "running"
         assert len(machine.transitions) == 1
 
     def test_transition_invalid(self):
-        transitions = {
-            "idle": ["running"],
-            "running": ["stopped"],
-            "stopped": []
-        }
+        transitions = {"idle": ["running"], "running": ["stopped"], "stopped": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         with pytest.raises(state.StateTransitionError):
             machine.transition("stopped")
 
     def test_transition_with_data(self):
-        transitions = {
-            "idle": ["running"],
-            "running": ["stopped"],
-            "stopped": []
-        }
+        transitions = {"idle": ["running"], "running": ["stopped"], "stopped": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         machine.transition("running", data={"reason": "manual"})
         assert machine.transitions[0].data == {"reason": "manual"}
 
     def test_add_transition(self):
-        transitions = {
-            "idle": [],
-            "running": []
-        }
+        transitions = {"idle": [], "running": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         machine.add_transition("idle", "running")
         assert "running" in machine.transitions_config["idle"]
@@ -143,11 +109,7 @@ class TestConfigurableStateMachine:
         assert data == {"value": "test"}
 
     def test_get_transition_history(self):
-        transitions = {
-            "idle": ["running"],
-            "running": ["stopped"],
-            "stopped": []
-        }
+        transitions = {"idle": ["running"], "running": ["stopped"], "stopped": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         machine.transition("running")
         history = machine.get_transition_history()
@@ -156,11 +118,7 @@ class TestConfigurableStateMachine:
         assert history[0].to_state == "running"
 
     def test_get_transition_history_with_limit(self):
-        transitions = {
-            "idle": ["running"],
-            "running": ["stopped"],
-            "stopped": []
-        }
+        transitions = {"idle": ["running"], "running": ["stopped"], "stopped": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         machine.transition("running")
         machine.transition("stopped")
@@ -169,11 +127,7 @@ class TestConfigurableStateMachine:
         assert history[0].to_state == "stopped"
 
     def test_reset(self):
-        transitions = {
-            "idle": ["running"],
-            "running": ["stopped"],
-            "stopped": []
-        }
+        transitions = {"idle": ["running"], "running": ["stopped"], "stopped": []}
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         machine.transition("running")
         machine.reset("idle")
@@ -184,6 +138,7 @@ class TestConfigurableStateMachine:
 # ============================================================================
 # State Persistence Tests
 # ============================================================================
+
 
 class TestStatePersistence:
     """Test StatePersistence"""
@@ -199,11 +154,7 @@ class TestStatePersistence:
             storage_path = Path(tmpdir) / "state.json"
             persistence = state.StatePersistence(str(storage_path))
 
-            transitions = {
-                "idle": ["running"],
-                "running": ["stopped"],
-                "stopped": []
-            }
+            transitions = {"idle": ["running"], "running": ["stopped"], "stopped": []}
             machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
             machine.transition("running")
 
@@ -215,11 +166,7 @@ class TestStatePersistence:
             storage_path = Path(tmpdir) / "state.json"
             persistence = state.StatePersistence(str(storage_path))
 
-            transitions = {
-                "idle": ["running"],
-                "running": ["stopped"],
-                "stopped": []
-            }
+            transitions = {"idle": ["running"], "running": ["stopped"], "stopped": []}
             machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
             machine.transition("running")
             machine.set_state_data({"value": "test"})
@@ -261,6 +208,7 @@ class TestStatePersistence:
 # Async State Machine Tests
 # ============================================================================
 
+
 class TestAsyncStateMachine:
     """Test AsyncStateMachine"""
 
@@ -268,11 +216,7 @@ class TestAsyncStateMachine:
         # Create a concrete implementation by implementing get_valid_transitions
         class ConcreteAsyncMachine(state.AsyncStateMachine):
             def get_valid_transitions(self, state: str) -> list[str]:
-                return {
-                    "idle": ["running"],
-                    "running": ["stopped"],
-                    "stopped": []
-                }.get(state, [])
+                return {"idle": ["running"], "running": ["stopped"], "stopped": []}.get(state, [])
 
         machine = ConcreteAsyncMachine(initial_state="idle")
         assert machine.current_state == "idle"
@@ -356,6 +300,7 @@ class TestAsyncStateMachine:
 # State Monitor Tests
 # ============================================================================
 
+
 class TestStateMonitor:
     """Test StateMonitor"""
 
@@ -401,6 +346,7 @@ class TestStateMonitor:
         monitor = state.StateMonitor(machine)
 
         call_count = 0
+
         def observer(transition):
             nonlocal call_count
             call_count += 1
@@ -424,15 +370,12 @@ class TestStateMonitor:
 # State Validator Tests
 # ============================================================================
 
+
 class TestStateValidator:
     """Test StateValidator"""
 
     def test_validate_transitions_valid(self):
-        transitions = {
-            "idle": ["running"],
-            "running": ["stopped"],
-            "stopped": []
-        }
+        transitions = {"idle": ["running"], "running": ["stopped"], "stopped": []}
         result = state.StateValidator.validate_transitions(transitions)
         assert result is True
 
@@ -440,7 +383,7 @@ class TestStateValidator:
         transitions = {
             "idle": ["running"],
             "running": ["stopped"],
-            "stopped": ["nonexistent"]  # nonexistent not a source state
+            "stopped": ["nonexistent"],  # nonexistent not a source state
         }
         result = state.StateValidator.validate_transitions(transitions)
         assert result is False
@@ -449,33 +392,23 @@ class TestStateValidator:
         transitions = {
             "idle": ["running"],
             "running": ["stopped"],
-            "stopped": []  # Deadlock - no outgoing transitions
+            "stopped": [],  # Deadlock - no outgoing transitions
         }
         deadlocks = state.StateValidator.check_for_deadlocks(transitions)
         assert "stopped" in deadlocks
 
     def test_check_for_deadlocks_none(self):
-        transitions = {
-            "idle": ["running"],
-            "running": ["idle"]
-        }
+        transitions = {"idle": ["running"], "running": ["idle"]}
         deadlocks = state.StateValidator.check_for_deadlocks(transitions)
         assert len(deadlocks) == 0
 
     def test_check_for_orphans(self):
-        transitions = {
-            "idle": ["running"],
-            "running": ["stopped"],
-            "stopped": []
-        }
+        transitions = {"idle": ["running"], "running": ["stopped"], "stopped": []}
         orphans = state.StateValidator.check_for_orphans(transitions)
         assert "idle" in orphans  # No incoming transitions to idle
 
     def test_check_for_orphans_none(self):
-        transitions = {
-            "idle": ["running"],
-            "running": ["idle"]
-        }
+        transitions = {"idle": ["running"], "running": ["idle"]}
         orphans = state.StateValidator.check_for_orphans(transitions)
         assert len(orphans) == 0
 
@@ -483,6 +416,7 @@ class TestStateValidator:
 # ============================================================================
 # State Snapshot Tests
 # ============================================================================
+
 
 class TestStateSnapshot:
     """Test StateSnapshot"""
@@ -539,14 +473,9 @@ class TestStateSnapshot:
             "current_state": "running",
             "state_data": {"running": {"value": "test"}},
             "transitions": [
-                {
-                    "from_state": "idle",
-                    "to_state": "running",
-                    "timestamp": datetime.now().isoformat(),
-                    "data": {}
-                }
+                {"from_state": "idle", "to_state": "running", "timestamp": datetime.now().isoformat(), "data": {}}
             ],
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
         snapshot = state.StateSnapshot.from_dict(data)
         assert snapshot.current_state == "running"

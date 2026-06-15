@@ -30,26 +30,24 @@ class TestLoadIslandCredentials:
                 "island_id": "island123",
                 "island_name": "Test Island",
                 "island_chain_id": "ait-devnet",
-                "credentials": {
-                    "rpc_endpoint": "http://localhost:8202"
-                }
+                "credentials": {"rpc_endpoint": "http://localhost:8202"},
             }
 
-            with open(credentials_path, 'w') as f:
+            with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
 
-            with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
+            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = load_island_credentials()
 
-                assert result['island_id'] == "island123"
-                assert result['island_name'] == "Test Island"
-                assert result['island_chain_id'] == "ait-devnet"
+                assert result["island_id"] == "island123"
+                assert result["island_name"] == "Test Island"
+                assert result["island_chain_id"] == "ait-devnet"
 
     def test_load_island_credentials_file_not_found(self):
         """Test loading credentials when file doesn't exist"""
         from aitbc_cli.utils.island_credentials import load_island_credentials
 
-        with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', '/nonexistent/path.json'):
+        with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", "/nonexistent/path.json"):
             with pytest.raises(FileNotFoundError):
                 load_island_credentials()
 
@@ -65,10 +63,10 @@ class TestLoadIslandCredentials:
                 # Missing island_chain_id and credentials
             }
 
-            with open(credentials_path, 'w') as f:
+            with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
 
-            with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
+            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 with pytest.raises(ValueError, match="missing required field"):
                     load_island_credentials()
 
@@ -86,15 +84,13 @@ class TestGetRpcEndpoint:
                 "island_id": "island123",
                 "island_name": "Test Island",
                 "island_chain_id": "ait-devnet",
-                "credentials": {
-                    "rpc_endpoint": "http://localhost:8202"
-                }
+                "credentials": {"rpc_endpoint": "http://localhost:8202"},
             }
 
-            with open(credentials_path, 'w') as f:
+            with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
 
-            with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
+            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_rpc_endpoint()
 
                 assert result == "http://localhost:8202"
@@ -109,13 +105,13 @@ class TestGetRpcEndpoint:
                 "island_id": "island123",
                 "island_name": "Test Island",
                 "island_chain_id": "ait-devnet",
-                "credentials": {}
+                "credentials": {},
             }
 
-            with open(credentials_path, 'w') as f:
+            with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
 
-            with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
+            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 with pytest.raises(ValueError, match="RPC endpoint not found"):
                     get_rpc_endpoint()
 
@@ -133,13 +129,13 @@ class TestGetChainId:
                 "island_id": "island123",
                 "island_name": "Test Island",
                 "island_chain_id": "ait-devnet",
-                "credentials": {}
+                "credentials": {},
             }
 
-            with open(credentials_path, 'w') as f:
+            with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
 
-            with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
+            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_chain_id()
 
                 assert result == "ait-devnet"
@@ -158,13 +154,13 @@ class TestGetIslandId:
                 "island_id": "island123",
                 "island_name": "Test Island",
                 "island_chain_id": "ait-devnet",
-                "credentials": {}
+                "credentials": {},
             }
 
-            with open(credentials_path, 'w') as f:
+            with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
 
-            with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
+            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_island_id()
 
                 assert result == "island123"
@@ -183,13 +179,13 @@ class TestGetIslandName:
                 "island_id": "island123",
                 "island_name": "Test Island",
                 "island_chain_id": "ait-devnet",
-                "credentials": {}
+                "credentials": {},
             }
 
-            with open(credentials_path, 'w') as f:
+            with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
 
-            with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
+            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_island_name()
 
                 assert result == "Test Island"
@@ -208,15 +204,13 @@ class TestGetGenesisBlockHash:
                 "island_id": "island123",
                 "island_name": "Test Island",
                 "island_chain_id": "ait-devnet",
-                "credentials": {
-                    "genesis_block_hash": "0xabc123"
-                }
+                "credentials": {"genesis_block_hash": "0xabc123"},
             }
 
-            with open(credentials_path, 'w') as f:
+            with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
 
-            with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
+            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_genesis_block_hash()
 
                 assert result == "0xabc123"
@@ -231,13 +225,13 @@ class TestGetGenesisBlockHash:
                 "island_id": "island123",
                 "island_name": "Test Island",
                 "island_chain_id": "ait-devnet",
-                "credentials": {}
+                "credentials": {},
             }
 
-            with open(credentials_path, 'w') as f:
+            with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
 
-            with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
+            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_genesis_block_hash()
 
                 assert result is None
@@ -256,13 +250,13 @@ class TestValidateCredentials:
                 "island_id": "island123",
                 "island_name": "Test Island",
                 "island_chain_id": "ait-devnet",
-                "credentials": {}
+                "credentials": {},
             }
 
-            with open(credentials_path, 'w') as f:
+            with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
 
-            with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
+            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = validate_credentials()
 
                 assert result is True
@@ -271,7 +265,7 @@ class TestValidateCredentials:
         """Test validating invalid credentials"""
         from aitbc_cli.utils.island_credentials import validate_credentials
 
-        with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', '/nonexistent/path.json'):
+        with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", "/nonexistent/path.json"):
             result = validate_credentials()
 
             assert result is False
@@ -290,15 +284,13 @@ class TestGetP2PPort:
                 "island_id": "island123",
                 "island_name": "Test Island",
                 "island_chain_id": "ait-devnet",
-                "credentials": {
-                    "p2p_port": 8100
-                }
+                "credentials": {"p2p_port": 8100},
             }
 
-            with open(credentials_path, 'w') as f:
+            with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
 
-            with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
+            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_p2p_port()
 
                 assert result == 8100
@@ -313,13 +305,13 @@ class TestGetP2PPort:
                 "island_id": "island123",
                 "island_name": "Test Island",
                 "island_chain_id": "ait-devnet",
-                "credentials": {}
+                "credentials": {},
             }
 
-            with open(credentials_path, 'w') as f:
+            with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
 
-            with patch('aitbc_cli.utils.island_credentials.CREDENTIALS_PATH', str(credentials_path)):
+            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_p2p_port()
 
                 assert result is None

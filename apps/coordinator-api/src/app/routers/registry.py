@@ -47,7 +47,9 @@ async def get_registry(request: Request) -> ServiceRegistry:
 
 @router.get("/services", response_model=list[ServiceDefinition])
 @rate_limit(rate=500, per=60)
-async def list_services(request: Request, category: ServiceCategory | None = None, search: str | None = None) -> list[ServiceDefinition]:
+async def list_services(
+    request: Request, category: ServiceCategory | None = None, search: str | None = None
+) -> list[ServiceDefinition]:
     """List all available services with optional filtering"""
     services = list(service_registry.services.values())
 

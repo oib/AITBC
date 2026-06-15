@@ -29,13 +29,7 @@ class TestInferenceRouter:
 
     def test_generate_text(self, client: TestClient):
         """Test text generation"""
-        generate_data = {
-            "model": "llama2",
-            "prompt": "What is 2+2?",
-            "temperature": 0.7,
-            "max_tokens": 100,
-            "stream": False
-        }
+        generate_data = {"model": "llama2", "prompt": "What is 2+2?", "temperature": 0.7, "max_tokens": 100, "stream": False}
 
         response = client.post("/inference/generate", json=generate_data)
         # May fail if Ollama not running
@@ -49,12 +43,7 @@ class TestInferenceRouter:
 
     def test_generate_with_system_message(self, client: TestClient):
         """Test generation with system message"""
-        generate_data = {
-            "model": "llama2",
-            "prompt": "Hello",
-            "system": "You are a helpful AI assistant.",
-            "temperature": 0.5
-        }
+        generate_data = {"model": "llama2", "prompt": "Hello", "system": "You are a helpful AI assistant.", "temperature": 0.5}
 
         response = client.post("/inference/generate", json=generate_data)
         if response.status_code == 503:
@@ -63,10 +52,7 @@ class TestInferenceRouter:
 
     def test_generate_invalid_model(self, client: TestClient):
         """Test generation with invalid model"""
-        generate_data = {
-            "model": "nonexistent-model-xyz",
-            "prompt": "Test"
-        }
+        generate_data = {"model": "nonexistent-model-xyz", "prompt": "Test"}
 
         response = client.post("/inference/generate", json=generate_data)
         # Should fail gracefully
@@ -76,13 +62,9 @@ class TestInferenceRouter:
         """Test batch inference"""
         batch_data = {
             "model": "llama2",
-            "prompts": [
-                "What is AI?",
-                "Explain machine learning",
-                "What is blockchain?"
-            ],
+            "prompts": ["What is AI?", "Explain machine learning", "What is blockchain?"],
             "temperature": 0.7,
-            "max_tokens": 50
+            "max_tokens": 50,
         }
 
         response = client.post("/inference/batch", json=batch_data)
@@ -98,10 +80,7 @@ class TestInferenceRouter:
 
     def test_batch_generate_empty_prompts(self, client: TestClient):
         """Test batch with empty prompts fails"""
-        batch_data = {
-            "model": "llama2",
-            "prompts": []
-        }
+        batch_data = {"model": "llama2", "prompts": []}
 
         response = client.post("/inference/batch", json=batch_data)
         assert response.status_code == 422  # Validation error
@@ -110,7 +89,7 @@ class TestInferenceRouter:
         """Test batch with too many prompts fails"""
         batch_data = {
             "model": "llama2",
-            "prompts": ["test"] * 20  # Too many
+            "prompts": ["test"] * 20,  # Too many
         }
 
         response = client.post("/inference/batch", json=batch_data)
@@ -135,12 +114,15 @@ class TestInferenceIntegration:
         assert models_response.status_code == 200
 
         # 2. Generate text
-        generate_response = client.post("/inference/generate", json={
-            "model": "llama2",
-            "prompt": "Explain quantum computing in one sentence.",
-            "temperature": 0.5,
-            "max_tokens": 100
-        })
+        generate_response = client.post(
+            "/inference/generate",
+            json={
+                "model": "llama2",
+                "prompt": "Explain quantum computing in one sentence.",
+                "temperature": 0.5,
+                "max_tokens": 100,
+            },
+        )
         assert generate_response.status_code == 200
         data = generate_response.json()
         assert len(data["response"]) > 0

@@ -15,6 +15,7 @@ import pytest
 # Lightweight stubs for the ORM models so we don't need a real DB
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FakeTenant:
     id: str
@@ -72,6 +73,7 @@ class FakeUsageRecord:
 # In-memory billing store used by the implementations under test
 # ---------------------------------------------------------------------------
 
+
 class InMemoryBillingStore:
     """Replaces the DB session for testing."""
 
@@ -91,10 +93,12 @@ class InMemoryBillingStore:
     def get_active_quota(self, tenant_id: str, resource_type: str):
         now = datetime.now(UTC)
         for q in self.quotas:
-            if (q.tenant_id == tenant_id
-                    and q.resource_type == resource_type
-                    and q.is_active
-                    and q.period_start <= now <= q.period_end):
+            if (
+                q.tenant_id == tenant_id
+                and q.resource_type == resource_type
+                and q.is_active
+                and q.period_start <= now <= q.period_end
+            ):
                 return q
         return None
 
@@ -102,6 +106,7 @@ class InMemoryBillingStore:
 # ---------------------------------------------------------------------------
 # Implementations (the actual code we're testing / implementing)
 # ---------------------------------------------------------------------------
+
 
 async def apply_credit(store: InMemoryBillingStore, tenant_id: str, amount: Decimal, reason: str = "") -> bool:
     """Apply credit to tenant account."""
@@ -111,12 +116,14 @@ async def apply_credit(store: InMemoryBillingStore, tenant_id: str, amount: Deci
     if amount <= 0:
         raise ValueError("Credit amount must be positive")
     tenant.balance += amount
-    store.credits.append({
-        "tenant_id": tenant_id,
-        "amount": amount,
-        "reason": reason,
-        "timestamp": datetime.now(UTC),
-    })
+    store.credits.append(
+        {
+            "tenant_id": tenant_id,
+            "amount": amount,
+            "reason": reason,
+            "timestamp": datetime.now(UTC),
+        }
+    )
     return True
 
 
@@ -130,12 +137,14 @@ async def apply_charge(store: InMemoryBillingStore, tenant_id: str, amount: Deci
     if tenant.balance < amount:
         raise ValueError(f"Insufficient balance: {tenant.balance} < {amount}")
     tenant.balance -= amount
-    store.charges.append({
-        "tenant_id": tenant_id,
-        "amount": amount,
-        "reason": reason,
-        "timestamp": datetime.now(UTC),
-    })
+    store.charges.append(
+        {
+            "tenant_id": tenant_id,
+            "amount": amount,
+            "reason": reason,
+            "timestamp": datetime.now(UTC),
+        }
+    )
     return True
 
 
@@ -192,8 +201,8 @@ async def generate_monthly_invoices(store: InMemoryBillingStore) -> list[str]:
         tenant_usage = [r for r in store.usage_records if r.tenant_id == tid]
         if not tenant_usage:
             continue
-        total = sum(r.total_cost for r in tenant_usage)
-        inv_id = f"INV-{tenant.slug}-{datetime.now(UTC).strftime('%Y%m')}-{len(generated)+1:04d}"
+        sum(r.total_cost for r in tenant_usage)
+        inv_id = f"INV-{tenant.slug}-{datetime.now(UTC).strftime('%Y%m')}-{len(generated) + 1:04d}"
         store.invoices_generated.append(inv_id)
         generated.append(inv_id)
     return generated
@@ -205,6 +214,7 @@ async def extract_from_token(token: str, secret: str = "test-secret") -> dict | 
     import hashlib
     import hmac
     import json
+
     parts = token.split(".")
     if len(parts) != 3:
         return None
@@ -212,9 +222,7 @@ async def extract_from_token(token: str, secret: str = "test-secret") -> dict | 
         # Verify signature (HS256-like)
         payload_b64 = parts[1]
         sig = parts[2]
-        expected_sig = hmac.new(
-            secret.encode(), f"{parts[0]}.{payload_b64}".encode(), hashlib.sha256
-        ).hexdigest()[:16]
+        expected_sig = hmac.new(secret.encode(), f"{parts[0]}.{payload_b64}".encode(), hashlib.sha256).hexdigest()[:16]
         if not hmac.compare_digest(sig, expected_sig):
             return None
         # Decode payload
@@ -233,6 +241,7 @@ def _make_token(claims: dict, secret: str = "test-secret") -> str:
     import hashlib
     import hmac
     import json
+
     header = base64.urlsafe_b64encode(b'{"alg":"HS256"}').decode().rstrip("=")
     payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
     sig = hmac.new(secret.encode(), f"{header}.{payload}".encode(), hashlib.sha256).hexdigest()[:16]
@@ -243,28 +252,40 @@ def _make_token(claims: dict, secret: str = "test-secret") -> str:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def store():
     s = InMemoryBillingStore()
     s.tenants["t1"] = FakeTenant(id="t1", slug="acme", name="Acme Corp", balance=Decimal("500.00"))
     s.tenants["t2"] = FakeTenant(id="t2", slug="beta", name="Beta Inc", balance=Decimal("50.00"), status="inactive")
-    s.quotas.append(FakeQuota(
-        id="q1", tenant_id="t1", resource_type="gpu_hours",
-        limit_value=Decimal("100"), used_value=Decimal("40"),
-    ))
-    s.quotas.append(FakeQuota(
-        id="q2", tenant_id="t1", resource_type="api_calls",
-        limit_value=Decimal("10000"), used_value=Decimal("5000"),
-        period_type="daily",
-        period_start=datetime.now(UTC) - timedelta(days=2),
-        period_end=datetime.now(UTC) - timedelta(hours=1),  # expired
-    ))
+    s.quotas.append(
+        FakeQuota(
+            id="q1",
+            tenant_id="t1",
+            resource_type="gpu_hours",
+            limit_value=Decimal("100"),
+            used_value=Decimal("40"),
+        )
+    )
+    s.quotas.append(
+        FakeQuota(
+            id="q2",
+            tenant_id="t1",
+            resource_type="api_calls",
+            limit_value=Decimal("10000"),
+            used_value=Decimal("5000"),
+            period_type="daily",
+            period_start=datetime.now(UTC) - timedelta(days=2),
+            period_end=datetime.now(UTC) - timedelta(hours=1),  # expired
+        )
+    )
     return s
 
 
 # ---------------------------------------------------------------------------
 # Tests: apply_credit
 # ---------------------------------------------------------------------------
+
 
 class TestApplyCredit:
     @pytest.mark.asyncio
@@ -290,6 +311,7 @@ class TestApplyCredit:
 # ---------------------------------------------------------------------------
 # Tests: apply_charge
 # ---------------------------------------------------------------------------
+
 
 class TestApplyCharge:
     @pytest.mark.asyncio
@@ -318,6 +340,7 @@ class TestApplyCharge:
 # Tests: adjust_quota
 # ---------------------------------------------------------------------------
 
+
 class TestAdjustQuota:
     @pytest.mark.asyncio
     async def test_adjust_quota_updates_limit(self, store):
@@ -340,6 +363,7 @@ class TestAdjustQuota:
 # Tests: reset_daily_quotas
 # ---------------------------------------------------------------------------
 
+
 class TestResetDailyQuotas:
     @pytest.mark.asyncio
     async def test_resets_expired_daily_quotas(self, store):
@@ -352,7 +376,7 @@ class TestResetDailyQuotas:
     @pytest.mark.asyncio
     async def test_does_not_reset_active_quotas(self, store):
         # q1 is still active (not expired)
-        count = await reset_daily_quotas(store)
+        await reset_daily_quotas(store)
         q1 = store.quotas[0]
         assert q1.used_value == Decimal("40")  # unchanged
 
@@ -360,6 +384,7 @@ class TestResetDailyQuotas:
 # ---------------------------------------------------------------------------
 # Tests: process_pending_events
 # ---------------------------------------------------------------------------
+
 
 class TestProcessPendingEvents:
     @pytest.mark.asyncio
@@ -382,25 +407,38 @@ class TestProcessPendingEvents:
 # Tests: generate_monthly_invoices
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateMonthlyInvoices:
     @pytest.mark.asyncio
     async def test_generates_for_active_tenants_with_usage(self, store):
-        store.usage_records.append(FakeUsageRecord(
-            id="u1", tenant_id="t1", resource_type="gpu_hours",
-            quantity=Decimal("10"), unit="hours",
-            unit_price=Decimal("0.50"), total_cost=Decimal("5.00"),
-        ))
+        store.usage_records.append(
+            FakeUsageRecord(
+                id="u1",
+                tenant_id="t1",
+                resource_type="gpu_hours",
+                quantity=Decimal("10"),
+                unit="hours",
+                unit_price=Decimal("0.50"),
+                total_cost=Decimal("5.00"),
+            )
+        )
         invoices = await generate_monthly_invoices(store)
         assert len(invoices) == 1
         assert invoices[0].startswith("INV-acme-")
 
     @pytest.mark.asyncio
     async def test_skips_inactive_tenants(self, store):
-        store.usage_records.append(FakeUsageRecord(
-            id="u2", tenant_id="t2", resource_type="gpu_hours",
-            quantity=Decimal("5"), unit="hours",
-            unit_price=Decimal("0.50"), total_cost=Decimal("2.50"),
-        ))
+        store.usage_records.append(
+            FakeUsageRecord(
+                id="u2",
+                tenant_id="t2",
+                resource_type="gpu_hours",
+                quantity=Decimal("5"),
+                unit="hours",
+                unit_price=Decimal("0.50"),
+                total_cost=Decimal("2.50"),
+            )
+        )
         invoices = await generate_monthly_invoices(store)
         assert len(invoices) == 0  # t2 is inactive
 
@@ -413,6 +451,7 @@ class TestGenerateMonthlyInvoices:
 # ---------------------------------------------------------------------------
 # Tests: extract_from_token
 # ---------------------------------------------------------------------------
+
 
 class TestExtractFromToken:
     @pytest.mark.asyncio

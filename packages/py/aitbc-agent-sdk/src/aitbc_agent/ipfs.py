@@ -20,7 +20,7 @@ class IPFSOperations:
         """Store data on IPFS"""
         try:
             # Write data to temp file
-            with tempfile.NamedTemporaryFile(delete=False, mode='wb') as f:
+            with tempfile.NamedTemporaryFile(delete=False, mode="wb") as f:
                 f.write(data)
                 temp_path = f.name
 
@@ -40,7 +40,7 @@ class IPFSOperations:
             if result["success"]:
                 return result["data"].get("cid")
             else:
-                logger.error("IPFS store failed: %s", result.get('error'))
+                logger.error("IPFS store failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("store_ipfs failed: %s", e)
@@ -58,12 +58,12 @@ class IPFSOperations:
             if result["success"]:
                 # If output path specified, read from file
                 if output_path:
-                    with open(output_path, 'rb') as f:
+                    with open(output_path, "rb") as f:
                         return f.read()
                 # Otherwise, return the file path from result
                 return result["data"].get("file_path", "")
             else:
-                logger.error("IPFS retrieve failed: %s", result.get('error'))
+                logger.error("IPFS retrieve failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("retrieve_ipfs failed: %s", e)
@@ -76,7 +76,7 @@ class IPFSOperations:
             if result["success"]:
                 return result["data"].get("pinned", False)
             else:
-                logger.error("IPFS pin failed: %s", result.get('error'))
+                logger.error("IPFS pin failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("pin_ipfs failed: %s", e)
@@ -89,7 +89,7 @@ class IPFSOperations:
             if result["success"]:
                 return result["data"].get("items", [])
             else:
-                logger.error("IPFS list failed: %s", result.get('error'))
+                logger.error("IPFS list failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("list_ipfs failed: %s", e)
@@ -98,7 +98,7 @@ class IPFSOperations:
     async def store_ipfs_async(self, data: bytes, pin: bool = True, name: str | None = None) -> str:
         """Async version of store_ipfs"""
         # Write data to temp file
-        with tempfile.NamedTemporaryFile(delete=False, mode='wb') as f:
+        with tempfile.NamedTemporaryFile(delete=False, mode="wb") as f:
             f.write(data)
             temp_path = f.name
 
@@ -116,7 +116,7 @@ class IPFSOperations:
             if result["success"]:
                 return result["data"].get("cid")
             else:
-                logger.error("IPFS store async failed: %s", result.get('error'))
+                logger.error("IPFS store async failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             if os.path.exists(temp_path):
@@ -133,9 +133,9 @@ class IPFSOperations:
         result = await self.executor.execute_command_async("ipfs", args)
         if result["success"]:
             if output_path:
-                with open(output_path, 'rb') as f:
+                with open(output_path, "rb") as f:
                     return f.read()
             return result["data"].get("file_path", "")
         else:
-            logger.error("IPFS retrieve async failed: %s", result.get('error'))
+            logger.error("IPFS retrieve async failed: %s", result.get("error"))
             raise Exception(result.get("error"))

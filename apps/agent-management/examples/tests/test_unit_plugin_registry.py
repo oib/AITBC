@@ -29,7 +29,7 @@ def test_plugin_registration_model():
         license="MIT",
         dependencies=["dependency1"],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     assert plugin.name == "Test Plugin"
     assert plugin.version == "1.0.0"
@@ -53,7 +53,7 @@ def test_plugin_registration_defaults():
         repository_url="https://github.com/test/plugin",
         license="MIT",
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     assert plugin.homepage_url is None
     assert plugin.dependencies == []
@@ -68,7 +68,7 @@ def test_plugin_version_model():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0", "1.1.0"],
-        release_date=datetime.now(UTC)
+        release_date=datetime.now(UTC),
     )
     assert version.version == "1.0.0"
     assert version.changelog == "Initial release"
@@ -87,7 +87,7 @@ def test_security_scan_model():
         scan_date=datetime.now(UTC),
         vulnerabilities=[{"severity": "low", "description": "Test"}],
         risk_score="low",
-        passed=True
+        passed=True,
     )
     assert scan.scan_id == "scan_123"
     assert scan.plugin_id == "test_plugin"

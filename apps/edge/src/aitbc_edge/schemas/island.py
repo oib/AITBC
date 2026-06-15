@@ -12,6 +12,7 @@ from sqlmodel import Field, SQLModel
 
 class IslandStatus(StrEnum):
     """Island membership status"""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     BRIDGING = "bridging"
@@ -29,8 +30,7 @@ class IslandMembership(SQLModel, table=True):
     island_name: str = Field(sa_column=Column(String))
     chain_id: str = Field(sa_column=Column(String, index=True))
     status: IslandStatus = Field(
-        default=IslandStatus.ACTIVE,
-        sa_column=Column(SQLEnum(IslandStatus, values_only=True), index=True)
+        default=IslandStatus.ACTIVE, sa_column=Column(SQLEnum(IslandStatus, values_only=True), index=True)
     )
     role: str = Field(default="compute-provider", sa_column=Column(String))  # compute-provider, consumer, hub
     joined_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

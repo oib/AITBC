@@ -155,7 +155,7 @@ class TestCacheMetrics:
         assert stats["total_requests"] == 3
         assert stats["total_hits"] == 2
         assert stats["total_misses"] == 1
-        assert stats["hit_rate"] == 2/3
+        assert stats["hit_rate"] == 2 / 3
 
     def test_multiple_operations(self):
         """Test tracking multiple different operations"""
@@ -213,10 +213,7 @@ class TestCacheInvalidator:
 
         invalidator = CacheInvalidator(mock_cache)
 
-        event_data = {
-            "chain_id": 1,
-            "block_number": 12345
-        }
+        event_data = {"chain_id": 1, "block_number": 12345}
 
         invalidated = invalidator._on_new_block(event_data)
 
@@ -236,7 +233,7 @@ class TestCacheInvalidator:
             "chain_id": 1,
             "from_address": "0x" + "a" * 40,
             "to_address": "0x" + "b" * 40,
-            "contract_address": "0x" + "c" * 40
+            "contract_address": "0x" + "c" * 40,
         }
 
         invalidated = invalidator._on_new_transaction(event_data)
@@ -252,11 +249,7 @@ class TestCacheInvalidator:
 
         invalidator = CacheInvalidator(mock_cache)
 
-        event_data = {
-            "chain_id": 1,
-            "contract_address": "0x" + "c" * 40,
-            "slot": "slot1"
-        }
+        event_data = {"chain_id": 1, "contract_address": "0x" + "c" * 40, "slot": "slot1"}
 
         invalidated = invalidator._on_contract_state_changed(event_data)
 
@@ -318,6 +311,7 @@ class TestLRUCacheEnhancements:
 
         # Wait for expiration
         import time
+
         time.sleep(1.1)
 
         # Should be expired now

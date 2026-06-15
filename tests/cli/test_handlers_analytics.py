@@ -21,6 +21,7 @@ class TestAnalyticsHandlers:
         """Test that handle_analytics_metrics function exists"""
         try:
             from handlers.analytics import handle_analytics_metrics
+
             assert handle_analytics_metrics is not None
         except ImportError as e:
             pytest.skip(f"Cannot import analytics handlers: {e}")
@@ -29,6 +30,7 @@ class TestAnalyticsHandlers:
         """Test that handle_analytics_report function exists"""
         try:
             from handlers.analytics import handle_analytics_report
+
             assert handle_analytics_report is not None
         except ImportError as e:
             pytest.skip(f"Cannot import analytics handlers: {e}")

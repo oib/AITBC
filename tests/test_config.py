@@ -23,11 +23,7 @@ class TestBaseAITBCConfig:
     def test_custom_values(self):
         """Test BaseAITBCConfig with custom values"""
         config = BaseAITBCConfig(
-            app_name="Custom App",
-            app_version="2.0.0",
-            environment="production",
-            debug=True,
-            log_level="DEBUG"
+            app_name="Custom App", app_version="2.0.0", environment="production", debug=True, log_level="DEBUG"
         )
         assert config.app_name == "Custom App"
         assert config.app_version == "2.0.0"
@@ -81,31 +77,20 @@ class TestAITBCConfig:
 
     def test_custom_server_settings(self):
         """Test AITBCConfig with custom server settings"""
-        config = AITBCConfig(
-            host="127.0.0.1",
-            port=9000,
-            workers=4
-        )
+        config = AITBCConfig(host="127.0.0.1", port=9000, workers=4)
         assert config.host == "127.0.0.1"
         assert config.port == 9000
         assert config.workers == 4
 
     def test_custom_database_settings(self):
         """Test AITBCConfig with custom database settings"""
-        config = AITBCConfig(
-            database_url="postgresql://localhost/test",
-            database_pool_size=20
-        )
+        config = AITBCConfig(database_url="postgresql://localhost/test", database_pool_size=20)
         assert config.database_url == "postgresql://localhost/test"
         assert config.database_pool_size == 20
 
     def test_custom_redis_settings(self):
         """Test AITBCConfig with custom redis settings"""
-        config = AITBCConfig(
-            redis_url="redis://localhost:6379",
-            redis_max_connections=50,
-            redis_timeout=10
-        )
+        config = AITBCConfig(redis_url="redis://localhost:6379", redis_max_connections=50, redis_timeout=10)
         assert config.redis_url == "redis://localhost:6379"
         assert config.redis_max_connections == 50
         assert config.redis_timeout == 10
@@ -116,7 +101,7 @@ class TestAITBCConfig:
             secret_key="test-secret-key-thirty-two-characters",
             jwt_secret="test-jwt-secret-thirty-two-characters",
             jwt_algorithm="RS256",
-            jwt_expiration_hours=48
+            jwt_expiration_hours=48,
         )
         assert config.secret_key == "test-secret-key-thirty-two-characters"
         assert config.jwt_secret == "test-jwt-secret-thirty-two-characters"
@@ -125,21 +110,14 @@ class TestAITBCConfig:
 
     def test_custom_performance_settings(self):
         """Test AITBCConfig with custom performance settings"""
-        config = AITBCConfig(
-            request_timeout=60,
-            max_request_size=20 * 1024 * 1024
-        )
+        config = AITBCConfig(request_timeout=60, max_request_size=20 * 1024 * 1024)
         assert config.request_timeout == 60
         assert config.max_request_size == 20 * 1024 * 1024
 
     def test_inherits_base_config(self):
         """Test AITBCConfig inherits from BaseAITBCConfig"""
-        config = AITBCConfig(
-            app_name="Test App",
-            environment="staging"
-        )
+        config = AITBCConfig(app_name="Test App", environment="staging")
         assert config.app_name == "Test App"
         assert config.environment == "staging"
         assert config.host == "0.0.0.0"  # AITBCConfig default
         assert config.port == 8000  # AITBCConfig default
-

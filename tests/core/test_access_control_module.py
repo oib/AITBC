@@ -17,15 +17,14 @@ def load_module_from_path(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-access_control = load_module_from_path(
-    "aitbc.access_control",
-    Path("/opt/aitbc/aitbc/access_control.py")
-)
+
+access_control = load_module_from_path("aitbc.access_control", Path("/opt/aitbc/aitbc/access_control.py"))
 
 
 # ============================================================================
 # Exception Tests
 # ============================================================================
+
 
 class TestExceptions:
     """Test access control exceptions"""
@@ -46,6 +45,7 @@ class TestExceptions:
 # ============================================================================
 # Access Controller Tests
 # ============================================================================
+
 
 class TestAccessController:
     """Test AccessController class"""
@@ -97,11 +97,7 @@ class TestAccessController:
             pytest.skip("JWT not available")
 
         controller = access_control.AccessController()
-        token = controller.create_token(
-            "user123",
-            ["user"],
-            additional_claims={"custom": "value"}
-        )
+        token = controller.create_token("user123", ["user"], additional_claims={"custom": "value"})
         assert token is not None
 
     def test_verify_token_no_jwt(self):
@@ -219,6 +215,7 @@ class TestAccessController:
 # API Key Auth Tests
 # ============================================================================
 
+
 class TestAPIKeyAuth:
     """Test APIKeyAuth class"""
 
@@ -233,12 +230,12 @@ class TestAPIKeyAuth:
         assert "key1" in auth.valid_keys
 
     def test_api_key_auth_from_env(self):
-        with patch.dict('os.environ', {'VALID_API_KEYS': 'key1,key2,key3'}):
+        with patch.dict("os.environ", {"VALID_API_KEYS": "key1,key2,key3"}):
             auth = access_control.APIKeyAuth()
             assert len(auth.valid_keys) == 3
 
     def test_api_key_auth_empty_env(self):
-        with patch.dict('os.environ', {'VALID_API_KEYS': ''}, clear=False):
+        with patch.dict("os.environ", {"VALID_API_KEYS": ""}, clear=False):
             auth = access_control.APIKeyAuth()
             assert len(auth.valid_keys) == 0
 
@@ -297,6 +294,7 @@ class TestAPIKeyAuth:
 # Secure Headers Tests
 # ============================================================================
 
+
 class TestSecureHeaders:
     """Test SecureHeaders class"""
 
@@ -321,6 +319,7 @@ class TestSecureHeaders:
 # ============================================================================
 # Global Instance Tests
 # ============================================================================
+
 
 class TestGlobalInstances:
     """Test global instance functions"""

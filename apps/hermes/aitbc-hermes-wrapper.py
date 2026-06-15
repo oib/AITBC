@@ -35,14 +35,5 @@ if "HERMES_DB_PATH" not in os.environ:
     os.environ["HERMES_DB_PATH"] = str(DATA_DIR / "data" / "hermes_coin_requests.db")
 
 # Execute the actual service
-exec_cmd = [
-    "/opt/aitbc/venv/bin/python",
-    "-m",
-    "uvicorn",
-    "hermes_service.main:app",
-    "--host",
-    "127.0.0.1",
-    "--port",
-    "8103"
-]
+exec_cmd = ["/opt/aitbc/venv/bin/python", "-m", "uvicorn", "hermes_service.main:app", "--host", "127.0.0.1", "--port", "8103"]
 os.execvp(exec_cmd[0], exec_cmd)

@@ -18,6 +18,7 @@ COORDINATOR_URL = "http://127.0.0.1:8000/v1"
 CLIENT_KEY = "${CLIENT_API_KEY}"
 MINER_KEY = "${MINER_API_KEY}"
 
+
 class PaymentIntegrationTest:
     def __init__(self):
         self.client = httpx.Client(timeout=30.0)
@@ -65,31 +66,22 @@ class PaymentIntegrationTest:
         logger.info("Step 2: Submitting job with payment...")
 
         job_data = {
-            "payload": {
-                "service_type": "llm",
-                "model": "llama3.2",
-                "prompt": "What is AITBC?",
-                "max_tokens": 100
-            },
+            "payload": {"service_type": "llm", "model": "llama3.2", "prompt": "What is AITBC?", "max_tokens": 100},
             "constraints": {},
             "payment_amount": 1.0,
             "payment_currency": "AITBC",
-            "escrow_timeout_seconds": 3600
+            "escrow_timeout_seconds": 3600,
         }
 
         headers = {"X-Api-Key": CLIENT_KEY}
 
-        response = self.client.post(
-            f"{COORDINATOR_URL}/jobs",
-            json=job_data,
-            headers=headers
-        )
+        response = self.client.post(f"{COORDINATOR_URL}/jobs", json=job_data, headers=headers)
 
         if response.status_code == 201:
             job = response.json()
             self.job_id = job["job_id"]
             logger.info("✓ Job created with ID: %s", self.job_id)
-            logger.info("  Payment status: %s", job.get('payment_status', 'N/A'))
+            logger.info("  Payment status: %s", job.get("payment_status", "N/A"))
         else:
             logger.error("Failed to create job: %s", response.status_code)
             logger.error("Response: %s", response.text)
@@ -102,32 +94,26 @@ class PaymentIntegrationTest:
         headers = {"X-Api-Key": CLIENT_KEY}
 
         # Get job status
-        response = self.client.get(
-            f"{COORDINATOR_URL}/jobs/{self.job_id}",
-            headers=headers
-        )
+        response = self.client.get(f"{COORDINATOR_URL}/jobs/{self.job_id}", headers=headers)
 
         if response.status_code == 200:
             job = response.json()
-            logger.info("✓ Job status: %s", job['state'])
-            logger.info("  Payment ID: %s", job.get('payment_id', 'N/A'))
-            logger.info("  Payment status: %s", job.get('payment_status', 'N/A'))
+            logger.info("✓ Job status: %s", job["state"])
+            logger.info("  Payment ID: %s", job.get("payment_id", "N/A"))
+            logger.info("  Payment status: %s", job.get("payment_status", "N/A"))
 
-            self.payment_id = job.get('payment_id')
+            self.payment_id = job.get("payment_id")
 
             # Get payment details if payment_id exists
             if self.payment_id:
-                payment_response = self.client.get(
-                    f"{COORDINATOR_URL}/payments/{self.payment_id}",
-                    headers=headers
-                )
+                payment_response = self.client.get(f"{COORDINATOR_URL}/payments/{self.payment_id}", headers=headers)
 
                 if payment_response.status_code == 200:
                     payment = payment_response.json()
                     logger.info("✓ Payment details:")
-                    logger.info("  Amount: %s %s", payment['amount'], payment['currency'])
-                    logger.info("  Status: %s", payment['status'])
-                    logger.info("  Method: %s", payment['payment_method'])
+                    logger.info("  Amount: %s %s", payment["amount"], payment["currency"])
+                    logger.info("  Status: %s", payment["status"])
+                    logger.info("  Method: %s", payment["payment_method"])
                 else:
                     logger.warning("Could not fetch payment details: %s", payment_response.status_code)
         else:
@@ -143,9 +129,7 @@ class PaymentIntegrationTest:
         poll_data = None
         for attempt in range(5):
             poll_response = self.client.post(
-                f"{COORDINATOR_URL}/miners/poll",
-                json={"capabilities": {"llm": True}},
-                headers=headers
+                f"{COORDINATOR_URL}/miners/poll", json={"capabilities": {"llm": True}}, headers=headers
             )
 
             if poll_response.status_code == 200:
@@ -165,28 +149,22 @@ class PaymentIntegrationTest:
                 "result": {
                     "text": "AITBC is a decentralized AI computing marketplace that uses blockchain for payments and zero-knowledge proofs for privacy.",
                     "model": "llama3.2",
-                    "tokens_used": 42
-                },
-                "metrics": {
-                    "duration_ms": 2500,
                     "tokens_used": 42,
-                    "gpu_seconds": 0.5
-                }
+                },
+                "metrics": {"duration_ms": 2500, "tokens_used": 42, "gpu_seconds": 0.5},
             }
 
             submit_response = self.client.post(
-                f"{COORDINATOR_URL}/miners/{self.job_id}/result",
-                json=result_data,
-                headers=headers
+                f"{COORDINATOR_URL}/miners/{self.job_id}/result", json=result_data, headers=headers
             )
 
             if submit_response.status_code == 200:
                 logger.info("✓ Job result submitted successfully")
-                logger.info("  Receipt: %s", submit_response.json().get('receipt', {}).get('receipt_id', 'N/A'))
+                logger.info("  Receipt: %s", submit_response.json().get("receipt", {}).get("receipt_id", "N/A"))
             else:
                 raise Exception("Failed to submit result: %s" % submit_response.status_code)
         elif poll_data:
-            logger.warning("Miner received different job: %s", poll_data.get('job_id'))
+            logger.warning("Miner received different job: %s", poll_data.get("job_id"))
         else:
             raise Exception("No job received after 5 retries")
 
@@ -200,29 +178,23 @@ class PaymentIntegrationTest:
         headers = {"X-Api-Key": CLIENT_KEY}
 
         # Check updated job status
-        response = self.client.get(
-            f"{COORDINATOR_URL}/jobs/{self.job_id}",
-            headers=headers
-        )
+        response = self.client.get(f"{COORDINATOR_URL}/jobs/{self.job_id}", headers=headers)
 
         if response.status_code == 200:
             job = response.json()
-            logger.info("✓ Final job status: %s", job['state'])
-            logger.info("  Final payment status: %s", job.get('payment_status', 'N/A'))
+            logger.info("✓ Final job status: %s", job["state"])
+            logger.info("  Final payment status: %s", job.get("payment_status", "N/A"))
 
             # Get payment receipt
             if self.payment_id:
-                receipt_response = self.client.get(
-                    f"{COORDINATOR_URL}/payments/{self.payment_id}/receipt",
-                    headers=headers
-                )
+                receipt_response = self.client.get(f"{COORDINATOR_URL}/payments/{self.payment_id}/receipt", headers=headers)
 
                 if receipt_response.status_code == 200:
                     receipt = receipt_response.json()
                     logger.info("✓ Payment receipt:")
-                    logger.info("  Status: %s", receipt['status'])
-                    logger.info("  Verified at: %s", receipt.get('verified_at', 'N/A'))
-                    logger.info("  Transaction hash: %s", receipt.get('transaction_hash', 'N/A'))
+                    logger.info("  Status: %s", receipt["status"])
+                    logger.info("  Verified at: %s", receipt.get("verified_at", "N/A"))
+                    logger.info("  Transaction hash: %s", receipt.get("transaction_hash", "N/A"))
                 else:
                     logger.warning("Could not fetch payment receipt: %s", receipt_response.status_code)
         else:
@@ -234,22 +206,14 @@ class PaymentIntegrationTest:
 
         # Create a new job that will fail
         job_data = {
-            "payload": {
-                "service_type": "llm",
-                "model": "nonexistent_model",
-                "prompt": "This should fail"
-            },
+            "payload": {"service_type": "llm", "model": "nonexistent_model", "prompt": "This should fail"},
             "payment_amount": 0.5,
-            "payment_currency": "AITBC"
+            "payment_currency": "AITBC",
         }
 
         headers = {"X-Api-Key": CLIENT_KEY}
 
-        response = self.client.post(
-            f"{COORDINATOR_URL}/jobs",
-            json=job_data,
-            headers=headers
-        )
+        response = self.client.post(f"{COORDINATOR_URL}/jobs", json=job_data, headers=headers)
 
         if response.status_code == 201:
             fail_job = response.json()
@@ -263,24 +227,17 @@ class PaymentIntegrationTest:
 
             # Poll for the job
             poll_response = self.client.post(
-                f"{COORDINATOR_URL}/miners/poll",
-                json={"capabilities": ["llm"]},
-                headers=fail_headers
+                f"{COORDINATOR_URL}/miners/poll", json={"capabilities": ["llm"]}, headers=fail_headers
             )
 
             if poll_response.status_code == 200:
                 poll_data = poll_response.json()
                 if poll_data.get("job_id") == fail_job_id:
                     # Submit failure
-                    fail_data = {
-                        "error_code": "MODEL_NOT_FOUND",
-                        "error_message": "The specified model does not exist"
-                    }
+                    fail_data = {"error_code": "MODEL_NOT_FOUND", "error_message": "The specified model does not exist"}
 
                     fail_response = self.client.post(
-                        f"{COORDINATOR_URL}/miners/{fail_job_id}/fail",
-                        json=fail_data,
-                        headers=fail_headers
+                        f"{COORDINATOR_URL}/miners/{fail_job_id}/fail", json=fail_data, headers=fail_headers
                     )
 
                     if fail_response.status_code == 200:
@@ -292,15 +249,14 @@ class PaymentIntegrationTest:
                         # Check refund status
                         if fail_payment_id:
                             payment_response = self.client.get(
-                                f"{COORDINATOR_URL}/payments/{fail_payment_id}",
-                                headers=headers
+                                f"{COORDINATOR_URL}/payments/{fail_payment_id}", headers=headers
                             )
 
                             if payment_response.status_code == 200:
                                 payment = payment_response.json()
                                 logger.info("✓ Payment refunded:")
-                                logger.info("  Status: %s", payment['status'])
-                                logger.info("  Refunded at: %s", payment.get('refunded_at', 'N/A'))
+                                logger.info("  Status: %s", payment["status"])
+                                logger.info("  Refunded at: %s", payment.get("refunded_at", "N/A"))
                             else:
                                 logger.warning("Could not verify refund: %s", payment_response.status_code)
                     else:
@@ -313,6 +269,7 @@ class PaymentIntegrationTest:
         logger.info("✓ Job failure and payment refund")
         logger.info("\nPayment integration is working correctly!")
 
+
 async def main():
     """Run the payment integration test"""
     test = PaymentIntegrationTest()
@@ -322,6 +279,7 @@ async def main():
     except Exception as e:
         logger.error("Test failed: %s", e)
         raise
+
 
 if __name__ == "__main__":
     asyncio.run(main())

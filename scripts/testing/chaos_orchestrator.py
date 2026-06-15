@@ -14,7 +14,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -33,8 +33,8 @@ class ChaosOrchestrator:
                 "failed_scenarios": 0,
                 "average_mttr": 0,
                 "max_mttr": 0,
-                "min_mttr": float('inf')
-            }
+                "min_mttr": float("inf"),
+            },
         }
 
     async def run_scenario(self, script: str, args: list[str]) -> dict | None:
@@ -48,9 +48,7 @@ class ChaosOrchestrator:
         try:
             # Run the chaos test script
             process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
 
             stdout, stderr = await process.communicate()
@@ -100,8 +98,7 @@ class ChaosOrchestrator:
             1 for s in self.results["scenarios"] if s.get("mttr") is not None
         )
         self.results["summary"]["failed_scenarios"] = (
-            self.results["summary"]["total_scenarios"] -
-            self.results["summary"]["successful_scenarios"]
+            self.results["summary"]["total_scenarios"] - self.results["summary"]["successful_scenarios"]
         )
 
     def generate_report(self, output_file: str | None = None):
@@ -110,19 +107,15 @@ class ChaosOrchestrator:
             "report_generated": datetime.now(UTC).isoformat(),
             "namespace": self.namespace,
             "orchestration": self.results,
-            "recommendations": []
+            "recommendations": [],
         }
 
         # Add recommendations based on results
         if self.results["summary"]["average_mttr"] > 120:
-            report["recommendations"].append(
-                "Average MTTR exceeds 2 minutes. Consider improving recovery automation."
-            )
+            report["recommendations"].append("Average MTTR exceeds 2 minutes. Consider improving recovery automation.")
 
         if self.results["summary"]["max_mttr"] > 300:
-            report["recommendations"].append(
-                "Maximum MTTR exceeds 5 minutes. Review slowest recovery scenario."
-            )
+            report["recommendations"].append("Maximum MTTR exceeds 5 minutes. Review slowest recovery scenario.")
 
         if self.results["summary"]["failed_scenarios"] > 0:
             report["recommendations"].append(
@@ -133,25 +126,19 @@ class ChaosOrchestrator:
         for scenario in self.results["scenarios"]:
             if scenario.get("scenario_name") == "coordinator_outage":
                 if scenario.get("mttr", 0) > 180:
-                    report["recommendations"].append(
-                        "Coordinator recovery is slow. Consider reducing pod startup time."
-                    )
+                    report["recommendations"].append("Coordinator recovery is slow. Consider reducing pod startup time.")
 
             elif scenario.get("scenario_name") == "network_partition":
                 if scenario.get("error_count", 0) > scenario.get("success_count", 0):
-                    report["recommendations"].append(
-                        "High error rate during network partition. Improve error handling."
-                    )
+                    report["recommendations"].append("High error rate during network partition. Improve error handling.")
 
             elif scenario.get("scenario_name") == "database_failure":
                 if scenario.get("failure_type") == "connection":
-                    report["recommendations"].append(
-                        "Consider implementing database connection pooling and retry logic."
-                    )
+                    report["recommendations"].append("Consider implementing database connection pooling and retry logic.")
 
         # Save report
         if output_file:
-            with open(output_file, 'w') as f:
+            with open(output_file, "w") as f:
                 json.dump(report, f, indent=2)
             logger.info("Chaos test report saved to: %s", output_file)
 
@@ -162,9 +149,9 @@ class ChaosOrchestrator:
 
     def print_summary(self):
         """Print a summary of all chaos test results"""
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("CHAOS TESTING SUMMARY REPORT")
-        print("="*60)
+        print("=" * 60)
 
         print(f"\nTest Execution: {self.results['orchestration_start']} to {self.results['orchestration_end']}")
         print(f"Namespace: {self.namespace}")
@@ -198,7 +185,7 @@ class ChaosOrchestrator:
         else:
             print(f"  ✗ Average MTTR exceeds SLO ({slo_target}s)")
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
 
     async def run_all_scenarios(self, scenarios: list[str], scenario_args: dict[str, list[str]]):
         """Run all specified chaos test scenarios"""
@@ -240,13 +227,10 @@ class ChaosOrchestrator:
             logger.info("Starting chaos test cycle at %s", cycle_start)
 
             # Run a random scenario
-            scenarios = [
-                "chaos_test_coordinator.py",
-                "chaos_test_network.py",
-                "chaos_test_database.py"
-            ]
+            scenarios = ["chaos_test_coordinator.py", "chaos_test_network.py", "chaos_test_database.py"]
 
             import random
+
             selected_scenario = random.choice(scenarios)
 
             # Run scenario with reduced duration for continuous testing
@@ -276,12 +260,12 @@ class ChaosOrchestrator:
             "duration_hours": duration_hours,
             "interval_minutes": interval_minutes,
             "total_cycles": len(all_results),
-            "cycles": all_results
+            "cycles": all_results,
         }
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         report_file = f"continuous_chaos_report_{timestamp}.json"
-        with open(report_file, 'w') as f:
+        with open(report_file, "w") as f:
             json.dump(continuous_report, f, indent=2)
 
         logger.info("Continuous chaos testing completed. Report saved to: %s", report_file)
@@ -290,10 +274,13 @@ class ChaosOrchestrator:
 async def main():
     parser = argparse.ArgumentParser(description="Chaos testing orchestrator")
     parser.add_argument("--namespace", default="default", help="Kubernetes namespace")
-    parser.add_argument("--scenarios", nargs="+",
-                       choices=["coordinator", "network", "database"],
-                       default=["coordinator", "network", "database"],
-                       help="Scenarios to run")
+    parser.add_argument(
+        "--scenarios",
+        nargs="+",
+        choices=["coordinator", "network", "database"],
+        default=["coordinator", "network", "database"],
+        help="Scenarios to run",
+    )
     parser.add_argument("--continuous", action="store_true", help="Run continuous chaos testing")
     parser.add_argument("--duration", type=int, default=24, help="Duration in hours for continuous testing")
     parser.add_argument("--interval", type=int, default=60, help="Interval in minutes for continuous testing")
@@ -311,7 +298,7 @@ async def main():
     orchestrator = ChaosOrchestrator(args.namespace)
 
     if args.dry_run:
-        logger.info("DRY RUN: Would run scenarios: %s", ', '.join(args.scenarios))
+        logger.info("DRY RUN: Would run scenarios: %s", ", ".join(args.scenarios))
         return
 
     if args.continuous:
@@ -321,7 +308,7 @@ async def main():
         scenario_map = {
             "coordinator": "chaos_test_coordinator.py",
             "network": "chaos_test_network.py",
-            "database": "chaos_test_database.py"
+            "database": "chaos_test_database.py",
         }
 
         # Get script files
@@ -331,7 +318,7 @@ async def main():
         scenario_args = {
             "chaos_test_coordinator.py": ["--outage-duration", "60", "--load-duration", "120"],
             "chaos_test_network.py": ["--partition-duration", "60", "--partition-ratio", "0.5"],
-            "chaos_test_database.py": ["--failure-duration", "60", "--failure-type", "connection"]
+            "chaos_test_database.py": ["--failure-duration", "60", "--failure-type", "connection"],
         }
 
         await orchestrator.run_all_scenarios(scripts, scenario_args)

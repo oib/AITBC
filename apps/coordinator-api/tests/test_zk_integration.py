@@ -73,7 +73,7 @@ class TestZKReceiptFlow:
         proof = _generate_mock_proof(receipt_hash)
 
         # Stub verification: non-zero elements = valid
-        a, b, c = proof["a"], proof["b"], proof["c"]
+        a, _b, c = proof["a"], proof["b"], proof["c"]
         public_signals = proof["public_signals"]
 
         # Valid proof
@@ -136,11 +136,7 @@ class TestZKReceiptFlow:
         assert proof["public_signals"][0] == receipt_hash
 
         # Step 4: Verify proof (stub)
-        is_valid = (
-            proof["a"][0] != 0
-            and proof["c"][0] != 0
-            and proof["public_signals"][0] != 0
-        )
+        is_valid = proof["a"][0] != 0 and proof["c"][0] != 0 and proof["public_signals"][0] != 0
         assert is_valid is True
 
         # Step 5: Record settlement

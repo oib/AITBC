@@ -121,7 +121,9 @@ class BridgeManager:
 
         return result
 
-    async def estimate_settlement_cost(self, message: SettlementMessage, bridge_name: str | None = None) -> dict[str, dict[str, Any]]:
+    async def estimate_settlement_cost(
+        self, message: SettlementMessage, bridge_name: str | None = None
+    ) -> dict[str, dict[str, Any]]:
         """Estimate cost for settlement across different bridges"""
         results: dict[str, dict[str, Any]] = {}
 
@@ -167,9 +169,7 @@ class BridgeManager:
 
         return optimal[0]
 
-    async def batch_settle(
-        self, messages: list[SettlementMessage], bridge_name: str | None = None
-    ) -> list[SettlementResult]:
+    async def batch_settle(self, messages: list[SettlementMessage], bridge_name: str | None = None) -> list[SettlementResult]:
         """Settle multiple messages"""
         results = []
 

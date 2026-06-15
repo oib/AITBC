@@ -22,8 +22,9 @@ class TestResourceCommands:
         """Test that resource command group exists"""
         try:
             from aitbc_cli.commands.resource import resource
+
             assert resource is not None
-            assert hasattr(resource, 'name')
+            assert hasattr(resource, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import resource commands: {e}")
 
@@ -31,12 +32,13 @@ class TestResourceCommands:
         """Test resource group name"""
         try:
             from aitbc_cli.commands.resource import resource
+
             assert resource.name == "resource"
         except ImportError as e:
             pytest.skip(f"Cannot import resource commands: {e}")
 
-    @patch('aitbc_cli.commands.resource.output')
-    @patch('aitbc_cli.commands.resource.error')
+    @patch("aitbc_cli.commands.resource.output")
+    @patch("aitbc_cli.commands.resource.error")
     def test_resource_allocate_command(self, mock_error, mock_output):
         """Test resource allocate command - skip due to Click context issues"""
         pytest.skip("Click context mocking requires complex setup")

@@ -12,11 +12,7 @@ import httpx
 from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
-app = FastAPI(
-    title="AITBC Monitoring Service",
-    description="System health and metrics monitoring service",
-    version="1.0.0"
-)
+app = FastAPI(title="AITBC Monitoring Service", description="System health and metrics monitoring service", version="1.0.0")
 
 # Service endpoints configuration
 SERVICES = {
@@ -62,11 +58,7 @@ async def health():
 @app.get("/")
 async def root():
     """Root endpoint."""
-    return {
-        "service": "AITBC Monitoring Service",
-        "version": "1.0.0",
-        "status": "operational"
-    }
+    return {"service": "AITBC Monitoring Service", "version": "1.0.0", "status": "operational"}
 
 
 @app.get("/dashboard")
@@ -200,7 +192,7 @@ async def collect_all_health_data() -> dict[str, Any]:
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    for i, (service_id, service_info) in enumerate(SERVICES.items()):
+    for i, (service_id, _service_info) in enumerate(SERVICES.items()):
         result = results[i]
         if isinstance(result, Exception):
             health_data[service_id] = {
@@ -263,4 +255,5 @@ def calculate_overall_metrics(health_data: dict[str, Any]) -> dict[str, Any]:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host=os.getenv("BIND_HOST", "127.0.0.1"), port=8107)

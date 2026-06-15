@@ -1,10 +1,9 @@
-
 try:
     from locust import HttpUser, between, task
 except Exception:
     HttpUser = object  # type: ignore[misc,assignment]
     between = lambda a, b: None  # type: ignore[assignment]
-    task = lambda weight: (lambda f: f)  # type: ignore[assignment]
+    task = lambda weight: lambda f: f  # type: ignore[assignment]
 
 
 class AITBCUser(HttpUser):  # type: ignore[misc,valid-type]
@@ -38,15 +37,18 @@ class AITBCUser(HttpUser):  # type: ignore[misc,valid-type]
     def test_transaction_submission(self):
         """Test transaction submission (will likely fail but tests endpoint)."""
         try:
-            self.client.post("/rpc/transaction", json={
-                "from": "test-address",
-                "to": "test-address-2",
-                "amount": 1,
-                "fee": 10,
-                "nonce": 0,
-                "payload": "0x",
-                "chain_id": "ait-mainnet"
-            })
+            self.client.post(
+                "/rpc/transaction",
+                json={
+                    "from": "test-address",
+                    "to": "test-address-2",
+                    "amount": 1,
+                    "fee": 10,
+                    "nonce": 0,
+                    "payload": "0x",
+                    "chain_id": "ait-mainnet",
+                },
+            )
         except Exception:
             # Expected to fail due to invalid signature, but tests endpoint availability
             pass

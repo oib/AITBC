@@ -2,6 +2,7 @@
 Task Decomposition Service for hermes Autonomous Economics
 Implements intelligent task splitting and sub-task management
 """
+
 from aitbc import get_logger
 
 logger = get_logger(__name__)
@@ -13,44 +14,53 @@ from typing import Any
 
 class TaskType(StrEnum):
     """Types of tasks"""
-    TEXT_PROCESSING = 'text_processing'
-    IMAGE_PROCESSING = 'image_processing'
-    AUDIO_PROCESSING = 'audio_processing'
-    VIDEO_PROCESSING = 'video_processing'
-    DATA_ANALYSIS = 'data_analysis'
-    MODEL_INFERENCE = 'model_inference'
-    MODEL_TRAINING = 'model_training'
-    COMPUTE_INTENSIVE = 'compute_intensive'
-    IO_BOUND = 'io_bound'
-    MIXED_MODAL = 'mixed_modal'
+
+    TEXT_PROCESSING = "text_processing"
+    IMAGE_PROCESSING = "image_processing"
+    AUDIO_PROCESSING = "audio_processing"
+    VIDEO_PROCESSING = "video_processing"
+    DATA_ANALYSIS = "data_analysis"
+    MODEL_INFERENCE = "model_inference"
+    MODEL_TRAINING = "model_training"
+    COMPUTE_INTENSIVE = "compute_intensive"
+    IO_BOUND = "io_bound"
+    MIXED_MODAL = "mixed_modal"
+
 
 class SubTaskStatus(StrEnum):
     """Sub-task status"""
-    PENDING = 'pending'
-    ASSIGNED = 'assigned'
-    IN_PROGRESS = 'in_progress'
-    COMPLETED = 'completed'
-    FAILED = 'failed'
-    CANCELLED = 'cancelled'
+
+    PENDING = "pending"
+    ASSIGNED = "assigned"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
 
 class DependencyType(StrEnum):
     """Dependency types between sub-tasks"""
-    SEQUENTIAL = 'sequential'
-    PARALLEL = 'parallel'
-    CONDITIONAL = 'conditional'
-    AGGREGATION = 'aggregation'
+
+    SEQUENTIAL = "sequential"
+    PARALLEL = "parallel"
+    CONDITIONAL = "conditional"
+    AGGREGATION = "aggregation"
+
 
 class GPU_Tier(StrEnum):
     """GPU resource tiers"""
-    CPU_ONLY = 'cpu_only'
-    LOW_END_GPU = 'low_end_gpu'
-    MID_RANGE_GPU = 'mid_range_gpu'
-    HIGH_END_GPU = 'high_end_gpu'
-    PREMIUM_GPU = 'premium_gpu'
+
+    CPU_ONLY = "cpu_only"
+    LOW_END_GPU = "low_end_gpu"
+    MID_RANGE_GPU = "mid_range_gpu"
+    HIGH_END_GPU = "high_end_gpu"
+    PREMIUM_GPU = "premium_gpu"
+
 
 @dataclass
 class TaskRequirement:
     """Requirements for a task or sub-task"""
+
     task_type: TaskType
     estimated_duration: float
     gpu_tier: GPU_Tier
@@ -61,9 +71,11 @@ class TaskRequirement:
     deadline: datetime | None = None
     max_cost: float | None = None
 
+
 @dataclass
 class SubTask:
     """Individual sub-task"""
+
     sub_task_id: str
     parent_task_id: str
     name: str
@@ -81,9 +93,11 @@ class SubTask:
     retry_count: int = 0
     max_retries: int = 3
 
+
 @dataclass
 class TaskDecomposition:
     """Result of task decomposition"""
+
     original_task_id: str
     sub_tasks: list[SubTask]
     dependency_graph: dict[str, list[str]]
@@ -94,9 +108,11 @@ class TaskDecomposition:
     decomposition_strategy: str
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
+
 @dataclass
 class TaskAggregation:
     """Aggregation configuration for combining sub-task results"""
+
     aggregation_id: str
     parent_task_id: str
     aggregation_type: str
@@ -104,6 +120,7 @@ class TaskAggregation:
     output_format: str
     aggregation_function: str
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
 
 class TaskDecompositionEngine:
     """Engine for intelligent task decomposition and sub-task management"""
@@ -113,14 +130,44 @@ class TaskDecompositionEngine:
         self.decomposition_history: list[TaskDecomposition] = []
         self.sub_task_registry: dict[str, SubTask] = {}
         self.aggregation_registry: dict[str, TaskAggregation] = {}
-        self.strategies = {'sequential': self._sequential_decomposition, 'parallel': self._parallel_decomposition, 'hierarchical': self._hierarchical_decomposition, 'pipeline': self._pipeline_decomposition, 'adaptive': self._adaptive_decomposition}
-        self.complexity_thresholds = {TaskType.TEXT_PROCESSING: 0.3, TaskType.IMAGE_PROCESSING: 0.5, TaskType.AUDIO_PROCESSING: 0.4, TaskType.VIDEO_PROCESSING: 0.8, TaskType.DATA_ANALYSIS: 0.6, TaskType.MODEL_INFERENCE: 0.4, TaskType.MODEL_TRAINING: 0.9, TaskType.COMPUTE_INTENSIVE: 0.8, TaskType.IO_BOUND: 0.2, TaskType.MIXED_MODAL: 0.7}
-        self.gpu_performance = {GPU_Tier.CPU_ONLY: 1.0, GPU_Tier.LOW_END_GPU: 2.5, GPU_Tier.MID_RANGE_GPU: 5.0, GPU_Tier.HIGH_END_GPU: 10.0, GPU_Tier.PREMIUM_GPU: 20.0}
+        self.strategies = {
+            "sequential": self._sequential_decomposition,
+            "parallel": self._parallel_decomposition,
+            "hierarchical": self._hierarchical_decomposition,
+            "pipeline": self._pipeline_decomposition,
+            "adaptive": self._adaptive_decomposition,
+        }
+        self.complexity_thresholds = {
+            TaskType.TEXT_PROCESSING: 0.3,
+            TaskType.IMAGE_PROCESSING: 0.5,
+            TaskType.AUDIO_PROCESSING: 0.4,
+            TaskType.VIDEO_PROCESSING: 0.8,
+            TaskType.DATA_ANALYSIS: 0.6,
+            TaskType.MODEL_INFERENCE: 0.4,
+            TaskType.MODEL_TRAINING: 0.9,
+            TaskType.COMPUTE_INTENSIVE: 0.8,
+            TaskType.IO_BOUND: 0.2,
+            TaskType.MIXED_MODAL: 0.7,
+        }
+        self.gpu_performance = {
+            GPU_Tier.CPU_ONLY: 1.0,
+            GPU_Tier.LOW_END_GPU: 2.5,
+            GPU_Tier.MID_RANGE_GPU: 5.0,
+            GPU_Tier.HIGH_END_GPU: 10.0,
+            GPU_Tier.PREMIUM_GPU: 20.0,
+        }
 
-    async def decompose_task(self, task_id: str, task_requirements: TaskRequirement, strategy: str | None=None, max_subtasks: int=10, min_subtask_duration: float=0.1) -> TaskDecomposition:
+    async def decompose_task(
+        self,
+        task_id: str,
+        task_requirements: TaskRequirement,
+        strategy: str | None = None,
+        max_subtasks: int = 10,
+        min_subtask_duration: float = 0.1,
+    ) -> TaskDecomposition:
         """Decompose a complex task into sub-tasks"""
         try:
-            logger.info('Decomposing task %s with strategy %s', task_id, strategy)
+            logger.info("Decomposing task %s with strategy %s", task_id, strategy)
             if strategy is None:
                 strategy = await self._select_decomposition_strategy(task_requirements)
             decomposition_func = self.strategies.get(strategy, self._adaptive_decomposition)
@@ -130,28 +177,46 @@ class TaskDecompositionEngine:
             total_duration = await self._estimate_total_duration(sub_tasks, execution_plan)
             total_cost = await self._estimate_total_cost(sub_tasks)
             confidence_score = await self._calculate_decomposition_confidence(task_requirements, sub_tasks, strategy)
-            decomposition = TaskDecomposition(original_task_id=task_id, sub_tasks=sub_tasks, dependency_graph=dependency_graph, execution_plan=execution_plan, estimated_total_duration=total_duration, estimated_total_cost=total_cost, confidence_score=confidence_score, decomposition_strategy=strategy)
+            decomposition = TaskDecomposition(
+                original_task_id=task_id,
+                sub_tasks=sub_tasks,
+                dependency_graph=dependency_graph,
+                execution_plan=execution_plan,
+                estimated_total_duration=total_duration,
+                estimated_total_cost=total_cost,
+                confidence_score=confidence_score,
+                decomposition_strategy=strategy,
+            )
             for sub_task in sub_tasks:
                 self.sub_task_registry[sub_task.sub_task_id] = sub_task
             self.decomposition_history.append(decomposition)
-            logger.info('Task %s decomposed into %s sub-tasks', task_id, len(sub_tasks))
+            logger.info("Task %s decomposed into %s sub-tasks", task_id, len(sub_tasks))
             return decomposition
         except Exception as e:
-            logger.error('Failed to decompose task %s: %s', task_id, e)
+            logger.error("Failed to decompose task %s: %s", task_id, e)
             raise
 
-    async def create_aggregation(self, parent_task_id: str, input_sub_tasks: list[str], aggregation_type: str, output_format: str) -> TaskAggregation:
+    async def create_aggregation(
+        self, parent_task_id: str, input_sub_tasks: list[str], aggregation_type: str, output_format: str
+    ) -> TaskAggregation:
         """Create aggregation configuration for combining sub-task results"""
-        aggregation_id = f'agg_{parent_task_id}_{datetime.now(UTC).timestamp()}'
-        aggregation = TaskAggregation(aggregation_id=aggregation_id, parent_task_id=parent_task_id, aggregation_type=aggregation_type, input_sub_tasks=input_sub_tasks, output_format=output_format, aggregation_function=await self._get_aggregation_function(aggregation_type, output_format))
+        aggregation_id = f"agg_{parent_task_id}_{datetime.now(UTC).timestamp()}"
+        aggregation = TaskAggregation(
+            aggregation_id=aggregation_id,
+            parent_task_id=parent_task_id,
+            aggregation_type=aggregation_type,
+            input_sub_tasks=input_sub_tasks,
+            output_format=output_format,
+            aggregation_function=await self._get_aggregation_function(aggregation_type, output_format),
+        )
         self.aggregation_registry[aggregation_id] = aggregation
-        logger.info('Created aggregation %s for task %s', aggregation_id, parent_task_id)
+        logger.info("Created aggregation %s for task %s", aggregation_id, parent_task_id)
         return aggregation
 
-    async def update_sub_task_status(self, sub_task_id: str, status: SubTaskStatus, error_message: str | None=None) -> bool:
+    async def update_sub_task_status(self, sub_task_id: str, status: SubTaskStatus, error_message: str | None = None) -> bool:
         """Update sub-task status"""
         if sub_task_id not in self.sub_task_registry:
-            logger.error('Sub-task %s not found', sub_task_id)
+            logger.error("Sub-task %s not found", sub_task_id)
             return False
         sub_task = self.sub_task_registry[sub_task_id]
         old_status = sub_task.status
@@ -164,10 +229,10 @@ class TaskDecompositionEngine:
             sub_task.completed_at = datetime.now(UTC)
         elif status == SubTaskStatus.FAILED:
             sub_task.retry_count += 1
-        logger.info('Updated sub-task %s status: %s -> %s', sub_task_id, old_status, status)
+        logger.info("Updated sub-task %s status: %s -> %s", sub_task_id, old_status, status)
         return True
 
-    async def get_ready_sub_tasks(self, parent_task_id: str | None=None) -> list[SubTask]:
+    async def get_ready_sub_tasks(self, parent_task_id: str | None = None) -> list[SubTask]:
         """Get sub-tasks ready for execution"""
         ready_tasks = []
         for sub_task in self.sub_task_registry.values():
@@ -191,21 +256,37 @@ class TaskDecompositionEngine:
         """Get execution status for all sub-tasks of a parent task"""
         sub_tasks = [st for st in self.sub_task_registry.values() if st.parent_task_id == parent_task_id]
         if not sub_tasks:
-            return {'status': 'no_sub_tasks', 'sub_tasks': []}
+            return {"status": "no_sub_tasks", "sub_tasks": []}
         status_counts = {}
         for status in SubTaskStatus:
             status_counts[status.value] = 0
         for sub_task in sub_tasks:
             status_counts[sub_task.status.value] += 1
-        if status_counts['completed'] == len(sub_tasks):
-            overall_status = 'completed'
-        elif status_counts['failed'] > 0:
-            overall_status = 'failed'
-        elif status_counts['in_progress'] > 0:
-            overall_status = 'in_progress'
+        if status_counts["completed"] == len(sub_tasks):
+            overall_status = "completed"
+        elif status_counts["failed"] > 0:
+            overall_status = "failed"
+        elif status_counts["in_progress"] > 0:
+            overall_status = "in_progress"
         else:
-            overall_status = 'pending'
-        return {'status': overall_status, 'total_sub_tasks': len(sub_tasks), 'status_counts': status_counts, 'sub_tasks': [{'sub_task_id': st.sub_task_id, 'name': st.name, 'status': st.status.value, 'assigned_agent': st.assigned_agent, 'created_at': st.created_at.isoformat(), 'started_at': st.started_at.isoformat() if st.started_at else None, 'completed_at': st.completed_at.isoformat() if st.completed_at else None} for st in sub_tasks]}
+            overall_status = "pending"
+        return {
+            "status": overall_status,
+            "total_sub_tasks": len(sub_tasks),
+            "status_counts": status_counts,
+            "sub_tasks": [
+                {
+                    "sub_task_id": st.sub_task_id,
+                    "name": st.name,
+                    "status": st.status.value,
+                    "assigned_agent": st.assigned_agent,
+                    "created_at": st.created_at.isoformat(),
+                    "started_at": st.started_at.isoformat() if st.started_at else None,
+                    "completed_at": st.completed_at.isoformat() if st.completed_at else None,
+                }
+                for st in sub_tasks
+            ],
+        }
 
     async def retry_failed_sub_tasks(self, parent_task_id: str) -> list[str]:
         """Retry failed sub-tasks"""
@@ -216,7 +297,7 @@ class TaskDecompositionEngine:
             if sub_task.status == SubTaskStatus.FAILED and sub_task.retry_count < sub_task.max_retries:
                 await self.update_sub_task_status(sub_task.sub_task_id, SubTaskStatus.PENDING)
                 retried_tasks.append(sub_task.sub_task_id)
-                logger.info('Retrying sub-task %s (attempt %s)', sub_task.sub_task_id, sub_task.retry_count + 1)
+                logger.info("Retrying sub-task %s (attempt %s)", sub_task.sub_task_id, sub_task.retry_count + 1)
         return retried_tasks
 
     async def _select_decomposition_strategy(self, task_requirements: TaskRequirement) -> str:
@@ -229,50 +310,103 @@ class TaskDecompositionEngine:
         if task_requirements.data_size > 1000:
             complexity += 0.1
         if complexity < 0.3:
-            return 'sequential'
+            return "sequential"
         elif complexity < 0.5:
-            return 'parallel'
+            return "parallel"
         elif complexity < 0.7:
-            return 'hierarchical'
+            return "hierarchical"
         elif complexity < 0.9:
-            return 'pipeline'
+            return "pipeline"
         else:
-            return 'adaptive'
+            return "adaptive"
 
-    async def _sequential_decomposition(self, task_id: str, task_requirements: TaskRequirement, max_subtasks: int, min_duration: float) -> list[SubTask]:
+    async def _sequential_decomposition(
+        self, task_id: str, task_requirements: TaskRequirement, max_subtasks: int, min_duration: float
+    ) -> list[SubTask]:
         """Sequential decomposition strategy"""
         sub_tasks = []
         if task_requirements.estimated_duration <= min_duration * 2:
-            sub_task = SubTask(sub_task_id=f'{task_id}_seq_1', parent_task_id=task_id, name='Main Task', description='Sequential execution of main task', requirements=task_requirements)
+            sub_task = SubTask(
+                sub_task_id=f"{task_id}_seq_1",
+                parent_task_id=task_id,
+                name="Main Task",
+                description="Sequential execution of main task",
+                requirements=task_requirements,
+            )
             sub_tasks.append(sub_task)
         else:
             num_chunks = min(int(task_requirements.estimated_duration / min_duration), max_subtasks)
             chunk_duration = task_requirements.estimated_duration / num_chunks
             for i in range(num_chunks):
-                chunk_requirements = TaskRequirement(task_type=task_requirements.task_type, estimated_duration=chunk_duration, gpu_tier=task_requirements.gpu_tier, memory_requirement=task_requirements.memory_requirement, compute_intensity=task_requirements.compute_intensity, data_size=task_requirements.data_size // num_chunks, priority=task_requirements.priority, deadline=task_requirements.deadline, max_cost=task_requirements.max_cost)
-                sub_task = SubTask(sub_task_id=f'{task_id}_seq_{i + 1}', parent_task_id=task_id, name=f'Sequential Chunk {i + 1}', description=f'Sequential execution chunk {i + 1}', requirements=chunk_requirements, dependencies=[f'{task_id}_seq_{i}'] if i > 0 else [])
+                chunk_requirements = TaskRequirement(
+                    task_type=task_requirements.task_type,
+                    estimated_duration=chunk_duration,
+                    gpu_tier=task_requirements.gpu_tier,
+                    memory_requirement=task_requirements.memory_requirement,
+                    compute_intensity=task_requirements.compute_intensity,
+                    data_size=task_requirements.data_size // num_chunks,
+                    priority=task_requirements.priority,
+                    deadline=task_requirements.deadline,
+                    max_cost=task_requirements.max_cost,
+                )
+                sub_task = SubTask(
+                    sub_task_id=f"{task_id}_seq_{i + 1}",
+                    parent_task_id=task_id,
+                    name=f"Sequential Chunk {i + 1}",
+                    description=f"Sequential execution chunk {i + 1}",
+                    requirements=chunk_requirements,
+                    dependencies=[f"{task_id}_seq_{i}"] if i > 0 else [],
+                )
                 sub_tasks.append(sub_task)
         return sub_tasks
 
-    async def _parallel_decomposition(self, task_id: str, task_requirements: TaskRequirement, max_subtasks: int, min_duration: float) -> list[SubTask]:
+    async def _parallel_decomposition(
+        self, task_id: str, task_requirements: TaskRequirement, max_subtasks: int, min_duration: float
+    ) -> list[SubTask]:
         """Parallel decomposition strategy"""
         sub_tasks = []
-        optimal_parallel = min(max(2, int(task_requirements.data_size / 100)), max(2, int(task_requirements.estimated_duration / min_duration)), max_subtasks)
+        optimal_parallel = min(
+            max(2, int(task_requirements.data_size / 100)),
+            max(2, int(task_requirements.estimated_duration / min_duration)),
+            max_subtasks,
+        )
         chunk_data_size = task_requirements.data_size // optimal_parallel
         chunk_duration = task_requirements.estimated_duration / optimal_parallel
         for i in range(optimal_parallel):
-            chunk_requirements = TaskRequirement(task_type=task_requirements.task_type, estimated_duration=chunk_duration, gpu_tier=task_requirements.gpu_tier, memory_requirement=task_requirements.memory_requirement // optimal_parallel, compute_intensity=task_requirements.compute_intensity, data_size=chunk_data_size, priority=task_requirements.priority, deadline=task_requirements.deadline, max_cost=task_requirements.max_cost / optimal_parallel if task_requirements.max_cost else None)
-            sub_task = SubTask(sub_task_id=f'{task_id}_par_{i + 1}', parent_task_id=task_id, name=f'Parallel Task {i + 1}', description=f'Parallel execution task {i + 1}', requirements=chunk_requirements, inputs=[f'input_chunk_{i}'], outputs=[f'output_chunk_{i}'])
+            chunk_requirements = TaskRequirement(
+                task_type=task_requirements.task_type,
+                estimated_duration=chunk_duration,
+                gpu_tier=task_requirements.gpu_tier,
+                memory_requirement=task_requirements.memory_requirement // optimal_parallel,
+                compute_intensity=task_requirements.compute_intensity,
+                data_size=chunk_data_size,
+                priority=task_requirements.priority,
+                deadline=task_requirements.deadline,
+                max_cost=task_requirements.max_cost / optimal_parallel if task_requirements.max_cost else None,
+            )
+            sub_task = SubTask(
+                sub_task_id=f"{task_id}_par_{i + 1}",
+                parent_task_id=task_id,
+                name=f"Parallel Task {i + 1}",
+                description=f"Parallel execution task {i + 1}",
+                requirements=chunk_requirements,
+                inputs=[f"input_chunk_{i}"],
+                outputs=[f"output_chunk_{i}"],
+            )
             sub_tasks.append(sub_task)
         return sub_tasks
 
-    async def _hierarchical_decomposition(self, task_id: str, task_requirements: TaskRequirement, max_subtasks: int, min_duration: float) -> list[SubTask]:
+    async def _hierarchical_decomposition(
+        self, task_id: str, task_requirements: TaskRequirement, max_subtasks: int, min_duration: float
+    ) -> list[SubTask]:
         """Hierarchical decomposition strategy"""
         sub_tasks = []
         level1_tasks = await self._parallel_decomposition(task_id, task_requirements, max_subtasks // 2, min_duration)
         for level1_task in level1_tasks:
             if level1_task.requirements.estimated_duration > min_duration * 2:
-                level2_tasks = await self._sequential_decomposition(level1_task.sub_task_id, level1_task.requirements, 2, min_duration / 2)
+                level2_tasks = await self._sequential_decomposition(
+                    level1_task.sub_task_id, level1_task.requirements, 2, min_duration / 2
+                )
                 for level2_task in level2_tasks:
                     level2_task.dependencies = level1_task.dependencies
                     level2_task.parent_task_id = task_id
@@ -281,50 +415,78 @@ class TaskDecompositionEngine:
                 sub_tasks.append(level1_task)
         return sub_tasks
 
-    async def _pipeline_decomposition(self, task_id: str, task_requirements: TaskRequirement, max_subtasks: int, min_duration: float) -> list[SubTask]:
+    async def _pipeline_decomposition(
+        self, task_id: str, task_requirements: TaskRequirement, max_subtasks: int, min_duration: float
+    ) -> list[SubTask]:
         """Pipeline decomposition strategy"""
         sub_tasks = []
         if task_requirements.task_type == TaskType.IMAGE_PROCESSING:
-            stages = ['preprocessing', 'processing', 'postprocessing']
+            stages = ["preprocessing", "processing", "postprocessing"]
         elif task_requirements.task_type == TaskType.DATA_ANALYSIS:
-            stages = ['data_loading', 'cleaning', 'analysis', 'visualization']
+            stages = ["data_loading", "cleaning", "analysis", "visualization"]
         elif task_requirements.task_type == TaskType.MODEL_TRAINING:
-            stages = ['data_preparation', 'model_training', 'validation', 'deployment']
+            stages = ["data_preparation", "model_training", "validation", "deployment"]
         else:
-            stages = ['stage1', 'stage2', 'stage3']
+            stages = ["stage1", "stage2", "stage3"]
         stage_duration = task_requirements.estimated_duration / len(stages)
         for i, stage in enumerate(stages):
-            stage_requirements = TaskRequirement(task_type=task_requirements.task_type, estimated_duration=stage_duration, gpu_tier=task_requirements.gpu_tier, memory_requirement=task_requirements.memory_requirement, compute_intensity=task_requirements.compute_intensity, data_size=task_requirements.data_size, priority=task_requirements.priority, deadline=task_requirements.deadline, max_cost=task_requirements.max_cost / len(stages) if task_requirements.max_cost else None)
-            sub_task = SubTask(sub_task_id=f'{task_id}_pipe_{i + 1}', parent_task_id=task_id, name=f'Pipeline Stage: {stage}', description=f'Pipeline stage: {stage}', requirements=stage_requirements, dependencies=[f'{task_id}_pipe_{i}'] if i > 0 else [], inputs=[f'stage_{i}_input'], outputs=[f'stage_{i}_output'])
+            stage_requirements = TaskRequirement(
+                task_type=task_requirements.task_type,
+                estimated_duration=stage_duration,
+                gpu_tier=task_requirements.gpu_tier,
+                memory_requirement=task_requirements.memory_requirement,
+                compute_intensity=task_requirements.compute_intensity,
+                data_size=task_requirements.data_size,
+                priority=task_requirements.priority,
+                deadline=task_requirements.deadline,
+                max_cost=task_requirements.max_cost / len(stages) if task_requirements.max_cost else None,
+            )
+            sub_task = SubTask(
+                sub_task_id=f"{task_id}_pipe_{i + 1}",
+                parent_task_id=task_id,
+                name=f"Pipeline Stage: {stage}",
+                description=f"Pipeline stage: {stage}",
+                requirements=stage_requirements,
+                dependencies=[f"{task_id}_pipe_{i}"] if i > 0 else [],
+                inputs=[f"stage_{i}_input"],
+                outputs=[f"stage_{i}_output"],
+            )
             sub_tasks.append(sub_task)
         return sub_tasks
 
-    async def _adaptive_decomposition(self, task_id: str, task_requirements: TaskRequirement, max_subtasks: int, min_duration: float) -> list[SubTask]:
+    async def _adaptive_decomposition(
+        self, task_id: str, task_requirements: TaskRequirement, max_subtasks: int, min_duration: float
+    ) -> list[SubTask]:
         """Adaptive decomposition strategy"""
         characteristics = await self._analyze_task_characteristics(task_requirements)
-        if characteristics['parallelizable'] > 0.7:
+        if characteristics["parallelizable"] > 0.7:
             return await self._parallel_decomposition(task_id, task_requirements, max_subtasks, min_duration)
-        elif characteristics['sequential_dependency'] > 0.7:
+        elif characteristics["sequential_dependency"] > 0.7:
             return await self._sequential_decomposition(task_id, task_requirements, max_subtasks, min_duration)
-        elif characteristics['hierarchical_structure'] > 0.7:
+        elif characteristics["hierarchical_structure"] > 0.7:
             return await self._hierarchical_decomposition(task_id, task_requirements, max_subtasks, min_duration)
         else:
             return await self._pipeline_decomposition(task_id, task_requirements, max_subtasks, min_duration)
 
     async def _analyze_task_characteristics(self, task_requirements: TaskRequirement) -> dict[str, float]:
         """Analyze task characteristics for adaptive decomposition"""
-        characteristics = {'parallelizable': 0.5, 'sequential_dependency': 0.5, 'hierarchical_structure': 0.5, 'pipeline_suitable': 0.5}
+        characteristics = {
+            "parallelizable": 0.5,
+            "sequential_dependency": 0.5,
+            "hierarchical_structure": 0.5,
+            "pipeline_suitable": 0.5,
+        }
         if task_requirements.task_type in [TaskType.DATA_ANALYSIS, TaskType.IMAGE_PROCESSING]:
-            characteristics['parallelizable'] = 0.8
+            characteristics["parallelizable"] = 0.8
         elif task_requirements.task_type in [TaskType.MODEL_TRAINING]:
-            characteristics['sequential_dependency'] = 0.7
-            characteristics['pipeline_suitable'] = 0.8
+            characteristics["sequential_dependency"] = 0.7
+            characteristics["pipeline_suitable"] = 0.8
         elif task_requirements.task_type == TaskType.MIXED_MODAL:
-            characteristics['hierarchical_structure'] = 0.8
+            characteristics["hierarchical_structure"] = 0.8
         if task_requirements.data_size > 1000:
-            characteristics['parallelizable'] += 0.2
+            characteristics["parallelizable"] += 0.2
         if task_requirements.compute_intensity > 0.8:
-            characteristics['sequential_dependency'] += 0.1
+            characteristics["sequential_dependency"] += 0.1
         return characteristics
 
     async def _build_dependency_graph(self, sub_tasks: list[SubTask]) -> dict[str, list[str]]:
@@ -346,7 +508,7 @@ class TaskDecompositionEngine:
                 if all(dep in completed_tasks for dep in dependencies):
                     ready_tasks.append(task_id)
             if not ready_tasks:
-                logger.warning('Circular dependency detected in task decomposition')
+                logger.warning("Circular dependency detected in task decomposition")
                 break
             execution_plan.append(ready_tasks)
             for task_id in ready_tasks:
@@ -375,9 +537,11 @@ class TaskDecompositionEngine:
             total_cost += task_cost
         return total_cost
 
-    async def _calculate_decomposition_confidence(self, task_requirements: TaskRequirement, sub_tasks: list[SubTask], strategy: str) -> float:
+    async def _calculate_decomposition_confidence(
+        self, task_requirements: TaskRequirement, sub_tasks: list[SubTask], strategy: str
+    ) -> float:
         """Calculate confidence in decomposition"""
-        strategy_confidence = {'sequential': 0.9, 'parallel': 0.8, 'hierarchical': 0.7, 'pipeline': 0.8, 'adaptive': 0.6}
+        strategy_confidence = {"sequential": 0.9, "parallel": 0.8, "hierarchical": 0.7, "pipeline": 0.8, "adaptive": 0.6}
         confidence = strategy_confidence.get(strategy, 0.5)
         complexity = self.complexity_thresholds.get(task_requirements.task_type, 0.5)
         if complexity > 0.7:
@@ -388,11 +552,19 @@ class TaskDecompositionEngine:
 
     async def _get_aggregation_function(self, aggregation_type: str, output_format: str) -> str:
         """Get aggregation function for combining results"""
-        function_map = {'concat': 'concatenate_results', 'merge': 'merge_results', 'vote': 'majority_vote', 'average': 'weighted_average', 'sum': 'sum_results', 'max': 'max_results', 'min': 'min_results'}
-        base_function = function_map.get(aggregation_type, 'concatenate_results')
-        if output_format == 'json':
-            return f'{base_function}_json'
-        elif output_format == 'array':
-            return f'{base_function}_array'
+        function_map = {
+            "concat": "concatenate_results",
+            "merge": "merge_results",
+            "vote": "majority_vote",
+            "average": "weighted_average",
+            "sum": "sum_results",
+            "max": "max_results",
+            "min": "min_results",
+        }
+        base_function = function_map.get(aggregation_type, "concatenate_results")
+        if output_format == "json":
+            return f"{base_function}_json"
+        elif output_format == "array":
+            return f"{base_function}_array"
         else:
             return base_function

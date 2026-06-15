@@ -7,6 +7,7 @@ Provides:
 - Pin management
 - Gateway access
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -21,9 +22,11 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+
 @dataclass
 class IPFSUploadResult:
     """Result of IPFS upload"""
+
     cid: str
     size: int
     name: str
@@ -31,19 +34,22 @@ class IPFSUploadResult:
     gateway_url: str
     pinned: bool
 
+
 @dataclass
 class IPFSPin:
     """IPFS pin record"""
+
     cid: str
     name: str
     size: int
     pinned_at: datetime
     metadata: dict[str, Any]
 
+
 class IPFSClient:
     """
     IPFS client for interacting with IPFS nodes.
-    
+
     Supports:
     - Local IPFS node (default: localhost:5001)
     - Infura IPFS
@@ -51,9 +57,16 @@ class IPFSClient:
     - Other pinning services
     """
 
-    def __init__(self, api_url: str='http://localhost:5001', gateway_url: str='https://ipfs.io', pinning_service: str | None=None, pinning_key: str | None=None, session: Any=None) -> None:
-        self.api_url = api_url.rstrip('/')
-        self.gateway_url = gateway_url.rstrip('/')
+    def __init__(
+        self,
+        api_url: str = "http://localhost:5001",
+        gateway_url: str = "https://ipfs.io",
+        pinning_service: str | None = None,
+        pinning_key: str | None = None,
+        session: Any = None,
+    ) -> None:
+        self.api_url = api_url.rstrip("/")
+        self.gateway_url = gateway_url.rstrip("/")
         self.pinning_service = pinning_service
         self.pinning_key = pinning_key
         self._client = httpx.AsyncClient(timeout=60.0)
@@ -64,32 +77,34 @@ class IPFSClient:
         if self._available is not None:
             return self._available
         try:
-            response = await self._client.post(f'{self.api_url}/api/v0/id', timeout=5.0)
+            response = await self._client.post(f"{self.api_url}/api/v0/id", timeout=5.0)
             self._available = response.status_code == 200
             if self._available:
                 data = response.json()
-                logger.info('IPFS node connected: %s...', data.get('ID', 'unknown')[:16])
+                logger.info("IPFS node connected: %s...", data.get("ID", "unknown")[:16])
             return self._available
         except Exception as e:
-            logger.warning('IPFS node not available: %s', e)
+            logger.warning("IPFS node not available: %s", e)
             self._available = False
             return False
 
-    async def upload_file(self, data: bytes | str, filename: str='', pin: bool=True, wrap_with_directory: bool=False) -> IPFSUploadResult:
+    async def upload_file(
+        self, data: bytes | str, filename: str = "", pin: bool = True, wrap_with_directory: bool = False
+    ) -> IPFSUploadResult:
         """
         Upload data to IPFS.
-        
+
         Args:
             data: File content (bytes or string)
             filename: Optional filename
             pin: Whether to pin the content
             wrap_with_directory: Whether to wrap in a directory
-        
+
         Returns:
             IPFSUploadResult with CID and metadata
         """
         if isinstance(data, str):
-            data = data.encode('utf-8')
+            data = data.encode("utf-8")
         is_available = await self.check_availability()
         if is_available:
             return await self._upload_to_ipfs(data, filename, pin, wrap_with_directory)
@@ -99,65 +114,84 @@ class IPFSClient:
     async def _upload_to_ipfs(self, data: bytes, filename: str, pin: bool, wrap_with_directory: bool) -> IPFSUploadResult:
         """Upload to real IPFS node"""
         try:
-            files = {'file': (filename or 'data', data)}
+            files = {"file": (filename or "data", data)}
             params = {}
             if pin:
-                params['pin'] = 'true'
+                params["pin"] = "true"
             if wrap_with_directory:
-                params['wrap-with-directory'] = 'true'
-            response = await self._client.post(f'{self.api_url}/api/v0/add', files=files, params=params, timeout=60.0)
+                params["wrap-with-directory"] = "true"
+            response = await self._client.post(f"{self.api_url}/api/v0/add", files=files, params=params, timeout=60.0)
             response.raise_for_status()
-            lines = response.text.strip().split('\n')
+            lines = response.text.strip().split("\n")
             last_line = json.loads(lines[-1])
-            cid = last_line.get('Hash')
-            size = last_line.get('Size', len(data))
+            cid = last_line.get("Hash")
+            size = last_line.get("Size", len(data))
             if pin and self.pinning_service:
                 await self._pin_to_external_service(cid, filename, size)
-            return IPFSUploadResult(cid=cid, size=size, name=filename or cid[:16], timestamp=datetime.now(UTC), gateway_url=f'{self.gateway_url}/ipfs/{cid}', pinned=pin)
+            return IPFSUploadResult(
+                cid=cid,
+                size=size,
+                name=filename or cid[:16],
+                timestamp=datetime.now(UTC),
+                gateway_url=f"{self.gateway_url}/ipfs/{cid}",
+                pinned=pin,
+            )
         except Exception as e:
-            logger.error('IPFS upload failed: %s', e)
+            logger.error("IPFS upload failed: %s", e)
             raise
 
     def _generate_mock_cid(self, data: bytes, filename: str) -> IPFSUploadResult:
         """Generate a mock CID for testing when IPFS is unavailable"""
         hash_value = hashlib.sha256(data).hexdigest()
-        mock_cid = f'Qm{hash_value[:44]}'
-        logger.debug('Generated mock CID: %s', mock_cid)
-        return IPFSUploadResult(cid=mock_cid, size=len(data), name=filename or mock_cid[:16], timestamp=datetime.now(UTC), gateway_url=f'https://ipfs.io/ipfs/{mock_cid}', pinned=False)
+        mock_cid = f"Qm{hash_value[:44]}"
+        logger.debug("Generated mock CID: %s", mock_cid)
+        return IPFSUploadResult(
+            cid=mock_cid,
+            size=len(data),
+            name=filename or mock_cid[:16],
+            timestamp=datetime.now(UTC),
+            gateway_url=f"https://ipfs.io/ipfs/{mock_cid}",
+            pinned=False,
+        )
 
     async def _pin_to_external_service(self, cid: str, name: str, size: int) -> bool:
         """Pin CID to external pinning service"""
         if not self.pinning_service or not self.pinning_key:
             return False
         try:
-            if self.pinning_service == 'pinata':
-                response = await self._client.post('https://api.pinata.cloud/pinning/pinByHash', headers={'Authorization': f'Bearer {self.pinning_key}', 'Content-Type': 'application/json'}, json={'hashToPin': cid, 'pinataMetadata': {'name': name}}, timeout=30.0)
+            if self.pinning_service == "pinata":
+                response = await self._client.post(
+                    "https://api.pinata.cloud/pinning/pinByHash",
+                    headers={"Authorization": f"Bearer {self.pinning_key}", "Content-Type": "application/json"},
+                    json={"hashToPin": cid, "pinataMetadata": {"name": name}},
+                    timeout=30.0,
+                )
                 return response.status_code == 200
             return False
         except Exception as e:
-            logger.warning('External pinning failed: %s', e)
+            logger.warning("External pinning failed: %s", e)
             return False
 
     async def get_content(self, cid: str) -> bytes | None:
         """Retrieve content from IPFS by CID"""
-        if cid.startswith('Qm') and len(cid) == 46:
+        if cid.startswith("Qm") and len(cid) == 46:
             try:
-                response = await self._client.get(f'{self.gateway_url}/ipfs/{cid}', timeout=30.0, follow_redirects=True)
+                response = await self._client.get(f"{self.gateway_url}/ipfs/{cid}", timeout=30.0, follow_redirects=True)
                 if response.status_code == 200:
                     return response.content
             except Exception as e:
-                logger.debug('Could not fetch from IPFS gateway: %s', e)
+                logger.debug("Could not fetch from IPFS gateway: %s", e)
         return None
 
-    async def pin_cid(self, cid: str, name: str='') -> bool:
+    async def pin_cid(self, cid: str, name: str = "") -> bool:
         """Pin an existing CID to the local node"""
         if not await self.check_availability():
             return False
         try:
-            response = await self._client.post(f'{self.api_url}/api/v0/pin/add', params={'arg': cid}, timeout=30.0)
+            response = await self._client.post(f"{self.api_url}/api/v0/pin/add", params={"arg": cid}, timeout=30.0)
             return response.status_code == 200
         except Exception as e:
-            logger.warning('Pin failed: %s', e)
+            logger.warning("Pin failed: %s", e)
             return False
 
     async def unpin_cid(self, cid: str) -> bool:
@@ -165,10 +199,10 @@ class IPFSClient:
         if not await self.check_availability():
             return False
         try:
-            response = await self._client.post(f'{self.api_url}/api/v0/pin/rm', params={'arg': cid}, timeout=30.0)
+            response = await self._client.post(f"{self.api_url}/api/v0/pin/rm", params={"arg": cid}, timeout=30.0)
             return response.status_code == 200
         except Exception as e:
-            logger.warning('Unpin failed: %s', e)
+            logger.warning("Unpin failed: %s", e)
             return False
 
     async def list_pins(self) -> list[IPFSPin]:
@@ -176,46 +210,49 @@ class IPFSClient:
         if not await self.check_availability():
             return []
         try:
-            response = await self._client.post(f'{self.api_url}/api/v0/pin/ls', timeout=30.0)
+            response = await self._client.post(f"{self.api_url}/api/v0/pin/ls", timeout=30.0)
             if response.status_code != 200:
                 return []
             data = response.json()
             pins = []
-            for cid, info in data.get('Keys', {}).items():
-                pins.append(IPFSPin(cid=cid, name=info.get('Type', 'unknown'), size=0, pinned_at=datetime.now(UTC), metadata=info))
+            for cid, info in data.get("Keys", {}).items():
+                pins.append(
+                    IPFSPin(cid=cid, name=info.get("Type", "unknown"), size=0, pinned_at=datetime.now(UTC), metadata=info)
+                )
             return pins
         except Exception as e:
-            logger.warning('List pins failed: %s', e)
+            logger.warning("List pins failed: %s", e)
             return []
+
 
 class IPFSService:
     """
     High-level IPFS service for the AITBC platform.
-    
+
     Provides convenient methods for:
     - Storing job results
     - Caching AI model outputs
     - Archiving transaction data
     """
 
-    def __init__(self, session: Any=None) -> None:
+    def __init__(self, session: Any = None) -> None:
         self.client = IPFSClient()
         self._uploads: dict[str, IPFSUploadResult] = {}
         self.session = session
 
     async def store_job_result(self, job_id: str, result_data: dict[str, Any]) -> IPFSUploadResult:
         """Store AI job result on IPFS"""
-        data = json.dumps(result_data, indent=2).encode('utf-8')
-        result = await self.client.upload_file(data=data, filename=f'job_{job_id}_result.json', pin=True)
+        data = json.dumps(result_data, indent=2).encode("utf-8")
+        result = await self.client.upload_file(data=data, filename=f"job_{job_id}_result.json", pin=True)
         self._uploads[job_id] = result
-        logger.info('Job result stored on IPFS: %s -> %s', job_id, result.cid)
+        logger.info("Job result stored on IPFS: %s -> %s", job_id, result.cid)
         return result
 
     async def store_evidence(self, dispute_id: str, evidence_data: dict[str, Any]) -> IPFSUploadResult:
         """Store dispute evidence on IPFS"""
-        data = json.dumps(evidence_data, indent=2).encode('utf-8')
-        result = await self.client.upload_file(data=data, filename=f'dispute_{dispute_id}_evidence.json', pin=True)
-        logger.info('Evidence stored on IPFS: %s -> %s', dispute_id, result.cid)
+        data = json.dumps(evidence_data, indent=2).encode("utf-8")
+        result = await self.client.upload_file(data=data, filename=f"dispute_{dispute_id}_evidence.json", pin=True)
+        logger.info("Evidence stored on IPFS: %s -> %s", dispute_id, result.cid)
         return result
 
     async def get_upload(self, job_id: str) -> IPFSUploadResult | None:
@@ -225,8 +262,17 @@ class IPFSService:
     async def health_check(self) -> dict[str, Any]:
         """Check IPFS service health"""
         available = await self.client.check_availability()
-        return {'status': 'healthy' if available else 'degraded', 'ipfs_node_available': available, 'api_url': self.client.api_url, 'gateway_url': self.client.gateway_url, 'stored_uploads': len(self._uploads)}
+        return {
+            "status": "healthy" if available else "degraded",
+            "ipfs_node_available": available,
+            "api_url": self.client.api_url,
+            "gateway_url": self.client.gateway_url,
+            "stored_uploads": len(self._uploads),
+        }
+
+
 _ipfs_service: IPFSService | None = None
+
 
 def get_ipfs_service() -> IPFSService:
     """Get global IPFS service"""

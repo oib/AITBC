@@ -20,24 +20,24 @@ def register_hub_command(ctx, public_address, public_port, redis_url, hub_discov
     """Register this node as a hub"""
     try:
         # Get environment variables
-        island_id = os.getenv('ISLAND_ID')
+        island_id = os.getenv("ISLAND_ID")
         if not island_id:
             error("ISLAND_ID environment variable not set")
             raise click.Abort()
-        island_name = os.getenv('ISLAND_NAME', 'default')
+        island_name = os.getenv("ISLAND_NAME", "default")
 
         # Get system hostname
         hostname = socket.gethostname()
 
         # Get public key from keystore
-        keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
+        keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
         public_key_pem = None
 
         if os.path.exists(keystore_path):
             with open(keystore_path) as f:
                 keys = json.load(f)
-                for key_id, key_data in keys.items():
-                    public_key_pem = key_data.get('public_key_pem')
+                for _key_id, key_data in keys.items():
+                    public_key_pem = key_data.get("public_key_pem")
                     break
         else:
             error(f"Keystore not found at {keystore_path}")
@@ -54,18 +54,11 @@ def register_hub_command(ctx, public_address, public_port, redis_url, hub_discov
         node_id = hashlib.sha256(content.encode()).hexdigest()
 
         # Create HubManager instance
-        sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
+        sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
         from aitbc_chain.network.hub_discovery import HubDiscovery
         from aitbc_chain.network.hub_manager import HubManager
 
-        hub_manager = HubManager(
-            node_id,
-            local_address,
-            local_port,
-            island_id,
-            island_name,
-            redis_url
-        )
+        hub_manager = HubManager(node_id, local_address, local_port, island_id, island_name, redis_url)
 
         # Register as hub (async)
         async def register_hub():
@@ -80,7 +73,7 @@ def register_hub_command(ctx, public_address, public_port, redis_url, hub_discov
                     "island_name": island_name,
                     "public_address": public_address,
                     "public_port": public_port,
-                    "public_key_pem": public_key_pem
+                    "public_key_pem": public_key_pem,
                 }
                 dns_success = await hub_discovery.register_hub(hub_info_dict)
                 return success and dns_success
@@ -98,10 +91,10 @@ def register_hub_command(ctx, public_address, public_port, redis_url, hub_discov
                 "Island Name": island_name,
                 "Public Address": public_address or "auto-discovered",
                 "Public Port": public_port or "auto-discovered",
-                "Status": "Registered"
+                "Status": "Registered",
             }
 
-            output(hub_info, ctx.obj.get('output_format', 'table'), title="Hub Registration")
+            output(hub_info, ctx.obj.get("output_format", "table"), title="Hub Registration")
             success("Successfully registered as hub")
         else:
             error("Failed to register as hub")
@@ -115,22 +108,22 @@ def register_hub_command(ctx, public_address, public_port, redis_url, hub_discov
 def unregister_hub_command(ctx, redis_url, hub_discovery_url):
     """Unregister this node as a hub"""
     try:
-        island_id = os.getenv('ISLAND_ID')
+        island_id = os.getenv("ISLAND_ID")
         if not island_id:
             error("ISLAND_ID environment variable not set")
             raise click.Abort()
-        island_name = os.getenv('ISLAND_NAME', 'default')
+        island_name = os.getenv("ISLAND_NAME", "default")
 
         hostname = socket.gethostname()
 
-        keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
+        keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
         public_key_pem = None
 
         if os.path.exists(keystore_path):
             with open(keystore_path) as f:
                 keys = json.load(f)
-                for key_id, key_data in keys.items():
-                    public_key_pem = key_data.get('public_key_pem')
+                for _key_id, key_data in keys.items():
+                    public_key_pem = key_data.get("public_key_pem")
                     break
         else:
             error(f"Keystore not found at {keystore_path}")
@@ -145,18 +138,11 @@ def unregister_hub_command(ctx, redis_url, hub_discovery_url):
         content = f"{hostname}:{local_address}:{local_port}:{public_key_pem}"
         node_id = hashlib.sha256(content.encode()).hexdigest()
 
-        sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
+        sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
         from aitbc_chain.network.hub_discovery import HubDiscovery
         from aitbc_chain.network.hub_manager import HubManager
 
-        hub_manager = HubManager(
-            node_id,
-            local_address,
-            local_port,
-            island_id,
-            island_name,
-            redis_url
-        )
+        hub_manager = HubManager(node_id, local_address, local_port, island_id, island_name, redis_url)
 
         async def unregister_hub():
             success = await hub_manager.unregister_as_hub()
@@ -169,12 +155,9 @@ def unregister_hub_command(ctx, redis_url, hub_discovery_url):
         result = asyncio.run(unregister_hub())
 
         if result:
-            hub_info = {
-                "Node ID": node_id,
-                "Status": "Unregistered"
-            }
+            hub_info = {"Node ID": node_id, "Status": "Unregistered"}
 
-            output(hub_info, ctx.obj.get('output_format', 'table'), title="Hub Unregistration")
+            output(hub_info, ctx.obj.get("output_format", "table"), title="Hub Unregistration")
             success("Successfully unregistered as hub")
         else:
             error("Failed to unregister as hub")
@@ -199,21 +182,23 @@ def list_hubs_command(ctx, redis_url):
         hubs = asyncio.run(get_hubs())
 
         if not hubs:
-            output("No hubs registered", ctx.obj.get('output_format', 'table'))
+            output("No hubs registered", ctx.obj.get("output_format", "table"))
             return
 
         hubs_data = []
         for hub_id, hub_info_str in hubs.items():
             hub_info = json.loads(hub_info_str)
-            hubs_data.append({
-                "Hub ID": hub_id,
-                "Island ID": hub_info.get('island_id'),
-                "Island Name": hub_info.get('island_name'),
-                "Address": hub_info.get('address'),
-                "Port": hub_info.get('port')
-            })
+            hubs_data.append(
+                {
+                    "Hub ID": hub_id,
+                    "Island ID": hub_info.get("island_id"),
+                    "Island Name": hub_info.get("island_name"),
+                    "Address": hub_info.get("address"),
+                    "Port": hub_info.get("port"),
+                }
+            )
 
-        output(hubs_data, ctx.obj.get('output_format', 'table'), title="Registered Hubs")
+        output(hubs_data, ctx.obj.get("output_format", "table"), title="Registered Hubs")
 
     except Exception as e:
         error(f"Error listing hubs: {str(e)}")

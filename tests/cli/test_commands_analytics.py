@@ -22,8 +22,9 @@ class TestAnalyticsCommands:
         """Test that analytics command group exists"""
         try:
             from aitbc_cli.commands.analytics import analytics
+
             assert analytics is not None
-            assert hasattr(analytics, 'name')
+            assert hasattr(analytics, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import analytics commands: {e}")
 
@@ -31,12 +32,13 @@ class TestAnalyticsCommands:
         """Test analytics group name"""
         try:
             from aitbc_cli.commands.analytics import analytics
+
             assert analytics.name == "analytics"
         except ImportError as e:
             pytest.skip(f"Cannot import analytics commands: {e}")
 
-    @patch('aitbc_cli.commands.analytics.output')
-    @patch('aitbc_cli.commands.analytics.error')
+    @patch("aitbc_cli.commands.analytics.output")
+    @patch("aitbc_cli.commands.analytics.error")
     def test_analytics_summary_command(self, mock_error, mock_output):
         """Test analytics summary command - skip due to complex config and async dependencies"""
         pytest.skip("Analytics commands have complex config and async dependencies")

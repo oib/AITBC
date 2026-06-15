@@ -43,7 +43,7 @@ def test_region_negative_capacity():
         capacity=-1000,
         current_load=-500,
         latency_ms=-50,
-        compliance_level="full"
+        compliance_level="full",
     )
     assert region.capacity == -1000
     assert region.current_load == -500
@@ -61,7 +61,7 @@ def test_region_empty_name():
         capacity=8000,
         current_load=2000,
         latency_ms=50,
-        compliance_level="full"
+        compliance_level="full",
     )
     assert region.name == ""
 
@@ -75,7 +75,7 @@ def test_deployment_empty_target_regions():
         target_regions=[],
         configuration={},
         deployment_strategy="blue_green",
-        health_checks=[]
+        health_checks=[],
     )
     assert deployment.target_regions == []
 
@@ -89,7 +89,7 @@ def test_load_balancer_negative_health_check_interval():
         algorithm="round_robin",
         target_regions=["us-east-1"],
         health_check_interval=-30,
-        failover_threshold=3
+        failover_threshold=3,
     )
     assert balancer.health_check_interval == -30
 
@@ -105,7 +105,7 @@ def test_performance_metrics_negative_values():
         network_io=-1000.5,
         disk_io=-500.3,
         active_connections=-100,
-        response_time_ms=-45.2
+        response_time_ms=-45.2,
     )
     assert metrics.cpu_usage == -50.5
     assert metrics.active_connections == -100
@@ -175,7 +175,7 @@ def test_create_load_balancer_nonexistent_region():
         algorithm="round_robin",
         target_regions=["nonexistent"],
         health_check_interval=30,
-        failover_threshold=3
+        failover_threshold=3,
     )
     response = client.post("/api/v1/load-balancers/create", json=balancer.model_dump())
     assert response.status_code == 400

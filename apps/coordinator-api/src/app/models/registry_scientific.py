@@ -2,7 +2,6 @@
 Scientific computing service definitions
 """
 
-
 from .registry import (
     HardwareRequirement,
     ParameterDefinition,

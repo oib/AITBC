@@ -21,7 +21,7 @@ class DisputeOperations:
             if result["success"]:
                 return result["data"].get("dispute_id", "")
             else:
-                logger.error("Dispute file failed: %s", result.get('error'))
+                logger.error("Dispute file failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("file_dispute failed: %s", e)
@@ -35,7 +35,7 @@ class DisputeOperations:
             if result["success"]:
                 return result["data"].get("registered", False)
             else:
-                logger.error("Dispute register-arbitrator failed: %s", result.get('error'))
+                logger.error("Dispute register-arbitrator failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("register_arbitrator failed: %s", e)
@@ -49,7 +49,7 @@ class DisputeOperations:
             if result["success"]:
                 return result["data"].get("submitted", False)
             else:
-                logger.error("Dispute evidence failed: %s", result.get('error'))
+                logger.error("Dispute evidence failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("submit_dispute_evidence failed: %s", e)
@@ -65,7 +65,7 @@ class DisputeOperations:
             if result["success"]:
                 return result["data"].get("accepted", False)
             else:
-                logger.error("Dispute vote failed: %s", result.get('error'))
+                logger.error("Dispute vote failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("vote_dispute failed: %s", e)

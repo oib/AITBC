@@ -24,6 +24,7 @@ _compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "float16")
 async def lifespan(app: FastAPI):
     global _model
     from faster_whisper import WhisperModel
+
     print(f"Loading Whisper model '{_model_name}' on {_device} ({_compute_type})...")
     _model = WhisperModel(_model_name, device=_device, compute_type=_compute_type)
     print("Whisper model ready.")
@@ -48,12 +49,12 @@ async def health():
 async def list_models():
     return {
         "models": [
-            {"name": "tiny",   "params": "39M",   "vram_gb": 1},
-            {"name": "base",   "params": "74M",   "vram_gb": 1},
-            {"name": "small",  "params": "244M",  "vram_gb": 2},
-            {"name": "medium", "params": "769M",  "vram_gb": 5},
-            {"name": "large",  "params": "1550M", "vram_gb": 10},
-            {"name": "turbo",  "params": "809M",  "vram_gb": 6},
+            {"name": "tiny", "params": "39M", "vram_gb": 1},
+            {"name": "base", "params": "74M", "vram_gb": 1},
+            {"name": "small", "params": "244M", "vram_gb": 2},
+            {"name": "medium", "params": "769M", "vram_gb": 5},
+            {"name": "large", "params": "1550M", "vram_gb": 10},
+            {"name": "turbo", "params": "809M", "vram_gb": 6},
         ],
         "loaded": _model_name,
     }
@@ -86,11 +87,13 @@ async def transcribe(
         segment_list = []
         full_text = []
         for seg in segments:
-            segment_list.append({
-                "start": round(seg.start, 2),
-                "end": round(seg.end, 2),
-                "text": seg.text.strip(),
-            })
+            segment_list.append(
+                {
+                    "start": round(seg.start, 2),
+                    "end": round(seg.end, 2),
+                    "text": seg.text.strip(),
+                }
+            )
             full_text.append(seg.text.strip())
 
         elapsed = round(time.time() - t_start, 2)
@@ -98,18 +101,20 @@ async def transcribe(
         transcript = " ".join(full_text)
         result_hash = hashlib.sha256(transcript.encode()).hexdigest()
 
-        return JSONResponse({
-            "text": transcript,
-            "language": info.language,
-            "language_probability": round(info.language_probability, 3),
-            "duration_seconds": duration,
-            "duration_minutes": round(duration / 60, 4),
-            "segments": segment_list,
-            "model": _model_name,
-            "elapsed_seconds": elapsed,
-            "real_time_factor": round(elapsed / duration, 3) if duration > 0 else 0,
-            "result_hash": result_hash,
-        })
+        return JSONResponse(
+            {
+                "text": transcript,
+                "language": info.language,
+                "language_probability": round(info.language_probability, 3),
+                "duration_seconds": duration,
+                "duration_minutes": round(duration / 60, 4),
+                "segments": segment_list,
+                "model": _model_name,
+                "elapsed_seconds": elapsed,
+                "real_time_factor": round(elapsed / duration, 3) if duration > 0 else 0,
+                "result_hash": result_hash,
+            }
+        )
     finally:
         os.unlink(tmp_path)
 

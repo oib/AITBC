@@ -38,7 +38,7 @@ def node():
 
 
 @node.command()
-@click.argument('node_id')
+@click.argument("node_id")
 @click.pass_context
 def info(ctx, node_id):
     """Get detailed node information"""
@@ -64,10 +64,10 @@ def info(ctx, node_id):
             "Status": node_info["status"],
             "Version": node_info["version"],
             "Uptime": f"{node_info['uptime_days']} days, {node_info['uptime_hours']} hours",
-            "Endpoint": node_config.endpoint
+            "Endpoint": node_config.endpoint,
         }
 
-        output(basic_info, ctx.obj.get('output_format', 'table'), title=f"Node Information: {node_id}")
+        output(basic_info, ctx.obj.get("output_format", "table"), title=f"Node Information: {node_id}")
 
         # Performance metrics
         metrics = {
@@ -75,23 +75,19 @@ def info(ctx, node_id):
             "Memory Usage": f"{node_info['memory_usage_mb']:.1f}MB",
             "Disk Usage": f"{node_info['disk_usage_mb']:.1f}MB",
             "Network In": f"{node_info['network_in_mb']:.1f}MB/s",
-            "Network Out": f"{node_info['network_out_mb']:.1f}MB/s"
+            "Network Out": f"{node_info['network_out_mb']:.1f}MB/s",
         }
 
-        output(metrics, ctx.obj.get('output_format', 'table'), title="Performance Metrics")
+        output(metrics, ctx.obj.get("output_format", "table"), title="Performance Metrics")
 
         # Hosted chains
         if node_info.get("hosted_chains"):
             chains_data = [
-                {
-                    "Chain ID": chain_id,
-                    "Type": chain.get("type", "unknown"),
-                    "Status": chain.get("status", "unknown")
-                }
+                {"Chain ID": chain_id, "Type": chain.get("type", "unknown"), "Status": chain.get("status", "unknown")}
                 for chain_id, chain in node_info["hosted_chains"].items()
             ]
 
-            output(chains_data, ctx.obj.get('output_format', 'table'), title="Hosted Chains")
+            output(chains_data, ctx.obj.get("output_format", "table"), title="Hosted Chains")
 
     except Exception as e:
         error(f"Error getting node info: {str(e)}")
@@ -99,8 +95,8 @@ def info(ctx, node_id):
 
 
 @node.command()
-@click.option('--show-private', is_flag=True, help='Show private chains')
-@click.option('--node-id', help='Specific node ID to query')
+@click.option("--show-private", is_flag=True, help="Show private chains")
+@click.option("--node-id", help="Specific node ID to query")
 @click.pass_context
 def chains(ctx, show_private, node_id):
     """List chains hosted on all nodes"""
@@ -114,6 +110,7 @@ def chains(ctx, show_private, node_id):
             for nid, node_config in config.nodes.items():
                 if node_id and nid != node_id:
                     continue
+
                 async def get_chains_for_node(nid, nconfig):
                     try:
                         async with NodeClient(nconfig) as client:
@@ -132,13 +129,12 @@ def chains(ctx, show_private, node_id):
         asyncio.run(get_all_chains())
 
         if not all_chains:
-            output("No chains found on any node", ctx.obj.get('output_format', 'table'))
+            output("No chains found on any node", ctx.obj.get("output_format", "table"))
             return
 
         # Filter private chains if not requested
         if not show_private:
-            all_chains = [(node_id, chain) for node_id, chain in all_chains
-                         if chain.privacy.visibility != "private"]
+            all_chains = [(node_id, chain) for node_id, chain in all_chains if chain.privacy.visibility != "private"]
 
         # Format output
         chains_data = [
@@ -150,12 +146,12 @@ def chains(ctx, show_private, node_id):
                 "Name": chain.name,
                 "Status": chain.status.value,
                 "Block Height": chain.block_height,
-                "Size": f"{chain.size_mb:.1f}MB"
+                "Size": f"{chain.size_mb:.1f}MB",
             }
             for node_id, chain in all_chains
         ]
 
-        output(chains_data, ctx.obj.get('output_format', 'table'), title="Chains by Node")
+        output(chains_data, ctx.obj.get("output_format", "table"), title="Chains by Node")
 
     except Exception as e:
         error(f"Error listing chains: {str(e)}")
@@ -163,7 +159,7 @@ def chains(ctx, show_private, node_id):
 
 
 @node.command()
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def list(ctx, format):
     """List all configured nodes"""
@@ -171,7 +167,7 @@ def list(ctx, format):
         config = load_multichain_config()
 
         if not config.nodes:
-            output("No nodes configured", ctx.obj.get('output_format', 'table'))
+            output("No nodes configured", ctx.obj.get("output_format", "table"))
             return
 
         nodes_data = [
@@ -180,12 +176,12 @@ def list(ctx, format):
                 "Endpoint": node_config.endpoint,
                 "Timeout": f"{node_config.timeout}s",
                 "Max Connections": node_config.max_connections,
-                "Retry Count": node_config.retry_count
+                "Retry Count": node_config.retry_count,
             }
             for node_id, node_config in config.nodes.items()
         ]
 
-        output(nodes_data, ctx.obj.get('output_format', 'table'), title="Configured Nodes")
+        output(nodes_data, ctx.obj.get("output_format", "table"), title="Configured Nodes")
 
     except Exception as e:
         error(f"Error listing nodes: {str(e)}")
@@ -193,11 +189,11 @@ def list(ctx, format):
 
 
 @node.command()
-@click.argument('node_id')
-@click.argument('endpoint')
-@click.option('--timeout', default=30, help='Request timeout in seconds')
-@click.option('--max-connections', default=10, help='Maximum concurrent connections')
-@click.option('--retry-count', default=3, help='Number of retry attempts')
+@click.argument("node_id")
+@click.argument("endpoint")
+@click.option("--timeout", default=30, help="Request timeout in seconds")
+@click.option("--max-connections", default=10, help="Maximum concurrent connections")
+@click.option("--retry-count", default=3, help="Number of retry attempts")
 @click.pass_context
 def add(ctx, node_id, endpoint, timeout, max_connections, retry_count):
     """Add a new node to configuration"""
@@ -225,10 +221,10 @@ def add(ctx, node_id, endpoint, timeout, max_connections, retry_count):
             "Endpoint": endpoint,
             "Timeout": f"{timeout}s",
             "Max Connections": max_connections,
-            "Retry Count": retry_count
+            "Retry Count": retry_count,
         }
 
-        output(result, ctx.obj.get('output_format', 'table'))
+        output(result, ctx.obj.get("output_format", "table"))
 
     except Exception as e:
         error(f"Error adding node: {str(e)}")
@@ -236,8 +232,8 @@ def add(ctx, node_id, endpoint, timeout, max_connections, retry_count):
 
 
 @node.command()
-@click.argument('node_id')
-@click.option('--force', is_flag=True, help='Force removal without confirmation')
+@click.argument("node_id")
+@click.option("--force", is_flag=True, help="Force removal without confirmation")
 @click.pass_context
 def remove(ctx, node_id, force):
     """Remove a node from configuration"""
@@ -255,10 +251,10 @@ def remove(ctx, node_id, force):
                 "Node ID": node_id,
                 "Endpoint": node_config.endpoint,
                 "Timeout": f"{node_config.timeout}s",
-                "Max Connections": node_config.max_connections
+                "Max Connections": node_config.max_connections,
             }
 
-            output(node_info, ctx.obj.get('output_format', 'table'), title="Node to Remove")
+            output(node_info, ctx.obj.get("output_format", "table"), title="Node to Remove")
 
             if not click.confirm(f"Are you sure you want to remove node {node_id}?"):
                 raise click.Abort()

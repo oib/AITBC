@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Try to import Metal Python bindings
 try:
     import Metal
+
     METAL_AVAILABLE = True
 except ImportError:
     METAL_AVAILABLE = False
@@ -43,7 +44,7 @@ class AppleSiliconDevice(ComputeDevice):
             backend=ComputeBackend.APPLE_SILICON,
             memory_total=self._get_total_memory(),
             memory_available=self._get_available_memory(),
-            is_available=True
+            is_available=True,
         )
         self.metal_device = metal_device
         self._update_utilization()
@@ -53,11 +54,10 @@ class AppleSiliconDevice(ComputeDevice):
         try:
             # Try to get memory from system_profiler
             result = subprocess.run(
-                ["system_profiler", "SPDisplaysDataType", "-json"],
-                capture_output=True, text=True, timeout=10
+                ["system_profiler", "SPDisplaysDataType", "-json"], capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
-                data = json.loads(result.stdout)
+                _ = json.loads(result.stdout)
                 # Parse memory from system profiler output
                 # This is a simplified approach
                 return 8 * 1024 * 1024 * 1024  # 8GB default
@@ -79,6 +79,7 @@ class AppleSiliconDevice(ComputeDevice):
             # Apple Silicon doesn't expose GPU utilization easily
             # We'll estimate based on system load
             import psutil
+
             self.utilization = psutil.cpu_percent(interval=1) * 0.5  # Rough estimate
         except Exception:
             self.utilization = 0.0
@@ -88,8 +89,7 @@ class AppleSiliconDevice(ComputeDevice):
         try:
             # Try to get temperature from powermetrics
             result = subprocess.run(
-                ["powermetrics", "--samplers", "gpu_power", "-i", "1", "-n", "1"],
-                capture_output=True, text=True, timeout=10
+                ["powermetrics", "--samplers", "gpu_power", "-i", "1", "-n", "1"], capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
                 # Parse temperature from powermetrics output
@@ -214,7 +214,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
         # Metal uses automatic memory management
         # Just set reference to None
         try:
-            memory_handle = None
+            _ = None
         except Exception as e:
             logger.warning("Failed to free Apple Silicon memory: %s", e)
 
@@ -224,7 +224,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
             raise RuntimeError("Apple Silicon provider not initialized")
 
         try:
-            if isinstance(host_data, np.ndarray) and hasattr(device_data, 'contents'):
+            if isinstance(host_data, np.ndarray) and hasattr(device_data, "contents"):
                 # Copy numpy array to Metal buffer
                 device_data.contents().copy_bytes_from_length_(host_data.tobytes(), host_data.nbytes)
         except Exception as e:
@@ -236,10 +236,10 @@ class AppleSiliconComputeProvider(ComputeProvider):
             raise RuntimeError("Apple Silicon provider not initialized")
 
         try:
-            if hasattr(device_data, 'contents') and isinstance(host_data, np.ndarray):
+            if hasattr(device_data, "contents") and isinstance(host_data, np.ndarray):
                 # Copy from Metal buffer to numpy array
                 bytes_data = device_data.contents().bytes()
-                host_data.flat[:] = np.frombuffer(bytes_data[:host_data.nbytes], dtype=host_data.dtype)
+                host_data.flat[:] = np.frombuffer(bytes_data[: host_data.nbytes], dtype=host_data.dtype)
         except Exception as e:
             logger.error("Failed to copy from Apple Silicon device: %s", e)
 
@@ -249,7 +249,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
         grid_size: tuple[int, int, int],
         block_size: tuple[int, int, int],
         args: list[Any],
-        shared_memory: int = 0
+        shared_memory: int = 0,
     ) -> bool:
         """Execute a Metal compute kernel."""
         if not self.initialized or not self.metal_device:
@@ -352,12 +352,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
             logger.error("Apple Silicon field inverse failed: %s", e)
             return False
 
-    def zk_multi_scalar_mul(
-        self,
-        scalars: list[np.ndarray],
-        points: list[np.ndarray],
-        result: np.ndarray
-    ) -> bool:
+    def zk_multi_scalar_mul(self, scalars: list[np.ndarray], points: list[np.ndarray], result: np.ndarray) -> bool:
         """Perform multi-scalar multiplication using Apple Silicon GPU."""
         try:
             # For now, fall back to CPU operations
@@ -423,7 +418,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
                 "total_time": total_time,
                 "average_time": avg_time,
                 "operations_per_second": ops_per_second,
-                "iterations": iterations
+                "iterations": iterations,
             }
 
         except Exception as e:
@@ -447,7 +442,7 @@ class AppleSiliconComputeProvider(ComputeProvider):
                     "free": free_mem,
                     "total": total_mem,
                     "used": total_mem - free_mem,
-                    "utilization": ((total_mem - free_mem) / total_mem) * 100
+                    "utilization": ((total_mem - free_mem) / total_mem) * 100,
                 },
                 "utilization": utilization,
                 "temperature": temperature,
@@ -458,10 +453,10 @@ class AppleSiliconComputeProvider(ComputeProvider):
                         "memory_total": device.memory_total,
                         "compute_capability": None,
                         "utilization": device.utilization,
-                        "temperature": device.temperature
+                        "temperature": device.temperature,
                     }
                     for device in self.devices
-                ]
+                ],
             }
 
         except Exception as e:

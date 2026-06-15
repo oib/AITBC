@@ -4,7 +4,6 @@ Simple test to verify blockchain nodes are working independently
 and demonstrate how to configure them for networking
 """
 
-
 import httpx
 
 # Node URLs
@@ -12,6 +11,7 @@ NODES = {
     "node1": "http://127.0.0.1:8082",
     "node2": "http://127.0.0.1:8081",
 }
+
 
 def test_node_basic_functionality():
     """Test basic functionality of each node"""
@@ -45,7 +45,7 @@ def test_node_basic_functionality():
             response = httpx.post(
                 f"{url}/rpc/admin/mintFaucet",
                 json={"address": "aitbc1test000000000000000000000000000000000000", "amount": 100},
-                timeout=5
+                timeout=5,
             )
             if response.status_code == 200:
                 print("  ✅ Faucet working")
@@ -53,6 +53,7 @@ def test_node_basic_functionality():
                 print(f"  ❌ Faucet failed: {response.status_code}")
         except Exception:
             print("  ❌ Error testing faucet")
+
 
 def show_networking_config():
     """Show how to configure nodes for networking"""
@@ -68,7 +69,7 @@ To connect the blockchain nodes in a network, you need to:
    - Node 1 .env:
      GOSSIP_BACKEND=broadcast
      GOSSIP_BROADCAST_URL=http://127.0.0.1:7070/gossip
-     
+
    - Node 2 .env:
      GOSSIP_BACKEND=broadcast
      GOSSIP_BROADCAST_URL=http://127.0.0.1:7070/gossip
@@ -89,9 +90,11 @@ Current status: Nodes are running independently with memory backend.
 They work correctly but don't share blocks or transactions.
 """)
 
+
 def main():
     test_node_basic_functionality()
     show_networking_config()
+
 
 if __name__ == "__main__":
     main()

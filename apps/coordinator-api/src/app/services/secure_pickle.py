@@ -11,14 +11,14 @@ from typing import Any
 def safe_loads(data: bytes, max_size: int = 10 * 1024 * 1024) -> Any:
     """
     Safely load JSON data with size validation.
-    
+
     Args:
         data: JSON bytes to deserialize
         max_size: Maximum allowed size in bytes (default 10MB)
-    
+
     Returns:
         Deserialized object
-    
+
     Raises:
         ValueError: If data exceeds max_size or is invalid JSON
     """
@@ -34,10 +34,10 @@ def safe_loads(data: bytes, max_size: int = 10 * 1024 * 1024) -> Any:
 def safe_dumps(obj: Any) -> bytes:
     """
     Safely serialize object to JSON bytes.
-    
+
     Args:
         obj: Object to serialize (must be JSON-serializable)
-    
+
     Returns:
         JSON-encoded bytes
     """
@@ -47,10 +47,10 @@ def safe_dumps(obj: Any) -> bytes:
 def compute_integrity_hash(data: bytes) -> str:
     """
     Compute SHA256 hash for data integrity verification
-    
+
     Args:
         data: Bytes to hash
-    
+
     Returns:
         Hexadecimal hash string
     """

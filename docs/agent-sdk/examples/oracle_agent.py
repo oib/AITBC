@@ -18,6 +18,7 @@ from aitbc_agent_sdk.oracle import OracleProvider
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class OracleAgentExample:
     """Example oracle agent implementation"""
 
@@ -28,7 +29,7 @@ class OracleAgentExample:
             blockchain_network="testnet",
             rpc_url="https://testnet-rpc.aitbc.net",
             max_cpu_cores=2,
-            max_memory_gb=4
+            max_memory_gb=4,
         )
 
         # Initialize components
@@ -42,7 +43,7 @@ class OracleAgentExample:
             "price": self.get_price_data,
             "weather": self.get_weather_data,
             "sports": self.get_sports_data,
-            "news": self.get_news_data
+            "news": self.get_news_data,
         }
 
     async def start(self):
@@ -76,25 +77,25 @@ class OracleAgentExample:
                 "type": "price_oracle",
                 "description": "Real-time cryptocurrency and stock prices",
                 "update_interval": 60,  # seconds
-                "data_types": ["BTC", "ETH", "AAPL", "GOOGL"]
+                "data_types": ["BTC", "ETH", "AAPL", "GOOGL"],
             },
             {
                 "type": "weather_oracle",
                 "description": "Weather data from major cities",
                 "update_interval": 300,  # seconds
-                "data_types": ["temperature", "humidity", "pressure"]
+                "data_types": ["temperature", "humidity", "pressure"],
             },
             {
                 "type": "sports_oracle",
                 "description": "Sports scores and match results",
                 "update_interval": 600,  # seconds
-                "data_types": ["scores", "standings", "statistics"]
-            }
+                "data_types": ["scores", "standings", "statistics"],
+            },
         ]
 
         for service in services:
             service_id = await self.blockchain_client.register_oracle_service(service)
-            logger.info("Registered oracle service: %s (ID: %s)", service['type'], service_id)
+            logger.info("Registered oracle service: %s (ID: %s)", service["type"], service_id)
 
     async def data_collection_loop(self):
         """Main loop for collecting and submitting oracle data"""
@@ -124,7 +125,7 @@ class OracleAgentExample:
                 "timestamp": datetime.now(UTC).isoformat(),
                 "data": data,
                 "agent_address": self.agent.address,
-                "signature": await self.oracle_provider.sign_data(data)
+                "signature": await self.oracle_provider.sign_data(data),
             }
 
             # Submit to blockchain
@@ -144,25 +145,15 @@ class OracleAgentExample:
         try:
             crypto_response = requests.get(
                 "https://api.coingecko.com/api/v1/simple/price",
-                params={
-                    "ids": "bitcoin,ethereum",
-                    "vs_currencies": "usd",
-                    "include_24hr_change": "true"
-                },
-                timeout=10
+                params={"ids": "bitcoin,ethereum", "vs_currencies": "usd", "include_24hr_change": "true"},
+                timeout=10,
             )
 
             if crypto_response.status_code == 200:
                 crypto_data = crypto_response.json()
                 prices["cryptocurrency"] = {
-                    "BTC": {
-                        "price": crypto_data["bitcoin"]["usd"],
-                        "change_24h": crypto_data["bitcoin"]["usd_24h_change"]
-                    },
-                    "ETH": {
-                        "price": crypto_data["ethereum"]["usd"],
-                        "change_24h": crypto_data["ethereum"]["usd_24h_change"]
-                    }
+                    "BTC": {"price": crypto_data["bitcoin"]["usd"], "change_24h": crypto_data["bitcoin"]["usd_24h_change"]},
+                    "ETH": {"price": crypto_data["ethereum"]["usd"], "change_24h": crypto_data["ethereum"]["usd_24h_change"]},
                 }
         except Exception as e:
             logger.error("Error getting crypto prices: %s", e)
@@ -170,10 +161,7 @@ class OracleAgentExample:
         # Get stock prices (using Alpha Vantage API - would need API key)
         try:
             # This is a mock implementation
-            prices["stocks"] = {
-                "AAPL": {"price": 150.25, "change": "+2.50"},
-                "GOOGL": {"price": 2800.75, "change": "-15.25"}
-            }
+            prices["stocks"] = {"AAPL": {"price": 150.25, "change": "+2.50"}, "GOOGL": {"price": 2800.75, "change": "-15.25"}}
         except Exception as e:
             logger.error("Error getting stock prices: %s", e)
 
@@ -193,10 +181,10 @@ class OracleAgentExample:
                 # This would use a real weather API like OpenWeatherMap
                 weather[city] = {
                     "temperature": 20.5,  # Celsius
-                    "humidity": 65,      # Percentage
-                    "pressure": 1013.25, # hPa
+                    "humidity": 65,  # Percentage
+                    "pressure": 1013.25,  # hPa
                     "conditions": "Partly Cloudy",
-                    "wind_speed": 10.5   # km/h
+                    "wind_speed": 10.5,  # km/h
                 }
             except Exception as e:
                 logger.error("Error getting weather for %s: %s", city, e)
@@ -213,21 +201,10 @@ class OracleAgentExample:
         sports["basketball"] = {
             "NBA": {
                 "games": [
-                    {
-                        "teams": ["Lakers", "Warriors"],
-                        "score": [105, 98],
-                        "status": "Final"
-                    },
-                    {
-                        "teams": ["Celtics", "Heat"],
-                        "score": [112, 108],
-                        "status": "Final"
-                    }
+                    {"teams": ["Lakers", "Warriors"], "score": [105, 98], "status": "Final"},
+                    {"teams": ["Celtics", "Heat"], "score": [112, 108], "status": "Final"},
                 ],
-                "standings": {
-                    "Lakers": {"wins": 45, "losses": 20},
-                    "Warriors": {"wins": 42, "losses": 23}
-                }
+                "standings": {"Lakers": {"wins": 45, "losses": 20}, "Warriors": {"wins": 42, "losses": 23}},
             }
         }
 
@@ -245,14 +222,14 @@ class OracleAgentExample:
                 "title": "AI Technology Breakthrough Announced",
                 "source": "Tech News",
                 "timestamp": datetime.now(UTC).isoformat(),
-                "sentiment": "positive"
+                "sentiment": "positive",
             },
             {
                 "title": "Cryptocurrency Market Sees Major Movement",
                 "source": "Financial Times",
                 "timestamp": datetime.now(UTC).isoformat(),
-                "sentiment": "neutral"
-            }
+                "sentiment": "neutral",
+            },
         ]
 
         return news
@@ -264,16 +241,9 @@ class OracleAgentExample:
 
         if data_type in self.data_sources:
             data = await self.data_sources[data_type](**parameters)
-            return {
-                "success": True,
-                "data": data,
-                "timestamp": datetime.now(UTC).isoformat()
-            }
+            return {"success": True, "data": data, "timestamp": datetime.now(UTC).isoformat()}
         else:
-            return {
-                "success": False,
-                "error": "Unknown data type: %s" % data_type
-            }
+            return {"success": False, "error": "Unknown data type: %s" % data_type}
 
     async def get_agent_status(self) -> dict[str, Any]:
         """Get current agent status"""
@@ -285,8 +255,9 @@ class OracleAgentExample:
             "is_running": self.is_running,
             "balance": balance,
             "data_sources": list(self.data_sources.keys()),
-            "last_update": datetime.now(UTC).isoformat()
+            "last_update": datetime.now(UTC).isoformat(),
         }
+
 
 async def main():
     """Main function to run the oracle agent example"""
@@ -310,6 +281,7 @@ async def main():
     except Exception as e:
         logger.error("Oracle agent error: %s", e)
         await agent.stop()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -17,11 +17,13 @@ class PBFTPhase(Enum):
     COMMIT = "commit"
     EXECUTE = "execute"
 
+
 class PBFTMessageType(Enum):
     PRE_PREPARE = "pre_prepare"
     PREPARE = "prepare"
     COMMIT = "commit"
     VIEW_CHANGE = "view_change"
+
 
 @dataclass
 class PBFTMessage:
@@ -33,6 +35,7 @@ class PBFTMessage:
     signature: str
     timestamp: float
 
+
 @dataclass
 class PBFTState:
     current_view: int
@@ -41,17 +44,14 @@ class PBFTState:
     committed_messages: dict[str, list[PBFTMessage]]
     pre_prepare_messages: dict[str, PBFTMessage]
 
+
 class PBFTConsensus:
     """PBFT consensus implementation"""
 
     def __init__(self, consensus: MultiValidatorPoA):
         self.consensus = consensus
         self.state = PBFTState(
-            current_view=0,
-            current_sequence=0,
-            prepared_messages={},
-            committed_messages={},
-            pre_prepare_messages={}
+            current_view=0, current_sequence=0, prepared_messages={}, committed_messages={}, pre_prepare_messages={}
         )
         self.fault_tolerance = max(1, len(consensus.get_consensus_participants()) // 3)
         self.required_messages = 2 * self.fault_tolerance + 1
@@ -74,7 +74,7 @@ class PBFTConsensus:
             sequence_number=sequence,
             digest=digest,
             signature="",  # Would be signed in real implementation
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         # Store pre-prepare message
@@ -100,7 +100,7 @@ class PBFTConsensus:
             sequence_number=pre_prepare_msg.sequence_number,
             digest=pre_prepare_msg.digest,
             signature="",  # Would be signed
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         # Store prepare message
@@ -126,7 +126,7 @@ class PBFTConsensus:
             sequence_number=prepare_msg.sequence_number,
             digest=prepare_msg.digest,
             signature="",  # Would be signed
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         # Store commit message
@@ -146,7 +146,7 @@ class PBFTConsensus:
     async def execute_phase(self, key: str) -> bool:
         """Phase 4: Execute"""
         # Extract sequence and view from key
-        sequence, view = map(int, key.split(':'))
+        sequence, view = map(int, key.split(":"))
 
         # Update state
         self.state.current_sequence = sequence
@@ -172,10 +172,7 @@ class PBFTConsensus:
 
     def _cleanup_messages(self, sequence: int) -> None:
         """Clean up old messages to prevent memory leaks"""
-        old_keys = [
-            key for key in self.state.prepared_messages.keys()
-            if int(key.split(':')[0]) < sequence
-        ]
+        old_keys = [key for key in self.state.prepared_messages.keys() if int(key.split(":")[0]) < sequence]
 
         for key in old_keys:
             self.state.prepared_messages.pop(key, None)

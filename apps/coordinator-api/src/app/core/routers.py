@@ -75,6 +75,7 @@ def register_routers(app: Any) -> None:
     # Optional routers
     try:
         from ..contexts.zk_applications.routers.ml_zk_proofs import router as ml_zk_proofs
+
         app.include_router(ml_zk_proofs, prefix="/zk/ml-proofs", tags=["zk-ml-proofs"])
     except ImportError:
         logger.warning("ML ZK proofs router not available (missing tenseal)")
@@ -93,6 +94,7 @@ def register_routers(app: Any) -> None:
 
     try:
         from ..contexts.multimodal.routers.multi_modal_rl import router as multi_modal_rl_router
+
         app.include_router(multi_modal_rl_router, prefix="/multimodal", tags=["multimodal"])
     except ImportError:
         logger.warning("Multi-modal RL router not available (missing torch)")

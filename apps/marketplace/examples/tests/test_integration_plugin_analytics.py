@@ -58,13 +58,8 @@ def test_health_check_endpoint():
 def test_record_plugin_usage():
     """Test recording plugin usage"""
     client = TestClient(app)
-    usage = PluginUsage(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        action="install",
-        timestamp=datetime.now(UTC)
-    )
-    response = client.post("/api/v1/analytics/usage", json=usage.model_dump(mode='json'))
+    usage = PluginUsage(plugin_id="plugin_123", user_id="user_123", action="install", timestamp=datetime.now(UTC))
+    response = client.post("/api/v1/analytics/usage", json=usage.model_dump(mode="json"))
     assert response.status_code == 200
     data = response.json()
     assert data["usage_id"]
@@ -83,9 +78,9 @@ def test_record_plugin_performance():
         response_time=0.123,
         error_rate=0.001,
         uptime=99.9,
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
-    response = client.post("/api/v1/analytics/performance", json=perf.model_dump(mode='json'))
+    response = client.post("/api/v1/analytics/performance", json=perf.model_dump(mode="json"))
     assert response.status_code == 200
     data = response.json()
     assert data["performance_id"]
@@ -97,13 +92,9 @@ def test_record_plugin_rating():
     """Test recording plugin rating"""
     client = TestClient(app)
     rating = PluginRating(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        rating=5,
-        review="Great plugin!",
-        timestamp=datetime.now(UTC)
+        plugin_id="plugin_123", user_id="user_123", rating=5, review="Great plugin!", timestamp=datetime.now(UTC)
     )
-    response = client.post("/api/v1/analytics/rating", json=rating.model_dump(mode='json'))
+    response = client.post("/api/v1/analytics/rating", json=rating.model_dump(mode="json"))
     assert response.status_code == 200
     data = response.json()
     assert data["rating_id"]
@@ -115,13 +106,9 @@ def test_record_plugin_event():
     """Test recording plugin event"""
     client = TestClient(app)
     event = PluginEvent(
-        event_type="error",
-        plugin_id="plugin_123",
-        user_id="user_123",
-        data={"error": "timeout"},
-        timestamp=datetime.now(UTC)
+        event_type="error", plugin_id="plugin_123", user_id="user_123", data={"error": "timeout"}, timestamp=datetime.now(UTC)
     )
-    response = client.post("/api/v1/analytics/event", json=event.model_dump(mode='json'))
+    response = client.post("/api/v1/analytics/event", json=event.model_dump(mode="json"))
     assert response.status_code == 200
     data = response.json()
     assert data["event_id"]
@@ -133,13 +120,8 @@ def test_get_plugin_usage():
     """Test getting plugin usage analytics"""
     client = TestClient(app)
     # Record usage first
-    usage = PluginUsage(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        action="install",
-        timestamp=datetime.now(UTC)
-    )
-    client.post("/api/v1/analytics/usage", json=usage.model_dump(mode='json'))
+    usage = PluginUsage(plugin_id="plugin_123", user_id="user_123", action="install", timestamp=datetime.now(UTC))
+    client.post("/api/v1/analytics/usage", json=usage.model_dump(mode="json"))
 
     response = client.get("/api/v1/analytics/usage/plugin_123")
     assert response.status_code == 200
@@ -161,9 +143,9 @@ def test_get_plugin_performance():
         response_time=0.123,
         error_rate=0.001,
         uptime=99.9,
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
-    client.post("/api/v1/analytics/performance", json=perf.model_dump(mode='json'))
+    client.post("/api/v1/analytics/performance", json=perf.model_dump(mode="json"))
 
     response = client.get("/api/v1/analytics/performance/plugin_123")
     assert response.status_code == 200
@@ -177,13 +159,8 @@ def test_get_plugin_ratings():
     """Test getting plugin ratings"""
     client = TestClient(app)
     # Record rating first
-    rating = PluginRating(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        rating=5,
-        timestamp=datetime.now(UTC)
-    )
-    client.post("/api/v1/analytics/rating", json=rating.model_dump(mode='json'))
+    rating = PluginRating(plugin_id="plugin_123", user_id="user_123", rating=5, timestamp=datetime.now(UTC))
+    client.post("/api/v1/analytics/rating", json=rating.model_dump(mode="json"))
 
     response = client.get("/api/v1/analytics/ratings/plugin_123")
     assert response.status_code == 200
@@ -230,7 +207,7 @@ def test_generate_analytics_report_usage():
     client = TestClient(app)
     response = client.get("/api/v1/analytics/reports?report_type=usage")
     assert response.status_code == 200
-    data = response.json()
+    response.json()
 
 
 @pytest.mark.integration
@@ -239,7 +216,7 @@ def test_generate_analytics_report_performance():
     client = TestClient(app)
     response = client.get("/api/v1/analytics/reports?report_type=performance")
     assert response.status_code == 200
-    data = response.json()
+    response.json()
 
 
 @pytest.mark.integration
@@ -248,7 +225,7 @@ def test_generate_analytics_report_ratings():
     client = TestClient(app)
     response = client.get("/api/v1/analytics/reports?report_type=ratings")
     assert response.status_code == 200
-    data = response.json()
+    response.json()
 
 
 @pytest.mark.integration

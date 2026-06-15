@@ -10,14 +10,15 @@ import sys
 import requests
 
 # Add the src directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
 
 def test_api_health():
     """Test API health endpoints"""
     print("📡 Testing API Health...")
     try:
-        live_response = requests.get('http://127.0.0.1:8000/health/live', timeout=5)
-        ready_response = requests.get('http://127.0.0.1:8000/health/ready', timeout=5)
+        live_response = requests.get("http://127.0.0.1:8000/health/live", timeout=5)
+        ready_response = requests.get("http://127.0.0.1:8000/health/ready", timeout=5)
 
         if live_response.status_code == 200 and ready_response.status_code == 200:
             print("✅ API Health: PASSED")
@@ -31,11 +32,13 @@ def test_api_health():
         print(f"❌ API Health: ERROR - {str(e)}")
         return False
 
+
 def test_zk_service():
     """Test ZK Proof Service"""
     print("\n🔐 Testing ZK Proof Service...")
     try:
         from app.services.zk_proofs import ZKProofService
+
         zk_service = ZKProofService()
         circuits = list(zk_service.available_circuits.keys())
         if len(circuits) == 4:
@@ -49,14 +52,16 @@ def test_zk_service():
         print(f"❌ ZK Proof Service: ERROR - {str(e)}")
         return False
 
+
 def test_fhe_service():
     """Test FHE Service"""
     print("\n🔒 Testing FHE Service...")
     try:
         from app.services.fhe_service import FHEService
+
         fhe_service = FHEService()
         providers = list(fhe_service.providers.keys())
-        if 'tenseal' in providers:
+        if "tenseal" in providers:
             print("✅ FHE Service: PASSED")
             print(f"   Available Providers: {providers}")
             return True
@@ -67,13 +72,14 @@ def test_fhe_service():
         print(f"❌ FHE Service: ERROR - {str(e)}")
         return False
 
+
 def test_ml_zk_integration():
     """Test ML-ZK Integration"""
     print("\n🤖 Testing ML-ZK Integration...")
     try:
-        mlzk_response = requests.get('http://127.0.0.1:8000/v1/ml-zk/circuits', timeout=5)
+        mlzk_response = requests.get("http://127.0.0.1:8000/v1/ml-zk/circuits", timeout=5)
         if mlzk_response.status_code == 200:
-            circuits = mlzk_response.json()['circuits']
+            circuits = mlzk_response.json()["circuits"]
             print("✅ ML-ZK Integration: PASSED")
             print(f"   ML Circuits Available: {len(circuits)}")
             for circuit in circuits:
@@ -86,12 +92,13 @@ def test_ml_zk_integration():
         print(f"❌ ML-ZK Integration: ERROR - {str(e)}")
         return False
 
+
 def test_database_integration():
     """Test Database Integration"""
     print("\n💾 Testing Database Integration...")
     try:
-        ready_response = requests.get('http://127.0.0.1:8000/health/ready', timeout=5)
-        if ready_response.json().get('database') == 'connected':
+        ready_response = requests.get("http://127.0.0.1:8000/health/ready", timeout=5)
+        if ready_response.json().get("database") == "connected":
             print("✅ Database Integration: PASSED")
             print("   Database Status: Connected")
             return True
@@ -102,18 +109,13 @@ def test_database_integration():
         print(f"❌ Database Integration: ERROR - {str(e)}")
         return False
 
+
 def main():
     """Run all integration tests"""
     print("🚀 AITBC Phase 5 Integration Testing - Starting Now!")
     print("=" * 60)
 
-    tests = [
-        test_api_health,
-        test_zk_service,
-        test_fhe_service,
-        test_ml_zk_integration,
-        test_database_integration
-    ]
+    tests = [test_api_health, test_zk_service, test_fhe_service, test_ml_zk_integration, test_database_integration]
 
     results = []
     for test in tests:
@@ -126,7 +128,7 @@ def main():
     total = len(results)
 
     print(f"   Tests Passed: {passed}/{total}")
-    print(f"   Success Rate: {(passed/total)*100:.1f}%")
+    print(f"   Success Rate: {(passed / total) * 100:.1f}%")
 
     if passed == total:
         print("\n🚀 Phase 5.1 Integration Testing: COMPLETED SUCCESSFULLY!")
@@ -135,6 +137,7 @@ def main():
     else:
         print("\n⚠️  Some tests failed. Please review and fix issues.")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

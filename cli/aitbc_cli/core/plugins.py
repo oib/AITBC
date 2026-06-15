@@ -36,9 +36,7 @@ def load_plugins(cli_group):
             continue
 
         try:
-            spec = importlib.util.spec_from_file_location(
-                plugin_info["name"], str(plugin_path)
-            )
+            spec = importlib.util.spec_from_file_location(plugin_info["name"], str(plugin_path))
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
@@ -65,7 +63,7 @@ def list_plugins(ctx):
     manifest_file = plugin_dir / "plugins.json"
 
     if not manifest_file.exists():
-        output({"message": "No plugins installed"}, ctx.obj.get('output_format', 'table'))
+        output({"message": "No plugins installed"}, ctx.obj.get("output_format", "table"))
         return
 
     with open(manifest_file) as f:
@@ -73,9 +71,9 @@ def list_plugins(ctx):
 
     plugins = manifest.get("plugins", [])
     if not plugins:
-        output({"message": "No plugins installed"}, ctx.obj.get('output_format', 'table'))
+        output({"message": "No plugins installed"}, ctx.obj.get("output_format", "table"))
     else:
-        output(plugins, ctx.obj.get('output_format', 'table'))
+        output(plugins, ctx.obj.get("output_format", "table"))
 
 
 @plugin.command()
@@ -104,18 +102,13 @@ def install(ctx, name: str, file_path: str, description: str):
 
     # Remove existing entry with same name
     manifest["plugins"] = [p for p in manifest["plugins"] if p["name"] != name]
-    manifest["plugins"].append({
-        "name": name,
-        "file": f"{name}.py",
-        "description": description,
-        "enabled": True
-    })
+    manifest["plugins"].append({"name": name, "file": f"{name}.py", "description": description, "enabled": True})
 
     with open(manifest_file, "w") as f:
         json.dump(manifest, f, indent=2)
 
     success(f"Plugin '{name}' installed")
-    output({"name": name, "file": str(dest), "status": "installed"}, ctx.obj.get('output_format', 'table'))
+    output({"name": name, "file": str(dest), "status": "installed"}, ctx.obj.get("output_format", "table"))
 
 
 @plugin.command()
@@ -151,7 +144,7 @@ def uninstall(ctx, name: str):
         json.dump(manifest, f, indent=2)
 
     success(f"Plugin '{name}' uninstalled")
-    output({"name": name, "status": "uninstalled"}, ctx.obj.get('output_format', 'table'))
+    output({"name": name, "status": "uninstalled"}, ctx.obj.get("output_format", "table"))
 
 
 @plugin.command()
@@ -169,6 +162,7 @@ def create(ctx, name: str, type: str, description: str, author: str):
 
     if plugin_file.exists():
         from .utils import error
+
         error(f"Plugin '{name}' already exists")
         return
 
@@ -198,20 +192,15 @@ def hello():
         with open(manifest_file) as f:
             manifest = json.load(f)
 
-    manifest["plugins"].append({
-        "name": name,
-        "file": f"{name}.py",
-        "description": description,
-        "author": author,
-        "type": type,
-        "enabled": True
-    })
+    manifest["plugins"].append(
+        {"name": name, "file": f"{name}.py", "description": description, "author": author, "type": type, "enabled": True}
+    )
 
     with open(manifest_file, "w") as f:
         json.dump(manifest, f, indent=2)
 
     success(f"Plugin '{name}' created")
-    output({"name": name, "file": str(plugin_file), "type": type}, ctx.obj.get('output_format', 'table'))
+    output({"name": name, "file": str(plugin_file), "type": type}, ctx.obj.get("output_format", "table"))
 
 
 @plugin.command()
@@ -253,13 +242,15 @@ def package(ctx, name: str, output: str):
     with tarfile.open(package_file, "w:gz") as tar:
         tar.add(plugin_file, arcname=plugin_file.name)
         # Add metadata
-        metadata = json.dumps({
-            "name": name,
-            "description": plugin_entry.get("description", ""),
-            "author": plugin_entry.get("author", ""),
-            "type": plugin_entry.get("type", "cli"),
-            "version": "1.0.0"
-        })
+        metadata = json.dumps(
+            {
+                "name": name,
+                "description": plugin_entry.get("description", ""),
+                "author": plugin_entry.get("author", ""),
+                "type": plugin_entry.get("type", "cli"),
+                "version": "1.0.0",
+            }
+        )
         metadata_file = output_dir / "metadata.json"
         with open(metadata_file, "w") as f:
             f.write(metadata)
@@ -267,7 +258,7 @@ def package(ctx, name: str, output: str):
         metadata_file.unlink()
 
     success(f"Plugin '{name}' packaged to {package_file}")
-    output({"name": name, "package": str(package_file)}, ctx.obj.get('output_format', 'table'))
+    output({"name": name, "package": str(package_file)}, ctx.obj.get("output_format", "table"))
 
 
 @plugin.command()
@@ -293,10 +284,10 @@ def toggle(ctx, name: str, state: str):
         error(f"Plugin '{name}' not found")
         return
 
-    plugin_entry["enabled"] = (state == "enable")
+    plugin_entry["enabled"] = state == "enable"
 
     with open(manifest_file, "w") as f:
         json.dump(manifest, f, indent=2)
 
     success(f"Plugin '{name}' {'enabled' if state == 'enable' else 'disabled'}")
-    output({"name": name, "enabled": plugin_entry["enabled"]}, ctx.obj.get('output_format', 'table'))
+    output({"name": name, "enabled": plugin_entry["enabled"]}, ctx.obj.get("output_format", "table"))

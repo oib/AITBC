@@ -92,11 +92,7 @@ class MatchRepository:
         return await self._session.get(MatchRequest, request_id)
 
     async def list_recent_requests(self, limit: int = 20) -> list[MatchRequest]:
-        stmt: Select[tuple[MatchRequest]] = (
-            select(MatchRequest)
-            .order_by(MatchRequest.created_at.desc())
-            .limit(limit)
-        )
+        stmt: Select[tuple[MatchRequest]] = select(MatchRequest).order_by(MatchRequest.created_at.desc()).limit(limit)
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
 

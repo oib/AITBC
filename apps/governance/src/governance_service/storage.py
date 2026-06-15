@@ -13,6 +13,7 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+
 def _build_database_url() -> str:
     """Build database URL from environment variables at call time."""
     db_type = os.getenv("DB_TYPE", "sqlite")

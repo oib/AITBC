@@ -13,14 +13,17 @@ from .router import router
 
 class AIJobRequest(BaseModel):
     """AI job submission request"""
+
     wallet_address: str = Field(..., description="Client wallet address")
     job_type: str = Field(..., description="Type of AI job (text, image, training, etc.)")
     prompt: str = Field(..., description="AI prompt or task description")
     payment: float = Field(..., ge=0, description="Payment in AIT")
     parameters: dict[str, Any] | None = Field(default=None, description="Additional job parameters")
 
+
 class AIJobResponse(BaseModel):
     """AI job response"""
+
     job_id: str
     status: str
     wallet_address: str
@@ -29,6 +32,7 @@ class AIJobResponse(BaseModel):
     created_at: datetime
     estimated_completion: datetime | None = None
     result: dict[str, Any] | None = None
+
 
 # In-memory storage for demo (in production, use database)
 _ai_jobs: list[dict[str, Any]] = [
@@ -44,8 +48,8 @@ _ai_jobs: list[dict[str, Any]] = [
         "result": {
             "output": "Blockchain is a distributed ledger technology...",
             "tokens_used": 150,
-            "processing_time": "2.5 minutes"
-        }
+            "processing_time": "2.5 minutes",
+        },
     },
     {
         "job_id": "job_demo_002",
@@ -55,9 +59,10 @@ _ai_jobs: list[dict[str, Any]] = [
         "payment": 250.0,
         "status": "processing",
         "created_at": (datetime.now() - timedelta(minutes=15)).isoformat(),
-        "estimated_completion": (datetime.now() + timedelta(minutes=10)).isoformat()
-    }
+        "estimated_completion": (datetime.now() + timedelta(minutes=10)).isoformat(),
+    },
 ]
+
 
 @router.post("/ai/submit", summary="Submit AI job", tags=["ai"])
 async def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
@@ -81,7 +86,7 @@ async def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
             "parameters": request.parameters or {},
             "status": "queued",
             "created_at": datetime.now().isoformat(),
-            "estimated_completion": estimated_completion.isoformat()
+            "estimated_completion": estimated_completion.isoformat(),
         }
 
         # Add to storage
@@ -94,12 +99,13 @@ async def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
             "estimated_completion": estimated_completion.isoformat(),
             "wallet_address": request.wallet_address,
             "payment": request.payment,
-            "job_type": request.job_type
+            "job_type": request.job_type,
         }
 
     except Exception as e:
         metrics_registry.increment("rpc_ai_submit_errors_total")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/ai/jobs", summary="List AI jobs", tags=["ai"])
 async def ai_list_jobs(wallet_address: str | None = None, status: str | None = None) -> dict[str, Any]:
@@ -122,16 +128,14 @@ async def ai_list_jobs(wallet_address: str | None = None, status: str | None = N
         return {
             "jobs": filtered_jobs,
             "total": len(filtered_jobs),
-            "filters": {
-                "wallet_address": wallet_address,
-                "status": status
-            },
-            "timestamp": datetime.now().isoformat()
+            "filters": {"wallet_address": wallet_address, "status": status},
+            "timestamp": datetime.now().isoformat(),
         }
 
     except Exception as e:
         metrics_registry.increment("rpc_ai_list_errors_total")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/ai/job/{job_id}", summary="Get AI job by ID", tags=["ai"])
 async def ai_get_job(job_id: str) -> dict[str, Any]:
@@ -142,10 +146,7 @@ async def ai_get_job(job_id: str) -> dict[str, Any]:
         # Find job
         for job in _ai_jobs:
             if job.get("job_id") == job_id:
-                return {
-                    "job": job,
-                    "found": True
-                }
+                return {"job": job, "found": True}
 
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -154,6 +155,7 @@ async def ai_get_job(job_id: str) -> dict[str, Any]:
     except Exception as e:
         metrics_registry.increment("rpc_ai_get_errors_total")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/ai/job/{job_id}/cancel", summary="Cancel AI job", tags=["ai"])
 async def ai_cancel_job(job_id: str) -> dict[str, Any]:
@@ -166,19 +168,12 @@ async def ai_cancel_job(job_id: str) -> dict[str, Any]:
             if job.get("job_id") == job_id:
                 current_status = job.get("status")
                 if current_status in ["completed", "cancelled"]:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Cannot cancel job with status: {current_status}"
-                    )
+                    raise HTTPException(status_code=400, detail=f"Cannot cancel job with status: {current_status}")
 
                 job["status"] = "cancelled"
                 job["cancelled_at"] = datetime.now().isoformat()
 
-                return {
-                    "job_id": job_id,
-                    "status": "cancelled",
-                    "message": "AI job cancelled successfully"
-                }
+                return {"job_id": job_id, "status": "cancelled", "message": "AI job cancelled successfully"}
 
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -187,6 +182,7 @@ async def ai_cancel_job(job_id: str) -> dict[str, Any]:
     except Exception as e:
         metrics_registry.increment("rpc_ai_cancel_errors_total")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/ai/stats", summary="AI service statistics", tags=["ai"])
 async def ai_stats() -> dict[str, Any]:
@@ -218,7 +214,7 @@ async def ai_stats() -> dict[str, Any]:
             "type_breakdown": type_counts,
             "total_revenue": total_revenue,
             "average_payment": total_revenue / max(1, status_counts.get("completed", 0)),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except Exception as e:

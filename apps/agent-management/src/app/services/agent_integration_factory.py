@@ -3,7 +3,6 @@ Factory for creating shared AgentIntegrationService with app-specific adapters.
 This enables gradual migration from duplicated code to shared implementation.
 """
 
-
 from aitbc_agent_core import AgentIntegrationService
 
 from ..database import get_session  # type: ignore[import-not-found]
@@ -21,7 +20,7 @@ from .agent_service import AIAgentOrchestrator
 def create_agent_integration_service() -> AgentIntegrationService:
     """
     Factory to create shared AgentIntegrationService with app-specific adapters.
-    
+
     Returns:
         Configured AgentIntegrationService instance
     """
@@ -46,7 +45,7 @@ _shared_service: AgentIntegrationService | None = None
 def get_shared_agent_integration_service() -> AgentIntegrationService:
     """
     Get or create the shared AgentIntegrationService singleton.
-    
+
     Returns:
         Shared AgentIntegrationService instance
     """

@@ -18,7 +18,7 @@ import pytest
 class TestHandleBridgeRestart:
     """Test handle_bridge_restart function"""
 
-    @patch('handlers.bridge.logger')
+    @patch("handlers.bridge.logger")
     def test_handle_bridge_restart_test_mode(self, mock_logger):
         """Test bridge restart in test mode"""
         # Import here to avoid import errors
@@ -31,8 +31,8 @@ class TestHandleBridgeRestart:
 
         assert mock_logger.info.call_count > 0
 
-    @patch('subprocess.run')
-    @patch('handlers.bridge.logger')
+    @patch("subprocess.run")
+    @patch("handlers.bridge.logger")
     def test_handle_bridge_restart_success(self, mock_logger, mock_subprocess):
         """Test successful bridge restart"""
         from handlers.bridge import handle_bridge_restart
@@ -48,8 +48,8 @@ class TestHandleBridgeRestart:
 
         assert mock_logger.info.call_count > 0
 
-    @patch('subprocess.run')
-    @patch('handlers.bridge.logger')
+    @patch("subprocess.run")
+    @patch("handlers.bridge.logger")
     def test_handle_bridge_restart_failure(self, mock_logger, mock_subprocess):
         """Test bridge restart with failure"""
         from handlers.bridge import handle_bridge_restart

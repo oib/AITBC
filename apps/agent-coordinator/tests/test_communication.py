@@ -30,7 +30,7 @@ class TestAgentMessage:
             receiver_id="agent-002",
             message_type=MessageType.DIRECT,
             priority=Priority.NORMAL,
-            payload={"data": "test"}
+            payload={"data": "test"},
         )
 
         assert message.sender_id == "agent-001"
@@ -47,7 +47,7 @@ class TestAgentMessage:
             receiver_id="agent-002",
             message_type=MessageType.DIRECT,
             priority=Priority.NORMAL,
-            payload={"data": "test"}
+            payload={"data": "test"},
         )
 
         # To dict
@@ -70,12 +70,13 @@ class TestAgentMessage:
             receiver_id="agent-002",
             message_type=MessageType.DIRECT,
             timestamp=datetime.now(UTC) - timedelta(seconds=400),
-            ttl=300
+            ttl=300,
         )
 
         # Message should be expired
         age = (datetime.now(UTC) - old_message.timestamp).total_seconds()
         assert age > old_message.ttl
+
 
 class TestHierarchicalProtocol:
     """Test HierarchicalProtocol class"""
@@ -125,6 +126,7 @@ class TestHierarchicalProtocol:
         # Check that send_message was called once
         assert sub_protocol.send_message.call_count == 1
 
+
 class TestPeerToPeerProtocol:
     """Test PeerToPeerProtocol class"""
 
@@ -149,9 +151,7 @@ class TestPeerToPeerProtocol:
         """Test sending to peer"""
         asyncio.run(p2p_protocol.add_peer("agent-002", {"endpoint": "http://localhost:8002"}))
 
-        message = MessageTemplates.create_task_assignment(
-            "agent-001", "agent-002", {"task": "test"}
-        )
+        message = MessageTemplates.create_task_assignment("agent-001", "agent-002", {"task": "test"})
 
         # Mock the send_message method
         p2p_protocol.send_message = AsyncMock(return_value=True)
@@ -160,6 +160,7 @@ class TestPeerToPeerProtocol:
 
         assert result is True
         assert p2p_protocol.send_message.call_count == 1
+
 
 class TestBroadcastProtocol:
     """Test BroadcastProtocol class"""
@@ -191,6 +192,7 @@ class TestBroadcastProtocol:
 
         # Should send to 2 subscribers (not including self)
         assert broadcast_protocol.send_message.call_count == 2
+
 
 class TestCommunicationManager:
     """Test CommunicationManager class"""
@@ -244,6 +246,7 @@ class TestCommunicationManager:
 
         protocol.register_handler.assert_called_once_with(MessageType.HEARTBEAT, handler)
 
+
 class TestMessageTemplates:
     """Test MessageTemplates class"""
 
@@ -293,6 +296,7 @@ class TestMessageTemplates:
         assert message.priority == Priority.HIGH
         assert message.payload == proposal_data
 
+
 # Integration tests
 class TestCommunicationIntegration:
     """Integration tests for communication system"""
@@ -328,6 +332,7 @@ class TestCommunicationIntegration:
 
         assert result is True
         hierarchical.send_message.assert_called_once()
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

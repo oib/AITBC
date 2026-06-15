@@ -15,6 +15,7 @@ _logger = get_logger(__name__)
 
 class JoinIslandRequest(BaseModel):
     """Request model for joining an island"""
+
     island_id: str
     island_name: str
     chain_id: str
@@ -24,6 +25,7 @@ class JoinIslandRequest(BaseModel):
 
 class JoinIslandResponse(BaseModel):
     """Response model for joining an island"""
+
     success: bool
     island_id: str
     status: str
@@ -32,11 +34,13 @@ class JoinIslandResponse(BaseModel):
 
 class LeaveIslandRequest(BaseModel):
     """Request model for leaving an island"""
+
     island_id: str
 
 
 class LeaveIslandResponse(BaseModel):
     """Response model for leaving an island"""
+
     success: bool
     island_id: str
     status: str
@@ -45,11 +49,13 @@ class LeaveIslandResponse(BaseModel):
 
 class BridgeRequestRequest(BaseModel):
     """Request model for requesting a bridge"""
+
     target_island_id: str
 
 
 class BridgeRequestResponse(BaseModel):
     """Response model for bridge request"""
+
     success: bool
     request_id: str
     target_island_id: str
@@ -67,10 +73,7 @@ async def join_island(request: JoinIslandRequest) -> JoinIslandResponse:
         raise HTTPException(status_code=503, detail="Island manager not available")
 
     success = island_manager.join_island(
-        island_id=request.island_id,
-        island_name=request.island_name,
-        chain_id=request.chain_id,
-        is_hub=request.is_hub
+        island_id=request.island_id, island_name=request.island_name, chain_id=request.chain_id, is_hub=request.is_hub
     )
 
     if success:
@@ -78,14 +81,14 @@ async def join_island(request: JoinIslandRequest) -> JoinIslandResponse:
             success=True,
             island_id=request.island_id,
             status="joined",
-            message=f"Successfully joined island {request.island_id}"
+            message=f"Successfully joined island {request.island_id}",
         )
     else:
         return JoinIslandResponse(
             success=False,
             island_id=request.island_id,
             status="failed",
-            message=f"Failed to join island {request.island_id} (may already be a member)"
+            message=f"Failed to join island {request.island_id} (may already be a member)",
         )
 
 
@@ -102,17 +105,14 @@ async def leave_island(request: LeaveIslandRequest) -> LeaveIslandResponse:
 
     if success:
         return LeaveIslandResponse(
-            success=True,
-            island_id=request.island_id,
-            status="left",
-            message=f"Successfully left island {request.island_id}"
+            success=True, island_id=request.island_id, status="left", message=f"Successfully left island {request.island_id}"
         )
     else:
         return LeaveIslandResponse(
             success=False,
             island_id=request.island_id,
             status="failed",
-            message=f"Failed to leave island {request.island_id} (may not be a member)"
+            message=f"Failed to leave island {request.island_id} (may not be a member)",
         )
 
 
@@ -134,14 +134,14 @@ async def list_islands() -> dict[str, Any]:
                 "island_name": island.island_name,
                 "chain_id": island.chain_id,
                 "status": island.status.value,
-                "role": getattr(island, 'role', 'unknown'),
+                "role": getattr(island, "role", "unknown"),
                 "peer_count": island.peer_count,
                 "is_hub": island.is_hub,
-                "joined_at": island.joined_at
+                "joined_at": island.joined_at,
             }
             for island in islands
         ],
-        "total": len(islands)
+        "total": len(islands),
     }
 
 
@@ -164,10 +164,10 @@ async def get_island(island_id: str) -> dict[str, Any]:
         "island_name": island.island_name,
         "chain_id": island.chain_id,
         "status": island.status.value,
-        "role": getattr(island, 'role', 'unknown'),
+        "role": getattr(island, "role", "unknown"),
         "peer_count": island.peer_count,
         "is_hub": island.is_hub,
-        "joined_at": island.joined_at
+        "joined_at": island.joined_at,
     }
 
 
@@ -188,7 +188,7 @@ async def request_bridge(request: BridgeRequestRequest) -> BridgeRequestResponse
             request_id=request_id,
             target_island_id=request.target_island_id,
             status="pending",
-            message=f"Bridge request {request_id} submitted for {request.target_island_id}"
+            message=f"Bridge request {request_id} submitted for {request.target_island_id}",
         )
     else:
         return BridgeRequestResponse(
@@ -196,5 +196,5 @@ async def request_bridge(request: BridgeRequestRequest) -> BridgeRequestResponse
             request_id="",
             target_island_id=request.target_island_id,
             status="failed",
-            message=f"Failed to request bridge to {request.target_island_id} (may already be a member)"
+            message=f"Failed to request bridge to {request.target_island_id} (may already be a member)",
         )

@@ -131,14 +131,36 @@ class MetricsCollector:
 
         total_cache_ops = self._metrics["cache_hits"] + self._metrics["cache_misses"]
         cache_hit_rate = (self._metrics["cache_hits"] / total_cache_ops * 100) if total_cache_ops > 0 else 0.0
-        error_rate = (self._metrics["api_errors"] / self._metrics["api_requests"] * 100) if self._metrics["api_requests"] > 0 else 0.0
+        error_rate = (
+            (self._metrics["api_errors"] / self._metrics["api_requests"] * 100) if self._metrics["api_requests"] > 0 else 0.0
+        )
         memory_percent_estimate = min((self._metrics["memory_usage_mb"] / 1024) * 100, 100.0)
 
         return {
-            "error_rate": {"triggered": error_rate > 1.0, "value": round(error_rate, 2), "threshold": 1.0, "status": "critical" if error_rate > 1.0 else "ok"},
-            "avg_response_time": {"triggered": avg_response_time_ms > 500.0, "value": round(avg_response_time_ms, 2), "threshold": 500.0, "status": "critical" if avg_response_time_ms > 500.0 else "ok"},
-            "memory_usage": {"triggered": memory_percent_estimate > 90.0, "value": round(memory_percent_estimate, 2), "threshold": 90.0, "status": "critical" if memory_percent_estimate > 90.0 else "ok"},
-            "cache_hit_rate": {"triggered": total_cache_ops > 0 and cache_hit_rate < 70.0, "value": round(cache_hit_rate, 2), "threshold": 70.0, "status": "critical" if total_cache_ops > 0 and cache_hit_rate < 70.0 else "ok"},
+            "error_rate": {
+                "triggered": error_rate > 1.0,
+                "value": round(error_rate, 2),
+                "threshold": 1.0,
+                "status": "critical" if error_rate > 1.0 else "ok",
+            },
+            "avg_response_time": {
+                "triggered": avg_response_time_ms > 500.0,
+                "value": round(avg_response_time_ms, 2),
+                "threshold": 500.0,
+                "status": "critical" if avg_response_time_ms > 500.0 else "ok",
+            },
+            "memory_usage": {
+                "triggered": memory_percent_estimate > 90.0,
+                "value": round(memory_percent_estimate, 2),
+                "threshold": 90.0,
+                "status": "critical" if memory_percent_estimate > 90.0 else "ok",
+            },
+            "cache_hit_rate": {
+                "triggered": total_cache_ops > 0 and cache_hit_rate < 70.0,
+                "value": round(cache_hit_rate, 2),
+                "threshold": 70.0,
+                "status": "critical" if total_cache_ops > 0 and cache_hit_rate < 70.0 else "ok",
+            },
         }
 
     def reset_metrics(self) -> None:
@@ -161,6 +183,7 @@ class MetricsCollector:
 # Global metrics collector instance
 metrics_collector = MetricsCollector()
 
+
 def build_live_metrics_payload(
     cache_stats: dict[str, Any],
     dispatcher: Any | None = None,
@@ -173,9 +196,11 @@ def build_live_metrics_payload(
         metrics["alert_delivery"] = dispatcher.dispatch(metrics.get("alerts", {}))
     return metrics
 
+
 def get_metrics() -> dict[str, Any]:
     """Get current metrics from global collector"""
     return metrics_collector.get_metrics()
+
 
 def reset_metrics() -> None:
     """Reset global metrics collector"""

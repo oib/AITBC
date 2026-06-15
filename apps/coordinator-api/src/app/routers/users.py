@@ -1,7 +1,5 @@
 from typing import Annotated
 
-from sqlalchemy.orm import Session
-
 """
 User Management Router for AITBC
 """
@@ -59,7 +57,9 @@ def verify_session_token(token: str) -> str | None:
 
 @router.post("/register", response_model=UserProfile)
 @rate_limit(rate=10, per=60)
-async def register_user(user_data: UserCreate, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+async def register_user(
+    user_data: UserCreate, request: Request, session: Annotated[Session, Depends(get_session)]
+) -> dict[str, Any]:
     """Register a new user"""
 
     # Check if user already exists
@@ -101,7 +101,9 @@ async def register_user(user_data: UserCreate, request: Request, session: Annota
 
 @router.post("/login", response_model=UserProfile)
 @rate_limit(rate=20, per=60)
-async def login_user(login_data: UserLogin, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+async def login_user(
+    login_data: UserLogin, request: Request, session: Annotated[Session, Depends(get_session)]
+) -> dict[str, Any]:
     """Login user with wallet address"""
 
     # For demo, we'll create or get user by wallet address
@@ -171,7 +173,9 @@ async def get_current_user(session: Annotated[Session, Depends(get_session)], to
 
 @router.get("/users/{user_id}/balance", response_model=UserBalance)
 @rate_limit(rate=50, per=60)
-async def get_user_balance(user_id: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+async def get_user_balance(
+    user_id: str, request: Request, session: Annotated[Session, Depends(get_session)]
+) -> dict[str, Any]:
     """Get user's AITBC balance"""
 
     wallet = session.execute(select(Wallet).where(Wallet.user_id == user_id)).first()
@@ -200,7 +204,9 @@ async def logout_user(token: str, request: Request) -> dict[str, str]:
 
 @router.get("/users/{user_id}/transactions")
 @rate_limit(rate=50, per=60)
-async def get_user_transactions(user_id: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+async def get_user_transactions(
+    user_id: str, request: Request, session: Annotated[Session, Depends(get_session)]
+) -> dict[str, Any]:
     """Get user's transaction history"""
 
     # For demo, return empty list

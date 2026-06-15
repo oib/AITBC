@@ -22,8 +22,9 @@ PG_CONFIG = {
     "database": "aitbc_coordinator",
     "user": "aitbc_user",
     "password": "aitbc_password",
-    "port": 5432
+    "port": 5432,
 }
+
 
 def create_pg_schema():
     """Create PostgreSQL schema with optimized types"""
@@ -190,6 +191,7 @@ def create_pg_schema():
     conn.close()
     print("✅ PostgreSQL schema created successfully!")
 
+
 def migrate_data():
     """Migrate data from SQLite to PostgreSQL"""
 
@@ -206,60 +208,87 @@ def migrate_data():
 
     # Migration order respecting foreign keys
     migrations = [
-        ('user', '''
+        (
+            "user",
+            """
             INSERT INTO "user" (id, email, username, status, created_at, updated_at, last_login)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-        '''),
-        ('wallet', '''
+        """,
+        ),
+        (
+            "wallet",
+            """
             INSERT INTO wallet (id, user_id, address, balance, created_at, updated_at)
             VALUES (%s, %s, %s, %s, %s, %s)
-        '''),
-        ('miner', '''
-            INSERT INTO miner (id, region, capabilities, concurrency, status, inflight, 
+        """,
+        ),
+        (
+            "miner",
+            """
+            INSERT INTO miner (id, region, capabilities, concurrency, status, inflight,
                               extra_metadata, last_heartbeat, session_token, last_job_at,
-                              jobs_completed, jobs_failed, total_job_duration_ms, 
+                              jobs_completed, jobs_failed, total_job_duration_ms,
                               average_job_duration_ms, last_receipt_id)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        '''),
-        ('job', '''
+        """,
+        ),
+        (
+            "job",
+            """
             INSERT INTO job (id, client_id, state, payload, constraints, ttl_seconds,
                            requested_at, expires_at, assigned_miner_id, result, receipt,
                            receipt_id, error)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        '''),
-        ('marketplaceoffer', '''
-            INSERT INTO marketplaceoffer (id, provider, capacity, price, sla, status, 
+        """,
+        ),
+        (
+            "marketplaceoffer",
+            """
+            INSERT INTO marketplaceoffer (id, provider, capacity, price, sla, status,
                                         created_at, attributes)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        '''),
-        ('marketplacebid', '''
-            INSERT INTO marketplacebid (id, provider, capacity, price, notes, status, 
+        """,
+        ),
+        (
+            "marketplacebid",
+            """
+            INSERT INTO marketplacebid (id, provider, capacity, price, notes, status,
                                        submitted_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-        '''),
-        ('jobreceipt', '''
+        """,
+        ),
+        (
+            "jobreceipt",
+            """
             INSERT INTO jobreceipt (id, job_id, receipt_id, payload, created_at)
             VALUES (%s, %s, %s, %s, %s)
-        '''),
-        ('usersession', '''
+        """,
+        ),
+        (
+            "usersession",
+            """
             INSERT INTO usersession (id, user_id, token, expires_at, created_at, last_used)
             VALUES (%s, %s, %s, %s, %s, %s)
-        '''),
-        ('transaction', '''
+        """,
+        ),
+        (
+            "transaction",
+            """
             INSERT INTO transaction (id, user_id, type, amount, status, created_at, metadata)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ''')
+        """,
+        ),
     ]
 
     for table_name, insert_sql in migrations:
         # Validate table name to prevent SQL injection
-        allowed_tables = ['user', 'wallet', 'transaction', 'agent', 'job', 'receipt', 'marketplace_listing']
+        allowed_tables = ["user", "wallet", "transaction", "agent", "job", "receipt", "marketplace_listing"]
         if table_name not in allowed_tables:
             print(f"Skipping table {table_name} (not in allowed list)")
             continue
 
         print(f"Migrating {table_name}...")
-        sqlite_cursor.execute(f"SELECT * FROM \"{table_name}\"")
+        sqlite_cursor.execute(f'SELECT * FROM "{table_name}"')
         rows = sqlite_cursor.fetchall()
 
         count = 0
@@ -268,15 +297,24 @@ def migrate_data():
             values = []
             for key in row.keys():
                 value = row[key]
-                if key in ['payload', 'constraints', 'result', 'receipt', 'capabilities',
-                          'extra_metadata', 'sla', 'attributes', 'metadata']:
+                if key in [
+                    "payload",
+                    "constraints",
+                    "result",
+                    "receipt",
+                    "capabilities",
+                    "extra_metadata",
+                    "sla",
+                    "attributes",
+                    "metadata",
+                ]:
                     # Handle JSON fields
                     if isinstance(value, str):
                         try:
                             value = json.loads(value)
                         except Exception:
                             pass
-                elif key in ['balance', 'price', 'average_job_duration_ms']:
+                elif key in ["balance", "price", "average_job_duration_ms"]:
                     # Handle numeric fields
                     if value is not None:
                         value = Decimal(str(value))
@@ -292,6 +330,7 @@ def migrate_data():
     print("\n✅ Migration complete!")
     sqlite_conn.close()
     pg_conn.close()
+
 
 def main():
     """Main migration process"""
@@ -319,6 +358,7 @@ def main():
     print("2. Install PostgreSQL dependencies")
     print("3. Restart the coordinator service")
     print("4. Verify data integrity")
+
 
 if __name__ == "__main__":
     main()

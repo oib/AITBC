@@ -38,17 +38,14 @@ class DataLayer:
         limit: int = 50,
         offset: int = 0,
         chain_id: str = "ait-devnet",
-        rpc_url: str | None = None
+        rpc_url: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get transactions from either mock or real data source"""
         if self.use_mock_data:
-            return self.mock_generator.generate_transactions(
-                address, amount_min, amount_max, tx_type, limit
-            )
+            return self.mock_generator.generate_transactions(address, amount_min, amount_max, tx_type, limit)
         else:
             return await self.real_fetcher.fetch_transactions(
-                address, amount_min, amount_max, tx_type, since, until,
-                limit, offset, chain_id, rpc_url
+                address, amount_min, amount_max, tx_type, since, until, limit, offset, chain_id, rpc_url
             )
 
     async def get_blocks(
@@ -60,15 +57,13 @@ class DataLayer:
         limit: int = 50,
         offset: int = 0,
         chain_id: str = "ait-devnet",
-        rpc_url: str | None = None
+        rpc_url: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get blocks from either mock or real data source"""
         if self.use_mock_data:
             return self.mock_generator.generate_blocks(validator, min_tx, limit)
         else:
-            return await self.real_fetcher.fetch_blocks(
-                validator, since, until, min_tx, limit, offset, chain_id, rpc_url
-            )
+            return await self.real_fetcher.fetch_blocks(validator, since, until, min_tx, limit, offset, chain_id, rpc_url)
 
     async def get_analytics_overview(self, period: str = "24h", rpc_url: str | None = None) -> dict[str, Any]:
         """Get analytics overview from either mock or real data source"""
@@ -87,7 +82,7 @@ class MockDataGenerator:
         amount_min: float | None = None,
         amount_max: float | None = None,
         tx_type: str | None = None,
-        limit: int = 50
+        limit: int = 50,
     ) -> list[dict[str, Any]]:
         """Generate mock transaction data"""
         from aitbc.testing import MockFactory, TestDataGenerator
@@ -96,7 +91,7 @@ class MockDataGenerator:
         for _ in range(limit):
             tx = TestDataGenerator.generate_transaction_data(
                 from_address=address or MockFactory.generate_ethereum_address(),
-                to_address=MockFactory.generate_ethereum_address()
+                to_address=MockFactory.generate_ethereum_address(),
             )
             if tx_type:
                 tx["type"] = tx_type
@@ -105,30 +100,29 @@ class MockDataGenerator:
         return transactions
 
     def generate_blocks(
-        self,
-        validator: str | None = None,
-        min_tx: int | None = None,
-        limit: int = 50
+        self, validator: str | None = None, min_tx: int | None = None, limit: int = 50
     ) -> list[dict[str, Any]]:
         """Generate mock block data"""
         from aitbc.testing import MockFactory
 
         blocks = []
         for i in range(limit):
-            blocks.append({
-                "height": 10000 + i,
-                "hash": MockFactory.generate_hash(),
-                "validator": validator or MockFactory.generate_ethereum_address(),
-                "tx_count": min_tx or 5,
-                "timestamp": datetime.now(UTC).isoformat()
-            })
+            blocks.append(
+                {
+                    "height": 10000 + i,
+                    "hash": MockFactory.generate_hash(),
+                    "validator": validator or MockFactory.generate_ethereum_address(),
+                    "tx_count": min_tx or 5,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
 
         return blocks
 
     def generate_analytics(self, period: str = "24h") -> dict[str, Any]:
         """Generate mock analytics data"""
         if period == "1h":
-            labels = [f"{i:02d}:{(i*5)%60:02d}" for i in range(12)]
+            labels = [f"{i:02d}:{(i * 5) % 60:02d}" for i in range(12)]
             volume_values = [10 + i * 2 for i in range(12)]
             activity_values = [5 + i for i in range(12)]
         elif period == "24h":
@@ -140,7 +134,7 @@ class MockDataGenerator:
             volume_values = [500, 600, 550, 700, 800, 650, 750]
             activity_values = [200, 250, 220, 300, 350, 280, 320]
         else:  # 30d
-            labels = [f"Week {i+1}" for i in range(4)]
+            labels = [f"Week {i + 1}" for i in range(4)]
             volume_values = [3000, 3500, 3200, 3800]
             activity_values = [1200, 1400, 1300, 1500]
 
@@ -149,14 +143,8 @@ class MockDataGenerator:
             "transaction_volume": "5,678.90 AITBC",
             "active_addresses": "89",
             "avg_block_time": "2.1s",
-            "volume_data": {
-                "labels": labels,
-                "values": volume_values
-            },
-            "activity_data": {
-                "labels": labels,
-                "values": activity_values
-            }
+            "volume_data": {"labels": labels, "values": volume_values},
+            "activity_data": {"labels": labels, "values": activity_values},
         }
 
 
@@ -174,7 +162,7 @@ class RealDataFetcher:
         limit: int = 50,
         offset: int = 0,
         chain_id: str = "ait-devnet",
-        rpc_url: str | None = None
+        rpc_url: str | None = None,
     ) -> list[dict[str, Any]]:
         """Fetch real transactions from blockchain RPC"""
         if rpc_url is None:
@@ -215,7 +203,7 @@ class RealDataFetcher:
         limit: int = 50,
         offset: int = 0,
         chain_id: str = "ait-devnet",
-        rpc_url: str | None = None
+        rpc_url: str | None = None,
     ) -> list[dict[str, Any]]:
         """Fetch real blocks from blockchain RPC"""
         if rpc_url is None:

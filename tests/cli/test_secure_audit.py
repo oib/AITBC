@@ -213,12 +213,12 @@ class TestConvenienceFunctions:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Patch the global logger's log_dir
-            original_logger = secure_audit_logger
             from utils.secure_audit import SecureAuditLogger
+
             new_logger = SecureAuditLogger(log_dir=Path(tmpdir))
 
             # Temporarily replace global logger
-            with patch('utils.secure_audit.secure_audit_logger', new_logger):
+            with patch("utils.secure_audit.secure_audit_logger", new_logger):
                 log_action("test_action", {"key": "value"}, "test_user")
 
                 integrity_data = new_logger._get_integrity_data()
@@ -233,9 +233,10 @@ class TestConvenienceFunctions:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             from utils.secure_audit import SecureAuditLogger
+
             new_logger = SecureAuditLogger(log_dir=Path(tmpdir))
 
-            with patch('utils.secure_audit.secure_audit_logger', new_logger):
+            with patch("utils.secure_audit.secure_audit_logger", new_logger):
                 is_valid, issues = verify_audit_integrity()
 
                 assert is_valid is True
@@ -249,9 +250,10 @@ class TestConvenienceFunctions:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             from utils.secure_audit import SecureAuditLogger
+
             new_logger = SecureAuditLogger(log_dir=Path(tmpdir))
 
-            with patch('utils.secure_audit.secure_audit_logger', new_logger):
+            with patch("utils.secure_audit.secure_audit_logger", new_logger):
                 logs = get_audit_logs(limit=10)
 
                 assert logs == []

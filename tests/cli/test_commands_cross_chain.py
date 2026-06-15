@@ -22,8 +22,9 @@ class TestCrossChainCommands:
         """Test that cross_chain command group exists"""
         try:
             from aitbc_cli.commands.cross_chain import cross_chain
+
             assert cross_chain is not None
-            assert hasattr(cross_chain, 'name')
+            assert hasattr(cross_chain, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import cross_chain commands: {e}")
 
@@ -31,12 +32,13 @@ class TestCrossChainCommands:
         """Test cross_chain group name"""
         try:
             from aitbc_cli.commands.cross_chain import cross_chain
+
             assert cross_chain.name == "cross-chain"
         except ImportError as e:
             pytest.skip(f"Cannot import cross_chain commands: {e}")
 
-    @patch('aitbc_cli.commands.cross_chain.output')
-    @patch('aitbc_cli.commands.cross_chain.error')
+    @patch("aitbc_cli.commands.cross_chain.output")
+    @patch("aitbc_cli.commands.cross_chain.error")
     def test_cross_chain_rates_command(self, mock_error, mock_output):
         """Test cross_chain rates command - skip due to complex dependencies"""
         pytest.skip("Cross chain commands have complex requests and config dependencies")

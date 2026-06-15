@@ -35,6 +35,7 @@ class MockServiceRegistry:
     def get_service(self, service_type: str) -> None:
         return None
 
+
 service_registry = MockServiceRegistry()
 
 router = APIRouter(tags=["services"])
@@ -201,7 +202,9 @@ async def stable_diffusion_generate(
     }
 
     job_create = JobCreate(
-        payload=job_payload, constraints=request.get_constraints(), ttl_seconds=600  # type: ignore[attr-defined]  # 10 minutes for image generation
+        payload=job_payload,
+        constraints=request.get_constraints(),
+        ttl_seconds=600,  # type: ignore[attr-defined]  # 10 minutes for image generation
     )
 
     service = JobService(session)
@@ -270,7 +273,9 @@ async def llm_inference(
     }
 
     job_create = JobCreate(
-        payload=job_payload, constraints=request.get_constraints(), ttl_seconds=300  # type: ignore[attr-defined]  # 5 minutes for text generation
+        payload=job_payload,
+        constraints=request.get_constraints(),
+        ttl_seconds=300,  # type: ignore[attr-defined]  # 5 minutes for text generation
     )
 
     service = JobService(session)
@@ -339,7 +344,9 @@ async def ffmpeg_transcode(
 
     # Adjust TTL based on video length (would need to probe video)
     job_create = JobCreate(
-        payload=job_payload, constraints=request.get_constraints(), ttl_seconds=1800  # type: ignore[attr-defined]  # 30 minutes for video transcoding
+        payload=job_payload,
+        constraints=request.get_constraints(),
+        ttl_seconds=1800,  # type: ignore[attr-defined]  # 30 minutes for video transcoding
     )
 
     service = JobService(session)

@@ -14,11 +14,7 @@ def main():
 
     # Check Ollama is running
     print("\n1. Checking Ollama...")
-    result = subprocess.run(
-        ["curl", "-s", "http://localhost:11434/api/tags"],
-        capture_output=True,
-        text=True
-    )
+    result = subprocess.run(["curl", "-s", "http://localhost:11434/api/tags"], capture_output=True, text=True)
 
     if result.returncode != 0:
         print("❌ Ollama is not running!")
@@ -26,6 +22,7 @@ def main():
         return
 
     import json
+
     models = json.loads(result.stdout)["models"]
     print(f"✅ Ollama running with {len(models)} models")
 
@@ -38,20 +35,14 @@ def main():
     print("\n2. Submitting jobs...")
 
     # Job 1: Text generation
-    job1 = client.submit_generation(
-        model="llama3.2:latest",
-        prompt="What is blockchain technology?",
-        max_tokens=100
-    )
+    job1 = client.submit_generation(model="llama3.2:latest", prompt="What is blockchain technology?", max_tokens=100)
     if job1:
         jobs.append(("Text Generation", job1))
         print(f"✅ Submitted: {job1}")
 
     # Job 2: Code generation
     job2 = client.submit_code_generation(
-        model="qwen2.5-coder:14b",
-        prompt="Create a function to calculate factorial",
-        language="python"
+        model="qwen2.5-coder:14b", prompt="Create a function to calculate factorial", language="python"
     )
     if job2:
         jobs.append(("Code Generation", job2))
@@ -59,9 +50,7 @@ def main():
 
     # Job 3: Translation
     job3 = client.submit_generation(
-        model="lauchacarro/qwen2.5-translator:latest",
-        prompt="Translate to French: Hello, how are you today?",
-        max_tokens=50
+        model="lauchacarro/qwen2.5-translator:latest", prompt="Translate to French: Hello, how are you today?", max_tokens=50
     )
     if job3:
         jobs.append(("Translation", job3))
@@ -81,12 +70,13 @@ def main():
 
     # Check initial status
     print("\n4. Checking initial job status...")
-    for job_type, job_id in jobs:
+    for _job_type, job_id in jobs:
         status = client.get_job_status(job_id)
         if status:
             print(f"   {job_id}: {status['state']}")
 
     print("\n✅ Demo complete! Start mining to process these jobs.")
+
 
 if __name__ == "__main__":
     main()

@@ -87,7 +87,7 @@ def _select_candidates(
     region_hint = hints.get("region")
 
     ranked: list[dict[str, Any]] = []
-    for miner, status, score in active_miners:
+    for miner, miner_status, score in active_miners:
         if miner.gpu_vram_gb and miner.gpu_vram_gb < min_vram:
             continue
         if miner.ram_gb and miner.ram_gb < min_ram:
@@ -102,8 +102,8 @@ def _select_candidates(
             "addr": miner.addr,
             "proto": miner.proto,
             "score": float(score),
-            "explain": _compose_explain(score, miner, status),
-            "eta_ms": status.avg_latency_ms if status else None,
+            "explain": _compose_explain(score, miner, miner_status),
+            "eta_ms": miner_status.avg_latency_ms if miner_status else None,
             "price": miner.base_price,
         }
         ranked.append(candidate)
@@ -112,7 +112,7 @@ def _select_candidates(
     return ranked[:top_k]
 
 
-def _compose_explain(score: float, miner: Any, status: Any) -> str:
+def _compose_explain(score: float, miner: Any, miner_status: Any) -> str:
     load = status.queue_len if status else 0
     latency = status.avg_latency_ms if status else "n/a"
     return f"score={score:.3f} load={load} latency={latency}"

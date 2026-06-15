@@ -127,7 +127,7 @@ def handle_genesis_verify(args):
             with open(wallet_path) as f:
                 wallet_data = json.load(f)
             click.echo(f"  Address: {wallet_data.get('address')}")
-            click.echo(f"  Public Key: {wallet_data.get('public_key')[:16]}..." if wallet_data.get('public_key') else "N/A")
+            click.echo(f"  Public Key: {wallet_data.get('public_key')[:16]}..." if wallet_data.get("public_key") else "N/A")
         except Exception as e:
             click.echo(f"Error: Failed to read genesis wallet: {e}")
     else:
@@ -173,7 +173,7 @@ def handle_genesis_info(args):
 def main():
     parser = argparse.ArgumentParser(
         description="AITBC Genesis CLI - Genesis block and wallet generation",
-        epilog="Examples: genesis-cli init --create-wallet | genesis-cli verify | genesis-cli info"
+        epilog="Examples: genesis-cli init --create-wallet | genesis-cli verify | genesis-cli info",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Genesis commands")

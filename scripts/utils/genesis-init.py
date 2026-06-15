@@ -21,15 +21,12 @@ def compute_genesis_hash(height: int, parent_hash: str, timestamp: datetime) -> 
     # For now, use a deterministic hash based on the genesis data
     data = f"{height}:{parent_hash}:{timestamp.isoformat()}:genesis"
     import hashlib
+
     return hashlib.sha256(data.encode()).hexdigest()
 
 
 def create_genesis_json(
-    chain_id: str,
-    proposer: str,
-    balance: int,
-    output_path: Path | None = None,
-    chain_type: str = "testnet"
+    chain_id: str, proposer: str, balance: int, output_path: Path | None = None, chain_type: str = "testnet"
 ) -> Path:
     """Create genesis.json file for a chain"""
 
@@ -50,16 +47,10 @@ def create_genesis_json(
             "metadata": {
                 "chain_type": chain_type,
                 "purpose": "testing" if chain_type == "testnet" else "production",
-                "consensus_algorithm": "poa"
-            }
+                "consensus_algorithm": "poa",
+            },
         },
-        "allocations": [
-            {
-                "address": proposer,
-                "balance": balance,
-                "nonce": 0
-            }
-        ]
+        "allocations": [{"address": proposer, "balance": balance, "nonce": 0}],
     }
 
     if output_path is None:
@@ -67,19 +58,14 @@ def create_genesis_json(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         json.dump(genesis_data, f, indent=2)
 
     print(f"Created genesis.json at {output_path}")
     return output_path
 
 
-def initialize_database(
-    chain_id: str,
-    proposer: str,
-    balance: int,
-    db_path: Path | None = None
-) -> None:
+def initialize_database(chain_id: str, proposer: str, balance: int, db_path: Path | None = None) -> None:
     """Initialize database with genesis block and account"""
 
     if db_path is None:
@@ -125,10 +111,7 @@ def initialize_database(
     cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_block_hash ON block (hash)")
 
     # Check if genesis block already exists
-    cursor.execute(
-        "SELECT hash FROM block WHERE chain_id=? AND height=0",
-        (chain_id,)
-    )
+    cursor.execute("SELECT hash FROM block WHERE chain_id=? AND height=0", (chain_id,))
     existing = cursor.fetchone()
 
     if existing:
@@ -145,7 +128,7 @@ def initialize_database(
         INSERT INTO block (chain_id, height, hash, parent_hash, proposer, timestamp, tx_count, state_root)
         VALUES (?, 0, ?, ?, ?, ?, 0, ?)
         """,
-        (chain_id, genesis_hash, "0x00", proposer, timestamp.isoformat(), "0x00")
+        (chain_id, genesis_hash, "0x00", proposer, timestamp.isoformat(), "0x00"),
     )
 
     # Insert account with initial balance
@@ -154,7 +137,7 @@ def initialize_database(
         INSERT INTO account (chain_id, address, balance, nonce, updated_at)
         VALUES (?, ?, ?, ?, ?)
         """,
-        (chain_id, proposer, balance, 0, timestamp.isoformat())
+        (chain_id, proposer, balance, 0, timestamp.isoformat()),
     )
 
     conn.commit()
@@ -185,17 +168,12 @@ def main():
             proposer=args.proposer,
             balance=args.balance,
             output_path=genesis_path,
-            chain_type=args.chain_type
+            chain_type=args.chain_type,
         )
 
     if not args.skip_db:
         db_path = Path(args.db_path) if args.db_path else None
-        initialize_database(
-            chain_id=args.chain_id,
-            proposer=args.proposer,
-            balance=args.balance,
-            db_path=db_path
-        )
+        initialize_database(chain_id=args.chain_id, proposer=args.proposer, balance=args.balance, db_path=db_path)
 
     print(f"\nGenesis initialization complete for chain {args.chain_id}")
 

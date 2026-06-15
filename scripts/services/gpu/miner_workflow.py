@@ -12,6 +12,7 @@ COORDINATOR_URL = "http://localhost:8203"
 MINER_API_KEY = "${MINER_API_KEY}"
 MINER_ID = "localhost-gpu-miner"
 
+
 def poll_and_accept_job():
     """Poll for a job and accept it"""
     print("🔍 Polling for jobs...")
@@ -20,11 +21,8 @@ def poll_and_accept_job():
         # Poll for a job
         response = client.post(
             f"{COORDINATOR_URL}/v1/miners/poll",
-            headers={
-                "Content-Type": "application/json",
-                "X-Api-Key": MINER_API_KEY
-            },
-            json={"max_wait_seconds": 5}
+            headers={"Content-Type": "application/json", "X-Api-Key": MINER_API_KEY},
+            json={"max_wait_seconds": 5},
         )
 
         if response.status_code == 200:
@@ -42,27 +40,21 @@ def poll_and_accept_job():
                     "status": "completed",
                     "output": f"Job {job['job_id']} completed successfully",
                     "execution_time_ms": 2000,
-                    "miner_id": MINER_ID
+                    "miner_id": MINER_ID,
                 },
-                "metrics": {
-                    "compute_time": 2.0,
-                    "energy_used": 0.1
-                }
+                "metrics": {"compute_time": 2.0, "energy_used": 0.1},
             }
 
             print(f"📤 Submitting result for job {job['job_id']}...")
             result_response = client.post(
                 f"{COORDINATOR_URL}/v1/miners/{job['job_id']}/result",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Api-Key": MINER_API_KEY
-                },
-                json=result_data
+                headers={"Content-Type": "application/json", "X-Api-Key": MINER_API_KEY},
+                json=result_data,
             )
 
             if result_response.status_code == 200:
                 print("✅ Result submitted successfully!")
-                return job['job_id']
+                return job["job_id"]
             else:
                 print(f"❌ Failed to submit result: {result_response.status_code}")
                 print(f"   Response: {result_response.text}")
@@ -75,6 +67,7 @@ def poll_and_accept_job():
             print(f"❌ Failed to poll: {response.status_code}")
             return None
 
+
 def check_block_proposer(job_id):
     """Check if the block now has a proposer"""
     print(f"\n🔍 Checking proposer for job {job_id}...")
@@ -84,8 +77,8 @@ def check_block_proposer(job_id):
 
         if response.status_code == 200:
             blocks = response.json()
-            for block in blocks['items']:
-                if block['hash'] == job_id:
+            for block in blocks["items"]:
+                if block["hash"] == job_id:
                     print("📦 Block Info:")
                     print(f"   Height: {block['height']}")
                     print(f"   Hash: {block['hash']}")
@@ -93,6 +86,7 @@ def check_block_proposer(job_id):
                     print(f"   Time: {block['timestamp']}")
                     return block
         return None
+
 
 def main():
     print("⛏️  AITBC Miner Workflow Demo")
@@ -109,6 +103,7 @@ def main():
         check_block_proposer(job_id)
     else:
         print("\n💡 Tip: Create a job first using example_client_remote.py")
+
 
 if __name__ == "__main__":
     main()

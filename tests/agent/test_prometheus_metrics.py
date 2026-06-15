@@ -31,11 +31,7 @@ class TestMetricValue:
         """Test creating a metric value"""
         from datetime import datetime
 
-        value = MetricValue(
-            value=42.5,
-            timestamp=datetime.now(),
-            labels={"label1": "value1"}
-        )
+        value = MetricValue(value=42.5, timestamp=datetime.now(), labels={"label1": "value1"})
 
         assert value.value == 42.5
         assert value.labels == {"label1": "value1"}
@@ -44,10 +40,7 @@ class TestMetricValue:
         """Test metric value with default labels"""
         from datetime import datetime
 
-        value = MetricValue(
-            value=10.0,
-            timestamp=datetime.now()
-        )
+        value = MetricValue(value=10.0, timestamp=datetime.now())
 
         assert value.labels == {}
 
@@ -338,7 +331,7 @@ class TestPerformanceMonitor:
     def test_performance_monitor_initializes_metrics(self):
         """Test that performance monitor initializes default metrics"""
         registry = MetricsRegistry()
-        monitor = PerformanceMonitor(registry)
+        PerformanceMonitor(registry)
 
         metrics = registry.get_all_metrics()
 
@@ -423,7 +416,9 @@ class TestPerformanceMonitor:
         gauge = registry.gauge("tasks_active", "Number of active tasks")
         assert gauge.get_value() == -1  # Decremented
 
-        histogram = registry.histogram("task_duration_seconds", "Task execution duration", [1.0, 5.0, 10.0, 30.0, 60.0, 300.0], ["task_type"])
+        histogram = registry.histogram(
+            "task_duration_seconds", "Task execution duration", [1.0, 5.0, 10.0, 30.0, 60.0, 300.0], ["task_type"]
+        )
         assert histogram.get_count(task_type="inference") == 1
 
     def test_record_ai_operation(self):
@@ -507,7 +502,9 @@ class TestPerformanceMonitor:
         counter = registry.counter("load_balancer_assignments_total", "Total load balancer assignments", ["strategy"])
         assert counter.get_value(strategy="round_robin") == 1
 
-        histogram = registry.histogram("load_balancer_decision_time_seconds", "Load balancer decision time", [0.001, 0.005, 0.01, 0.025, 0.05])
+        histogram = registry.histogram(
+            "load_balancer_decision_time_seconds", "Load balancer decision time", [0.001, 0.005, 0.01, 0.025, 0.05]
+        )
         assert histogram.get_count() == 1
 
     def test_record_message_sent(self):
@@ -559,7 +556,7 @@ class TestPerformanceMonitor:
 
         assert summary["total_requests"] == 3
         assert summary["total_errors"] == 1
-        assert summary["error_rate"] == 1/3
+        assert summary["error_rate"] == 1 / 3
         assert summary["avg_response_time"] > 0
         assert summary["uptime_seconds"] > 0
 

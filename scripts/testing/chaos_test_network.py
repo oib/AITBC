@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 
 import aiohttp
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -35,7 +35,7 @@ class ChaosTestNetwork:
             "error_count": 0,
             "success_count": 0,
             "scenario": "network_partition",
-            "affected_nodes": []
+            "affected_nodes": [],
         }
 
     async def __aenter__(self):
@@ -49,10 +49,15 @@ class ChaosTestNetwork:
     def get_blockchain_pods(self) -> list[str]:
         """Get list of blockchain node pods"""
         cmd = [
-            "kubectl", "get", "pods",
-            "-n", self.namespace,
-            "-l", "app.kubernetes.io/name=blockchain-node",
-            "-o", "jsonpath={.items[*].metadata.name}"
+            "kubectl",
+            "get",
+            "pods",
+            "-n",
+            self.namespace,
+            "-l",
+            "app.kubernetes.io/name=blockchain-node",
+            "-o",
+            "jsonpath={.items[*].metadata.name}",
         ]
 
         try:
@@ -66,10 +71,15 @@ class ChaosTestNetwork:
     def get_coordinator_pods(self) -> list[str]:
         """Get list of coordinator pods"""
         cmd = [
-            "kubectl", "get", "pods",
-            "-n", self.namespace,
-            "-l", "app.kubernetes.io/name=coordinator",
-            "-o", "jsonpath={.items[*].metadata.name}"
+            "kubectl",
+            "get",
+            "pods",
+            "-n",
+            self.namespace,
+            "-l",
+            "app.kubernetes.io/name=coordinator",
+            "-o",
+            "jsonpath={.items[*].metadata.name}",
         ]
 
         try:
@@ -92,11 +102,7 @@ class ChaosTestNetwork:
             for target_pod in target_pods:
                 try:
                     # Get target pod IP
-                    cmd = [
-                        "kubectl", "get", "pod", target_pod,
-                        "-n", self.namespace,
-                        "-o", "jsonpath={.status.podIP}"
-                    ]
+                    cmd = ["kubectl", "get", "pod", target_pod, "-n", self.namespace, "-o", "jsonpath={.status.podIP}"]
                     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
                     target_ip = result.stdout.strip()
 
@@ -105,8 +111,19 @@ class ChaosTestNetwork:
 
                     # Apply iptables rule to block traffic
                     iptables_cmd = [
-                        "kubectl", "exec", "-n", self.namespace, pod, "--",
-                        "iptables", "-A", "OUTPUT", "-d", target_ip, "-j", "DROP"
+                        "kubectl",
+                        "exec",
+                        "-n",
+                        self.namespace,
+                        pod,
+                        "--",
+                        "iptables",
+                        "-A",
+                        "OUTPUT",
+                        "-d",
+                        target_ip,
+                        "-j",
+                        "DROP",
                     ]
                     subprocess.run(iptables_cmd, check=True)
 
@@ -126,10 +143,7 @@ class ChaosTestNetwork:
         for pod in pods:
             try:
                 # Flush OUTPUT chain (remove all rules)
-                cmd = [
-                    "kubectl", "exec", "-n", self.namespace, pod, "--",
-                    "iptables", "-F", "OUTPUT"
-                ]
+                cmd = ["kubectl", "exec", "-n", self.namespace, pod, "--", "iptables", "-F", "OUTPUT"]
                 subprocess.run(cmd, check=True)
                 logger.info("Removed network rules from %s", pod)
 
@@ -147,8 +161,17 @@ class ChaosTestNetwork:
             try:
                 # Test if pod can reach coordinator
                 cmd = [
-                    "kubectl", "exec", "-n", self.namespace, pod, "--",
-                    "curl", "-s", "--max-time", "5", "http://coordinator:8203/v1/health"
+                    "kubectl",
+                    "exec",
+                    "-n",
+                    self.namespace,
+                    pod,
+                    "--",
+                    "curl",
+                    "-s",
+                    "--max-time",
+                    "5",
+                    "http://coordinator:8203/v1/health",
                 ]
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 results[pod] = result.returncode == 0 and "ok" in result.stdout
@@ -175,8 +198,15 @@ class ChaosTestNetwork:
 
                 # Use first pod to check height
                 cmd = [
-                    "kubectl", "exec", "-n", self.namespace, pods[0], "--",
-                    "curl", "-s", "http://localhost:8080/v1/blocks/head"
+                    "kubectl",
+                    "exec",
+                    "-n",
+                    self.namespace,
+                    pods[0],
+                    "--",
+                    "curl",
+                    "-s",
+                    "http://localhost:8080/v1/blocks/head",
                 ]
                 result = subprocess.run(cmd, capture_output=True, text=True)
 
@@ -208,9 +238,14 @@ class ChaosTestNetwork:
 
         # Get service URL
         cmd = [
-            "kubectl", "get", "svc", "blockchain-node",
-            "-n", self.namespace,
-            "-o", "jsonpath={.spec.clusterIP}:{.spec.ports[0].port}"
+            "kubectl",
+            "get",
+            "svc",
+            "blockchain-node",
+            "-n",
+            self.namespace,
+            "-o",
+            "jsonpath={.spec.clusterIP}:{.spec.ports[0].port}",
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         base_url = f"http://{result.stdout.strip()}"
@@ -239,7 +274,9 @@ class ChaosTestNetwork:
             # Brief pause
             await asyncio.sleep(1)
 
-        logger.info("Load generation completed. Success: %s, Errors: %s", self.metrics['success_count'], self.metrics['error_count'])
+        logger.info(
+            "Load generation completed. Success: %s, Errors: %s", self.metrics["success_count"], self.metrics["error_count"]
+        )
 
     async def run_test(self, partition_duration: int = 60, partition_ratio: float = 0.5):
         """Run the complete network partition chaos test"""
@@ -283,7 +320,7 @@ class ChaosTestNetwork:
 
         # Phase 4: Monitor during partition
         logger.info("Phase 4: Monitoring system during %ss partition", partition_duration)
-        consensus_healthy = await self.monitor_consensus(partition_duration)
+        _ = await self.monitor_consensus(partition_duration)
 
         # Phase 5: Remove partition and monitor recovery
         logger.info("Phase 5: Removing network partition")
@@ -305,7 +342,7 @@ class ChaosTestNetwork:
         all_connected = all(recovery_connectivity.values())
         if all_connected:
             self.metrics["recovery_time"] = recovery_time - (datetime.fromisoformat(self.metrics["partition_end"]).timestamp())
-            logger.info("Network recovered in %.2f seconds", self.metrics['recovery_time'])
+            logger.info("Network recovered in %.2f seconds", self.metrics["recovery_time"])
 
         # Phase 6: Post-recovery load test
         logger.info("Phase 6: Post-recovery load test")
@@ -336,7 +373,7 @@ class ChaosTestNetwork:
         print(f"Scenario: {self.metrics['scenario']}")
         print(f"Test Duration: {self.metrics['test_start']} to {self.metrics['test_end']}")
         print(f"Partition Duration: {self.metrics['partition_start']} to {self.metrics['partition_end']}")
-        print(f"MTTR: {self.metrics['mttr']:.2f} seconds" if self.metrics['mttr'] else "MTTR: N/A")
+        print(f"MTTR: {self.metrics['mttr']:.2f} seconds" if self.metrics["mttr"] else "MTTR: N/A")
         print(f"Affected Nodes: {len(self.metrics['affected_nodes'])}")
         print(f"Success Requests: {self.metrics['success_count']}")
         print(f"Error Requests: {self.metrics['error_count']}")
@@ -352,7 +389,9 @@ async def main():
     args = parser.parse_args()
 
     if args.dry_run:
-        logger.info("DRY RUN: Would partition %s%% of nodes for %s seconds", args.partition_ratio * 100, args.partition_duration)
+        logger.info(
+            "DRY RUN: Would partition %s%% of nodes for %s seconds", args.partition_ratio * 100, args.partition_duration
+        )
         return
 
     # Verify kubectl is available

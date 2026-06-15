@@ -9,11 +9,15 @@ import time
 
 logger = logging.getLogger(__name__)
 
+
 def log_info(msg: str):
     logger.info(msg)
 
+
 def log_error(msg: str):
     logger.error(msg)
+
+
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
@@ -27,12 +31,14 @@ class AgentType(Enum):
     BROKER = "broker"
     ORACLE = "oracle"
 
+
 class AgentStatus(Enum):
     REGISTERED = "registered"
     ACTIVE = "active"
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
     BANNED = "banned"
+
 
 class CapabilityType(Enum):
     TEXT_GENERATION = "text_generation"
@@ -41,6 +47,7 @@ class CapabilityType(Enum):
     PREDICTION = "prediction"
     VALIDATION = "validation"
     COMPUTATION = "computation"
+
 
 @dataclass
 class AgentCapability:
@@ -52,6 +59,7 @@ class AgentCapability:
     cost_per_use: Decimal
     availability: float
     max_concurrent_jobs: int
+
 
 @dataclass
 class AgentInfo:
@@ -70,6 +78,7 @@ class AgentInfo:
     status: AgentStatus
     metadata: dict
 
+
 class AgentRegistry:
     """Manages AI agent registration and discovery"""
 
@@ -83,7 +92,7 @@ class AgentRegistry:
         # Registry parameters
         self.min_reputation_threshold = 0.5
         self.max_agents_per_type = 1000
-        self.registration_fee = Decimal('100.0')
+        self.registration_fee = Decimal("100.0")
         self.inactivity_threshold = 86400 * 7  # 7 days
 
         # Initialize capability index
@@ -94,9 +103,16 @@ class AgentRegistry:
         for agent_type in AgentType:
             self.type_index[agent_type] = set()
 
-    async def register_agent(self, agent_type: AgentType, name: str, owner_address: str,
-                           public_key: str, endpoint_url: str, capabilities: list[dict],
-                           metadata: dict = None) -> tuple[bool, str, str | None]:
+    async def register_agent(
+        self,
+        agent_type: AgentType,
+        name: str,
+        owner_address: str,
+        public_key: str,
+        endpoint_url: str,
+        capabilities: list[dict],
+        metadata: dict = None,
+    ) -> tuple[bool, str, str | None]:
         """Register a new AI agent"""
         try:
             # Validate inputs
@@ -133,11 +149,11 @@ class AgentRegistry:
                 capabilities=agent_capabilities,
                 reputation_score=1.0,  # Start with neutral reputation
                 total_jobs_completed=0,
-                total_earnings=Decimal('0'),
+                total_earnings=Decimal("0"),
                 registration_time=time.time(),
                 last_active=time.time(),
                 status=AgentStatus.REGISTERED,
-                metadata=metadata or {}
+                metadata=metadata or {},
             )
 
             # Add to registry
@@ -154,19 +170,20 @@ class AgentRegistry:
         except Exception as e:
             return False, f"Registration failed: {str(e)}", None
 
-    def _validate_registration_inputs(self, agent_type: AgentType, name: str,
-                                   owner_address: str, public_key: str, endpoint_url: str) -> bool:
+    def _validate_registration_inputs(
+        self, agent_type: AgentType, name: str, owner_address: str, public_key: str, endpoint_url: str
+    ) -> bool:
         """Validate registration inputs"""
         # Check required fields
         if not all([agent_type, name, owner_address, public_key, endpoint_url]):
             return False
 
         # Validate address format (simplified)
-        if not owner_address.startswith('0x') or len(owner_address) != 42:
+        if not owner_address.startswith("0x") or len(owner_address) != 42:
             return False
 
         # Validate URL format (simplified)
-        if not endpoint_url.startswith(('http://', 'https://')):
+        if not endpoint_url.startswith(("http://", "https://")):
             return False
 
         # Validate name
@@ -184,26 +201,26 @@ class AgentRegistry:
         """Create capability from data dictionary"""
         try:
             # Validate required fields
-            required_fields = ['type', 'name', 'version', 'cost_per_use']
+            required_fields = ["type", "name", "version", "cost_per_use"]
             if not all(field in cap_data for field in required_fields):
                 return None
 
             # Parse capability type
             try:
-                capability_type = CapabilityType(cap_data['type'])
+                capability_type = CapabilityType(cap_data["type"])
             except ValueError:
                 return None
 
             # Create capability
             return AgentCapability(
                 capability_type=capability_type,
-                name=cap_data['name'],
-                version=cap_data['version'],
-                parameters=cap_data.get('parameters', {}),
-                performance_metrics=cap_data.get('performance_metrics', {}),
-                cost_per_use=Decimal(str(cap_data['cost_per_use'])),
-                availability=cap_data.get('availability', 1.0),
-                max_concurrent_jobs=cap_data.get('max_concurrent_jobs', 1)
+                name=cap_data["name"],
+                version=cap_data["version"],
+                parameters=cap_data.get("parameters", {}),
+                performance_metrics=cap_data.get("performance_metrics", {}),
+                cost_per_use=Decimal(str(cap_data["cost_per_use"])),
+                availability=cap_data.get("availability", 1.0),
+                max_concurrent_jobs=cap_data.get("max_concurrent_jobs", 1),
             )
 
         except Exception as e:
@@ -250,8 +267,7 @@ class AgentRegistry:
 
         return True, "Capabilities updated successfully"
 
-    async def find_agents_by_capability(self, capability_type: CapabilityType,
-                                     filters: dict = None) -> list[AgentInfo]:
+    async def find_agents_by_capability(self, capability_type: CapabilityType, filters: dict = None) -> list[AgentInfo]:
         """Find agents by capability type"""
         agent_ids = self.capability_index.get(capability_type, set())
 
@@ -287,26 +303,26 @@ class AgentRegistry:
             return True
 
         # Reputation filter
-        if 'min_reputation' in filters:
-            if agent.reputation_score < filters['min_reputation']:
+        if "min_reputation" in filters:
+            if agent.reputation_score < filters["min_reputation"]:
                 return False
 
         # Cost filter
-        if 'max_cost_per_use' in filters:
-            max_cost = Decimal(str(filters['max_cost_per_use']))
+        if "max_cost_per_use" in filters:
+            max_cost = Decimal(str(filters["max_cost_per_use"]))
             if any(cap.cost_per_use > max_cost for cap in agent.capabilities):
                 return False
 
         # Availability filter
-        if 'min_availability' in filters:
-            min_availability = filters['min_availability']
+        if "min_availability" in filters:
+            min_availability = filters["min_availability"]
             if any(cap.availability < min_availability for cap in agent.capabilities):
                 return False
 
         # Location filter (if implemented)
-        if 'location' in filters:
-            agent_location = agent.metadata.get('location')
-            if agent_location != filters['location']:
+        if "location" in filters:
+            agent_location = agent.metadata.get("location")
+            if agent_location != filters["location"]:
                 return False
 
         return True
@@ -331,8 +347,7 @@ class AgentRegistry:
 
             # Search in capabilities
             for capability in agent.capabilities:
-                if (query_lower in capability.name.lower() or
-                    query_lower in capability.capability_type.value):
+                if query_lower in capability.name.lower() or query_lower in capability.capability_type.value:
                     results.append(agent)
                     break
 
@@ -347,24 +362,26 @@ class AgentRegistry:
             return None
 
         # Calculate additional statistics
-        avg_job_earnings = agent.total_earnings / agent.total_jobs_completed if agent.total_jobs_completed > 0 else Decimal('0')
+        avg_job_earnings = (
+            agent.total_earnings / agent.total_jobs_completed if agent.total_jobs_completed > 0 else Decimal("0")
+        )
         days_active = (time.time() - agent.registration_time) / 86400
         jobs_per_day = agent.total_jobs_completed / days_active if days_active > 0 else 0
 
         return {
-            'agent_id': agent_id,
-            'name': agent.name,
-            'type': agent.agent_type.value,
-            'status': agent.status.value,
-            'reputation_score': agent.reputation_score,
-            'total_jobs_completed': agent.total_jobs_completed,
-            'total_earnings': float(agent.total_earnings),
-            'avg_job_earnings': float(avg_job_earnings),
-            'jobs_per_day': jobs_per_day,
-            'days_active': int(days_active),
-            'capabilities_count': len(agent.capabilities),
-            'last_active': agent.last_active,
-            'registration_time': agent.registration_time
+            "agent_id": agent_id,
+            "name": agent.name,
+            "type": agent.agent_type.value,
+            "status": agent.status.value,
+            "reputation_score": agent.reputation_score,
+            "total_jobs_completed": agent.total_jobs_completed,
+            "total_earnings": float(agent.total_earnings),
+            "avg_job_earnings": float(avg_job_earnings),
+            "jobs_per_day": jobs_per_day,
+            "days_active": int(days_active),
+            "capabilities_count": len(agent.capabilities),
+            "last_active": agent.last_active,
+            "registration_time": agent.registration_time,
         }
 
     async def get_registry_statistics(self) -> dict:
@@ -390,14 +407,14 @@ class AgentRegistry:
         total_earnings = sum(a.total_earnings for a in self.agents.values())
 
         return {
-            'total_agents': total_agents,
-            'active_agents': active_agents,
-            'inactive_agents': total_agents - active_agents,
-            'agent_types': type_counts,
-            'capabilities': capability_counts,
-            'average_reputation': avg_reputation,
-            'total_earnings': float(total_earnings),
-            'registration_fee': float(self.registration_fee)
+            "total_agents": total_agents,
+            "active_agents": active_agents,
+            "inactive_agents": total_agents - active_agents,
+            "agent_types": type_counts,
+            "capabilities": capability_counts,
+            "average_reputation": avg_reputation,
+            "total_earnings": float(total_earnings),
+            "registration_fee": float(self.registration_fee),
         }
 
     async def cleanup_inactive_agents(self) -> tuple[int, str]:
@@ -406,9 +423,7 @@ class AgentRegistry:
         cleaned_count = 0
 
         for agent_id, agent in list(self.agents.items()):
-            if (agent.status == AgentStatus.INACTIVE and
-                current_time - agent.last_active > self.inactivity_threshold):
-
+            if agent.status == AgentStatus.INACTIVE and current_time - agent.last_active > self.inactivity_threshold:
                 # Remove from registry
                 del self.agents[agent_id]
 
@@ -424,12 +439,15 @@ class AgentRegistry:
 
         return cleaned_count, f"Cleaned up {cleaned_count} inactive agents"
 
+
 # Global agent registry
 agent_registry: AgentRegistry | None = None
+
 
 def get_agent_registry() -> AgentRegistry | None:
     """Get global agent registry"""
     return agent_registry
+
 
 def create_agent_registry() -> AgentRegistry:
     """Create and set global agent registry"""

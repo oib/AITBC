@@ -30,7 +30,7 @@ def monitor():
 @click.pass_context
 def dashboard(ctx, refresh: int, duration: int):
     """Real-time system dashboard"""
-    config = ctx.obj['config']
+    config = ctx.obj["config"]
     start_time = time.time()
 
     try:
@@ -47,10 +47,7 @@ def dashboard(ctx, refresh: int, duration: int):
                 http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=5)
                 # Get dashboard data
                 url = "/api/v1/dashboard"
-                dashboard = http_client.get(
-                    url,
-                    headers={"X-Api-Key": config.api_key or ""}
-                )
+                dashboard = http_client.get(url, headers={"X-Api-Key": config.api_key or ""})
                 console.print("[bold green]Dashboard Status:[/bold green] Online")
                 # Overall status
                 overall_status = dashboard.get("overall_status", "unknown")
@@ -73,13 +70,15 @@ def dashboard(ctx, refresh: int, duration: int):
 
     except KeyboardInterrupt:
         console.print("\n[bold]Dashboard stopped[/bold]")
+
+
 @monitor.command()
 @click.option("--period", default="24h", help="Time period (1h, 24h, 7d, 30d)")
 @click.option("--export", "export_path", type=click.Path(), help="Export metrics to file")
 @click.pass_context
 def metrics(ctx, period: str, export_path: str | None):
     """Collect and display system metrics"""
-    config = ctx.obj['config']
+    config = ctx.obj["config"]
 
     # Parse period
     multipliers = {"h": 3600, "d": 86400}
@@ -94,17 +93,14 @@ def metrics(ctx, period: str, export_path: str | None):
         "collected_at": datetime.now().isoformat(),
         "coordinator": {},
         "jobs": {},
-        "miners": {}
+        "miners": {},
     }
 
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         # Coordinator metrics
         try:
-            resp = http_client.get(
-                f"{config.coordinator_url}/status",
-                headers={"X-Api-Key": config.api_key or ""}
-            )
+            resp = http_client.get(f"{config.coordinator_url}/status", headers={"X-Api-Key": config.api_key or ""})
             if resp.status_code == 200:
                 metrics_data["coordinator"] = resp.json()
                 metrics_data["coordinator"]["status"] = "online"
@@ -116,9 +112,7 @@ def metrics(ctx, period: str, export_path: str | None):
         # Job metrics
         try:
             resp = http_client.get(
-                f"{config.coordinator_url}/v1/jobs",
-                headers={"X-Api-Key": config.api_key or ""},
-                params={"limit": 100}
+                f"{config.coordinator_url}/v1/jobs", headers={"X-Api-Key": config.api_key or ""}, params={"limit": 100}
             )
             if resp.status_code == 200:
                 jobs = resp.json()
@@ -134,10 +128,7 @@ def metrics(ctx, period: str, export_path: str | None):
 
         # Miner metrics
         try:
-            resp = http_client.get(
-                f"{config.coordinator_url}/v1/miners",
-                headers={"X-Api-Key": config.api_key or ""}
-            )
+            resp = http_client.get(f"{config.coordinator_url}/v1/miners", headers={"X-Api-Key": config.api_key or ""})
             if resp.status_code == 200:
                 miners = resp.json()
                 if isinstance(miners, list):
@@ -157,20 +148,24 @@ def metrics(ctx, period: str, export_path: str | None):
             json.dump(metrics_data, f, indent=2)
         success(f"Metrics exported to {export_path}")
 
-    output(metrics_data, ctx.obj['output_format'])
+    output(metrics_data, ctx.obj["output_format"])
 
 
 @monitor.command()
 @click.argument("action", type=click.Choice(["add", "list", "remove", "test"]))
 @click.option("--name", help="Alert name")
-@click.option("--type", "alert_type", type=click.Choice(["coordinator_down", "miner_offline", "job_failed", "low_balance"]), help="Alert type")
+@click.option(
+    "--type",
+    "alert_type",
+    type=click.Choice(["coordinator_down", "miner_offline", "job_failed", "low_balance"]),
+    help="Alert type",
+)
 @click.option("--threshold", type=float, help="Alert threshold value")
 @click.option("--webhook", help="Webhook URL for notifications")
 @click.pass_context
-def alerts(ctx, action: str, name: str | None, alert_type: str | None,
-           threshold: float | None, webhook: str | None):
+def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold: float | None, webhook: str | None):
     """Configure monitoring alerts"""
-    config = ctx.obj['config']
+    config = ctx.obj["config"]
     alerts_dir = Path.home() / ".aitbc" / "alerts"
     alerts_dir.mkdir(parents=True, exist_ok=True)
     alerts_file = alerts_dir / "alerts.json"
@@ -191,19 +186,19 @@ def alerts(ctx, action: str, name: str | None, alert_type: str | None,
             "threshold": threshold,
             "webhook": webhook,
             "created_at": datetime.now().isoformat(),
-            "enabled": True
+            "enabled": True,
         }
         existing.append(alert)
         with open(alerts_file, "w") as f:
             json.dump(existing, f, indent=2)
         success(f"Alert '{name}' added")
-        output(alert, ctx.obj['output_format'])
+        output(alert, ctx.obj["output_format"])
 
     elif action == "list":
         if not existing:
-            output({"message": "No alerts configured"}, ctx.obj['output_format'])
+            output({"message": "No alerts configured"}, ctx.obj["output_format"])
         else:
-            output(existing, ctx.obj['output_format'])
+            output(existing, ctx.obj["output_format"])
 
     elif action == "remove":
         if not name:
@@ -225,17 +220,20 @@ def alerts(ctx, action: str, name: str | None, alert_type: str | None,
         if alert.get("webhook"):
             try:
                 http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
-                resp = http_client.post(alert["webhook"], json={
-                    "alert": name,
-                    "type": alert["type"],
-                    "message": "Test alert from AITBC CLI",
-                    "timestamp": datetime.now().isoformat()
-                })
-                output({"status": "sent", "response_code": resp.status_code}, ctx.obj['output_format'])
+                resp = http_client.post(
+                    alert["webhook"],
+                    json={
+                        "alert": name,
+                        "type": alert["type"],
+                        "message": "Test alert from AITBC CLI",
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                )
+                output({"status": "sent", "response_code": resp.status_code}, ctx.obj["output_format"])
             except Exception as e:
                 error(f"Webhook test failed: {e}")
         else:
-            output({"status": "no_webhook", "alert": alert}, ctx.obj['output_format'])
+            output({"status": "no_webhook", "alert": alert}, ctx.obj["output_format"])
 
 
 @monitor.command()
@@ -243,7 +241,7 @@ def alerts(ctx, action: str, name: str | None, alert_type: str | None,
 @click.pass_context
 def history(ctx, period: str):
     """Historical data analysis"""
-    config = ctx.obj['config']
+    config = ctx.obj["config"]
 
     multipliers = {"h": 3600, "d": 86400}
     unit = period[-1]
@@ -251,20 +249,13 @@ def history(ctx, period: str):
     seconds = value * multipliers.get(unit, 3600)
     since = datetime.now() - timedelta(seconds=seconds)
 
-    analysis = {
-        "period": period,
-        "since": since.isoformat(),
-        "analyzed_at": datetime.now().isoformat(),
-        "summary": {}
-    }
+    analysis = {"period": period, "since": since.isoformat(), "analyzed_at": datetime.now().isoformat(), "summary": {}}
 
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         try:
             resp = http_client.get(
-                f"{config.coordinator_url}/v1/jobs",
-                headers={"X-Api-Key": config.api_key or ""},
-                params={"limit": 500}
+                f"{config.coordinator_url}/v1/jobs", headers={"X-Api-Key": config.api_key or ""}, params={"limit": 500}
             )
             if resp.status_code == 200:
                 jobs = resp.json()
@@ -283,7 +274,7 @@ def history(ctx, period: str):
     except Exception as e:
         error(f"Analysis failed: {e}")
 
-    output(analysis, ctx.obj['output_format'])
+    output(analysis, ctx.obj["output_format"])
 
 
 @monitor.command()
@@ -294,7 +285,7 @@ def history(ctx, period: str):
 @click.pass_context
 def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | None):
     """Manage webhook notifications"""
-    config = ctx.obj['config']
+    config = ctx.obj["config"]
     webhooks_dir = Path.home() / ".aitbc" / "webhooks"
     webhooks_dir.mkdir(parents=True, exist_ok=True)
     webhooks_file = webhooks_dir / "webhooks.json"
@@ -313,19 +304,19 @@ def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | 
             "url": url,
             "events": events.split(",") if events else ["all"],
             "created_at": datetime.now().isoformat(),
-            "enabled": True
+            "enabled": True,
         }
         existing.append(webhook)
         with open(webhooks_file, "w") as f:
             json.dump(existing, f, indent=2)
         success(f"Webhook '{name}' added")
-        output(webhook, ctx.obj['output_format'])
+        output(webhook, ctx.obj["output_format"])
 
     elif action == "list":
         if not existing:
-            output({"message": "No webhooks configured"}, ctx.obj['output_format'])
+            output({"message": "No webhooks configured"}, ctx.obj["output_format"])
         else:
-            output(existing, ctx.obj['output_format'])
+            output(existing, ctx.obj["output_format"])
 
     elif action == "remove":
         if not name:
@@ -346,13 +337,16 @@ def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | 
             return
         try:
             http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
-            resp = http_client.post(wh["url"], json={
-                "event": "test",
-                "source": "aitbc-cli",
-                "message": "Test webhook notification",
-                "timestamp": datetime.now().isoformat()
-            })
-            output({"status": "sent", "response_code": resp.status_code}, ctx.obj['output_format'])
+            resp = http_client.post(
+                wh["url"],
+                json={
+                    "event": "test",
+                    "source": "aitbc-cli",
+                    "message": "Test webhook notification",
+                    "timestamp": datetime.now().isoformat(),
+                },
+            )
+            output({"status": "sent", "response_code": resp.status_code}, ctx.obj["output_format"])
         except Exception as e:
             error(f"Webhook test failed: {e}")
 
@@ -365,32 +359,34 @@ def _ensure_campaigns():
     campaigns_file = CAMPAIGNS_DIR / "campaigns.json"
     if not campaigns_file.exists():
         # Seed with default campaigns
-        default = {"campaigns": [
-            {
-                "id": "staking_launch",
-                "name": "Staking Launch Campaign",
-                "type": "staking",
-                "apy_boost": 2.0,
-                "start_date": "2026-02-01T00:00:00",
-                "end_date": "2026-04-01T00:00:00",
-                "status": "active",
-                "total_staked": 0,
-                "participants": 0,
-                "rewards_distributed": 0
-            },
-            {
-                "id": "liquidity_mining_q1",
-                "name": "Q1 Liquidity Mining",
-                "type": "liquidity",
-                "apy_boost": 3.0,
-                "start_date": "2026-01-15T00:00:00",
-                "end_date": "2026-03-15T00:00:00",
-                "status": "active",
-                "total_staked": 0,
-                "participants": 0,
-                "rewards_distributed": 0
-            }
-        ]}
+        default = {
+            "campaigns": [
+                {
+                    "id": "staking_launch",
+                    "name": "Staking Launch Campaign",
+                    "type": "staking",
+                    "apy_boost": 2.0,
+                    "start_date": "2026-02-01T00:00:00",
+                    "end_date": "2026-04-01T00:00:00",
+                    "status": "active",
+                    "total_staked": 0,
+                    "participants": 0,
+                    "rewards_distributed": 0,
+                },
+                {
+                    "id": "liquidity_mining_q1",
+                    "name": "Q1 Liquidity Mining",
+                    "type": "liquidity",
+                    "apy_boost": 3.0,
+                    "start_date": "2026-01-15T00:00:00",
+                    "end_date": "2026-03-15T00:00:00",
+                    "status": "active",
+                    "total_staked": 0,
+                    "participants": 0,
+                    "rewards_distributed": 0,
+                },
+            ]
+        }
         with open(campaigns_file, "w") as f:
             json.dump(default, f, indent=2)
     return campaigns_file
@@ -420,10 +416,10 @@ def campaigns(ctx, status: str):
         campaign_list = [c for c in campaign_list if c["status"] == status]
 
     if not campaign_list:
-        output({"message": "No campaigns found"}, ctx.obj['output_format'])
+        output({"message": "No campaigns found"}, ctx.obj["output_format"])
         return
 
-    output(campaign_list, ctx.obj['output_format'])
+    output(campaign_list, ctx.obj["output_format"])
 
 
 @monitor.command(name="campaign-stats")
@@ -456,23 +452,25 @@ def campaign_stats(ctx, campaign_id: str | None):
         elapsed_days = min((now - start).days, duration_days)
         progress_pct = round(elapsed_days / max(duration_days, 1) * 100, 1)
 
-        stats.append({
-            "campaign_id": c["id"],
-            "name": c["name"],
-            "type": c["type"],
-            "status": c["status"],
-            "apy_boost": c.get("apy_boost", 0),
-            "tvl": c.get("total_staked", 0),
-            "participants": c.get("participants", 0),
-            "rewards_distributed": c.get("rewards_distributed", 0),
-            "duration_days": duration_days,
-            "elapsed_days": elapsed_days,
-            "progress_pct": progress_pct,
-            "start_date": c["start_date"],
-            "end_date": c["end_date"]
-        })
+        stats.append(
+            {
+                "campaign_id": c["id"],
+                "name": c["name"],
+                "type": c["type"],
+                "status": c["status"],
+                "apy_boost": c.get("apy_boost", 0),
+                "tvl": c.get("total_staked", 0),
+                "participants": c.get("participants", 0),
+                "rewards_distributed": c.get("rewards_distributed", 0),
+                "duration_days": duration_days,
+                "elapsed_days": elapsed_days,
+                "progress_pct": progress_pct,
+                "start_date": c["start_date"],
+                "end_date": c["end_date"],
+            }
+        )
 
     if len(stats) == 1:
-        output(stats[0], ctx.obj['output_format'])
+        output(stats[0], ctx.obj["output_format"])
     else:
-        output(stats, ctx.obj['output_format'])
+        output(stats, ctx.obj["output_format"])

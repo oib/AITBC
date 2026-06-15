@@ -25,7 +25,7 @@ from aitbc import NetworkError
 class TestRenderMapping:
     """Test render_mapping function"""
 
-    @patch('builtins.print')
+    @patch("builtins.print")
     def test_render_mapping_basic(self, mock_print):
         """Test basic mapping rendering"""
         mapping = {"key1": "value1", "key2": "value2"}
@@ -35,7 +35,7 @@ class TestRenderMapping:
         # Check that print was called with title and key-value pairs
         assert mock_print.call_count == 3  # Title + 2 key-value pairs
 
-    @patch('builtins.print')
+    @patch("builtins.print")
     def test_render_mapping_empty(self, mock_print):
         """Test rendering empty mapping"""
         mapping = {}
@@ -49,8 +49,8 @@ class TestRenderMapping:
 class TestHandleAccountGet:
     """Test handle_account_get function"""
 
-    @patch('handlers.account.AITBCHTTPClient')
-    @patch('handlers.account.logger')
+    @patch("handlers.account.AITBCHTTPClient")
+    @patch("handlers.account.logger")
     def test_handle_account_get_success(self, mock_logger, mock_client_class):
         """Test successful account retrieval"""
         mock_client = Mock()
@@ -70,8 +70,8 @@ class TestHandleAccountGet:
         mock_client.get.assert_called_once()
         mock_logger.info.assert_called()
 
-    @patch('handlers.account.AITBCHTTPClient')
-    @patch('handlers.account.logger')
+    @patch("handlers.account.AITBCHTTPClient")
+    @patch("handlers.account.logger")
     def test_handle_account_get_with_chain_id(self, mock_logger, mock_client_class):
         """Test account retrieval with chain_id parameter"""
         mock_client = Mock()
@@ -93,8 +93,8 @@ class TestHandleAccountGet:
         assert "params" in call_args[1]
         assert call_args[1]["params"]["chain_id"] == "ait-mainnet"
 
-    @patch('handlers.account.logger')
-    @patch('sys.exit')
+    @patch("handlers.account.logger")
+    @patch("sys.exit")
     def test_handle_account_get_missing_address(self, mock_exit, mock_logger):
         """Test account retrieval with missing address"""
         args = Mock()
@@ -109,9 +109,9 @@ class TestHandleAccountGet:
         mock_logger.error.assert_called()
         mock_exit.assert_called_with(1)
 
-    @patch('handlers.account.AITBCHTTPClient')
-    @patch('handlers.account.logger')
-    @patch('sys.exit')
+    @patch("handlers.account.AITBCHTTPClient")
+    @patch("handlers.account.logger")
+    @patch("sys.exit")
     def test_handle_account_get_network_error(self, mock_exit, mock_logger, mock_client_class):
         """Test account retrieval with network error"""
         mock_client_class.side_effect = NetworkError("Connection failed")
@@ -129,9 +129,9 @@ class TestHandleAccountGet:
         mock_logger.error.assert_called()
         mock_exit.assert_called_with(1)
 
-    @patch('handlers.account.AITBCHTTPClient')
-    @patch('handlers.account.logger')
-    @patch('sys.exit')
+    @patch("handlers.account.AITBCHTTPClient")
+    @patch("handlers.account.logger")
+    @patch("sys.exit")
     def test_handle_account_get_generic_error(self, mock_exit, mock_logger, mock_client_class):
         """Test account retrieval with generic error"""
         mock_client_class.side_effect = Exception("Unexpected error")
@@ -149,8 +149,8 @@ class TestHandleAccountGet:
         mock_logger.error.assert_called()
         mock_exit.assert_called_with(1)
 
-    @patch('handlers.account.AITBCHTTPClient')
-    @patch('handlers.account.logger')
+    @patch("handlers.account.AITBCHTTPClient")
+    @patch("handlers.account.logger")
     def test_handle_account_get_json_output(self, mock_logger, mock_client_class):
         """Test account retrieval with JSON output format"""
         mock_client = Mock()
@@ -175,8 +175,8 @@ class TestHandleAccountGet:
         # Should be valid JSON
         json.loads(logged_msg)
 
-    @patch('handlers.account.AITBCHTTPClient')
-    @patch('handlers.account.logger')
+    @patch("handlers.account.AITBCHTTPClient")
+    @patch("handlers.account.logger")
     def test_handle_account_get_uses_default_rpc(self, mock_logger, mock_client_class):
         """Test that default RPC URL is used when args.rpc_url is None"""
         mock_client = Mock()

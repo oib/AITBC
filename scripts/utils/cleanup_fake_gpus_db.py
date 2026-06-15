@@ -5,7 +5,7 @@ Direct database cleanup for fake GPU entries
 
 import sys
 
-sys.path.insert(0, '/home/oib/windsurf/aitbc/apps/coordinator-api/src')
+sys.path.insert(0, "/home/oib/windsurf/aitbc/apps/coordinator-api/src")
 
 from app.domain.gpu_marketplace import GPURegistry
 from sqlalchemy import create_engine
@@ -20,14 +20,7 @@ def cleanup_fake_gpus():
     db_path = "/home/oib/windsurf/aitbc/apps/coordinator-api/data/coordinator.db"
     engine = create_engine(f"sqlite:///{db_path}")
 
-    fake_gpus = [
-        "gpu_1bdf8e86",
-        "gpu_1b7da9e0",
-        "gpu_9cff5bc2",
-        "gpu_ebef80a5",
-        "gpu_979b24b8",
-        "gpu_e5ab817d"
-    ]
+    fake_gpus = ["gpu_1bdf8e86", "gpu_1b7da9e0", "gpu_9cff5bc2", "gpu_ebef80a5", "gpu_979b24b8", "gpu_e5ab817d"]
 
     with Session(engine) as session:
         deleted_count = 0
@@ -51,6 +44,7 @@ def cleanup_fake_gpus():
 
     return True
 
+
 def show_remaining_gpus():
     """Show remaining GPUs after cleanup"""
     print("\n📋 Remaining GPUs in marketplace:")
@@ -69,6 +63,7 @@ def show_remaining_gpus():
             print("  No GPUs found")
 
     return len(gpus)
+
 
 if __name__ == "__main__":
     if cleanup_fake_gpus():

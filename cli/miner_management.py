@@ -3,7 +3,7 @@
 AITBC Miner Management Module
 Complete command-line interface for AI compute miner operations including:
 - Miner Registration
-- Status Management  
+- Status Management
 - Job Polling & Execution
 - Marketplace Integration
 - Payment Management
@@ -31,15 +31,11 @@ def register_miner(
     models: list | None = None,
     pricing: float | None = None,
     concurrency: int = 1,
-    region: str | None = None
+    region: str | None = None,
 ) -> dict | None:
     """Register miner as AI compute provider"""
     try:
-        headers = {
-            "X-Api-Key": api_key,
-            "X-Miner-ID": miner_id,
-            "Content-Type": "application/json"
-        }
+        headers = {"X-Api-Key": api_key, "X-Miner-ID": miner_id, "Content-Type": "application/json"}
 
         # Build capabilities from arguments
         caps = {}
@@ -61,19 +57,9 @@ def register_miner(
         if capabilities:
             caps.update(json.loads(capabilities))
 
-        payload = {
-            "wallet_address": wallet,
-            "capabilities": caps,
-            "concurrency": concurrency,
-            "region": region
-        }
+        payload = {"wallet_address": wallet, "capabilities": caps, "concurrency": concurrency, "region": region}
 
-        response = requests.post(
-            f"{coordinator_url}/v1/miners/register",
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
+        response = requests.post(f"{coordinator_url}/v1/miners/register", headers=headers, json=payload, timeout=30)
 
         if response.status_code == 200:
             result = response.json()
@@ -83,14 +69,14 @@ def register_miner(
                 "status": "✅ Registered successfully",
                 "session_token": result.get("session_token"),
                 "coordinator_url": coordinator_url,
-                "capabilities": caps
+                "capabilities": caps,
             }
         else:
             return {
                 "action": "register",
                 "status": "❌ Registration failed",
                 "error": response.text,
-                "status_code": response.status_code
+                "status_code": response.status_code,
             }
 
     except requests.exceptions.ConnectionError as e:
@@ -106,9 +92,7 @@ def register_miner(
 
 
 def get_miner_status(
-    miner_id: str,
-    api_key: str = DEFAULT_API_KEY,
-    coordinator_url: str = DEFAULT_COORDINATOR_URL
+    miner_id: str, api_key: str = DEFAULT_API_KEY, coordinator_url: str = DEFAULT_COORDINATOR_URL
 ) -> dict | None:
     """Get miner status and statistics"""
     try:
@@ -116,11 +100,7 @@ def get_miner_status(
         admin_api_key = api_key.replace("miner_", "admin_")
         headers = {"X-Api-Key": admin_api_key}
 
-        response = requests.get(
-            f"{coordinator_url}/v1/admin/miners",
-            headers=headers,
-            timeout=30
-        )
+        response = requests.get(f"{coordinator_url}/v1/admin/miners", headers=headers, timeout=30)
 
         if response.status_code == 200:
             miners = response.json().get("items", [])
@@ -139,16 +119,11 @@ def get_miner_status(
                     "jobs_failed": miner_info["jobs_failed"],
                     "average_job_duration_ms": miner_info["average_job_duration_ms"],
                     "success_rate": (
-                        miner_info["jobs_completed"] /
-                        max(1, miner_info["jobs_completed"] + miner_info["jobs_failed"]) * 100
-                    )
+                        miner_info["jobs_completed"] / max(1, miner_info["jobs_completed"] + miner_info["jobs_failed"]) * 100
+                    ),
                 }
             else:
-                return {
-                    "action": "status",
-                    "miner_id": miner_id,
-                    "status": "❌ Miner not found"
-                }
+                return {"action": "status", "miner_id": miner_id, "status": "❌ Miner not found"}
         else:
             return {"action": "status", "status": "❌ Failed to get status", "error": response.text}
 
@@ -169,32 +144,19 @@ def send_heartbeat(
     api_key: str = DEFAULT_API_KEY,
     coordinator_url: str = DEFAULT_COORDINATOR_URL,
     inflight: int = 0,
-    status: str = "ONLINE"
+    status: str = "ONLINE",
 ) -> dict | None:
     """Send miner heartbeat"""
     try:
-        headers = {
-            "X-Api-Key": api_key,
-            "X-Miner-ID": miner_id,
-            "Content-Type": "application/json"
-        }
+        headers = {"X-Api-Key": api_key, "X-Miner-ID": miner_id, "Content-Type": "application/json"}
 
         payload = {
             "inflight": inflight,
             "status": status,
-            "metadata": {
-                "timestamp": time.time(),
-                "version": "1.0.0",
-                "system_info": "AI Compute Miner"
-            }
+            "metadata": {"timestamp": time.time(), "version": "1.0.0", "system_info": "AI Compute Miner"},
         }
 
-        response = requests.post(
-            f"{coordinator_url}/v1/miners/heartbeat",
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
+        response = requests.post(f"{coordinator_url}/v1/miners/heartbeat", headers=headers, json=payload, timeout=30)
 
         if response.status_code == 200:
             return {
@@ -202,7 +164,7 @@ def send_heartbeat(
                 "miner_id": miner_id,
                 "status": "✅ Heartbeat sent successfully",
                 "inflight": inflight,
-                "miner_status": status
+                "miner_status": status,
             }
         else:
             return {"action": "heartbeat", "status": "❌ Heartbeat failed", "error": response.text}
@@ -222,24 +184,15 @@ def poll_jobs(
     api_key: str = DEFAULT_API_KEY,
     coordinator_url: str = DEFAULT_COORDINATOR_URL,
     max_wait: int = 30,
-    auto_execute: bool = False
+    auto_execute: bool = False,
 ) -> dict | None:
     """Poll for available jobs"""
     try:
-        headers = {
-            "X-Api-Key": api_key,
-            "X-Miner-ID": miner_id,
-            "Content-Type": "application/json"
-        }
+        headers = {"X-Api-Key": api_key, "X-Miner-ID": miner_id, "Content-Type": "application/json"}
 
         payload = {"max_wait_seconds": max_wait}
 
-        response = requests.post(
-            f"{coordinator_url}/v1/miners/poll",
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
+        response = requests.post(f"{coordinator_url}/v1/miners/poll", headers=headers, json=payload, timeout=30)
 
         if response.status_code == 200 and response.content:
             job = response.json()
@@ -250,7 +203,7 @@ def poll_jobs(
                 "job_id": job.get("job_id"),
                 "payload": job.get("payload"),
                 "constraints": job.get("constraints"),
-                "assigned_at": time.strftime("%Y-%m-%d %H:%M:%S")
+                "assigned_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             }
 
             if auto_execute:
@@ -259,12 +212,7 @@ def poll_jobs(
 
             return result
         elif response.status_code == 204:
-            return {
-                "action": "poll",
-                "miner_id": miner_id,
-                "status": "⏸️ No jobs available",
-                "message": "No jobs in queue"
-            }
+            return {"action": "poll", "miner_id": miner_id, "status": "⏸️ No jobs available", "message": "No jobs in queue"}
         else:
             return {"action": "poll", "status": "❌ Poll failed", "error": response.text}
 
@@ -288,36 +236,20 @@ def submit_job_result(
     coordinator_url: str = DEFAULT_COORDINATOR_URL,
     success: bool = True,
     duration: int | None = None,
-    result_file: str | None = None
+    result_file: str | None = None,
 ) -> dict | None:
     """Submit job result"""
     try:
-        headers = {
-            "X-Api-Key": api_key,
-            "X-Miner-ID": miner_id,
-            "Content-Type": "application/json"
-        }
+        headers = {"X-Api-Key": api_key, "X-Miner-ID": miner_id, "Content-Type": "application/json"}
 
         # Load result from file if specified
         if result_file:
             with open(result_file) as f:
                 result = f.read()
 
-        payload = {
-            "result": result,
-            "success": success,
-            "metrics": {
-                "duration_ms": duration,
-                "completed_at": time.time()
-            }
-        }
+        payload = {"result": result, "success": success, "metrics": {"duration_ms": duration, "completed_at": time.time()}}
 
-        response = requests.post(
-            f"{coordinator_url}/v1/miners/{job_id}/result",
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
+        response = requests.post(f"{coordinator_url}/v1/miners/{job_id}/result", headers=headers, json=payload, timeout=30)
 
         if response.status_code == 200:
             return {
@@ -326,7 +258,7 @@ def submit_job_result(
                 "miner_id": miner_id,
                 "status": "✅ Result submitted successfully",
                 "success": success,
-                "duration_ms": duration
+                "duration_ms": duration,
             }
         else:
             return {"action": "result", "status": "❌ Result submission failed", "error": response.text}
@@ -353,15 +285,11 @@ def update_capabilities(
     pricing: float | None = None,
     concurrency: int | None = None,
     region: str | None = None,
-    wallet: str | None = None
+    wallet: str | None = None,
 ) -> dict | None:
     """Update miner capabilities"""
     try:
-        headers = {
-            "X-Api-Key": api_key,
-            "X-Miner-ID": miner_id,
-            "Content-Type": "application/json"
-        }
+        headers = {"X-Api-Key": api_key, "X-Miner-ID": miner_id, "Content-Type": "application/json"}
 
         # Build capabilities from arguments
         caps = {}
@@ -379,20 +307,13 @@ def update_capabilities(
         if capabilities:
             caps.update(json.loads(capabilities))
 
-        payload = {
-            "capabilities": caps,
-            "concurrency": concurrency,
-            "region": region
-        }
+        payload = {"capabilities": caps, "concurrency": concurrency, "region": region}
 
         if wallet:
             payload["wallet_address"] = wallet
 
         response = requests.put(
-            f"{coordinator_url}/v1/miners/{miner_id}/capabilities",
-            headers=headers,
-            json=payload,
-            timeout=30
+            f"{coordinator_url}/v1/miners/{miner_id}/capabilities", headers=headers, json=payload, timeout=30
         )
 
         if response.status_code == 200:
@@ -400,7 +321,7 @@ def update_capabilities(
                 "action": "update",
                 "miner_id": miner_id,
                 "status": "✅ Capabilities updated successfully",
-                "updated_capabilities": caps
+                "updated_capabilities": caps,
             }
         else:
             return {"action": "update", "status": "❌ Update failed", "error": response.text}
@@ -418,10 +339,7 @@ def update_capabilities(
 
 
 def check_earnings(
-    miner_id: str,
-    api_key: str = DEFAULT_API_KEY,
-    coordinator_url: str = DEFAULT_COORDINATOR_URL,
-    period: str = "all"
+    miner_id: str, api_key: str = DEFAULT_API_KEY, coordinator_url: str = DEFAULT_COORDINATOR_URL, period: str = "all"
 ) -> dict | None:
     """Check miner earnings"""
     try:
@@ -445,7 +363,7 @@ def check_earnings(
         response = httpx.get(
             f"{coordinator_url}/v1/miners/{miner_id}/jobs",
             headers=headers,
-            params={"status": "completed", "since": time_filter} if time_filter else {}
+            params={"status": "completed", "since": time_filter} if time_filter else {},
         )
 
         if response.status_code != 200:
@@ -456,7 +374,7 @@ def check_earnings(
                 "status": f"❌ Failed to query earnings: {response.text}",
                 "total_earnings": 0.0,
                 "jobs_completed": 0,
-                "average_payment": 0.0
+                "average_payment": 0.0,
             }
 
         jobs_data = response.json()
@@ -480,7 +398,7 @@ def check_earnings(
             "total_earnings": total_earnings,
             "jobs_completed": jobs_completed,
             "average_payment": average_payment,
-            "currency": "AIT"
+            "currency": "AIT",
         }
 
     except Exception as e:
@@ -491,7 +409,7 @@ def list_marketplace_offers(
     miner_id: str | None = None,
     region: str | None = None,
     api_key: str = DEFAULT_API_KEY,
-    coordinator_url: str = DEFAULT_COORDINATOR_URL
+    coordinator_url: str = DEFAULT_COORDINATOR_URL,
 ) -> dict | None:
     """List marketplace offers"""
     try:
@@ -502,10 +420,7 @@ def list_marketplace_offers(
             params["region"] = region
 
         response = requests.get(
-            f"{coordinator_url}/v1/marketplace/miner-offers",
-            headers=admin_headers,
-            params=params,
-            timeout=30
+            f"{coordinator_url}/v1/marketplace/miner-offers", headers=admin_headers, params=params, timeout=30
         )
 
         if response.status_code == 200:
@@ -521,7 +436,7 @@ def list_marketplace_offers(
                 "offers": offers,
                 "count": len(offers),
                 "region_filter": region,
-                "miner_filter": miner_id
+                "miner_filter": miner_id,
             }
         else:
             return {"action": "marketplace_list", "status": "❌ Failed to get offers", "error": response.text}
@@ -542,25 +457,15 @@ def create_marketplace_offer(
     api_key: str = DEFAULT_API_KEY,
     coordinator_url: str = DEFAULT_COORDINATOR_URL,
     capacity: int = 1,
-    region: str | None = None
+    region: str | None = None,
 ) -> dict | None:
     """Create marketplace offer"""
     try:
         admin_headers = {"X-Api-Key": api_key.replace("miner_", "admin_")}
 
-        payload = {
-            "miner_id": miner_id,
-            "price": price,
-            "capacity": capacity,
-            "region": region
-        }
+        payload = {"miner_id": miner_id, "price": price, "capacity": capacity, "region": region}
 
-        response = requests.post(
-            f"{coordinator_url}/v1/marketplace/offers",
-            headers=admin_headers,
-            json=payload,
-            timeout=30
-        )
+        response = requests.post(f"{coordinator_url}/v1/marketplace/offers", headers=admin_headers, json=payload, timeout=30)
 
         if response.status_code == 200:
             return {
@@ -569,7 +474,7 @@ def create_marketplace_offer(
                 "status": "✅ Offer created successfully",
                 "price": price,
                 "capacity": capacity,
-                "region": region
+                "region": region,
             }
         else:
             return {"action": "marketplace_create", "status": "❌ Offer creation failed", "error": response.text}
@@ -597,23 +502,28 @@ def miner_cli_dispatcher(action: str, **kwargs) -> dict | None:
         "update": update_capabilities,
         "earnings": check_earnings,
         "marketplace_list": list_marketplace_offers,
-        "marketplace_create": create_marketplace_offer
+        "marketplace_create": create_marketplace_offer,
     }
 
     if action in actions:
         return actions[action](**kwargs)
     else:
-        return {
-            "action": action,
-            "status": f"❌ Unknown action. Available: {', '.join(actions.keys())}"
-        }
+        return {"action": action, "status": f"❌ Unknown action. Available: {', '.join(actions.keys())}"}
 
 
 if __name__ == "__main__":
     # Test the module
     click.echo("🚀 AITBC Miner Management Module")
     click.echo("Available functions:")
-    for func in [register_miner, get_miner_status, send_heartbeat, poll_jobs,
-                submit_job_result, update_capabilities, check_earnings,
-                list_marketplace_offers, create_marketplace_offer]:
+    for func in [
+        register_miner,
+        get_miner_status,
+        send_heartbeat,
+        poll_jobs,
+        submit_job_result,
+        update_capabilities,
+        check_earnings,
+        list_marketplace_offers,
+        create_marketplace_offer,
+    ]:
         click.echo(f"  - {func.__name__}")

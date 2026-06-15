@@ -21,8 +21,9 @@ class TestScriptCommands:
         """Test that script command group exists"""
         try:
             from aitbc_cli.commands.script import script
+
             assert script is not None
-            assert hasattr(script, 'name')
+            assert hasattr(script, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import script commands: {e}")
 
@@ -30,6 +31,7 @@ class TestScriptCommands:
         """Test script group name"""
         try:
             from aitbc_cli.commands.script import script
+
             assert script.name == "script"
         except ImportError as e:
             pytest.skip(f"Cannot import script commands: {e}")

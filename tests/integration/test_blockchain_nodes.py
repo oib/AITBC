@@ -22,27 +22,33 @@ TEST_ADDRESSES = {
     "charlie": "aitbc1charl0000000000000000000000000000000000",
 }
 
+
 def print_header(message: str):
     """Print test header"""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f" {message}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
+
 
 def print_step(message: str):
     """Print test step"""
     print(f"\n→ {message}")
 
+
 def print_success(message: str):
     """Print success message"""
     print(f"✅ {message}")
+
 
 def print_error(message: str):
     """Print error message"""
     print(f"❌ {message}")
 
+
 def print_warning(message: str):
     """Print warning message"""
     print(f"⚠️  {message}")
+
 
 def check_node_health(node_name: str, node_config: dict[str, str]) -> bool:
     """Check if node is responsive"""
@@ -58,6 +64,7 @@ def check_node_health(node_name: str, node_config: dict[str, str]) -> bool:
         print_error(f"{node_config['name']} is not responding: {e}")
         return False
 
+
 def get_chain_head(node_name: str, node_config: dict[str, str]) -> dict[str, Any] | None:
     """Get current chain head from node"""
     try:
@@ -70,6 +77,7 @@ def get_chain_head(node_name: str, node_config: dict[str, str]) -> dict[str, Any
     except Exception as e:
         print_error(f"Error getting chain head from {node_config['name']}: {e}")
         return None
+
 
 def get_balance(node_name: str, node_config: dict[str, str], address: str) -> int | None:
     """Get balance for an address"""
@@ -85,13 +93,12 @@ def get_balance(node_name: str, node_config: dict[str, str], address: str) -> in
         print_error(f"Error getting balance from {node_config['name']}: {e}")
         return None
 
+
 def mint_faucet(node_name: str, node_config: dict[str, str], address: str, amount: int) -> bool:
     """Mint tokens to an address (devnet only)"""
     try:
         response = httpx.post(
-            f"{node_config['url']}/rpc/admin/mintFaucet",
-            json={"address": address, "amount": amount},
-            timeout=5
+            f"{node_config['url']}/rpc/admin/mintFaucet", json={"address": address, "amount": amount}, timeout=5
         )
         if response.status_code == 200:
             print_success(f"Minted {amount} tokens to {address} on {node_config['name']}")
@@ -104,14 +111,11 @@ def mint_faucet(node_name: str, node_config: dict[str, str], address: str, amoun
         print_error(f"Error minting on {node_config['name']}: {e}")
         return False
 
+
 def send_transaction(node_name: str, node_config: dict[str, str], tx: dict[str, Any]) -> str | None:
     """Send a transaction"""
     try:
-        response = httpx.post(
-            f"{node_config['url']}/rpc/sendTx",
-            json=tx,
-            timeout=5
-        )
+        response = httpx.post(f"{node_config['url']}/rpc/sendTx", json=tx, timeout=5)
         if response.status_code == 200:
             data = response.json()
             return data.get("tx_hash")
@@ -123,6 +127,7 @@ def send_transaction(node_name: str, node_config: dict[str, str], tx: dict[str, 
         print_error(f"Error sending transaction on {node_config['name']}: {e}")
         return None
 
+
 def wait_for_block(node_name: str, node_config: dict[str, str], target_height: int, timeout: int = 30) -> bool:
     """Wait for node to reach a target block height"""
     start_time = time.time()
@@ -132,6 +137,7 @@ def wait_for_block(node_name: str, node_config: dict[str, str], target_height: i
             return True
         time.sleep(1)
     return False
+
 
 def test_node_connectivity():
     """Test if both nodes are running and responsive"""
@@ -143,6 +149,7 @@ def test_node_connectivity():
             all_healthy = False
 
     assert all_healthy, "Not all nodes are healthy"
+
 
 def test_chain_consistency():
     """Test if both nodes have consistent chain heads"""
@@ -176,6 +183,7 @@ def test_chain_consistency():
 
     assert len(heads) == len(NODES), "Failed to get chain heads from all nodes"
 
+
 def test_faucet_and_balances():
     """Test faucet minting and balance queries"""
     print_header("Testing Faucet and Balances")
@@ -197,6 +205,7 @@ def test_faucet_and_balances():
             else:
                 print_error(f"Failed to get balance from {node_config['name']}")
 
+
 def test_transaction_submission():
     """Test transaction submission between addresses"""
     print_header("Testing Transaction Submission")
@@ -213,11 +222,8 @@ def test_transaction_submission():
         "sender": TEST_ADDRESSES["alice"],
         "nonce": 0,
         "fee": 10,
-        "payload": {
-            "to": TEST_ADDRESSES["bob"],
-            "amount": 100
-        },
-        "sig": None  # In devnet, signature might be optional
+        "payload": {"to": TEST_ADDRESSES["bob"], "amount": 100},
+        "sig": None,  # In devnet, signature might be optional
     }
 
     tx_hash = send_transaction("node1", NODES["node1"], tx)
@@ -235,6 +241,7 @@ def test_transaction_submission():
                 print(f"  {node_config['name']}: alice={alice_balance}, bob={bob_balance}")
     else:
         print_error("Failed to submit transaction")
+
 
 def test_block_production():
     """Test that nodes are producing blocks"""
@@ -265,6 +272,7 @@ def test_block_production():
                 print_success(f"{NODES[node_name]['name']} produced {produced} block(s)")
             else:
                 print_error(f"{NODES[node_name]['name']} produced no blocks")
+
 
 def main():
     """Run all tests"""
@@ -303,6 +311,7 @@ def main():
     else:
         print_error("Some tests failed. Check the logs above.")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

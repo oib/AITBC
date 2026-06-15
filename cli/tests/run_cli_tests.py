@@ -85,6 +85,7 @@ def run_cli_test():
     print("\n✅ All CLI tests passed!")
     return True
 
+
 if __name__ == "__main__":
     success = run_cli_test()
     sys.exit(0 if success else 1)

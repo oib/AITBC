@@ -12,10 +12,12 @@ from aitbc import AITBCHTTPClient
 BASE_URL = "https://hub.aitbc.bubuit.net/rpc"
 CHAIN_ID = "ait-mainnet"
 
+
 def compute_block_hash(height, parent_hash, timestamp):
     """Compute block hash using the same algorithm as PoA proposer"""
     payload = f"{CHAIN_ID}|{height}|{parent_hash}|{timestamp}".encode()
     return "0x" + hashlib.sha256(payload).hexdigest()
+
 
 def test_minimal():
     """Test with minimal data"""
@@ -39,7 +41,7 @@ def test_minimal():
         "timestamp": timestamp,
         "tx_count": 0,
         "transactions": [],
-        "chain_id": CHAIN_ID
+        "chain_id": CHAIN_ID,
     }
 
     print("Testing with empty transactions list...")
@@ -62,6 +64,7 @@ def test_minimal():
         print("\nTesting with one transaction...")
         response = client.post(f"{BASE_URL}/importBlock", json=test_block)
         print(f"Response: {response}")
+
 
 if __name__ == "__main__":
     test_minimal()

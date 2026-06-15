@@ -1,4 +1,5 @@
 """Dispute-related Pydantic models for RPC endpoints."""
+
 from typing import Any
 
 from pydantic import BaseModel

@@ -92,12 +92,7 @@ class MetricsCollector:
         if not timings:
             return {"min": 0, "max": 0, "avg": 0, "count": 0}
 
-        return {
-            "min": min(timings),
-            "max": max(timings),
-            "avg": sum(timings) / len(timings),
-            "count": len(timings)
-        }
+        return {"min": min(timings), "max": max(timings), "avg": sum(timings) / len(timings), "count": len(timings)}
 
     def get_gauge(self, metric: str) -> float | None:
         """
@@ -122,7 +117,7 @@ class MetricsCollector:
             "counters": dict(self.counters),
             "timers": {k: self.get_timer_stats(k) for k in self.timers},
             "gauges": dict(self.gauges),
-            "timestamps": {k: v.isoformat() for k, v in self.timestamps.items()}
+            "timestamps": {k: v.isoformat() for k, v in self.timestamps.items()},
         }
 
     def reset_metric(self, metric: str) -> None:
@@ -233,7 +228,7 @@ class HealthChecker:
         return {
             "checks": results,
             "overall_status": self._get_overall_status(results),
-            "timestamp": self.last_check.isoformat()
+            "timestamp": self.last_check.isoformat(),
         }
 
     def _get_overall_status(self, results: dict[str, Any]) -> str:

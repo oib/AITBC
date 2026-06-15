@@ -26,9 +26,5 @@ os.environ["LOG_DIR"] = str(LOG_DIR)
 
 # Execute the actual service
 # Use main.py to run blockchain node only (RPC is handled by separate service)
-exec_cmd = [
-    "/opt/aitbc/venv/bin/python",
-    "-m",
-    "aitbc_chain.main"
-]
+exec_cmd = ["/opt/aitbc/venv/bin/python", "-m", "aitbc_chain.main"]
 os.execvp(exec_cmd[0], exec_cmd)

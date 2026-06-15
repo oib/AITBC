@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ZKOperationConfig:
     """Configuration for ZK operations."""
+
     batch_size: int = 1024
     use_gpu: bool = True
     fallback_to_cpu: bool = True
@@ -32,7 +33,7 @@ class ZKOperationConfig:
 class GPUAccelerationManager:
     """
     High-level manager for GPU acceleration with automatic backend selection.
-    
+
     This class provides a clean interface for ZK operations that automatically
     selects the best available compute backend (CUDA, Apple Silicon, CPU).
     """
@@ -40,7 +41,7 @@ class GPUAccelerationManager:
     def __init__(self, backend: ComputeBackend | None = None, config: ZKOperationConfig | None = None):
         """
         Initialize the GPU acceleration manager.
-        
+
         Args:
             backend: Specific backend to use, or None for auto-detection
             config: Configuration for ZK operations
@@ -56,7 +57,7 @@ class GPUAccelerationManager:
             "field_mul": {"count": 0, "total_time": 0.0, "errors": 0},
             "field_inverse": {"count": 0, "total_time": 0.0, "errors": 0},
             "multi_scalar_mul": {"count": 0, "total_time": 0.0, "errors": 0},
-            "pairing": {"count": 0, "total_time": 0.0, "errors": 0}
+            "pairing": {"count": 0, "total_time": 0.0, "errors": 0},
         }
 
     def initialize(self) -> bool:
@@ -66,7 +67,7 @@ class GPUAccelerationManager:
             if success:
                 self.initialized = True
                 self.backend_info = self.compute_manager.get_backend_info()
-                logger.info("GPU Acceleration Manager initialized with %s backend", self.backend_info['backend'])
+                logger.info("GPU Acceleration Manager initialized with %s backend", self.backend_info["backend"])
 
                 # Log device information
                 devices = self.compute_manager.get_provider().get_available_devices()
@@ -114,12 +115,12 @@ class GPUAccelerationManager:
     def field_add(self, a: np.ndarray, b: np.ndarray, result: np.ndarray | None = None) -> np.ndarray:
         """
         Perform field addition with automatic backend selection.
-        
+
         Args:
             a: First operand
             b: Second operand
             result: Optional result array (will be created if None)
-            
+
         Returns:
             np.ndarray: Result of field addition
         """
@@ -157,12 +158,12 @@ class GPUAccelerationManager:
     def field_mul(self, a: np.ndarray, b: np.ndarray, result: np.ndarray | None = None) -> np.ndarray:
         """
         Perform field multiplication with automatic backend selection.
-        
+
         Args:
             a: First operand
             b: Second operand
             result: Optional result array (will be created if None)
-            
+
         Returns:
             np.ndarray: Result of field multiplication
         """
@@ -200,11 +201,11 @@ class GPUAccelerationManager:
     def field_inverse(self, a: np.ndarray, result: np.ndarray | None = None) -> np.ndarray:
         """
         Perform field inversion with automatic backend selection.
-        
+
         Args:
             a: Operand to invert
             result: Optional result array (will be created if None)
-            
+
         Returns:
             np.ndarray: Result of field inversion
         """
@@ -244,19 +245,16 @@ class GPUAccelerationManager:
             raise
 
     def multi_scalar_mul(
-        self,
-        scalars: list[np.ndarray],
-        points: list[np.ndarray],
-        result: np.ndarray | None = None
+        self, scalars: list[np.ndarray], points: list[np.ndarray], result: np.ndarray | None = None
     ) -> np.ndarray:
         """
         Perform multi-scalar multiplication with automatic backend selection.
-        
+
         Args:
             scalars: List of scalar operands
             points: List of point operands
             result: Optional result array (will be created if None)
-            
+
         Returns:
             np.ndarray: Result of multi-scalar multiplication
         """
@@ -300,12 +298,12 @@ class GPUAccelerationManager:
     def pairing(self, p1: np.ndarray, p2: np.ndarray, result: np.ndarray | None = None) -> np.ndarray:
         """
         Perform pairing operation with automatic backend selection.
-        
+
         Args:
             p1: First point
             p2: Second point
             result: Optional result array (will be created if None)
-            
+
         Returns:
             np.ndarray: Result of pairing operation
         """
@@ -345,10 +343,10 @@ class GPUAccelerationManager:
     def batch_field_add(self, operands: list[tuple[np.ndarray, np.ndarray]]) -> list[np.ndarray]:
         """
         Perform batch field addition.
-        
+
         Args:
             operands: List of (a, b) tuples
-            
+
         Returns:
             List[np.ndarray]: List of results
         """
@@ -361,10 +359,10 @@ class GPUAccelerationManager:
     def batch_field_mul(self, operands: list[tuple[np.ndarray, np.ndarray]]) -> list[np.ndarray]:
         """
         Perform batch field multiplication.
-        
+
         Args:
             operands: List of (a, b) tuples
-            
+
         Returns:
             List[np.ndarray]: List of results
         """
@@ -410,7 +408,7 @@ class GPUAccelerationManager:
                     "total_time": stats["total_time"],
                     "average_time": stats["total_time"] / stats["count"],
                     "error_rate": stats["errors"] / stats["count"],
-                    "operations_per_second": stats["count"] / stats["total_time"] if stats["total_time"] > 0 else 0
+                    "operations_per_second": stats["count"] / stats["total_time"] if stats["total_time"] > 0 else 0,
                 }
 
         return {
@@ -422,9 +420,9 @@ class GPUAccelerationManager:
                     "batch_size": self.config.batch_size,
                     "use_gpu": self.config.use_gpu,
                     "fallback_to_cpu": self.config.fallback_to_cpu,
-                    "timeout": self.config.timeout
-                }
-            }
+                    "timeout": self.config.timeout,
+                },
+            },
         }
 
     def _update_stats(self, operation: str, execution_time: float, error: bool):
@@ -445,14 +443,15 @@ class GPUAccelerationManager:
 
 # Convenience functions for easy usage
 
+
 def create_gpu_manager(backend: str | None = None, **config_kwargs) -> GPUAccelerationManager:
     """
     Create a GPU acceleration manager with optional backend specification.
-    
+
     Args:
         backend: Backend name ('cuda', 'apple_silicon', 'cpu', or None for auto-detection)
         **config_kwargs: Additional configuration parameters
-        
+
     Returns:
         GPUAccelerationManager: Configured manager instance
     """
@@ -475,6 +474,7 @@ def create_gpu_manager(backend: str | None = None, **config_kwargs) -> GPUAccele
 def get_available_backends() -> list[str]:
     """Get list of available compute backends."""
     from .compute_provider import ComputeProviderFactory
+
     backends = ComputeProviderFactory.get_available_backends()
     return [backend.value for backend in backends]
 
@@ -482,11 +482,13 @@ def get_available_backends() -> list[str]:
 def auto_detect_best_backend() -> str:
     """Auto-detect the best available backend."""
     from .compute_provider import ComputeProviderFactory
+
     backend = ComputeProviderFactory.auto_detect_backend()
     return backend.value
 
 
 # Context manager for easy resource management
+
 
 class GPUAccelerationContext:
     """Context manager for GPU acceleration."""

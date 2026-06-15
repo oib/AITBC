@@ -38,7 +38,7 @@ TrieNode = Union[LeafNode, ExtensionNode, BranchNode]
 class MerklePatriciaTrie:
     """
     Merkle Patricia Trie for storing and verifying account state.
-    
+
     This implementation follows the Ethereum Yellow Paper specification for
     the Modified Merkle Patricia Trie (MPT), providing:
     - Efficient lookup, insert, and delete operations
@@ -68,18 +68,18 @@ class MerklePatriciaTrie:
     def get_root(self) -> bytes:
         """Get the current root hash of the trie."""
         if not self._root:
-            return b'\x00' * 32
+            return b"\x00" * 32
         return self._hash_node(self._root)
 
     def verify_proof(self, key: bytes, value: bytes, proof: list[bytes]) -> bool:
         """
         Verify a Merkle proof for a key-value pair.
-        
+
         Args:
             key: The key to verify
             value: The expected value
             proof: List of proof elements
-            
+
         Returns:
             True if the proof is valid, False otherwise
         """
@@ -101,7 +101,7 @@ class MerklePatriciaTrie:
             if node_type == b"E":
                 if not self._starts_with(path, node_path):
                     return False
-                path = path[len(node_path):]
+                path = path[len(node_path) :]
                 if child_hashes[0] is None:
                     return False
                 expected_hash = child_hashes[0]
@@ -137,7 +137,7 @@ class MerklePatriciaTrie:
 
     @staticmethod
     def _starts_with(path: tuple[int, ...], prefix: tuple[int, ...]) -> bool:
-        return len(path) >= len(prefix) and path[:len(prefix)] == prefix
+        return len(path) >= len(prefix) and path[: len(prefix)] == prefix
 
     @staticmethod
     def _common_prefix_len(left: tuple[int, ...], right: tuple[int, ...]) -> int:
@@ -166,7 +166,7 @@ class MerklePatriciaTrie:
             return None
         if isinstance(node, ExtensionNode):
             if self._starts_with(path, node.path):
-                return self._get(node.child, path[len(node.path):])
+                return self._get(node.child, path[len(node.path) :])
             return None
         if not path:
             return node.value
@@ -227,7 +227,7 @@ class MerklePatriciaTrie:
         if isinstance(node, ExtensionNode):
             if not self._starts_with(path, node.path):
                 return node
-            child = self._delete(node.child, path[len(node.path):])
+            child = self._delete(node.child, path[len(node.path) :])
             if child is None:
                 return None
             return self._normalize_extension(ExtensionNode(node.path, child))
@@ -323,33 +323,33 @@ class MerklePatriciaTrie:
         offset = 1
 
         if node_type in {b"L", b"E"}:
-            path_len = int.from_bytes(encoded_node[offset:offset + 4], "big")
+            path_len = int.from_bytes(encoded_node[offset : offset + 4], "big")
             offset += 4
-            path = tuple(encoded_node[offset:offset + path_len])
+            path = tuple(encoded_node[offset : offset + path_len])
             offset += path_len
             if node_type == b"L":
-                value_len = int.from_bytes(encoded_node[offset:offset + 8], "big")
+                value_len = int.from_bytes(encoded_node[offset : offset + 8], "big")
                 offset += 8
-                return node_type, path, encoded_node[offset:offset + value_len], []
-            return node_type, path, None, [encoded_node[offset:offset + 32]]
+                return node_type, path, encoded_node[offset : offset + value_len], []
+            return node_type, path, None, [encoded_node[offset : offset + 32]]
 
         if node_type == b"B":
             child_hashes: list[bytes | None] = []
             for _ in range(16):
-                has_child = encoded_node[offset:offset + 1] == b"\x01"
+                has_child = encoded_node[offset : offset + 1] == b"\x01"
                 offset += 1
                 if has_child:
-                    child_hashes.append(encoded_node[offset:offset + 32])
+                    child_hashes.append(encoded_node[offset : offset + 32])
                     offset += 32
                 else:
                     child_hashes.append(None)
-            has_value = encoded_node[offset:offset + 1] == b"\x01"
+            has_value = encoded_node[offset : offset + 1] == b"\x01"
             offset += 1
             if not has_value:
                 return node_type, (), None, child_hashes
-            value_len = int.from_bytes(encoded_node[offset:offset + 8], "big")
+            value_len = int.from_bytes(encoded_node[offset : offset + 8], "big")
             offset += 8
-            return node_type, (), encoded_node[offset:offset + value_len], child_hashes
+            return node_type, (), encoded_node[offset : offset + value_len], child_hashes
 
         return b"", (), None, []
 
@@ -365,7 +365,7 @@ class MerklePatriciaTrie:
         if isinstance(node, ExtensionNode):
             if not self._starts_with(path, node.path):
                 return False
-            return self._collect_proof(node.child, path[len(node.path):], proof)
+            return self._collect_proof(node.child, path[len(node.path) :], proof)
 
         if not path:
             return node.value is not None
@@ -378,7 +378,7 @@ class MerklePatriciaTrie:
 class StateManager:
     """
     Manages blockchain state using Merkle Patricia Trie.
-    
+
     This class provides the interface for computing and verifying state roots
     from account balances and other state data.
     """
@@ -403,10 +403,10 @@ class StateManager:
     def compute_state_root(self, accounts: dict[str, Account]) -> bytes:
         """
         Compute the state root from a dictionary of accounts.
-        
+
         Args:
             accounts: Dictionary mapping addresses to Account objects
-            
+
         Returns:
             The state root hash
         """
@@ -422,11 +422,11 @@ class StateManager:
     def verify_state_root(self, accounts: dict[str, Account], expected_root: bytes) -> bool:
         """
         Verify that the state root matches the expected value.
-        
+
         Args:
             accounts: Dictionary mapping addresses to Account objects
             expected_root: The expected state root hash
-            
+
         Returns:
             True if the state root matches, False otherwise
         """
@@ -435,7 +435,7 @@ class StateManager:
 
     def _encode_address(self, address: str) -> bytes:
         """Encode an address as bytes for the trie."""
-        return address.encode('utf-8')
+        return address.encode("utf-8")
 
     def _encode_account(self, balance: int, nonce: int) -> bytes:
         """Encode account data as bytes for the trie."""
@@ -443,7 +443,7 @@ class StateManager:
 
     def _decode_account(self, value: bytes) -> tuple[int, int]:
         """Decode account data from bytes."""
-        parts = value.decode('utf-8').split(':')
+        parts = value.decode("utf-8").split(":")
         return int(parts[0]), int(parts[1])
 
     def get_root(self) -> bytes:

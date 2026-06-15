@@ -29,8 +29,6 @@ class MarketplaceOffer(SQLModel, table=True):
     region: str | None = Field(default=None, index=True)
 
 
-
-
 class Plugin(SQLModel, table=True):
     __tablename__ = "plugin"
     __table_args__ = {"extend_existing": True}
@@ -52,6 +50,7 @@ class Plugin(SQLModel, table=True):
 
 class SoftwareService(SQLModel, table=True):
     """Software service registry for marketplace (migrated from plugin service)"""
+
     __tablename__ = "softwareservice"
     __table_args__ = {"extend_existing": True}
 
@@ -80,6 +79,7 @@ class SoftwareService(SQLModel, table=True):
 
 class ServiceRating(SQLModel, table=True):
     """Service-specific ratings for marketplace offers"""
+
     __tablename__ = "servicerating"
     __table_args__ = {"extend_existing": True}
 

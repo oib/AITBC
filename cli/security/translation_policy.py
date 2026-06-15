@@ -16,23 +16,26 @@ logger = logging.getLogger(__name__)
 
 class SecurityLevel(Enum):
     """Security levels for CLI operations"""
-    CRITICAL = "critical"      # Security-sensitive commands (agent strategy, wallet operations)
-    HIGH = "high"             # Important operations (deployment, configuration)
-    MEDIUM = "medium"         # Standard operations (monitoring, reporting)
-    LOW = "low"              # Informational operations (help, status)
+
+    CRITICAL = "critical"  # Security-sensitive commands (agent strategy, wallet operations)
+    HIGH = "high"  # Important operations (deployment, configuration)
+    MEDIUM = "medium"  # Standard operations (monitoring, reporting)
+    LOW = "low"  # Informational operations (help, status)
 
 
 class TranslationMode(Enum):
     """Translation operation modes"""
-    DISABLED = "disabled"      # No translation allowed
+
+    DISABLED = "disabled"  # No translation allowed
     LOCAL_ONLY = "local_only"  # Only local translation (no external APIs)
-    FALLBACK = "fallback"      # External APIs with local fallback
-    FULL = "full"             # Full translation capabilities
+    FALLBACK = "fallback"  # External APIs with local fallback
+    FULL = "full"  # Full translation capabilities
 
 
 @dataclass
 class SecurityPolicy:
     """Security policy for translation usage"""
+
     security_level: SecurityLevel
     translation_mode: TranslationMode
     allow_external_apis: bool
@@ -45,6 +48,7 @@ class SecurityPolicy:
 @dataclass
 class TranslationRequest:
     """Translation request with security context"""
+
     text: str
     target_language: str
     source_language: str = "en"
@@ -56,6 +60,7 @@ class TranslationRequest:
 @dataclass
 class TranslationResponse:
     """Translation response with security metadata"""
+
     translated_text: str
     success: bool
     method_used: str
@@ -67,7 +72,7 @@ class TranslationResponse:
 class CLITranslationSecurityManager:
     """
     Security manager for CLI translation operations
-    
+
     Enforces strict policies to ensure translation never compromises
     security-sensitive operations.
     """
@@ -87,7 +92,7 @@ class CLITranslationSecurityManager:
                 require_explicit_consent=True,
                 timeout_seconds=0,
                 max_retries=0,
-                cache_translations=False
+                cache_translations=False,
             ),
             SecurityLevel.HIGH: SecurityPolicy(
                 security_level=SecurityLevel.HIGH,
@@ -96,7 +101,7 @@ class CLITranslationSecurityManager:
                 require_explicit_consent=True,
                 timeout_seconds=5,
                 max_retries=1,
-                cache_translations=True
+                cache_translations=True,
             ),
             SecurityLevel.MEDIUM: SecurityPolicy(
                 security_level=SecurityLevel.MEDIUM,
@@ -105,7 +110,7 @@ class CLITranslationSecurityManager:
                 require_explicit_consent=False,
                 timeout_seconds=10,
                 max_retries=2,
-                cache_translations=True
+                cache_translations=True,
             ),
             SecurityLevel.LOW: SecurityPolicy(
                 security_level=SecurityLevel.LOW,
@@ -114,34 +119,36 @@ class CLITranslationSecurityManager:
                 require_explicit_consent=False,
                 timeout_seconds=15,
                 max_retries=3,
-                cache_translations=True
-            )
+                cache_translations=True,
+            ),
         }
 
     def get_command_security_level(self, command_name: str) -> SecurityLevel:
         """Determine security level for a command"""
         # Critical security-sensitive commands
         critical_commands = {
-            'agent', 'strategy', 'wallet', 'sign', 'deploy', 'genesis',
-            'transfer', 'send', 'approve', 'mint', 'burn', 'stake'
+            "agent",
+            "strategy",
+            "wallet",
+            "sign",
+            "deploy",
+            "genesis",
+            "transfer",
+            "send",
+            "approve",
+            "mint",
+            "burn",
+            "stake",
         }
 
         # High importance commands
-        high_commands = {
-            'config', 'node', 'chain', 'marketplace', 'swap', 'liquidity',
-            'governance', 'vote', 'proposal'
-        }
+        high_commands = {"config", "node", "chain", "marketplace", "swap", "liquidity", "governance", "vote", "proposal"}
 
         # Medium importance commands
-        medium_commands = {
-            'balance', 'status', 'monitor', 'analytics', 'logs', 'history',
-            'simulate', 'test'
-        }
+        medium_commands = {"balance", "status", "monitor", "analytics", "logs", "history", "simulate", "test"}
 
         # Low importance commands (informational)
-        low_commands = {
-            'help', 'version', 'info', 'list', 'show', 'explain'
-        }
+        low_commands = {"help", "version", "info", "list", "show", "explain"}
 
         command_base = command_name.split()[0].lower()
 
@@ -160,10 +167,10 @@ class CLITranslationSecurityManager:
     async def translate_with_security(self, request: TranslationRequest) -> TranslationResponse:
         """
         Translate text with security enforcement
-        
+
         Args:
             request: Translation request with security context
-            
+
         Returns:
             Translation response with security metadata
         """
@@ -185,7 +192,7 @@ class CLITranslationSecurityManager:
                 method_used="disabled",
                 security_compliant=True,
                 warning_messages=["Translation disabled for security-sensitive operation"],
-                fallback_used=False
+                fallback_used=False,
             )
 
         # Check user consent for high-security operations
@@ -196,7 +203,7 @@ class CLITranslationSecurityManager:
                 method_used="consent_required",
                 security_compliant=True,
                 warning_messages=["User consent required for translation"],
-                fallback_used=False
+                fallback_used=False,
             )
 
         # Attempt translation based on policy
@@ -219,7 +226,7 @@ class CLITranslationSecurityManager:
                 method_used=method_used,
                 security_compliant=True,
                 warning_messages=warnings,
-                fallback_used=fallback_used if method_used == "external_fallback" else False
+                fallback_used=fallback_used if method_used == "external_fallback" else False,
             )
 
         except Exception as e:
@@ -233,7 +240,7 @@ class CLITranslationSecurityManager:
                 method_used="error_fallback",
                 security_compliant=True,
                 warning_messages=warnings + ["Falling back to original text for security"],
-                fallback_used=True
+                fallback_used=True,
             )
 
     async def _local_translate(self, request: TranslationRequest) -> str:
@@ -297,7 +304,7 @@ class CLITranslationSecurityManager:
             "translation_mode": policy.translation_mode.value,
             "target_language": request.target_language,
             "user_consent": request.user_consent,
-            "text_length": len(request.text)
+            "text_length": len(request.text),
         }
 
         self.security_log.append(log_entry)
@@ -326,7 +333,7 @@ class CLITranslationSecurityManager:
             "total_checks": total_checks,
             "by_security_level": by_level,
             "by_target_language": by_language,
-            "recent_checks": self.security_log[-10:]  # Last 10 checks
+            "recent_checks": self.security_log[-10:],  # Last 10 checks
         }
 
     def is_translation_allowed(self, command_name: str, target_language: str) -> bool:
@@ -350,33 +357,33 @@ cli_translation_security = CLITranslationSecurityManager()
 def secure_translation(allowed_languages: list[str] | None = None, require_consent: bool = False):
     """
     Decorator to enforce translation security on CLI commands
-    
+
     Args:
         allowed_languages: List of allowed target languages
         require_consent: Whether to require explicit user consent
     """
+
     def decorator(func):
         async def wrapper(*args, **kwargs):
             # This would integrate with the CLI command framework
             # to enforce translation policies
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 # Security policy configuration functions
 def configure_translation_security(
-    critical_level: str = "disabled",
-    high_level: str = "local_only",
-    medium_level: str = "fallback",
-    low_level: str = "full"
+    critical_level: str = "disabled", high_level: str = "local_only", medium_level: str = "fallback", low_level: str = "full"
 ):
     """Configure translation security policies"""
     mode_mapping = {
         "disabled": TranslationMode.DISABLED,
         "local_only": TranslationMode.LOCAL_ONLY,
         "fallback": TranslationMode.FALLBACK,
-        "full": TranslationMode.FULL
+        "full": TranslationMode.FULL,
     }
 
     cli_translation_security.policies[SecurityLevel.CRITICAL].translation_mode = mode_mapping[critical_level]
@@ -389,15 +396,15 @@ def get_translation_security_report() -> dict:
     """Get comprehensive translation security report"""
     return {
         "security_policies": {
-            level.value: policy.translation_mode.value
-            for level, policy in cli_translation_security.policies.items()
+            level.value: policy.translation_mode.value for level, policy in cli_translation_security.policies.items()
         },
         "security_summary": cli_translation_security.get_security_summary(),
         "critical_commands": [
-            cmd for cmd in ['agent', 'strategy', 'wallet', 'sign', 'deploy']
+            cmd
+            for cmd in ["agent", "strategy", "wallet", "sign", "deploy"]
             if cli_translation_security.get_command_security_level(cmd) == SecurityLevel.CRITICAL
         ],
-        "recommendations": _get_security_recommendations()
+        "recommendations": _get_security_recommendations(),
     }
 
 
@@ -406,8 +413,8 @@ def _get_security_recommendations() -> list[str]:
     recommendations = []
 
     # Check if critical commands have proper restrictions
-    for cmd in ['agent', 'strategy', 'wallet', 'sign']:
-        if cli_translation_security.is_translation_allowed(cmd, 'es'):
+    for cmd in ["agent", "strategy", "wallet", "sign"]:
+        if cli_translation_security.is_translation_allowed(cmd, "es"):
             recommendations.append(f"Consider disabling translation for '{cmd}' command")
 
     # Check for external API usage in sensitive operations

@@ -62,7 +62,7 @@ class TestAgentInfo:
             reputation_score=0.95,
             last_seen=datetime.now(),
             endpoint="http://localhost:8080",
-            version="1.0.0"
+            version="1.0.0",
         )
 
         assert agent.agent_id == "agent123"
@@ -89,7 +89,7 @@ class TestAgentMessage:
             timestamp=datetime.now(),
             signature="sig123",
             priority=1,
-            ttl_seconds=3600
+            ttl_seconds=3600,
         )
 
         assert message.message_id == "msg123"
@@ -114,7 +114,7 @@ class TestAgentCollaboration:
             created_at=datetime.now(),
             updated_at=datetime.now(),
             shared_resources={"cpu": 4},
-            governance_rules={"consensus": "majority"}
+            governance_rules={"consensus": "majority"},
         )
 
         assert collab.collaboration_id == "collab123"
@@ -137,7 +137,7 @@ class TestAgentReputation:
             failed_interactions=5,
             total_interactions=105,
             last_updated=datetime.now(),
-            feedback_scores=[5.0, 4.5, 5.0]
+            feedback_scores=[5.0, 4.5, 5.0],
         )
 
         assert reputation.agent_id == "agent123"
@@ -148,7 +148,7 @@ class TestAgentReputation:
 class TestCrossChainAgentCommunication:
     """Test CrossChainAgentCommunication class"""
 
-    @patch('aitbc_cli.core.agent_communication.NodeClient')
+    @patch("aitbc_cli.core.agent_communication.NodeClient")
     def test_init(self, mock_node_client):
         """Test CrossChainAgentCommunication initialization"""
         from aitbc_cli.core.agent_communication import CrossChainAgentCommunication, MultiChainConfig
@@ -162,10 +162,10 @@ class TestCrossChainAgentCommunication:
         assert comm.collaborations == {}
         assert comm.reputations == {}
         assert comm.routing_table == {}
-        assert 'max_message_size' in comm.thresholds
-        assert comm.thresholds['max_message_size'] == 1048576
+        assert "max_message_size" in comm.thresholds
+        assert comm.thresholds["max_message_size"] == 1048576
 
-    @patch('aitbc_cli.core.agent_communication.NodeClient')
+    @patch("aitbc_cli.core.agent_communication.NodeClient")
     def test_validate_agent_info(self, mock_node_client):
         """Test agent info validation"""
         from aitbc_cli.core.agent_communication import AgentInfo, AgentStatus, CrossChainAgentCommunication, MultiChainConfig
@@ -183,14 +183,14 @@ class TestCrossChainAgentCommunication:
             reputation_score=0.95,
             last_seen=datetime.now(),
             endpoint="http://localhost:8080",
-            version="1.0.0"
+            version="1.0.0",
         )
 
         # Test validation
         result = comm._validate_agent_info(agent)
         assert result is True
 
-    @patch('aitbc_cli.core.agent_communication.NodeClient')
+    @patch("aitbc_cli.core.agent_communication.NodeClient")
     def test_validate_agent_info_invalid(self, mock_node_client):
         """Test agent info validation with invalid data"""
         from aitbc_cli.core.agent_communication import AgentInfo, AgentStatus, CrossChainAgentCommunication, MultiChainConfig
@@ -209,7 +209,7 @@ class TestCrossChainAgentCommunication:
             reputation_score=1.5,  # Invalid > 1.0
             last_seen=datetime.now(),
             endpoint="http://localhost:8080",
-            version="1.0.0"
+            version="1.0.0",
         )
 
         result = comm._validate_agent_info(agent)

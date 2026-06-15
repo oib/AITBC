@@ -1,4 +1,3 @@
-
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -14,6 +13,7 @@ zk_service = ZKProofService()
 
 # Lazy instantiation of FHEService to avoid import-time errors
 _fhe_service: FHEService | None = None
+
 
 def get_fhe_service() -> FHEService:
     """Get or create FHEService instance"""
@@ -55,7 +55,7 @@ async def verify_ml_training(request: Request, verification_request: dict, test_
             proof=verification_request["proof"],
             public_signals=verification_request["public_signals"],
             verification_key=verification_request["verification_key"],
-            test_mode=test_mode
+            test_mode=test_mode,
         )
 
         return {
@@ -100,7 +100,7 @@ async def verify_ml_inference(request: Request, verification_request: dict, test
             proof=verification_request["proof"],
             public_signals=verification_request["public_signals"],
             verification_key=verification_request["verification_key"],
-            test_mode=test_mode
+            test_mode=test_mode,
         )
 
         return {
@@ -134,11 +134,12 @@ async def fhe_ml_inference(request: Request, fhe_request: dict) -> dict[str, Any
         model = fhe_request["model"]
         if isinstance(model, str):
             import random
+
             input_size = len(fhe_request["input_data"])
             model = {
                 "name": model,
                 "weights": [random.uniform(-0.5, 0.5) for _ in range(input_size)],
-                "biases": [random.uniform(-0.1, 0.1) for _ in range(input_size)]
+                "biases": [random.uniform(-0.1, 0.1) for _ in range(input_size)],
             }
 
         encrypted_result = fhe_service.encrypted_inference(

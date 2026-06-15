@@ -1,13 +1,14 @@
 """Schemas for Hermes distributed decision making."""
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class DecisionType(str, Enum):
+class DecisionType(StrEnum):
     """Types of decisions agents can make."""
+
     RESOURCE_ALLOCATION = "resource_allocation"
     PRICING_ADJUSTMENT = "pricing_adjustment"
     TASK_ASSIGNMENT = "task_assignment"
@@ -15,15 +16,17 @@ class DecisionType(str, Enum):
     EMERGENCY_RESPONSE = "emergency_response"
 
 
-class VoteOption(str, Enum):
+class VoteOption(StrEnum):
     """Vote options for decisions."""
+
     APPROVE = "approve"
     REJECT = "reject"
     ABSTAIN = "abstain"
 
 
-class DecisionStatus(str, Enum):
+class DecisionStatus(StrEnum):
     """Status of a decision."""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     APPROVED = "approved"
@@ -33,6 +36,7 @@ class DecisionStatus(str, Enum):
 
 class DecisionProposal(BaseModel):
     """Proposal for a distributed decision."""
+
     decision_type: DecisionType
     title: str
     description: str
@@ -45,6 +49,7 @@ class DecisionProposal(BaseModel):
 
 class DecisionProposalResponse(BaseModel):
     """Response to a decision proposal."""
+
     decision_id: str
     status: DecisionStatus
     created_at: datetime
@@ -54,6 +59,7 @@ class DecisionProposalResponse(BaseModel):
 
 class Vote(BaseModel):
     """Agent vote on a decision."""
+
     decision_id: str
     agent_id: str
     vote: VoteOption
@@ -63,6 +69,7 @@ class Vote(BaseModel):
 
 class VoteResponse(BaseModel):
     """Response to a vote submission."""
+
     vote_id: str
     decision_id: str
     status: str
@@ -71,6 +78,7 @@ class VoteResponse(BaseModel):
 
 class DecisionResult(BaseModel):
     """Result of a decision."""
+
     decision_id: str
     status: DecisionStatus
     total_votes: int
@@ -88,5 +96,6 @@ class DecisionResult(BaseModel):
 
 class DecisionListResponse(BaseModel):
     """Response listing decisions."""
+
     decisions: list[DecisionResult]
     total: int

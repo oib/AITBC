@@ -16,4 +16,4 @@ from .certification_system import CertificationSystem
 from .partnership_manager import PartnershipManager
 from .service import CertificationAndPartnershipService
 
-__all__ = ['CertificationSystem', 'PartnershipManager', 'BadgeSystem', 'CertificationAndPartnershipService']
+__all__ = ["CertificationSystem", "PartnershipManager", "BadgeSystem", "CertificationAndPartnershipService"]

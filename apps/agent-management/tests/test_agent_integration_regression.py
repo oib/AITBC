@@ -33,10 +33,7 @@ class TestAgentDeploymentConfig:
 
     def test_default_values(self):
         """Test default configuration values"""
-        config = AgentDeploymentConfig(
-            workflow_id="test_workflow",
-            deployment_name="test_deployment"
-        )
+        config = AgentDeploymentConfig(workflow_id="test_workflow", deployment_name="test_deployment")
 
         assert config.id.startswith("deploy_")
         assert config.workflow_id == "test_workflow"
@@ -71,7 +68,7 @@ class TestAgentDeploymentConfig:
             min_instances=2,
             max_instances=10,
             auto_scaling=False,
-            rollout_strategy="blue-green"
+            rollout_strategy="blue-green",
         )
 
         assert config.version == "2.0.0"

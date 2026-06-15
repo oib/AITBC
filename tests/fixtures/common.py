@@ -45,6 +45,7 @@ def mock_aitbc_crypto():
     """Mock aitbc_crypto package when not available"""
     try:
         import aitbc_crypto
+
         return aitbc_crypto
     except ImportError:
         # Create mock
@@ -79,12 +80,7 @@ def mock_aitbc_crypto():
 @pytest.fixture
 def sample_tenant():
     """Create a sample tenant for testing using TestDataGenerator"""
-    return TestDataGenerator.generate_user_data(
-        id="tenant-123",
-        first_name="Test",
-        last_name="Tenant",
-        is_active=True
-    )
+    return TestDataGenerator.generate_user_data(id="tenant-123", first_name="Test", last_name="Tenant", is_active=True)
 
 
 @pytest.fixture
@@ -92,14 +88,9 @@ def sample_job_data():
     """Sample job creation data using TestDataGenerator"""
     return {
         "job_type": "ai_inference",
-        "parameters": {
-            "model": "gpt-4",
-            "prompt": "Test prompt",
-            "max_tokens": 100,
-            "temperature": 0.7
-        },
+        "parameters": {"model": "gpt-4", "prompt": "Test prompt", "max_tokens": 100, "temperature": 0.7},
         "priority": "normal",
-        "timeout": 300
+        "timeout": 300,
     }
 
 

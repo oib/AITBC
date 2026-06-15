@@ -22,11 +22,12 @@ class TestAIHandlers:
         """Test that handle_ai_submit function exists"""
         try:
             from handlers.ai import handle_ai_submit
+
             assert handle_ai_submit is not None
         except ImportError as e:
             pytest.skip(f"Cannot import AI handlers: {e}")
 
-    @patch('handlers.ai.requests')
+    @patch("handlers.ai.requests")
     def test_handle_ai_submit_command(self, mock_requests):
         """Test handle_ai_submit - skip due to complex keystore and RPC dependencies"""
         pytest.skip("AI handlers have complex keystore, RPC, and coordinator dependencies")

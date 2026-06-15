@@ -14,6 +14,7 @@ from aitbc import api_versioning
 # APIVersion Enum Tests
 # ============================================================================
 
+
 class TestAPIVersion:
     """Test APIVersion enum"""
 
@@ -27,6 +28,7 @@ class TestAPIVersion:
 # DeprecatedAPIError Tests
 # ============================================================================
 
+
 class TestDeprecatedAPIError:
     """Test DeprecatedAPIError exception"""
 
@@ -38,6 +40,7 @@ class TestDeprecatedAPIError:
 # ============================================================================
 # api_version Decorator Tests
 # ============================================================================
+
 
 class TestApiVersionDecorator:
     """Test api_version decorator"""
@@ -72,11 +75,7 @@ class TestApiVersionDecorator:
         dep_date = datetime(2024, 1, 1)
         sunset_date = datetime(2024, 12, 31)
 
-        @api_versioning.api_version(
-            deprecated=True,
-            deprecation_date=dep_date,
-            sunset_date=sunset_date
-        )
+        @api_versioning.api_version(deprecated=True, deprecation_date=dep_date, sunset_date=sunset_date)
         def test_func():
             return {"data": "test"}
 
@@ -125,6 +124,7 @@ class TestApiVersionDecorator:
 # ============================================================================
 # APIVersionRouter Tests
 # ============================================================================
+
 
 class TestAPIVersionRouter:
     """Test APIVersionRouter class"""

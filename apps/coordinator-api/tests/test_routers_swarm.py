@@ -18,7 +18,7 @@ class TestSwarmRouter:
             "capabilities": ["gpu", "ai", "training"],
             "cpu_cores": 16,
             "memory_gb": 64,
-            "gpu_count": 2
+            "gpu_count": 2,
         }
 
         response = client.post("/swarm/nodes/register", json=node_data)
@@ -32,11 +32,9 @@ class TestSwarmRouter:
     def test_heartbeat(self, client: TestClient):
         """Test node heartbeat"""
         # Register node first
-        client.post("/swarm/nodes/register", json={
-            "node_id": "heartbeat-node",
-            "address": "10.0.0.2",
-            "capabilities": ["compute"]
-        })
+        client.post(
+            "/swarm/nodes/register", json={"node_id": "heartbeat-node", "address": "10.0.0.2", "capabilities": ["compute"]}
+        )
 
         # Send heartbeat
         response = client.post("/swarm/nodes/heartbeat-node/heartbeat")
@@ -54,11 +52,10 @@ class TestSwarmRouter:
         """Test listing all nodes"""
         # Register some nodes
         for i in range(3):
-            client.post("/swarm/nodes/register", json={
-                "node_id": f"list-node-{i}",
-                "address": f"10.0.0.{i}",
-                "capabilities": ["compute"]
-            })
+            client.post(
+                "/swarm/nodes/register",
+                json={"node_id": f"list-node-{i}", "address": f"10.0.0.{i}", "capabilities": ["compute"]},
+            )
 
         response = client.get("/swarm/nodes")
         assert response.status_code == 200
@@ -69,19 +66,13 @@ class TestSwarmRouter:
     def test_list_nodes_filter_by_capability(self, client: TestClient):
         """Test filtering nodes by capability"""
         # Register GPU node
-        client.post("/swarm/nodes/register", json={
-            "node_id": "gpu-node",
-            "address": "10.0.1.1",
-            "capabilities": ["gpu", "ai"],
-            "gpu_count": 4
-        })
+        client.post(
+            "/swarm/nodes/register",
+            json={"node_id": "gpu-node", "address": "10.0.1.1", "capabilities": ["gpu", "ai"], "gpu_count": 4},
+        )
 
         # Register CPU-only node
-        client.post("/swarm/nodes/register", json={
-            "node_id": "cpu-node",
-            "address": "10.0.1.2",
-            "capabilities": ["compute"]
-        })
+        client.post("/swarm/nodes/register", json={"node_id": "cpu-node", "address": "10.0.1.2", "capabilities": ["compute"]})
 
         # Filter for GPU
         response = client.get("/swarm/nodes?capability=gpu")
@@ -92,12 +83,10 @@ class TestSwarmRouter:
     def test_get_node(self, client: TestClient):
         """Test getting specific node details"""
         # Register node
-        client.post("/swarm/nodes/register", json={
-            "node_id": "detail-node",
-            "address": "10.0.2.1",
-            "capabilities": ["storage"],
-            "memory_gb": 128
-        })
+        client.post(
+            "/swarm/nodes/register",
+            json={"node_id": "detail-node", "address": "10.0.2.1", "capabilities": ["storage"], "memory_gb": 128},
+        )
 
         response = client.get("/swarm/nodes/detail-node")
         assert response.status_code == 200
@@ -113,21 +102,16 @@ class TestSwarmRouter:
     def test_submit_task(self, client: TestClient):
         """Test submitting a task to the swarm"""
         # Register capable node
-        client.post("/swarm/nodes/register", json={
-            "node_id": "task-node",
-            "address": "10.0.3.1",
-            "capabilities": ["ai", "training"],
-            "gpu_count": 1
-        })
+        client.post(
+            "/swarm/nodes/register",
+            json={"node_id": "task-node", "address": "10.0.3.1", "capabilities": ["ai", "training"], "gpu_count": 1},
+        )
 
         task_data = {
             "task_type": "ai_training",
-            "payload": {
-                "model": "llama2",
-                "dataset": "training-data-v1"
-            },
+            "payload": {"model": "llama2", "dataset": "training-data-v1"},
             "required_capabilities": ["ai"],
-            "priority": 5
+            "priority": 5,
         }
 
         response = client.post("/swarm/tasks/submit", json=task_data)
@@ -144,7 +128,7 @@ class TestSwarmRouter:
             "task_type": "quantum_computing",
             "payload": {},
             "required_capabilities": ["quantum"],  # No nodes have this
-            "priority": 1
+            "priority": 1,
         }
 
         response = client.post("/swarm/tasks/submit", json=task_data)
@@ -155,26 +139,19 @@ class TestSwarmRouter:
     def test_report_task_status(self, client: TestClient):
         """Test reporting task status update"""
         # Setup: register node and submit task
-        client.post("/swarm/nodes/register", json={
-            "node_id": "worker-node",
-            "address": "10.0.4.1",
-            "capabilities": ["compute"]
-        })
+        client.post(
+            "/swarm/nodes/register", json={"node_id": "worker-node", "address": "10.0.4.1", "capabilities": ["compute"]}
+        )
 
-        task_response = client.post("/swarm/tasks/submit", json={
-            "task_type": "processing",
-            "payload": {"data": "test"},
-            "required_capabilities": ["compute"]
-        })
+        task_response = client.post(
+            "/swarm/tasks/submit",
+            json={"task_type": "processing", "payload": {"data": "test"}, "required_capabilities": ["compute"]},
+        )
         task_id = task_response.json()["task"]["task_id"]
         assigned_node = task_response.json()["task"].get("assigned_node", "worker-node")
 
         # Report progress
-        report_data = {
-            "task_id": task_id,
-            "node_id": assigned_node,
-            "status": "running"
-        }
+        report_data = {"task_id": task_id, "node_id": assigned_node, "status": "running"}
 
         response = client.post("/swarm/tasks/report", json=report_data)
         assert response.status_code == 200
@@ -185,10 +162,7 @@ class TestSwarmRouter:
     def test_get_task(self, client: TestClient):
         """Test getting task details"""
         # Submit task
-        task_response = client.post("/swarm/tasks/submit", json={
-            "task_type": "inference",
-            "payload": {"model": "test"}
-        })
+        task_response = client.post("/swarm/tasks/submit", json={"task_type": "inference", "payload": {"model": "test"}})
         task_id = task_response.json()["task"]["task_id"]
 
         response = client.get(f"/swarm/tasks/{task_id}")
@@ -216,17 +190,15 @@ class TestSwarmRouter:
         """Test creating a compute cluster"""
         # Register nodes
         for i in range(2):
-            client.post("/swarm/nodes/register", json={
-                "node_id": f"cluster-node-{i}",
-                "address": f"10.0.5.{i}",
-                "capabilities": ["gpu"],
-                "gpu_count": 2
-            })
+            client.post(
+                "/swarm/nodes/register",
+                json={"node_id": f"cluster-node-{i}", "address": f"10.0.5.{i}", "capabilities": ["gpu"], "gpu_count": 2},
+            )
 
         cluster_data = {
             "name": "GPU Cluster Alpha",
             "description": "High-performance GPU cluster for AI training",
-            "node_ids": ["cluster-node-0", "cluster-node-1"]
+            "node_ids": ["cluster-node-0", "cluster-node-1"],
         }
 
         response = client.post("/swarm/clusters/create", json=cluster_data)
@@ -247,11 +219,9 @@ class TestSwarmRouter:
     def test_get_cluster(self, client: TestClient):
         """Test getting cluster details"""
         # Create cluster
-        cluster_response = client.post("/swarm/clusters/create", json={
-            "name": "Test Cluster",
-            "description": "For testing",
-            "node_ids": []
-        })
+        cluster_response = client.post(
+            "/swarm/clusters/create", json={"name": "Test Cluster", "description": "For testing", "node_ids": []}
+        )
         cluster_id = cluster_response.json()["cluster"]["cluster_id"]
 
         response = client.get(f"/swarm/clusters/{cluster_id}")
@@ -263,18 +233,13 @@ class TestSwarmRouter:
     def test_add_node_to_cluster(self, client: TestClient):
         """Test adding node to cluster"""
         # Create cluster
-        cluster_response = client.post("/swarm/clusters/create", json={
-            "name": "Dynamic Cluster",
-            "node_ids": []
-        })
+        cluster_response = client.post("/swarm/clusters/create", json={"name": "Dynamic Cluster", "node_ids": []})
         cluster_id = cluster_response.json()["cluster"]["cluster_id"]
 
         # Register node
-        client.post("/swarm/nodes/register", json={
-            "node_id": "dynamic-node",
-            "address": "10.0.6.1",
-            "capabilities": ["compute"]
-        })
+        client.post(
+            "/swarm/nodes/register", json={"node_id": "dynamic-node", "address": "10.0.6.1", "capabilities": ["compute"]}
+        )
 
         # Add to cluster
         response = client.post(f"/swarm/clusters/{cluster_id}/nodes/dynamic-node")
@@ -310,41 +275,42 @@ class TestSwarmIntegration:
     def test_full_task_lifecycle(self, client: TestClient):
         """Test complete task lifecycle from submission to completion"""
         # 1. Register compute node
-        client.post("/swarm/nodes/register", json={
-            "node_id": "worker-001",
-            "address": "10.0.10.1",
-            "capabilities": ["ai", "training"],
-            "gpu_count": 2,
-            "cpu_cores": 32
-        })
+        client.post(
+            "/swarm/nodes/register",
+            json={
+                "node_id": "worker-001",
+                "address": "10.0.10.1",
+                "capabilities": ["ai", "training"],
+                "gpu_count": 2,
+                "cpu_cores": 32,
+            },
+        )
 
         # 2. Submit task
-        task_response = client.post("/swarm/tasks/submit", json={
-            "task_type": "model_training",
-            "payload": {
-                "model": "resnet50",
-                "epochs": 10,
-                "batch_size": 32
+        task_response = client.post(
+            "/swarm/tasks/submit",
+            json={
+                "task_type": "model_training",
+                "payload": {"model": "resnet50", "epochs": 10, "batch_size": 32},
+                "required_capabilities": ["ai"],
+                "priority": 8,
             },
-            "required_capabilities": ["ai"],
-            "priority": 8
-        })
+        )
         task_id = task_response.json()["task"]["task_id"]
 
         # 3. Report task running
-        client.post("/swarm/tasks/report", json={
-            "task_id": task_id,
-            "node_id": "worker-001",
-            "status": "running"
-        })
+        client.post("/swarm/tasks/report", json={"task_id": task_id, "node_id": "worker-001", "status": "running"})
 
         # 4. Report task completed
-        client.post("/swarm/tasks/report", json={
-            "task_id": task_id,
-            "node_id": "worker-001",
-            "status": "completed",
-            "result": {"accuracy": 0.95, "loss": 0.02}
-        })
+        client.post(
+            "/swarm/tasks/report",
+            json={
+                "task_id": task_id,
+                "node_id": "worker-001",
+                "status": "completed",
+                "result": {"accuracy": 0.95, "loss": 0.02},
+            },
+        )
 
         # 5. Verify task is completed
         task_check = client.get(f"/swarm/tasks/{task_id}").json()
@@ -355,20 +321,18 @@ class TestSwarmIntegration:
         """Test that tasks are distributed across available nodes"""
         # Register multiple nodes
         for i in range(3):
-            client.post("/swarm/nodes/register", json={
-                "node_id": f"lb-node-{i}",
-                "address": f"10.0.11.{i}",
-                "capabilities": ["compute"]
-            })
+            client.post(
+                "/swarm/nodes/register",
+                json={"node_id": f"lb-node-{i}", "address": f"10.0.11.{i}", "capabilities": ["compute"]},
+            )
 
         # Submit multiple tasks
         assigned_nodes = set()
         for i in range(5):
-            task_response = client.post("/swarm/tasks/submit", json={
-                "task_type": "processing",
-                "payload": {"job": i},
-                "required_capabilities": ["compute"]
-            })
+            task_response = client.post(
+                "/swarm/tasks/submit",
+                json={"task_type": "processing", "payload": {"job": i}, "required_capabilities": ["compute"]},
+            )
             node = task_response.json()["task"].get("assigned_node")
             if node:
                 assigned_nodes.add(node)

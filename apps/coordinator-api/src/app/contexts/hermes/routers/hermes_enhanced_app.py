@@ -1,5 +1,3 @@
-
-
 """
 hermes Enhanced Service - FastAPI Entry Point
 """
@@ -70,8 +68,8 @@ async def detailed_health(request: Request) -> dict[str, Any]:
                 "cpu_percent": psutil.cpu_percent(),
                 "memory_percent": psutil.virtual_memory().percent,
                 "memory_available_gb": psutil.virtual_memory().available / (1024**3),
-                "disk_percent": psutil.disk_usage('/').percent,
-                "disk_free_gb": psutil.disk_usage('/').free / (1024**3),
+                "disk_percent": psutil.disk_usage("/").percent,
+                "disk_free_gb": psutil.disk_usage("/").free / (1024**3),
             },
             "edge_computing": {
                 "available": True,
@@ -81,7 +79,7 @@ async def detailed_health(request: Request) -> dict[str, Any]:
                 "geographic_coverage": "4/4 regions",
                 "average_latency": "25ms",
                 "bandwidth_capacity": "10 Gbps",
-                "compute_capacity": "5000 TFLOPS"
+                "compute_capacity": "5000 TFLOPS",
             },
             "capabilities": {
                 "agent_orchestration": True,
@@ -90,15 +88,15 @@ async def detailed_health(request: Request) -> dict[str, Any]:
                 "ecosystem_development": True,
                 "agent_collaboration": True,
                 "resource_optimization": True,
-                "distributed_inference": True
+                "distributed_inference": True,
             },
             "dependencies": {
                 "database": "connected",
                 "edge_nodes": 500,
                 "agent_registry": "accessible",
                 "orchestration_engine": "operational",
-                "resource_manager": "available"
-            }
+                "resource_manager": "available",
+            },
         }
     except Exception:
         return {"status": "error", "error": "Failed to get status"}

@@ -15,10 +15,11 @@ def analytics():
     """Chain analytics and monitoring commands"""
     pass
 
+
 @analytics.command()
-@click.option('--chain-id', help='Specific chain ID to analyze')
-@click.option('--hours', default=24, help='Time range in hours')
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.option("--chain-id", help="Specific chain ID to analyze")
+@click.option("--hours", default=24, help="Time range in hours")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def summary(ctx, chain_id, hours, format):
     """Get performance summary for chains"""
@@ -42,10 +43,10 @@ def summary(ctx, chain_id, hours, format):
                 {"Metric": "Active Alerts", "Value": summary["active_alerts"]},
                 {"Metric": "Avg TPS", "Value": f"{summary['statistics']['tps']['avg']:.2f}"},
                 {"Metric": "Avg Block Time", "Value": f"{summary['statistics']['block_time']['avg']:.2f}s"},
-                {"Metric": "Avg Gas Price", "Value": f"{summary['statistics']['gas_price']['avg']:,} wei"}
+                {"Metric": "Avg Gas Price", "Value": f"{summary['statistics']['gas_price']['avg']:,} wei"},
             ]
 
-            output(summary_data, ctx.obj.get('output_format', format), title=f"Chain Summary: {chain_id}")
+            output(summary_data, ctx.obj.get("output_format", format), title=f"Chain Summary: {chain_id}")
         else:
             # Cross-chain analysis
             analysis = analytics.get_cross_chain_analysis()
@@ -63,10 +64,10 @@ def summary(ctx, chain_id, hours, format):
                 {"Metric": "Total Memory Usage", "Value": f"{analysis['resource_usage']['total_memory_mb']:.1f}MB"},
                 {"Metric": "Total Disk Usage", "Value": f"{analysis['resource_usage']['total_disk_mb']:.1f}MB"},
                 {"Metric": "Total Clients", "Value": analysis["resource_usage"]["total_clients"]},
-                {"Metric": "Total Agents", "Value": analysis["resource_usage"]["total_agents"]}
+                {"Metric": "Total Agents", "Value": analysis["resource_usage"]["total_agents"]},
             ]
 
-            output(overview_data, ctx.obj.get('output_format', format), title="Cross-Chain Analysis Overview")
+            output(overview_data, ctx.obj.get("output_format", format), title="Cross-Chain Analysis Overview")
 
             # Performance comparison
             if analysis["performance_comparison"]:
@@ -75,21 +76,22 @@ def summary(ctx, chain_id, hours, format):
                         "Chain ID": chain_id,
                         "TPS": f"{data['tps']:.2f}",
                         "Block Time": f"{data['block_time']:.2f}s",
-                        "Health Score": f"{data['health_score']:.1f}/100"
+                        "Health Score": f"{data['health_score']:.1f}/100",
                     }
                     for chain_id, data in analysis["performance_comparison"].items()
                 ]
 
-                output(comparison_data, ctx.obj.get('output_format', format), title="Chain Performance Comparison")
+                output(comparison_data, ctx.obj.get("output_format", format), title="Chain Performance Comparison")
 
     except Exception as e:
         error(f"Error getting analytics summary: {str(e)}")
         raise click.Abort()
 
+
 @analytics.command()
-@click.option('--realtime', is_flag=True, help='Real-time monitoring')
-@click.option('--interval', default=30, help='Update interval in seconds')
-@click.option('--chain-id', help='Monitor specific chain')
+@click.option("--realtime", is_flag=True, help="Real-time monitoring")
+@click.option("--interval", default=30, help="Update interval in seconds")
+@click.option("--chain-id", help="Monitor specific chain")
 @click.pass_context
 def monitor(ctx, realtime, interval, chain_id):
     """Monitor chain performance in real-time"""
@@ -123,25 +125,33 @@ def monitor(ctx, realtime, interval, chain_id):
                         # Single chain monitoring
                         summary = analytics.get_chain_performance_summary(chain_id, 1)
                         if summary:
-                            health_color = "green" if summary["health_score"] > 70 else "yellow" if summary["health_score"] > 40 else "red"
+                            health_color = (
+                                "green"
+                                if summary["health_score"] > 70
+                                else "yellow"
+                                if summary["health_score"] > 40
+                                else "red"
+                            )
                             table.add_row(
                                 chain_id,
                                 f"{summary['statistics']['tps']['avg']:.2f}",
                                 f"{summary['statistics']['block_time']['avg']:.2f}s",
                                 f"[{health_color}]{summary['health_score']:.1f}[/{health_color}]",
-                                str(summary["active_alerts"])
+                                str(summary["active_alerts"]),
                             )
                     else:
                         # All chains monitoring
                         analysis = analytics.get_cross_chain_analysis()
                         for chain_id, data in analysis["performance_comparison"].items():
-                            health_color = "green" if data["health_score"] > 70 else "yellow" if data["health_score"] > 40 else "red"
+                            health_color = (
+                                "green" if data["health_score"] > 70 else "yellow" if data["health_score"] > 40 else "red"
+                            )
                             table.add_row(
                                 chain_id,
                                 f"{data['tps']:.2f}",
                                 f"{data['block_time']:.2f}s",
                                 f"[{health_color}]{data['health_score']:.1f}[/{health_color}]",
-                                str(len([a for a in analytics.alerts if a.chain_id == chain_id]))
+                                str(len([a for a in analytics.alerts if a.chain_id == chain_id])),
                             )
 
                     return table
@@ -175,10 +185,10 @@ def monitor(ctx, realtime, interval, chain_id):
                     {"Metric": "Disk Usage", "Value": f"{summary['latest_metrics']['disk_usage_mb']:.1f}MB"},
                     {"Metric": "Active Nodes", "Value": summary["latest_metrics"]["active_nodes"]},
                     {"Metric": "Client Count", "Value": summary["latest_metrics"]["client_count"]},
-                    {"Metric": "Agent Count", "Value": summary["latest_metrics"]["agent_count"]}
+                    {"Metric": "Agent Count", "Value": summary["latest_metrics"]["agent_count"]},
                 ]
 
-                output(monitor_data, ctx.obj.get('output_format', 'table'), title=f"Chain Monitor: {chain_id}")
+                output(monitor_data, ctx.obj.get("output_format", "table"), title=f"Chain Monitor: {chain_id}")
             else:
                 analysis = analytics.get_cross_chain_analysis()
 
@@ -190,19 +200,20 @@ def monitor(ctx, realtime, interval, chain_id):
                     {"Metric": "Total Clients", "Value": analysis["resource_usage"]["total_clients"]},
                     {"Metric": "Total Agents", "Value": analysis["resource_usage"]["total_agents"]},
                     {"Metric": "Total Alerts", "Value": analysis["alerts_summary"]["total_alerts"]},
-                    {"Metric": "Critical Alerts", "Value": analysis["alerts_summary"]["critical_alerts"]}
+                    {"Metric": "Critical Alerts", "Value": analysis["alerts_summary"]["critical_alerts"]},
                 ]
 
-                output(monitor_data, ctx.obj.get('output_format', 'table'), title="System Monitor")
+                output(monitor_data, ctx.obj.get("output_format", "table"), title="System Monitor")
 
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
         raise click.Abort()
 
+
 @analytics.command()
-@click.option('--chain-id', help='Specific chain ID for predictions')
-@click.option('--hours', default=24, help='Prediction time horizon in hours')
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.option("--chain-id", help="Specific chain ID for predictions")
+@click.option("--hours", default=24, help="Prediction time horizon in hours")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def predict(ctx, chain_id, hours, format):
     """Predict chain performance"""
@@ -226,12 +237,12 @@ def predict(ctx, chain_id, hours, format):
                     "Metric": pred.metric,
                     "Predicted Value": f"{pred.predicted_value:.2f}",
                     "Confidence": f"{pred.confidence:.1%}",
-                    "Time Horizon": f"{pred.time_horizon_hours}h"
+                    "Time Horizon": f"{pred.time_horizon_hours}h",
                 }
                 for pred in predictions
             ]
 
-            output(prediction_data, ctx.obj.get('output_format', format), title=f"Performance Predictions: {chain_id}")
+            output(prediction_data, ctx.obj.get("output_format", format), title=f"Performance Predictions: {chain_id}")
         else:
             # All chains prediction
             analysis = analytics.get_cross_chain_analysis()
@@ -250,23 +261,26 @@ def predict(ctx, chain_id, hours, format):
             prediction_data = []
             for chain_id, predictions in all_predictions.items():
                 for pred in predictions:
-                    prediction_data.append({
-                        "Chain ID": chain_id,
-                        "Metric": pred.metric,
-                        "Predicted Value": f"{pred.predicted_value:.2f}",
-                        "Confidence": f"{pred.confidence:.1%}",
-                        "Time Horizon": f"{pred.time_horizon_hours}h"
-                    })
+                    prediction_data.append(
+                        {
+                            "Chain ID": chain_id,
+                            "Metric": pred.metric,
+                            "Predicted Value": f"{pred.predicted_value:.2f}",
+                            "Confidence": f"{pred.confidence:.1%}",
+                            "Time Horizon": f"{pred.time_horizon_hours}h",
+                        }
+                    )
 
-            output(prediction_data, ctx.obj.get('output_format', format), title="Chain Performance Predictions")
+            output(prediction_data, ctx.obj.get("output_format", format), title="Chain Performance Predictions")
 
     except Exception as e:
         error(f"Error generating predictions: {str(e)}")
         raise click.Abort()
 
+
 @analytics.command()
-@click.option('--chain-id', help='Specific chain ID for recommendations')
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.option("--chain-id", help="Specific chain ID for recommendations")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def optimize(ctx, chain_id, format):
     """Get optimization recommendations"""
@@ -292,12 +306,14 @@ def optimize(ctx, chain_id, format):
                     "Issue": rec["issue"],
                     "Current Value": rec["current_value"],
                     "Recommended Action": rec["recommended_action"],
-                    "Expected Improvement": rec["expected_improvement"]
+                    "Expected Improvement": rec["expected_improvement"],
                 }
                 for rec in recommendations
             ]
 
-            output(recommendation_data, ctx.obj.get('output_format', format), title=f"Optimization Recommendations: {chain_id}")
+            output(
+                recommendation_data, ctx.obj.get("output_format", format), title=f"Optimization Recommendations: {chain_id}"
+            )
         else:
             # All chains recommendations
             analysis = analytics.get_cross_chain_analysis()
@@ -316,25 +332,28 @@ def optimize(ctx, chain_id, format):
             recommendation_data = []
             for chain_id, recommendations in all_recommendations.items():
                 for rec in recommendations:
-                    recommendation_data.append({
-                        "Chain ID": chain_id,
-                        "Type": rec["type"],
-                        "Priority": rec["priority"],
-                        "Issue": rec["issue"],
-                        "Current Value": rec["current_value"],
-                        "Recommended Action": rec["recommended_action"]
-                    })
+                    recommendation_data.append(
+                        {
+                            "Chain ID": chain_id,
+                            "Type": rec["type"],
+                            "Priority": rec["priority"],
+                            "Issue": rec["issue"],
+                            "Current Value": rec["current_value"],
+                            "Recommended Action": rec["recommended_action"],
+                        }
+                    )
 
-            output(recommendation_data, ctx.obj.get('output_format', format), title="Chain Optimization Recommendations")
+            output(recommendation_data, ctx.obj.get("output_format", format), title="Chain Optimization Recommendations")
 
     except Exception as e:
         error(f"Error getting optimization recommendations: {str(e)}")
         raise click.Abort()
 
+
 @analytics.command()
-@click.option('--severity', type=click.Choice(['all', 'critical', 'warning']), default='all', help='Alert severity filter')
-@click.option('--hours', default=24, help='Time range in hours')
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.option("--severity", type=click.Choice(["all", "critical", "warning"]), default="all", help="Alert severity filter")
+@click.option("--hours", default=24, help="Time range in hours")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def alerts(ctx, severity, hours, format):
     """View performance alerts"""
@@ -347,12 +366,9 @@ def alerts(ctx, severity, hours, format):
 
         # Filter alerts
         cutoff_time = datetime.now() - timedelta(hours=hours)
-        filtered_alerts = [
-            alert for alert in analytics.alerts
-            if alert.timestamp >= cutoff_time
-        ]
+        filtered_alerts = [alert for alert in analytics.alerts if alert.timestamp >= cutoff_time]
 
-        if severity != 'all':
+        if severity != "all":
             filtered_alerts = [a for a in filtered_alerts if a.severity == severity]
 
         if not filtered_alerts:
@@ -367,19 +383,20 @@ def alerts(ctx, severity, hours, format):
                 "Message": alert.message,
                 "Current Value": f"{alert.current_value:.2f}",
                 "Threshold": f"{alert.threshold:.2f}",
-                "Time": alert.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                "Time": alert.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
             }
             for alert in filtered_alerts
         ]
 
-        output(alert_data, ctx.obj.get('output_format', format), title=f"Performance Alerts (Last {hours}h)")
+        output(alert_data, ctx.obj.get("output_format", format), title=f"Performance Alerts (Last {hours}h)")
 
     except Exception as e:
         error(f"Error getting alerts: {str(e)}")
         raise click.Abort()
 
+
 @analytics.command()
-@click.option('--format', type=click.Choice(['json']), default='json', help='Output format')
+@click.option("--format", type=click.Choice(["json"]), default="json", help="Output format")
 @click.pass_context
 def dashboard(ctx, format):
     """Get complete dashboard data"""
@@ -393,8 +410,9 @@ def dashboard(ctx, format):
         # Get dashboard data
         dashboard_data = analytics.get_dashboard_data()
 
-        if format == 'json':
+        if format == "json":
             import json
+
             click.echo(json.dumps(dashboard_data, indent=2, default=str))
         else:
             error("Dashboard data only available in JSON format")

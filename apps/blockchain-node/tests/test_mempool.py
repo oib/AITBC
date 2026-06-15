@@ -200,12 +200,14 @@ class TestDatabaseMempool:
 class TestCircuitBreaker:
     def test_starts_closed(self):
         from aitbc_chain.consensus.poa import CircuitBreaker
+
         cb = CircuitBreaker(threshold=3, timeout=1)
         assert cb.state == "closed"
         assert cb.allow_request() is True
 
     def test_opens_after_threshold(self):
         from aitbc_chain.consensus.poa import CircuitBreaker
+
         cb = CircuitBreaker(threshold=3, timeout=10)
         cb.record_failure()
         cb.record_failure()
@@ -216,6 +218,7 @@ class TestCircuitBreaker:
 
     def test_half_open_after_timeout(self):
         from aitbc_chain.consensus.poa import CircuitBreaker
+
         cb = CircuitBreaker(threshold=1, timeout=1)
         cb.record_failure()
         assert cb.state == "open"
@@ -227,6 +230,7 @@ class TestCircuitBreaker:
 
     def test_success_resets(self):
         from aitbc_chain.consensus.poa import CircuitBreaker
+
         cb = CircuitBreaker(threshold=2, timeout=10)
         cb.record_failure()
         cb.record_failure()

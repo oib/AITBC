@@ -10,6 +10,7 @@ Base = declarative_base()
 
 class DecisionModel(Base):
     """Database model for decision proposals."""
+
     __tablename__ = "hermes_decisions"
 
     id = Column(String, primary_key=True)
@@ -28,6 +29,7 @@ class DecisionModel(Base):
 
 class VoteModel(Base):
     """Database model for votes on decisions."""
+
     __tablename__ = "hermes_votes"
 
     id = Column(String, primary_key=True)
@@ -41,6 +43,7 @@ class VoteModel(Base):
 
 class HealthCheckModel(Base):
     """Database model for health checks."""
+
     __tablename__ = "hermes_health_checks"
 
     id = Column(String, primary_key=True)
@@ -55,6 +58,7 @@ class HealthCheckModel(Base):
 
 class ErrorReportModel(Base):
     """Database model for error reports."""
+
     __tablename__ = "hermes_error_reports"
 
     id = Column(String, primary_key=True)
@@ -69,6 +73,7 @@ class ErrorReportModel(Base):
 
 class RecoveryResultModel(Base):
     """Database model for recovery action results."""
+
     __tablename__ = "hermes_recovery_results"
 
     id = Column(String, primary_key=True)
@@ -81,6 +86,7 @@ class RecoveryResultModel(Base):
 
 class ResourceModel(Base):
     """Database model for resources."""
+
     __tablename__ = "hermes_resources"
 
     id = Column(String, primary_key=True)
@@ -98,6 +104,7 @@ class ResourceModel(Base):
 
 class ResourceAllocationModel(Base):
     """Database model for resource allocations."""
+
     __tablename__ = "hermes_resource_allocations"
 
     id = Column(String, primary_key=True)
@@ -113,6 +120,7 @@ class ResourceAllocationModel(Base):
 
 class PricingAdjustmentModel(Base):
     """Database model for pricing adjustments."""
+
     __tablename__ = "hermes_pricing_adjustments"
 
     id = Column(String, primary_key=True)

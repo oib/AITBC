@@ -3,7 +3,6 @@
 AITBC CLI Setup Script
 """
 
-
 from setuptools import find_packages, setup
 
 
@@ -11,6 +10,7 @@ from setuptools import find_packages, setup
 def read_readme():
     with open("docs/README.md", encoding="utf-8") as fh:
         return fh.read()
+
 
 # Read requirements from pyproject.toml
 def read_requirements():
@@ -22,6 +22,7 @@ def read_requirements():
         "requests",
         "cryptography",
     ]
+
 
 setup(
     name="aitbc-cli",

@@ -29,7 +29,7 @@ def get_wallet_client() -> AITBCHTTPClient:
 
 def encrypt_value(value: str, password: str) -> str:
     """Simple encryption for wallet data
-    
+
     NOTE: This is a simple placeholder implementation that doesn't actually encrypt.
     Wallet daemon mode handles encryption server-side, so client-side encryption is not needed.
     For production use with direct wallet file access, upgrade to proper encryption (e.g., cryptography.fernet).
@@ -40,7 +40,7 @@ def encrypt_value(value: str, password: str) -> str:
 
 def decrypt_value(encrypted: str, password: str) -> str:
     """Simple decryption for wallet data
-    
+
     NOTE: This is a simple placeholder implementation that doesn't actually decrypt.
     Wallet daemon mode handles encryption server-side, so client-side decryption is not needed.
     For production use with direct wallet file access, upgrade to proper encryption (e.g., cryptography.fernet).
@@ -63,6 +63,7 @@ def _get_wallet_password(wallet_name: str) -> str:
 
     # Check if we're in a TTY environment
     import sys
+
     if not sys.stdin.isatty():
         # Non-interactive: try environment variable
         password = os.environ.get(f"AITBC_WALLET_PASSWORD_{wallet_name.upper()}")
@@ -124,9 +125,7 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
     if wallet_data.get("encrypted") and "private_key" in wallet_data:
         password = _get_wallet_password(wallet_name)
         try:
-            wallet_data["private_key"] = decrypt_value(
-                wallet_data["private_key"], password
-            )
+            wallet_data["private_key"] = decrypt_value(wallet_data["private_key"], password)
         except Exception:
             error("Invalid password for wallet")
             raise click.Abort()
@@ -136,9 +135,7 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
 
 @click.group()
 @click.option("--wallet-name", help="Name of the wallet to use")
-@click.option(
-    "--wallet-path", help="Direct path to wallet file (overrides --wallet-name)"
-)
+@click.option("--wallet-path", help="Direct path to wallet file (overrides --wallet-name)")
 @click.option("--use-daemon", is_flag=True, default=True, help="Use wallet daemon for operations")
 @click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
 @click.pass_context
@@ -152,8 +149,9 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
 
     # Handle chain_id with auto-detection
     from ..utils.chain_id import get_chain_id
+
     config = get_config()
-    default_rpc_url = config.blockchain_rpc_url if hasattr(config, 'blockchain_rpc_url') else 'http://localhost:8006'
+    default_rpc_url = config.blockchain_rpc_url if hasattr(config, "blockchain_rpc_url") else "http://localhost:8006"
     ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
 
     # Initialize dual-mode adapter
@@ -198,9 +196,7 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
 @wallet.command()
 @click.argument("name")
 @click.option("--type", "wallet_type", default="hd", help="Wallet type (hd, simple)")
-@click.option(
-    "--no-encrypt", is_flag=True, help="Skip wallet encryption (not recommended)"
-)
+@click.option("--no-encrypt", is_flag=True, help="Skip wallet encryption (not recommended)")
 @click.pass_context
 def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
     """Create a new wallet"""
@@ -228,13 +224,9 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
         private_key = f"0x{private_key_bytes.hex()}"
 
         # Derive public key from private key using ECDSA
-        priv_key = ec.derive_private_key(
-            int.from_bytes(private_key_bytes, "big"), ec.SECP256K1()
-        )
+        priv_key = ec.derive_private_key(int.from_bytes(private_key_bytes, "big"), ec.SECP256K1())
         pub_key = priv_key.public_key()
-        pub_key_bytes = pub_key.public_bytes(
-            encoding=Encoding.X962, format=PublicFormat.UncompressedPoint
-        )
+        pub_key_bytes = pub_key.public_bytes(encoding=Encoding.X962, format=PublicFormat.UncompressedPoint)
         public_key = f"0x{pub_key_bytes.hex()}"
 
         # Generate address from public key (simplified)
@@ -264,9 +256,7 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
     # Get password for encryption unless skipped
     password = None
     if not no_encrypt:
-        success(
-            "Wallet encryption is enabled. Your private key will be encrypted at rest."
-        )
+        success("Wallet encryption is enabled. Your private key will be encrypted at rest.")
         password = _get_wallet_password(name)
 
     # Save wallet
@@ -298,6 +288,7 @@ def list(ctx):
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
 
         from ..config import get_config
+
         config = get_config()
         adapter = DualModeWalletAdapter(config, use_daemon=False)
 
@@ -312,9 +303,11 @@ def list(ctx):
         output_format = ctx.obj.get("output_format", "table")
         if output_format == "json":
             import json
+
             output(json.dumps(wallets, indent=2))
         elif output_format == "yaml":
             import yaml
+
             output(yaml.dump(wallets, default_flow_style=False))
         else:
             # Table format
@@ -378,9 +371,7 @@ def delete(ctx, name: str, confirm: bool):
         return
 
     if not confirm:
-        if not click.confirm(
-            f"Are you sure you want to delete wallet '{name}'? This cannot be undone."
-        ):
+        if not click.confirm(f"Are you sure you want to delete wallet '{name}'? This cannot be undone."):
             return
 
     wallet_path.unlink()
@@ -479,9 +470,7 @@ def info(ctx):
     config_file = Path.home() / ".aitbc" / "config.yaml"
 
     if not wallet_path.exists():
-        error(
-            f"Wallet '{wallet_name}' not found. Use 'aitbc wallet create' to create one."
-        )
+        error(f"Wallet '{wallet_name}' not found. Use 'aitbc wallet create' to create one.")
         return
 
     wallet_data = _load_wallet(wallet_path, wallet_name)
@@ -524,7 +513,7 @@ def balance(ctx, name: str | None):
     try:
         client = get_wallet_client()
         balance_data = client.get(f"/v1/wallets/{wallet_name}/balance")
-        output(balance_data, ctx.obj.get('output_format', 'table'), title=f"Wallet: {wallet_name}")
+        output(balance_data, ctx.obj.get("output_format", "table"), title=f"Wallet: {wallet_name}")
     except Exception as e:
         error(f"Error getting wallet balance: {e}")
         raise click.Abort()
@@ -573,23 +562,24 @@ def transactions(ctx, name: str | None, limit: int):
         # Format transactions
         formatted_txs = []
         for tx in transactions:
-            formatted_txs.append({
-                "tx_id": tx.get("transaction_id"),
-                "tx_hash": tx.get("tx_hash", "")[:16] + "...",
-                "sender": tx.get("sender", "")[:20] + "...",
-                "recipient": tx.get("recipient", "")[:20] + "...",
-                "value": tx.get("value"),
-                "fee": tx.get("fee"),
-                "status": tx.get("status"),
-                "timestamp": tx.get("created_at", "")[:19]
-            })
+            formatted_txs.append(
+                {
+                    "tx_id": tx.get("transaction_id"),
+                    "tx_hash": tx.get("tx_hash", "")[:16] + "...",
+                    "sender": tx.get("sender", "")[:20] + "...",
+                    "recipient": tx.get("recipient", "")[:20] + "...",
+                    "value": tx.get("value"),
+                    "fee": tx.get("fee"),
+                    "status": tx.get("status"),
+                    "timestamp": tx.get("created_at", "")[:19],
+                }
+            )
 
-        output({
-            "wallet": wallet_name,
-            "address": address,
-            "count": len(formatted_txs),
-            "transactions": formatted_txs
-        }, ctx.obj.get('output_format', 'table'), title=f"Transactions: {wallet_name}")
+        output(
+            {"wallet": wallet_name, "address": address, "count": len(formatted_txs), "transactions": formatted_txs},
+            ctx.obj.get("output_format", "table"),
+            title=f"Transactions: {wallet_name}",
+        )
     except Exception as e:
         error(f"Error getting transactions: {e}")
         raise click.Abort()
@@ -738,17 +728,20 @@ def send(ctx, to_address: str, amount: float, fee: float, password: str | None, 
     # Get RPC URL from context or parameter (use hub for cross-node transfers)
     if not rpc_url:
         from ..config import get_config
+
         config = get_config()
-        rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
         # Use hub RPC for cross-node transaction propagation
-        rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+        rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
     # Get chain_id from RPC
     try:
         from ..utils.chain_id import get_chain_id
+
         chain_id = get_chain_id(rpc_url, override=None, timeout=5)
     except Exception:
         import os
+
         chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
     # Get actual nonce from blockchain
@@ -763,6 +756,7 @@ def send(ctx, to_address: str, amount: float, fee: float, password: str | None, 
     # Get private key for signing
     try:
         from cryptography.hazmat.primitives.asymmetric import ed25519
+
         private_key_hex = wallet_data.get("private_key")
         if not private_key_hex:
             error("Wallet does not contain private key")
@@ -780,14 +774,12 @@ def send(ctx, to_address: str, amount: float, fee: float, password: str | None, 
         "from": sender_address,
         "nonce": actual_nonce,
         "fee": int(fee),
-        "payload": {
-            "recipient": to_address,
-            "amount": int(amount)
-        }
+        "payload": {"recipient": to_address, "amount": int(amount)},
     }
 
     # Sign transaction
     import json
+
     message = json.dumps(transaction, sort_keys=True).encode()
     signature = private_key.sign(message)
     transaction["signature"] = signature.hex()
@@ -798,14 +790,17 @@ def send(ctx, to_address: str, amount: float, fee: float, password: str | None, 
         result = http_client.post("/rpc/transaction", json=transaction)
         tx_hash = result.get("transaction_hash")
         success(f"Transaction submitted: {tx_hash}")
-        output({
-            "transaction_hash": tx_hash,
-            "from": sender_address,
-            "to": to_address,
-            "amount": amount,
-            "fee": fee,
-            "chain_id": chain_id
-        }, ctx.obj.get("output_format", "table"))
+        output(
+            {
+                "transaction_hash": tx_hash,
+                "from": sender_address,
+                "to": to_address,
+                "amount": amount,
+                "fee": fee,
+                "chain_id": chain_id,
+            },
+            ctx.obj.get("output_format", "table"),
+        )
         return tx_hash
     except Exception as e:
         error(f"Error submitting transaction: {e}")
@@ -863,14 +858,8 @@ def stats(ctx):
     transactions = wallet_data.get("transactions", [])
 
     # Calculate stats
-    total_earned = sum(
-        tx["amount"] for tx in transactions if tx["type"] == "earn" and tx["amount"] > 0
-    )
-    total_spent = sum(
-        abs(tx["amount"])
-        for tx in transactions
-        if tx["type"] in ["spend", "send"] and tx["amount"] < 0
-    )
+    total_earned = sum(tx["amount"] for tx in transactions if tx["type"] == "earn" and tx["amount"] > 0)
+    total_spent = sum(abs(tx["amount"]) for tx in transactions if tx["type"] in ["spend", "send"] and tx["amount"] < 0)
     jobs_completed = len([tx for tx in transactions if tx["type"] == "earn"])
 
     output(
@@ -906,20 +895,24 @@ def stake(ctx, amount: float, duration: int):
 
     # Convert bech32 address to hex for RPC compatibility
     from ..utils.crypto_utils import bech32_to_hex
+
     hex_address = bech32_to_hex(sender_address)
 
     # Get RPC URL from config (use hub for cross-node operations)
     from ..config import get_config
+
     config = get_config()
-    rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
-    rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+    rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+    rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
     # Get chain_id
     try:
         from ..utils.chain_id import get_chain_id
+
         chain_id = get_chain_id(rpc_url, override=None, timeout=5)
     except Exception:
         import os
+
         chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
     # Submit staking request to blockchain RPC
@@ -929,20 +922,23 @@ def stake(ctx, amount: float, duration: int):
             "address": hex_address,
             "amount": int(amount * 10**18),  # Convert to wei
             "lock_days": duration,
-            "chain_id": chain_id
+            "chain_id": chain_id,
         }
         result = http_client.post("/rpc/staking/stake", json=stake_data)
 
         success(f"Staked {amount} AITBC for {duration} days")
-        output({
-            "wallet": wallet_name,
-            "stake_id": result.get("stake_id"),
-            "amount": amount,
-            "duration_days": duration,
-            "locked_until": result.get("locked_until"),
-            "remaining_balance": result.get("remaining_balance"),
-            "chain_id": chain_id
-        }, ctx.obj.get("output_format", "table"))
+        output(
+            {
+                "wallet": wallet_name,
+                "stake_id": result.get("stake_id"),
+                "amount": amount,
+                "duration_days": duration,
+                "locked_until": result.get("locked_until"),
+                "remaining_balance": result.get("remaining_balance"),
+                "chain_id": chain_id,
+            },
+            ctx.obj.get("output_format", "table"),
+        )
     except Exception as e:
         error(f"Error staking tokens: {e}")
         raise click.Abort()
@@ -965,41 +961,44 @@ def unstake(ctx, stake_id: str):
 
     # Convert bech32 address to hex for RPC compatibility
     from ..utils.crypto_utils import bech32_to_hex
+
     hex_address = bech32_to_hex(sender_address)
 
     # Get RPC URL from config (use hub for cross-node operations)
     from ..config import get_config
+
     config = get_config()
-    rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
-    rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+    rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+    rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
     # Get chain_id
     try:
         from ..utils.chain_id import get_chain_id
+
         chain_id = get_chain_id(rpc_url, override=None, timeout=5)
     except Exception:
         import os
+
         chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
     # Submit unstaking request to blockchain RPC
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        unstake_data = {
-            "address": hex_address,
-            "stake_id": int(stake_id),
-            "chain_id": chain_id
-        }
+        unstake_data = {"address": hex_address, "stake_id": int(stake_id), "chain_id": chain_id}
         result = http_client.post("/rpc/staking/unstake", json=unstake_data)
 
         success(f"Unstaked tokens from stake {stake_id}")
-        output({
-            "wallet": wallet_name,
-            "stake_id": stake_id,
-            "amount": result.get("amount"),
-            "new_balance": result.get("new_balance"),
-            "status": result.get("status"),
-            "chain_id": chain_id
-        }, ctx.obj.get("output_format", "table"))
+        output(
+            {
+                "wallet": wallet_name,
+                "stake_id": stake_id,
+                "amount": result.get("amount"),
+                "new_balance": result.get("new_balance"),
+                "status": result.get("status"),
+                "chain_id": chain_id,
+            },
+            ctx.obj.get("output_format", "table"),
+        )
     except Exception as e:
         error(f"Error unstaking tokens: {e}")
         raise click.Abort()
@@ -1021,20 +1020,24 @@ def staking_info(ctx):
 
     # Convert bech32 address to hex for RPC compatibility
     from ..utils.crypto_utils import bech32_to_hex
+
     hex_address = bech32_to_hex(sender_address)
 
     # Get RPC URL from config (use hub for cross-node operations)
     from ..config import get_config
+
     config = get_config()
-    rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
-    rpc_url = rpc_url.replace('localhost', config.hub_discovery_url or 'hub.aitbc.bubuit.net')
+    rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+    rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
     # Get chain_id
     try:
         from ..utils.chain_id import get_chain_id
+
         chain_id = get_chain_id(rpc_url, override=None, timeout=5)
     except Exception:
         import os
+
         chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
     # Query staking info from blockchain RPC
@@ -1042,14 +1045,17 @@ def staking_info(ctx):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.get(f"/rpc/staking/{hex_address}?chain_id={chain_id}")
 
-        output({
-            "wallet": wallet_name,
-            "address": sender_address,
-            "chain_id": chain_id,
-            "total_staked": result.get("total_staked"),
-            "active_stake_count": result.get("active_stake_count"),
-            "active_stakes": result.get("active_stakes", [])
-        }, ctx.obj.get("output_format", "table"))
+        output(
+            {
+                "wallet": wallet_name,
+                "address": sender_address,
+                "chain_id": chain_id,
+                "total_staked": result.get("total_staked"),
+                "active_stake_count": result.get("active_stake_count"),
+                "active_stakes": result.get("active_stakes", []),
+            },
+            ctx.obj.get("output_format", "table"),
+        )
     except Exception as e:
         error(f"Error fetching staking info: {e}")
         raise click.Abort()
@@ -1057,9 +1063,7 @@ def staking_info(ctx):
 
 @wallet.command(name="multisig-create")
 @click.argument("signers", nargs=-1, required=True)
-@click.option(
-    "--threshold", type=int, required=True, help="Required signatures to approve"
-)
+@click.option("--threshold", type=int, required=True, help="Required signatures to approve")
 @click.option("--name", required=True, help="Multisig wallet name")
 @click.pass_context
 def multisig_create(ctx, signers: tuple, threshold: int, name: str):
@@ -1073,9 +1077,7 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
         return
 
     if threshold > len(signers):
-        error(
-            f"Threshold ({threshold}) cannot exceed number of signers ({len(signers)})"
-        )
+        error(f"Threshold ({threshold}) cannot exceed number of signers ({len(signers)})")
         return
 
     import secrets
@@ -1113,9 +1115,7 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
 @click.argument("amount", type=float)
 @click.option("--description", help="Transaction description")
 @click.pass_context
-def multisig_propose(
-    ctx, wallet_name: str, to_address: str, amount: float, description: str | None
-):
+def multisig_propose(ctx, wallet_name: str, to_address: str, amount: float, description: str | None):
     """Propose a multisig transaction"""
     wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
     multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
@@ -1128,9 +1128,7 @@ def multisig_propose(
         ms_data = json.load(f)
 
     if ms_data.get("balance", 0) < amount:
-        error(
-            f"Insufficient balance. Available: {ms_data['balance']}, Required: {amount}"
-        )
+        error(f"Insufficient balance. Available: {ms_data['balance']}, Required: {amount}")
         ctx.exit(1)
         return
 
@@ -1188,9 +1186,7 @@ def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
         return
 
     pending = ms_data.get("pending_transactions", [])
-    tx = next(
-        (t for t in pending if t["tx_id"] == tx_id and t["status"] == "pending"), None
-    )
+    tx = next((t for t in pending if t["tx_id"] == tx_id and t["status"] == "pending"), None)
 
     if not tx:
         error(f"Pending transaction '{tx_id}' not found")
@@ -1220,9 +1216,7 @@ def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
         )
         success(f"Transaction {tx_id} approved and executed!")
     else:
-        success(
-            f"Signed. {len(tx['signatures'])}/{ms_data['threshold']} signatures collected"
-        )
+        success(f"Signed. {len(tx['signatures'])}/{ms_data['threshold']} signatures collected")
 
     with open(multisig_path, "w") as f:
         json.dump(ms_data, f, indent=2)
@@ -1241,9 +1235,7 @@ def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
 @wallet.command(name="liquidity-stake")
 @click.argument("amount", type=float)
 @click.option("--pool", default="main", help="Liquidity pool name")
-@click.option(
-    "--lock-days", type=int, default=0, help="Lock period in days (higher APY)"
-)
+@click.option("--lock-days", type=int, default=0, help="Lock period in days (higher APY)")
 @click.pass_context
 def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
     """Stake tokens into a liquidity pool"""
@@ -1289,9 +1281,7 @@ def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
         "tier": tier,
         "lock_days": lock_days,
         "start_date": now.isoformat(),
-        "unlock_date": (now + timedelta(days=lock_days)).isoformat()
-        if lock_days > 0
-        else None,
+        "unlock_date": (now + timedelta(days=lock_days)).isoformat() if lock_days > 0 else None,
         "status": "active",
     }
 
@@ -1392,9 +1382,7 @@ def liquidity_unstake(ctx, stake_id: str):
         password = _get_wallet_password(wallet_name)
     _save_wallet(Path(wallet_path), wallet_data, password)
 
-    success(
-        f"Withdrawn {total:.6f} AITBC (principal: {record['amount']}, rewards: {rewards:.6f})"
-    )
+    success(f"Withdrawn {total:.6f} AITBC (principal: {record['amount']}, rewards: {rewards:.6f})")
     output(
         {
             "stake_id": stake_id,
@@ -1427,18 +1415,12 @@ def rewards(ctx):
     liquidity = wallet_data.get("liquidity", [])
 
     # Staking rewards
-    staking_rewards = sum(
-        s.get("rewards", 0) for s in staking if s.get("status") == "completed"
-    )
+    staking_rewards = sum(s.get("rewards", 0) for s in staking if s.get("status") == "completed")
     active_staking = sum(s["amount"] for s in staking if s.get("status") == "active")
 
     # Liquidity rewards
-    liq_rewards = sum(
-        r.get("rewards", 0) for r in liquidity if r.get("status") == "completed"
-    )
-    active_liquidity = sum(
-        r["amount"] for r in liquidity if r.get("status") == "active"
-    )
+    liq_rewards = sum(r.get("rewards", 0) for r in liquidity if r.get("status") == "completed")
+    active_liquidity = sum(r["amount"] for r in liquidity if r.get("status") == "active")
 
     # Estimate pending rewards for active positions
     pending_staking = 0
@@ -1484,7 +1466,7 @@ def fund(ctx, address: str, amount: int, chain_id: str):
     from ..utils.chain_id import get_chain_id
 
     config = get_config()
-    rpc_url = config.blockchain_rpc_url if hasattr(config, 'blockchain_rpc_url') else 'http://localhost:8006'
+    rpc_url = config.blockchain_rpc_url if hasattr(config, "blockchain_rpc_url") else "http://localhost:8006"
 
     # Get chain_id
     if not chain_id:
@@ -1497,11 +1479,7 @@ def fund(ctx, address: str, amount: int, chain_id: str):
 
     # Call faucet endpoint
     faucet_url = f"{rpc_url}/faucet"
-    faucet_data = {
-        "address": address,
-        "amount": amount,
-        "chain_id": chain_id
-    }
+    faucet_data = {"address": address, "amount": amount, "chain_id": chain_id}
 
     try:
         response = httpx.post(faucet_url, json=faucet_data, timeout=10)
@@ -1520,7 +1498,7 @@ def fund(ctx, address: str, amount: int, chain_id: str):
 
 
 @wallet.command()
-@click.option('--destination', help='Destination file path (default: wallet_name_export.json)')
+@click.option("--destination", help="Destination file path (default: wallet_name_export.json)")
 @click.pass_context
 def export(ctx, destination: str | None):
     """Export wallet to JSON file"""
@@ -1541,23 +1519,26 @@ def export(ctx, destination: str | None):
         export_path = Path(destination)
 
         # Write export file
-        with open(export_path, 'w') as f:
+        with open(export_path, "w") as f:
             json.dump(wallet_data, f, indent=2)
 
         success(f"Wallet exported to {export_path}")
-        output({
-            "wallet": wallet_name,
-            "exported_to": str(export_path),
-            "address": wallet_data.get("address"),
-            "balance": wallet_data.get("balance", 0)
-        }, ctx.obj.get("output_format", "table"))
+        output(
+            {
+                "wallet": wallet_name,
+                "exported_to": str(export_path),
+                "address": wallet_data.get("address"),
+                "balance": wallet_data.get("balance", 0),
+            },
+            ctx.obj.get("output_format", "table"),
+        )
     except Exception as e:
         error(f"Error exporting wallet: {e}")
 
 
 @wallet.command()
-@click.argument('file_path')
-@click.option('--name', help='New wallet name (default: from file)')
+@click.argument("file_path")
+@click.option("--name", help="New wallet name (default: from file)")
 @click.pass_context
 def import_wallet(ctx, file_path: str, name: str | None):
     """Import wallet from JSON file"""
@@ -1583,18 +1564,20 @@ def import_wallet(ctx, file_path: str, name: str | None):
                 return
 
         # Save imported wallet
-        with open(wallet_path, 'w') as f:
+        with open(wallet_path, "w") as f:
             json.dump(wallet_data, f, indent=2)
 
         success(f"Wallet imported as '{wallet_name}'")
-        output({
-            "wallet": wallet_name,
-            "imported_from": str(import_path),
-            "address": wallet_data.get("address"),
-            "balance": wallet_data.get("balance", 0)
-        }, ctx.obj.get("output_format", "table"))
+        output(
+            {
+                "wallet": wallet_name,
+                "imported_from": str(import_path),
+                "address": wallet_data.get("address"),
+                "balance": wallet_data.get("balance", 0),
+            },
+            ctx.obj.get("output_format", "table"),
+        )
     except json.JSONDecodeError:
         error("Invalid JSON file")
     except Exception as e:
         error(f"Error importing wallet: {e}")
-

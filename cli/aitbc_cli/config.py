@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class BaseAITBCConfig(BaseSettings):
     """Base configuration class"""
+
     pass
 
 
@@ -25,7 +26,7 @@ class CLIConfig(BaseAITBCConfig):
         ],
         env_file_encoding="utf-8",
         case_sensitive=False,
-        extra="ignore"
+        extra="ignore",
     )
 
     # CLI-specific settings
@@ -51,7 +52,9 @@ class CLIConfig(BaseAITBCConfig):
 
     # Chain configuration
     chain_id: str = Field(default="ait-mainnet", description="Default chain ID for multichain operations")
-    hub_discovery_url: str | None = Field(default=None, description="Hub discovery DNS for cross-node operations (from HUB_DISCOVERY_URL env var)")
+    hub_discovery_url: str | None = Field(
+        default=None, description="Hub discovery DNS for cross-node operations (from HUB_DISCOVERY_URL env var)"
+    )
 
     # Authentication
     api_key: str | None = Field(default=None, description="API key for authentication")
@@ -70,6 +73,7 @@ def get_config(config_file: str | None = None) -> CLIConfig:
         config_path = Path(config_file)
         if config_path.exists():
             import yaml
+
             with open(config_path) as f:
                 config_data = yaml.safe_load(f) or {}
 
@@ -78,9 +82,8 @@ def get_config(config_file: str | None = None) -> CLIConfig:
                 coordinator_url=config_data.get("coordinator_url", "http://localhost:8203"),
                 wallet_daemon_url=config_data.get("wallet_url", "http://localhost:8003"),
                 api_key=config_data.get("api_key"),
-                timeout=config_data.get("timeout", 30)
+                timeout=config_data.get("timeout", 30),
             )
 
     # Use shared config system with environment variables
     return CLIConfig()
-

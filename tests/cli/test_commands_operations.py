@@ -22,8 +22,9 @@ class TestOperationsCommands:
         """Test that operations command group exists"""
         try:
             from aitbc_cli.commands.operations import operations
+
             assert operations is not None
-            assert hasattr(operations, 'name')
+            assert hasattr(operations, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import operations commands: {e}")
 
@@ -31,12 +32,13 @@ class TestOperationsCommands:
         """Test operations group name"""
         try:
             from aitbc_cli.commands.operations import operations
+
             assert operations.name == "operations"
         except ImportError as e:
             pytest.skip(f"Cannot import operations commands: {e}")
 
-    @patch('aitbc_cli.commands.operations.output')
-    @patch('aitbc_cli.commands.operations.error')
+    @patch("aitbc_cli.commands.operations.output")
+    @patch("aitbc_cli.commands.operations.error")
     def test_operations_commands(self, mock_error, mock_output):
         """Test operations commands - skip due to complex dependencies"""
         pytest.skip("Operations commands have complex wallet and cryptography dependencies")

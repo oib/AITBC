@@ -29,7 +29,7 @@ class TestDualModeWalletAdapter:
         assert adapter.daemon_client is None
         assert adapter.wallet_dir.exists()
 
-    @patch('aitbc_cli.utils.dual_mode_wallet_adapter.WalletDaemonClient')
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.WalletDaemonClient")
     def test_init_daemon_mode(self, mock_client):
         """Test initialization in daemon mode"""
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
@@ -49,7 +49,7 @@ class TestDualModeWalletAdapter:
 
         assert adapter.is_daemon_available() is False
 
-    @patch('aitbc_cli.utils.dual_mode_wallet_adapter.WalletDaemonClient')
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.WalletDaemonClient")
     def test_is_daemon_available_with_client(self, mock_client):
         """Test daemon availability with client"""
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
@@ -74,7 +74,7 @@ class TestDualModeWalletAdapter:
         assert status["status"] == "disabled"
         assert "Daemon mode not enabled" in status["message"]
 
-    @patch('aitbc_cli.utils.dual_mode_wallet_adapter.WalletDaemonClient')
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.WalletDaemonClient")
     def test_get_daemon_status_with_client(self, mock_client):
         """Test getting daemon status with client"""
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
@@ -90,8 +90,8 @@ class TestDualModeWalletAdapter:
 
         assert status["status"] == "running"
 
-    @patch('aitbc_cli.utils.dual_mode_wallet_adapter.WalletDaemonClient')
-    @patch('aitbc_cli.utils.dual_mode_wallet_adapter.success')
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.WalletDaemonClient")
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.success")
     def test_create_wallet_daemon_mode(self, mock_success, mock_client):
         """Test creating wallet in daemon mode"""
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
@@ -117,8 +117,8 @@ class TestDualModeWalletAdapter:
         assert result["wallet_id"] == "wallet123"
         mock_success.assert_called_once()
 
-    @patch('aitbc_cli.utils.dual_mode_wallet_adapter.WalletDaemonClient')
-    @patch('aitbc_cli.utils.dual_mode_wallet_adapter.error')
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.WalletDaemonClient")
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.error")
     def test_create_wallet_daemon_unavailable(self, mock_error, mock_client):
         """Test creating wallet when daemon unavailable"""
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
@@ -136,7 +136,7 @@ class TestDualModeWalletAdapter:
         # error is called at least once
         assert mock_error.call_count >= 1
 
-    @patch('aitbc_cli.utils.dual_mode_wallet_adapter.error')
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.error")
     def test_create_wallet_file_mode_simple(self, mock_error):
         """Test creating simple wallet in file mode - skip due to import issues"""
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
@@ -148,7 +148,7 @@ class TestDualModeWalletAdapter:
             # Skip this test due to import issues in source file
             pytest.skip("File mode wallet creation has import issues")
 
-    @patch('aitbc_cli.utils.dual_mode_wallet_adapter.error')
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.error")
     def test_create_wallet_file_mode_hd(self, mock_error):
         """Test creating HD wallet in file mode - skip due to import issues"""
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
@@ -160,7 +160,7 @@ class TestDualModeWalletAdapter:
             # Skip this test due to import issues in source file
             pytest.skip("File mode wallet creation has import issues")
 
-    @patch('aitbc_cli.utils.dual_mode_wallet_adapter.error')
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.error")
     def test_create_wallet_file_exists(self, mock_error):
         """Test creating wallet when file already exists - skip due to import issues"""
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter

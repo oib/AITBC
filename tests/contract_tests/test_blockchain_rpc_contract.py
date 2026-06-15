@@ -3,7 +3,6 @@ Contract tests for AITBC blockchain RPC interactions.
 Tests verify that the blockchain RPC API maintains expected contracts and behaviors.
 """
 
-
 import httpx
 import pytest
 
@@ -17,35 +16,13 @@ class BlockchainRPCContract:
     BASE_URL = "http://localhost:8202"
 
     # Expected response structures
-    BLOCK_RESPONSE_SCHEMA = {
-        "height": int,
-        "hash": str,
-        "parent_hash": str,
-        "timestamp": int,
-        "transactions": list
-    }
+    BLOCK_RESPONSE_SCHEMA = {"height": int, "hash": str, "parent_hash": str, "timestamp": int, "transactions": list}
 
-    TRANSACTION_RESPONSE_SCHEMA = {
-        "hash": str,
-        "from": str,
-        "to": str,
-        "value": str,
-        "nonce": int,
-        "gas": int
-    }
+    TRANSACTION_RESPONSE_SCHEMA = {"hash": str, "from": str, "to": str, "value": str, "nonce": int, "gas": int}
 
-    ACCOUNT_RESPONSE_SCHEMA = {
-        "address": str,
-        "balance": int,
-        "nonce": int
-    }
+    ACCOUNT_RESPONSE_SCHEMA = {"address": str, "balance": int, "nonce": int}
 
-    STATUS_RESPONSE_SCHEMA = {
-        "syncing": bool,
-        "current_block": int,
-        "highest_block": int,
-        "peers": int
-    }
+    STATUS_RESPONSE_SCHEMA = {"syncing": bool, "current_block": int, "highest_block": int, "peers": int}
 
 
 @pytest.mark.contract
@@ -65,7 +42,7 @@ class TestBlockchainRPCContracts:
     def test_get_block_contract(self, client, rpc_url):
         """
         Test contract for getting a block by height.
-        
+
         Contract:
         - GET /rpc/blocks/{height} should return block data
         - Response should contain required fields: height, hash, parent_hash, timestamp, transactions
@@ -103,7 +80,7 @@ class TestBlockchainRPCContracts:
     def test_get_head_block_contract(self, client, rpc_url):
         """
         Test contract for getting the head block.
-        
+
         Contract:
         - GET /rpc/head should return current head block
         - Response should contain height and hash
@@ -131,7 +108,7 @@ class TestBlockchainRPCContracts:
     def test_get_transaction_contract(self, client, rpc_url):
         """
         Test contract for getting a transaction by hash.
-        
+
         Contract:
         - GET /rpc/transaction/{hash} should return transaction data
         - Response should contain: hash, from, to, value, nonce
@@ -158,7 +135,7 @@ class TestBlockchainRPCContracts:
     def test_get_account_balance_contract(self, client, rpc_url):
         """
         Test contract for getting account balance.
-        
+
         Contract:
         - GET /rpc/account/{address} should return account data
         - Response should contain: address, balance, nonce
@@ -190,7 +167,7 @@ class TestBlockchainRPCContracts:
     def test_send_transaction_contract(self, client, rpc_url):
         """
         Test contract for sending a transaction.
-        
+
         Contract:
         - POST /rpc/transaction should accept transaction payload
         - Response should contain transaction hash if successful
@@ -203,7 +180,7 @@ class TestBlockchainRPCContracts:
                 "to": "0x" + "b" * 40,
                 "value": "1000000000000000000",  # 1 ETH in wei
                 "nonce": 0,
-                "gas": 21000
+                "gas": 21000,
             }
 
             response = client.post(f"{rpc_url}/rpc/transaction", json=tx_payload)
@@ -222,7 +199,7 @@ class TestBlockchainRPCContracts:
     def test_get_peers_contract(self, client, rpc_url):
         """
         Test contract for getting network peers.
-        
+
         Contract:
         - GET /rpc/peers should return peer information
         - Response should be a list of peers
@@ -252,7 +229,7 @@ class TestBlockchainRPCContracts:
     def test_get_status_contract(self, client, rpc_url):
         """
         Test contract for getting node status.
-        
+
         Contract:
         - GET /rpc/status should return node status
         - Response should contain: syncing status, current block, highest block
@@ -275,8 +252,7 @@ class TestBlockchainRPCContracts:
                     assert isinstance(data["syncing"], bool), "Syncing should be boolean"
 
                 if "current_block" in data and "highest_block" in data:
-                    assert data["current_block"] <= data["highest_block"], \
-                        "Current block should not exceed highest block"
+                    assert data["current_block"] <= data["highest_block"], "Current block should not exceed highest block"
 
         except httpx.ConnectError:
             pytest.skip("Blockchain RPC not available")
@@ -284,7 +260,7 @@ class TestBlockchainRPCContracts:
     def test_rpc_response_format_contract(self, client, rpc_url):
         """
         Test contract for RPC response format.
-        
+
         Contract:
         - All RPC responses should be JSON
         - Content-Type should be application/json
@@ -292,19 +268,16 @@ class TestBlockchainRPCContracts:
         """
         try:
             # Test multiple endpoints
-            endpoints = [
-                "/rpc/head",
-                "/rpc/status",
-                "/rpc/peers"
-            ]
+            endpoints = ["/rpc/head", "/rpc/status", "/rpc/peers"]
 
             for endpoint in endpoints:
                 response = client.get(f"{rpc_url}{endpoint}")
 
                 if response.status_code == 200:
                     # Contract: Should have JSON content type
-                    assert "application/json" in response.headers.get("content-type", ""), \
+                    assert "application/json" in response.headers.get("content-type", ""), (
                         f"{endpoint} should return JSON content type"
+                    )
 
                     # Contract: Should be parseable as JSON
                     try:
@@ -318,7 +291,7 @@ class TestBlockchainRPCContracts:
     def test_rpc_error_handling_contract(self, client, rpc_url):
         """
         Test contract for RPC error handling.
-        
+
         Contract:
         - Invalid endpoints should return 404
         - Invalid requests should return 400
@@ -351,7 +324,7 @@ class TestBlockchainRPCTimeouts:
     def test_rpc_timeout_contract(self, slow_client, rpc_url):
         """
         Test contract for RPC timeout handling.
-        
+
         Contract:
         - Requests should respect timeout settings
         - Timeout should raise appropriate exception

@@ -26,7 +26,7 @@ from handlers.network import (
 class TestHandleNetworkStatus:
     """Test handle_network_status function"""
 
-    @patch('click.echo')
+    @patch("click.echo")
     def test_handle_network_status_success(self, mock_echo):
         """Test successful network status query"""
         args = Mock()
@@ -39,8 +39,8 @@ class TestHandleNetworkStatus:
                 "nodes": [
                     {"name": "local", "healthy": True},
                     {"name": "peer1", "healthy": True},
-                    {"name": "peer2", "healthy": False}
-                ]
+                    {"name": "peer2", "healthy": False},
+                ],
             }
 
         handle_network_status(args, "http://localhost:8006", get_network_snapshot)
@@ -51,7 +51,7 @@ class TestHandleNetworkStatus:
 class TestHandleNetworkPeers:
     """Test handle_network_peers function"""
 
-    @patch('handlers.network.logger')
+    @patch("handlers.network.logger")
     def test_handle_network_peers_success(self, mock_logger):
         """Test successful network peers query"""
         args = Mock()
@@ -61,7 +61,7 @@ class TestHandleNetworkPeers:
             return {
                 "nodes": [
                     {"name": "peer1", "rpc_url": "http://localhost:8006", "healthy": True, "error": None},
-                    {"name": "peer2", "rpc_url": "http://localhost:8007", "healthy": False, "error": "timeout"}
+                    {"name": "peer2", "rpc_url": "http://localhost:8007", "healthy": False, "error": "timeout"},
                 ]
             }
 
@@ -73,7 +73,7 @@ class TestHandleNetworkPeers:
 class TestHandleNetworkSync:
     """Test handle_network_sync function"""
 
-    @patch('click.echo')
+    @patch("click.echo")
     def test_handle_network_sync_success(self, mock_echo):
         """Test successful network sync status query"""
         args = Mock()
@@ -82,10 +82,7 @@ class TestHandleNetworkSync:
         def get_network_snapshot(rpc_url):
             return {
                 "sync_status": "synced",
-                "nodes": [
-                    {"name": "local", "height": 100, "timestamp": "2024-01-01"},
-                    {"name": "peer1", "height": 100}
-                ]
+                "nodes": [{"name": "local", "height": 100, "timestamp": "2024-01-01"}, {"name": "peer1", "height": 100}],
             }
 
         handle_network_sync(args, "http://localhost:8006", get_network_snapshot)
@@ -96,7 +93,7 @@ class TestHandleNetworkSync:
 class TestHandleNetworkPing:
     """Test handle_network_ping function"""
 
-    @patch('builtins.print')
+    @patch("builtins.print")
     def test_handle_network_ping_success(self, mock_print):
         """Test successful network ping"""
         args = Mock()
@@ -127,7 +124,7 @@ class TestHandleNetworkPing:
 class TestHandleNetworkPropagate:
     """Test handle_network_propagate function"""
 
-    @patch('builtins.print')
+    @patch("builtins.print")
     def test_handle_network_propagate_success(self, mock_print):
         """Test successful network data propagation"""
         args = Mock()
@@ -136,13 +133,7 @@ class TestHandleNetworkPropagate:
         args.data = "test-data"
 
         def get_network_snapshot(rpc_url):
-            return {
-                "connected_count": 2,
-                "nodes": [
-                    {"name": "peer1", "healthy": True},
-                    {"name": "peer2", "healthy": True}
-                ]
-            }
+            return {"connected_count": 2, "nodes": [{"name": "peer1", "healthy": True}, {"name": "peer2", "healthy": True}]}
 
         def first(*args):
             return args[0] if args else None
@@ -155,9 +146,9 @@ class TestHandleNetworkPropagate:
 class TestHandleNetworkForceSync:
     """Test handle_network_force_sync function"""
 
-    @patch('handlers.network.requests.post')
-    @patch('handlers.network.logger')
-    @patch('sys.exit')
+    @patch("handlers.network.requests.post")
+    @patch("handlers.network.logger")
+    @patch("sys.exit")
     def test_handle_network_force_sync_success(self, mock_exit, mock_logger, mock_post):
         """Test successful network force sync"""
         mock_response = Mock()
@@ -177,8 +168,8 @@ class TestHandleNetworkForceSync:
 
         mock_post.assert_called_once()
 
-    @patch('handlers.network.logger')
-    @patch('sys.exit')
+    @patch("handlers.network.logger")
+    @patch("sys.exit")
     def test_handle_network_force_sync_missing_peer(self, mock_exit, mock_logger):
         """Test network force sync with missing peer"""
         args = Mock()

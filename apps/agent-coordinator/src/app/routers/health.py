@@ -9,6 +9,7 @@ from aitbc.rate_limiting import rate_limit
 logger = get_logger(__name__)
 router = APIRouter()
 
+
 # Health check endpoint
 @router.get("/health")
 @rate_limit(rate=1000, per=60)
@@ -18,8 +19,9 @@ async def health_check(request: Request) -> dict[str, Any]:
         "status": "healthy",
         "service": "agent-coordinator",
         "timestamp": datetime.now(UTC).isoformat(),
-        "version": "1.0.0"
+        "version": "1.0.0",
     }
+
 
 # Root endpoint
 @router.get("/")
@@ -40,6 +42,6 @@ async def root(request: Request) -> dict[str, Any]:
             "/tasks/status",
             "/messages/send",
             "/load-balancer/stats",
-            "/registry/stats"
-        ]
+            "/registry/stats",
+        ],
     }

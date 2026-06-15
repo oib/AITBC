@@ -29,11 +29,7 @@ def get_engine() -> Engine:
     """Get or create database engine."""
     global _engine
     if _engine is None:
-        _engine = create_engine(
-            get_database_url(),
-            connect_args={"check_same_thread": False},
-            echo=False
-        )
+        _engine = create_engine(get_database_url(), connect_args={"check_same_thread": False}, echo=False)
     return _engine
 
 

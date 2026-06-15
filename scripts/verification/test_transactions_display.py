@@ -19,8 +19,8 @@ def main():
             data = response.json()
             print(f"✅ API has {len(data['items'])} transactions")
 
-            if data['items']:
-                first_tx = data['items'][0]
+            if data["items"]:
+                first_tx = data["items"][0]
                 print("\n   First transaction:")
                 print(f"   Hash: {first_tx['hash']}")
                 print(f"   From: {first_tx['from']}")
@@ -39,7 +39,7 @@ def main():
     try:
         response = requests.get("https://aitbc.bubuit.net/explorer/#/transactions")
         if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
+            soup = BeautifulSoup(response.text, "html.parser")
 
             # Check if it says "mock data"
             if "mock data" in soup.text.lower():
@@ -48,13 +48,13 @@ def main():
                 print("✅ No 'mock data' message found")
 
             # Check for transactions table
-            table = soup.find('tbody', {'id': 'transactions-table-body'})
+            table = soup.find("tbody", {"id": "transactions-table-body"})
             if table:
-                rows = table.find_all('tr')
+                rows = table.find_all("tr")
                 if len(rows) > 0:
-                    if 'Loading' in rows[0].text:
+                    if "Loading" in rows[0].text:
                         print("⏳ Still loading transactions...")
-                    elif 'No transactions' in rows[0].text:
+                    elif "No transactions" in rows[0].text:
                         print("❌ No transactions displayed")
                     else:
                         print(f"✅ Found {len(rows)} transaction rows")
@@ -73,6 +73,7 @@ def main():
     print("   2. The API call is failing")
     print("   3. The transactions have empty values")
     print("\n   Try refreshing the page or check browser console for errors")
+
 
 if __name__ == "__main__":
     main()

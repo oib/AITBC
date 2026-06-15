@@ -15,6 +15,7 @@ class RotationStrategy(Enum):
     REPUTATION_BASED = "reputation_based"
     HYBRID = "hybrid"
 
+
 @dataclass
 class RotationConfig:
     strategy: RotationStrategy
@@ -22,6 +23,7 @@ class RotationConfig:
     min_stake: float
     reputation_threshold: float
     max_validators: int
+
 
 class ValidatorRotation:
     """Manages validator rotation based on various strategies"""
@@ -71,12 +73,10 @@ class ValidatorRotation:
     def _rotate_stake_weighted(self) -> bool:
         """Stake-weighted rotation"""
         validators = sorted(
-            [v for v in self.consensus.validators.values() if v.is_active],
-            key=lambda v: v.stake,
-            reverse=True
+            [v for v in self.consensus.validators.values() if v.is_active], key=lambda v: v.stake, reverse=True
         )
 
-        for i, validator in enumerate(validators[:self.config.max_validators]):
+        for i, validator in enumerate(validators[: self.config.max_validators]):
             if i == 0:
                 validator.role = ValidatorRole.PROPOSER
             elif i < 4:
@@ -90,18 +90,13 @@ class ValidatorRotation:
     def _rotate_reputation_based(self) -> bool:
         """Reputation-based rotation"""
         validators = sorted(
-            [v for v in self.consensus.validators.values() if v.is_active],
-            key=lambda v: v.reputation,
-            reverse=True
+            [v for v in self.consensus.validators.values() if v.is_active], key=lambda v: v.reputation, reverse=True
         )
 
         # Filter by reputation threshold
-        qualified_validators = [
-            v for v in validators
-            if v.reputation >= self.config.reputation_threshold
-        ]
+        qualified_validators = [v for v in validators if v.reputation >= self.config.reputation_threshold]
 
-        for i, validator in enumerate(qualified_validators[:self.config.max_validators]):
+        for i, validator in enumerate(qualified_validators[: self.config.max_validators]):
             if i == 0:
                 validator.role = ValidatorRole.PROPOSER
             elif i < 4:
@@ -123,7 +118,7 @@ class ValidatorRotation:
         # Sort by hybrid score
         validators.sort(key=lambda v: v.hybrid_score, reverse=True)
 
-        for i, validator in enumerate(validators[:self.config.max_validators]):
+        for i, validator in enumerate(validators[: self.config.max_validators]):
             if i == 0:
                 validator.role = ValidatorRole.PROPOSER
             elif i < 4:
@@ -134,11 +129,12 @@ class ValidatorRotation:
         self.last_rotation_height += self.config.rotation_interval
         return True
 
+
 # Default rotation configuration
 DEFAULT_ROTATION_CONFIG = RotationConfig(
     strategy=RotationStrategy.HYBRID,
     rotation_interval=100,  # Rotate every 100 blocks
     min_stake=1000.0,
     reputation_threshold=0.7,
-    max_validators=10
+    max_validators=10,
 )

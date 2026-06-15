@@ -22,10 +22,5 @@ os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
 # Execute the actual service
-exec_cmd = [
-    "/opt/aitbc/venv/bin/python",
-    f"{REPO_DIR}/apps/exchange/simple_exchange_api.py",
-    "--port",
-    "8001"
-]
+exec_cmd = ["/opt/aitbc/venv/bin/python", f"{REPO_DIR}/apps/exchange/simple_exchange_api.py", "--port", "8001"]
 os.execvp(exec_cmd[0], exec_cmd)

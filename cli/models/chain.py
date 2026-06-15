@@ -11,78 +11,99 @@ from pydantic import BaseModel, Field
 
 class ChainType(str, Enum):
     """Chain type enumeration"""
+
     MAIN = "main"
     TOPIC = "topic"
     PRIVATE = "private"
     TEMPORARY = "temporary"
 
+
 class ChainStatus(str, Enum):
     """Chain status enumeration"""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     SYNCING = "syncing"
     ERROR = "error"
     MAINTENANCE = "maintenance"
 
+
 class ConsensusAlgorithm(str, Enum):
     """Consensus algorithm enumeration"""
+
     POW = "pow"  # Proof of Work
     POS = "pos"  # Proof of Stake
     POA = "poa"  # Proof of Authority
     HYBRID = "hybrid"
 
+
 class GenesisAccount(BaseModel):
     """Genesis account configuration"""
+
     address: str = Field(..., description="Account address")
     balance: str = Field(..., description="Account balance in wei")
     type: str = Field(default="regular", description="Account type")
 
+
 class GenesisContract(BaseModel):
     """Genesis contract configuration"""
+
     name: str = Field(..., description="Contract name")
     address: str = Field(..., description="Contract address")
     bytecode: str = Field(..., description="Contract bytecode")
     abi: dict[str, Any] = Field(..., description="Contract ABI")
 
+
 class PrivacyConfig(BaseModel):
     """Privacy configuration for chains"""
+
     visibility: str = Field(default="public", description="Chain visibility")
     access_control: str = Field(default="open", description="Access control type")
     require_invitation: bool = Field(default=False, description="Require invitation to join")
     encryption_enabled: bool = Field(default=False, description="Enable transaction encryption")
 
+
 class ConsensusConfig(BaseModel):
     """Consensus configuration"""
+
     algorithm: ConsensusAlgorithm = Field(..., description="Consensus algorithm")
     block_time: int = Field(default=5, description="Block time in seconds")
     max_validators: int = Field(default=100, description="Maximum number of validators")
     min_stake: int = Field(default=1000000000000000000, description="Minimum stake in wei")
     authorities: list[str] = Field(default_factory=list, description="List of authority addresses")
 
+
 class ChainParameters(BaseModel):
     """Chain parameters"""
+
     max_block_size: int = Field(default=1048576, description="Maximum block size in bytes")
     max_gas_per_block: int = Field(default=10000000, description="Maximum gas per block")
     min_gas_price: int = Field(default=1000000000, description="Minimum gas price in wei")
     block_reward: str = Field(default="2000000000000000000", description="Block reward in wei")
     difficulty: int = Field(default=1000000, description="Initial difficulty")
 
+
 class ChainLimits(BaseModel):
     """Chain limits"""
+
     max_participants: int = Field(default=1000, description="Maximum participants")
     max_contracts: int = Field(default=100, description="Maximum smart contracts")
     max_transactions_per_block: int = Field(default=500, description="Max transactions per block")
     max_storage_size: int = Field(default=1073741824, description="Max storage size in bytes")
 
+
 class GenesisConfig(BaseModel):
     """Genesis block configuration"""
+
     chain_id: str | None = Field(None, description="Chain ID")
     chain_type: ChainType = Field(..., description="Chain type")
     purpose: str = Field(..., description="Chain purpose")
     name: str = Field(..., description="Chain name")
     description: str | None = Field(None, description="Chain description")
     timestamp: datetime | None = Field(None, description="Genesis timestamp")
-    parent_hash: str = Field(default="0x0000000000000000000000000000000000000000000000000000000000000000", description="Parent hash")
+    parent_hash: str = Field(
+        default="0x0000000000000000000000000000000000000000000000000000000000000000", description="Parent hash"
+    )
     gas_limit: int = Field(default=10000000, description="Gas limit")
     gas_price: int = Field(default=20000000000, description="Gas price")
     difficulty: int = Field(default=1000000, description="Initial difficulty")
@@ -93,8 +114,10 @@ class GenesisConfig(BaseModel):
     privacy: PrivacyConfig = Field(default_factory=PrivacyConfig, description="Privacy settings")
     parameters: ChainParameters = Field(default_factory=ChainParameters, description="Chain parameters")
 
+
 class ChainConfig(BaseModel):
     """Chain configuration"""
+
     type: ChainType = Field(..., description="Chain type")
     purpose: str = Field(..., description="Chain purpose")
     name: str = Field(..., description="Chain name")
@@ -104,8 +127,10 @@ class ChainConfig(BaseModel):
     parameters: ChainParameters = Field(default_factory=ChainParameters, description="Chain parameters")
     limits: ChainLimits = Field(default_factory=ChainLimits, description="Chain limits")
 
+
 class ChainInfo(BaseModel):
     """Chain information"""
+
     id: str = Field(..., description="Chain ID")
     type: ChainType = Field(..., description="Chain type")
     purpose: str = Field(..., description="Chain purpose")
@@ -132,8 +157,10 @@ class ChainInfo(BaseModel):
     disk_usage_mb: float = Field(default=0.0, description="Disk usage in MB")
     privacy: PrivacyConfig = Field(default_factory=PrivacyConfig, description="Privacy settings")
 
+
 class NodeInfo(BaseModel):
     """Node information"""
+
     id: str = Field(..., description="Node ID")
     type: str = Field(default="full", description="Node type")
     status: str = Field(..., description="Node status")
@@ -147,28 +174,36 @@ class NodeInfo(BaseModel):
     network_in_mb: float = Field(default=0.0, description="Network in MB/s")
     network_out_mb: float = Field(default=0.0, description="Network out MB/s")
 
+
 class GenesisAccount(BaseModel):
     """Genesis account configuration"""
+
     address: str = Field(..., description="Account address")
     balance: str = Field(..., description="Account balance in wei")
     type: str = Field(default="regular", description="Account type")
 
+
 class GenesisContract(BaseModel):
     """Genesis contract configuration"""
+
     name: str = Field(..., description="Contract name")
     address: str = Field(..., description="Contract address")
     bytecode: str = Field(..., description="Contract bytecode")
     abi: dict[str, Any] = Field(..., description="Contract ABI")
 
+
 class GenesisBlock(BaseModel):
     """Genesis block configuration"""
+
     chain_id: str = Field(..., description="Chain ID")
     chain_type: ChainType = Field(..., description="Chain type")
     purpose: str = Field(..., description="Chain purpose")
     name: str = Field(..., description="Chain name")
     description: str | None = Field(None, description="Chain description")
     timestamp: datetime = Field(..., description="Genesis timestamp")
-    parent_hash: str = Field(default="0x0000000000000000000000000000000000000000000000000000000000000000", description="Parent hash")
+    parent_hash: str = Field(
+        default="0x0000000000000000000000000000000000000000000000000000000000000000", description="Parent hash"
+    )
     gas_limit: int = Field(default=10000000, description="Gas limit")
     gas_price: int = Field(default=20000000000, description="Gas price")
     difficulty: int = Field(default=1000000, description="Initial difficulty")
@@ -181,8 +216,10 @@ class GenesisBlock(BaseModel):
     state_root: str = Field(..., description="State root hash")
     hash: str = Field(..., description="Genesis block hash")
 
+
 class ChainMigrationPlan(BaseModel):
     """Chain migration plan"""
+
     chain_id: str = Field(..., description="Chain ID to migrate")
     source_node: str = Field(..., description="Source node ID")
     target_node: str = Field(..., description="Target node ID")
@@ -193,8 +230,10 @@ class ChainMigrationPlan(BaseModel):
     feasible: bool = Field(..., description="Migration feasibility")
     issues: list[str] = Field(default_factory=list, description="Migration issues")
 
+
 class ChainMigrationResult(BaseModel):
     """Chain migration result"""
+
     chain_id: str = Field(..., description="Chain ID")
     source_node: str = Field(..., description="Source node ID")
     target_node: str = Field(..., description="Target node ID")
@@ -204,8 +243,10 @@ class ChainMigrationResult(BaseModel):
     verification_passed: bool = Field(default=False, description="Verification passed")
     error: str | None = Field(None, description="Error message if failed")
 
+
 class ChainBackupResult(BaseModel):
     """Chain backup result"""
+
     chain_id: str = Field(..., description="Chain ID")
     backup_file: str = Field(..., description="Backup file path")
     original_size_mb: float = Field(..., description="Original size in MB")
@@ -214,8 +255,10 @@ class ChainBackupResult(BaseModel):
     checksum: str = Field(..., description="Backup file checksum")
     verification_passed: bool = Field(default=False, description="Verification passed")
 
+
 class ChainRestoreResult(BaseModel):
     """Chain restore result"""
+
     chain_id: str = Field(..., description="Chain ID")
     node_id: str = Field(..., description="Target node ID")
     blocks_restored: int = Field(default=0, description="Number of blocks restored")

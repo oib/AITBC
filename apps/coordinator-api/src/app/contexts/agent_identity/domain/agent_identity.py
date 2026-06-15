@@ -119,9 +119,9 @@ class CrossChainMapping(SQLModel, table=True):
 
     # Unique constraint
     __table_args__ = {
-#        # Index(        Index("idx_cross_chain_agent_chain", "agent_id", "chain_id"),)
-#        # Index(        Index("idx_cross_chain_address", "chain_address"),)
-#        # Index(        Index("idx_cross_chain_verified", "is_verified"),)
+        #        # Index(        Index("idx_cross_chain_agent_chain", "agent_id", "chain_id"),)
+        #        # Index(        Index("idx_cross_chain_address", "chain_address"),)
+        #        # Index(        Index("idx_cross_chain_verified", "is_verified"),)
     }
 
 
@@ -159,10 +159,10 @@ class IdentityVerification(SQLModel, table=True):
 
     # Indexes
     __table_args__ = {
-#        # Index(        Index("idx_identity_verify_agent_chain", "agent_id", "chain_id"),)
-#        # Index(        Index("idx_identity_verify_verifier", "verifier_address"),)
-#        # Index(        Index("idx_identity_verify_hash", "proof_hash"),)
-#        # Index(        Index("idx_identity_verify_result", "verification_result"),)
+        #        # Index(        Index("idx_identity_verify_agent_chain", "agent_id", "chain_id"),)
+        #        # Index(        Index("idx_identity_verify_verifier", "verifier_address"),)
+        #        # Index(        Index("idx_identity_verify_hash", "proof_hash"),)
+        #        # Index(        Index("idx_identity_verify_result", "verification_result"),)
     }
 
 
@@ -205,9 +205,9 @@ class AgentWallet(SQLModel, table=True):
 
     # Indexes
     __table_args__ = {
-#        # Index(        Index("idx_agent_wallet_agent_chain", "agent_id", "chain_id"),)
-#        # Index(        Index("idx_agent_wallet_address", "chain_address"),)
-#        # Index(        Index("idx_agent_wallet_active", "is_active"),)
+        #        # Index(        Index("idx_agent_wallet_agent_chain", "agent_id", "chain_id"),)
+        #        # Index(        Index("idx_agent_wallet_address", "chain_address"),)
+        #        # Index(        Index("idx_agent_wallet_active", "is_active"),)
     }
 
 

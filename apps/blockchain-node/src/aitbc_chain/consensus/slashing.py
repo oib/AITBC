@@ -16,6 +16,7 @@ class SlashingCondition(Enum):
     INVALID_BLOCK = "invalid_block"
     SLOW_RESPONSE = "slow_response"
 
+
 @dataclass
 class SlashingEvent:
     validator_address: str
@@ -25,22 +26,23 @@ class SlashingEvent:
     timestamp: float
     slash_amount: float
 
+
 class SlashingManager:
     """Manages validator slashing conditions and penalties"""
 
     def __init__(self) -> None:
         self.slashing_events: list[SlashingEvent] = []
         self.slash_rates = {
-            SlashingCondition.DOUBLE_SIGN: 0.5,      # 50% slash
-            SlashingCondition.UNAVAILABLE: 0.1,      # 10% slash
-            SlashingCondition.INVALID_BLOCK: 0.3,     # 30% slash
-            SlashingCondition.SLOW_RESPONSE: 0.05    # 5% slash
+            SlashingCondition.DOUBLE_SIGN: 0.5,  # 50% slash
+            SlashingCondition.UNAVAILABLE: 0.1,  # 10% slash
+            SlashingCondition.INVALID_BLOCK: 0.3,  # 30% slash
+            SlashingCondition.SLOW_RESPONSE: 0.05,  # 5% slash
         }
         self.slash_thresholds = {
-            SlashingCondition.DOUBLE_SIGN: 1,         # Immediate slash
-            SlashingCondition.UNAVAILABLE: 3,        # After 3 offenses
-            SlashingCondition.INVALID_BLOCK: 1,       # Immediate slash
-            SlashingCondition.SLOW_RESPONSE: 5       # After 5 offenses
+            SlashingCondition.DOUBLE_SIGN: 1,  # Immediate slash
+            SlashingCondition.UNAVAILABLE: 3,  # After 3 offenses
+            SlashingCondition.INVALID_BLOCK: 1,  # Immediate slash
+            SlashingCondition.SLOW_RESPONSE: 5,  # After 5 offenses
         }
 
     def detect_double_sign(self, validator: str, block_hash1: str, block_hash2: str, height: int) -> SlashingEvent | None:
@@ -54,7 +56,7 @@ class SlashingManager:
             evidence=f"Double sign detected: {block_hash1} vs {block_hash2} at height {height}",
             block_height=height,
             timestamp=time.time(),
-            slash_amount=self.slash_rates[SlashingCondition.DOUBLE_SIGN]
+            slash_amount=self.slash_rates[SlashingCondition.DOUBLE_SIGN],
         )
 
     def detect_unavailability(self, validator: str, missed_blocks: int, height: int) -> SlashingEvent | None:
@@ -68,7 +70,7 @@ class SlashingManager:
             evidence=f"Missed {missed_blocks} consecutive blocks",
             block_height=height,
             timestamp=time.time(),
-            slash_amount=self.slash_rates[SlashingCondition.UNAVAILABLE]
+            slash_amount=self.slash_rates[SlashingCondition.UNAVAILABLE],
         )
 
     def detect_invalid_block(self, validator: str, block_hash: str, reason: str, height: int) -> SlashingEvent | None:
@@ -79,10 +81,12 @@ class SlashingManager:
             evidence=f"Invalid block {block_hash}: {reason}",
             block_height=height,
             timestamp=time.time(),
-            slash_amount=self.slash_rates[SlashingCondition.INVALID_BLOCK]
+            slash_amount=self.slash_rates[SlashingCondition.INVALID_BLOCK],
         )
 
-    def detect_slow_response(self, validator: str, response_time: float, threshold: float, height: int) -> SlashingEvent | None:
+    def detect_slow_response(
+        self, validator: str, response_time: float, threshold: float, height: int
+    ) -> SlashingEvent | None:
         """Detect slow consensus participation"""
         if response_time <= threshold:
             return None
@@ -93,7 +97,7 @@ class SlashingManager:
             evidence=f"Slow response: {response_time}s (threshold: {threshold}s)",
             block_height=height,
             timestamp=time.time(),
-            slash_amount=self.slash_rates[SlashingCondition.SLOW_RESPONSE]
+            slash_amount=self.slash_rates[SlashingCondition.SLOW_RESPONSE],
         )
 
     def apply_slashing(self, validator: Validator, event: SlashingEvent) -> bool:
@@ -112,10 +116,13 @@ class SlashingManager:
 
     def get_validator_slash_count(self, validator_address: str, condition: SlashingCondition) -> int:
         """Get count of slashing events for validator and condition"""
-        return len([
-            event for event in self.slashing_events
-            if event.validator_address == validator_address and event.condition == condition
-        ])
+        return len(
+            [
+                event
+                for event in self.slashing_events
+                if event.validator_address == validator_address and event.condition == condition
+            ]
+        )
 
     def should_slash(self, validator: str, condition: SlashingCondition) -> bool:
         """Check if validator should be slashed for condition"""
@@ -133,6 +140,7 @@ class SlashingManager:
         """Calculate total amount slashed for validator"""
         events = self.get_slashing_history(validator_address)
         return sum(event.slash_amount for event in events)
+
 
 # Global slashing manager
 slashing_manager = SlashingManager()

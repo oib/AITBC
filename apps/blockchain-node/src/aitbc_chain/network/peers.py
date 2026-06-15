@@ -14,14 +14,19 @@ from .discovery import NodeStatus, P2PDiscovery, PeerNode
 
 logger = logging.getLogger(__name__)
 
+
 def log_info(msg: str) -> None:
     logger.info(msg)
+
 
 def log_error(msg: str) -> None:
     logger.error(msg)
 
+
 def log_warn(msg: str) -> None:
     logger.warning(msg)
+
+
 from .health import PeerHealthMonitor
 
 
@@ -32,6 +37,7 @@ class PeerAction(Enum):
     PROMOTE = "promote"
     BAN = "ban"
 
+
 @dataclass
 class PeerEvent:
     action: PeerAction
@@ -39,6 +45,7 @@ class PeerEvent:
     timestamp: float
     reason: str
     metadata: dict[str, Any]
+
 
 class DynamicPeerManager:
     """Manages dynamic peer connections and lifecycle"""
@@ -93,7 +100,9 @@ class DynamicPeerManager:
 
     async def _discover_new_peers(self) -> None:
         """Discover and connect to new peers"""
-        log_info(f"Peer count ({self.discovery.get_peer_count()}) below minimum ({self.min_connections}), discovering new peers")
+        log_info(
+            f"Peer count ({self.discovery.get_peer_count()}) below minimum ({self.min_connections}), discovering new peers"
+        )
 
         # Request peer lists from existing connections
         for peer in self.discovery.get_peer_list():
@@ -104,7 +113,9 @@ class DynamicPeerManager:
 
     async def _remove_excess_peers(self) -> None:
         """Remove excess peers based on quality metrics"""
-        log_info(f"Peer count ({self.discovery.get_peer_count()}) above maximum ({self.max_connections}), removing excess peers")
+        log_info(
+            f"Peer count ({self.discovery.get_peer_count()}) above maximum ({self.max_connections}), removing excess peers"
+        )
 
         peers = self.discovery.get_peer_list()
 
@@ -128,9 +139,7 @@ class DynamicPeerManager:
         all_health = self.health_monitor.get_all_health_status()
 
         for node_id, health in all_health.items():
-            if (health.status == NodeStatus.OFFLINE and
-                time.time() - health.last_check < self.connection_retry_interval):
-
+            if health.status == NodeStatus.OFFLINE and time.time() - health.last_check < self.connection_retry_interval:
                 # Try to reconnect
                 peer = self.discovery.peers.get(node_id)
                 if peer:
@@ -207,7 +216,7 @@ class DynamicPeerManager:
         """Remove peer from network"""
         try:
             if node_id in self.discovery.peers:
-                peer = self.discovery.peers[node_id]
+                self.discovery.peers[node_id]
 
                 # Close connection if open
                 # This would be implemented with actual connection management
@@ -253,7 +262,7 @@ class DynamicPeerManager:
         """Promote peer to higher priority"""
         try:
             if node_id in self.discovery.peers:
-                peer = self.discovery.peers[node_id]
+                self.discovery.peers[node_id]
 
                 # Increase reputation
                 self.discovery.update_peer_reputation(node_id, 0.1)
@@ -275,7 +284,7 @@ class DynamicPeerManager:
         """Demote peer to lower priority"""
         try:
             if node_id in self.discovery.peers:
-                peer = self.discovery.peers[node_id]
+                self.discovery.peers[node_id]
 
                 # Decrease reputation
                 self.discovery.update_peer_reputation(node_id, -0.1)
@@ -293,15 +302,11 @@ class DynamicPeerManager:
             log_error(f"Error demoting peer {node_id}: {e}")
             return False
 
-    def _record_peer_event(self, action: PeerAction, node_id: str, reason: str, metadata: dict[str, Any] | None = None) -> None:
+    def _record_peer_event(
+        self, action: PeerAction, node_id: str, reason: str, metadata: dict[str, Any] | None = None
+    ) -> None:
         """Record peer management event"""
-        event = PeerEvent(
-            action=action,
-            node_id=node_id,
-            timestamp=time.time(),
-            reason=reason,
-            metadata=metadata or {}
-        )
+        event = PeerEvent(action=action, node_id=node_id, timestamp=time.time(), reason=reason, metadata=metadata or {})
 
         self.peer_events.append(event)
 
@@ -328,18 +333,23 @@ class DynamicPeerManager:
             "healthy_peers": len(self.health_monitor.get_healthy_peers()),
             "unhealthy_peers": len(self.health_monitor.get_unhealthy_peers()),
             "average_reputation": sum(p.reputation for p in peers) / len(peers) if peers else 0,
-            "average_health_score": sum(h.health_score for h in health_status.values()) / len(health_status) if health_status else 0,
-            "recent_events": len([e for e in self.peer_events if time.time() - e.timestamp < 3600])  # Last hour
+            "average_health_score": sum(h.health_score for h in health_status.values()) / len(health_status)
+            if health_status
+            else 0,
+            "recent_events": len([e for e in self.peer_events if time.time() - e.timestamp < 3600]),  # Last hour
         }
 
         return stats
 
+
 # Global peer manager
 peer_manager: DynamicPeerManager | None = None
+
 
 def get_peer_manager() -> DynamicPeerManager | None:
     """Get global peer manager"""
     return peer_manager
+
 
 def create_peer_manager(discovery: P2PDiscovery, health_monitor: PeerHealthMonitor) -> DynamicPeerManager:
     """Create and set global peer manager"""

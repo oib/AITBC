@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 @dataclass
 class Config:
     """Configuration object for AITBC CLI"""
+
     coordinator_url: str = "http://127.0.0.1:8011"
     api_key: str | None = None
     role: str | None = None  # admin, client, miner, etc.
@@ -28,7 +29,7 @@ class Config:
         urls_to_check = [
             ("coordinator_url", self.coordinator_url),
             ("blockchain_rpc_url", self.blockchain_rpc_url),
-            ("wallet_url", self.wallet_url)
+            ("wallet_url", self.wallet_url),
         ]
 
         for url_name, url in urls_to_check:
@@ -78,11 +79,11 @@ class Config:
                 with open(self.config_file) as f:
                     data = yaml.safe_load(f) or {}
 
-                self.coordinator_url = data.get('coordinator_url', self.coordinator_url)
-                self.api_key = data.get('api_key', self.api_key)
-                self.role = data.get('role', self.role)
-                self.blockchain_rpc_url = data.get('blockchain_rpc_url', self.blockchain_rpc_url)
-                self.wallet_url = data.get('wallet_url', self.wallet_url)
+                self.coordinator_url = data.get("coordinator_url", self.coordinator_url)
+                self.api_key = data.get("api_key", self.api_key)
+                self.role = data.get("role", self.role)
+                self.blockchain_rpc_url = data.get("blockchain_rpc_url", self.blockchain_rpc_url)
+                self.wallet_url = data.get("wallet_url", self.wallet_url)
             except Exception as e:
                 click.echo(f"Warning: Could not load config file: {e}")
 
@@ -98,16 +99,16 @@ class Config:
         Path(self.config_file).parent.mkdir(parents=True, exist_ok=True)
 
         data = {
-            'coordinator_url': self.coordinator_url,
-            'api_key': self.api_key,
-            'blockchain_rpc_url': self.blockchain_rpc_url,
-            'wallet_url': self.wallet_url
+            "coordinator_url": self.coordinator_url,
+            "api_key": self.api_key,
+            "blockchain_rpc_url": self.blockchain_rpc_url,
+            "wallet_url": self.wallet_url,
         }
 
         if self.role:
-            data['role'] = self.role
+            data["role"] = self.role
 
-        with open(self.config_file, 'w') as f:
+        with open(self.config_file, "w") as f:
             yaml.dump(data, f, default_flow_style=False)
 
 

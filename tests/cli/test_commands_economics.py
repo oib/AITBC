@@ -22,8 +22,9 @@ class TestEconomicsCommands:
         """Test that economics command group exists"""
         try:
             from aitbc_cli.commands.economics import economics
+
             assert economics is not None
-            assert hasattr(economics, 'name')
+            assert hasattr(economics, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import economics commands: {e}")
 
@@ -31,12 +32,13 @@ class TestEconomicsCommands:
         """Test economics group name"""
         try:
             from aitbc_cli.commands.economics import economics
+
             assert economics.name == "economics"
         except ImportError as e:
             pytest.skip(f"Cannot import economics commands: {e}")
 
-    @patch('aitbc_cli.commands.economics.output')
-    @patch('aitbc_cli.commands.economics.error')
+    @patch("aitbc_cli.commands.economics.output")
+    @patch("aitbc_cli.commands.economics.error")
     def test_economics_distributed_command(self, mock_error, mock_output):
         """Test economics distributed command - skip due to Click context issues"""
         pytest.skip("Click context mocking requires complex setup")

@@ -13,12 +13,13 @@ def test_endpoint(url, headers=None):
     try:
         resp = requests.get(url, headers=headers, timeout=5)
         end = time.time()
-        print(f"✅ {url}: {resp.status_code} in {end-start:.3f}s")
+        print(f"✅ {url}: {resp.status_code} in {end - start:.3f}s")
         return True
     except Exception as e:
         end = time.time()
-        print(f"❌ {url}: Error in {end-start:.3f}s - {e}")
+        print(f"❌ {url}: Error in {end - start:.3f}s - {e}")
         return False
+
 
 print("🧪 Quick Performance Test")
 print("=" * 30)

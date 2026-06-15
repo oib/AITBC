@@ -22,8 +22,9 @@ class TestNetworkCommands:
         """Test that network command group exists"""
         try:
             from aitbc_cli.commands.network import network
+
             assert network is not None
-            assert hasattr(network, 'name')
+            assert hasattr(network, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import network commands: {e}")
 
@@ -31,12 +32,13 @@ class TestNetworkCommands:
         """Test network group name"""
         try:
             from aitbc_cli.commands.network import network
+
             assert network.name == "network"
         except ImportError as e:
             pytest.skip(f"Cannot import network commands: {e}")
 
-    @patch('aitbc_cli.commands.network.output')
-    @patch('aitbc_cli.commands.network.error')
+    @patch("aitbc_cli.commands.network.output")
+    @patch("aitbc_cli.commands.network.error")
     def test_network_status_command(self, mock_error, mock_output):
         """Test network status command - skip due to Click context issues"""
         pytest.skip("Click context mocking requires complex setup")

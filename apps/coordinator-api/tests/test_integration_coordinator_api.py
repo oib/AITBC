@@ -15,7 +15,7 @@ class TestHealthEndpoints:
         # This test verifies the health endpoints are accessible
         # without requiring full database setup
 
-        with patch('app.main.create_app') as mock_create_app:
+        with patch("app.main.create_app") as mock_create_app:
             mock_app = Mock()
             mock_app.get.return_value = Mock(status_code=200)
             mock_create_app.return_value = mock_app
@@ -32,13 +32,8 @@ class TestConfigurationValidation:
         from app.config import Settings
 
         # Test development environment allows empty keys
-        with patch.dict('os.environ', {'APP_ENV': 'dev'}):
-            settings = Settings(
-                app_env="dev",
-                client_api_keys=[],
-                hmac_secret=None,
-                jwt_secret=None
-            )
+        with patch.dict("os.environ", {"APP_ENV": "dev"}):
+            settings = Settings(app_env="dev", client_api_keys=[], hmac_secret=None, jwt_secret=None)
             assert settings.app_env == "dev"
 
     def test_production_validation_logic(self):
@@ -46,13 +41,13 @@ class TestConfigurationValidation:
         from app.config import Settings
 
         # Test production requires API keys
-        with patch.dict('os.environ', {'APP_ENV': 'production'}):
+        with patch.dict("os.environ", {"APP_ENV": "production"}):
             with pytest.raises(ValueError, match="API keys cannot be empty"):
                 Settings(
                     app_env="production",
                     client_api_keys=[],
                     hmac_secret="test-hmac-secret-32-chars-long",
-                    jwt_secret="test-jwt-secret-32-chars-long"
+                    jwt_secret="test-jwt-secret-32-chars-long",
                 )
 
     def test_secret_length_validation(self):
@@ -60,13 +55,13 @@ class TestConfigurationValidation:
         from app.config import Settings
 
         # Test short secret validation
-        with patch.dict('os.environ', {'APP_ENV': 'production'}):
+        with patch.dict("os.environ", {"APP_ENV": "production"}):
             with pytest.raises(ValueError, match="must be at least 32 characters"):
                 Settings(
                     app_env="production",
                     client_api_keys=["test-key-long-enough"],
                     hmac_secret="short",
-                    jwt_secret="test-jwt-secret-32-chars-long"
+                    jwt_secret="test-jwt-secret-32-chars-long",
                 )
 
 
@@ -77,6 +72,7 @@ class TestLoggingConfiguration:
         """Test that shared logging module can be imported"""
         try:
             from aitbc.logging import get_logger
+
             logger = get_logger(__name__)
             assert logger is not None
         except ImportError as e:
@@ -87,9 +83,9 @@ class TestLoggingConfiguration:
         from aitbc.logging import get_logger
 
         logger = get_logger("test")
-        assert hasattr(logger, 'info')
-        assert hasattr(logger, 'error')
-        assert hasattr(logger, 'warning')
+        assert hasattr(logger, "info")
+        assert hasattr(logger, "error")
+        assert hasattr(logger, "warning")
 
 
 class TestRateLimitingSetup:
@@ -125,6 +121,7 @@ class TestDatabaseConfiguration:
         """Test that asyncpg can be imported"""
         try:
             import asyncpg
+
             assert asyncpg is not None
         except ImportError as e:
             pytest.fail(f"Failed to import asyncpg: {e}")
@@ -133,6 +130,7 @@ class TestDatabaseConfiguration:
         """Test SQLAlchemy async components"""
         try:
             from sqlalchemy.ext.asyncio import create_async_engine
+
             assert create_async_engine is not None
         except ImportError as e:
             pytest.fail(f"Failed to import SQLAlchemy async components: {e}")
@@ -162,6 +160,7 @@ class TestServiceLogic:
         """Test JobService can be imported"""
         try:
             from app.services.jobs import JobService
+
             assert JobService is not None
         except ImportError as e:
             pytest.fail(f"Failed to import JobService: {e}")
@@ -170,6 +169,7 @@ class TestServiceLogic:
         """Test MinerService can be imported"""
         try:
             from app.services.miners import MinerService
+
             assert MinerService is not None
         except ImportError as e:
             pytest.fail(f"Failed to import MinerService: {e}")

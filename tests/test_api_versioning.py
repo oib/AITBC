@@ -38,6 +38,7 @@ class TestApiVersionDecorator:
 
     def test_api_version_decorator_basic(self):
         """Test basic api_version decorator"""
+
         @api_version(version=APIVersion.V1)
         def test_func():
             return "success"
@@ -46,6 +47,7 @@ class TestApiVersionDecorator:
 
     def test_api_version_decorator_deprecated(self):
         """Test api_version decorator with deprecated flag"""
+
         @api_version(version=APIVersion.V1, deprecated=True)
         def test_func():
             return "success"

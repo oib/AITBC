@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 # Mock httpx before importing
-sys.modules['httpx'] = Mock()
+sys.modules["httpx"] = Mock()
 
 from main import BLOCKCHAIN_RPC_URL, HTML_TEMPLATE, app
 

@@ -17,6 +17,7 @@ from aitbc.utils.paths import get_keystore_path
 DEFAULT_KEYSTORE_DIR = get_keystore_path()
 DEFAULT_RPC_URL = "http://localhost:8006"
 
+
 def get_password(password_arg: str = None, password_file: str = None) -> str:
     """Get password from various sources"""
     if password_arg:
@@ -26,6 +27,7 @@ def get_password(password_arg: str = None, password_file: str = None) -> str:
             return f.read().strip()
     else:
         return getpass.getpass("Enter password: ")
+
 
 def batch_transactions(transactions_file: str, password: str, rpc_url: str = DEFAULT_RPC_URL):
     """Process batch transactions from JSON file"""
@@ -40,13 +42,13 @@ def batch_transactions(transactions_file: str, password: str, rpc_url: str = DEF
             click.echo(f"Transaction {i}/{len(transactions)}: {tx['from_wallet']} → {tx['to_address']} ({tx['amount']} AIT)")
             # Create transaction
             transaction = {
-                "sender": tx['from_wallet'],
-                "recipient": tx['to_address'],
-                "value": int(tx['amount']),
-                "fee": int(tx.get('fee', 10.0)),
-                "nonce": tx.get('nonce', 0),
+                "sender": tx["from_wallet"],
+                "recipient": tx["to_address"],
+                "value": int(tx["amount"]),
+                "fee": int(tx.get("fee", 10.0)),
+                "nonce": tx.get("nonce", 0),
                 "type": "transfer",
-                "payload": {}
+                "payload": {},
             }
 
             try:
@@ -54,40 +56,28 @@ def batch_transactions(transactions_file: str, password: str, rpc_url: str = DEF
                 if response.status_code == 200:
                     result = response.json()
                     tx_hash = result.get("hash")
-                    results.append({
-                        'transaction': tx,
-                        'hash': tx_hash,
-                        'success': tx_hash is not None
-                    })
+                    results.append({"transaction": tx, "hash": tx_hash, "success": tx_hash is not None})
                     click.echo(f"  ✅ Success: {tx_hash}")
                 else:
                     click.echo(f"  ❌ Failed: {response.text}")
-                    results.append({
-                        'transaction': tx,
-                        'hash': None,
-                        'success': False
-                    })
+                    results.append({"transaction": tx, "hash": None, "success": False})
             except Exception as e:
                 click.echo(f"  ❌ Error: {e}")
-                results.append({
-                    'transaction': tx,
-                    'hash': None,
-                    'success': False,
-                    'error': str(e)
-                })
+                results.append({"transaction": tx, "hash": None, "success": False, "error": str(e)})
 
         # Summary
-        successful = sum(1 for r in results if r['success'])
+        successful = sum(1 for r in results if r["success"])
         click.echo(f"\n📊 Batch Summary: {successful}/{len(transactions)} successful")
         # Save results
-        results_file = transactions_file.replace('.json', '_results.json')
-        with open(results_file, 'w') as f:
+        results_file = transactions_file.replace(".json", "_results.json")
+        with open(results_file, "w") as f:
             json.dump(results, f, indent=2)
         click.echo(f"Results saved to: {results_file}")
         return results
     except Exception as e:
         click.echo(f"Error processing batch: {e}")
         return []
+
 
 def mining_operations(operation: str, wallet_name: str = None, threads: int = 1, rpc_url: str = DEFAULT_RPC_URL):
     """Handle mining operations"""
@@ -99,7 +89,7 @@ def mining_operations(operation: str, wallet_name: str = None, threads: int = 1,
         click.echo(f"Starting mining with wallet '{wallet_name}' using {threads} threads...")
         mining_config = {
             "proposer_address": wallet_name,  # Fixed field name for PoA
-            "threads": threads
+            "threads": threads,
         }
 
         try:
@@ -154,9 +144,16 @@ def mining_operations(operation: str, wallet_name: str = None, threads: int = 1,
             click.echo(f"❌ Error: {e}")
             return False
 
-def marketplace_operations(operation: str, wallet_name: str = None, item_type: str = None,
-                         price: float = None, description: str = None, password: str = None,
-                         rpc_url: str = DEFAULT_RPC_URL):
+
+def marketplace_operations(
+    operation: str,
+    wallet_name: str = None,
+    item_type: str = None,
+    price: float = None,
+    description: str = None,
+    password: str = None,
+    rpc_url: str = DEFAULT_RPC_URL,
+):
     """Handle marketplace operations"""
     if operation == "list":
         click.echo("Getting marketplace listings...")
@@ -194,7 +191,7 @@ def marketplace_operations(operation: str, wallet_name: str = None, item_type: s
             "seller_address": wallet_name,  # Simplified for demo
             "item_type": item_type,
             "price": price,
-            "description": description
+            "description": description,
         }
 
         try:
@@ -214,9 +211,16 @@ def marketplace_operations(operation: str, wallet_name: str = None, item_type: s
             click.echo(f"❌ Error: {e}")
             return None
 
-def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
-                 prompt: str = None, payment: float = None, password: str = None,
-                 rpc_url: str = DEFAULT_RPC_URL):
+
+def ai_operations(
+    operation: str,
+    wallet_name: str = None,
+    job_type: str = None,
+    prompt: str = None,
+    payment: float = None,
+    password: str = None,
+    rpc_url: str = DEFAULT_RPC_URL,
+):
     """Handle AI operations"""
     if operation == "submit":
         if not all([wallet_name, job_type, prompt, payment is not None]):
@@ -231,7 +235,7 @@ def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
             "wallet_address": wallet_name,  # Fixed field name
             "job_type": job_type,
             "prompt": prompt,
-            "payment": payment
+            "payment": payment,
         }
 
         try:
@@ -252,23 +256,12 @@ def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
             click.echo(f"❌ Error: {e}")
             return None
 
+
 def create_sample_batch_file():
     """Create a sample batch transaction file"""
     sample_transactions = [
-        {
-            "from_wallet": "aitbc1genesis",
-            "to_address": "ait1abc123def456...",
-            "amount": 100,
-            "fee": 10,
-            "nonce": 0
-        },
-        {
-            "from_wallet": "aitbc1genesis",
-            "to_address": "ait1def456abc789...",
-            "amount": 200,
-            "fee": 10,
-            "nonce": 1
-        }
+        {"from_wallet": "aitbc1genesis", "to_address": "ait1abc123def456...", "amount": 100, "fee": 10, "nonce": 0},
+        {"from_wallet": "aitbc1genesis", "to_address": "ait1def456abc789...", "amount": 200, "fee": 10, "nonce": 1},
     ]
 
     with open("sample_batch.json", "w") as f:
@@ -277,6 +270,8 @@ def create_sample_batch_file():
     click.echo("📝 Sample batch file created: sample_batch.json")
     click.echo("Edit this file with your actual transactions and run:")
     click.echo("python /opt/aitbc/cli/advanced_wallet.py batch --file sample_batch.json --password <password>")
+
+
 def main():
     parser = argparse.ArgumentParser(description="AITBC Enterprise CLI - Advanced Operations")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -296,14 +291,14 @@ def main():
     mine_start_parser.add_argument("--wallet", required=True, help="Mining wallet name")
     mine_start_parser.add_argument("--threads", type=int, default=1, help="Number of threads")
 
-    mine_stop_parser = mine_subparsers.add_parser("stop", help="Stop mining")
-    mine_status_parser = mine_subparsers.add_parser("status", help="Get mining status")
+    _ = mine_subparsers.add_parser("stop", help="Stop mining")
+    _ = mine_subparsers.add_parser("status", help="Get mining status")
 
     # Marketplace operations
     market_parser = subparsers.add_parser("market", help="Marketplace operations")
     market_subparsers = market_parser.add_subparsers(dest="market_action", help="Marketplace actions")
 
-    market_list_parser = market_subparsers.add_parser("list", help="List marketplace items")
+    _ = market_subparsers.add_parser("list", help="List marketplace items")
     market_create_parser = market_subparsers.add_parser("create", help="Create marketplace listing")
     market_create_parser.add_argument("--wallet", required=True, help="Seller wallet name")
     market_create_parser.add_argument("--type", required=True, help="Item type")
@@ -325,7 +320,7 @@ def main():
     ai_submit_parser.add_argument("--password-file", help="File containing wallet password")
 
     # Utility commands
-    sample_parser = subparsers.add_parser("sample", help="Create sample batch file")
+    _ = subparsers.add_parser("sample", help="Create sample batch file")
 
     args = parser.parse_args()
 
@@ -364,6 +359,7 @@ def main():
 
     else:
         parser.print_help()
+
 
 if __name__ == "__main__":
     main()

@@ -7,10 +7,10 @@ from pathlib import Path
 def handle_sync_bulk(args, ctx):
     """Handle bulk sync command."""
     # Resolve paths to the sync_cli.py script
-    blockchain_dir = Path(__file__).resolve().parents[2] / 'apps' / 'blockchain-node'
-    src_dir = blockchain_dir / 'src'
-    venv_python = blockchain_dir / '.venv' / 'bin' / 'python3'
-    sync_cli = src_dir / 'aitbc_chain' / 'sync_cli.py'
+    blockchain_dir = Path(__file__).resolve().parents[2] / "apps" / "blockchain-node"
+    src_dir = blockchain_dir / "src"
+    venv_python = blockchain_dir / ".venv" / "bin" / "python3"
+    sync_cli = src_dir / "aitbc_chain" / "sync_cli.py"
 
     if not sync_cli.exists():
         print(f"Error: sync_cli.py not found at {sync_cli}")
@@ -20,15 +20,19 @@ def handle_sync_bulk(args, ctx):
     cmd = [
         str(venv_python),
         str(sync_cli),
-        '--source', args.source,
-        '--import-url', args.import_url,
-        '--batch-size', str(args.batch_size),
-        '--poll-interval', str(args.poll_interval),
+        "--source",
+        args.source,
+        "--import-url",
+        args.import_url,
+        "--batch-size",
+        str(args.batch_size),
+        "--poll-interval",
+        str(args.poll_interval),
     ]
 
     # Prepare environment
     env = {
-        'PYTHONPATH': str(src_dir),
+        "PYTHONPATH": str(src_dir),
     }
 
     print(f"Running bulk sync from {args.source} to {args.import_url} (batch size: {args.batch_size})")

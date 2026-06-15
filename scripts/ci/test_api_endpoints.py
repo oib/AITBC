@@ -16,7 +16,16 @@ SERVICES = {
     "agent_coordinator": {"url": f"http://{API_HOST}:9001", "endpoints": ["/", "/health"]},
     "exchange": {"url": f"http://{API_HOST}:8001", "endpoints": ["/", "/api/health", "/health", "/info"]},
     "wallet": {"url": f"http://{API_HOST}:8003", "endpoints": ["/", "/health", "/wallets"]},
-    "blockchain_rpc": {"url": f"http://{API_HOST}:8006", "endpoints": ["/health", "/rpc/head", "/rpc/head?chain_id=ait-mainnet", "/rpc/head?chain_id=ait-testnet", "/rpc/mempool"]},
+    "blockchain_rpc": {
+        "url": f"http://{API_HOST}:8006",
+        "endpoints": [
+            "/health",
+            "/rpc/head",
+            "/rpc/head?chain_id=ait-mainnet",
+            "/rpc/head?chain_id=ait-testnet",
+            "/rpc/mempool",
+        ],
+    },
 }
 
 
@@ -43,7 +52,7 @@ def test_performance(apis, rounds=10, timeout=5):
     for name, url in apis:
         times = []
         ok_count = 0
-        for i in range(rounds):
+        for _i in range(rounds):
             try:
                 t0 = time.time()
                 r = requests.get(url, timeout=timeout)
@@ -79,12 +88,14 @@ def main():
             overall_ok = False
 
     print("\n⚡ Performance tests...")
-    perf = test_performance([
-        ("Agent Coordinator", f"http://{API_HOST}:9001/health"),
-        ("Exchange", f"http://{API_HOST}:8001/api/health"),
-        ("Wallet", f"http://{API_HOST}:8003/health"),
-        ("Blockchain RPC", f"http://{API_HOST}:8006/health"),
-    ])
+    perf = test_performance(
+        [
+            ("Agent Coordinator", f"http://{API_HOST}:9001/health"),
+            ("Exchange", f"http://{API_HOST}:8001/api/health"),
+            ("Wallet", f"http://{API_HOST}:8003/health"),
+            ("Blockchain RPC", f"http://{API_HOST}:8006/health"),
+        ]
+    )
     all_results["performance"] = perf
 
     with open("api-test-results.json", "w") as f:

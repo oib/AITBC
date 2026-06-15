@@ -304,9 +304,7 @@ class InMemorySettlementStorage(SettlementStorage):
 
             return pending
 
-    async def get_settlement_stats(
-        self, bridge_name: str | None = None, time_range: int | None = None
-    ) -> dict[str, Any]:
+    async def get_settlement_stats(self, bridge_name: str | None = None, time_range: int | None = None) -> dict[str, Any]:
         async with self._lock:
             stats: dict[str, dict[str, Any]] = {}
 

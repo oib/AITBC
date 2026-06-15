@@ -44,12 +44,10 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 # Optionally initialize genesis if DB doesn't exist
 if not DB_PATH.exists():
     print("[*] Database not found. Initializing production genesis...")
-    result = subprocess.run([
-        sys.executable,
-        "/opt/aitbc/scripts/init_production_genesis.py",
-        "--chain-id", CHAIN_ID,
-        "--db-path", str(DB_PATH)
-    ], check=False)
+    result = subprocess.run(
+        [sys.executable, "/opt/aitbc/scripts/init_production_genesis.py", "--chain-id", CHAIN_ID, "--db-path", str(DB_PATH)],
+        check=False,
+    )
     if result.returncode != 0:
         print("[!] Genesis initialization failed. Aborting.")
         sys.exit(1)

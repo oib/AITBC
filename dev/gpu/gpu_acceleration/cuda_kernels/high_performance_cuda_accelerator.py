@@ -15,13 +15,14 @@ import numpy as np
 class OptimizedFieldElement(ctypes.Structure):
     _fields_ = [("limbs", ctypes.c_uint64 * 4)]
 
+
 class HighPerformanceCUDAZKAccelerator:
     """High-performance Python interface for optimized CUDA ZK operations"""
 
     def __init__(self, lib_path: str = None):
         """
         Initialize high-performance CUDA accelerator
-        
+
         Args:
             lib_path: Path to compiled optimized CUDA library (.so file)
         """
@@ -45,7 +46,7 @@ class HighPerformanceCUDAZKAccelerator:
             "./optimized_field_operations.so",
             "../liboptimized_field_operations.so",
             "../../liboptimized_field_operations.so",
-            "/usr/local/lib/liboptimized_field_operations.so"
+            "/usr/local/lib/liboptimized_field_operations.so",
         ]
 
         for path in possible_paths:
@@ -69,7 +70,7 @@ class HighPerformanceCUDAZKAccelerator:
             np.ctypeslib.ndpointer(ctypes.c_uint64, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_uint64, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_uint64, flags="C_CONTIGUOUS"),
-            ctypes.c_int
+            ctypes.c_int,
         ]
         self.lib.gpu_optimized_field_addition.restype = ctypes.c_int
 
@@ -79,7 +80,7 @@ class HighPerformanceCUDAZKAccelerator:
             np.ctypeslib.ndpointer(ctypes.c_uint64, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_uint64, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_uint64, flags="C_CONTIGUOUS"),
-            ctypes.c_int
+            ctypes.c_int,
         ]
         self.lib.gpu_vectorized_field_addition.restype = ctypes.c_int
 
@@ -89,7 +90,7 @@ class HighPerformanceCUDAZKAccelerator:
             np.ctypeslib.ndpointer(ctypes.c_uint64, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_uint64, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_uint64, flags="C_CONTIGUOUS"),
-            ctypes.c_int
+            ctypes.c_int,
         ]
         self.lib.gpu_shared_memory_field_addition.restype = ctypes.c_int
 
@@ -114,10 +115,10 @@ class HighPerformanceCUDAZKAccelerator:
     def benchmark_optimized_kernels(self, max_elements: int = 10000000) -> dict:
         """
         Benchmark all optimized CUDA kernels and compare performance
-        
+
         Args:
             max_elements: Maximum number of elements to test
-            
+
         Returns:
             Comprehensive performance benchmark results
         """
@@ -129,11 +130,11 @@ class HighPerformanceCUDAZKAccelerator:
 
         # Test different dataset sizes
         test_sizes = [
-            1000,      # 1K elements
-            10000,     # 10K elements
-            100000,    # 100K elements
-            1000000,   # 1M elements
-            5000000,   # 5M elements
+            1000,  # 1K elements
+            10000,  # 10K elements
+            100000,  # 100K elements
+            1000000,  # 1M elements
+            5000000,  # 5M elements
             10000000,  # 10M elements
         ]
 
@@ -143,7 +144,7 @@ class HighPerformanceCUDAZKAccelerator:
             "vectorized": [],
             "shared_memory": [],
             "cpu_baseline": [],
-            "performance_summary": {}
+            "performance_summary": {},
         }
 
         for size in test_sizes:
@@ -184,9 +185,9 @@ class HighPerformanceCUDAZKAccelerator:
             print(f"   CPU Baseline:     {cpu_result['time']:.4f}s, {cpu_result['throughput']:.0f} elem/s")
 
             # Calculate speedups
-            flat_speedup = cpu_result['time'] / flat_result['time'] if flat_result['time'] > 0 else 0
-            vec_speedup = cpu_result['time'] / vec_result['time'] if vec_result['time'] > 0 else 0
-            shared_speedup = cpu_result['time'] / shared_result['time'] if shared_result['time'] > 0 else 0
+            flat_speedup = cpu_result["time"] / flat_result["time"] if flat_result["time"] > 0 else 0
+            vec_speedup = cpu_result["time"] / vec_result["time"] if vec_result["time"] > 0 else 0
+            shared_speedup = cpu_result["time"] / shared_result["time"] if shared_result["time"] > 0 else 0
 
             print(f"   Speedups - Flat: {flat_speedup:.2f}x, Vec: {vec_speedup:.2f}x, Shared: {shared_speedup:.2f}x")
 
@@ -198,8 +199,9 @@ class HighPerformanceCUDAZKAccelerator:
 
         return results
 
-    def _benchmark_optimized_flat_kernel(self, a_flat: np.ndarray, b_flat: np.ndarray,
-                                        modulus: list[int], num_elements: int) -> dict:
+    def _benchmark_optimized_flat_kernel(
+        self, a_flat: np.ndarray, b_flat: np.ndarray, modulus: list[int], num_elements: int
+    ) -> dict:
         """Benchmark optimized flat array kernel"""
         try:
             result_flat = np.zeros_like(a_flat)
@@ -207,18 +209,16 @@ class HighPerformanceCUDAZKAccelerator:
 
             # Multiple runs for consistency
             times = []
-            for run in range(3):
+            for _run in range(3):
                 start_time = time.time()
-                success = self.lib.gpu_optimized_field_addition(
-                    a_flat, b_flat, result_flat, modulus_array, num_elements
-                )
+                success = self.lib.gpu_optimized_field_addition(a_flat, b_flat, result_flat, modulus_array, num_elements)
                 run_time = time.time() - start_time
 
                 if success == 0:  # Success
                     times.append(run_time)
 
             if not times:
-                return {"time": float('inf'), "throughput": 0, "success": False}
+                return {"time": float("inf"), "throughput": 0, "success": False}
 
             avg_time = sum(times) / len(times)
             throughput = num_elements / avg_time if avg_time > 0 else 0
@@ -227,10 +227,11 @@ class HighPerformanceCUDAZKAccelerator:
 
         except Exception as e:
             print(f"   ❌ Optimized flat kernel error: {e}")
-            return {"time": float('inf'), "throughput": 0, "success": False}
+            return {"time": float("inf"), "throughput": 0, "success": False}
 
-    def _benchmark_vectorized_kernel(self, a_flat: np.ndarray, b_flat: np.ndarray,
-                                    modulus: list[int], num_elements: int) -> dict:
+    def _benchmark_vectorized_kernel(
+        self, a_flat: np.ndarray, b_flat: np.ndarray, modulus: list[int], num_elements: int
+    ) -> dict:
         """Benchmark vectorized kernel"""
         try:
             # Convert flat arrays to vectorized format (uint4)
@@ -240,18 +241,16 @@ class HighPerformanceCUDAZKAccelerator:
             modulus_array = np.array(modulus, dtype=np.uint64)
 
             times = []
-            for run in range(3):
+            for _run in range(3):
                 start_time = time.time()
-                success = self.lib.gpu_vectorized_field_addition(
-                    a_flat, b_flat, result_flat, modulus_array, num_elements
-                )
+                success = self.lib.gpu_vectorized_field_addition(a_flat, b_flat, result_flat, modulus_array, num_elements)
                 run_time = time.time() - start_time
 
                 if success == 0:
                     times.append(run_time)
 
             if not times:
-                return {"time": float('inf'), "throughput": 0, "success": False}
+                return {"time": float("inf"), "throughput": 0, "success": False}
 
             avg_time = sum(times) / len(times)
             throughput = num_elements / avg_time if avg_time > 0 else 0
@@ -260,28 +259,27 @@ class HighPerformanceCUDAZKAccelerator:
 
         except Exception as e:
             print(f"   ❌ Vectorized kernel error: {e}")
-            return {"time": float('inf'), "throughput": 0, "success": False}
+            return {"time": float("inf"), "throughput": 0, "success": False}
 
-    def _benchmark_shared_memory_kernel(self, a_flat: np.ndarray, b_flat: np.ndarray,
-                                       modulus: list[int], num_elements: int) -> dict:
+    def _benchmark_shared_memory_kernel(
+        self, a_flat: np.ndarray, b_flat: np.ndarray, modulus: list[int], num_elements: int
+    ) -> dict:
         """Benchmark shared memory kernel"""
         try:
             result_flat = np.zeros_like(a_flat)
             modulus_array = np.array(modulus, dtype=np.uint64)
 
             times = []
-            for run in range(3):
+            for _run in range(3):
                 start_time = time.time()
-                success = self.lib.gpu_shared_memory_field_addition(
-                    a_flat, b_flat, result_flat, modulus_array, num_elements
-                )
+                success = self.lib.gpu_shared_memory_field_addition(a_flat, b_flat, result_flat, modulus_array, num_elements)
                 run_time = time.time() - start_time
 
                 if success == 0:
                     times.append(run_time)
 
             if not times:
-                return {"time": float('inf'), "throughput": 0, "success": False}
+                return {"time": float("inf"), "throughput": 0, "success": False}
 
             avg_time = sum(times) / len(times)
             throughput = num_elements / avg_time if avg_time > 0 else 0
@@ -290,10 +288,9 @@ class HighPerformanceCUDAZKAccelerator:
 
         except Exception as e:
             print(f"   ❌ Shared memory kernel error: {e}")
-            return {"time": float('inf'), "throughput": 0, "success": False}
+            return {"time": float("inf"), "throughput": 0, "success": False}
 
-    def _benchmark_cpu_baseline(self, a_flat: np.ndarray, b_flat: np.ndarray,
-                                modulus: list[int], num_elements: int) -> dict:
+    def _benchmark_cpu_baseline(self, a_flat: np.ndarray, b_flat: np.ndarray, modulus: list[int], num_elements: int) -> dict:
         """Benchmark CPU baseline for comparison"""
         try:
             start_time = time.time()
@@ -312,7 +309,7 @@ class HighPerformanceCUDAZKAccelerator:
 
         except Exception as e:
             print(f"   ❌ CPU baseline error: {e}")
-            return {"time": float('inf'), "throughput": 0, "success": False}
+            return {"time": float("inf"), "throughput": 0, "success": False}
 
     def _generate_flat_test_data(self, num_elements: int) -> tuple[np.ndarray, np.ndarray]:
         """Generate flat array test data for optimal memory access"""
@@ -333,7 +330,7 @@ class HighPerformanceCUDAZKAccelerator:
         best_speedups = []
         best_throughputs = []
 
-        for i, size in enumerate(results["test_sizes"]):
+        for i, _size in enumerate(results["test_sizes"]):
             cpu_time = results["cpu_baseline"][i]["time"]
 
             # Calculate speedups
@@ -348,7 +345,7 @@ class HighPerformanceCUDAZKAccelerator:
             best_throughput = max(
                 results["optimized_flat"][i]["throughput"],
                 results["vectorized"][i]["throughput"],
-                results["shared_memory"][i]["throughput"]
+                results["shared_memory"][i]["throughput"],
             )
             best_throughputs.append(best_throughput)
 
@@ -374,7 +371,9 @@ class HighPerformanceCUDAZKAccelerator:
             print(f"   Average Speedup: {summary['average_speedup']:.2f}x across all tests")
 
         if "best_throughput" in summary:
-            print(f"   Best Throughput: {summary['best_throughput']:.0f} elements/s at {summary.get('best_throughput_size', 'N/A'):,} elements")
+            print(
+                f"   Best Throughput: {summary['best_throughput']:.0f} elements/s at {summary.get('best_throughput_size', 'N/A'):,} elements"
+            )
             print(f"   Average Throughput: {summary['average_throughput']:.0f} elements/s")
 
         # Performance classification
@@ -404,9 +403,9 @@ class HighPerformanceCUDAZKAccelerator:
 
         analysis = {
             "data_size_gb": data_size / (1024**3),
-            "flat_bandwidth_gb_s": data_size / (flat_result['time'] * 1024**3) if flat_result['time'] > 0 else 0,
-            "vectorized_bandwidth_gb_s": data_size / (vec_result['time'] * 1024**3) if vec_result['time'] > 0 else 0,
-            "shared_bandwidth_gb_s": data_size / (shared_result['time'] * 1024**3) if shared_result['time'] > 0 else 0,
+            "flat_bandwidth_gb_s": data_size / (flat_result["time"] * 1024**3) if flat_result["time"] > 0 else 0,
+            "vectorized_bandwidth_gb_s": data_size / (vec_result["time"] * 1024**3) if vec_result["time"] > 0 else 0,
+            "shared_bandwidth_gb_s": data_size / (shared_result["time"] * 1024**3) if shared_result["time"] > 0 else 0,
         }
 
         print(f"   Data Size: {analysis['data_size_gb']:.2f} GB")
@@ -415,6 +414,7 @@ class HighPerformanceCUDAZKAccelerator:
         print(f"   Shared Memory Kernel: {analysis['shared_bandwidth_gb_s']:.2f} GB/s")
 
         return analysis
+
 
 def main():
     """Main function for testing high-performance CUDA acceleration"""
@@ -437,7 +437,7 @@ def main():
         results = accelerator.benchmark_optimized_kernels(10000000)
 
         # Analyze memory bandwidth
-        bandwidth_analysis = accelerator.analyze_memory_bandwidth(1000000)
+        _ = accelerator.analyze_memory_bandwidth(1000000)
 
         print("\n✅ High-Performance CUDA acceleration test completed!")
 
@@ -448,6 +448,7 @@ def main():
 
     except Exception as e:
         print(f"❌ Test failed: {e}")
+
 
 if __name__ == "__main__":
     main()

@@ -33,11 +33,7 @@ class TestDataFactory:
 
     # User/Identity data
     @staticmethod
-    def user_data(
-        user_id: str | None = None,
-        email: str | None = None,
-        is_active: bool = True
-    ) -> dict[str, Any]:
+    def user_data(user_id: str | None = None, email: str | None = None, is_active: bool = True) -> dict[str, Any]:
         """Generate test user data"""
         return {
             "user_id": user_id or TestDataFactory.generate_id("user"),
@@ -45,54 +41,38 @@ class TestDataFactory:
             "username": "testuser",
             "is_active": is_active,
             "created_at": TestDataFactory.generate_timestamp(),
-            "updated_at": TestDataFactory.generate_timestamp()
+            "updated_at": TestDataFactory.generate_timestamp(),
         }
 
     # Wallet data
     @staticmethod
-    def wallet_data(
-        address: str | None = None,
-        balance: float = 1000.0
-    ) -> dict[str, Any]:
+    def wallet_data(address: str | None = None, balance: float = 1000.0) -> dict[str, Any]:
         """Generate test wallet data"""
         return {
             "address": address or TestDataFactory.TEST_ADDRESSES["alice"],
             "balance": balance,
             "currency": "AITBC",
             "nonce": 0,
-            "created_at": TestDataFactory.generate_timestamp()
+            "created_at": TestDataFactory.generate_timestamp(),
         }
 
     # Job data
     @staticmethod
-    def job_data(
-        job_type: str = "ai_inference",
-        priority: str = "normal",
-        timeout: int = 300
-    ) -> dict[str, Any]:
+    def job_data(job_type: str = "ai_inference", priority: str = "normal", timeout: int = 300) -> dict[str, Any]:
         """Generate test job data"""
         return {
             "job_id": TestDataFactory.generate_id("job"),
             "job_type": job_type,
-            "parameters": {
-                "model": "gpt-4",
-                "prompt": "Test prompt",
-                "max_tokens": 100,
-                "temperature": 0.7
-            },
+            "parameters": {"model": "gpt-4", "prompt": "Test prompt", "max_tokens": 100, "temperature": 0.7},
             "priority": priority,
             "timeout": timeout,
             "created_at": TestDataFactory.generate_timestamp(),
-            "expires_at": TestDataFactory.generate_timestamp(offset_seconds=timeout)
+            "expires_at": TestDataFactory.generate_timestamp(offset_seconds=timeout),
         }
 
     # Transaction data
     @staticmethod
-    def transaction_data(
-        sender: str | None = None,
-        recipient: str | None = None,
-        amount: float = 100.0
-    ) -> dict[str, Any]:
+    def transaction_data(sender: str | None = None, recipient: str | None = None, amount: float = 100.0) -> dict[str, Any]:
         """Generate test transaction data"""
         return {
             "tx_id": TestDataFactory.generate_id("tx"),
@@ -102,15 +82,12 @@ class TestDataFactory:
             "currency": "AITBC",
             "fee": 0.1,
             "timestamp": TestDataFactory.generate_timestamp(),
-            "status": "pending"
+            "status": "pending",
         }
 
     # Miner data
     @staticmethod
-    def miner_data(
-        miner_id: str | None = None,
-        status: str = "active"
-    ) -> dict[str, Any]:
+    def miner_data(miner_id: str | None = None, status: str = "active") -> dict[str, Any]:
         """Generate test miner data"""
         return {
             "miner_id": miner_id or TestDataFactory.TEST_ADDRESSES["miner1"],
@@ -120,15 +97,12 @@ class TestDataFactory:
             "average_accuracy": 95.0,
             "gpu_count": 4,
             "gpu_type": "NVIDIA A100",
-            "last_heartbeat": TestDataFactory.generate_timestamp()
+            "last_heartbeat": TestDataFactory.generate_timestamp(),
         }
 
     # GPU data
     @staticmethod
-    def gpu_data(
-        gpu_id: str | None = None,
-        status: str = "available"
-    ) -> dict[str, Any]:
+    def gpu_data(gpu_id: str | None = None, status: str = "available") -> dict[str, Any]:
         """Generate test GPU data"""
         return {
             "gpu_id": gpu_id or TestDataFactory.generate_id("gpu"),
@@ -137,16 +111,12 @@ class TestDataFactory:
             "memory_gb": 80,
             "compute_capability": 8.0,
             "price_per_hour": 2.5,
-            "location": "us-east-1"
+            "location": "us-east-1",
         }
 
     # Staking data
     @staticmethod
-    def staking_data(
-        amount: float = 1000.0,
-        lock_period: int = 30,
-        auto_compound: bool = False
-    ) -> dict[str, Any]:
+    def staking_data(amount: float = 1000.0, lock_period: int = 30, auto_compound: bool = False) -> dict[str, Any]:
         """Generate test staking data"""
         return {
             "stake_id": TestDataFactory.generate_id("stake"),
@@ -156,15 +126,12 @@ class TestDataFactory:
             "apy": 5.0,
             "start_time": TestDataFactory.generate_timestamp(),
             "end_time": TestDataFactory.generate_timestamp(offset_seconds=lock_period * 86400),
-            "status": "active"
+            "status": "active",
         }
 
     # Agent data
     @staticmethod
-    def agent_data(
-        agent_id: str | None = None,
-        status: str = "active"
-    ) -> dict[str, Any]:
+    def agent_data(agent_id: str | None = None, status: str = "active") -> dict[str, Any]:
         """Generate test agent data"""
         return {
             "agent_id": agent_id or TestDataFactory.generate_id("agent"),
@@ -172,46 +139,37 @@ class TestDataFactory:
             "type": "general",
             "capabilities": ["text_generation", "code_generation"],
             "performance_tier": "gold",
-            "created_at": TestDataFactory.generate_timestamp()
+            "created_at": TestDataFactory.generate_timestamp(),
         }
 
     # API request/response data
     @staticmethod
-    def api_response(
-        status_code: int = 200,
-        data: dict[str, Any] | None = None,
-        message: str = "Success"
-    ) -> dict[str, Any]:
+    def api_response(status_code: int = 200, data: dict[str, Any] | None = None, message: str = "Success") -> dict[str, Any]:
         """Generate test API response"""
         return {
             "status_code": status_code,
             "data": data or {},
             "message": message,
-            "timestamp": TestDataFactory.generate_timestamp()
+            "timestamp": TestDataFactory.generate_timestamp(),
         }
 
     # Error data
     @staticmethod
     def error_data(
-        error_code: str = "INTERNAL_ERROR",
-        error_message: str = "An error occurred",
-        details: dict[str, Any] | None = None
+        error_code: str = "INTERNAL_ERROR", error_message: str = "An error occurred", details: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Generate test error data"""
         return {
             "error_code": error_code,
             "error_message": error_message,
             "details": details or {},
-            "timestamp": TestDataFactory.generate_timestamp()
+            "timestamp": TestDataFactory.generate_timestamp(),
         }
 
     # Pagination data
     @staticmethod
     def paginated_response(
-        items: list[dict[str, Any]],
-        page: int = 1,
-        page_size: int = 10,
-        total: int | None = None
+        items: list[dict[str, Any]], page: int = 1, page_size: int = 10, total: int | None = None
     ) -> dict[str, Any]:
         """Generate test paginated response"""
         return {
@@ -219,7 +177,7 @@ class TestDataFactory:
             "page": page,
             "page_size": page_size,
             "total": total or len(items),
-            "total_pages": (total or len(items) + page_size - 1) // page_size
+            "total_pages": (total or len(items) + page_size - 1) // page_size,
         }
 
     # Batch operations
@@ -235,10 +193,7 @@ class TestDataFactory:
 
     # Domain-specific scenarios
     @staticmethod
-    def marketplace_offer_data(
-        provider: str | None = None,
-        price: float = 1.5
-    ) -> dict[str, Any]:
+    def marketplace_offer_data(provider: str | None = None, price: float = 1.5) -> dict[str, Any]:
         """Generate test marketplace offer data"""
         return {
             "offer_id": TestDataFactory.generate_id("offer"),
@@ -248,13 +203,12 @@ class TestDataFactory:
             "price_per_hour": price,
             "availability": "immediate",
             "location": "us-east-1",
-            "created_at": TestDataFactory.generate_timestamp()
+            "created_at": TestDataFactory.generate_timestamp(),
         }
 
     @staticmethod
     def governance_proposal_data(
-        title: str = "Test Proposal",
-        description: str = "Test proposal description"
+        title: str = "Test Proposal", description: str = "Test proposal description"
     ) -> dict[str, Any]:
         """Generate test governance proposal data"""
         return {
@@ -266,5 +220,5 @@ class TestDataFactory:
             "votes_for": 0,
             "votes_against": 0,
             "created_at": TestDataFactory.generate_timestamp(),
-            "ends_at": TestDataFactory.generate_timestamp(offset_seconds=86400 * 7)  # 7 days
+            "ends_at": TestDataFactory.generate_timestamp(offset_seconds=86400 * 7),  # 7 days
         }

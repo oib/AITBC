@@ -26,14 +26,23 @@ def genesis():
 @click.option("--register-service", is_flag=True, help="Register genesis wallet with wallet service")
 @click.option("--service-url", default="http://localhost:8003", help="Wallet service URL")
 @click.pass_context
-def init(ctx, chain_id: str, create_wallet: bool, password: str | None, proposer: str | None,
-          force: bool, register_service: bool, service_url: str):
+def init(
+    ctx,
+    chain_id: str,
+    create_wallet: bool,
+    password: str | None,
+    proposer: str | None,
+    force: bool,
+    register_service: bool,
+    service_url: str,
+):
     """Initialize genesis block and wallet for a blockchain"""
     # Auto-detect chain_id from config if not provided
     if not chain_id:
         from ..config import get_config
+
         config = get_config()
-        chain_id = getattr(config, 'chain_id', 'ait-mainnet')
+        chain_id = getattr(config, "chain_id", "ait-mainnet")
 
     script_path = Path("/opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py")
 
@@ -42,11 +51,7 @@ def init(ctx, chain_id: str, create_wallet: bool, password: str | None, proposer
         return
 
     # Build command
-    cmd = [
-        sys.executable,
-        str(script_path),
-        "--chain-id", chain_id
-    ]
+    cmd = [sys.executable, str(script_path), "--chain-id", chain_id]
 
     if create_wallet:
         cmd.append("--create-wallet")
@@ -82,8 +87,9 @@ def verify(ctx, chain_id: str):
     # Auto-detect chain_id from config if not provided
     if not chain_id:
         from ..config import get_config
+
         config = get_config()
-        chain_id = getattr(config, 'chain_id', 'ait-mainnet')
+        chain_id = getattr(config, "chain_id", "ait-mainnet")
 
     import json
     import sqlite3
@@ -99,12 +105,15 @@ def verify(ctx, chain_id: str):
             genesis_data = json.load(f)
 
         success(f"✓ Genesis config found: {genesis_path}")
-        output({
-            "chain_id": genesis_data.get("chain_id"),
-            "genesis_hash": genesis_data.get("block", {}).get("hash"),
-            "proposer": genesis_data.get("block", {}).get("proposer"),
-            "allocations_count": len(genesis_data.get("allocations", []))
-        }, ctx.obj.get("output_format", "table"))
+        output(
+            {
+                "chain_id": genesis_data.get("chain_id"),
+                "genesis_hash": genesis_data.get("block", {}).get("hash"),
+                "proposer": genesis_data.get("block", {}).get("proposer"),
+                "allocations_count": len(genesis_data.get("allocations", [])),
+            },
+            ctx.obj.get("output_format", "table"),
+        )
     except Exception as e:
         error(f"Failed to read genesis config: {e}")
         return
@@ -128,11 +137,10 @@ def verify(ctx, chain_id: str):
 
         if genesis_block:
             success("✓ Genesis block found in database")
-            output({
-                "height": genesis_block[1],
-                "hash": genesis_block[2],
-                "proposer": genesis_block[4]
-            }, ctx.obj.get("output_format", "table"))
+            output(
+                {"height": genesis_block[1], "hash": genesis_block[2], "proposer": genesis_block[4]},
+                ctx.obj.get("output_format", "table"),
+            )
         else:
             error(f"Genesis block not found in database for chain {chain_id}")
 
@@ -157,10 +165,13 @@ def verify(ctx, chain_id: str):
         try:
             with open(wallet_path) as f:
                 wallet_data = json.load(f)
-            output({
-                "address": wallet_data.get("address"),
-                "public_key": wallet_data.get("public_key")[:16] + "..." if wallet_data.get("public_key") else None
-            }, ctx.obj.get("output_format", "table"))
+            output(
+                {
+                    "address": wallet_data.get("address"),
+                    "public_key": wallet_data.get("public_key")[:16] + "..." if wallet_data.get("public_key") else None,
+                },
+                ctx.obj.get("output_format", "table"),
+            )
         except Exception as e:
             error(f"Failed to read genesis wallet: {e}")
     else:
@@ -168,27 +179,33 @@ def verify(ctx, chain_id: str):
 
 
 @genesis.command()
-@click.option("--chain-id", default=None, help="Chain ID to show info for (auto-detected from blockchain node if not provided)")
+@click.option(
+    "--chain-id", default=None, help="Chain ID to show info for (auto-detected from blockchain node if not provided)"
+)
 @click.option("--data-dir", default=None, help="Data directory path (default: /var/lib/aitbc/data)")
-@click.option("--rpc-url", default=None, help="Blockchain RPC URL for chain ID auto-detection (default: http://localhost:8006)")
+@click.option(
+    "--rpc-url", default=None, help="Blockchain RPC URL for chain ID auto-detection (default: http://localhost:8006)"
+)
 @click.pass_context
 def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
     """Show genesis block information"""
     # Auto-detect chain_id from blockchain node if not provided
     if not chain_id:
         from ..config import get_config
+
         config = get_config()
 
         # Try to get chain_id from RPC health endpoint
         if not rpc_url:
-            rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+            rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
 
         try:
             from ..utils.chain_id import get_chain_id
+
             chain_id = get_chain_id(rpc_url, override=None, timeout=5)
         except Exception:
             # Fallback to config or default
-            chain_id = getattr(config, 'chain_id', 'ait-mainnet')
+            chain_id = getattr(config, "chain_id", "ait-mainnet")
 
     # Use provided data dir or default
     if not data_dir:
@@ -211,26 +228,25 @@ def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
         block = genesis_data.get("block", {})
         allocations = genesis_data.get("allocations", [])
 
-        output({
-            "chain_id": genesis_data.get("chain_id"),
-            "genesis_block": {
-                "height": block.get("height"),
-                "hash": block.get("hash"),
-                "parent_hash": block.get("parent_hash"),
-                "proposer": block.get("proposer"),
-                "timestamp": block.get("timestamp"),
-                "tx_count": block.get("tx_count")
+        output(
+            {
+                "chain_id": genesis_data.get("chain_id"),
+                "genesis_block": {
+                    "height": block.get("height"),
+                    "hash": block.get("hash"),
+                    "parent_hash": block.get("parent_hash"),
+                    "proposer": block.get("proposer"),
+                    "timestamp": block.get("timestamp"),
+                    "tx_count": block.get("tx_count"),
+                },
+                "allocations": [
+                    {"address": alloc.get("address"), "balance": alloc.get("balance"), "nonce": alloc.get("nonce")}
+                    for alloc in allocations[:5]  # Show first 5
+                ],
+                "total_allocations": len(allocations),
             },
-            "allocations": [
-                {
-                    "address": alloc.get("address"),
-                    "balance": alloc.get("balance"),
-                    "nonce": alloc.get("nonce")
-                }
-                for alloc in allocations[:5]  # Show first 5
-            ],
-            "total_allocations": len(allocations)
-        }, ctx.obj.get("output_format", "table"))
+            ctx.obj.get("output_format", "table"),
+        )
 
     except Exception as e:
         error(f"Failed to read genesis info: {e}")
@@ -247,14 +263,16 @@ def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None,
     # Auto-detect chain_id from config if not provided
     if not chain_id:
         from ..config import get_config
+
         config = get_config()
-        chain_id = getattr(config, 'chain_id', 'ait-mainnet')
+        chain_id = getattr(config, "chain_id", "ait-mainnet")
 
     # Auto-detect rpc_url from config if not provided
     if not rpc_url:
         from ..config import get_config
+
         config = get_config()
-        rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
 
     # Use provided data dir or default
     if not data_dir:
@@ -291,21 +309,26 @@ def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None,
                 "parent_hash": block_data.get("parent_hash", "0x00"),
                 "proposer": block_data.get("proposer", "genesis"),
                 "timestamp": block_data.get("timestamp"),
-                "state_root": block_data.get("state_root", "0x0000000000000000000000000000000000000000000000000000000000000000"),
-                "allocations": []
+                "state_root": block_data.get(
+                    "state_root", "0x0000000000000000000000000000000000000000000000000000000000000000"
+                ),
+                "allocations": [],
             }
 
             # Write genesis.json
-            with open(genesis_path, 'w') as f:
+            with open(genesis_path, "w") as f:
                 json.dump(genesis_data, f, indent=2, default=str)
 
             success(f"✓ Genesis synced successfully: {genesis_path}")
-            output({
-                "chain_id": chain_id,
-                "genesis_hash": genesis_data["genesis_hash"],
-                "timestamp": genesis_data["timestamp"],
-                "file_path": str(genesis_path)
-            }, ctx.obj.get("output_format", "table"))
+            output(
+                {
+                    "chain_id": chain_id,
+                    "genesis_hash": genesis_data["genesis_hash"],
+                    "timestamp": genesis_data["timestamp"],
+                    "file_path": str(genesis_path),
+                },
+                ctx.obj.get("output_format", "table"),
+            )
 
     except httpx.HTTPStatusError as e:
         error(f"Failed to fetch genesis from hub: HTTP {e.response.status_code}")

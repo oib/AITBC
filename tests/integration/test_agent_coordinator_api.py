@@ -3,7 +3,6 @@ Agent Coordinator API Integration Tests
 Tests the complete API functionality with real service
 """
 
-
 import pytest
 import requests
 
@@ -42,20 +41,12 @@ class TestAgentCoordinatorAPI:
             "agent_type": "worker",
             "capabilities": ["data_processing", "analysis"],
             "services": ["process_data", "analyze_results"],
-            "endpoints": {
-                "http": "http://localhost:8001",
-                "ws": "ws://localhost:8002"
-            },
-            "metadata": {
-                "version": "1.0.0",
-                "region": "test"
-            }
+            "endpoints": {"http": "http://localhost:8001", "ws": "ws://localhost:8002"},
+            "metadata": {"version": "1.0.0", "region": "test"},
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/v1/agents/register",
-            json=agent_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/v1/agents/register", json=agent_data, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -66,15 +57,10 @@ class TestAgentCoordinatorAPI:
 
     def test_agent_discovery(self):
         """Test agent discovery endpoint"""
-        query = {
-            "agent_type": "worker",
-            "status": "active"
-        }
+        query = {"agent_type": "worker", "status": "active"}
 
         response = requests.post(
-            f"{self.BASE_URL}/v1/agents/discover",
-            json=query,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/v1/agents/discover", json=query, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -90,23 +76,15 @@ class TestAgentCoordinatorAPI:
             "task_data": {
                 "task_id": "api_test_task_001",
                 "task_type": "data_processing",
-                "data": {
-                    "input": "test_data",
-                    "operation": "process"
-                },
-                "required_capabilities": ["data_processing"]
+                "data": {"input": "test_data", "operation": "process"},
+                "required_capabilities": ["data_processing"],
             },
             "priority": "high",
-            "requirements": {
-                "agent_type": "worker",
-                "min_health_score": 0.8
-            }
+            "requirements": {"agent_type": "worker", "min_health_score": 0.8},
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/v1/tasks/submit",
-            json=task_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/v1/tasks/submit", json=task_data, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -136,8 +114,7 @@ class TestAgentCoordinatorAPI:
 
         for strategy in strategies:
             response = requests.put(
-                f"{self.BASE_URL}/api/v1/agent/messages/load-balancer/strategy",
-                params={"strategy": strategy}
+                f"{self.BASE_URL}/api/v1/agent/messages/load-balancer/strategy", params={"strategy": strategy}
             )
 
             assert response.status_code == 200
@@ -149,8 +126,7 @@ class TestAgentCoordinatorAPI:
     def test_load_balancer_invalid_strategy(self):
         """Test load balancer with invalid strategy"""
         response = requests.put(
-            f"{self.BASE_URL}/api/v1/agent/messages/load-balancer/strategy",
-            params={"strategy": "invalid_strategy"}
+            f"{self.BASE_URL}/api/v1/agent/messages/load-balancer/strategy", params={"strategy": "invalid_strategy"}
         )
 
         assert response.status_code == 400
@@ -175,19 +151,12 @@ class TestAgentCoordinatorAPI:
     @pytest.mark.skip(reason="Depends on agent being registered first - test order dependency")
     def test_agent_status_update(self):
         """Test agent status update endpoint"""
-        status_data = {
-            "status": "busy",
-            "load_metrics": {
-                "cpu_usage": 0.7,
-                "memory_usage": 0.6,
-                "active_tasks": 3
-            }
-        }
+        status_data = {"status": "busy", "load_metrics": {"cpu_usage": 0.7, "memory_usage": 0.6, "active_tasks": 3}}
 
         response = requests.put(
             f"{self.BASE_URL}/v1/agents/api_test_agent_001/status",
             json=status_data,
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -219,6 +188,7 @@ class TestAgentCoordinatorAPI:
         assert "agents" in data
         assert "count" in data
 
+
 class TestAPIPerformance:
     """Test API performance and reliability"""
 
@@ -228,11 +198,7 @@ class TestAPIPerformance:
         """Test API response times"""
         import time
 
-        endpoints = [
-            "/health",
-            "/api/v1/agent/messages/load-balancer/stats",
-            "/api/v1/agent/messages/registry/stats"
-        ]
+        endpoints = ["/health", "/api/v1/agent/messages/load-balancer/stats", "/api/v1/agent/messages/registry/stats"]
 
         for endpoint in endpoints:
             start_time = time.time()
@@ -268,6 +234,7 @@ class TestAPIPerformance:
         assert all(status == 200 for status in results)
         assert len(results) == 10
 
+
 class TestAPIErrorHandling:
     """Test API error handling"""
 
@@ -286,13 +253,11 @@ class TestAPIErrorHandling:
         """Test invalid agent registration data"""
         invalid_data = {
             "agent_id": "",  # Empty agent ID
-            "agent_type": "invalid_type"
+            "agent_type": "invalid_type",
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/v1/agents/register",
-            json=invalid_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/v1/agents/register", json=invalid_data, headers={"Content-Type": "application/json"}
         )
 
         # Should handle invalid data gracefully - now returns 422 for validation errors
@@ -307,13 +272,12 @@ class TestAPIErrorHandling:
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/v1/tasks/submit",
-            json=invalid_task,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/v1/tasks/submit", json=invalid_task, headers={"Content-Type": "application/json"}
         )
 
         # Should handle missing required fields gracefully
         assert response.status_code == 422
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     pytest.main([__file__])

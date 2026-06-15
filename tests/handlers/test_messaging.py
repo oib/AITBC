@@ -30,9 +30,9 @@ from handlers.messaging import (
 class TestHandleMessagingDeploy:
     """Test handle_messaging_deploy function"""
 
-    @patch('handlers.messaging.requests.post')
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.requests.post")
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_deploy_success(self, mock_exit, mock_logger, mock_post):
         """Test successful messaging contract deployment"""
         mock_response = Mock()
@@ -51,9 +51,9 @@ class TestHandleMessagingDeploy:
 
         mock_post.assert_called_once()
 
-    @patch('handlers.messaging.requests.post')
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.requests.post")
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_deploy_http_error(self, mock_exit, mock_logger, mock_post):
         """Test messaging contract deployment with HTTP error"""
         mock_response = Mock()
@@ -75,9 +75,9 @@ class TestHandleMessagingDeploy:
 class TestHandleMessagingState:
     """Test handle_messaging_state function"""
 
-    @patch('handlers.messaging.requests.get')
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.requests.get")
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_state_json(self, mock_exit, mock_logger, mock_get):
         """Test messaging state query with JSON output"""
         mock_response = Mock()
@@ -99,9 +99,9 @@ class TestHandleMessagingState:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.messaging.requests.get')
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.requests.get")
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_state_text(self, mock_exit, mock_logger, mock_get):
         """Test messaging state query with text output"""
         mock_response = Mock()
@@ -127,9 +127,9 @@ class TestHandleMessagingState:
 class TestHandleMessagingTopics:
     """Test handle_messaging_topics function"""
 
-    @patch('handlers.messaging.requests.get')
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.requests.get")
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_topics_json(self, mock_exit, mock_logger, mock_get):
         """Test topics query with JSON output"""
         mock_response = Mock()
@@ -151,9 +151,9 @@ class TestHandleMessagingTopics:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.messaging.requests.get')
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.requests.get")
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_topics_text(self, mock_exit, mock_logger, mock_get):
         """Test topics query with text output"""
         mock_response = Mock()
@@ -179,9 +179,9 @@ class TestHandleMessagingTopics:
 class TestHandleMessagingCreateTopic:
     """Test handle_messaging_create_topic function"""
 
-    @patch('handlers.messaging.requests.post')
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.requests.post")
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_create_topic_success(self, mock_exit, mock_logger, mock_post):
         """Test successful topic creation"""
         mock_response = Mock()
@@ -207,8 +207,8 @@ class TestHandleMessagingCreateTopic:
 
         mock_post.assert_called_once()
 
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_create_topic_missing_params(self, mock_exit, mock_logger):
         """Test topic creation with missing parameters"""
         args = Mock()
@@ -233,9 +233,9 @@ class TestHandleMessagingCreateTopic:
 class TestHandleMessagingMessages:
     """Test handle_messaging_messages function"""
 
-    @patch('handlers.messaging.requests.get')
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.requests.get")
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_messages_json(self, mock_exit, mock_logger, mock_get):
         """Test messages query with JSON output"""
         mock_response = Mock()
@@ -258,8 +258,8 @@ class TestHandleMessagingMessages:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_messages_missing_topic_id(self, mock_exit, mock_logger):
         """Test messages query with missing topic ID"""
         args = Mock()
@@ -281,9 +281,9 @@ class TestHandleMessagingMessages:
 class TestHandleMessagingPost:
     """Test handle_messaging_post function"""
 
-    @patch('handlers.messaging.requests.post')
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.requests.post")
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_post_success(self, mock_exit, mock_logger, mock_post):
         """Test successful message posting"""
         mock_response = Mock()
@@ -309,8 +309,8 @@ class TestHandleMessagingPost:
 
         mock_post.assert_called_once()
 
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_post_missing_params(self, mock_exit, mock_logger):
         """Test message posting with missing parameters"""
         args = Mock()
@@ -335,9 +335,9 @@ class TestHandleMessagingPost:
 class TestHandleMessagingVote:
     """Test handle_messaging_vote function"""
 
-    @patch('handlers.messaging.requests.post')
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.requests.post")
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_vote_success(self, mock_exit, mock_logger, mock_post):
         """Test successful voting"""
         mock_response = Mock()
@@ -363,8 +363,8 @@ class TestHandleMessagingVote:
 
         mock_post.assert_called_once()
 
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_vote_missing_params(self, mock_exit, mock_logger):
         """Test voting with missing parameters"""
         args = Mock()
@@ -389,9 +389,9 @@ class TestHandleMessagingVote:
 class TestHandleMessagingSearch:
     """Test handle_messaging_search function"""
 
-    @patch('handlers.messaging.requests.get')
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.requests.get")
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_search_json(self, mock_exit, mock_logger, mock_get):
         """Test message search with JSON output"""
         mock_response = Mock()
@@ -414,8 +414,8 @@ class TestHandleMessagingSearch:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_search_missing_query(self, mock_exit, mock_logger):
         """Test message search with missing query"""
         args = Mock()
@@ -437,9 +437,9 @@ class TestHandleMessagingSearch:
 class TestHandleMessagingReputation:
     """Test handle_messaging_reputation function"""
 
-    @patch('handlers.messaging.requests.get')
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.requests.get")
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_reputation_json(self, mock_exit, mock_logger, mock_get):
         """Test reputation query with JSON output"""
         mock_response = Mock()
@@ -462,8 +462,8 @@ class TestHandleMessagingReputation:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_reputation_missing_agent_id(self, mock_exit, mock_logger):
         """Test reputation query with missing agent ID"""
         args = Mock()
@@ -485,9 +485,9 @@ class TestHandleMessagingReputation:
 class TestHandleMessagingModerate:
     """Test handle_messaging_moderate function"""
 
-    @patch('handlers.messaging.requests.post')
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.requests.post")
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_moderate_success(self, mock_exit, mock_logger, mock_post):
         """Test successful moderation"""
         mock_response = Mock()
@@ -513,8 +513,8 @@ class TestHandleMessagingModerate:
 
         mock_post.assert_called_once()
 
-    @patch('handlers.messaging.logger')
-    @patch('sys.exit')
+    @patch("handlers.messaging.logger")
+    @patch("sys.exit")
     def test_handle_messaging_moderate_missing_params(self, mock_exit, mock_logger):
         """Test moderation with missing parameters"""
         args = Mock()

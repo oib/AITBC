@@ -10,10 +10,10 @@ import sys
 
 def run_command(cmd, description):
     """Run a command and return success status"""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Testing: {description}")
     print(f"Command: {cmd}")
-    print('='*60)
+    print("=" * 60)
 
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
@@ -27,12 +27,13 @@ def run_command(cmd, description):
 
     return result.returncode == 0
 
+
 def main():
     print("🔍 Verifying Windsurf Test Integration")
     print("=" * 60)
 
     # Change to project directory
-    os.chdir('/home/oib/windsurf/aitbc')
+    os.chdir("/home/oib/windsurf/aitbc")
 
     tests = [
         ("pytest --collect-only tests/test_windsurf_integration.py", "Test Discovery"),
@@ -60,6 +61,7 @@ def main():
     else:
         print("❌ Some tests failed. Check the output above.")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

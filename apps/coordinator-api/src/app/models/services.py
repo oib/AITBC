@@ -346,7 +346,9 @@ class ServiceRequest(BaseModel):
         }
 
         service_class = service_classes[self.service_type]
-        result: WhisperRequest | StableDiffusionRequest | LLMRequest | FFmpegRequest | BlenderRequest = service_class(**self.request_data)
+        result: WhisperRequest | StableDiffusionRequest | LLMRequest | FFmpegRequest | BlenderRequest = service_class(
+            **self.request_data
+        )
         return result
 
 

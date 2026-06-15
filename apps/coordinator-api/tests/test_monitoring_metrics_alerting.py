@@ -108,9 +108,7 @@ class TestAlertDispatcher:
     def test_alert_dispatcher_records_history(self):
         """Verify dispatched alerts are recorded in history."""
         dispatcher = AlertDispatcher(cooldown_seconds=0)
-        alerts = {
-            "test_alert": {"triggered": True, "status": "critical", "value": 95.0, "threshold": 90.0}
-        }
+        alerts = {"test_alert": {"triggered": True, "status": "critical", "value": 95.0, "threshold": 90.0}}
         dispatcher.dispatch(alerts)
 
         history = dispatcher.get_recent_alerts()
@@ -121,9 +119,7 @@ class TestAlertDispatcher:
     def test_alert_dispatcher_cooldown_suppression(self):
         """Verify alerts are suppressed during cooldown period."""
         dispatcher = AlertDispatcher(cooldown_seconds=10)
-        alerts = {
-            "test_alert": {"triggered": True, "status": "critical", "value": 95.0, "threshold": 90.0}
-        }
+        alerts = {"test_alert": {"triggered": True, "status": "critical", "value": 95.0, "threshold": 90.0}}
 
         result1 = dispatcher.dispatch(alerts)
         assert result1["triggered_count"] == 1

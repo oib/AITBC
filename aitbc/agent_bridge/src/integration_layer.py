@@ -22,7 +22,7 @@ class AITBCServiceIntegration:
             "blockchain_rpc": "http://localhost:8006",
             "exchange_service": "http://localhost:8001",
             "marketplace": "http://localhost:8002",
-            "agent_registry": "http://localhost:8013"
+            "agent_registry": "http://localhost:8013",
         }
         self.session = None
 
@@ -62,8 +62,7 @@ class AITBCServiceIntegration:
         """Submit transaction to blockchain"""
         try:
             async with self.session.post(
-                f"{self.service_endpoints['blockchain_rpc']}/rpc/submit",
-                json=transaction_data
+                f"{self.service_endpoints['blockchain_rpc']}/rpc/submit", json=transaction_data
             ) as response:
                 return await response.json()
         except Exception as e:
@@ -81,12 +80,12 @@ class AITBCServiceIntegration:
         """Register agent with coordinator"""
         try:
             async with self.session.post(
-                f"{self.service_endpoints['agent_registry']}/api/agents/register",
-                json=agent_data
+                f"{self.service_endpoints['agent_registry']}/api/agents/register", json=agent_data
             ) as response:
                 return await response.json()
         except Exception as e:
             return {"error": str(e), "status": "failed"}
+
 
 class AgentServiceBridge:
     """Bridge between agents and AITBC services"""
@@ -100,20 +99,22 @@ class AgentServiceBridge:
         try:
             # Register agent with coordinator
             async with self.integration as integration:
-                registration_result = await integration.register_agent_with_coordinator({
-                    "name": agent_id,
-                    "type": agent_config.get("type", "generic"),
-                    "capabilities": agent_config.get("capabilities", []),
-                    "chain_id": agent_config.get("chain_id", "ait-mainnet"),
-                    "endpoint": agent_config.get("endpoint", f"http://localhost:{8000 + len(self.active_agents) + 10}")
-                })
+                registration_result = await integration.register_agent_with_coordinator(
+                    {
+                        "name": agent_id,
+                        "type": agent_config.get("type", "generic"),
+                        "capabilities": agent_config.get("capabilities", []),
+                        "chain_id": agent_config.get("chain_id", "ait-mainnet"),
+                        "endpoint": agent_config.get("endpoint", f"http://localhost:{8000 + len(self.active_agents) + 10}"),
+                    }
+                )
 
             # The registry returns the created agent dict on success, not a {"status": "ok"} wrapper
             if registration_result and "id" in registration_result:
                 self.active_agents[agent_id] = {
                     "config": agent_config,
                     "registration": registration_result,
-                    "started_at": datetime.now(UTC)
+                    "started_at": datetime.now(UTC),
                 }
                 return True
             else:
@@ -147,11 +148,7 @@ class AgentServiceBridge:
                 "agent_id": agent_id,
                 "status": "active",
                 "started_at": agent_info["started_at"].isoformat(),
-                "services": {
-                    "blockchain": blockchain_status,
-                    "exchange": exchange_status,
-                    "coordinator": coordinator_status
-                }
+                "services": {"blockchain": blockchain_status, "exchange": exchange_status, "coordinator": coordinator_status},
             }
 
     async def execute_agent_task(self, agent_id: str, task_data: dict[str, Any]) -> dict[str, Any]:
@@ -180,12 +177,8 @@ class AgentServiceBridge:
                 analysis_result = {
                     "symbol": task_data.get("symbol", "AITBC/BTC"),
                     "market_data": market_data,
-                    "analysis": {
-                        "trend": "neutral",
-                        "volatility": "medium",
-                        "recommendation": "hold"
-                    },
-                    "timestamp": datetime.now(UTC).isoformat()
+                    "analysis": {"trend": "neutral", "volatility": "medium", "recommendation": "hold"},
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
 
                 return {"status": "success", "result": analysis_result}
@@ -205,7 +198,7 @@ class AgentServiceBridge:
                     "symbol": task_data.get("symbol", "AITBC/BTC"),
                     "side": task_data.get("side", "buy"),
                     "amount": task_data.get("amount", 0.1),
-                    "price": task_data.get("price", market_data.get("price", 0.001))
+                    "price": task_data.get("price", market_data.get("price", 0.001)),
                 }
 
                 # Submit transaction
@@ -224,7 +217,7 @@ class AgentServiceBridge:
                 "check_type": task_data.get("check_type", "basic"),
                 "status": "passed",
                 "checks_performed": ["kyc", "aml", "sanctions"],
-                "timestamp": datetime.now(UTC).isoformat()
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
             return {"status": "success", "result": compliance_result}

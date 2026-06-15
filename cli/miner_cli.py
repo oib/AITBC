@@ -44,13 +44,11 @@ Examples:
 
   # Create marketplace offer
   python miner_cli.py marketplace create --miner-id ai-miner-1 --price 0.75 --capacity 2
-        """
+        """,
     )
 
-    parser.add_argument("--coordinator-url", default="http://localhost:8011",
-                       help="Coordinator API URL")
-    parser.add_argument("--api-key", default="miner_prod_key_use_real_value",
-                       help="Miner API key")
+    parser.add_argument("--coordinator-url", default="http://localhost:8011", help="Coordinator API URL")
+    parser.add_argument("--api-key", default="miner_prod_key_use_real_value", help="Miner API key")
 
     subparsers = parser.add_subparsers(dest="action", help="Miner management actions")
 
@@ -132,84 +130,75 @@ Examples:
     action = args.action
 
     # Prepare kwargs for the dispatcher
-    kwargs = {
-        "coordinator_url": args.coordinator_url,
-        "api_key": args.api_key
-    }
+    kwargs = {"coordinator_url": args.coordinator_url, "api_key": args.api_key}
 
     # Add action-specific arguments
     if args.action == "register":
-        kwargs.update({
-            "miner_id": args.miner_id,
-            "wallet": args.wallet,
-            "capabilities": args.capabilities,
-            "gpu_memory": args.gpu_memory,
-            "models": args.models,
-            "pricing": args.pricing,
-            "concurrency": args.concurrency,
-            "region": args.region
-        })
+        kwargs.update(
+            {
+                "miner_id": args.miner_id,
+                "wallet": args.wallet,
+                "capabilities": args.capabilities,
+                "gpu_memory": args.gpu_memory,
+                "models": args.models,
+                "pricing": args.pricing,
+                "concurrency": args.concurrency,
+                "region": args.region,
+            }
+        )
 
     elif args.action == "status":
         kwargs["miner_id"] = args.miner_id
 
     elif args.action == "heartbeat":
-        kwargs.update({
-            "miner_id": args.miner_id,
-            "inflight": args.inflight,
-            "status": args.status
-        })
+        kwargs.update({"miner_id": args.miner_id, "inflight": args.inflight, "status": args.status})
 
     elif args.action == "poll":
-        kwargs.update({
-            "miner_id": args.miner_id,
-            "max_wait": args.max_wait,
-            "auto_execute": args.auto_execute
-        })
+        kwargs.update({"miner_id": args.miner_id, "max_wait": args.max_wait, "auto_execute": args.auto_execute})
 
     elif args.action == "result":
-        kwargs.update({
-            "job_id": args.job_id,
-            "miner_id": args.miner_id,
-            "result": args.result,
-            "result_file": args.result_file,
-            "success": args.success,
-            "duration": args.duration
-        })
+        kwargs.update(
+            {
+                "job_id": args.job_id,
+                "miner_id": args.miner_id,
+                "result": args.result,
+                "result_file": args.result_file,
+                "success": args.success,
+                "duration": args.duration,
+            }
+        )
 
     elif args.action == "update":
-        kwargs.update({
-            "miner_id": args.miner_id,
-            "capabilities": args.capabilities,
-            "gpu_memory": args.gpu_memory,
-            "models": args.models,
-            "pricing": args.pricing,
-            "concurrency": args.concurrency,
-            "region": args.region,
-            "wallet": args.wallet
-        })
+        kwargs.update(
+            {
+                "miner_id": args.miner_id,
+                "capabilities": args.capabilities,
+                "gpu_memory": args.gpu_memory,
+                "models": args.models,
+                "pricing": args.pricing,
+                "concurrency": args.concurrency,
+                "region": args.region,
+                "wallet": args.wallet,
+            }
+        )
 
     elif args.action == "earnings":
-        kwargs.update({
-            "miner_id": args.miner_id,
-            "period": args.period
-        })
+        kwargs.update({"miner_id": args.miner_id, "period": args.period})
 
     elif args.action == "marketplace":
         action = args.action
         if args.marketplace_action == "list":
-            kwargs.update({
-                "miner_id": getattr(args, 'miner_id', None),
-                "region": getattr(args, 'region', None)
-            })
+            kwargs.update({"miner_id": getattr(args, "miner_id", None), "region": getattr(args, "region", None)})
             action = "marketplace_list"
         elif args.marketplace_action == "create":
-            kwargs.update({
-                "miner_id": args.miner_id,
-                "price": args.price,
-                "capacity": args.capacity,
-                "region": getattr(args, 'region', None)
-            })
+            kwargs.update(
+                {
+                    "miner_id": args.miner_id,
+                    "price": args.price,
+                    "capacity": args.capacity,
+                    "region": getattr(args, "region", None),
+                }
+            )
             action = "marketplace_create"
         else:
             click.echo("❌ Unknown marketplace action")
@@ -219,9 +208,9 @@ Examples:
 
     # Display results
     if result:
-        click.echo("\n" + "="*60)
+        click.echo("\n" + "=" * 60)
         click.echo(f"🤖 AITBC Miner Management - {action.upper()}")
-        click.echo("="*60)
+        click.echo("=" * 60)
         if "status" in result:
             click.echo(f"Status: {result['status']}")
         if result.get("status", "").startswith("✅"):
@@ -243,8 +232,10 @@ Examples:
             for key, value in result.items():
                 if key != "action":
                     click.echo(f"{key}: {value}")
-        click.echo("="*60)
+        click.echo("=" * 60)
     else:
         click.echo("❌ No response from server")
+
+
 if __name__ == "__main__":
     main()

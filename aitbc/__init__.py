@@ -68,6 +68,7 @@ from .utils.paths import (
 
 try:
     from .network.web3_utils import Web3Client, create_web3_client
+
     _WEB3_AVAILABLE = True
 except ImportError:
     _WEB3_AVAILABLE = False
@@ -180,9 +181,7 @@ for _name in (
 ).split():
     _LAZY_EXPORTS[_name] = ("events", _name)
 
-for _name in (
-    "Job JobStatus JobPriority TaskQueue JobScheduler BackgroundTaskManager WorkerPool debounce throttle"
-).split():
+for _name in ("Job JobStatus JobPriority TaskQueue JobScheduler BackgroundTaskManager WorkerPool debounce throttle").split():
     _LAZY_EXPORTS[_name] = ("queue_manager", _name)
 
 for _name in (

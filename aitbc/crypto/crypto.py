@@ -16,6 +16,7 @@ def derive_ethereum_address(private_key: str) -> str:
     """Derive Ethereum address from private key using eth-account"""
     try:
         from eth_account import Account
+
         # Remove 0x prefix if present
         if private_key.startswith("0x"):
             private_key = private_key[2:]
@@ -23,7 +24,9 @@ def derive_ethereum_address(private_key: str) -> str:
         account = Account.from_key(private_key)
         return account.address
     except ImportError:
-        raise ImportError("eth-account is required for Ethereum address derivation. Install with: pip install eth-account") from None
+        raise ImportError(
+            "eth-account is required for Ethereum address derivation. Install with: pip install eth-account"
+        ) from None
     except Exception as e:
         raise ValueError(f"Failed to derive address from private key: {e}") from e
 
@@ -32,6 +35,7 @@ def sign_transaction_hash(transaction_hash: str, private_key: str) -> str:
     """Sign a transaction hash with private key using eth-account"""
     try:
         from eth_account import Account
+
         # Remove 0x prefix if present
         if private_key.startswith("0x"):
             private_key = private_key[2:]
@@ -67,7 +71,9 @@ def verify_signature(message_hash: str, signature: str, address: str) -> bool:
         recovered_address = Account.recover_message(message_bytes, signature_bytes)
         return recovered_address.lower() == address.lower()
     except ImportError:
-        raise ImportError("eth-account and eth-utils are required for signature verification. Install with: pip install eth-account eth-utils") from None
+        raise ImportError(
+            "eth-account and eth-utils are required for signature verification. Install with: pip install eth-account eth-utils"
+        ) from None
     except Exception as e:
         raise ValueError(f"Failed to verify signature: {e}") from e
 
@@ -76,7 +82,7 @@ def encrypt_private_key(private_key: str, password: str) -> str:
     """Encrypt private key using Fernet symmetric encryption"""
     try:
         # Derive key from password
-        password_bytes = password.encode('utf-8')
+        password_bytes = password.encode("utf-8")
         salt = os.urandom(16)
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
@@ -88,11 +94,11 @@ def encrypt_private_key(private_key: str, password: str) -> str:
 
         # Encrypt private key
         fernet = Fernet(key)
-        encrypted_key = fernet.encrypt(private_key.encode('utf-8'))
+        encrypted_key = fernet.encrypt(private_key.encode("utf-8"))
 
         # Combine salt and encrypted key
         combined = salt + encrypted_key
-        return base64.urlsafe_b64encode(combined).decode('utf-8')
+        return base64.urlsafe_b64encode(combined).decode("utf-8")
     except Exception as e:
         raise ValueError(f"Failed to encrypt private key: {e}") from e
 
@@ -101,7 +107,7 @@ def decrypt_private_key(encrypted_key: str, password: str) -> str:
     """Decrypt private key using Fernet symmetric encryption"""
     try:
         # Decode combined salt + encrypted data
-        combined = base64.urlsafe_b64decode(encrypted_key.encode('utf-8'))
+        combined = base64.urlsafe_b64decode(encrypted_key.encode("utf-8"))
 
         # Extract salt (first 16 bytes) and encrypted data (remaining bytes)
         salt = combined[:16]
@@ -109,7 +115,7 @@ def decrypt_private_key(encrypted_key: str, password: str) -> str:
 
         # Derive same encryption key from password using stored salt
         # Must use identical parameters as encryption for successful decryption
-        password_bytes = password.encode('utf-8')
+        password_bytes = password.encode("utf-8")
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
@@ -121,7 +127,7 @@ def decrypt_private_key(encrypted_key: str, password: str) -> str:
         # Decrypt private key using derived key
         fernet = Fernet(key)
         decrypted_key = fernet.decrypt(encrypted_data)
-        return decrypted_key.decode('utf-8')
+        return decrypted_key.decode("utf-8")
     except Exception as e:
         raise ValueError(f"Failed to decrypt private key: {e}") from e
 
@@ -135,8 +141,9 @@ def keccak256_hash(data: str) -> str:
     """Compute Keccak-256 hash of data"""
     try:
         from eth_hash.auto import keccak
+
         if isinstance(data, str):
-            data = data.encode('utf-8')
+            data = data.encode("utf-8")
         return keccak(data).hex()
     except ImportError:
         raise ImportError("eth-hash is required for Keccak-256 hashing. Install with: pip install eth-hash") from None
@@ -148,7 +155,7 @@ def sha256_hash(data: str) -> str:
     """Compute SHA-256 hash of data"""
     try:
         if isinstance(data, str):
-            data = data.encode('utf-8')
+            data = data.encode("utf-8")
         return hashlib.sha256(data).hexdigest()
     except Exception as e:
         raise ValueError(f"Failed to compute SHA-256 hash: {e}") from e
@@ -158,6 +165,7 @@ def validate_ethereum_address(address: str) -> bool:
     """Validate Ethereum address format and checksum"""
     try:
         from eth_utils import is_address, is_checksum_address
+
         return is_address(address) and is_checksum_address(address)
     except ImportError:
         raise ImportError("eth-utils is required for address validation. Install with: pip install eth-utils") from None
@@ -169,9 +177,12 @@ def generate_ethereum_private_key() -> str:
     """Generate a new Ethereum private key"""
     try:
         from eth_account import Account
+
         account = Account.create()
         return account.key.hex()
     except ImportError:
-        raise ImportError("eth-account is required for private key generation. Install with: pip install eth-account") from None
+        raise ImportError(
+            "eth-account is required for private key generation. Install with: pip install eth-account"
+        ) from None
     except Exception as e:
         raise ValueError(f"Failed to generate private key: {e}") from e

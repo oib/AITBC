@@ -39,11 +39,11 @@ def compile_circuit_cached(circuit_file: str, output_dir: str = None, use_cache:
 
     cache = ZKCircuitCache()
     result = {
-        'cached': False,
-        'compilation_time': 0.0,
-        'cache_hit': False,
-        'circuit_file': str(circuit_path),
-        'output_dir': str(output_path)
+        "cached": False,
+        "compilation_time": 0.0,
+        "cache_hit": False,
+        "circuit_file": str(circuit_path),
+        "output_dir": str(output_path),
     }
 
     # Check cache first
@@ -51,8 +51,8 @@ def compile_circuit_cached(circuit_file: str, output_dir: str = None, use_cache:
         cached_result = cache.get_cached_artifacts(circuit_path, output_path)
         if cached_result:
             print(f"✅ Cache hit for {circuit_file} - skipping compilation")
-            result['cache_hit'] = True
-            result['compilation_time'] = cached_result.get('compilation_time', 0.0)
+            result["cache_hit"] = True
+            result["compilation_time"] = cached_result.get("compilation_time", 0.0)
             return result
 
     print(f"🔧 Compiling {circuit_file}...")
@@ -61,11 +61,7 @@ def compile_circuit_cached(circuit_file: str, output_dir: str = None, use_cache:
     output_path.mkdir(parents=True, exist_ok=True)
 
     # Build circom command
-    cmd = [
-        "circom", str(circuit_path),
-        "--r1cs", "--wasm", "--sym", "--c",
-        "-o", str(output_path)
-    ]
+    cmd = ["circom", str(circuit_path), "--r1cs", "--wasm", "--sym", "--c", "-o", str(output_path)]
 
     # Execute compilation
     start_time = time.time()
@@ -77,26 +73,27 @@ def compile_circuit_cached(circuit_file: str, output_dir: str = None, use_cache:
         if use_cache:
             cache.cache_artifacts(circuit_path, output_path, compilation_time)
 
-        result['cached'] = True
-        result['compilation_time'] = compilation_time
+        result["cached"] = True
+        result["compilation_time"] = compilation_time
         print(f"✅ Compiled successfully in {compilation_time:.3f}s")
         return result
     except subprocess.CalledProcessError as e:
         print(f"❌ Compilation failed: {e}")
-        result['error'] = str(e)
-        result['cached'] = False
+        result["error"] = str(e)
+        result["cached"] = False
 
     return result
+
 
 def main():
     """CLI interface for cached circuit compilation"""
     import argparse
 
-    parser = argparse.ArgumentParser(description='Cached ZK Circuit Compiler')
-    parser.add_argument('circuit_file', help='Path to the .circom circuit file')
-    parser.add_argument('--output-dir', '-o', help='Output directory for compiled artifacts')
-    parser.add_argument('--no-cache', action='store_true', help='Disable caching')
-    parser.add_argument('--stats', action='store_true', help='Show cache statistics')
+    parser = argparse.ArgumentParser(description="Cached ZK Circuit Compiler")
+    parser.add_argument("circuit_file", help="Path to the .circom circuit file")
+    parser.add_argument("--output-dir", "-o", help="Output directory for compiled artifacts")
+    parser.add_argument("--no-cache", action="store_true", help="Disable caching")
+    parser.add_argument("--stats", action="store_true", help="Show cache statistics")
 
     args = parser.parse_args()
 
@@ -110,20 +107,17 @@ def main():
         return
 
     # Compile circuit
-    result = compile_circuit_cached(
-        args.circuit_file,
-        args.output_dir,
-        not args.no_cache
-    )
+    result = compile_circuit_cached(args.circuit_file, args.output_dir, not args.no_cache)
 
-    if result.get('cached') or result.get('cache_hit'):
-        if result.get('cache_hit'):
+    if result.get("cached") or result.get("cache_hit"):
+        if result.get("cache_hit"):
             print("🎯 Used cached compilation")
         else:
             print(f"✅ Compiled successfully in {result['compilation_time']:.3f}s")
     else:
         print("❌ Compilation failed")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
