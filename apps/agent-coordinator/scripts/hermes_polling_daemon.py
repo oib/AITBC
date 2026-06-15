@@ -32,9 +32,7 @@ class HermesWebSocketDaemon:
         self.running = True
 
         # Setup logging
-        logging.basicConfig(
-            level=getattr(logging, log_level.upper()), format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        logging.basicConfig(level=getattr(logging, log_level.upper()), format="[%(levelname)s] %(message)s")
         self.logger = logging.getLogger(__name__)
 
     async def send_message(self, recipient: str, content: str):
