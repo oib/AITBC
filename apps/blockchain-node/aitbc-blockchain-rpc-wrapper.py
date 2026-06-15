@@ -22,6 +22,8 @@ os.environ["enable_block_production"] = "false"
 rpc_host = os.getenv("RPC_BIND_HOST") or os.getenv("rpc_bind_host") or "127.0.0.1"
 rpc_port = os.getenv("RPC_BIND_PORT") or os.getenv("rpc_bind_port") or "8202"
 
+log_level = os.getenv("LOG_LEVEL", "warning").lower()
+
 # Execute the actual service
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
@@ -41,7 +43,6 @@ exec_cmd = [
     "--backlog",
     "256",
     "--log-level",
-    "critical",
-    "--no-access-log",
+    log_level,
 ]
 os.execvp(exec_cmd[0], exec_cmd)
