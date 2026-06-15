@@ -81,22 +81,22 @@ class TestEventBus:
 
     def test_subscribe(self):
         bus = events.EventBus()
-        handler = lambda e: None
+        handler = lambda e: None  # noqa: E731
         bus.subscribe("test_event", handler)
         assert "test_event" in bus.subscribers
         assert handler in bus.subscribers["test_event"]
 
     def test_subscribe_multiple_handlers(self):
         bus = events.EventBus()
-        handler1 = lambda e: None
-        handler2 = lambda e: None
+        handler1 = lambda e: None  # noqa: E731
+        handler2 = lambda e: None  # noqa: E731
         bus.subscribe("test_event", handler1)
         bus.subscribe("test_event", handler2)
         assert len(bus.subscribers["test_event"]) == 2
 
     def test_unsubscribe(self):
         bus = events.EventBus()
-        handler = lambda e: None
+        handler = lambda e: None  # noqa: E731
         bus.subscribe("test_event", handler)
         result = bus.unsubscribe("test_event", handler)
         assert result is True
@@ -104,13 +104,13 @@ class TestEventBus:
 
     def test_unsubscribe_nonexistent_handler(self):
         bus = events.EventBus()
-        handler = lambda e: None
+        handler = lambda e: None  # noqa: E731
         result = bus.unsubscribe("test_event", handler)
         assert result is False
 
     def test_unsubscribe_nonexistent_event(self):
         bus = events.EventBus()
-        handler = lambda e: None
+        handler = lambda e: None  # noqa: E731
         result = bus.unsubscribe("nonexistent", handler)
         assert result is False
 

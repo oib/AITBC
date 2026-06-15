@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from ....schemas.hermes_decision import (
+from ....schemas.hermes_decision import (  # noqa: E402
     DecisionProposal,
     DecisionProposalResponse,
     DecisionResult,

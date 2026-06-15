@@ -25,7 +25,7 @@ async def get_cache_statistics(request: Request, admin_key: str = Depends(requir
         return {"cache_health": stats, "status": "healthy" if stats["health_status"] in ["excellent", "good"] else "degraded"}  # type: ignore[index]
     except Exception as e:
         logger.error("Failed to get cache stats: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to retrieve cache statistics")
+        raise HTTPException(status_code=500, detail="Failed to retrieve cache statistics") from e
 
 
 @router.post("/clear", summary="Clear cache entries")
@@ -40,7 +40,7 @@ async def clear_cache_entries(
         return result  # type: ignore[return-value]
     except Exception as e:
         logger.error("Failed to clear cache: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to clear cache")
+        raise HTTPException(status_code=500, detail="Failed to clear cache") from e
 
 
 @router.post("/warm", summary="Warm up cache")
@@ -53,7 +53,7 @@ async def warm_up_cache(request: Request, admin_key: str = Depends(require_admin
         return result  # type: ignore[return-value]
     except Exception as e:
         logger.error("Failed to warm cache: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to warm cache")
+        raise HTTPException(status_code=500, detail="Failed to warm cache") from e
 
 
 @router.get("/health", summary="Get cache health status")
@@ -68,7 +68,7 @@ async def cache_health_check(request: Request, admin_key: str = Depends(require_
         return {"health": stats, "detailed_stats": cache_data, "recommendations": _get_cache_recommendations(stats)}  # type: ignore[arg-type]
     except Exception as e:
         logger.error("Failed to get cache health: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to retrieve cache health")
+        raise HTTPException(status_code=500, detail="Failed to retrieve cache health") from e
 
 
 def _get_cache_recommendations(stats: dict) -> list:

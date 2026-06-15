@@ -155,7 +155,7 @@ class TestRPCBlockchainService:
         with patch("aitbc.blockchain_service.AITBCHTTPClient", return_value=mock_client):
             service = RPCBlockchainService("http://localhost:8006")
 
-            with pytest.raises(Exception):
+            with pytest.raises(Exception):  # noqa: B017
                 service.get_block(100)
 
             mock_logger.error.assert_called_once()

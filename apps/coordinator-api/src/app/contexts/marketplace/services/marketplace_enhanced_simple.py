@@ -6,13 +6,13 @@ Basic marketplace enhancement features compatible with existing domain models
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import UTC, datetime, timedelta
-from enum import StrEnum
-from typing import Any
+from datetime import UTC, datetime, timedelta  # noqa: E402
+from enum import StrEnum  # noqa: E402
+from typing import Any  # noqa: E402
 
-from sqlmodel import Session, select
+from sqlmodel import Session, select  # noqa: E402
 
-from ..domain import MarketplaceOffer  # type: ignore[attr-defined]
+from ..domain import MarketplaceOffer  # type: ignore[attr-defined]  # noqa: E402
 
 
 class RoyaltyTier(StrEnum):

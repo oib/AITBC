@@ -13,59 +13,59 @@ CLI_DIR = Path(__file__).parent.parent.parent
 if str(CLI_DIR) not in sys.path:
     sys.path.insert(0, str(CLI_DIR))
 
-import click
-from aitbc_cli.commands.account import account
-from aitbc_cli.commands.agent_sdk import agent
-from aitbc_cli.commands.ai import ai
-from aitbc_cli.commands.analytics import analytics  # Re-enabled - core.analytics exists
-from aitbc_cli.commands.bridge import bridge
-from aitbc_cli.commands.chain import chain
-from aitbc_cli.commands.cluster import cluster
-from aitbc_cli.commands.coin_requests import coin_requests
-from aitbc_cli.commands.compliance import compliance
-from aitbc_cli.commands.config import config as config_cmd
-from aitbc_cli.commands.contract import contract
-from aitbc_cli.commands.cross_chain import cross_chain  # Re-enabled - no core dependency
-from aitbc_cli.commands.economics import economics
-from aitbc_cli.commands.edge import edge
+import click  # noqa: E402
+from aitbc_cli.commands.account import account  # noqa: E402
+from aitbc_cli.commands.agent_sdk import agent  # noqa: E402
+from aitbc_cli.commands.ai import ai  # noqa: E402
+from aitbc_cli.commands.analytics import analytics  # Re-enabled - core.analytics exists  # noqa: E402
+from aitbc_cli.commands.bridge import bridge  # noqa: E402
+from aitbc_cli.commands.chain import chain  # noqa: E402
+from aitbc_cli.commands.cluster import cluster  # noqa: E402
+from aitbc_cli.commands.coin_requests import coin_requests  # noqa: E402
+from aitbc_cli.commands.compliance import compliance  # noqa: E402
+from aitbc_cli.commands.config import config as config_cmd  # noqa: E402
+from aitbc_cli.commands.contract import contract  # noqa: E402
+from aitbc_cli.commands.cross_chain import cross_chain  # Re-enabled - no core dependency  # noqa: E402
+from aitbc_cli.commands.economics import economics  # noqa: E402
+from aitbc_cli.commands.edge import edge  # noqa: E402
 
 # from aitbc_cli.commands.node import node  # Disabled - imports from non-existent aitbc_cli.core
 # from aitbc_cli.commands.agent_comm import agent_comm  # Disabled - imports from non-existent aitbc_cli.core
-from aitbc_cli.commands.exchange import exchange
-from aitbc_cli.commands.exchange_island import exchange_island
-from aitbc_cli.commands.genesis import genesis
-from aitbc_cli.commands.governance import governance
+from aitbc_cli.commands.exchange import exchange  # noqa: E402
+from aitbc_cli.commands.exchange_island import exchange_island  # noqa: E402
+from aitbc_cli.commands.genesis import genesis  # noqa: E402
+from aitbc_cli.commands.governance import governance  # noqa: E402
 
 # Import island-specific commands
-from aitbc_cli.commands.gpu_marketplace import gpu
-from aitbc_cli.commands.gpu_resources import gpu as gpu_onchain
-from aitbc_cli.commands.hermes import hermes
-from aitbc_cli.commands.hermes_training import hermes_training
-from aitbc_cli.commands.market import market
-from aitbc_cli.commands.marketplace_cmd import marketplace
-from aitbc_cli.commands.messaging import messaging
-from aitbc_cli.commands.mining import mining
+from aitbc_cli.commands.gpu_marketplace import gpu  # noqa: E402
+from aitbc_cli.commands.gpu_resources import gpu as gpu_onchain  # noqa: E402
+from aitbc_cli.commands.hermes import hermes  # noqa: E402
+from aitbc_cli.commands.hermes_training import hermes_training  # noqa: E402
+from aitbc_cli.commands.market import market  # noqa: E402
+from aitbc_cli.commands.marketplace_cmd import marketplace  # noqa: E402
+from aitbc_cli.commands.messaging import messaging  # noqa: E402
+from aitbc_cli.commands.mining import mining  # noqa: E402
 
 # from aitbc_cli.commands.deployment import deployment  # Disabled - missing core.deployment module
-from aitbc_cli.commands.monitor import monitor  # Re-enabled - no core dependency
-from aitbc_cli.commands.network import network
-from aitbc_cli.commands.operations import operations
-from aitbc_cli.commands.performance import performance
-from aitbc_cli.commands.pool_hub import pool_hub
-from aitbc_cli.commands.reputation import reputation
-from aitbc_cli.commands.resource import resource
-from aitbc_cli.commands.script import script
-from aitbc_cli.commands.security import security
-from aitbc_cli.commands.simulate import simulate
-from aitbc_cli.commands.sync import sync
+from aitbc_cli.commands.monitor import monitor  # Re-enabled - no core dependency  # noqa: E402
+from aitbc_cli.commands.network import network  # noqa: E402
+from aitbc_cli.commands.operations import operations  # noqa: E402
+from aitbc_cli.commands.performance import performance  # noqa: E402
+from aitbc_cli.commands.pool_hub import pool_hub  # noqa: E402
+from aitbc_cli.commands.reputation import reputation  # noqa: E402
+from aitbc_cli.commands.resource import resource  # noqa: E402
+from aitbc_cli.commands.script import script  # noqa: E402
+from aitbc_cli.commands.security import security  # noqa: E402
+from aitbc_cli.commands.simulate import simulate  # noqa: E402
+from aitbc_cli.commands.sync import sync  # noqa: E402
 
 # Import modular command groups
-from aitbc_cli.commands.system import system
+from aitbc_cli.commands.system import system  # noqa: E402
 
 # Import new modular commands
-from aitbc_cli.commands.transactions import transactions
-from aitbc_cli.commands.wallet import wallet
-from aitbc_cli.commands.workflow import workflow
+from aitbc_cli.commands.transactions import transactions  # noqa: E402
+from aitbc_cli.commands.wallet import wallet  # noqa: E402
+from aitbc_cli.commands.workflow import workflow  # noqa: E402
 
 # Force CLI version for user-facing output
 __version__ = "2.1.0"

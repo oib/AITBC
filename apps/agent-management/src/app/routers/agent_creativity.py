@@ -6,23 +6,23 @@ from sqlmodel import Session, select
 Agent Creativity API Endpoints
 REST API for agent creativity enhancement, ideation, and cross-domain synthesis
 """
-from typing import Any
+from typing import Any  # noqa: E402
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
-from aitbc import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger  # noqa: E402
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
 logger = get_logger(__name__)
-from app.domain.agent_performance import CreativeCapability  # type: ignore[import-not-found]
+from app.domain.agent_performance import CreativeCapability  # type: ignore[import-not-found]  # noqa: E402
 
-from ..services.creative_capabilities_service import (  # type: ignore[import-not-found]
+from ..services.creative_capabilities_service import (  # type: ignore[import-not-found]  # noqa: E402
     CreativityEnhancementEngine,
     CrossDomainCreativeIntegrator,
     IdeationAlgorithm,
 )
-from ..storage import get_session
+from ..storage import get_session  # noqa: E402
 
 router = APIRouter(prefix="/v1/agent-creativity", tags=["agent-creativity"])
 
@@ -96,7 +96,7 @@ async def create_creative_capability(
         return capability  # type: ignore
     except Exception as e:
         logger.error("Error creating creative capability: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/capabilities/{capability_id}/enhance")
@@ -115,10 +115,10 @@ async def enhance_creativity(
         )
         return result  # type: ignore
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error("Error enhancing creativity: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/capabilities/{capability_id}/evaluate")
@@ -140,10 +140,10 @@ async def evaluate_creation(
         )
         return result  # type: ignore
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error("Error evaluating creation: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/ideation/generate")
@@ -162,7 +162,7 @@ async def generate_ideas(request_http: Request, request: IdeationRequest) -> dic
         return result  # type: ignore
     except Exception as e:
         logger.error("Error generating ideas: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/synthesis/cross-domain")
@@ -182,10 +182,10 @@ async def synthesize_cross_domain(
         )
         return result  # type: ignore
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.error("Error in cross-domain synthesis: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/capabilities/{agent_id}")
@@ -199,4 +199,4 @@ async def list_agent_creative_capabilities(
         return list(capabilities)
     except Exception as e:
         logger.error("Error fetching creative capabilities: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

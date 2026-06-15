@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import socket
+import sys
 
 import click
 
@@ -102,7 +103,7 @@ def register_hub_command(ctx, public_address, public_port, redis_url, hub_discov
 
     except Exception as e:
         error(f"Error registering as hub: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 def unregister_hub_command(ctx, redis_url, hub_discovery_url):
@@ -165,7 +166,7 @@ def unregister_hub_command(ctx, redis_url, hub_discovery_url):
 
     except Exception as e:
         error(f"Error unregistering as hub: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 def list_hubs_command(ctx, redis_url):
@@ -202,4 +203,4 @@ def list_hubs_command(ctx, redis_url):
 
     except Exception as e:
         error(f"Error listing hubs: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e

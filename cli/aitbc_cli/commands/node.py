@@ -14,14 +14,14 @@ import click
 
 try:
     from ..core.config import (
-        MultiChainConfig,
+        MultiChainConfig,  # noqa: F401
         add_node_config,
         get_default_node_config,
         load_multichain_config,
         remove_node_config,
     )
     from ..core.node_client import NodeClient
-    from ..utils.output import error, info, output, success, warning
+    from ..utils.output import error, info, output, success, warning  # noqa: F401
 except ImportError:
     from aitbc_cli.core.config import (
         add_node_config,
@@ -48,7 +48,7 @@ def node():
 @node.command()
 @click.argument("node_id")
 @click.pass_context
-def info(ctx, node_id):
+def node_info(ctx, node_id):
     """Get detailed node information"""
     try:
         config = load_multichain_config()
@@ -101,7 +101,7 @@ def info(ctx, node_id):
 
     except Exception as e:
         error(f"Error getting node info: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @node.command()
@@ -167,13 +167,13 @@ def chains(ctx, show_private, node_id):
 
     except Exception as e:
         error(f"Error listing chains: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @node.command()
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def list(ctx, format):
+def list_nodes(ctx, format):
     """List all configured nodes"""
     try:
         config = load_multichain_config()
@@ -197,7 +197,7 @@ def list(ctx, format):
 
     except Exception as e:
         error(f"Error listing nodes: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @node.command()
@@ -243,7 +243,7 @@ def add(ctx, node_id, endpoint, timeout, max_connections, retry_count):
 
     except Exception as e:
         error(f"Error adding node: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @node.command()
@@ -284,7 +284,7 @@ def remove(ctx, node_id, force):
 
     except Exception as e:
         error(f"Error removing node: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @node.command()
@@ -378,7 +378,7 @@ def monitor(ctx, node_id, realtime, interval):
 
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @node.command()
@@ -433,7 +433,7 @@ def test(ctx, node_id):
 
     except Exception as e:
         error(f"Error testing node: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 # Island management commands
@@ -467,7 +467,7 @@ def create(ctx, island_id, island_name, chain_id):
 
     except Exception as e:
         error(f"Error creating island: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @island.command()
@@ -586,7 +586,7 @@ def join(ctx, island_id, island_name, chain_id, hub, is_hub):
 
     except Exception as e:
         error(f"Error joining island: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @island.command()
@@ -601,12 +601,12 @@ def leave(ctx, island_id):
 
     except Exception as e:
         error(f"Error leaving island: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @island.command()
 @click.pass_context
-def list(ctx):
+def list_islands(ctx):
     """List all known islands"""
     try:
         # Note: In a real implementation, this would query the island manager
@@ -624,13 +624,13 @@ def list(ctx):
 
     except Exception as e:
         error(f"Error listing islands: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @island.command()
 @click.argument("island_id")
 @click.pass_context
-def info(ctx, island_id):
+def island_info(ctx, island_id):
     """Show information about a specific island"""
     try:
         # Note: In a real implementation, this would query the island manager
@@ -647,7 +647,7 @@ def info(ctx, island_id):
 
     except Exception as e:
         error(f"Error getting island info: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 # Hub management commands
@@ -751,7 +751,7 @@ def register(ctx, public_address, public_port, redis_url, hub_discovery_url):
 
     except Exception as e:
         error(f"Error registering as hub: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @hub.command()
@@ -826,13 +826,13 @@ def unregister(ctx, redis_url, hub_discovery_url):
 
     except Exception as e:
         error(f"Error unregistering as hub: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @hub.command()
 @click.option("--redis-url", default="redis://localhost:6379", help="Redis URL for persistence")
 @click.pass_context
-def list(ctx, redis_url):
+def list_hubs(ctx, redis_url):
     """List registered hubs from Redis"""
     try:
         import redis.asyncio as redis
@@ -874,7 +874,7 @@ def list(ctx, redis_url):
 
     except Exception as e:
         error(f"Error listing hubs: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 # Bridge management commands
@@ -896,7 +896,7 @@ def request(ctx, target_island_id):
 
     except Exception as e:
         error(f"Error requesting bridge: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @bridge.command()
@@ -912,7 +912,7 @@ def approve(ctx, request_id, approving_node_id):
 
     except Exception as e:
         error(f"Error approving bridge request: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @bridge.command()
@@ -928,12 +928,12 @@ def reject(ctx, request_id, reason):
 
     except Exception as e:
         error(f"Error rejecting bridge request: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @bridge.command()
 @click.pass_context
-def list(ctx):
+def list_bridges(ctx):
     """List bridge connections"""
     try:
         # Note: In a real implementation, this would query the bridge manager
@@ -943,7 +943,7 @@ def list(ctx):
 
     except Exception as e:
         error(f"Error listing bridges: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 # Multi-chain management commands
@@ -975,7 +975,7 @@ def start(ctx, chain_id, chain_type):
 
     except Exception as e:
         error(f"Error starting chain: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @chain.command()
@@ -990,12 +990,12 @@ def stop(ctx, chain_id):
 
     except Exception as e:
         error(f"Error stopping chain: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @chain.command()
 @click.pass_context
-def list(ctx):
+def list_chains(ctx):
     """List all active chain instances"""
     try:
         # Note: In a real implementation, this would query the multi-chain manager
@@ -1007,4 +1007,4 @@ def list(ctx):
 
     except Exception as e:
         error(f"Error listing chains: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e

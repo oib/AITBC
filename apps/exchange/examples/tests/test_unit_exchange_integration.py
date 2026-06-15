@@ -8,7 +8,7 @@ import pytest
 # Mock aiohttp before importing
 sys.modules["aiohttp"] = Mock()
 
-from main import ExchangeRegistration, OrderRequest, TradingPair, app
+from main import ExchangeRegistration, OrderRequest, TradingPair, app  # noqa: E402
 
 
 @pytest.mark.unit

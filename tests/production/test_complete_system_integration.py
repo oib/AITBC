@@ -3,11 +3,14 @@ Complete System Integration Tests for AITBC Agent Coordinator
 Tests integration of all 9 systems: Architecture, Services, Security, Agents, API, Tests, Advanced Security, Monitoring, Type Safety
 """
 
+import logging
 import socket
 import time
 
 import pytest
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 def _service_available(host: str = "localhost", port: int = 9001) -> bool:

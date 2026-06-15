@@ -1,20 +1,20 @@
 from typing import Annotated
 
 "\nhermes Enhanced API Router - Simplified Version\nREST API endpoints for hermes integration features\n"
-from typing import Any
+from typing import Any  # noqa: E402
 
-from aitbc import get_logger
+from aitbc import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
-from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
-from sqlmodel import Session
+from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
+from sqlmodel import Session  # noqa: E402
 
-from aitbc.rate_limiting import rate_limit
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
-from ....deps import require_admin_key
-from ....storage import get_session
-from ..services.hermes_enhanced_simple import SkillType, hermesEnhancedService
+from ....deps import require_admin_key  # noqa: E402
+from ....storage import get_session  # noqa: E402
+from ..services.hermes_enhanced_simple import SkillType, hermesEnhancedService  # noqa: E402
 
 router = APIRouter(prefix="/hermes/enhanced", tags=["hermes Enhanced"])
 
@@ -90,7 +90,7 @@ async def route_agent_skill(
         return result
     except Exception as e:
         logger.error("Error routing agent skill: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/offloading/intelligent")
@@ -112,7 +112,7 @@ async def intelligent_job_offloading(
         return result
     except Exception as e:
         logger.error("Error in intelligent job offloading: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/collaboration/coordinate")
@@ -132,7 +132,7 @@ async def coordinate_agent_collaboration(
         return result
     except Exception as e:
         logger.error("Error coordinating agent collaboration: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/execution/hybrid-optimize")
@@ -152,7 +152,7 @@ async def optimize_hybrid_execution(
         return result
     except Exception as e:
         logger.error("Error optimizing hybrid execution: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/edge/deploy")
@@ -172,7 +172,7 @@ async def deploy_to_edge(
         return result
     except Exception as e:
         logger.error("Error deploying to edge: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/edge/coordinate")
@@ -192,7 +192,7 @@ async def coordinate_edge_to_cloud(
         return result
     except Exception as e:
         logger.error("Error coordinating edge-to-cloud: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/ecosystem/develop")
@@ -210,4 +210,4 @@ async def develop_hermes_ecosystem(
         return result
     except Exception as e:
         logger.error("Error developing hermes ecosystem: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

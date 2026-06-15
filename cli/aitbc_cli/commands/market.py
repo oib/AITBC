@@ -67,8 +67,8 @@ def get_island_id() -> str:
         node_role = os.getenv("NODE_ROLE", "")
         if node_role == "hub":
             return os.getenv("ISLAND_ID", "ait-hub")
-        error(f"Island credentials required for island ID: {e}")
-        raise click.Abort()
+        error("Island credentials required for island ID")
+        raise click.Abort() from None
 
 
 def get_wallet_address() -> str:
@@ -234,7 +234,7 @@ def list(ctx, provider: str | None, status: str | None):
                         rating_count = service_response.get("rating_count", 0)
                         if rating_count > 0:
                             rating_display = f"⭐ {avg_rating:.1f} ({rating_count})"
-            except:
+            except Exception:
                 pass  # Marketplace service not available, skip ratings
 
             market_data.append(
@@ -258,7 +258,7 @@ def list(ctx, provider: str | None, status: str | None):
 
     except Exception as e:
         error(f"Error listing GPU marketplace: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @market.command()
@@ -308,7 +308,7 @@ def cancel(ctx, order_id: str):
 
     except Exception as e:
         error(f"Error cancelling offer: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @market.command()
@@ -371,13 +371,13 @@ def status(ctx, order_id: str):
 
         if not combined:
             error(f"No data found for order/job: {order_id}")
-            raise click.Abort()
+            raise click.Abort() from None
 
         output(combined, ctx.obj.get("output_format", "table"))
 
     except Exception as e:
         error(f"Error checking order status: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 # ---------------------------------------------------------------------------
@@ -454,7 +454,7 @@ def escrow_release(ctx, job_id: str):
             error(f"Failed to release escrow for job {job_id}")
     except Exception as e:
         error(f"Error releasing escrow: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @escrow.command(name="refund")
@@ -486,7 +486,7 @@ def escrow_refund(ctx, job_id: str, reason: str):
             error(f"Failed to refund escrow for job {job_id}")
     except Exception as e:
         error(f"Error refunding escrow: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @escrow.command(name="status")
@@ -516,7 +516,7 @@ def escrow_status(ctx, job_id: str):
             error(f"No escrow found for job {job_id}")
     except Exception as e:
         error(f"Error checking escrow status: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @market.command()
@@ -541,11 +541,11 @@ def match(ctx):
             output(result, ctx.obj.get("output_format", "table"), title="GPU Market Matches")
         except NetworkError as e:
             error(f"Network error: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     except Exception as e:
         error(f"Error matching GPU market: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @market.command()
@@ -562,7 +562,7 @@ def providers(ctx):
 
     except Exception as e:
         error(f"Error querying GPU providers: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 # ---------------------------------------------------------------------------
@@ -660,7 +660,7 @@ def offer(
                 info(f"Verified Ollama model: {model_or_variant}")
             except NetworkError as e:
                 error(f"Ollama not reachable at localhost:11434: {e}")
-                raise click.Abort()
+                raise click.Abort() from e
         elif service_type == "whisper":
             try:
                 w_client = AITBCHTTPClient(base_url="http://localhost:8110", timeout=5)
@@ -673,7 +673,7 @@ def offer(
             except NetworkError as e:
                 error(f"Whisper service not reachable at localhost:8110: {e}")
                 error("Start it with: systemctl start aitbc-whisper")
-                raise click.Abort()
+                raise click.Abort() from e
         elif service_type == "peertube_transcoder":
             try:
                 p_client = AITBCHTTPClient(base_url="http://localhost:8220", timeout=5)
@@ -685,7 +685,7 @@ def offer(
             except NetworkError as e:
                 error(f"PeerTube transcoder service not reachable at localhost:8220: {e}")
                 error("Start it with: systemctl start aitbc-peertube-transcoder")
-                raise click.Abort()
+                raise click.Abort() from e
         elif service_type == "ffmpeg":
             try:
                 f_client = AITBCHTTPClient(base_url="http://localhost:8230", timeout=5)
@@ -697,7 +697,7 @@ def offer(
             except NetworkError as e:
                 error(f"FFmpeg service not reachable at localhost:8230: {e}")
                 error("Start it with: systemctl start aitbc-ffmpeg")
-                raise click.Abort()
+                raise click.Abort() from e
 
         provider_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
         offer_id = f"sw_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{service_type}{model_or_variant}{price}'.encode()).hexdigest()[:8]}"
@@ -794,7 +794,7 @@ def offer(
 
     except Exception as e:
         error(f"Error creating software offer: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @market.command(name="run")
@@ -903,7 +903,7 @@ def run_job(ctx, offer_id: str, prompt: str, max_tokens: int, stream: bool):
 
     except Exception as e:
         error(f"Error running job: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @market.command(name="transcribe")
@@ -1096,7 +1096,7 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
 
     except Exception as e:
         error(f"Error transcribing audio: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @market.command(name="transcode")
@@ -1233,7 +1233,7 @@ def transcode_job(ctx, offer_id: str, video_url: str, resolution: str, codec: st
 
     except Exception as e:
         error(f"Error transcoding video: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @market.command(name="process")
@@ -1389,7 +1389,7 @@ def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, 
 
     except Exception as e:
         error(f"Error processing video: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @market.command(name="rate")
@@ -1438,10 +1438,10 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
     except NetworkError as e:
         error(f"Marketplace service not reachable: {e}")
         error("Ensure marketplace-service is running at http://localhost:8102")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error rating service: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @market.command(name="ratings")
@@ -1472,10 +1472,10 @@ def ratings(ctx, service_id: str, limit: int, offset: int):
     except NetworkError as e:
         error(f"Marketplace service not reachable: {e}")
         error("Ensure marketplace-service is running at http://localhost:8102")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error getting ratings: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @market.command(name="sync-ratings")
@@ -1516,10 +1516,10 @@ def sync_ratings(ctx, remote_url: str, limit: int):
 
     except NetworkError as e:
         error(f"Network error during sync: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error syncing ratings: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @market.group(name="exchange")
@@ -1545,10 +1545,10 @@ def exchange_price(ctx):
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error getting price: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @exchange.command(name="list-deposits")
@@ -1579,10 +1579,10 @@ def list_deposits(ctx, status: str, limit: int):
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error listing deposits: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @exchange.command(name="mint-ait")
@@ -1676,17 +1676,17 @@ def mint_ait(ctx, deposit_id: str):
 
         except httpx.RequestError as e:
             error(f"Network error contacting blockchain: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
         except Exception as e:
             error(f"Error transferring AIT: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error minting AIT: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @exchange.command(name="withdraw-eth")
@@ -1773,22 +1773,22 @@ def withdraw_eth(ctx, amount: float, address: str):
                     )
                     if record_response.status_code != 200:
                         warning("Withdrawal completed but failed to record in exchange service")
-                except Exception as e:
-                    warning(f"Withdrawal completed but failed to record: {e}")
+                except Exception as record_e:
+                    warning(f"Withdrawal completed but failed to record: {record_e}")
             else:
                 error("Transaction failed")
                 raise click.Abort()
 
         except ImportError:
             error("web3.py not installed. Install with: pip install web3")
-            raise click.Abort()
+            raise click.Abort() from None
         except Exception as e:
             error(f"Error withdrawing ETH: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     except Exception as e:
         error(f"Error withdrawing ETH: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @exchange.command(name="status")
@@ -1808,7 +1808,7 @@ def exchange_status(ctx):
 
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error getting status: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

@@ -5,19 +5,19 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 
 "\nDecentralized Governance API Endpoints\nREST API for hermes DAO voting, proposals, and governance analytics\n"
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request  # noqa: E402
 
-from aitbc import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger  # noqa: E402
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
 logger = get_logger(__name__)
-from typing import Any
+from typing import Any  # noqa: E402
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field  # noqa: E402
 
-from ....domain.governance import GovernanceProfile, Proposal, TransparencyReport, Vote, VoteType
-from ....storage import get_session
-from ..services.governance_service import GovernanceService
+from ....domain.governance import GovernanceProfile, Proposal, TransparencyReport, Vote, VoteType  # noqa: E402
+from ....storage import get_session  # noqa: E402
+from ..services.governance_service import GovernanceService  # noqa: E402
 
 router = APIRouter(prefix="/governance", tags=["governance"])
 
@@ -58,7 +58,7 @@ async def init_governance_profile(
         return profile
     except Exception as e:
         logger.error("Error creating governance profile: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/profiles/{profile_id}/delegate", response_model=GovernanceProfile)
@@ -72,9 +72,9 @@ async def delegate_voting_power(
         profile = await service.delegate_votes(profile_id, request.delegatee_id)  # type: ignore[attr-defined]
         return profile
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/proposals", response_model=Proposal)
@@ -91,9 +91,9 @@ async def create_proposal(
         proposal = await service.create_proposal(proposer_id, proposal_request.dict())
         return proposal
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/proposals/{proposal_id}/vote", response_model=Vote)
@@ -113,9 +113,9 @@ async def cast_vote(
         )
         return vote
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/proposals/{proposal_id}/process", response_model=Proposal)
@@ -127,9 +127,9 @@ async def process_proposal(request: Request, proposal_id: str, session: Annotate
         proposal = await service.process_proposal_lifecycle(proposal_id)
         return proposal
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/proposals/{proposal_id}/execute", response_model=Proposal)
@@ -143,9 +143,9 @@ async def execute_proposal(
         proposal = await service.execute_proposal(proposal_id, executor_id)
         return proposal
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/analytics/reports", response_model=TransparencyReport)
@@ -159,4 +159,4 @@ async def generate_transparency_report(
         report = await service.generate_transparency_report(period)
         return report
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

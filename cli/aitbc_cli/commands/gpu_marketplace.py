@@ -51,7 +51,7 @@ def register(ctx, gpu_id: str, specs: str | None):
                 gpu_data["specs"] = json.loads(specs)
             except json.JSONDecodeError:
                 error("Invalid JSON specifications")
-                raise click.Abort()
+                raise click.Abort() from None
 
         result = http_client.post("/v1/gpu/register", json=gpu_data)
         success(f"GPU {gpu_id} registered successfully")
@@ -107,14 +107,14 @@ def update(ctx, gpu_id: str, pricing: str | None, status: str | None):
                     update_data["price_per_hour"] = float(pricing)
                 except ValueError:
                     error("Invalid pricing value")
-                    raise click.Abort()
+                    raise click.Abort() from None
 
         if status:
             update_data["status"] = status
 
         if not update_data:
             error("No updates provided. Specify --pricing or --status")
-            raise click.Abort()
+            raise click.Abort() from None
 
         result = http_client.put(f"/v1/gpu/{gpu_id}", json=update_data)
         success(f"GPU {gpu_id} updated successfully")
@@ -161,8 +161,8 @@ def list(ctx):
             output(gpu_data, ctx.obj.get("output_format", "table"), title="Local Registered GPUs")
         except NetworkError as e:
             error(f"Network error querying GPU service: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     except Exception as e:
         error(f"Error listing GPUs: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e

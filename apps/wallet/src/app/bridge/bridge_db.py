@@ -67,7 +67,7 @@ def insert_deposit(tx_hash: str, from_address: str, amount_eth: float, amount_ai
         return deposit_id
     except sqlite3.IntegrityError:
         conn.close()
-        raise ValueError(f"Deposit with tx_hash {tx_hash} already exists")
+        raise ValueError(f"Deposit with tx_hash {tx_hash} already exists") from None
     finally:
         conn.close()
 

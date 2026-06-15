@@ -59,7 +59,7 @@ async def get_unified_portfolio(
         return PortfolioSummaryResponse(**portfolio_data)
     except Exception as e:
         logger.error("Error getting unified portfolio: %s", str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to get portfolio data: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get portfolio data: {str(e)}") from e
 
 
 @router.get("/health", response_model=PortfolioHealthResponse)
@@ -124,4 +124,4 @@ async def get_portfolio_summary_only(
         return {"timestamp": portfolio_data["timestamp"], "agent_address": agent_address, "summary": portfolio_data["summary"]}
     except Exception as e:
         logger.error("Error getting portfolio summary: %s", str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to get portfolio summary: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get portfolio summary: {str(e)}") from e

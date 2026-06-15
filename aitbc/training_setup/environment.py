@@ -9,6 +9,7 @@ import logging
 import subprocess
 from pathlib import Path
 from typing import Any
+
 from .exceptions import FundingError, PrerequisitesError
 from .stage_runner import StageRunner
 

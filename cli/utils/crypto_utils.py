@@ -91,7 +91,7 @@ def sign_challenge(challenge: str, private_key: str) -> str:
         return "0x" + signature.signature.hex()
 
     except Exception as e:
-        raise ValueError(f"Failed to sign challenge: {e}")
+        raise ValueError(f"Failed to sign challenge: {e}") from e
 
 
 def generate_nonce() -> str:

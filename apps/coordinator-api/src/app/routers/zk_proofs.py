@@ -92,7 +92,7 @@ async def generate_proof(request: Request, req: GenerateProofRequest) -> ProofRe
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Proof generation error: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Proof generation error: {str(e)}") from e
 
 
 @router.post("/verify", response_model=VerificationResponse, summary="Verify ZK proof")
@@ -121,7 +121,7 @@ async def verify_proof(request: Request, req: VerifyProofRequest) -> Verificatio
         )
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Verification error: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Verification error: {str(e)}") from e
 
 
 @router.get("/info", summary="Get circuit information")
@@ -132,7 +132,7 @@ async def get_circuit_info(request: Request) -> dict[str, Any]:
         zk_service = get_enhanced_zk_service()
         return zk_service.get_circuit_info()
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get circuit info: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get circuit info: {str(e)}") from e
 
 
 @router.get("/health", summary="ZK service health check")

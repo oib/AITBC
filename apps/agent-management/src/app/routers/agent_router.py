@@ -1,18 +1,18 @@
 from typing import Annotated
 
 "\nAI Agent API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for agent workflow management and execution\n"
-from datetime import UTC, datetime
-from typing import Any
+from datetime import UTC, datetime  # noqa: E402
+from typing import Any  # noqa: E402
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request  # noqa: E402
 
-from aitbc import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger  # noqa: E402
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
 logger = get_logger(__name__)
-from sqlmodel import Session, select
+from sqlmodel import Session, select  # noqa: E402
 
-from app.domain.agent import (
+from app.domain.agent import (  # noqa: E402
     AgentExecutionRequest,
     AgentExecutionResponse,
     AgentExecutionStatus,
@@ -22,9 +22,9 @@ from app.domain.agent import (
     AIAgentWorkflow,
 )
 
-from ..deps import require_admin_key
-from ..services.agent_service import AIAgentOrchestrator
-from ..storage import get_session
+from ..deps import require_admin_key  # noqa: E402
+from ..services.agent_service import AIAgentOrchestrator  # noqa: E402
+from ..storage import get_session  # noqa: E402
 
 router = APIRouter(tags=["AI Agents"])
 
@@ -47,7 +47,7 @@ async def create_workflow(
         return workflow
     except Exception as e:
         logger.error("Failed to create workflow: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/workflows", response_model=list[AIAgentWorkflow])
@@ -76,7 +76,7 @@ async def list_workflows(
         return list(workflows)
     except Exception as e:
         logger.error("Failed to list workflows: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/workflows/{workflow_id}", response_model=AIAgentWorkflow)
@@ -99,7 +99,7 @@ async def get_workflow(
         raise
     except Exception as e:
         logger.error("Failed to get workflow: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/workflows/{workflow_id}", response_model=AIAgentWorkflow)
@@ -130,7 +130,7 @@ async def update_workflow(
         raise
     except Exception as e:
         logger.error("Failed to update workflow: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/workflows/{workflow_id}")
@@ -156,7 +156,7 @@ async def delete_workflow(
         raise
     except Exception as e:
         logger.error("Failed to delete workflow: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/workflows/{workflow_id}/execute", response_model=AgentExecutionResponse)
@@ -194,7 +194,7 @@ async def execute_workflow(
         raise
     except Exception as e:
         logger.error("Failed to execute workflow: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/executions/{execution_id}/status", response_model=AgentExecutionStatus)
@@ -221,7 +221,7 @@ async def get_execution_status(
         raise
     except Exception as e:
         logger.error("Failed to get execution status: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/executions", response_model=list[AgentExecutionStatus])
@@ -270,7 +270,7 @@ async def list_executions(
         raise
     except Exception as e:
         logger.error("Failed to list executions: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/executions/{execution_id}/cancel")
@@ -303,7 +303,7 @@ async def cancel_execution(
         raise
     except Exception as e:
         logger.error("Failed to cancel execution: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/executions/{execution_id}/logs")
@@ -352,7 +352,7 @@ async def get_execution_logs(
         raise
     except Exception as e:
         logger.error("Failed to get execution logs: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/test")
@@ -393,7 +393,7 @@ async def create_agent_network(
         raise
     except Exception as e:
         logger.error("Failed to create agent network: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/executions/{execution_id}/receipt")
@@ -429,4 +429,4 @@ async def get_execution_receipt(
         return receipt_data
     except Exception as e:
         logger.error("Failed to get execution receipt: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

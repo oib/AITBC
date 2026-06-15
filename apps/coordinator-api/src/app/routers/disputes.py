@@ -74,9 +74,9 @@ async def file_dispute(request: Request, req: FileDisputeRequest) -> dict[str, A
         return {"success": True, **dispute.to_dict()}
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to file dispute: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to file dispute: {str(e)}") from e
 
 
 @router.post("/evidence", summary="Submit evidence")
@@ -102,9 +102,9 @@ async def submit_evidence(request: Request, req: SubmitEvidenceRequest) -> dict[
         return {"success": success, "dispute_id": req.dispute_id, "message": "Evidence submitted"}
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to submit evidence: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to submit evidence: {str(e)}") from e
 
 
 @router.post("/vote", summary="Cast arbitrator vote")
@@ -133,11 +133,11 @@ async def cast_vote(request: Request, req: CastVoteRequest) -> dict[str, Any]:
         return {"success": success, "dispute_id": req.dispute_id, "arbitrator": arbitrator, "outcome": req.outcome}
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to cast vote: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to cast vote: {str(e)}") from e
 
 
 @router.get("/health", summary="Health check")
@@ -163,7 +163,7 @@ async def get_dispute(request: Request, dispute_id: str) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get dispute: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get dispute: {str(e)}") from e
 
 
 @router.get("/", summary="List disputes")
@@ -183,7 +183,7 @@ async def list_disputes(request: Request, status: str | None = None, party: str 
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to list disputes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list disputes: {str(e)}") from e
 
 
 @router.post("/arbitrators/register", summary="Register as arbitrator")
@@ -200,4 +200,4 @@ async def register_arbitrator(request: Request, address: str) -> dict[str, Any]:
         return {"success": success, "address": address, "message": "Arbitrator registered"}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}") from e

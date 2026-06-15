@@ -117,9 +117,9 @@ def decrypt_value(encrypted_data: dict[str, str] | str, password: str) -> str:
 
         return decrypted.decode()
     except InvalidToken:
-        raise ValueError("Invalid password or corrupted encrypted data")
+        raise ValueError("Invalid password or corrupted encrypted data") from None
     except Exception as e:
-        raise ValueError(f"Decryption failed: {str(e)}")
+        raise ValueError(f"Decryption failed: {str(e)}") from e
 
 
 def validate_password_strength(password: str) -> dict[str, Any]:
@@ -238,7 +238,7 @@ def migrate_legacy_wallet(legacy_data: dict[str, Any], new_password: str) -> dic
             "migration_timestamp": secrets.token_hex(16),
         }
     except Exception as e:
-        raise ValueError(f"Migration failed: {str(e)}")
+        raise ValueError(f"Migration failed: {str(e)}") from e
 
 
 # Security constants

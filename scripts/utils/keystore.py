@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import secrets
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 

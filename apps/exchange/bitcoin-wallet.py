@@ -11,9 +11,9 @@ import os
 import time
 
 logger = logging.getLogger(__name__)
-from dataclasses import dataclass
+from dataclasses import dataclass  # noqa: E402
 
-import requests
+import requests  # noqa: E402
 
 
 @dataclass
