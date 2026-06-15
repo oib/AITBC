@@ -121,8 +121,8 @@ class JobProcessor:
             logger.info(
                 "Processing job %s",
                 job_id,
-                extra={"job_id": job_id, "job_type": job.job_type, "provider": job.assigned_provider},
-            )  # type: ignore[attr-defined]
+                extra={"job_id": job_id, "state": job.state},
+            )
             payload = job.payload or {}
             model = payload.get("model", "gpt2")
             prompt = payload.get("prompt", "")
