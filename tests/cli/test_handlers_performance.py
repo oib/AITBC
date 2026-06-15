@@ -21,6 +21,7 @@ class TestPerformanceHandlers:
         """Test that handle_performance_benchmark function exists"""
         try:
             from handlers.performance import handle_performance_benchmark
+
             assert handle_performance_benchmark is not None
         except ImportError as e:
             pytest.skip(f"Cannot import performance handlers: {e}")
@@ -29,6 +30,7 @@ class TestPerformanceHandlers:
         """Test that handle_performance_optimize function exists"""
         try:
             from handlers.performance import handle_performance_optimize
+
             assert handle_performance_optimize is not None
         except ImportError as e:
             pytest.skip(f"Cannot import performance handlers: {e}")

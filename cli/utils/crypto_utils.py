@@ -13,11 +13,11 @@ from eth_utils import keccak, to_checksum_address
 def create_signature_challenge(tx_data: dict, nonce: str) -> str:
     """
     Create a cryptographic challenge for transaction signing
-    
+
     Args:
         tx_data: Transaction data to sign
         nonce: Unique nonce to prevent replay attacks
-        
+
     Returns:
         Challenge string to be signed
     """
@@ -27,29 +27,25 @@ def create_signature_challenge(tx_data: dict, nonce: str) -> str:
         "to": tx_data.get("to"),
         "amount": tx_data.get("amount"),
         "nonce": nonce,
-        "timestamp": tx_data.get("timestamp")
+        "timestamp": tx_data.get("timestamp"),
     }
 
     # Sort keys for deterministic ordering
-    challenge_str = json.dumps(challenge_data, sort_keys=True, separators=(',', ':'))
+    challenge_str = json.dumps(challenge_data, sort_keys=True, separators=(",", ":"))
     challenge_hash = keccak(challenge_str.encode())
 
     return f"AITBC_MULTISIG_CHALLENGE:{challenge_hash.hex()}"
 
 
-def verify_signature(
-    challenge: str,
-    signature: str,
-    signer_address: str
-) -> bool:
+def verify_signature(challenge: str, signature: str, signer_address: str) -> bool:
     """
     Verify that a signature was created by the specified signer
-    
+
     Args:
         challenge: Challenge string that was signed
         signature: Hex signature string
         signer_address: Expected signer address
-        
+
     Returns:
         True if signature is valid
     """
@@ -63,10 +59,7 @@ def verify_signature(
 
         # Recover address from signature
         message_hash = keccak(challenge.encode())
-        recovered_address = Account.recover_message(
-            signable_hash=message_hash,
-            signature=signature_bytes
-        )
+        recovered_address = Account.recover_message(signable_hash=message_hash, signature=signature_bytes)
 
         # Compare with expected signer
         return to_checksum_address(recovered_address) == to_checksum_address(signer_address)
@@ -78,11 +71,11 @@ def verify_signature(
 def sign_challenge(challenge: str, private_key: str) -> str:
     """
     Sign a challenge with a private key
-    
+
     Args:
         challenge: Challenge string to sign
         private_key: Private key in hex format
-        
+
     Returns:
         Signature as hex string
     """
@@ -109,10 +102,10 @@ def generate_nonce() -> str:
 def validate_multisig_transaction(tx_data: dict) -> tuple[bool, str]:
     """
     Validate multisig transaction structure
-    
+
     Args:
         tx_data: Transaction data to validate
-        
+
     Returns:
         Tuple of (is_valid, error_message)
     """
@@ -129,7 +122,7 @@ def validate_multisig_transaction(tx_data: dict) -> tuple[bool, str]:
     if len(to_address) < 50 or len(to_address) > 70:
         return False, "Invalid recipient address format: invalid length"
     # Check that the rest is hex-like (after 'ait' prefix)
-    if not all(c.lower() in '0123456789abcdef' for c in to_address[3:]):
+    if not all(c.lower() in "0123456789abcdef" for c in to_address[3:]):
         return False, "Invalid recipient address format: invalid characters"
 
     # Validate amount
@@ -149,18 +142,14 @@ class MultisigSecurityManager:
     def __init__(self):
         self.pending_challenges: dict[str, dict] = {}
 
-    def create_signing_request(
-        self,
-        tx_data: dict,
-        multisig_wallet: str
-    ) -> dict[str, str]:
+    def create_signing_request(self, tx_data: dict, multisig_wallet: str) -> dict[str, str]:
         """
         Create a signing request with cryptographic challenge
-        
+
         Args:
             tx_data: Transaction data
             multisig_wallet: Multisig wallet identifier
-            
+
         Returns:
             Signing request with challenge
         """
@@ -179,7 +168,7 @@ class MultisigSecurityManager:
             "tx_data": tx_data,
             "multisig_wallet": multisig_wallet,
             "nonce": nonce,
-            "created_at": secrets.token_hex(8)
+            "created_at": secrets.token_hex(8),
         }
 
         return {
@@ -187,23 +176,18 @@ class MultisigSecurityManager:
             "challenge": challenge,
             "nonce": nonce,
             "signers_required": len(tx_data.get("required_signers", [])),
-            "message": f"Please sign this challenge to authorize transaction {tx_data['tx_id']}"
+            "message": f"Please sign this challenge to authorize transaction {tx_data['tx_id']}",
         }
 
-    def verify_and_add_signature(
-        self,
-        tx_id: str,
-        signature: str,
-        signer_address: str
-    ) -> tuple[bool, str]:
+    def verify_and_add_signature(self, tx_id: str, signature: str, signer_address: str) -> tuple[bool, str]:
         """
         Verify signature and add to transaction
-        
+
         Args:
             tx_id: Transaction ID
             signature: Signature to verify
             signer_address: Address of signer
-            
+
         Returns:
             Tuple of (success, message)
         """

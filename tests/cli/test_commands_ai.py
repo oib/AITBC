@@ -22,8 +22,9 @@ class TestAICommands:
         """Test that ai command group exists"""
         try:
             from aitbc_cli.commands.ai import ai
+
             assert ai is not None
-            assert hasattr(ai, 'name')
+            assert hasattr(ai, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import ai commands: {e}")
 
@@ -31,12 +32,13 @@ class TestAICommands:
         """Test ai group name"""
         try:
             from aitbc_cli.commands.ai import ai
+
             assert ai.name == "ai"
         except ImportError as e:
             pytest.skip(f"Cannot import ai commands: {e}")
 
-    @patch('aitbc_cli.commands.ai.output')
-    @patch('aitbc_cli.commands.ai.error')
+    @patch("aitbc_cli.commands.ai.output")
+    @patch("aitbc_cli.commands.ai.error")
     def test_ai_submit_command(self, mock_error, mock_output):
         """Test ai submit command - skip due to complex wallet and config dependencies"""
         pytest.skip("AI commands have complex wallet and config dependencies")

@@ -21,7 +21,7 @@ class TestMultiValidatorPoA:
             "0x2345678901234567890123456789012345678901",
             "0x3456789012345678901234567890123456789012",
             "0x4567890123456789012345678901234567890123",
-            "0x5678901234567890123456789012345678901234"
+            "0x5678901234567890123456789012345678901234",
         ]
 
         for address in self.validator_addresses:
@@ -161,6 +161,7 @@ class TestMultiValidatorPoA:
         result = self.consensus.update_validator_reputation(validator, -1.5)
         assert result is True
         assert self.consensus.validators[validator].reputation == 0.0
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

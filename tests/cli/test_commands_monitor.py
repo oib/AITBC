@@ -22,8 +22,9 @@ class TestMonitorCommands:
         """Test that monitor command group exists"""
         try:
             from aitbc_cli.commands.monitor import monitor
+
             assert monitor is not None
-            assert hasattr(monitor, 'name')
+            assert hasattr(monitor, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import monitor commands: {e}")
 
@@ -31,12 +32,13 @@ class TestMonitorCommands:
         """Test monitor group name"""
         try:
             from aitbc_cli.commands.monitor import monitor
+
             assert monitor.name == "monitor"
         except ImportError as e:
             pytest.skip(f"Cannot import monitor commands: {e}")
 
-    @patch('aitbc_cli.commands.monitor.output')
-    @patch('aitbc_cli.commands.monitor.error')
+    @patch("aitbc_cli.commands.monitor.output")
+    @patch("aitbc_cli.commands.monitor.error")
     def test_monitor_commands(self, mock_error, mock_output):
         """Test monitor commands - skip due to Rich/console dependencies"""
         pytest.skip("Monitor commands have Rich/console dependencies")

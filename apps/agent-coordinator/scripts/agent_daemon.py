@@ -29,7 +29,7 @@ DEFAULT_POLL_INTERVAL = 10
 
 def decrypt_wallet(keystore_path: Path, password: str) -> bytes:
     """Decrypt private key from keystore file.
-    
+
     Supports both keystore formats:
     - AES-256-GCM (blockchain-node standard)
     - Fernet (scripts/utils standard)
@@ -37,46 +37,46 @@ def decrypt_wallet(keystore_path: Path, password: str) -> bytes:
     with open(keystore_path) as f:
         data = json.load(f)
 
-    crypto = data.get('crypto', data)  # Handle both nested and flat crypto structures
+    crypto = data.get("crypto", data)  # Handle both nested and flat crypto structures
 
     # Detect encryption method
-    cipher = crypto.get('cipher', crypto.get('algorithm', ''))
+    cipher = crypto.get("cipher", crypto.get("algorithm", ""))
 
-    if cipher == 'aes-256-gcm':
+    if cipher == "aes-256-gcm":
         # AES-256-GCM (blockchain-node standard)
-        salt = bytes.fromhex(crypto['kdfparams']['salt'])
-        ciphertext = bytes.fromhex(crypto['ciphertext'])
-        nonce = bytes.fromhex(crypto['cipherparams']['nonce'])
+        salt = bytes.fromhex(crypto["kdfparams"]["salt"])
+        ciphertext = bytes.fromhex(crypto["ciphertext"])
+        nonce = bytes.fromhex(crypto["cipherparams"]["nonce"])
 
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
-            length=crypto['kdfparams']['dklen'],
+            length=crypto["kdfparams"]["dklen"],
             salt=salt,
-            iterations=crypto['kdfparams']['c'],
-            backend=default_backend()
+            iterations=crypto["kdfparams"]["c"],
+            backend=default_backend(),
         )
         key = kdf.derive(password.encode())
         aesgcm = AESGCM(key)
         return aesgcm.decrypt(nonce, ciphertext, None)
 
-    elif cipher == 'fernet' or cipher == 'PBKDF2-SHA256-Fernet':
+    elif cipher == "fernet" or cipher == "PBKDF2-SHA256-Fernet":
         # Fernet (scripts/utils standard)
         import base64
 
         from cryptography.fernet import Fernet
 
-        kdfparams = crypto.get('kdfparams', {})
-        if 'salt' in kdfparams:
-            salt = base64.b64decode(kdfparams['salt'])
+        kdfparams = crypto.get("kdfparams", {})
+        if "salt" in kdfparams:
+            salt = base64.b64decode(kdfparams["salt"])
         else:
-            salt = bytes.fromhex(kdfparams.get('salt', ''))
+            salt = bytes.fromhex(kdfparams.get("salt", ""))
 
         # Use PBKDF2 for secure key derivation (100,000 iterations for security)
-        dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000, dklen=32)
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000, dklen=32)
         fernet_key = base64.urlsafe_b64encode(dk)
 
         f = Fernet(fernet_key)
-        ciphertext = base64.b64decode(crypto['ciphertext'])
+        ciphertext = base64.b64decode(crypto["ciphertext"])
         priv = f.decrypt(ciphertext)
         return priv.encode()
 
@@ -84,13 +84,14 @@ def decrypt_wallet(keystore_path: Path, password: str) -> bytes:
         raise ValueError(f"Unsupported cipher: {cipher}")
 
 
-def create_tx(private_bytes: bytes, from_addr: str, to_addr: str, amount: float, fee: float, payload: str, chain_id: str = "ait-mainnet") -> dict:
+def create_tx(
+    private_bytes: bytes, from_addr: str, to_addr: str, amount: float, fee: float, payload: str, chain_id: str = "ait-mainnet"
+) -> dict:
     """Create and sign a transaction"""
     priv_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_bytes)
-    pub_hex = priv_key.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw
-    ).hex()
+    pub_hex = (
+        priv_key.public_key().public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw).hex()
+    )
 
     tx = {
         "type": "transfer",
@@ -100,7 +101,7 @@ def create_tx(private_bytes: bytes, from_addr: str, to_addr: str, amount: float,
         "fee": fee,
         "nonce": int(time.time() * 1000),
         "payload": payload,
-        "chain_id": chain_id
+        "chain_id": chain_id,
     }
 
     tx_string = json.dumps(tx, sort_keys=True)
@@ -174,10 +175,7 @@ def main():
         try:
             with Session(engine) as session:
                 txs = session.exec(
-                    select(Transaction).where(
-                        Transaction.recipient == args.address,
-                        Transaction.chain_id == args.chain_id
-                    )
+                    select(Transaction).where(Transaction.recipient == args.address, Transaction.chain_id == args.chain_id)
                 ).all()
 
                 for tx in txs:

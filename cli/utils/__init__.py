@@ -9,7 +9,7 @@ import os
 import sys
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import yaml
 from rich.console import Console
@@ -53,6 +53,7 @@ class AuditLogger:
     def __init__(self, log_dir: Path | None = None):
         # Import secure audit logger
         from .secure_audit import SecureAuditLogger
+
         self._secure_logger = SecureAuditLogger(log_dir)
 
     def log(self, action: str, details: dict = None, user: str = None):
@@ -105,18 +106,18 @@ def _get_fernet_key(key: str = None) -> bytes:
 
         # Derive key using Argon2
         ph = PasswordHasher(
-            time_cost=3,      # Number of iterations
+            time_cost=3,  # Number of iterations
             memory_cost=65536,  # Memory usage in KB
-            parallelism=4,   # Number of parallel threads
-            hash_len=32,     # Output hash length
-            salt_len=16      # Salt length
+            parallelism=4,  # Number of parallel threads
+            hash_len=32,  # Output hash length
+            salt_len=16,  # Salt length
         )
 
         # Hash the password to get a 32-byte key
-        hashed_key = ph.hash(key + salt.decode('utf-8'))
+        hashed_key = ph.hash(key + salt.decode("utf-8"))
 
         # Extract the hash part and convert to bytes suitable for Fernet
-        key_bytes = hashed_key.encode('utf-8')[:32]
+        key_bytes = hashed_key.encode("utf-8")[:32]
 
         # Ensure we have exactly 32 bytes for Fernet
         if len(key_bytes) < 32:
@@ -138,11 +139,11 @@ def _get_fernet_key(key: str = None) -> bytes:
 
         # Use PBKDF2 with SHA-256 (better than plain SHA-256)
         key_bytes = hashlib.pbkdf2_hmac(
-            'sha256',
-            key.encode('utf-8'),
+            "sha256",
+            key.encode("utf-8"),
             salt,
             100000,  # 100k iterations
-            32       # 32-byte key
+            32,  # 32-byte key
         )
 
         return base64.urlsafe_b64encode(key_bytes)
@@ -184,10 +185,7 @@ def setup_logging(verbosity: int, debug: bool = False) -> str:
         log_level = "WARNING"
 
     logging.basicConfig(
-        level=log_level,
-        format="%(message)s",
-        datefmt="[%X]",
-        handlers=[RichHandler(console=console, rich_tracebacks=True)]
+        level=log_level, format="%(message)s", datefmt="[%X]", handlers=[RichHandler(console=console, rich_tracebacks=True)]
     )
 
     return log_level
@@ -234,6 +232,8 @@ def render(data: Any, format_type: str = "table", title: str = None):
             console.logger.info(data)
     else:
         console.logger.info(data)
+
+
 # Backward compatibility alias
 def output(data: Any, format_type: str = "table", title: str = None):
     """Deprecated: use render() instead - kept for backward compatibility"""
@@ -243,26 +243,34 @@ def output(data: Any, format_type: str = "table", title: str = None):
 def error(message: str):
     """Print error message"""
     console.print(Panel(f"[red]Error: {message}[/red]", title="❌"))
+
+
 def success(message: str):
     """Print success message"""
     console.print(Panel(f"[green]{message}[/green]", title="✅"))
+
+
 def info(message: str):
     """Print informational message"""
     console.print(Panel(f"[cyan]{message}[/cyan]", title="ℹ️"))
+
+
 def warning(message: str):
     """Print warning message"""
     console.print(Panel(f"[yellow]{message}[/yellow]", title="⚠️"))
+
+
 def retry_with_backoff(
     func,
     max_retries: int = 3,
     base_delay: float = 1.0,
     max_delay: float = 60.0,
     backoff_factor: float = 2.0,
-    exceptions: tuple = (Exception,)
+    exceptions: tuple = (Exception,),
 ):
     """
     Retry function with exponential backoff
-    
+
     Args:
         func: Function to retry
         max_retries: Maximum number of retries
@@ -270,7 +278,7 @@ def retry_with_backoff(
         max_delay: Maximum delay in seconds
         backoff_factor: Multiplier for delay after each retry
         exceptions: Tuple of exceptions to catch and retry on
-    
+
     Returns:
         Result of function call
     """
@@ -287,7 +295,7 @@ def retry_with_backoff(
                 raise
 
             # Calculate delay with exponential backoff
-            delay = min(base_delay * (backoff_factor ** attempt), max_delay)
+            delay = min(base_delay * (backoff_factor**attempt), max_delay)
 
             warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay:.1f}s...")
             time.sleep(delay)
@@ -296,20 +304,17 @@ def retry_with_backoff(
 
 
 def create_http_client_with_retry(
-    max_retries: int = 3,
-    base_delay: float = 1.0,
-    max_delay: float = 60.0,
-    timeout: float = 30.0
+    max_retries: int = 3, base_delay: float = 1.0, max_delay: float = 60.0, timeout: float = 30.0
 ):
     """
     Create an HTTP client with retry capabilities
-    
+
     Args:
         max_retries: Maximum number of retries
         base_delay: Initial delay in seconds
         max_delay: Maximum delay in seconds
         timeout: Request timeout in seconds
-    
+
     Returns:
         httpx.Client with retry transport
     """
@@ -331,22 +336,17 @@ def create_http_client_with_retry(
                     response = super().handle_request(request)
 
                     # Check for retryable HTTP status codes
-                    if hasattr(response, 'status_code'):
+                    if hasattr(response, "status_code"):
                         retryable_codes = {429, 502, 503, 504}
                         if response.status_code in retryable_codes:
                             last_exception = httpx.HTTPStatusError(
-                                f"Retryable status code {response.status_code}",
-                                request=request,
-                                response=response
+                                f"Retryable status code {response.status_code}", request=request, response=response
                             )
 
                             if attempt == self.max_retries:
                                 break
 
-                            delay = min(
-                                self.base_delay * (self.backoff_factor ** attempt),
-                                self.max_delay
-                            )
+                            delay = min(self.base_delay * (self.backoff_factor**attempt), self.max_delay)
                             time.sleep(delay)
                             continue
 
@@ -358,16 +358,12 @@ def create_http_client_with_retry(
                     if attempt == self.max_retries:
                         break
 
-                    delay = min(
-                        self.base_delay * (self.backoff_factor ** attempt),
-                        self.max_delay
-                    )
+                    delay = min(self.base_delay * (self.backoff_factor**attempt), self.max_delay)
                     time.sleep(delay)
 
             raise last_exception
 
-    return httpx.Client(
-        transport=RetryTransport(),
-        timeout=timeout
-    )
+    return httpx.Client(transport=RetryTransport(), timeout=timeout)
+
+
 from .subprocess import run_subprocess

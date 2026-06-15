@@ -9,8 +9,7 @@ import httpx
 
 # Test GPU
 print("Testing GPU access...")
-result = subprocess.run(['nvidia-smi', '--query-gpu=name', '--format=csv,noheader,nounits'],
-                       capture_output=True, text=True)
+result = subprocess.run(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader,nounits"], capture_output=True, text=True)
 if result.returncode == 0:
     print(f"✅ GPU detected: {result.stdout.strip()}")
 else:
@@ -21,7 +20,7 @@ print("\nTesting Ollama...")
 try:
     response = httpx.get("http://localhost:11434/api/tags", timeout=5)
     if response.status_code == 200:
-        models = response.json().get('models', [])
+        models = response.json().get("models", [])
         print(f"✅ Ollama running with {len(models)} models")
         for m in models[:3]:  # Show first 3 models
             print(f"   - {m['name']}")
@@ -46,12 +45,8 @@ print("\nTesting Ollama inference...")
 try:
     response = httpx.post(
         "http://localhost:11434/api/generate",
-        json={
-            "model": "llama3.2:latest",
-            "prompt": "Say hello",
-            "stream": False
-        },
-        timeout=10
+        json={"model": "llama3.2:latest", "prompt": "Say hello", "stream": False},
+        timeout=10,
     )
     if response.status_code == 200:
         result = response.json()

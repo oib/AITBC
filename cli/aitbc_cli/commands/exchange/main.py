@@ -35,8 +35,6 @@ def exchange():
 @click.pass_context
 def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool, description: str | None):
     """Register a new exchange integration"""
-    config = get_config()
-
     exchange_config = {
         "name": name,
         "api_key": api_key,
@@ -46,7 +44,7 @@ def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool
         "created_at": datetime.now(UTC).isoformat(),
         "status": "active",
         "trading_pairs": [],
-        "last_sync": None
+        "last_sync": None,
     }
 
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
@@ -59,16 +57,11 @@ def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool
 
     exchanges[name.lower()] = exchange_config
 
-    with open(exchanges_file, 'w') as f:
+    with open(exchanges_file, "w") as f:
         json.dump(exchanges, f, indent=2)
 
     success(f"Exchange '{name}' registered successfully")
-    output({
-        "exchange": name,
-        "status": "registered",
-        "sandbox": sandbox,
-        "created_at": exchange_config["created_at"]
-    })
+    output({"exchange": name, "status": "registered", "sandbox": sandbox, "created_at": exchange_config["created_at"]})
 
 
 @exchange.command()
@@ -79,7 +72,9 @@ def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool
 @click.option("--price-precision", type=int, default=8, help="Price precision")
 @click.option("--quantity-precision", type=int, default=8, help="Quantity precision")
 @click.pass_context
-def create_pair(ctx, base_asset: str, quote_asset: str, exchange: str, min_order_size: float, price_precision: int, quantity_precision: int):
+def create_pair(
+    ctx, base_asset: str, quote_asset: str, exchange: str, min_order_size: float, price_precision: int, quantity_precision: int
+):
     """Create a new trading pair"""
     pair_symbol = f"{base_asset}/{quote_asset}"
 
@@ -103,12 +98,12 @@ def create_pair(ctx, base_asset: str, quote_asset: str, exchange: str, min_order
         "price_precision": price_precision,
         "quantity_precision": quantity_precision,
         "trading_enabled": False,
-        "created_at": datetime.now(UTC).isoformat()
+        "created_at": datetime.now(UTC).isoformat(),
     }
 
     exchanges[exchange.lower()]["trading_pairs"].append(pair_config)
 
-    with open(exchanges_file, 'w') as f:
+    with open(exchanges_file, "w") as f:
         json.dump(exchanges, f, indent=2)
 
     success(f"Trading pair '{pair_symbol}' created on {exchange}")
@@ -154,19 +149,21 @@ def start_trading(ctx, pair: str, price: float | None, base_liquidity: float, qu
     target_pair["base_liquidity"] = base_liquidity
     target_pair["quote_liquidity"] = quote_liquidity
 
-    with open(exchanges_file, 'w') as f:
+    with open(exchanges_file, "w") as f:
         json.dump(exchanges, f, indent=2)
 
     success(f"Trading started for pair '{pair}' on {target_exchange}")
-    output({
-        "pair": pair,
-        "exchange": target_exchange,
-        "status": "trading_active",
-        "initial_price": target_pair["initial_price"],
-        "base_liquidity": base_liquidity,
-        "quote_liquidity": quote_liquidity,
-        "started_at": target_pair["started_at"]
-    })
+    output(
+        {
+            "pair": pair,
+            "exchange": target_exchange,
+            "status": "trading_active",
+            "initial_price": target_pair["initial_price"],
+            "base_liquidity": base_liquidity,
+            "quote_liquidity": quote_liquidity,
+            "started_at": target_pair["started_at"],
+        }
+    )
 
 
 @exchange.command()
@@ -195,28 +192,32 @@ def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interv
             if pair and pair_config["symbol"] != pair:
                 continue
 
-            monitoring_data.append({
-                "exchange": exchange_name,
-                "pair": pair_config["symbol"],
-                "status": "active" if pair_config.get("trading_enabled") else "inactive",
-                "created_at": pair_config.get("created_at"),
-                "started_at": pair_config.get("started_at"),
-                "initial_price": pair_config.get("initial_price"),
-                "base_liquidity": pair_config.get("base_liquidity"),
-                "quote_liquidity": pair_config.get("quote_liquidity")
-            })
+            monitoring_data.append(
+                {
+                    "exchange": exchange_name,
+                    "pair": pair_config["symbol"],
+                    "status": "active" if pair_config.get("trading_enabled") else "inactive",
+                    "created_at": pair_config.get("created_at"),
+                    "started_at": pair_config.get("started_at"),
+                    "initial_price": pair_config.get("initial_price"),
+                    "base_liquidity": pair_config.get("base_liquidity"),
+                    "quote_liquidity": pair_config.get("quote_liquidity"),
+                }
+            )
 
     if not monitoring_data:
         error("No trading pairs found for monitoring.")
         return
 
-    output({
-        "monitoring_active": True,
-        "real_time": real_time,
-        "interval": interval,
-        "pairs": monitoring_data,
-        "total_pairs": len(monitoring_data)
-    })
+    output(
+        {
+            "monitoring_active": True,
+            "real_time": real_time,
+            "interval": interval,
+            "pairs": monitoring_data,
+            "total_pairs": len(monitoring_data),
+        }
+    )
 
     if real_time:
         warning(f"Real-time monitoring enabled. Updates every {interval} seconds.")
@@ -225,7 +226,7 @@ def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interv
 @exchange.command()
 @click.option("--pair", required=True, help="Trading pair symbol (e.g., AITBC/BTC)")
 @click.option("--amount", type=float, required=True, help="Liquidity amount")
-@click.option("--side", type=click.Choice(['buy', 'sell']), default='both', help="Side to provide liquidity")
+@click.option("--side", type=click.Choice(["buy", "sell"]), default="both", help="Side to provide liquidity")
 @click.option("--exchange", help="Exchange name")
 @click.pass_context
 def add_liquidity(ctx, pair: str, amount: float, side: str, exchange: str | None):
@@ -257,26 +258,28 @@ def add_liquidity(ctx, pair: str, amount: float, side: str, exchange: str | None
         error(f"Trading pair '{pair}' not found.")
         return
 
-    if side == 'buy' or side == 'both':
+    if side == "buy" or side == "both":
         target_pair["quote_liquidity"] = target_pair.get("quote_liquidity", 0) + amount
-    if side == 'sell' or side == 'both':
+    if side == "sell" or side == "both":
         target_pair["base_liquidity"] = target_pair.get("base_liquidity", 0) + amount
 
     target_pair["liquidity_updated_at"] = datetime.now(UTC).isoformat()
 
-    with open(exchanges_file, 'w') as f:
+    with open(exchanges_file, "w") as f:
         json.dump(exchanges, f, indent=2)
 
     success(f"Added {amount} liquidity to {pair} on {target_exchange} ({side} side)")
-    output({
-        "pair": pair,
-        "exchange": target_exchange,
-        "amount": amount,
-        "side": side,
-        "base_liquidity": target_pair.get("base_liquidity"),
-        "quote_liquidity": target_pair.get("quote_liquidity"),
-        "updated_at": target_pair["liquidity_updated_at"]
-    })
+    output(
+        {
+            "pair": pair,
+            "exchange": target_exchange,
+            "amount": amount,
+            "side": side,
+            "base_liquidity": target_pair.get("base_liquidity"),
+            "quote_liquidity": target_pair.get("quote_liquidity"),
+            "updated_at": target_pair["liquidity_updated_at"],
+        }
+    )
 
 
 @exchange.command()
@@ -292,13 +295,13 @@ def list(ctx):
         exchanges = json.load(f)
 
     exchange_list = []
-    for exchange_name, exchange_data in exchanges.items():
+    for _exchange_name, exchange_data in exchanges.items():
         exchange_info = {
             "name": exchange_data["name"],
             "status": exchange_data["status"],
             "sandbox": exchange_data["sandbox"],
             "trading_pairs": len(exchange_data.get("trading_pairs", [])),
-            "created_at": exchange_data["created_at"]
+            "created_at": exchange_data["created_at"],
         }
         exchange_list.append(exchange_info)
 

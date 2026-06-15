@@ -21,7 +21,7 @@ if DATABASE_URL.startswith("sqlite"):
         DATABASE_URL,
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
-        echo=False  # Set to True for SQL logging
+        echo=False,  # Set to True for SQL logging
     )
 else:
     engine = create_engine(DATABASE_URL, echo=False)
@@ -29,10 +29,12 @@ else:
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 # Create tables
 def init_db():
     """Initialize database tables"""
     Base.metadata.create_all(bind=engine)
+
 
 def get_db() -> Session:
     """Get database session"""
@@ -41,6 +43,7 @@ def get_db() -> Session:
         yield db
     finally:
         db.close()
+
 
 # Dependency for FastAPI
 def get_db_session():

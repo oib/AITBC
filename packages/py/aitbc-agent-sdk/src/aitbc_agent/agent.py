@@ -54,18 +54,14 @@ class AgentIdentity:
     def sign_message(self, message: dict[str, Any]) -> str:
         """Sign a message with agent's private key"""
         message_str = json.dumps(message, sort_keys=True)
-        private_key = serialization.load_pem_private_key(
-            self.private_key.encode(), password=None
-        )
+        private_key = serialization.load_pem_private_key(self.private_key.encode(), password=None)
 
         if not isinstance(private_key, rsa.RSAPrivateKey):
             raise TypeError("Only RSA private keys are supported")
 
         signature = private_key.sign(
             message_str.encode(),
-            padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH
-            ),
+            padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
             hashes.SHA256(),
         )
 
@@ -102,7 +98,7 @@ class Agent:
         identity: AgentIdentity,
         capabilities: AgentCapabilities,
         coordinator_url: str | None = None,
-        contract_config: ContractConfig | None = None
+        contract_config: ContractConfig | None = None,
     ):
         self.identity = identity
         self.capabilities = capabilities
@@ -128,8 +124,7 @@ class Agent:
             try:
                 # Use factory function to create appropriate client
                 self.contract_integration = create_agent_contract_integration(
-                    config=contract_config,
-                    private_key=identity.private_key
+                    config=contract_config, private_key=identity.private_key
                 )
                 self.contract_integration.set_agent_address(identity.address)
                 logger.info("Contract integration initialized for agent")
@@ -137,9 +132,7 @@ class Agent:
                 logger.warning("Failed to initialize contract integration: %s", e)
 
     @classmethod
-    def create(
-        cls, name: str, agent_type: str, capabilities: dict[str, Any]
-    ) -> "Agent":
+    def create(cls, name: str, agent_type: str, capabilities: dict[str, Any]) -> "Agent":
         """Create a new agent with generated identity"""
         # Generate cryptographic keys
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -198,13 +191,10 @@ class Agent:
 
             # Submit to AITBC network registration endpoint
             try:
-                response = await self.http_client.post(
-                    "/v1/agents/register",
-                    json=registration_data
-                )
+                response = await self.http_client.post("/v1/agents/register", json=registration_data)
 
                 if response.status_code == 201:
-                    result = response.json()
+                    _ = response.json()
                     self.registered = True
                     logger.info("Agent %s registered successfully", self.identity.id)
                     return True
@@ -225,9 +215,7 @@ class Agent:
     async def get_reputation(self) -> dict[str, float]:
         """Get agent reputation metrics"""
         try:
-            response = await self.http_client.get(
-                f"/v1/agents/{self.identity.id}/reputation"
-            )
+            response = await self.http_client.get(f"/v1/agents/{self.identity.id}/reputation")
 
             if response.status_code == 200:
                 result = response.json()
@@ -266,10 +254,7 @@ class Agent:
     async def get_earnings(self, period: str = "30d") -> dict[str, Any]:
         """Get agent earnings information"""
         try:
-            response = await self.http_client.get(
-                f"/v1/agents/{self.identity.id}/earnings",
-                params={"period": period}
-            )
+            response = await self.http_client.get(f"/v1/agents/{self.identity.id}/earnings", params={"period": period})
 
             if response.status_code == 200:
                 result = response.json()
@@ -300,9 +285,7 @@ class Agent:
                 "currency": "AITBC",
             }
 
-    async def send_message(
-        self, recipient_id: str, message_type: str, payload: dict[str, Any]
-    ) -> bool:
+    async def send_message(self, recipient_id: str, message_type: str, payload: dict[str, Any]) -> bool:
         """Send a message to another agent"""
         message = {
             "from": self.identity.id,
@@ -318,10 +301,7 @@ class Agent:
 
         # Send through AITBC agent messaging protocol
         try:
-            response = await self.http_client.post(
-                "/v1/agents/messages",
-                json=message
-            )
+            response = await self.http_client.post("/v1/agents/messages", json=message)
 
             if response.status_code == 200:
                 logger.info("Message sent to %s: %s", recipient_id, message_type)
@@ -382,13 +362,10 @@ class Agent:
             public_key_bytes = bytes.fromhex(public_key_hex)
             public_key = ed25519.Ed25519PublicKey.from_public_bytes(public_key_bytes)
 
-            message_bytes = json.dumps(message_to_verify, sort_keys=True).encode('utf-8')
+            message_bytes = json.dumps(message_to_verify, sort_keys=True).encode("utf-8")
             public_key.verify(signature, message_bytes)
 
-            logger.info(
-                "Received message from %s: %s (signature verified)",
-                sender_id, message.get('type')
-            )
+            logger.info("Received message from %s: %s (signature verified)", sender_id, message.get("type"))
             return True
         except Exception as e:
             logger.error("Signature verification failed for %s: %s", sender_id, e)
@@ -428,14 +405,7 @@ class Agent:
             logger.info("Agent %s exiting normally", self.identity.id)
 
     async def initiate_atomic_swap(
-        self,
-        swap_id: str,
-        token: str,
-        amount: int,
-        participant: str,
-        hashlock: str,
-        timelock: int,
-        contract_address: str
+        self, swap_id: str, token: str, amount: int, participant: str, hashlock: str, timelock: int, contract_address: str
     ) -> dict[str, Any]:
         """Initiate atomic swap using contract integration"""
         if not self.contract_integration:
@@ -448,52 +418,31 @@ class Agent:
             participant=participant,
             hashlock=hashlock,
             timelock=timelock,
-            contract_address=contract_address
+            contract_address=contract_address,
         )
 
-    async def complete_atomic_swap(
-        self,
-        swap_id: str,
-        secret: str,
-        contract_address: str
-    ) -> dict[str, Any]:
+    async def complete_atomic_swap(self, swap_id: str, secret: str, contract_address: str) -> dict[str, Any]:
         """Complete atomic swap by revealing secret"""
         if not self.contract_integration:
             raise ValueError("Contract integration not initialized")
 
         return await self.contract_integration.complete_atomic_swap(
-            swap_id=swap_id,
-            secret=secret,
-            contract_address=contract_address
+            swap_id=swap_id, secret=secret, contract_address=contract_address
         )
 
-    async def get_swap_status(
-        self,
-        swap_id: str,
-        contract_address: str
-    ) -> dict[str, Any]:
+    async def get_swap_status(self, swap_id: str, contract_address: str) -> dict[str, Any]:
         """Get status of an atomic swap"""
         if not self.contract_integration:
             raise ValueError("Contract integration not initialized")
 
-        return await self.contract_integration.get_swap_status(
-            swap_id=swap_id,
-            contract_address=contract_address
-        )
+        return await self.contract_integration.get_swap_status(swap_id=swap_id, contract_address=contract_address)
 
-    async def refund_atomic_swap(
-        self,
-        swap_id: str,
-        contract_address: str
-    ) -> dict[str, Any]:
+    async def refund_atomic_swap(self, swap_id: str, contract_address: str) -> dict[str, Any]:
         """Refund atomic swap if timelock expired"""
         if not self.contract_integration:
             raise ValueError("Contract integration not initialized")
 
-        return await self.contract_integration.refund_atomic_swap(
-            swap_id=swap_id,
-            contract_address=contract_address
-        )
+        return await self.contract_integration.refund_atomic_swap(swap_id=swap_id, contract_address=contract_address)
 
     # IPFS operations
     def store_ipfs(self, data: bytes, pin: bool = True, name: str = None) -> str:

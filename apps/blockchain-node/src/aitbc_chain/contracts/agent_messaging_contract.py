@@ -14,6 +14,7 @@ from typing import Any
 
 class MessageType(Enum):
     """Types of messages agents can send"""
+
     POST = "post"
     REPLY = "reply"
     ANNOUNCEMENT = "announcement"
@@ -21,16 +22,20 @@ class MessageType(Enum):
     ANSWER = "answer"
     MODERATION = "moderation"
 
+
 class MessageStatus(Enum):
     """Status of messages in the forum"""
+
     ACTIVE = "active"
     HIDDEN = "hidden"
     DELETED = "deleted"
     PINNED = "pinned"
 
+
 @dataclass
 class Message:
     """Represents a message in the agent forum"""
+
     message_id: str
     agent_id: str
     agent_address: str
@@ -45,9 +50,11 @@ class Message:
     status: MessageStatus = MessageStatus.ACTIVE
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class Topic:
     """Represents a forum topic"""
+
     topic_id: str
     title: str
     description: str
@@ -59,9 +66,11 @@ class Topic:
     is_pinned: bool = False
     is_locked: bool = False
 
+
 @dataclass
 class AgentReputation:
     """Reputation system for agents"""
+
     agent_id: str
     message_count: int = 0
     upvotes_received: int = 0
@@ -73,6 +82,7 @@ class AgentReputation:
     ban_reason: str | None = None
     ban_expires: datetime | None = None
 
+
 class AgentMessagingContract:
     """Main contract for agent messaging functionality"""
 
@@ -82,17 +92,14 @@ class AgentMessagingContract:
         self.agent_reputations: dict[str, AgentReputation] = {}
         self.moderation_log: list[dict[str, Any]] = []
 
-    def create_topic(self, agent_id: str, agent_address: str, title: str,
-                    description: str, tags: list[str] | None = None) -> dict[str, Any]:
+    def create_topic(
+        self, agent_id: str, agent_address: str, title: str, description: str, tags: list[str] | None = None
+    ) -> dict[str, Any]:
         """Create a new forum topic"""
 
         # Check if agent is banned
         if self._is_agent_banned(agent_id):
-            return {
-                "success": False,
-                "error": "Agent is banned from posting",
-                "error_code": "AGENT_BANNED"
-            }
+            return {"success": False, "error": "Agent is banned from posting", "error_code": "AGENT_BANNED"}
 
         # Generate topic ID
         topic_id = f"topic_{hashlib.sha256(f'{agent_id}_{title}_{datetime.now()}'.encode()).hexdigest()[:16]}"
@@ -104,7 +111,7 @@ class AgentMessagingContract:
             description=description,
             creator_agent_id=agent_id,
             created_at=datetime.now(),
-            tags=tags or []
+            tags=tags or [],
         )
 
         self.topics[topic_id] = topic
@@ -112,55 +119,37 @@ class AgentMessagingContract:
         # Update agent reputation
         self._update_agent_reputation(agent_id, message_count=1)
 
-        return {
-            "success": True,
-            "topic_id": topic_id,
-            "topic": self._topic_to_dict(topic)
-        }
+        return {"success": True, "topic_id": topic_id, "topic": self._topic_to_dict(topic)}
 
-    def post_message(self, agent_id: str, agent_address: str, topic_id: str,
-                    content: str, message_type: str = "post",
-                    parent_message_id: str | None = None) -> dict[str, Any]:
+    def post_message(
+        self,
+        agent_id: str,
+        agent_address: str,
+        topic_id: str,
+        content: str,
+        message_type: str = "post",
+        parent_message_id: str | None = None,
+    ) -> dict[str, Any]:
         """Post a message to a forum topic"""
 
         # Validate inputs
         if not self._validate_agent(agent_id, agent_address):
-            return {
-                "success": False,
-                "error": "Invalid agent credentials",
-                "error_code": "INVALID_AGENT"
-            }
+            return {"success": False, "error": "Invalid agent credentials", "error_code": "INVALID_AGENT"}
 
         if self._is_agent_banned(agent_id):
-            return {
-                "success": False,
-                "error": "Agent is banned from posting",
-                "error_code": "AGENT_BANNED"
-            }
+            return {"success": False, "error": "Agent is banned from posting", "error_code": "AGENT_BANNED"}
 
         if topic_id not in self.topics:
-            return {
-                "success": False,
-                "error": "Topic not found",
-                "error_code": "TOPIC_NOT_FOUND"
-            }
+            return {"success": False, "error": "Topic not found", "error_code": "TOPIC_NOT_FOUND"}
 
         if self.topics[topic_id].is_locked:
-            return {
-                "success": False,
-                "error": "Topic is locked",
-                "error_code": "TOPIC_LOCKED"
-            }
+            return {"success": False, "error": "Topic is locked", "error_code": "TOPIC_LOCKED"}
 
         # Validate message type
         try:
             msg_type = MessageType(message_type)
         except ValueError:
-            return {
-                "success": False,
-                "error": "Invalid message type",
-                "error_code": "INVALID_MESSAGE_TYPE"
-            }
+            return {"success": False, "error": "Invalid message type", "error_code": "INVALID_MESSAGE_TYPE"}
 
         # Generate message ID
         message_id = f"msg_{hashlib.sha256(f'{agent_id}_{topic_id}_{content}_{datetime.now()}'.encode()).hexdigest()[:16]}"
@@ -174,7 +163,7 @@ class AgentMessagingContract:
             content=content,
             message_type=msg_type,
             timestamp=datetime.now(),
-            parent_message_id=parent_message_id
+            parent_message_id=parent_message_id,
         )
 
         self.messages[message_id] = message
@@ -190,27 +179,17 @@ class AgentMessagingContract:
         # Update agent reputation
         self._update_agent_reputation(agent_id, message_count=1)
 
-        return {
-            "success": True,
-            "message_id": message_id,
-            "message": self._message_to_dict(message)
-        }
+        return {"success": True, "message_id": message_id, "message": self._message_to_dict(message)}
 
-    def get_messages(self, topic_id: str, limit: int = 50, offset: int = 0,
-                    sort_by: str = "timestamp") -> dict[str, Any]:
+    def get_messages(self, topic_id: str, limit: int = 50, offset: int = 0, sort_by: str = "timestamp") -> dict[str, Any]:
         """Get messages from a topic"""
 
         if topic_id not in self.topics:
-            return {
-                "success": False,
-                "error": "Topic not found",
-                "error_code": "TOPIC_NOT_FOUND"
-            }
+            return {"success": False, "error": "Topic not found", "error_code": "TOPIC_NOT_FOUND"}
 
         # Get all messages for this topic
         topic_messages = [
-            msg for msg in self.messages.values()
-            if msg.topic == topic_id and msg.status == MessageStatus.ACTIVE
+            msg for msg in self.messages.values() if msg.topic == topic_id and msg.status == MessageStatus.ACTIVE
         ]
 
         # Sort messages
@@ -223,17 +202,16 @@ class AgentMessagingContract:
 
         # Apply pagination
         total_messages = len(topic_messages)
-        paginated_messages = topic_messages[offset:offset + limit]
+        paginated_messages = topic_messages[offset : offset + limit]
 
         return {
             "success": True,
             "messages": [self._message_to_dict(msg) for msg in paginated_messages],
             "total_messages": total_messages,
-            "topic": self._topic_to_dict(self.topics[topic_id])
+            "topic": self._topic_to_dict(self.topics[topic_id]),
         }
 
-    def get_topics(self, limit: int = 50, offset: int = 0,
-                  sort_by: str = "last_activity") -> dict[str, Any]:
+    def get_topics(self, limit: int = 50, offset: int = 0, sort_by: str = "last_activity") -> dict[str, Any]:
         """Get list of forum topics"""
 
         # Sort topics
@@ -248,39 +226,26 @@ class AgentMessagingContract:
 
         # Apply pagination
         total_topics = len(topic_list)
-        paginated_topics = topic_list[offset:offset + limit]
+        paginated_topics = topic_list[offset : offset + limit]
 
         return {
             "success": True,
             "topics": [self._topic_to_dict(topic) for topic in paginated_topics],
-            "total_topics": total_topics
+            "total_topics": total_topics,
         }
 
-    def vote_message(self, agent_id: str, agent_address: str, message_id: str,
-                    vote_type: str) -> dict[str, Any]:
+    def vote_message(self, agent_id: str, agent_address: str, message_id: str, vote_type: str) -> dict[str, Any]:
         """Vote on a message (upvote/downvote)"""
 
         # Validate inputs
         if not self._validate_agent(agent_id, agent_address):
-            return {
-                "success": False,
-                "error": "Invalid agent credentials",
-                "error_code": "INVALID_AGENT"
-            }
+            return {"success": False, "error": "Invalid agent credentials", "error_code": "INVALID_AGENT"}
 
         if message_id not in self.messages:
-            return {
-                "success": False,
-                "error": "Message not found",
-                "error_code": "MESSAGE_NOT_FOUND"
-            }
+            return {"success": False, "error": "Message not found", "error_code": "MESSAGE_NOT_FOUND"}
 
         if vote_type not in ["upvote", "downvote"]:
-            return {
-                "success": False,
-                "error": "Invalid vote type",
-                "error_code": "INVALID_VOTE_TYPE"
-            }
+            return {"success": False, "error": "Invalid vote type", "error_code": "INVALID_VOTE_TYPE"}
 
         message = self.messages[message_id]
 
@@ -291,37 +256,21 @@ class AgentMessagingContract:
             message.downvotes += 1
 
         # Update message author reputation
-        self._update_agent_reputation(
-            message.agent_id,
-            upvotes_received=message.upvotes,
-            downvotes_received=message.downvotes
-        )
+        self._update_agent_reputation(message.agent_id, upvotes_received=message.upvotes, downvotes_received=message.downvotes)
 
-        return {
-            "success": True,
-            "message_id": message_id,
-            "upvotes": message.upvotes,
-            "downvotes": message.downvotes
-        }
+        return {"success": True, "message_id": message_id, "upvotes": message.upvotes, "downvotes": message.downvotes}
 
-    def moderate_message(self, moderator_agent_id: str, moderator_address: str,
-                        message_id: str, action: str, reason: str = "") -> dict[str, Any]:
+    def moderate_message(
+        self, moderator_agent_id: str, moderator_address: str, message_id: str, action: str, reason: str = ""
+    ) -> dict[str, Any]:
         """Moderate a message (hide, delete, pin)"""
 
         # Validate moderator
         if not self._is_moderator(moderator_agent_id):
-            return {
-                "success": False,
-                "error": "Insufficient permissions",
-                "error_code": "INSUFFICIENT_PERMISSIONS"
-            }
+            return {"success": False, "error": "Insufficient permissions", "error_code": "INSUFFICIENT_PERMISSIONS"}
 
         if message_id not in self.messages:
-            return {
-                "success": False,
-                "error": "Message not found",
-                "error_code": "MESSAGE_NOT_FOUND"
-            }
+            return {"success": False, "error": "Message not found", "error_code": "MESSAGE_NOT_FOUND"}
 
         message = self.messages[message_id]
 
@@ -335,44 +284,30 @@ class AgentMessagingContract:
         elif action == "unpin":
             message.status = MessageStatus.ACTIVE
         else:
-            return {
-                "success": False,
-                "error": "Invalid moderation action",
-                "error_code": "INVALID_ACTION"
-            }
+            return {"success": False, "error": "Invalid moderation action", "error_code": "INVALID_ACTION"}
 
         # Log moderation action
-        self.moderation_log.append({
-            "timestamp": datetime.now(),
-            "moderator_agent_id": moderator_agent_id,
-            "message_id": message_id,
-            "action": action,
-            "reason": reason
-        })
+        self.moderation_log.append(
+            {
+                "timestamp": datetime.now(),
+                "moderator_agent_id": moderator_agent_id,
+                "message_id": message_id,
+                "action": action,
+                "reason": reason,
+            }
+        )
 
-        return {
-            "success": True,
-            "message_id": message_id,
-            "status": message.status.value
-        }
+        return {"success": True, "message_id": message_id, "status": message.status.value}
 
     def get_agent_reputation(self, agent_id: str) -> dict[str, Any]:
         """Get an agent's reputation information"""
 
         if agent_id not in self.agent_reputations:
-            return {
-                "success": False,
-                "error": "Agent not found",
-                "error_code": "AGENT_NOT_FOUND"
-            }
+            return {"success": False, "error": "Agent not found", "error_code": "AGENT_NOT_FOUND"}
 
         reputation = self.agent_reputations[agent_id]
 
-        return {
-            "success": True,
-            "agent_id": agent_id,
-            "reputation": self._reputation_to_dict(reputation)
-        }
+        return {"success": True, "agent_id": agent_id, "reputation": self._reputation_to_dict(reputation)}
 
     def search_messages(self, query: str, limit: int = 50) -> dict[str, Any]:
         """Search messages by content"""
@@ -382,8 +317,7 @@ class AgentMessagingContract:
         matching_messages = []
 
         for message in self.messages.values():
-            if (message.status == MessageStatus.ACTIVE and
-                query_lower in message.content.lower()):
+            if message.status == MessageStatus.ACTIVE and query_lower in message.content.lower():
                 matching_messages.append(message)
 
         # Sort by timestamp (most recent first)
@@ -396,7 +330,7 @@ class AgentMessagingContract:
             "success": True,
             "query": query,
             "messages": [self._message_to_dict(msg) for msg in limited_messages],
-            "total_matches": len(matching_messages)
+            "total_matches": len(matching_messages),
         }
 
     def _validate_agent(self, agent_id: str, agent_address: str) -> bool:
@@ -433,8 +367,9 @@ class AgentMessagingContract:
 
         return self.agent_reputations[agent_id].is_moderator
 
-    def _update_agent_reputation(self, agent_id: str, message_count: int = 0,
-                               upvotes_received: int = 0, downvotes_received: int = 0) -> None:
+    def _update_agent_reputation(
+        self, agent_id: str, message_count: int = 0, upvotes_received: int = 0, downvotes_received: int = 0
+    ) -> None:
         """Update agent reputation"""
 
         if agent_id not in self.agent_reputations:
@@ -483,7 +418,7 @@ class AgentMessagingContract:
             "upvotes": message.upvotes,
             "downvotes": message.downvotes,
             "status": message.status.value,
-            "metadata": message.metadata
+            "metadata": message.metadata,
         }
 
     def _topic_to_dict(self, topic: Topic) -> dict[str, Any]:
@@ -498,7 +433,7 @@ class AgentMessagingContract:
             "last_activity": topic.last_activity.isoformat(),
             "tags": topic.tags,
             "is_pinned": topic.is_pinned,
-            "is_locked": topic.is_locked
+            "is_locked": topic.is_locked,
         }
 
     def _reputation_to_dict(self, reputation: AgentReputation) -> dict[str, Any]:
@@ -513,8 +448,9 @@ class AgentMessagingContract:
             "is_moderator": reputation.is_moderator,
             "is_banned": reputation.is_banned,
             "ban_reason": reputation.ban_reason,
-            "ban_expires": reputation.ban_expires.isoformat() if reputation.ban_expires else None
+            "ban_expires": reputation.ban_expires.isoformat() if reputation.ban_expires else None,
         }
+
 
 # Global contract instance
 messaging_contract = AgentMessagingContract()

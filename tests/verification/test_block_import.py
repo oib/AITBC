@@ -13,10 +13,12 @@ import requests
 BASE_URL = "https://hub.aitbc.bubuit.net/rpc"
 CHAIN_ID = "ait-mainnet"
 
+
 def compute_block_hash(height, parent_hash, timestamp):
     """Compute block hash using the same algorithm as PoA proposer"""
     payload = f"{CHAIN_ID}|{height}|{parent_hash}|{timestamp}".encode()
     return "0x" + hashlib.sha256(payload).hexdigest()
+
 
 def test_block_import():
     """Test the block import endpoint with various scenarios"""
@@ -48,8 +50,8 @@ def test_block_import():
             "proposer": "test-proposer",
             "timestamp": timestamp,
             "tx_count": 0,
-            "chain_id": CHAIN_ID
-        }
+            "chain_id": CHAIN_ID,
+        },
     )
     print(f"Status: {response.status_code}")
     print(f"Response: {response.json()}")
@@ -68,8 +70,8 @@ def test_block_import():
             "proposer": "test-proposer",
             "timestamp": timestamp,
             "tx_count": 0,
-            "chain_id": CHAIN_ID
-        }
+            "chain_id": CHAIN_ID,
+        },
     )
     print(f"Status: {response.status_code}")
     print(f"Response: {response.json()}")
@@ -90,8 +92,8 @@ def test_block_import():
             "proposer": "test",
             "timestamp": timestamp,
             "tx_count": 0,
-            "chain_id": CHAIN_ID
-        }
+            "chain_id": CHAIN_ID,
+        },
     )
     print(f"Status: {response.status_code}")
     print(f"Response: {response.json()}")
@@ -111,8 +113,8 @@ def test_block_import():
             "proposer": "test",
             "timestamp": timestamp,
             "tx_count": 0,
-            "chain_id": CHAIN_ID
-        }
+            "chain_id": CHAIN_ID,
+        },
     )
     print(f"Status: {response.status_code}")
     print(f"Response: {response.json()}")
@@ -133,8 +135,8 @@ def test_block_import():
             "proposer": "test",
             "timestamp": timestamp,
             "tx_count": 0,
-            "chain_id": CHAIN_ID
-        }
+            "chain_id": CHAIN_ID,
+        },
     )
     print(f"Status: {response.status_code}")
     print(f"Response: {response.json()}")
@@ -151,6 +153,7 @@ def test_block_import():
     print("- ✓ Hash validation")
     print("- ✓ Parent block verification")
     print("- ✓ Proper error handling")
+
 
 if __name__ == "__main__":
     test_block_import()

@@ -18,10 +18,7 @@ def _service_available(host: str = "localhost", port: int = 9001) -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(
-    not _service_available(),
-    reason="Agent coordinator service not running on localhost:9001"
-)
+pytestmark = pytest.mark.skipif(not _service_available(), reason="Agent coordinator service not running on localhost:9001")
 
 
 class TestCompleteSystemIntegration:
@@ -34,7 +31,7 @@ class TestCompleteSystemIntegration:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         return response.json()["access_token"]
 
@@ -54,17 +51,16 @@ class TestCompleteSystemIntegration:
         assert isinstance(service_info, str)
 
         # Test repository cleanup - clean API structure
-        endpoints = [
-            "/health", "/agents/discover", "/metrics/summary",
-            "/system/status", "/advanced-features/status"
-        ]
+        endpoints = ["/health", "/agents/discover", "/metrics/summary", "/system/status", "/advanced-features/status"]
 
         for endpoint in endpoints:
             if endpoint == "/agents/discover":
                 # POST endpoint for agent discovery
-                response = requests.post(f"{self.BASE_URL}{endpoint}",
+                response = requests.post(
+                    f"{self.BASE_URL}{endpoint}",
                     json={"status": "active", "capabilities": ["compute"]},
-                    headers={"Content-Type": "application/json"})
+                    headers={"Content-Type": "application/json"},
+                )
             else:
                 # GET endpoint for others
                 response = requests.get(f"{self.BASE_URL}{endpoint}")
@@ -100,9 +96,7 @@ class TestCompleteSystemIntegration:
         # Test API key security (keystore not directly testable via API)
         # Test input validation
         response = requests.post(
-            f"{self.BASE_URL}/agents/register",
-            json={"invalid": "data"},
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/agents/register", json={"invalid": "data"}, headers={"Content-Type": "application/json"}
         )
         assert response.status_code in [422, 400]
 
@@ -122,13 +116,11 @@ class TestCompleteSystemIntegration:
             "capabilities": ["compute", "storage", "ai_processing"],
             "services": ["task_processing", "learning"],
             "endpoints": {"api": "http://localhost:8001/api", "status": "http://localhost:8001/status"},
-            "metadata": {"version": "1.0.0", "capabilities_version": "2.0"}
+            "metadata": {"version": "1.0.0", "capabilities_version": "2.0"},
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/agents/register",
-            json=agent_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/agents/register", json=agent_data, headers={"Content-Type": "application/json"}
         )
         assert response.status_code == 200
 
@@ -136,7 +128,7 @@ class TestCompleteSystemIntegration:
         response = requests.post(
             f"{self.BASE_URL}/agents/discover",
             json={"status": "active", "capabilities": ["compute"]},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         assert response.status_code == 200
         discovery = response.json()
@@ -152,16 +144,13 @@ class TestCompleteSystemIntegration:
             "action": "optimize_resources",
             "outcome": "success",
             "performance_metrics": {"response_time": 0.3, "throughput": 150},
-            "reward": 0.9
+            "reward": 0.9,
         }
 
         response = requests.post(
             f"{self.BASE_URL}/ai/learning/experience",
             json=experience_data,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         assert response.status_code == 200
 
@@ -171,16 +160,13 @@ class TestCompleteSystemIntegration:
             "input_size": 5,
             "hidden_sizes": [32, 16],
             "output_size": 1,
-            "learning_rate": 0.01
+            "learning_rate": 0.01,
         }
 
         response = requests.post(
             f"{self.BASE_URL}/ai/neural-network/create",
             json=nn_config,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         assert response.status_code == 200
 
@@ -190,17 +176,14 @@ class TestCompleteSystemIntegration:
             "content": {
                 "action": "resource_allocation",
                 "resources": {"cpu": 4, "memory": "8GB"},
-                "description": "Allocate resources for AI processing"
-            }
+                "description": "Allocate resources for AI processing",
+            },
         }
 
         response = requests.post(
             f"{self.BASE_URL}/consensus/proposal/create",
             json=proposal_data,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         assert response.status_code == 200
 
@@ -216,7 +199,7 @@ class TestCompleteSystemIntegration:
             ("GET", "/advanced-features/status"),
             ("GET", "/metrics/summary"),
             ("GET", "/metrics/health"),
-            ("POST", "/auth/login")
+            ("POST", "/auth/login"),
         ]
 
         working_endpoints = 0
@@ -225,9 +208,7 @@ class TestCompleteSystemIntegration:
                 response = requests.get(f"{self.BASE_URL}{endpoint}")
             elif method == "POST":
                 response = requests.post(
-                    f"{self.BASE_URL}{endpoint}",
-                    json={"test": "data"},
-                    headers={"Content-Type": "application/json"}
+                    f"{self.BASE_URL}{endpoint}", json={"test": "data"}, headers={"Content-Type": "application/json"}
                 )
             elif method == "PUT":
                 response = requests.put(f"{self.BASE_URL}{endpoint}")
@@ -247,11 +228,7 @@ class TestCompleteSystemIntegration:
         assert response.status_code == 404
 
         # Test comprehensive error handling
-        response = requests.post(
-            f"{self.BASE_URL}/agents/register",
-            json={},
-            headers={"Content-Type": "application/json"}
-        )
+        response = requests.post(f"{self.BASE_URL}/agents/register", json={}, headers={"Content-Type": "application/json"})
         assert response.status_code in [422, 400]
 
     def test_test_suite_integration(self):
@@ -268,13 +245,11 @@ class TestCompleteSystemIntegration:
             "capabilities": ["testing"],
             "services": ["test_service"],
             "endpoints": {"api": "http://localhost:8001/api"},
-            "metadata": {"version": "1.0.0"}
+            "metadata": {"version": "1.0.0"},
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/agents/register",
-            json=test_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/agents/register", json=test_data, headers={"Content-Type": "application/json"}
         )
         assert response.status_code == 200
 
@@ -282,7 +257,7 @@ class TestCompleteSystemIntegration:
         response = requests.post(
             f"{self.BASE_URL}/agents/discover",
             json={"agent_id": "test_suite_agent"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         assert response.status_code == 200
 
@@ -299,7 +274,7 @@ class TestCompleteSystemIntegration:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         assert response.status_code == 200
         auth_data = response.json()
@@ -311,19 +286,14 @@ class TestCompleteSystemIntegration:
 
         # Test token validation
         response = requests.post(
-            f"{self.BASE_URL}/auth/validate",
-            json={"token": token},
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/auth/validate", json={"token": token}, headers={"Content-Type": "application/json"}
         )
         assert response.status_code == 200
         validation = response.json()
         assert validation["valid"] is True
 
         # Test protected endpoints
-        response = requests.get(
-            f"{self.BASE_URL}/protected/admin",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/protected/admin", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
         admin_data = response.json()
         assert "Welcome admin!" in admin_data["message"]
@@ -332,24 +302,18 @@ class TestCompleteSystemIntegration:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "user", "password": "user123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         user_token = response.json()["access_token"]
 
-        response = requests.get(
-            f"{self.BASE_URL}/protected/admin",
-            headers={"Authorization": f"Bearer {user_token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/protected/admin", headers={"Authorization": f"Bearer {user_token}"})
         assert response.status_code == 403
 
         # Test API key management
         response = requests.post(
             f"{self.BASE_URL}/auth/api-key/generate?user_id=integration_user",
             json=["agent:view"],
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         assert response.status_code == 200
         api_key_data = response.json()
@@ -358,10 +322,7 @@ class TestCompleteSystemIntegration:
         # Test user management
         response = requests.post(
             f"{self.BASE_URL}/users/integration_user/role?role=operator",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         assert response.status_code == 200
         role_data = response.json()
@@ -384,20 +345,14 @@ class TestCompleteSystemIntegration:
         assert "system" in metrics
 
         # Test health metrics - use system status instead
-        response = requests.get(
-            f"{self.BASE_URL}/system/status",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/system/status", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
         health = response.json()
         assert "overall" in health
         assert health["overall"] == "healthy"
 
         # Test alerting system
-        response = requests.get(
-            f"{self.BASE_URL}/alerts/stats",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/alerts/stats", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
         alert_stats = response.json()
         assert "stats" in alert_stats
@@ -405,20 +360,14 @@ class TestCompleteSystemIntegration:
         assert "total_rules" in alert_stats["stats"]
 
         # Test alert rules
-        response = requests.get(
-            f"{self.BASE_URL}/alerts/rules",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/alerts/rules", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
         rules = response.json()
         assert "rules" in rules
         assert len(rules["rules"]) >= 5  # Should have default rules
 
         # Test SLA monitoring
-        response = requests.get(
-            f"{self.BASE_URL}/sla",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/sla", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
         sla = response.json()
         assert "sla" in sla
@@ -427,20 +376,14 @@ class TestCompleteSystemIntegration:
         # Test SLA recording
         response = requests.post(
             f"{self.BASE_URL}/sla/response_time/record?value=0.2",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         assert response.status_code == 200
         sla_record = response.json()
         assert "SLA metric recorded" in sla_record["message"]
 
         # Test comprehensive system status
-        response = requests.get(
-            f"{self.BASE_URL}/system/status",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/system/status", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
         system_status = response.json()
         assert "overall" in system_status
@@ -457,13 +400,11 @@ class TestCompleteSystemIntegration:
             "agent_id": "type_safety_agent",
             "agent_type": "worker",
             "capabilities": ["compute"],
-            "services": ["task_processing"]
+            "services": ["task_processing"],
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/agents/register",
-            json=valid_agent,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/agents/register", json=valid_agent, headers={"Content-Type": "application/json"}
         )
         assert response.status_code == 200
 
@@ -471,13 +412,11 @@ class TestCompleteSystemIntegration:
         invalid_agent = {
             "agent_id": 123,  # Should be string
             "agent_type": "worker",
-            "capabilities": "compute"  # Should be list
+            "capabilities": "compute",  # Should be list
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/agents/register",
-            json=invalid_agent,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/agents/register", json=invalid_agent, headers={"Content-Type": "application/json"}
         )
         assert response.status_code in [422, 400]
 
@@ -505,21 +444,19 @@ class TestCompleteSystemIntegration:
             "action": "optimize",
             "outcome": "success",
             "performance_metrics": {"response_time": 0.4},
-            "reward": 0.85
+            "reward": 0.85,
         }
 
         response = requests.post(
             f"{self.BASE_URL}/ai/learning/experience",
             json=experience,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         assert response.status_code == 200
         exp_response = response.json()
         assert isinstance(exp_response["experience_id"], str)
         assert isinstance(exp_response["recorded_at"], str)
+
 
 class TestEndToEndWorkflow:
     """Test complete end-to-end workflows across all systems"""
@@ -531,7 +468,7 @@ class TestEndToEndWorkflow:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         return response.json()["access_token"]
 
@@ -556,13 +493,11 @@ class TestEndToEndWorkflow:
             "capabilities": ["compute", "ai_processing", "consensus"],
             "services": ["task_processing", "learning", "voting"],
             "endpoints": {"api": "http://localhost:8001", "status": "http://localhost:8001/status"},
-            "metadata": {"version": "2.0.0", "test_mode": True}
+            "metadata": {"version": "2.0.0", "test_mode": True},
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/agents/register",
-            json=agent_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/agents/register", json=agent_data, headers={"Content-Type": "application/json"}
         )
         # Handle validation errors - some fields might not be required
         if response.status_code == 422:
@@ -571,12 +506,10 @@ class TestEndToEndWorkflow:
                 "agent_id": "e2e_test_agent",
                 "agent_type": "worker",
                 "capabilities": ["compute"],
-                "services": ["task_processing"]
+                "services": ["task_processing"],
             }
             response = requests.post(
-                f"{self.BASE_URL}/agents/register",
-                json=minimal_agent_data,
-                headers={"Content-Type": "application/json"}
+                f"{self.BASE_URL}/agents/register", json=minimal_agent_data, headers={"Content-Type": "application/json"}
             )
         assert response.status_code == 200
 
@@ -586,58 +519,33 @@ class TestEndToEndWorkflow:
                 "task_id": "e2e_test_task",
                 "task_type": "ai_processing",
                 "requirements": {"cpu": 2, "memory": "4GB", "gpu": True},
-                "payload": {"model": "test_model", "data": "test_data"}
+                "payload": {"model": "test_model", "data": "test_data"},
             },
             "priority": "high",
-            "requirements": {
-                "min_agents": 1,
-                "max_execution_time": 600,
-                "capabilities": ["ai_processing"]
-            }
+            "requirements": {"min_agents": 1, "max_execution_time": 600, "capabilities": ["ai_processing"]},
         }
 
-        response = requests.post(
-            f"{self.BASE_URL}/tasks/submit",
-            json=task_data,
-            headers={"Content-Type": "application/json"}
-        )
+        response = requests.post(f"{self.BASE_URL}/tasks/submit", json=task_data, headers={"Content-Type": "application/json"})
         # Handle validation errors - task submission might have different schema
         if response.status_code == 422:
             # Try with minimal task data
-            minimal_task_data = {
-                "task_id": "e2e_test_task",
-                "task_type": "ai_processing",
-                "priority": "high"
-            }
+            minimal_task_data = {"task_id": "e2e_test_task", "task_type": "ai_processing", "priority": "high"}
             response = requests.post(
-                f"{self.BASE_URL}/tasks/submit",
-                json=minimal_task_data,
-                headers={"Content-Type": "application/json"}
+                f"{self.BASE_URL}/tasks/submit", json=minimal_task_data, headers={"Content-Type": "application/json"}
             )
         assert response.status_code == 200
 
         # Record AI learning experience
         experience = {
-            "context": {
-                "agent_id": "e2e_test_agent",
-                "task_id": "e2e_test_task",
-                "system_load": 0.6,
-                "active_agents": 3
-            },
+            "context": {"agent_id": "e2e_test_agent", "task_id": "e2e_test_task", "system_load": 0.6, "active_agents": 3},
             "action": "process_task",
             "outcome": "success",
-            "performance_metrics": {
-                "response_time": 0.5,
-                "throughput": 100,
-                "error_rate": 0.01
-            },
-            "reward": 0.9
+            "performance_metrics": {"response_time": 0.5, "throughput": 100, "error_rate": 0.01},
+            "reward": 0.9,
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/ai/learning/experience",
-            json=experience,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/ai/learning/experience", json=experience, headers={"Content-Type": "application/json"}
         )
         # Handle validation errors - AI learning might have different schema
         if response.status_code == 422:
@@ -646,12 +554,12 @@ class TestEndToEndWorkflow:
                 "context": {"agent_id": "e2e_test_agent"},
                 "action": "process_task",
                 "outcome": "success",
-                "reward": 0.9
+                "reward": 0.9,
             }
             response = requests.post(
                 f"{self.BASE_URL}/ai/learning/experience",
                 json=minimal_experience,
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             )
         if response.status_code != 200:
             # Skip AI learning if endpoint not available
@@ -662,42 +570,29 @@ class TestEndToEndWorkflow:
             "proposer_id": "e2e_test_agent",
             "content": {
                 "action": "resource_optimization",
-                "recommendations": {
-                    "cpu_allocation": "increase",
-                    "memory_optimization": "enable",
-                    "learning_rate": 0.01
-                },
-                "justification": "Based on AI processing performance"
-            }
+                "recommendations": {"cpu_allocation": "increase", "memory_optimization": "enable", "learning_rate": 0.01},
+                "justification": "Based on AI processing performance",
+            },
         }
 
         response = requests.post(
             f"{self.BASE_URL}/consensus/proposal/create",
             json=proposal,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         assert response.status_code == 200
 
         # Record SLA metric (use query parameter)
         response = requests.post(
             f"{self.BASE_URL}/sla/ai_processing_time/record?value=0.8",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         # Handle case where SLA endpoints might not be fully implemented
         if response.status_code != 200:
             logger.warning("SLA metric recording returned %s, skipping", response.status_code)
 
         # Check system status with monitoring
-        response = requests.get(
-            f"{self.BASE_URL}/system/status",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/system/status", headers={"Authorization": f"Bearer {token}"})
         # Handle case where system status might have different schema
         if response.status_code == 200:
             status = response.json()
@@ -722,9 +617,9 @@ class TestEndToEndWorkflow:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
-        login_time = time.time() - start_time
+        time.time() - start_time
 
         assert response.status_code == 200
         auth_data = response.json()
@@ -740,10 +635,7 @@ class TestEndToEndWorkflow:
         response = requests.post(
             f"{self.BASE_URL}/auth/api-key/generate?user_id=security_test_user",
             json=["system:health"],
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         # Handle validation errors
         if response.status_code == 422:
@@ -755,9 +647,7 @@ class TestEndToEndWorkflow:
 
         # Test API key validation (use query parameter)
         response = requests.post(
-            f"{self.BASE_URL}/auth/api-key/validate",
-            params={"api_key": api_key},
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/auth/api-key/validate", params={"api_key": api_key}, headers={"Content-Type": "application/json"}
         )
         if response.status_code == 200:
             validation = response.json()
@@ -768,22 +658,19 @@ class TestEndToEndWorkflow:
             logger.warning("API key validation skipped due to earlier failure")
 
         # Test alerting for security events
-        response = requests.get(
-            f"{self.BASE_URL}/alerts/stats",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/alerts/stats", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
         alert_stats = response.json()
         assert "stats" in alert_stats
 
         # Test role-based access with monitoring
         response = requests.get(
-            f"{self.BASE_URL}/users/security_test_user/permissions",
-            headers={"Authorization": f"Bearer {token}"}
+            f"{self.BASE_URL}/users/security_test_user/permissions", headers={"Authorization": f"Bearer {token}"}
         )
         assert response.status_code == 200
         permissions = response.json()
         assert "permissions" in permissions
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     pytest.main([__file__])

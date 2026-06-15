@@ -47,7 +47,9 @@ async def health() -> dict[str, Any]:
 
 @app.post("/attention")
 async def cross_modal_attention(
-    modality_features: dict[str, Any], attention_config: dict[str, Any] | None = None, session: Annotated[Session | None, Depends(get_session)] = None
+    modality_features: dict[str, Any],
+    attention_config: dict[str, Any] | None = None,
+    session: Annotated[Session | None, Depends(get_session)] = None,
 ) -> dict[str, Any]:
     """GPU-accelerated cross-modal attention"""
     assert session is not None, "DB session required"

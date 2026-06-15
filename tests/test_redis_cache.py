@@ -2,7 +2,6 @@
 Tests for Redis caching utilities
 """
 
-
 from unittest.mock import patch
 
 from aitbc.redis_cache import RedisCache, cache_key, get_cache
@@ -48,6 +47,7 @@ class TestGetCache:
     def test_get_cache_without_url(self):
         """Test get_cache without URL returns disabled cache"""
         import aitbc.caching as caching
+
         caching._global_redis_cache = None
         with patch("redis.from_url", side_effect=Exception("No Redis")):
             cache = get_cache(redis_url=None)

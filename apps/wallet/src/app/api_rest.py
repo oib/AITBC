@@ -104,11 +104,12 @@ def list_wallets(
                 chain_id=chain_id,
                 public_key=record.public_key,
                 address=None,
-                metadata=meta if isinstance(meta, dict) else {}
+                metadata=meta if isinstance(meta, dict) else {},
             )
         )
 
     return WalletListResponse(items=descriptors)
+
 
 @router.post("/wallets", response_model=WalletCreateResponse, status_code=status.HTTP_201_CREATED, summary="Create wallet")
 @rate_limit(rate=50, per=60)
@@ -136,7 +137,7 @@ async def create_wallet(
             password=wallet_request.password,
             secret=secret,
             metadata=metadata,
-            ip_address=ip_address
+            ip_address=ip_address,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -152,7 +153,7 @@ async def create_wallet(
         chain_id=wallet_request.chain_id,
         public_key=record.public_key,
         address=None,
-        metadata=metadata
+        metadata=metadata,
     )
     return WalletCreateResponse(wallet=wallet)
 
@@ -218,7 +219,11 @@ def unlock_wallet(
     # Get chain_id from ledger
     chain_id = "ait-mainnet"
     if ledger_record := ledger.get_wallet(wallet_id):
-        chain_id = ledger_record.metadata.get("chain_id", "ait-mainnet") if isinstance(ledger_record.metadata, dict) else "ait-mainnet"
+        chain_id = (
+            ledger_record.metadata.get("chain_id", "ait-mainnet")
+            if isinstance(ledger_record.metadata, dict)
+            else "ait-mainnet"
+        )
     # We don't expose the secret in response
     return WalletUnlockResponse(wallet_id=wallet_id, chain_id=chain_id, unlocked=True)
 
@@ -250,7 +255,11 @@ def sign_payload(
     signature_b64 = base64.b64encode(signature).decode()
     chain_id = "ait-mainnet"
     if ledger_record := ledger.get_wallet(wallet_id):
-        chain_id = ledger_record.metadata.get("chain_id", "ait-mainnet") if isinstance(ledger_record.metadata, dict) else "ait-mainnet"
+        chain_id = (
+            ledger_record.metadata.get("chain_id", "ait-mainnet")
+            if isinstance(ledger_record.metadata, dict)
+            else "ait-mainnet"
+        )
     return WalletSignResponse(wallet_id=wallet_id, chain_id=chain_id, signature_base64=signature_b64)
 
 
@@ -265,7 +274,7 @@ def send_transaction(
 ) -> WalletTransactionResponse:
     """
     Sign and submit a transaction to the blockchain.
-    
+
     This endpoint creates, signs, and broadcasts a real transaction
     using the wallet's private key.
     """
@@ -282,22 +291,18 @@ def send_transaction(
             nonce=tx_request.nonce,
             chain_id=tx_request.chain_id,
             payload=tx_request.payload,
-            ip_address=ip_address
+            ip_address=ip_address,
         )
 
         if not result.get("success"):
             error_msg = result.get("error", "Transaction failed")
-            logger.warning("Transaction submission failed", extra={
-                "wallet_id": wallet_id,
-                "error": error_msg
-            })
+            logger.warning("Transaction submission failed", extra={"wallet_id": wallet_id, "error": error_msg})
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
-        logger.info("Transaction submitted successfully", extra={
-            "wallet_id": wallet_id,
-            "tx_hash": result.get("tx_hash"),
-            "recipient": result.get("recipient")
-        })
+        logger.info(
+            "Transaction submitted successfully",
+            extra={"wallet_id": wallet_id, "tx_hash": result.get("tx_hash"), "recipient": result.get("recipient")},
+        )
 
         return WalletTransactionResponse(
             success=True,
@@ -307,16 +312,13 @@ def send_transaction(
             recipient=result.get("recipient", ""),
             amount=result.get("amount", 0),
             fee=result.get("fee", 0),
-            nonce=result.get("nonce", 0)
+            nonce=result.get("nonce", 0),
         )
 
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("Unexpected error in transaction submission", extra={
-            "wallet_id": wallet_id,
-            "error": str(exc)
-        })
+        logger.error("Unexpected error in transaction submission", extra={"wallet_id": wallet_id, "error": str(exc)})
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
 
 
@@ -329,13 +331,11 @@ async def faucet_request(
 ) -> WalletTransactionResponse:
     """
     Request test tokens from the blockchain faucet.
-    
+
     This endpoint funds a newly created wallet with test tokens
     for development and testing purposes.
     """
     try:
-        ip_address = request.client.host if request.client else "unknown"
-
         # Get wallet public key
         record = keystore.get_wallet(wallet_id)
         if not record:
@@ -349,25 +349,16 @@ async def faucet_request(
         from .settings import settings
 
         rpc_url = settings.blockchain_rpc_url
-        response = httpx.post(
-            f"{rpc_url}/rpc/faucet",
-            json={"address": address, "amount": 1000000},
-            timeout=30.0
-        )
+        response = httpx.post(f"{rpc_url}/rpc/faucet", json={"address": address, "amount": 1000000}, timeout=30.0)
         response.raise_for_status()
         result = response.json()
 
         if not result.get("success"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=result.get("message", "Faucet request failed")
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get("message", "Faucet request failed"))
 
-        logger.info("Faucet funding successful", extra={
-            "wallet_id": wallet_id,
-            "address": address,
-            "amount": result.get("amount", 0)
-        })
+        logger.info(
+            "Faucet funding successful", extra={"wallet_id": wallet_id, "address": address, "amount": result.get("amount", 0)}
+        )
 
         return WalletTransactionResponse(
             success=True,
@@ -377,16 +368,13 @@ async def faucet_request(
             recipient=address,
             amount=result.get("amount", 0),
             fee=0,
-            nonce=0
+            nonce=0,
         )
 
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("Faucet request failed", extra={
-            "wallet_id": wallet_id,
-            "error": str(exc)
-        })
+        logger.error("Faucet request failed", extra={"wallet_id": wallet_id, "error": str(exc)})
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
 
 

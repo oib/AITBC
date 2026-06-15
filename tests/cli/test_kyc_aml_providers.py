@@ -62,11 +62,7 @@ class TestKYCRequest:
         """Test creating KYCRequest"""
         from utils.kyc_aml_providers import KYCProvider, KYCRequest
 
-        request = KYCRequest(
-            user_id="user123",
-            provider=KYCProvider.CHAINALYSIS,
-            customer_data={"name": "John Doe"}
-        )
+        request = KYCRequest(user_id="user123", provider=KYCProvider.CHAINALYSIS, customer_data={"name": "John Doe"})
 
         assert request.user_id == "user123"
         assert request.provider == KYCProvider.CHAINALYSIS
@@ -90,7 +86,7 @@ class TestKYCResponse:
             status=KYCStatus.APPROVED,
             risk_score=0.05,
             verification_data={"verified": True},
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         assert response.request_id == "req123"
@@ -117,7 +113,7 @@ class TestAMLCheck:
             sanctions_hits=[],
             pep_hits=[],
             adverse_media=[],
-            checked_at=datetime.now()
+            checked_at=datetime.now(),
         )
 
         assert check.check_id == "check123"
@@ -151,11 +147,7 @@ class TestSimpleKYCProvider:
         from utils.kyc_aml_providers import KYCProvider, KYCRequest, SimpleKYCProvider
 
         provider = SimpleKYCProvider()
-        request = KYCRequest(
-            user_id="user123",
-            provider=KYCProvider.CHAINALYSIS,
-            customer_data={"name": "John Doe"}
-        )
+        request = KYCRequest(user_id="user123", provider=KYCProvider.CHAINALYSIS, customer_data={"name": "John Doe"})
 
         with pytest.raises(ValueError, match="No API key configured"):
             provider.submit_kyc_verification(request)
@@ -167,11 +159,7 @@ class TestSimpleKYCProvider:
         provider = SimpleKYCProvider()
         provider.set_api_key(KYCProvider.CHAINALYSIS, "test_key")
 
-        request = KYCRequest(
-            user_id="user123",
-            provider=KYCProvider.CHAINALYSIS,
-            customer_data={"name": "John Doe"}
-        )
+        request = KYCRequest(user_id="user123", provider=KYCProvider.CHAINALYSIS, customer_data={"name": "John Doe"})
 
         response = provider.submit_kyc_verification(request)
 

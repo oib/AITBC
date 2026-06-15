@@ -22,8 +22,9 @@ class TestPerformanceCommands:
         """Test that performance command group exists"""
         try:
             from aitbc_cli.commands.performance import performance
+
             assert performance is not None
-            assert hasattr(performance, 'name')
+            assert hasattr(performance, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import performance commands: {e}")
 
@@ -31,12 +32,13 @@ class TestPerformanceCommands:
         """Test performance group name"""
         try:
             from aitbc_cli.commands.performance import performance
+
             assert performance.name == "performance"
         except ImportError as e:
             pytest.skip(f"Cannot import performance commands: {e}")
 
-    @patch('aitbc_cli.commands.performance.output')
-    @patch('aitbc_cli.commands.performance.error')
+    @patch("aitbc_cli.commands.performance.output")
+    @patch("aitbc_cli.commands.performance.error")
     def test_performance_benchmark_command(self, mock_error, mock_output):
         """Test performance benchmark command - skip due to Click context issues"""
         pytest.skip("Click context mocking requires complex setup")

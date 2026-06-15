@@ -2,24 +2,27 @@
 Database service layer for AITBC
 Provides high-level database interaction services with connection pooling
 """
+
 import sqlite3
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 from aitbc.aitbc_logging import get_logger
+
 logger = get_logger(__name__)
+
 
 class DatabaseService(ABC):
     """Abstract base class for database service implementations"""
 
     @abstractmethod
-    def execute_query(self, query: str, params: tuple=()) -> list[dict[str, Any]]:
+    def execute_query(self, query: str, params: tuple = ()) -> list[dict[str, Any]]:
         """Execute a SELECT query"""
         pass
 
     @abstractmethod
-    def execute_update(self, query: str, params: tuple=()) -> int:
+    def execute_update(self, query: str, params: tuple = ()) -> int:
         """Execute an INSERT/UPDATE/DELETE query"""
         pass
 
@@ -28,10 +31,11 @@ class DatabaseService(ABC):
         """Execute multiple queries in a transaction"""
         pass
 
+
 class SQLiteDatabaseService(DatabaseService):
     """SQLite database service with connection pooling"""
 
-    def __init__(self, db_path: Path, pool_size: int=5):
+    def __init__(self, db_path: Path, pool_size: int = 5):
         """
         Initialize SQLite database service
 
@@ -44,7 +48,7 @@ class SQLiteDatabaseService(DatabaseService):
         self._connections: list[sqlite3.Connection] = []
         self._current_connection_index = 0
         self._ensure_database()
-        logger.info('Initialized SQLite database service for %s', db_path)
+        logger.info("Initialized SQLite database service for %s", db_path)
 
     def _ensure_database(self) -> None:
         """Ensure database file and directory exist"""
@@ -72,10 +76,10 @@ class SQLiteDatabaseService(DatabaseService):
             conn.commit()
         except Exception as e:
             conn.rollback()
-            logger.error('Database error: %s', e)
+            logger.error("Database error: %s", e)
             raise
 
-    def execute_query(self, query: str, params: tuple=()) -> list[dict[str, Any]]:
+    def execute_query(self, query: str, params: tuple = ()) -> list[dict[str, Any]]:
         """
         Execute a SELECT query
 
@@ -91,7 +95,7 @@ class SQLiteDatabaseService(DatabaseService):
             cursor.execute(query, params)
             return [dict(row) for row in cursor.fetchall()]
 
-    def execute_update(self, query: str, params: tuple=()) -> int:
+    def execute_update(self, query: str, params: tuple = ()) -> int:
         """
         Execute an INSERT/UPDATE/DELETE query
 
@@ -127,7 +131,7 @@ class SQLiteDatabaseService(DatabaseService):
                     cursor.execute(query, params)
                 return True
             except Exception as e:
-                logger.error('Transaction failed: %s', e)
+                logger.error("Transaction failed: %s", e)
                 raise
 
     def close(self) -> None:
@@ -135,13 +139,14 @@ class SQLiteDatabaseService(DatabaseService):
         for conn in self._connections:
             conn.close()
         self._connections.clear()
-        logger.info('Closed all database connections')
+        logger.info("Closed all database connections")
+
 
 class DatabaseServiceFactory:
     """Factory for creating database service instances"""
 
     @staticmethod
-    def create_sqlite_service(db_path: Path, pool_size: int=5) -> SQLiteDatabaseService:
+    def create_sqlite_service(db_path: Path, pool_size: int = 5) -> SQLiteDatabaseService:
         """
         Create SQLite database service
 
@@ -155,7 +160,7 @@ class DatabaseServiceFactory:
         return SQLiteDatabaseService(db_path, pool_size)
 
     @staticmethod
-    def create_service(db_type: str='sqlite', **kwargs) -> DatabaseService:
+    def create_service(db_type: str = "sqlite", **kwargs) -> DatabaseService:
         """
         Create database service by type
 
@@ -169,7 +174,7 @@ class DatabaseServiceFactory:
         Raises:
             ValueError: If database type is unknown
         """
-        if db_type == 'sqlite':
+        if db_type == "sqlite":
             return DatabaseServiceFactory.create_sqlite_service(**kwargs)
         else:
-            raise ValueError(f'Unknown database type: {db_type}')
+            raise ValueError(f"Unknown database type: {db_type}")

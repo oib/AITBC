@@ -22,7 +22,9 @@ class TestDatabaseMetrics:
 
     def test_add_query_error(self):
         dm = DatabaseMetrics()
-        qm = QueryMetrics(query="SELECT 1", execution_time_ms=10.0, timestamp=datetime.now(), success=False, error_message="fail")
+        qm = QueryMetrics(
+            query="SELECT 1", execution_time_ms=10.0, timestamp=datetime.now(), success=False, error_message="fail"
+        )
         dm.add_query(qm)
         assert dm.total_errors == 1
 

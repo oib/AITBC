@@ -20,15 +20,20 @@ def handle_resource_status(args, output_format, render_mapping):
         # Get actual system metrics
         cpu_percent = psutil.cpu_percent(interval=1)
         memory = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
+        disk = psutil.disk_usage("/")
 
         # GPU status (if available)
         gpu_usage = 0
         gpu_available = 100
         try:
             import subprocess
-            result = subprocess.run(['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits'],
-                                  capture_output=True, text=True, timeout=5)
+
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
             if result.returncode == 0:
                 gpu_usage = int(result.stdout.strip())
                 gpu_available = 100 - gpu_usage
@@ -40,7 +45,7 @@ def handle_resource_status(args, output_format, render_mapping):
             "memory": {"usage": memory.percent, "available": 100 - memory.percent},
             "disk": {"usage": disk.percent, "available": 100 - disk.percent},
             "gpu": {"usage": gpu_usage, "available": gpu_available},
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         if output_format(args) == "json":
@@ -60,13 +65,9 @@ def handle_resource_allocate(args, render_mapping):
 
     # Register miner with coordinator
     register_data = {
-        "capabilities": {
-            "cpu_cores": cpu,
-            "memory_mb": memory,
-            "platform": "CPU"
-        },
+        "capabilities": {"cpu_cores": cpu, "memory_mb": memory, "platform": "CPU"},
         "concurrency": 1,
-        "region": "localhost"
+        "region": "localhost",
     }
 
     miner_api_key = os.getenv("MINER_API_KEY", "")
@@ -75,19 +76,10 @@ def handle_resource_allocate(args, render_mapping):
         render_mapping("Error:", {"message": "MINER_API_KEY environment variable is not set"})
         return
 
-    headers = {
-        "X-Api-Key": miner_api_key,
-        "X-Miner-ID": agent_id,
-        "Content-Type": "application/json"
-    }
+    headers = {"X-Api-Key": miner_api_key, "X-Miner-ID": agent_id, "Content-Type": "application/json"}
 
     try:
-        response = requests.post(
-            f"{COORDINATOR_URL}/v1/miners/register",
-            json=register_data,
-            headers=headers,
-            timeout=10
-        )
+        response = requests.post(f"{COORDINATOR_URL}/v1/miners/register", json=register_data, headers=headers, timeout=10)
         response.raise_for_status()
         result = response.json()
 
@@ -97,7 +89,7 @@ def handle_resource_allocate(args, render_mapping):
             "memory_allocated_mb": memory,
             "status": "allocated",
             "session_token": result.get("session_token"),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         logger.info("Resources allocated to %s", agent_id)
@@ -119,7 +111,7 @@ def handle_resource_monitor(args, render_mapping):
         "duration_seconds": duration,
         "metrics_collected": 0,
         "note": "Use workflow monitor to check job status",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
 
     logger.info("Resource monitoring started (interval: %ss, duration: %ss)", interval, duration)
@@ -136,7 +128,7 @@ def handle_resource_optimize(args, render_mapping):
         "optimization_applied": True,
         "efficiency_gain": "12%",
         "note": "Optimization logic requires integration with resource manager",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
 
     logger.info("Resource optimization applied for %s", target)
@@ -151,15 +143,17 @@ def handle_resource_benchmark(args, render_mapping):
         if benchmark_type == "cpu":
             # Simple CPU benchmark
             import time
+
             start = time.time()
             for _ in range(1000000):
-                _ = 2 ** 20
+                _ = 2**20
             elapsed = time.time() - start
             score = int(1000000 / elapsed)
             units = "operations/sec"
         elif benchmark_type == "memory":
             # Simple memory benchmark
             import time
+
             start = time.time()
             data = [0] * 1000000
             _ = sum(data)
@@ -170,12 +164,7 @@ def handle_resource_benchmark(args, render_mapping):
             score = 0
             units = "N/A"
 
-        benchmark_data = {
-            "type": benchmark_type,
-            "score": score,
-            "units": units,
-            "timestamp": datetime.now().isoformat()
-        }
+        benchmark_data = {"type": benchmark_type, "score": score, "units": units, "timestamp": datetime.now().isoformat()}
 
         logger.info("Resource benchmark completed for %s", benchmark_type)
         render_mapping("Benchmark:", benchmark_data)

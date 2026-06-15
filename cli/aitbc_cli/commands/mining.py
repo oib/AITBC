@@ -20,9 +20,9 @@ def mining():
 
 
 @mining.command()
-@click.argument('wallet_name')
-@click.option('--threads', type=int, default=1, help='Number of mining threads')
-@click.option('--rpc-url', help='Blockchain RPC URL')
+@click.argument("wallet_name")
+@click.option("--threads", type=int, default=1, help="Number of mining threads")
+@click.option("--rpc-url", help="Blockchain RPC URL")
 def start(wallet_name: str, threads: int, rpc_url: str | None):
     """Start mining with specified wallet"""
     if not rpc_url:
@@ -37,14 +37,10 @@ def start(wallet_name: str, threads: int, rpc_url: str | None):
 
         with open(keystore_path) as f:
             wallet_data = json.load(f)
-        address = wallet_data['address']
+        address = wallet_data["address"]
 
         # Start mining via RPC
-        mining_config = {
-            "miner_address": address,
-            "threads": threads,
-            "enabled": True
-        }
+        mining_config = {"miner_address": address, "threads": threads, "enabled": True}
 
         try:
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
@@ -66,7 +62,7 @@ def start(wallet_name: str, threads: int, rpc_url: str | None):
 
 
 @mining.command()
-@click.option('--rpc-url', help='Blockchain RPC URL')
+@click.option("--rpc-url", help="Blockchain RPC URL")
 def stop(rpc_url: str | None):
     """Stop mining"""
     if not rpc_url:
@@ -87,7 +83,7 @@ def stop(rpc_url: str | None):
 
 
 @mining.command()
-@click.option('--rpc-url', help='Blockchain RPC URL')
+@click.option("--rpc-url", help="Blockchain RPC URL")
 def status(rpc_url: str | None):
     """Get mining status"""
     if not rpc_url:
@@ -104,8 +100,8 @@ def status(rpc_url: str | None):
         error(f"Error: {e}")
 
 
-@mining.command(name='list')
-@click.option('--rpc-url', help='Blockchain RPC URL')
+@mining.command(name="list")
+@click.option("--rpc-url", help="Blockchain RPC URL")
 def list_miners(rpc_url: str | None):
     """List active miners"""
     if not rpc_url:

@@ -256,7 +256,7 @@ class TestEncryptionIntegration:
         key = key_manager.generate_key()
 
         # Multiple cycles
-        for i in range(3):
+        for _i in range(3):
             encrypted = encrypt_database(test_db, key)
             decrypted = decrypt_database(encrypted, key)
             test_db = decrypted

@@ -2,7 +2,6 @@
 Tests for P2P Discovery Service
 """
 
-
 import pytest
 from aitbc_chain.network.discovery import NodeStatus, P2PDiscovery, PeerNode
 
@@ -84,7 +83,7 @@ class TestP2PDiscovery:
             status=NodeStatus.ONLINE,
             capabilities=["test"],
             reputation=0.5,
-            connection_count=0
+            connection_count=0,
         )
         self.discovery.peers["test_peer"] = peer
 
@@ -97,6 +96,7 @@ class TestP2PDiscovery:
         result = self.discovery.update_peer_reputation("test_peer", -1.5)
         assert result is True
         assert self.discovery.peers["test_peer"].reputation == 0.0
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

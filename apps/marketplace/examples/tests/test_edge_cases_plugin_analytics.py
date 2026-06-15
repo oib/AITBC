@@ -33,12 +33,7 @@ def reset_state():
 @pytest.mark.unit
 def test_plugin_usage_empty_plugin_id():
     """Test PluginUsage with empty plugin_id"""
-    usage = PluginUsage(
-        plugin_id="",
-        user_id="user_123",
-        action="install",
-        timestamp=datetime.now(UTC)
-    )
+    usage = PluginUsage(plugin_id="", user_id="user_123", action="install", timestamp=datetime.now(UTC))
     assert usage.plugin_id == ""
 
 
@@ -53,7 +48,7 @@ def test_plugin_performance_negative_values():
         response_time=-0.1,
         error_rate=-0.01,
         uptime=-50.0,
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
     assert perf.cpu_usage == -10.0
     assert perf.memory_usage == -5.0
@@ -62,24 +57,14 @@ def test_plugin_performance_negative_values():
 @pytest.mark.unit
 def test_plugin_rating_out_of_range():
     """Test PluginRating with out of range rating"""
-    rating = PluginRating(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        rating=10,
-        timestamp=datetime.now(UTC)
-    )
+    rating = PluginRating(plugin_id="plugin_123", user_id="user_123", rating=10, timestamp=datetime.now(UTC))
     assert rating.rating == 10
 
 
 @pytest.mark.unit
 def test_plugin_rating_zero():
     """Test PluginRating with zero rating"""
-    rating = PluginRating(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        rating=0,
-        timestamp=datetime.now(UTC)
-    )
+    rating = PluginRating(plugin_id="plugin_123", user_id="user_123", rating=0, timestamp=datetime.now(UTC))
     assert rating.rating == 0
 
 
@@ -129,13 +114,8 @@ def test_record_multiple_usage_events():
     client = TestClient(app)
 
     for i in range(5):
-        usage = PluginUsage(
-            plugin_id="plugin_123",
-            user_id=f"user_{i}",
-            action="use",
-            timestamp=datetime.now(UTC)
-        )
-        client.post("/api/v1/analytics/usage", json=usage.model_dump(mode='json'))
+        usage = PluginUsage(plugin_id="plugin_123", user_id=f"user_{i}", action="use", timestamp=datetime.now(UTC))
+        client.post("/api/v1/analytics/usage", json=usage.model_dump(mode="json"))
 
     response = client.get("/api/v1/analytics/usage/plugin_123")
     assert response.status_code == 200

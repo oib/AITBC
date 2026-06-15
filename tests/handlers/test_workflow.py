@@ -23,8 +23,8 @@ from handlers.workflow import (
 class TestHandleWorkflowCreate:
     """Test handle_workflow_create function"""
 
-    @patch('handlers.workflow.requests.post')
-    @patch('handlers.workflow.logger')
+    @patch("handlers.workflow.requests.post")
+    @patch("handlers.workflow.logger")
     def test_handle_workflow_create_success(self, mock_logger, mock_post):
         """Test successful workflow creation"""
         mock_response = Mock()
@@ -46,8 +46,8 @@ class TestHandleWorkflowCreate:
         mock_post.assert_called_once()
         mock_logger.info.assert_called()
 
-    @patch('handlers.workflow.requests.post')
-    @patch('handlers.workflow.logger')
+    @patch("handlers.workflow.requests.post")
+    @patch("handlers.workflow.logger")
     def test_handle_workflow_create_defaults(self, mock_logger, mock_post):
         """Test workflow creation with default values"""
         mock_response = Mock()
@@ -65,8 +65,8 @@ class TestHandleWorkflowCreate:
 
         mock_post.assert_called_once()
 
-    @patch('handlers.workflow.requests.post')
-    @patch('handlers.workflow.logger')
+    @patch("handlers.workflow.requests.post")
+    @patch("handlers.workflow.logger")
     def test_handle_workflow_create_http_error(self, mock_logger, mock_post):
         """Test workflow creation with HTTP error"""
         mock_response = Mock()
@@ -87,8 +87,8 @@ class TestHandleWorkflowCreate:
 
         mock_logger.error.assert_called()
 
-    @patch('handlers.workflow.requests.post')
-    @patch('handlers.workflow.logger')
+    @patch("handlers.workflow.requests.post")
+    @patch("handlers.workflow.logger")
     def test_handle_workflow_create_exception(self, mock_logger, mock_post):
         """Test workflow creation with exception"""
         mock_post.side_effect = Exception("Connection error")
@@ -110,7 +110,7 @@ class TestHandleWorkflowCreate:
 class TestHandleWorkflowSchedule:
     """Test handle_workflow_schedule function"""
 
-    @patch('handlers.workflow.logger')
+    @patch("handlers.workflow.logger")
     def test_handle_workflow_schedule_with_params(self, mock_logger):
         """Test workflow scheduling with parameters"""
         args = Mock()
@@ -127,7 +127,7 @@ class TestHandleWorkflowSchedule:
         logged_msg = mock_logger.info.call_args[0][0]
         assert "scheduled" in logged_msg
 
-    @patch('handlers.workflow.logger')
+    @patch("handlers.workflow.logger")
     def test_handle_workflow_schedule_defaults(self, mock_logger):
         """Test workflow scheduling with default values"""
         args = Mock()
@@ -142,7 +142,7 @@ class TestHandleWorkflowSchedule:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.workflow.logger')
+    @patch("handlers.workflow.logger")
     def test_handle_workflow_schedule_calls_render_mapping(self, mock_logger):
         """Test that render_mapping is called"""
         args = Mock()
@@ -162,19 +162,14 @@ class TestHandleWorkflowSchedule:
 class TestHandleWorkflowMonitor:
     """Test handle_workflow_monitor function"""
 
-    @patch('handlers.workflow.requests.get')
-    @patch('handlers.workflow.logger')
+    @patch("handlers.workflow.requests.get")
+    @patch("handlers.workflow.logger")
     def test_handle_workflow_monitor_success_json(self, mock_logger, mock_get):
         """Test workflow monitoring with JSON output"""
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "items": [
-                {"state": "RUNNING"},
-                {"state": "COMPLETED"},
-                {"state": "FAILED"},
-                {"state": "RUNNING"}
-            ]
+            "items": [{"state": "RUNNING"}, {"state": "COMPLETED"}, {"state": "FAILED"}, {"state": "RUNNING"}]
         }
         mock_get.return_value = mock_response
 
@@ -192,18 +187,13 @@ class TestHandleWorkflowMonitor:
         mock_get.assert_called_once()
         mock_logger.info.assert_called()
 
-    @patch('handlers.workflow.requests.get')
-    @patch('handlers.workflow.logger')
+    @patch("handlers.workflow.requests.get")
+    @patch("handlers.workflow.logger")
     def test_handle_workflow_monitor_success_text(self, mock_logger, mock_get):
         """Test workflow monitoring with text output"""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "items": [
-                {"state": "RUNNING"},
-                {"state": "COMPLETED"}
-            ]
-        }
+        mock_response.json.return_value = {"items": [{"state": "RUNNING"}, {"state": "COMPLETED"}]}
         mock_get.return_value = mock_response
 
         args = Mock()
@@ -219,8 +209,8 @@ class TestHandleWorkflowMonitor:
         mock_get.assert_called_once()
         mock_render.assert_called_once()
 
-    @patch('handlers.workflow.requests.get')
-    @patch('handlers.workflow.logger')
+    @patch("handlers.workflow.requests.get")
+    @patch("handlers.workflow.logger")
     def test_handle_workflow_monitor_empty_jobs(self, mock_logger, mock_get):
         """Test workflow monitoring with no jobs"""
         mock_response = Mock()
@@ -241,8 +231,8 @@ class TestHandleWorkflowMonitor:
         mock_get.assert_called_once()
         mock_render.assert_called_once()
 
-    @patch('handlers.workflow.requests.get')
-    @patch('handlers.workflow.logger')
+    @patch("handlers.workflow.requests.get")
+    @patch("handlers.workflow.logger")
     def test_handle_workflow_monitor_http_error(self, mock_logger, mock_get):
         """Test workflow monitoring with HTTP error"""
         mock_response = Mock()
@@ -263,8 +253,8 @@ class TestHandleWorkflowMonitor:
         mock_logger.error.assert_called()
         mock_render.assert_called_once()
 
-    @patch('handlers.workflow.requests.get')
-    @patch('handlers.workflow.logger')
+    @patch("handlers.workflow.requests.get")
+    @patch("handlers.workflow.logger")
     def test_handle_workflow_monitor_exception(self, mock_logger, mock_get):
         """Test workflow monitoring with exception"""
         mock_get.side_effect = Exception("Connection error")

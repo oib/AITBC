@@ -10,6 +10,8 @@ from fastapi.testclient import TestClient
 
 def _publish(topic: str, message: dict) -> None:
     asyncio.run(gossip_broker.publish(topic, message))
+
+
 def test_blocks_websocket_stream() -> None:
     client = TestClient(create_app())
 
@@ -28,18 +30,13 @@ def test_blocks_websocket_stream() -> None:
 
 def test_blocks_websocket_multiple_subscribers_receive_all_payloads() -> None:
     with TestClient(create_app()) as client, ExitStack() as stack:
-        sockets = [
-            stack.enter_context(client.websocket_connect("/rpc/ws/blocks"))
-            for _ in range(3)
-        ]
+        sockets = [stack.enter_context(client.websocket_connect("/rpc/ws/blocks")) for _ in range(3)]
 
         payloads = [
             {
                 "height": height,
                 "hash": "0x" + f"{height:064x}",
-                "parent_hash": (
-                    "0x" + f"{height - 1:064x}" if height > 0 else "0x" + "0" * 64
-                ),
+                "parent_hash": ("0x" + f"{height - 1:064x}" if height > 0 else "0x" + "0" * 64),
                 "timestamp": f"2025-01-01T00:00:{height:02d}Z",
                 "tx_count": height % 3,
             }
@@ -72,10 +69,7 @@ def test_blocks_websocket_high_volume_load() -> None:
     subscriber_count = 4
 
     with TestClient(create_app()) as client, ExitStack() as stack:
-        sockets = [
-            stack.enter_context(client.websocket_connect("/rpc/ws/blocks"))
-            for _ in range(subscriber_count)
-        ]
+        sockets = [stack.enter_context(client.websocket_connect("/rpc/ws/blocks")) for _ in range(subscriber_count)]
 
         payloads = []
         for height in range(message_count):

@@ -5,7 +5,7 @@ Simple script to create genesis block
 
 import sys
 
-sys.path.insert(0, 'src')
+sys.path.insert(0, "src")
 
 import hashlib
 from datetime import UTC, datetime
@@ -18,6 +18,7 @@ def compute_block_hash(height: int, parent_hash: str, timestamp: datetime) -> st
     """Compute block hash"""
     data = f"{height}{parent_hash}{timestamp}".encode()
     return hashlib.sha256(data).hexdigest()
+
 
 def create_genesis():
     """Create the genesis block"""
@@ -52,6 +53,8 @@ def create_genesis():
         print(f"Proposer: {genesis.proposer}")
         print(f"Timestamp: {genesis.timestamp}")
 
+
 if __name__ == "__main__":
     from sqlmodel import select
+
     create_genesis()

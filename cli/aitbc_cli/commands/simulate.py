@@ -19,14 +19,19 @@ try:
     from config import get_config
     from utils import error, output, setup_logging, success
 except ImportError:
+
     def output(msg, format_type):
         click.echo(msg)
+
     def error(msg):
         click.echo(f"Error: {msg}")
+
     def setup_logging(verbose, debug):
         return "INFO"
+
     def get_config(config_file=None, role=None):
         return {}
+
 
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
@@ -40,10 +45,10 @@ def simulate():
 
 
 @simulate.command()
-@click.option('--blocks', default=10, help='Number of blocks to simulate')
-@click.option('--transactions', default=50, help='Number of transactions per block')
-@click.option('--delay', default=1.0, help='Delay between blocks (seconds)')
-@click.option('--output', default='table', type=click.Choice(['table', 'json', 'yaml']))
+@click.option("--blocks", default=10, help="Number of blocks to simulate")
+@click.option("--transactions", default=50, help="Number of transactions per block")
+@click.option("--delay", default=1.0, help="Delay between blocks (seconds)")
+@click.option("--output", default="table", type=click.Choice(["table", "json", "yaml"]))
 def blockchain(blocks, transactions, delay, output):
     """Simulate blockchain block production and transactions"""
     click.echo(f"Simulating blockchain with {blocks} blocks, {transactions} transactions per block")
@@ -51,33 +56,31 @@ def blockchain(blocks, transactions, delay, output):
     results = []
     for block_num in range(blocks):
         # Simulate block production
-        block_data = {
-            'block_number': block_num + 1,
-            'timestamp': time.time(),
-            'transactions': []
-        }
+        block_data = {"block_number": block_num + 1, "timestamp": time.time(), "transactions": []}
 
         # Generate transactions
-        for tx_num in range(transactions):
+        for _tx_num in range(transactions):
             tx = {
-                'tx_id': f"0x{random.getrandbits(256):064x}",
-                'from_address': f"ait{random.getrandbits(160):040x}",
-                'to_address': f"ait{random.getrandbits(160):040x}",
-                'amount': random.uniform(0.1, 1000.0),
-                'fee': random.uniform(0.01, 1.0)
+                "tx_id": f"0x{random.getrandbits(256):064x}",
+                "from_address": f"ait{random.getrandbits(160):040x}",
+                "to_address": f"ait{random.getrandbits(160):040x}",
+                "amount": random.uniform(0.1, 1000.0),
+                "fee": random.uniform(0.01, 1.0),
             }
-            block_data['transactions'].append(tx)
+            block_data["transactions"].append(tx)
 
-        block_data['tx_count'] = len(block_data['transactions'])
-        block_data['total_amount'] = sum(tx['amount'] for tx in block_data['transactions'])
-        block_data['total_fees'] = sum(tx['fee'] for tx in block_data['transactions'])
+        block_data["tx_count"] = len(block_data["transactions"])
+        block_data["total_amount"] = sum(tx["amount"] for tx in block_data["transactions"])
+        block_data["total_fees"] = sum(tx["fee"] for tx in block_data["transactions"])
 
         results.append(block_data)
 
         # Output block info
-        if output == 'table':
-            click.echo(f"Block {block_data['block_number']}: {block_data['tx_count']} txs, "
-                     f"{block_data['total_amount']:.2f} AIT, {block_data['total_fees']:.2f} fees")
+        if output == "table":
+            click.echo(
+                f"Block {block_data['block_number']}: {block_data['tx_count']} txs, "
+                f"{block_data['total_amount']:.2f} AIT, {block_data['total_fees']:.2f} fees"
+            )
         else:
             click.echo(json.dumps(block_data, indent=2))
 
@@ -85,9 +88,9 @@ def blockchain(blocks, transactions, delay, output):
             time.sleep(delay)
 
     # Summary
-    total_txs = sum(block['tx_count'] for block in results)
-    total_amount = sum(block['total_amount'] for block in results)
-    total_fees = sum(block['total_fees'] for block in results)
+    total_txs = sum(block["tx_count"] for block in results)
+    total_amount = sum(block["total_amount"] for block in results)
+    total_fees = sum(block["total_fees"] for block in results)
 
     click.echo("\nSimulation Summary:")
     click.echo(f"  Total Blocks: {blocks}")
@@ -98,28 +101,24 @@ def blockchain(blocks, transactions, delay, output):
 
 
 @simulate.command()
-@click.option('--wallets', default=5, help='Number of wallets to create')
-@click.option('--balance', default=1000.0, help='Initial balance for each wallet')
-@click.option('--transactions', default=20, help='Number of transactions to simulate')
-@click.option('--amount-range', default='1.0-100.0', help='Transaction amount range (min-max)')
+@click.option("--wallets", default=5, help="Number of wallets to create")
+@click.option("--balance", default=1000.0, help="Initial balance for each wallet")
+@click.option("--transactions", default=20, help="Number of transactions to simulate")
+@click.option("--amount-range", default="1.0-100.0", help="Transaction amount range (min-max)")
 def wallets(wallets, balance, transactions, amount_range):
     """Simulate wallet creation and transactions"""
     click.echo(f"Simulating {wallets} wallets with {balance:.2f} AIT initial balance")
 
     # Parse amount range
     try:
-        min_amount, max_amount = map(float, amount_range.split('-'))
+        min_amount, max_amount = map(float, amount_range.split("-"))
     except ValueError:
         min_amount, max_amount = 1.0, 100.0
 
     # Create wallets
     created_wallets = []
     for i in range(wallets):
-        wallet = {
-            'name': f'sim_wallet_{i+1}',
-            'address': f"ait{random.getrandbits(160):040x}",
-            'balance': balance
-        }
+        wallet = {"name": f"sim_wallet_{i + 1}", "address": f"ait{random.getrandbits(160):040x}", "balance": balance}
         created_wallets.append(wallet)
         click.echo(f"Created wallet {wallet['name']}: {wallet['address']} with {balance:.2f} AIT")
 
@@ -134,13 +133,13 @@ def wallets(wallets, balance, transactions, amount_range):
         amount = random.uniform(min_amount, max_amount)
 
         # Check if sender has enough balance
-        if sender['balance'] >= amount:
-            sender['balance'] -= amount
-            receiver['balance'] += amount
+        if sender["balance"] >= amount:
+            sender["balance"] -= amount
+            receiver["balance"] += amount
 
-            click.echo(f"Tx {i+1}: {sender['name']} -> {receiver['name']}: {amount:.2f} AIT")
+            click.echo(f"Tx {i + 1}: {sender['name']} -> {receiver['name']}: {amount:.2f} AIT")
         else:
-            click.echo(f"Tx {i+1}: {sender['name']} -> {receiver['name']}: FAILED (insufficient balance)")
+            click.echo(f"Tx {i + 1}: {sender['name']} -> {receiver['name']}: FAILED (insufficient balance)")
 
     # Final balances
     click.echo("\nFinal Wallet Balances:")
@@ -149,10 +148,10 @@ def wallets(wallets, balance, transactions, amount_range):
 
 
 @simulate.command()
-@click.option('--price', default=100.0, help='Starting AIT price')
-@click.option('--volatility', default=0.05, help='Price volatility (0.0-1.0)')
-@click.option('--timesteps', default=100, help='Number of timesteps to simulate')
-@click.option('--delay', default=0.1, help='Delay between timesteps (seconds)')
+@click.option("--price", default=100.0, help="Starting AIT price")
+@click.option("--volatility", default=0.05, help="Price volatility (0.0-1.0)")
+@click.option("--timesteps", default=100, help="Number of timesteps to simulate")
+@click.option("--delay", default=0.1, help="Delay between timesteps (seconds)")
 def price(price, volatility, timesteps, delay):
     """Simulate AIT price movements"""
     click.echo(f"Simulating AIT price from {price:.2f} with {volatility:.2f} volatility")
@@ -170,7 +169,7 @@ def price(price, volatility, timesteps, delay):
 
         prices.append(current_price)
 
-        click.echo(f"Step {step+1}: {current_price:.4f} AIT ({change_percent:+.2%})")
+        click.echo(f"Step {step + 1}: {current_price:.4f} AIT ({change_percent:+.2%})")
 
         if delay > 0 and step < timesteps - 1:
             time.sleep(delay)
@@ -190,9 +189,9 @@ def price(price, volatility, timesteps, delay):
 
 
 @simulate.command()
-@click.option('--nodes', default=3, help='Number of nodes to simulate')
-@click.option('--network-delay', default=0.1, help='Network delay in seconds')
-@click.option('--failure-rate', default=0.05, help='Node failure rate (0.0-1.0)')
+@click.option("--nodes", default=3, help="Number of nodes to simulate")
+@click.option("--network-delay", default=0.1, help="Network delay in seconds")
+@click.option("--failure-rate", default=0.05, help="Node failure rate (0.0-1.0)")
 def network(nodes, network_delay, failure_rate):
     """Simulate network topology and node failures"""
     click.echo(f"Simulating network with {nodes} nodes, {network_delay}s delay, {failure_rate:.2f} failure rate")
@@ -200,28 +199,23 @@ def network(nodes, network_delay, failure_rate):
     # Create nodes
     network_nodes = []
     for i in range(nodes):
-        node = {
-            'id': f'node_{i+1}',
-            'address': f"10.1.223.{90+i}",
-            'status': 'active',
-            'height': 0,
-            'connected_to': []
-        }
+        node = {"id": f"node_{i + 1}", "address": f"10.1.223.{90 + i}", "status": "active", "height": 0, "connected_to": []}
         network_nodes.append(node)
 
     # Create network topology (ring + mesh)
     for i, node in enumerate(network_nodes):
         # Connect to next node (ring)
         next_node = network_nodes[(i + 1) % len(network_nodes)]
-        node['connected_to'].append(next_node['id'])
+        node["connected_to"].append(next_node["id"])
 
         # Connect to random nodes (mesh)
         if len(network_nodes) > 2:
-            mesh_connections = random.sample([n['id'] for n in network_nodes if n['id'] != node['id']],
-                                           min(2, len(network_nodes) - 1))
+            mesh_connections = random.sample(
+                [n["id"] for n in network_nodes if n["id"] != node["id"]], min(2, len(network_nodes) - 1)
+            )
             for conn in mesh_connections:
-                if conn not in node['connected_to']:
-                    node['connected_to'].append(conn)
+                if conn not in node["connected_to"]:
+                    node["connected_to"].append(conn)
 
     # Display network topology
     click.echo("\nNetwork Topology:")
@@ -236,50 +230,50 @@ def network(nodes, network_delay, failure_rate):
         # Simulate failures
         for node in active_nodes:
             if random.random() < failure_rate:
-                node['status'] = 'failed'
-                click.echo(f"Step {step+1}: {node['id']} failed")
+                node["status"] = "failed"
+                click.echo(f"Step {step + 1}: {node['id']} failed")
 
         # Remove failed nodes
-        active_nodes = [n for n in active_nodes if n['status'] == 'active']
+        active_nodes = [n for n in active_nodes if n["status"] == "active"]
 
         # Simulate block propagation
         if active_nodes:
             # Random node produces block
             producer = random.choice(active_nodes)
-            producer['height'] += 1
+            producer["height"] += 1
 
             # Propagate to connected nodes
             for node in active_nodes:
-                if node['id'] != producer['id'] and node['id'] in producer['connected_to']:
-                    node['height'] = max(node['height'], producer['height'] - 1)
+                if node["id"] != producer["id"] and node["id"] in producer["connected_to"]:
+                    node["height"] = max(node["height"], producer["height"] - 1)
 
-            click.echo(f"Step {step+1}: {producer['id']} produced block {producer['height']}, "
-                     f"{len(active_nodes)} nodes active")
+            click.echo(
+                f"Step {step + 1}: {producer['id']} produced block {producer['height']}, {len(active_nodes)} nodes active"
+            )
 
         time.sleep(network_delay)
 
     # Final network status
     click.echo("\nFinal Network Status:")
     for node in network_nodes:
-        status_icon = "✅" if node['status'] == 'active' else "❌"
-        click.echo(f"  {status_icon} {node['id']}: height {node['height']}, "
-                     f"connections: {len(node['connected_to'])}")
+        status_icon = "✅" if node["status"] == "active" else "❌"
+        click.echo(f"  {status_icon} {node['id']}: height {node['height']}, connections: {len(node['connected_to'])}")
 
 
 @simulate.command()
-@click.option('--jobs', default=10, help='Number of AI jobs to simulate')
-@click.option('--models', default='text-generation,image-generation', help='Available models (comma-separated)')
-@click.option('--duration-range', default='30-300', help='Job duration range in seconds (min-max)')
+@click.option("--jobs", default=10, help="Number of AI jobs to simulate")
+@click.option("--models", default="text-generation,image-generation", help="Available models (comma-separated)")
+@click.option("--duration-range", default="30-300", help="Job duration range in seconds (min-max)")
 def ai_jobs(jobs, models, duration_range):
     """Simulate AI job submission and processing"""
     click.echo(f"Simulating {jobs} AI jobs with models: {models}")
 
     # Parse models
-    model_list = [m.strip() for m in models.split(',')]
+    model_list = [m.strip() for m in models.split(",")]
 
     # Parse duration range
     try:
-        min_duration, max_duration = map(int, duration_range.split('-'))
+        min_duration, max_duration = map(int, duration_range.split("-"))
     except ValueError:
         min_duration, max_duration = 30, 300
 
@@ -287,12 +281,12 @@ def ai_jobs(jobs, models, duration_range):
     submitted_jobs = []
     for i in range(jobs):
         job = {
-            'job_id': f"job_{i+1:03d}",
-            'model': random.choice(model_list),
-            'status': 'queued',
-            'submit_time': time.time(),
-            'duration': random.randint(min_duration, max_duration),
-            'wallet': f"wallet_{random.randint(1, 5):03d}"
+            "job_id": f"job_{i + 1:03d}",
+            "model": random.choice(model_list),
+            "status": "queued",
+            "submit_time": time.time(),
+            "duration": random.randint(min_duration, max_duration),
+            "wallet": f"wallet_{random.randint(1, 5):03d}",
         }
         submitted_jobs.append(job)
 
@@ -308,16 +302,16 @@ def ai_jobs(jobs, models, duration_range):
         current_time = time.time()
 
         for job in processing_jobs[:]:
-            if job['status'] == 'queued' and current_time - job['submit_time'] > 5:
-                job['status'] = 'running'
-                job['start_time'] = current_time
+            if job["status"] == "queued" and current_time - job["submit_time"] > 5:
+                job["status"] = "running"
+                job["start_time"] = current_time
                 click.echo(f"Started {job['job_id']}")
 
-            elif job['status'] == 'running':
-                if current_time - job['start_time'] >= job['duration']:
-                    job['status'] = 'completed'
-                    job['end_time'] = current_time
-                    job['actual_duration'] = job['end_time'] - job['start_time']
+            elif job["status"] == "running":
+                if current_time - job["start_time"] >= job["duration"]:
+                    job["status"] = "completed"
+                    job["end_time"] = current_time
+                    job["actual_duration"] = job["end_time"] - job["start_time"]
                     processing_jobs.remove(job)
                     completed_jobs.append(job)
                     click.echo(f"Completed {job['job_id']} in {job['actual_duration']:.1f}s")
@@ -331,13 +325,13 @@ def ai_jobs(jobs, models, duration_range):
     click.echo(f"  Failed Jobs: {len(processing_jobs)}")
 
     if completed_jobs:
-        avg_duration = sum(job['actual_duration'] for job in completed_jobs) / len(completed_jobs)
+        avg_duration = sum(job["actual_duration"] for job in completed_jobs) / len(completed_jobs)
         click.echo(f"  Average Duration: {avg_duration:.1f}s")
 
         # Model statistics
         model_stats = {}
         for job in completed_jobs:
-            model_stats[job['model']] = model_stats.get(job['model'], 0) + 1
+            model_stats[job["model"]] = model_stats.get(job["model"], 0) + 1
 
         click.echo("  Model Usage:")
         for model, count in model_stats.items():
@@ -345,9 +339,9 @@ def ai_jobs(jobs, models, duration_range):
 
 
 @simulate.command()
-@click.argument('scenario')
-@click.option('--params', help='Simulation parameters (JSON string)')
-@click.option('--async-run', is_flag=True, help='Run simulation asynchronously')
+@click.argument("scenario")
+@click.option("--params", help="Simulation parameters (JSON string)")
+@click.option("--async-run", is_flag=True, help="Run simulation asynchronously")
 @click.pass_context
 def run(ctx, scenario: str, params: str | None, async_run: bool):
     """Run a simulation scenario via coordinator-api"""
@@ -355,10 +349,7 @@ def run(ctx, scenario: str, params: str | None, async_run: bool):
 
     try:
         http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
-        sim_data = {
-            "scenario": scenario,
-            "async": async_run
-        }
+        sim_data = {"scenario": scenario, "async": async_run}
 
         if params:
             try:
@@ -379,7 +370,7 @@ def run(ctx, scenario: str, params: str | None, async_run: bool):
 
 
 @simulate.command()
-@click.argument('simulation_id')
+@click.argument("simulation_id")
 @click.pass_context
 def status(ctx, simulation_id: str):
     """Get simulation status from coordinator-api"""
@@ -399,7 +390,7 @@ def status(ctx, simulation_id: str):
 
 
 @simulate.command()
-@click.argument('simulation_id')
+@click.argument("simulation_id")
 @click.pass_context
 def result(ctx, simulation_id: str):
     """Get simulation results from coordinator-api"""
@@ -418,5 +409,5 @@ def result(ctx, simulation_id: str):
         ctx.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     simulate()

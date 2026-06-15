@@ -21,6 +21,7 @@ class TestMarketHandlers:
         """Test that handle_market_listings function exists"""
         try:
             from handlers.market import handle_market_listings
+
             assert handle_market_listings is not None
         except ImportError as e:
             pytest.skip(f"Cannot import market handlers: {e}")

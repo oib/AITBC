@@ -6,7 +6,7 @@ Provides functions to load and validate island credentials from the local filesy
 import json
 from pathlib import Path
 
-CREDENTIALS_PATH = '/var/lib/aitbc/island_credentials.json'
+CREDENTIALS_PATH = "/var/lib/aitbc/island_credentials.json"
 
 
 def load_island_credentials() -> dict:
@@ -25,15 +25,14 @@ def load_island_credentials() -> dict:
 
     if not credentials_path.exists():
         raise FileNotFoundError(
-            f"Island credentials not found at {CREDENTIALS_PATH}. "
-            f"Run 'aitbc node island join' to join an island first."
+            f"Island credentials not found at {CREDENTIALS_PATH}. Run 'aitbc node island join' to join an island first."
         )
 
     with open(credentials_path) as f:
         credentials = json.load(f)
 
     # Validate required fields
-    required_fields = ['island_id', 'island_name', 'island_chain_id', 'credentials']
+    required_fields = ["island_id", "island_name", "island_chain_id", "credentials"]
     for field in required_fields:
         if field not in credentials:
             raise ValueError(f"Invalid credentials: missing required field '{field}'")
@@ -53,7 +52,7 @@ def get_rpc_endpoint() -> str:
         ValueError: If RPC endpoint is missing from credentials
     """
     credentials = load_island_credentials()
-    rpc_endpoint = credentials.get('credentials', {}).get('rpc_endpoint')
+    rpc_endpoint = credentials.get("credentials", {}).get("rpc_endpoint")
 
     if not rpc_endpoint:
         raise ValueError("RPC endpoint not found in island credentials")
@@ -73,7 +72,7 @@ def get_chain_id() -> str:
         ValueError: If chain ID is missing from credentials
     """
     credentials = load_island_credentials()
-    chain_id = credentials.get('island_chain_id')
+    chain_id = credentials.get("island_chain_id")
 
     if not chain_id:
         raise ValueError("Chain ID not found in island credentials")
@@ -93,7 +92,7 @@ def get_island_id() -> str:
         ValueError: If island ID is missing from credentials
     """
     credentials = load_island_credentials()
-    island_id = credentials.get('island_id')
+    island_id = credentials.get("island_id")
 
     if not island_id:
         raise ValueError("Island ID not found in island credentials")
@@ -113,7 +112,7 @@ def get_island_name() -> str:
         ValueError: If island name is missing from credentials
     """
     credentials = load_island_credentials()
-    island_name = credentials.get('island_name')
+    island_name = credentials.get("island_name")
 
     if not island_name:
         raise ValueError("Island name not found in island credentials")
@@ -130,7 +129,7 @@ def get_genesis_block_hash() -> str | None:
     """
     try:
         credentials = load_island_credentials()
-        return credentials.get('credentials', {}).get('genesis_block_hash')
+        return credentials.get("credentials", {}).get("genesis_block_hash")
     except (FileNotFoundError, ValueError):
         return None
 
@@ -144,7 +143,7 @@ def get_genesis_address() -> str | None:
     """
     try:
         credentials = load_island_credentials()
-        return credentials.get('credentials', {}).get('genesis_address')
+        return credentials.get("credentials", {}).get("genesis_address")
     except (FileNotFoundError, ValueError):
         return None
 
@@ -159,7 +158,7 @@ def validate_credentials() -> bool:
     try:
         credentials = load_island_credentials()
         # Check for essential fields
-        return all(key in credentials for key in ['island_id', 'island_name', 'island_chain_id', 'credentials'])
+        return all(key in credentials for key in ["island_id", "island_name", "island_chain_id", "credentials"])
     except (FileNotFoundError, json.JSONDecodeError, ValueError):
         return False
 
@@ -173,6 +172,6 @@ def get_p2p_port() -> int | None:
     """
     try:
         credentials = load_island_credentials()
-        return credentials.get('credentials', {}).get('p2p_port')
+        return credentials.get("credentials", {}).get("p2p_port")
     except (FileNotFoundError, ValueError):
         return None

@@ -1,4 +1,5 @@
 """Tests for realtime learning module"""
+
 import sys
 from pathlib import Path
 
@@ -25,20 +26,20 @@ class TestLearningExperience:
         """Test creating LearningExperience with default values"""
         now = datetime.now(UTC)
         experience = LearningExperience(
-            experience_id='exp-1',
+            experience_id="exp-1",
             timestamp=now,
-            context={'env': 'prod'},
-            action='process_data',
-            outcome='success',
-            performance_metrics={'accuracy': 0.95},
+            context={"env": "prod"},
+            action="process_data",
+            outcome="success",
+            performance_metrics={"accuracy": 0.95},
             reward=1.0,
         )
-        assert experience.experience_id == 'exp-1'
+        assert experience.experience_id == "exp-1"
         assert experience.timestamp == now
-        assert experience.context == {'env': 'prod'}
-        assert experience.action == 'process_data'
-        assert experience.outcome == 'success'
-        assert experience.performance_metrics == {'accuracy': 0.95}
+        assert experience.context == {"env": "prod"}
+        assert experience.action == "process_data"
+        assert experience.outcome == "success"
+        assert experience.performance_metrics == {"accuracy": 0.95}
         assert experience.reward == 1.0
         assert experience.metadata == {}
 
@@ -46,16 +47,16 @@ class TestLearningExperience:
         """Test creating LearningExperience with metadata"""
         now = datetime.now(UTC)
         experience = LearningExperience(
-            experience_id='exp-1',
+            experience_id="exp-1",
             timestamp=now,
-            context={'env': 'prod'},
-            action='process_data',
-            outcome='success',
-            performance_metrics={'accuracy': 0.95},
+            context={"env": "prod"},
+            action="process_data",
+            outcome="success",
+            performance_metrics={"accuracy": 0.95},
             reward=1.0,
-            metadata={'version': '1.0', 'model': 'v2'},
+            metadata={"version": "1.0", "model": "v2"},
         )
-        assert experience.metadata == {'version': '1.0', 'model': 'v2'}
+        assert experience.metadata == {"version": "1.0", "model": "v2"}
 
 
 class TestPredictiveModel:
@@ -65,17 +66,17 @@ class TestPredictiveModel:
         """Test creating PredictiveModel with default values"""
         now = datetime.now(UTC)
         model = PredictiveModel(
-            model_id='model-1',
-            model_type='linear_regression',
-            features=['feature1', 'feature2'],
-            target='target',
+            model_id="model-1",
+            model_type="linear_regression",
+            features=["feature1", "feature2"],
+            target="target",
             accuracy=0.92,
             last_updated=now,
         )
-        assert model.model_id == 'model-1'
-        assert model.model_type == 'linear_regression'
-        assert model.features == ['feature1', 'feature2']
-        assert model.target == 'target'
+        assert model.model_id == "model-1"
+        assert model.model_type == "linear_regression"
+        assert model.features == ["feature1", "feature2"]
+        assert model.target == "target"
         assert model.accuracy == 0.92
         assert model.last_updated == now
         assert isinstance(model.predictions, deque)
@@ -85,18 +86,18 @@ class TestPredictiveModel:
         """Test creating PredictiveModel with predictions"""
         now = datetime.now(UTC)
         predictions = deque(maxlen=1000)
-        predictions.append({'input': [1, 2], 'output': 0.95})
+        predictions.append({"input": [1, 2], "output": 0.95})
         model = PredictiveModel(
-            model_id='model-1',
-            model_type='linear_regression',
-            features=['feature1', 'feature2'],
-            target='target',
+            model_id="model-1",
+            model_type="linear_regression",
+            features=["feature1", "feature2"],
+            target="target",
             accuracy=0.92,
             last_updated=now,
             predictions=predictions,
         )
         assert len(model.predictions) == 1
-        assert model.predictions[0] == {'input': [1, 2], 'output': 0.95}
+        assert model.predictions[0] == {"input": [1, 2], "output": 0.95}
 
 
 class TestRealTimeLearningSystem:
@@ -126,38 +127,38 @@ class TestRealTimeLearningSystem:
         system = RealTimeLearningSystem()
         now = datetime.now(UTC)
         experience = LearningExperience(
-            experience_id='exp-1',
+            experience_id="exp-1",
             timestamp=now,
-            context={'env': 'prod'},
-            action='process_data',
-            outcome='success',
-            performance_metrics={'accuracy': 0.95},
+            context={"env": "prod"},
+            action="process_data",
+            outcome="success",
+            performance_metrics={"accuracy": 0.95},
             reward=1.0,
         )
         system.experiences.append(experience)
         assert len(system.experiences) == 1
-        assert system.experiences[0].experience_id == 'exp-1'
+        assert system.experiences[0].experience_id == "exp-1"
 
     def test_add_predictive_model(self):
         """Test adding predictive model"""
         system = RealTimeLearningSystem()
         now = datetime.now(UTC)
         model = PredictiveModel(
-            model_id='model-1',
-            model_type='linear_regression',
-            features=['feature1'],
-            target='target',
+            model_id="model-1",
+            model_type="linear_regression",
+            features=["feature1"],
+            target="target",
             accuracy=0.92,
             last_updated=now,
         )
-        system.models['model-1'] = model
-        assert 'model-1' in system.models
-        assert system.models['model-1'].model_id == 'model-1'
+        system.models["model-1"] = model
+        assert "model-1" in system.models
+        assert system.models["model-1"].model_id == "model-1"
 
     def test_performance_history(self):
         """Test performance history tracking"""
         system = RealTimeLearningSystem()
-        entry = {'timestamp': datetime.now(UTC), 'reward': 1.0, 'performance': {'accuracy': 0.95}}
+        entry = {"timestamp": datetime.now(UTC), "reward": 1.0, "performance": {"accuracy": 0.95}}
         system.performance_history.append(entry)
         assert len(system.performance_history) == 1
         assert system.performance_history[0] == entry
@@ -166,6 +167,6 @@ class TestRealTimeLearningSystem:
         """Test performance history respects maxlen"""
         system = RealTimeLearningSystem()
         for i in range(1005):
-            entry = {'timestamp': datetime.now(UTC), 'reward': float(i), 'performance': {}}
+            entry = {"timestamp": datetime.now(UTC), "reward": float(i), "performance": {}}
             system.performance_history.append(entry)
         assert len(system.performance_history) == 1000

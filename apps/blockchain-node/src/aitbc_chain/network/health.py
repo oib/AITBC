@@ -12,14 +12,19 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
+
 def log_info(msg: str) -> None:
     logger.info(msg)
+
 
 def log_error(msg: str) -> None:
     logger.error(msg)
 
+
 def log_debug(msg: str) -> None:
     logger.debug(msg)
+
+
 import ping3  # type: ignore
 
 from .discovery import NodeStatus, PeerNode
@@ -30,6 +35,7 @@ class HealthMetric(Enum):
     AVAILABILITY = "availability"
     THROUGHPUT = "throughput"
     ERROR_RATE = "error_rate"
+
 
 @dataclass
 class HealthStatus:
@@ -42,6 +48,7 @@ class HealthStatus:
     error_rate_percent: float
     consecutive_failures: int
     health_score: float
+
 
 class PeerHealthMonitor:
     """Monitors health and performance of peer nodes"""
@@ -81,7 +88,7 @@ class PeerHealthMonitor:
         """Check health of all peers"""
         tasks = []
 
-        for node_id, peer in peers.items():
+        for _node_id, peer in peers.items():
             if peer.status == NodeStatus.ONLINE:
                 task = asyncio.create_task(self._check_peer_health(peer))
                 tasks.append(task)
@@ -91,7 +98,7 @@ class PeerHealthMonitor:
 
     async def _check_peer_health(self, peer: PeerNode) -> None:
         """Check health of individual peer"""
-        start_time = time.time()
+        time.time()
 
         try:
             # Check latency
@@ -117,7 +124,12 @@ class PeerHealthMonitor:
             log_error(f"Health check failed for peer {peer.node_id}: {e}")
 
             # Handle failure
-            consecutive_failures = self.health_status.get(peer.node_id, HealthStatus(peer.node_id, NodeStatus.OFFLINE, 0, 0, 0, 0, 0, 0, 0.0)).consecutive_failures + 1
+            consecutive_failures = (
+                self.health_status.get(
+                    peer.node_id, HealthStatus(peer.node_id, NodeStatus.OFFLINE, 0, 0, 0, 0, 0, 0, 0.0)
+                ).consecutive_failures
+                + 1
+            )
 
             if consecutive_failures >= self.max_consecutive_failures:
                 self._update_health_status(peer, NodeStatus.OFFLINE, 0, 0, 0, 100.0, int(consecutive_failures), 0.0)
@@ -146,11 +158,11 @@ class PeerHealthMonitor:
 
                 return latency_ms  # type: ignore[no-any-return]
             else:
-                return float('inf')
+                return float("inf")
 
         except Exception as e:
             log_debug(f"Latency measurement failed for {address}:{port}: {e}")
-            return float('inf')
+            return float("inf")
 
     async def _check_availability(self, peer: PeerNode) -> float:
         """Check peer availability by attempting connection"""
@@ -158,12 +170,9 @@ class PeerHealthMonitor:
             start_time = time.time()
 
             # Try to connect to peer
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(peer.address, peer.port),
-                timeout=5.0
-            )
+            reader, writer = await asyncio.wait_for(asyncio.open_connection(peer.address, peer.port), timeout=5.0)
 
-            connection_time = (time.time() - start_time) * 1000
+            (time.time() - start_time) * 1000
 
             writer.close()
             await writer.wait_closed()
@@ -228,17 +237,21 @@ class PeerHealthMonitor:
         throughput_score = min(1.0, throughput / 10.0)
 
         # Weighted average
-        health_score = (
-            latency_score * 0.3 +
-            availability_score * 0.4 +
-            throughput_score * 0.3
-        )
+        health_score = latency_score * 0.3 + availability_score * 0.4 + throughput_score * 0.3
 
         return health_score
 
-    def _update_health_status(self, peer: PeerNode, status: NodeStatus, latency: float,
-                            availability: float, throughput: float, error_rate: float,
-                            consecutive_failures: int = 0, health_score: float = 0.0) -> None:
+    def _update_health_status(
+        self,
+        peer: PeerNode,
+        status: NodeStatus,
+        latency: float,
+        availability: float,
+        throughput: float,
+        error_rate: float,
+        consecutive_failures: int = 0,
+        health_score: float = 0.0,
+    ) -> None:
         """Update health status for peer"""
         self.health_status[peer.node_id] = HealthStatus(
             node_id=peer.node_id,
@@ -249,7 +262,7 @@ class PeerHealthMonitor:
             throughput_mbps=throughput,
             error_rate_percent=error_rate,
             consecutive_failures=consecutive_failures,
-            health_score=health_score
+            health_score=health_score,
         )
 
         # Update peer status in discovery
@@ -275,24 +288,21 @@ class PeerHealthMonitor:
 
     def get_healthy_peers(self) -> list[str]:
         """Get list of healthy peers"""
-        return [
-            node_id for node_id, status in self.health_status.items()
-            if status.health_score >= self.min_health_score
-        ]
+        return [node_id for node_id, status in self.health_status.items() if status.health_score >= self.min_health_score]
 
     def get_unhealthy_peers(self) -> list[str]:
         """Get list of unhealthy peers"""
-        return [
-            node_id for node_id, status in self.health_status.items()
-            if status.health_score < self.min_health_score
-        ]
+        return [node_id for node_id, status in self.health_status.items() if status.health_score < self.min_health_score]
+
 
 # Global health monitor
 health_monitor: PeerHealthMonitor | None = None
 
+
 def get_health_monitor() -> PeerHealthMonitor | None:
     """Get global health monitor"""
     return health_monitor
+
 
 def create_health_monitor(check_interval: int = 60) -> PeerHealthMonitor:
     """Create and set global health monitor"""

@@ -30,8 +30,8 @@ from handlers.wallet import (
 class TestHandleWalletCreate:
     """Test handle_wallet_create function"""
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_create_success(self, mock_exit, mock_logger):
         """Test successful wallet creation"""
         args = Mock()
@@ -51,8 +51,8 @@ class TestHandleWalletCreate:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_create_missing_params(self, mock_exit, mock_logger):
         """Test wallet creation with missing parameters"""
         args = Mock()
@@ -76,7 +76,7 @@ class TestHandleWalletCreate:
 class TestHandleWalletList:
     """Test handle_wallet_list function"""
 
-    @patch('builtins.print')
+    @patch("builtins.print")
     def test_handle_wallet_list_json(self, mock_print):
         """Test wallet list with JSON output"""
         args = Mock()
@@ -91,7 +91,7 @@ class TestHandleWalletList:
 
         mock_print.assert_called()
 
-    @patch('builtins.print')
+    @patch("builtins.print")
     def test_handle_wallet_list_text(self, mock_print):
         """Test wallet list with text output"""
         args = Mock()
@@ -110,8 +110,8 @@ class TestHandleWalletList:
 class TestHandleWalletBalance:
     """Test handle_wallet_balance function"""
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_balance_all(self, mock_exit, mock_logger):
         """Test wallet balance for all wallets"""
         args = Mock()
@@ -131,8 +131,8 @@ class TestHandleWalletBalance:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_balance_single(self, mock_exit, mock_logger):
         """Test wallet balance for single wallet"""
         args = Mock()
@@ -154,8 +154,8 @@ class TestHandleWalletBalance:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_balance_missing_name(self, mock_exit, mock_logger):
         """Test wallet balance with missing wallet name"""
         args = Mock()
@@ -181,8 +181,8 @@ class TestHandleWalletBalance:
 class TestHandleWalletTransactions:
     """Test handle_wallet_transactions function"""
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_transactions_json(self, mock_exit, mock_logger):
         """Test wallet transactions with JSON output"""
         args = Mock()
@@ -204,8 +204,8 @@ class TestHandleWalletTransactions:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_transactions_text(self, mock_exit, mock_logger):
         """Test wallet transactions with text output"""
         args = Mock()
@@ -227,8 +227,8 @@ class TestHandleWalletTransactions:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_transactions_missing_name(self, mock_exit, mock_logger):
         """Test wallet transactions with missing wallet name"""
         args = Mock()
@@ -254,8 +254,8 @@ class TestHandleWalletTransactions:
 class TestHandleWalletImport:
     """Test handle_wallet_import function"""
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_import_success(self, mock_exit, mock_logger):
         """Test successful wallet import"""
         args = Mock()
@@ -277,8 +277,8 @@ class TestHandleWalletImport:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_import_missing_params(self, mock_exit, mock_logger):
         """Test wallet import with missing parameters"""
         args = Mock()
@@ -304,8 +304,8 @@ class TestHandleWalletImport:
 class TestHandleWalletExport:
     """Test handle_wallet_export function"""
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_export_success(self, mock_exit, mock_logger):
         """Test successful wallet export"""
         args = Mock()
@@ -325,8 +325,8 @@ class TestHandleWalletExport:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_export_missing_params(self, mock_exit, mock_logger):
         """Test wallet export with missing parameters"""
         args = Mock()
@@ -350,8 +350,8 @@ class TestHandleWalletExport:
 class TestHandleWalletDelete:
     """Test handle_wallet_delete function"""
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_delete_success(self, mock_exit, mock_logger):
         """Test successful wallet deletion"""
         args = Mock()
@@ -369,8 +369,8 @@ class TestHandleWalletDelete:
 
         mock_exit.assert_not_called()
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_delete_missing_params(self, mock_exit, mock_logger):
         """Test wallet deletion with missing parameters"""
         args = Mock()
@@ -392,8 +392,8 @@ class TestHandleWalletDelete:
 class TestHandleWalletRename:
     """Test handle_wallet_rename function"""
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_rename_success(self, mock_exit, mock_logger):
         """Test successful wallet rename"""
         args = Mock()
@@ -412,8 +412,8 @@ class TestHandleWalletRename:
 
         mock_exit.assert_not_called()
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_rename_missing_params(self, mock_exit, mock_logger):
         """Test wallet rename with missing parameters"""
         args = Mock()
@@ -436,8 +436,8 @@ class TestHandleWalletRename:
 class TestHandleWalletBackup:
     """Test handle_wallet_backup function"""
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_backup_success(self, mock_exit, mock_logger):
         """Test successful wallet backup"""
         args = Mock()
@@ -451,8 +451,8 @@ class TestHandleWalletBackup:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_backup_missing_name(self, mock_exit, mock_logger):
         """Test wallet backup with missing wallet name"""
         args = Mock()
@@ -470,8 +470,8 @@ class TestHandleWalletBackup:
 class TestHandleWalletSync:
     """Test handle_wallet_sync function"""
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_sync_all(self, mock_exit, mock_logger):
         """Test wallet sync for all wallets"""
         args = Mock()
@@ -486,8 +486,8 @@ class TestHandleWalletSync:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_sync_single(self, mock_exit, mock_logger):
         """Test wallet sync for single wallet"""
         args = Mock()
@@ -502,8 +502,8 @@ class TestHandleWalletSync:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.wallet.logger')
-    @patch('sys.exit')
+    @patch("handlers.wallet.logger")
+    @patch("sys.exit")
     def test_handle_wallet_sync_missing_params(self, mock_exit, mock_logger):
         """Test wallet sync with missing parameters"""
         args = Mock()

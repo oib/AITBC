@@ -9,13 +9,8 @@ import psycopg2  # type: ignore
 
 # Database configurations
 SQLITE_DB = "data/wallet_ledger.db"
-PG_CONFIG = {
-    "host": "localhost",
-    "database": "aitbc_wallet",
-    "user": "aitbc_user",
-    "password": "aitbc_password",
-    "port": 5432
-}
+PG_CONFIG = {"host": "localhost", "database": "aitbc_wallet", "user": "aitbc_user", "password": "aitbc_password", "port": 5432}
+
 
 def create_pg_schema():
     """Create PostgreSQL schema with optimized types"""
@@ -61,6 +56,7 @@ def create_pg_schema():
     conn.close()
     print("✅ PostgreSQL schema created successfully!")
 
+
 def migrate_data():
     """Migrate data from SQLite to PostgreSQL"""
 
@@ -82,18 +78,21 @@ def migrate_data():
 
     wallets_count = 0
     for wallet in wallets:
-        metadata = wallet['metadata']
+        metadata = wallet["metadata"]
         if isinstance(metadata, str):
             try:
                 metadata = json.loads(metadata)
             except json.JSONDecodeError:
                 metadata = {}
 
-        pg_cursor.execute("""
+        pg_cursor.execute(
+            """
             INSERT INTO wallets (wallet_id, public_key, metadata)
             VALUES (%s, %s, %s)
             ON CONFLICT (wallet_id) DO NOTHING
-        """, (wallet['wallet_id'], wallet['public_key'], json.dumps(metadata)))
+        """,
+            (wallet["wallet_id"], wallet["public_key"], json.dumps(metadata)),
+        )
         wallets_count += 1
 
     # Migrate wallet events
@@ -103,17 +102,20 @@ def migrate_data():
 
     events_count = 0
     for event in events:
-        payload = event['payload']
+        payload = event["payload"]
         if isinstance(payload, str):
             try:
                 payload = json.loads(payload)
             except json.JSONDecodeError:
                 payload = {}
 
-        pg_cursor.execute("""
+        pg_cursor.execute(
+            """
             INSERT INTO wallet_events (wallet_id, event_type, payload, created_at)
             VALUES (%s, %s, %s, %s)
-        """, (event['wallet_id'], event['event_type'], json.dumps(payload), event['created_at']))
+        """,
+            (event["wallet_id"], event["event_type"], json.dumps(payload), event["created_at"]),
+        )
         events_count += 1
 
     pg_conn.commit()
@@ -124,6 +126,7 @@ def migrate_data():
 
     sqlite_conn.close()
     pg_conn.close()
+
 
 def main():
     """Main migration process"""
@@ -155,6 +158,7 @@ def main():
     print("2. Install PostgreSQL dependencies")
     print("3. Restart the wallet daemon service")
     print("4. Verify wallet operations")
+
 
 if __name__ == "__main__":
     main()

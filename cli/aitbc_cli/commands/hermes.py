@@ -24,14 +24,22 @@ def hermes():
 
 
 @hermes.command()
-@click.option('--agent-id', required=True, help='Agent ID')
-@click.option('--training-type', required=True, help='Type of training')
-@click.option('--dataset', help='Dataset to use')
-@click.option('--epochs', type=int, default=100, help='Number of training epochs')
-@click.option('--batch-size', type=int, default=32, help='Batch size')
-@click.option('--training-data', help='Path to training data JSON file')
-@click.option('--stage', help='Training stage')
-def train(agent_id: str, training_type: str, dataset: str | None, epochs: int, batch_size: int, training_data: str | None, stage: str | None):
+@click.option("--agent-id", required=True, help="Agent ID")
+@click.option("--training-type", required=True, help="Type of training")
+@click.option("--dataset", help="Dataset to use")
+@click.option("--epochs", type=int, default=100, help="Number of training epochs")
+@click.option("--batch-size", type=int, default=32, help="Batch size")
+@click.option("--training-data", help="Path to training data JSON file")
+@click.option("--stage", help="Training stage")
+def train(
+    agent_id: str,
+    training_type: str,
+    dataset: str | None,
+    epochs: int,
+    batch_size: int,
+    training_data: str | None,
+    stage: str | None,
+):
     """Start Hermes training for an agent"""
     if training_data:
         if not os.path.exists(training_data):
@@ -43,7 +51,7 @@ def train(agent_id: str, training_type: str, dataset: str | None, epochs: int, b
                 training_config = json.load(f)
 
             # Validate training data matches stage
-            if stage and training_config.get('stage') != stage:
+            if stage and training_config.get("stage") != stage:
                 error(f"Training data stage mismatch: expected {stage}, got {training_config.get('stage')}")
                 return
 
@@ -53,7 +61,7 @@ def train(agent_id: str, training_type: str, dataset: str | None, epochs: int, b
             log_file = f"{log_dir}/agent_{agent_id}_{stage}_{int(time.time())}.log"
 
             # Execute training operations
-            operations = training_config.get('training_data', {}).get('operations', [])
+            operations = training_config.get("training_data", {}).get("operations", [])
             completed_ops = 0
             failed_ops = 0
 
@@ -61,18 +69,15 @@ def train(agent_id: str, training_type: str, dataset: str | None, epochs: int, b
             success(f"Operations to execute: {len(operations)}")
 
             for i, op in enumerate(operations, 1):
-                operation = op.get('operation')
-                parameters = op.get('parameters', {})
+                operation = op.get("operation")
+                parameters = op.get("parameters", {})
 
                 log_entry = {
                     "timestamp": datetime.datetime.now().isoformat(),
                     "agent_id": agent_id,
                     "stage": stage,
                     "operation": operation,
-                    "prompt": {
-                        "parameters": parameters,
-                        "expected_result": op.get('expected_result')
-                    }
+                    "prompt": {"parameters": parameters, "expected_result": op.get("expected_result")},
                 }
 
                 # Execute training via hermes agent
@@ -92,7 +97,7 @@ def train(agent_id: str, training_type: str, dataset: str | None, epochs: int, b
                         reply = {
                             "status": "completed",
                             "result": result.stdout.strip() if result.stdout else "Command executed successfully",
-                            "cli_output": result.stdout.strip()
+                            "cli_output": result.stdout.strip(),
                         }
                         log_entry["status"] = "completed"
                         completed_ops += 1
@@ -102,7 +107,7 @@ def train(agent_id: str, training_type: str, dataset: str | None, epochs: int, b
                             "status": "error",
                             "error": result.stderr.strip() if result.stderr else "Command failed",
                             "cli_output": result.stdout.strip(),
-                            "cli_error": result.stderr.strip()
+                            "cli_error": result.stderr.strip(),
                         }
                         log_entry["status"] = "failed"
                         failed_ops += 1
@@ -112,22 +117,19 @@ def train(agent_id: str, training_type: str, dataset: str | None, epochs: int, b
                     log_entry["duration_ms"] = duration_ms
 
                     # Write log entry
-                    with open(log_file, 'a') as f:
+                    with open(log_file, "a") as f:
                         f.write(json.dumps(log_entry) + "\n")
 
                 except subprocess.TimeoutExpired:
                     duration_ms = int((time.time() - start_time) * 1000)
-                    reply = {
-                        "status": "error",
-                        "error": "Command timed out after 30 seconds"
-                    }
+                    reply = {"status": "error", "error": "Command timed out after 30 seconds"}
                     log_entry["status"] = "failed"
                     log_entry["reply"] = reply
                     log_entry["duration_ms"] = duration_ms
                     failed_ops += 1
                     error(f"Operation {i}/{len(operations)}: {operation} - timed out")
 
-                    with open(log_file, 'a') as f:
+                    with open(log_file, "a") as f:
                         f.write(json.dumps(log_entry) + "\n")
                 except Exception as e:
                     error(f"Operation {i}/{len(operations)}: {operation} - exception: {e}")
@@ -144,8 +146,8 @@ def train(agent_id: str, training_type: str, dataset: str | None, epochs: int, b
 
 
 @hermes.command()
-@click.option('--agent-id', help='Agent ID')
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.option("--agent-id", help="Agent ID")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 def status(agent_id: str | None, format: str):
     """Get Hermes training status"""
     try:
@@ -160,15 +162,9 @@ def status(agent_id: str | None, format: str):
             headers["X-API-Key"] = api_key
 
         if agent_id:
-            response = httpx.get(
-                f"{coordinator_url}/v1/hermes/agents/{agent_id}/status",
-                headers=headers
-            )
+            response = httpx.get(f"{coordinator_url}/v1/hermes/agents/{agent_id}/status", headers=headers)
         else:
-            response = httpx.get(
-                f"{coordinator_url}/v1/hermes/status",
-                headers=headers
-            )
+            response = httpx.get(f"{coordinator_url}/v1/hermes/status", headers=headers)
 
         if response.status_code != 200:
             error(f"Failed to get Hermes status: {response.text}")
@@ -178,7 +174,7 @@ def status(agent_id: str | None, format: str):
 
         success(f"Get Hermes training status for agent {agent_id}")
 
-        if format == 'json':
+        if format == "json":
             click.echo(json.dumps(result, indent=2))
         else:
             if agent_id:
@@ -196,7 +192,7 @@ def status(agent_id: str | None, format: str):
 
 
 @hermes.command()
-@click.option('--agent-id', help='Agent ID')
+@click.option("--agent-id", help="Agent ID")
 def stop(agent_id: str | None):
     """Stop Hermes training"""
     try:
@@ -214,10 +210,7 @@ def stop(agent_id: str | None):
         if api_key:
             headers["X-API-Key"] = api_key
 
-        response = httpx.post(
-            f"{coordinator_url}/v1/hermes/agents/{agent_id}/stop",
-            headers=headers
-        )
+        response = httpx.post(f"{coordinator_url}/v1/hermes/agents/{agent_id}/stop", headers=headers)
 
         if response.status_code != 200:
             error(f"Failed to stop Hermes training: {response.text}")
@@ -231,9 +224,9 @@ def stop(agent_id: str | None):
 
 
 @hermes.command()
-@click.argument('message')
-@click.option('--to-agent', help='Target agent ID')
-@click.option('--priority', default='normal', help='Message priority')
+@click.argument("message")
+@click.option("--to-agent", help="Target agent ID")
+@click.option("--priority", default="normal", help="Message priority")
 @click.pass_context
 def send(ctx, message: str, to_agent: str | None, priority: str):
     """Send a message via hermes service"""
@@ -241,10 +234,7 @@ def send(ctx, message: str, to_agent: str | None, priority: str):
 
     try:
         http_client = AITBCHTTPClient(base_url=config.hermes_service_url, timeout=10)
-        message_data = {
-            "message": message,
-            "priority": priority
-        }
+        message_data = {"message": message, "priority": priority}
         if to_agent:
             message_data["to_agent"] = to_agent
 
@@ -258,7 +248,7 @@ def send(ctx, message: str, to_agent: str | None, priority: str):
 
 
 @hermes.command()
-@click.option('--limit', type=int, default=20, help='Number of messages to return')
+@click.option("--limit", type=int, default=20, help="Number of messages to return")
 @click.pass_context
 def receive(ctx, limit: int):
     """Receive messages from hermes service"""
@@ -290,4 +280,3 @@ def peers(ctx):
         error(f"Network error: {e}")
     except Exception as e:
         error(f"Error fetching peers: {e}")
-

@@ -22,8 +22,9 @@ class TestMarketCommands:
         """Test that market command group exists"""
         try:
             from aitbc_cli.commands.market import market
+
             assert market is not None
-            assert hasattr(market, 'name')
+            assert hasattr(market, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import market commands: {e}")
 
@@ -31,12 +32,13 @@ class TestMarketCommands:
         """Test market group name"""
         try:
             from aitbc_cli.commands.market import market
+
             assert market.name == "market"
         except ImportError as e:
             pytest.skip(f"Cannot import market commands: {e}")
 
-    @patch('aitbc_cli.commands.market.output')
-    @patch('aitbc_cli.commands.market.error')
+    @patch("aitbc_cli.commands.market.output")
+    @patch("aitbc_cli.commands.market.error")
     def test_market_list_command(self, mock_error, mock_output):
         """Test market list command - skip due to complex credentials dependencies"""
         pytest.skip("Market commands have complex credentials and socket dependencies")

@@ -32,7 +32,7 @@ class TestDisputeAuthentication:
 
         # Set DEV_MODE to false for production-like testing
         original_dev_mode = os.getenv("DEV_MODE")
-        original_trust_header = os.getenv("TRUST_X_WALLET_ADDRESS")
+        os.getenv("TRUST_X_WALLET_ADDRESS")
         os.environ["DEV_MODE"] = "false"
         os.environ["TRUST_X_WALLET_ADDRESS"] = "false"
 
@@ -55,8 +55,8 @@ class TestDisputeAuthentication:
                 "respondent": "0x1234567890123456789012345678901234567890",
                 "dispute_type": "payment_dispute",
                 "reason": "Test dispute",
-                "evidence_hash": "0xabcdef"
-            }
+                "evidence_hash": "0xabcdef",
+            },
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -71,9 +71,9 @@ class TestDisputeAuthentication:
                 "respondent": "0x1234567890123456789012345678901234567890",
                 "dispute_type": "payment_dispute",
                 "reason": "Test dispute",
-                "evidence_hash": "0xabcdef"
+                "evidence_hash": "0xabcdef",
             },
-            headers={"X-Wallet-Address": "invalid_address_format"}
+            headers={"X-Wallet-Address": "invalid_address_format"},
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -87,8 +87,8 @@ class TestDisputeAuthentication:
                 "dispute_id": 1,
                 "evidence_hash": "0xabcdef",
                 "evidence_type": "transaction_proof",
-                "description": "Test evidence"
-            }
+                "description": "Test evidence",
+            },
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -97,12 +97,7 @@ class TestDisputeAuthentication:
     async def test_verify_evidence_missing_auth(self, client):
         """Test that verifying evidence without authentication returns 401"""
         response = await client.post(
-            "/rpc/disputes/verify-evidence",
-            json={
-                "dispute_id": 1,
-                "evidence_id": 1,
-                "verified": True
-            }
+            "/rpc/disputes/verify-evidence", json={"dispute_id": 1, "evidence_id": 1, "verified": True}
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -112,10 +107,7 @@ class TestDisputeAuthentication:
         """Test that authorizing an arbitrator without authentication returns 401"""
         response = await client.post(
             "/rpc/disputes/arbitrators/authorize",
-            json={
-                "arbitrator_address": "0x1234567890123456789012345678901234567890",
-                "authorized": True
-            }
+            json={"arbitrator_address": "0x1234567890123456789012345678901234567890", "authorized": True},
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -124,12 +116,7 @@ class TestDisputeAuthentication:
     async def test_submit_vote_missing_auth(self, client):
         """Test that submitting a vote without authentication returns 401"""
         response = await client.post(
-            "/rpc/disputes/vote",
-            json={
-                "dispute_id": 1,
-                "vote": "plaintiff",
-                "reasoning": "Test reasoning"
-            }
+            "/rpc/disputes/vote", json={"dispute_id": 1, "vote": "plaintiff", "reasoning": "Test reasoning"}
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -145,9 +132,9 @@ class TestDisputeAuthentication:
                 "respondent": "0x1234567890123456789012345678901234567890",
                 "dispute_type": "payment_dispute",
                 "reason": "Test dispute",
-                "evidence_hash": "0xabcdef"
+                "evidence_hash": "0xabcdef",
             },
-            headers={"X-Wallet-Address": "0x1234567890123456789012345678901234567890"}
+            headers={"X-Wallet-Address": "0x1234567890123456789012345678901234567890"},
         )
 
         # Should not be 401 (authentication passed)
@@ -163,9 +150,9 @@ class TestDisputeAuthentication:
                 "respondent": "0x1234567890123456789012345678901234567890",
                 "dispute_type": "payment_dispute",
                 "reason": "Test dispute",
-                "evidence_hash": "0xabcdef"
+                "evidence_hash": "0xabcdef",
             },
-            headers={"X-Wallet-Address": "0x1234567890123456789012345678901234567890"}
+            headers={"X-Wallet-Address": "0x1234567890123456789012345678901234567890"},
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -180,9 +167,9 @@ class TestDisputeAuthentication:
                 "respondent": "0x1234567890123456789012345678901234567890",
                 "dispute_type": "payment_dispute",
                 "reason": "Test dispute",
-                "evidence_hash": "0xabcdef"
+                "evidence_hash": "0xabcdef",
             },
-            headers={"Authorization": "Bearer test_token"}
+            headers={"Authorization": "Bearer test_token"},
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -204,7 +191,7 @@ class TestDisputeAuthDevMode:
 
         # Set DEV_MODE to true
         original_dev_mode = os.getenv("DEV_MODE")
-        original_trust_header = os.getenv("TRUST_X_WALLET_ADDRESS")
+        os.getenv("TRUST_X_WALLET_ADDRESS")
         os.environ["DEV_MODE"] = "true"
         os.environ["TRUST_X_WALLET_ADDRESS"] = "false"
 
@@ -227,8 +214,8 @@ class TestDisputeAuthDevMode:
                 "respondent": "0x1234567890123456789012345678901234567890",
                 "dispute_type": "payment_dispute",
                 "reason": "Test dispute",
-                "evidence_hash": "0xabcdef"
-            }
+                "evidence_hash": "0xabcdef",
+            },
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -239,12 +226,8 @@ class TestDisputeAuthDevMode:
         os.environ["TRUST_X_WALLET_ADDRESS"] = "true"
         response = await dev_client.post(
             "/rpc/disputes/vote",
-            json={
-                "dispute_id": 1,
-                "vote": "plaintiff",
-                "reasoning": "Test reasoning"
-            },
-            headers={"X-Wallet-Address": "0x0000000000000000000000000000000000000000"}
+            json={"dispute_id": 1, "vote": "plaintiff", "reasoning": "Test reasoning"},
+            headers={"X-Wallet-Address": "0x0000000000000000000000000000000000000000"},
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED

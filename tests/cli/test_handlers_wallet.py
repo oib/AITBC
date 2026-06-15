@@ -21,6 +21,7 @@ class TestWalletHandlers:
         """Test that handle_wallet_create function exists"""
         try:
             from handlers.wallet import handle_wallet_create
+
             assert handle_wallet_create is not None
         except ImportError as e:
             pytest.skip(f"Cannot import wallet handlers: {e}")
@@ -29,6 +30,7 @@ class TestWalletHandlers:
         """Test that handle_wallet_list function exists"""
         try:
             from handlers.wallet import handle_wallet_list
+
             assert handle_wallet_list is not None
         except ImportError as e:
             pytest.skip(f"Cannot import wallet handlers: {e}")

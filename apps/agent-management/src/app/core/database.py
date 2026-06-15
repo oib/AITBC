@@ -18,7 +18,7 @@ def get_engine(settings: ServiceSettings) -> Engine:
         pool_size=db_config.pool_size,
         max_overflow=db_config.max_overflow,
         pool_pre_ping=db_config.pool_pre_ping,
-        echo=settings.debug
+        echo=settings.debug,
     )
 
 

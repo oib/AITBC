@@ -15,14 +15,10 @@ class TestTrainingRouter:
         job_data = {
             "model_type": "llama2",
             "dataset_id": "dataset-001",
-            "hyperparameters": {
-                "learning_rate": 0.001,
-                "batch_size": 32,
-                "optimizer": "adam"
-            },
+            "hyperparameters": {"learning_rate": 0.001, "batch_size": 32, "optimizer": "adam"},
             "epochs": 10,
             "gpu_count": 2,
-            "memory_gb": 32
+            "memory_gb": 32,
         }
 
         response = client.post("/training/jobs", json=job_data)
@@ -36,11 +32,9 @@ class TestTrainingRouter:
     def test_get_training_job(self, client: TestClient):
         """Test getting training job by ID"""
         # Create job first
-        create_response = client.post("/training/jobs", json={
-            "model_type": "resnet",
-            "dataset_id": "imagenet-train",
-            "epochs": 5
-        })
+        create_response = client.post(
+            "/training/jobs", json={"model_type": "resnet", "dataset_id": "imagenet-train", "epochs": 5}
+        )
         job_id = create_response.json()["job"]["id"]
 
         # Get job
@@ -68,11 +62,7 @@ class TestTrainingRouter:
     def test_start_training_job(self, client: TestClient):
         """Test starting a pending training job"""
         # Create pending job
-        create_response = client.post("/training/jobs", json={
-            "model_type": "bert",
-            "dataset_id": "corpus-001",
-            "epochs": 3
-        })
+        create_response = client.post("/training/jobs", json={"model_type": "bert", "dataset_id": "corpus-001", "epochs": 3})
         job_id = create_response.json()["job"]["id"]
 
         # Start it
@@ -85,10 +75,7 @@ class TestTrainingRouter:
     def test_update_training_progress(self, client: TestClient):
         """Test updating training progress"""
         # Create and start job
-        create_response = client.post("/training/jobs", json={
-            "model_type": "gpt",
-            "dataset_id": "text-corpus"
-        })
+        create_response = client.post("/training/jobs", json={"model_type": "gpt", "dataset_id": "text-corpus"})
         job_id = create_response.json()["job"]["id"]
         client.post(f"/training/jobs/{job_id}/start")
 
@@ -99,7 +86,7 @@ class TestTrainingRouter:
             "step": 100,
             "loss": 0.0234,
             "accuracy": 0.95,
-            "validation_loss": 0.0256
+            "validation_loss": 0.0256,
         }
 
         response = client.post("/training/progress", json=progress_data)
@@ -111,18 +98,12 @@ class TestTrainingRouter:
     def test_complete_training_job(self, client: TestClient):
         """Test completing a training job"""
         # Create and start job
-        create_response = client.post("/training/jobs", json={
-            "model_type": "classifier",
-            "dataset_id": "mnist",
-            "epochs": 1
-        })
+        create_response = client.post("/training/jobs", json={"model_type": "classifier", "dataset_id": "mnist", "epochs": 1})
         job_id = create_response.json()["job"]["id"]
         client.post(f"/training/jobs/{job_id}/start")
 
         # Complete it
-        response = client.post(f"/training/jobs/{job_id}/complete", json={
-            "checkpoint_url": "s3://models/checkpoint-001.pt"
-        })
+        response = client.post(f"/training/jobs/{job_id}/complete", json={"checkpoint_url": "s3://models/checkpoint-001.pt"})
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
@@ -131,10 +112,7 @@ class TestTrainingRouter:
     def test_cancel_training_job(self, client: TestClient):
         """Test cancelling a training job"""
         # Create job
-        create_response = client.post("/training/jobs", json={
-            "model_type": "test-model",
-            "dataset_id": "test-data"
-        })
+        create_response = client.post("/training/jobs", json={"model_type": "test-model", "dataset_id": "test-data"})
         job_id = create_response.json()["job"]["id"]
 
         # Cancel it
@@ -147,10 +125,7 @@ class TestTrainingRouter:
     def test_get_training_logs(self, client: TestClient):
         """Test getting training logs"""
         # Create job with some progress
-        create_response = client.post("/training/jobs", json={
-            "model_type": "log-test",
-            "dataset_id": "data"
-        })
+        create_response = client.post("/training/jobs", json={"model_type": "log-test", "dataset_id": "data"})
         job_id = create_response.json()["job"]["id"]
 
         # Get logs
@@ -187,16 +162,16 @@ class TestTrainingIntegration:
     def test_full_training_lifecycle(self, client: TestClient):
         """Test complete training lifecycle"""
         # 1. Create job
-        create_response = client.post("/training/jobs", json={
-            "model_type": "integration-model",
-            "dataset_id": "integration-dataset",
-            "hyperparameters": {
-                "learning_rate": 0.01,
-                "batch_size": 16
+        create_response = client.post(
+            "/training/jobs",
+            json={
+                "model_type": "integration-model",
+                "dataset_id": "integration-dataset",
+                "hyperparameters": {"learning_rate": 0.01, "batch_size": 16},
+                "epochs": 3,
+                "gpu_count": 1,
             },
-            "epochs": 3,
-            "gpu_count": 1
-        })
+        )
         job_id = create_response.json()["job"]["id"]
 
         # 2. Start training
@@ -204,19 +179,22 @@ class TestTrainingIntegration:
 
         # 3. Simulate training progress
         for epoch in range(1, 4):
-            client.post("/training/progress", json={
-                "job_id": job_id,
-                "epoch": epoch,
-                "step": epoch * 100,
-                "loss": 0.5 / epoch,
-                "accuracy": 0.6 + (epoch * 0.1),
-                "validation_loss": 0.55 / epoch
-            })
+            client.post(
+                "/training/progress",
+                json={
+                    "job_id": job_id,
+                    "epoch": epoch,
+                    "step": epoch * 100,
+                    "loss": 0.5 / epoch,
+                    "accuracy": 0.6 + (epoch * 0.1),
+                    "validation_loss": 0.55 / epoch,
+                },
+            )
 
         # 4. Complete training
-        complete_response = client.post(f"/training/jobs/{job_id}/complete", json={
-            "checkpoint_url": "s3://integration/checkpoint.pt"
-        })
+        complete_response = client.post(
+            f"/training/jobs/{job_id}/complete", json={"checkpoint_url": "s3://integration/checkpoint.pt"}
+        )
 
         # 5. Verify completed
         assert complete_response.json()["job"]["status"] == "completed"

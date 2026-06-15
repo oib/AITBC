@@ -2,6 +2,7 @@
 Event utilities for AITBC
 Provides event bus implementation, pub/sub patterns, and event decorators
 """
+
 import asyncio
 import inspect
 from collections.abc import Callable
@@ -10,19 +11,24 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, TypeVar
 from .aitbc_logging import get_logger
+
 logger = get_logger(__name__)
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class EventPriority(Enum):
     """Event priority levels"""
+
     LOW = 1
     MEDIUM = 2
     HIGH = 3
     CRITICAL = 4
 
+
 @dataclass
 class Event:
     """Base event class"""
+
     event_type: str
     data: dict[str, Any]
     timestamp: datetime = None
@@ -32,6 +38,7 @@ class Event:
     def __post_init__(self):
         if self.timestamp is None:
             self.timestamp = datetime.now(UTC)
+
 
 class EventBus:
     """Simple in-memory event bus for pub/sub patterns"""
@@ -71,13 +78,13 @@ class EventBus:
                 else:
                     handler(event)
             except Exception as e:
-                logger.error('Error in event handler: %s', e)
+                logger.error("Error in event handler: %s", e)
 
     def publish_sync(self, event: Event) -> None:
         """Publish an event synchronously"""
         asyncio.run(self.publish(event))
 
-    def get_event_history(self, event_type: str | None=None, limit: int=100) -> list[Event]:
+    def get_event_history(self, event_type: str | None = None, limit: int = 100) -> list[Event]:
         """Get event history"""
         events = self.event_history
         if event_type:
@@ -88,10 +95,11 @@ class EventBus:
         """Clear event history"""
         self.event_history.clear()
 
+
 class AsyncEventBus(EventBus):
     """Async event bus with additional features"""
 
-    def __init__(self, max_concurrent_handlers: int=10):
+    def __init__(self, max_concurrent_handlers: int = 10):
         """Initialize async event bus"""
         super().__init__()
         self.semaphore = asyncio.Semaphore(max_concurrent_handlers)
@@ -113,26 +121,33 @@ class AsyncEventBus(EventBus):
                         else:
                             handler(event)
                     except Exception as e:
-                        logger.error('Error in event handler: %s', e)
+                        logger.error("Error in event handler: %s", e)
+
             tasks.append(safe_handler())
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
-def event_handler(event_type: str, event_bus: EventBus | None=None):
+
+def event_handler(event_type: str, event_bus: EventBus | None = None):
     """Decorator to register event handler"""
 
     def decorator(func: Callable) -> Callable:
         bus = event_bus or get_global_event_bus()
         bus.subscribe(event_type, func)
         return func
+
     return decorator
 
-def publish_event(event_type: str, data: dict[str, Any], event_bus: EventBus | None=None) -> None:
+
+def publish_event(event_type: str, data: dict[str, Any], event_bus: EventBus | None = None) -> None:
     """Helper to publish an event"""
     bus = event_bus or get_global_event_bus()
     event = Event(event_type=event_type, data=data)
     bus.publish_sync(event)
+
+
 _global_event_bus: EventBus | None = None
+
 
 def get_global_event_bus() -> EventBus:
     """Get or create global event bus"""
@@ -141,15 +156,17 @@ def get_global_event_bus() -> EventBus:
         _global_event_bus = EventBus()
     return _global_event_bus
 
+
 def set_global_event_bus(bus: EventBus) -> None:
     """Set global event bus"""
     global _global_event_bus
     _global_event_bus = bus
 
+
 class EventFilter:
     """Filter events based on criteria"""
 
-    def __init__(self, event_bus: EventBus | None=None):
+    def __init__(self, event_bus: EventBus | None = None):
         """Initialize event filter"""
         self.event_bus = event_bus or get_global_event_bus()
         self.filters: list[Callable[[Event], bool]] = []
@@ -162,15 +179,16 @@ class EventFilter:
         """Check if event matches all filters"""
         return all((f(event) for f in self.filters))
 
-    def get_filtered_events(self, event_type: str | None=None, limit: int=100) -> list[Event]:
+    def get_filtered_events(self, event_type: str | None = None, limit: int = 100) -> list[Event]:
         """Get filtered events"""
         events = self.event_bus.get_event_history(event_type, limit)
         return [e for e in events if self.matches(e)]
 
+
 class EventAggregator:
     """Aggregate events over time windows"""
 
-    def __init__(self, window_seconds: int=60):
+    def __init__(self, window_seconds: int = 60):
         """Initialize event aggregator"""
         self.window_seconds = window_seconds
         self.aggregated_events: dict[str, dict[str, Any]] = {}
@@ -180,15 +198,15 @@ class EventAggregator:
         key = event.event_type
         now = datetime.now(UTC)
         if key not in self.aggregated_events:
-            self.aggregated_events[key] = {'count': 0, 'first_seen': now, 'last_seen': now, 'data': {}}
+            self.aggregated_events[key] = {"count": 0, "first_seen": now, "last_seen": now, "data": {}}
         agg = self.aggregated_events[key]
-        agg['count'] += 1
-        agg['last_seen'] = now
+        agg["count"] += 1
+        agg["last_seen"] = now
         for k, v in event.data.items():
-            if k not in agg['data']:
-                agg['data'][k] = v
+            if k not in agg["data"]:
+                agg["data"][k] = v
             elif isinstance(v, (int, float)):
-                agg['data'][k] = agg['data'].get(k, 0) + v
+                agg["data"][k] = agg["data"].get(k, 0) + v
 
     def get_aggregated_events(self) -> dict[str, dict[str, Any]]:
         """Get aggregated events"""
@@ -196,7 +214,7 @@ class EventAggregator:
         cutoff = now.timestamp() - self.window_seconds
         to_remove = []
         for key, agg in self.aggregated_events.items():
-            if agg['last_seen'].timestamp() < cutoff:
+            if agg["last_seen"].timestamp() < cutoff:
                 to_remove.append(key)
         for key in to_remove:
             del self.aggregated_events[key]
@@ -205,6 +223,7 @@ class EventAggregator:
     def clear(self) -> None:
         """Clear all aggregated events"""
         self.aggregated_events.clear()
+
 
 class EventRouter:
     """Route events to different handlers based on criteria"""
@@ -227,9 +246,9 @@ class EventRouter:
                         await handler(event)
                     else:
                         handler(event)
-                    self.logger.debug('Routed event %s to handler', event.event_type)
+                    self.logger.debug("Routed event %s to handler", event.event_type)
                     return True
                 except Exception as e:
-                    self.logger.error('Routed handler failed for %s: %s', event.event_type, e)
-        self.logger.debug('No matching route found for event %s', event.event_type)
+                    self.logger.error("Routed handler failed for %s: %s", event.event_type, e)
+        self.logger.debug("No matching route found for event %s", event.event_type)
         return False

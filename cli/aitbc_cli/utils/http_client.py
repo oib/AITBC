@@ -7,6 +7,7 @@ import httpx
 
 class NetworkError(Exception):
     """Network error for AITBC operations"""
+
     pass
 
 
@@ -44,6 +45,7 @@ class AITBCHTTPClient:
 def get_logger(name: str):
     """Simple logger wrapper"""
     import logging
+
     return logging.getLogger(name)
 
 

@@ -1,6 +1,5 @@
 """ZK operations using CLI commands"""
 
-
 from aitbc.aitbc_logging import get_logger
 
 from .command_executor import CommandExecutor
@@ -22,7 +21,7 @@ class ZKOperations:
             if result["success"]:
                 return result["data"].get("proof", "")
             else:
-                logger.error("ZK generate_proof failed: %s", result.get('error'))
+                logger.error("ZK generate_proof failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("generate_proof failed: %s", e)
@@ -36,7 +35,7 @@ class ZKOperations:
             if result["success"]:
                 return result["data"].get("valid", False)
             else:
-                logger.error("ZK verify_proof failed: %s", result.get('error'))
+                logger.error("ZK verify_proof failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("verify_proof failed: %s", e)
@@ -46,6 +45,7 @@ class ZKOperations:
         """Create receipt from proof"""
         try:
             import json
+
             args = ["create-receipt", "--proof", proof]
             if metadata:
                 args.extend(["--metadata", json.dumps(metadata)])
@@ -53,7 +53,7 @@ class ZKOperations:
             if result["success"]:
                 return result["data"].get("receipt_id", "")
             else:
-                logger.error("ZK create_receipt failed: %s", result.get('error'))
+                logger.error("ZK create_receipt failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("create_receipt failed: %s", e)
@@ -63,6 +63,7 @@ class ZKOperations:
         """Submit performance proof"""
         try:
             import json
+
             args = ["submit-performance-proof", "--receipt", receipt]
             if metrics:
                 args.extend(["--metrics", json.dumps(metrics)])
@@ -70,7 +71,7 @@ class ZKOperations:
             if result["success"]:
                 return result["data"].get("submission_id", "")
             else:
-                logger.error("ZK submit_performance_proof failed: %s", result.get('error'))
+                logger.error("ZK submit_performance_proof failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("submit_performance_proof failed: %s", e)

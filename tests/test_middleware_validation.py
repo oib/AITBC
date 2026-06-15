@@ -14,7 +14,7 @@ from aitbc.middleware.validation import RequestValidationMiddleware
 class TestRequestValidationMiddleware:
     """Tests for RequestValidationMiddleware"""
 
-    @patch('aitbc.middleware.validation.logger')
+    @patch("aitbc.middleware.validation.logger")
     def test_initialization(self, mock_logger):
         """Test middleware initialization"""
         app = Mock()
@@ -23,21 +23,17 @@ class TestRequestValidationMiddleware:
         assert middleware.max_request_size == 10 * 1024 * 1024
         assert middleware.max_response_size == 10 * 1024 * 1024
 
-    @patch('aitbc.middleware.validation.logger')
+    @patch("aitbc.middleware.validation.logger")
     def test_initialization_custom_sizes(self, mock_logger):
         """Test middleware with custom sizes"""
         app = Mock()
-        middleware = RequestValidationMiddleware(
-            app,
-            max_request_size=5 * 1024 * 1024,
-            max_response_size=5 * 1024 * 1024
-        )
+        middleware = RequestValidationMiddleware(app, max_request_size=5 * 1024 * 1024, max_response_size=5 * 1024 * 1024)
 
         assert middleware.max_request_size == 5 * 1024 * 1024
         assert middleware.max_response_size == 5 * 1024 * 1024
 
     @pytest.mark.asyncio
-    @patch('aitbc.middleware.validation.logger')
+    @patch("aitbc.middleware.validation.logger")
     async def test_dispatch_valid_request(self, mock_logger):
         """Test dispatch with valid request size"""
         app = Mock()
@@ -59,7 +55,7 @@ class TestRequestValidationMiddleware:
         call_next.assert_called_once_with(request)
 
     @pytest.mark.asyncio
-    @patch('aitbc.middleware.validation.logger')
+    @patch("aitbc.middleware.validation.logger")
     async def test_dispatch_request_too_large(self, mock_logger):
         """Test dispatch with request too large"""
         app = Mock()
@@ -79,7 +75,7 @@ class TestRequestValidationMiddleware:
         mock_logger.warning.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch('aitbc.middleware.validation.logger')
+    @patch("aitbc.middleware.validation.logger")
     async def test_dispatch_invalid_content_length(self, mock_logger):
         """Test dispatch with invalid content-length header"""
         app = Mock()
@@ -99,7 +95,7 @@ class TestRequestValidationMiddleware:
         mock_logger.warning.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch('aitbc.middleware.validation.logger')
+    @patch("aitbc.middleware.validation.logger")
     async def test_dispatch_no_content_length(self, mock_logger):
         """Test dispatch without content-length header"""
         app = Mock()
@@ -118,7 +114,7 @@ class TestRequestValidationMiddleware:
         assert result == response
 
     @pytest.mark.asyncio
-    @patch('aitbc.middleware.validation.logger')
+    @patch("aitbc.middleware.validation.logger")
     async def test_dispatch_response_too_large(self, mock_logger):
         """Test dispatch with response too large"""
         app = Mock()
@@ -141,7 +137,7 @@ class TestRequestValidationMiddleware:
         mock_logger.warning.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch('aitbc.middleware.validation.logger')
+    @patch("aitbc.middleware.validation.logger")
     async def test_dispatch_response_no_body(self, mock_logger):
         """Test dispatch with response without body attribute"""
         app = Mock()
@@ -153,7 +149,7 @@ class TestRequestValidationMiddleware:
         call_next = AsyncMock()
         response = Mock(spec=Response)
         # Response doesn't have body attribute (streaming response)
-        delattr(response, 'body')
+        delattr(response, "body")
         call_next.return_value = response
 
         result = await middleware.dispatch(request, call_next)
@@ -161,7 +157,7 @@ class TestRequestValidationMiddleware:
         assert result == response
 
     @pytest.mark.asyncio
-    @patch('aitbc.middleware.validation.logger')
+    @patch("aitbc.middleware.validation.logger")
     async def test_dispatch_response_within_limit(self, mock_logger):
         """Test dispatch with response within size limit"""
         app = Mock()

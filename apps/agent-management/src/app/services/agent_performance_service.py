@@ -2,6 +2,7 @@
 Advanced Agent Performance Service
 Implements meta-learning, resource optimization, and performance enhancement for hermes agents
 """
+
 import asyncio
 from datetime import UTC, datetime
 from typing import Any
@@ -28,43 +29,74 @@ class MetaLearningEngine:
     """Advanced meta-learning system for rapid skill acquisition"""
 
     def __init__(self) -> None:
-        self.meta_algorithms = {'model_agnostic_meta_learning': self.maml_algorithm, 'reptile': self.reptile_algorithm, 'meta_sgd': self.meta_sgd_algorithm, 'prototypical_networks': self.prototypical_algorithm}
-        self.adaptation_strategies = {'fast_adaptation': self.fast_adaptation, 'gradual_adaptation': self.gradual_adaptation, 'transfer_adaptation': self.transfer_adaptation, 'multi_task_adaptation': self.multi_task_adaptation}
-        self.performance_metrics = [PerformanceMetric.ACCURACY, PerformanceMetric.ADAPTATION_SPEED, PerformanceMetric.GENERALIZATION, PerformanceMetric.RESOURCE_EFFICIENCY]
+        self.meta_algorithms = {
+            "model_agnostic_meta_learning": self.maml_algorithm,
+            "reptile": self.reptile_algorithm,
+            "meta_sgd": self.meta_sgd_algorithm,
+            "prototypical_networks": self.prototypical_algorithm,
+        }
+        self.adaptation_strategies = {
+            "fast_adaptation": self.fast_adaptation,
+            "gradual_adaptation": self.gradual_adaptation,
+            "transfer_adaptation": self.transfer_adaptation,
+            "multi_task_adaptation": self.multi_task_adaptation,
+        }
+        self.performance_metrics = [
+            PerformanceMetric.ACCURACY,
+            PerformanceMetric.ADAPTATION_SPEED,
+            PerformanceMetric.GENERALIZATION,
+            PerformanceMetric.RESOURCE_EFFICIENCY,
+        ]
 
-    async def create_meta_learning_model(self, session: Session, model_name: str, base_algorithms: list[str], meta_strategy: LearningStrategy, adaptation_targets: list[str]) -> MetaLearningModel:
+    async def create_meta_learning_model(
+        self,
+        session: Session,
+        model_name: str,
+        base_algorithms: list[str],
+        meta_strategy: LearningStrategy,
+        adaptation_targets: list[str],
+    ) -> MetaLearningModel:
         """Create a new meta-learning model"""
-        model_id = f'meta_{uuid4().hex[:8]}'
+        model_id = f"meta_{uuid4().hex[:8]}"
         meta_features = self.generate_meta_features(adaptation_targets)
         task_distributions = self.setup_task_distributions(adaptation_targets)
-        model = MetaLearningModel(model_id=model_id, model_name=model_name, base_algorithms=base_algorithms, meta_strategy=meta_strategy, adaptation_targets=adaptation_targets, meta_features=meta_features, task_distributions=task_distributions, status='training')
+        model = MetaLearningModel(
+            model_id=model_id,
+            model_name=model_name,
+            base_algorithms=base_algorithms,
+            meta_strategy=meta_strategy,
+            adaptation_targets=adaptation_targets,
+            meta_features=meta_features,
+            task_distributions=task_distributions,
+            status="training",
+        )
         session.add(model)
         session.commit()
         session.refresh(model)
         asyncio.create_task(self.train_meta_model(session, model_id))
-        logger.info('Created meta-learning model %s with strategy %s', model_id, meta_strategy.value)
+        logger.info("Created meta-learning model %s with strategy %s", model_id, meta_strategy.value)
         return model
 
     async def train_meta_model(self, session: Session, model_id: str) -> dict[str, Any]:
         """Train a meta-learning model"""
         model = session.execute(select(MetaLearningModel).where(MetaLearningModel.model_id == model_id)).first()
         if not model:
-            raise ValueError(f'Meta-learning model {model_id} not found')
+            raise ValueError(f"Meta-learning model {model_id} not found")
         try:
             training_results = await self.simulate_meta_training(model)
-            model.meta_accuracy = training_results['accuracy']
-            model.adaptation_speed = training_results['adaptation_speed']
-            model.generalization_ability = training_results['generalization']
-            model.training_time = training_results['training_time']
-            model.computational_cost = training_results['computational_cost']
-            model.status = 'ready'
+            model.meta_accuracy = training_results["accuracy"]
+            model.adaptation_speed = training_results["adaptation_speed"]
+            model.generalization_ability = training_results["generalization"]
+            model.training_time = training_results["training_time"]
+            model.computational_cost = training_results["computational_cost"]
+            model.status = "ready"
             model.trained_at = datetime.now(UTC)
             session.commit()
-            logger.info('Meta-learning model %s training completed', model_id)
+            logger.info("Meta-learning model %s training completed", model_id)
             return training_results
         except Exception as e:
-            logger.error('Error training meta-model %s: %s', model_id, str(e))
-            model.status = 'failed'
+            logger.error("Error training meta-model %s: %s", model_id, str(e))
+            model.status = "failed"
             session.commit()
             raise
 
@@ -80,22 +112,29 @@ class MetaLearningEngine:
         meta_accuracy = min(1.0, meta_accuracy)
         adaptation_speed = min(1.0, adaptation_speed)
         generalization = min(1.0, generalization)
-        return {'accuracy': meta_accuracy, 'adaptation_speed': adaptation_speed, 'generalization': generalization, 'training_time': training_time, 'computational_cost': computational_cost, 'convergence_epoch': int(training_time * 10)}
+        return {
+            "accuracy": meta_accuracy,
+            "adaptation_speed": adaptation_speed,
+            "generalization": generalization,
+            "training_time": training_time,
+            "computational_cost": computational_cost,
+            "convergence_epoch": int(training_time * 10),
+        }
 
     def generate_meta_features(self, adaptation_targets: list[str]) -> list[str]:
         """Generate meta-features for adaptation targets"""
         meta_features = []
         for target in adaptation_targets:
-            if target == 'text_generation':
-                meta_features.extend(['text_length', 'complexity', 'domain', 'style'])
-            elif target == 'image_generation':
-                meta_features.extend(['resolution', 'style', 'content_type', 'complexity'])
-            elif target == 'reasoning':
-                meta_features.extend(['logic_type', 'complexity', 'domain', 'step_count'])
-            elif target == 'classification':
-                meta_features.extend(['feature_count', 'class_count', 'data_type', 'imbalance'])
+            if target == "text_generation":
+                meta_features.extend(["text_length", "complexity", "domain", "style"])
+            elif target == "image_generation":
+                meta_features.extend(["resolution", "style", "content_type", "complexity"])
+            elif target == "reasoning":
+                meta_features.extend(["logic_type", "complexity", "domain", "step_count"])
+            elif target == "classification":
+                meta_features.extend(["feature_count", "class_count", "data_type", "imbalance"])
             else:
-                meta_features.extend(['complexity', 'domain', 'data_size', 'quality'])
+                meta_features.extend(["complexity", "domain", "data_size", "quality"])
         return list(set(meta_features))
 
     def setup_task_distributions(self, adaptation_targets: list[str]) -> dict[str, float]:
@@ -108,22 +147,26 @@ class MetaLearningEngine:
             distributions[target] = max(0.1, base_weight + variation)
         return distributions
 
-    async def adapt_to_new_task(self, session: Session, model_id: str, task_data: dict[str, Any], adaptation_steps: int=10) -> dict[str, Any]:
+    async def adapt_to_new_task(
+        self, session: Session, model_id: str, task_data: dict[str, Any], adaptation_steps: int = 10
+    ) -> dict[str, Any]:
         """Adapt meta-learning model to new task"""
         model = session.execute(select(MetaLearningModel).where(MetaLearningModel.model_id == model_id)).first()
         if not model:
-            raise ValueError(f'Meta-learning model {model_id} not found')
-        if model.status != 'ready':
-            raise ValueError(f'Model {model_id} is not ready for adaptation')
+            raise ValueError(f"Meta-learning model {model_id} not found")
+        if model.status != "ready":
+            raise ValueError(f"Model {model_id} is not ready for adaptation")
         try:
             adaptation_results = await self.simulate_adaptation(model, task_data, adaptation_steps)
             model.deployment_count += 1
-            model.success_rate = (model.success_rate * (model.deployment_count - 1) + adaptation_results['success']) / model.deployment_count
+            model.success_rate = (
+                model.success_rate * (model.deployment_count - 1) + adaptation_results["success"]
+            ) / model.deployment_count
             session.commit()
-            logger.info('Model %s adapted to new task with success rate %s', model_id, adaptation_results['success'])
+            logger.info("Model %s adapted to new task with success rate %s", model_id, adaptation_results["success"])
             return adaptation_results
         except Exception as e:
-            logger.error('Error adapting model %s: %s', model_id, str(e))
+            logger.error("Error adapting model %s: %s", model_id, str(e))
             raise
 
     async def simulate_adaptation(self, model: MetaLearningModel, task_data: dict[str, Any], steps: int) -> dict[str, Any]:
@@ -132,91 +175,157 @@ class MetaLearningEngine:
         task_similarity = 0.8
         adaptation_success = base_success * task_similarity * (1.0 - 0.1 / steps)
         adaptation_time = steps * 0.1
-        return {'success': adaptation_success, 'adaptation_time': adaptation_time, 'steps_used': steps, 'final_performance': adaptation_success * 0.9, 'convergence_achieved': adaptation_success > 0.7}
+        return {
+            "success": adaptation_success,
+            "adaptation_time": adaptation_time,
+            "steps_used": steps,
+            "final_performance": adaptation_success * 0.9,
+            "convergence_achieved": adaptation_success > 0.7,
+        }
 
     def maml_algorithm(self, task_data: dict[str, Any]) -> dict[str, Any]:
         """Model-Agnostic Meta-Learning algorithm"""
-        return {'algorithm': 'MAML', 'inner_learning_rate': 0.01, 'outer_learning_rate': 0.001, 'inner_steps': 5, 'meta_batch_size': 32}
+        return {
+            "algorithm": "MAML",
+            "inner_learning_rate": 0.01,
+            "outer_learning_rate": 0.001,
+            "inner_steps": 5,
+            "meta_batch_size": 32,
+        }
 
     def reptile_algorithm(self, task_data: dict[str, Any]) -> dict[str, Any]:
         """Reptile algorithm implementation"""
-        return {'algorithm': 'Reptile', 'inner_learning_rate': 0.1, 'meta_batch_size': 20, 'inner_steps': 1, 'epsilon': 1.0}
+        return {"algorithm": "Reptile", "inner_learning_rate": 0.1, "meta_batch_size": 20, "inner_steps": 1, "epsilon": 1.0}
 
     def meta_sgd_algorithm(self, task_data: dict[str, Any]) -> dict[str, Any]:
         """Meta-SGD algorithm implementation"""
-        return {'algorithm': 'Meta-SGD', 'learning_rate': 0.01, 'momentum': 0.9, 'weight_decay': 0.0001}
+        return {"algorithm": "Meta-SGD", "learning_rate": 0.01, "momentum": 0.9, "weight_decay": 0.0001}
 
     def prototypical_algorithm(self, task_data: dict[str, Any]) -> dict[str, Any]:
         """Prototypical Networks algorithm"""
-        return {'algorithm': 'Prototypical', 'embedding_size': 128, 'distance_metric': 'euclidean', 'support_shots': 5, 'query_shots': 10}
+        return {
+            "algorithm": "Prototypical",
+            "embedding_size": 128,
+            "distance_metric": "euclidean",
+            "support_shots": 5,
+            "query_shots": 10,
+        }
 
     def fast_adaptation(self, model: MetaLearningModel, task_data: dict[str, Any]) -> dict[str, Any]:
         """Fast adaptation strategy"""
-        return {'strategy': 'fast_adaptation', 'learning_rate': 0.01, 'steps': 5, 'adaptation_speed': 0.9}
+        return {"strategy": "fast_adaptation", "learning_rate": 0.01, "steps": 5, "adaptation_speed": 0.9}
 
     def gradual_adaptation(self, model: MetaLearningModel, task_data: dict[str, Any]) -> dict[str, Any]:
         """Gradual adaptation strategy"""
-        return {'strategy': 'gradual_adaptation', 'learning_rate': 0.005, 'steps': 20, 'adaptation_speed': 0.7}
+        return {"strategy": "gradual_adaptation", "learning_rate": 0.005, "steps": 20, "adaptation_speed": 0.7}
 
     def transfer_adaptation(self, model: MetaLearningModel, task_data: dict[str, Any]) -> dict[str, Any]:
         """Transfer learning adaptation"""
-        return {'strategy': 'transfer_adaptation', 'source_tasks': model.adaptation_targets, 'transfer_rate': 0.8, 'fine_tuning_steps': 10}
+        return {
+            "strategy": "transfer_adaptation",
+            "source_tasks": model.adaptation_targets,
+            "transfer_rate": 0.8,
+            "fine_tuning_steps": 10,
+        }
 
     def multi_task_adaptation(self, model: MetaLearningModel, task_data: dict[str, Any]) -> dict[str, Any]:
         """Multi-task adaptation"""
-        return {'strategy': 'multi_task_adaptation', 'task_weights': model.task_distributions, 'shared_layers': 3, 'task_specific_layers': 2}
+        return {
+            "strategy": "multi_task_adaptation",
+            "task_weights": model.task_distributions,
+            "shared_layers": 3,
+            "task_specific_layers": 2,
+        }
+
 
 class ResourceManager:
     """Self-optimizing resource management system"""
 
     def __init__(self) -> None:
-        self.optimization_algorithms = {'genetic_algorithm': self.genetic_optimization, 'simulated_annealing': self.simulated_annealing, 'gradient_descent': self.gradient_optimization, 'bayesian_optimization': self.bayesian_optimization}
-        self.resource_constraints = {ResourceType.CPU: {'min': 0.5, 'max': 16.0, 'step': 0.5}, ResourceType.MEMORY: {'min': 1.0, 'max': 64.0, 'step': 1.0}, ResourceType.GPU: {'min': 0.0, 'max': 8.0, 'step': 1.0}, ResourceType.STORAGE: {'min': 10.0, 'max': 1000.0, 'step': 10.0}, ResourceType.NETWORK: {'min': 10.0, 'max': 1000.0, 'step': 10.0}}
+        self.optimization_algorithms = {
+            "genetic_algorithm": self.genetic_optimization,
+            "simulated_annealing": self.simulated_annealing,
+            "gradient_descent": self.gradient_optimization,
+            "bayesian_optimization": self.bayesian_optimization,
+        }
+        self.resource_constraints = {
+            ResourceType.CPU: {"min": 0.5, "max": 16.0, "step": 0.5},
+            ResourceType.MEMORY: {"min": 1.0, "max": 64.0, "step": 1.0},
+            ResourceType.GPU: {"min": 0.0, "max": 8.0, "step": 1.0},
+            ResourceType.STORAGE: {"min": 10.0, "max": 1000.0, "step": 10.0},
+            ResourceType.NETWORK: {"min": 10.0, "max": 1000.0, "step": 10.0},
+        }
 
-    async def allocate_resources(self, session: Session, agent_id: str, task_requirements: dict[str, Any], optimization_target: OptimizationTarget=OptimizationTarget.EFFICIENCY) -> ResourceAllocation:
+    async def allocate_resources(
+        self,
+        session: Session,
+        agent_id: str,
+        task_requirements: dict[str, Any],
+        optimization_target: OptimizationTarget = OptimizationTarget.EFFICIENCY,
+    ) -> ResourceAllocation:
         """Allocate and optimize resources for agent task"""
-        allocation_id = f'alloc_{uuid4().hex[:8]}'
+        allocation_id = f"alloc_{uuid4().hex[:8]}"
         initial_allocation = self.calculate_initial_allocation(task_requirements)
         optimized_allocation = await self.optimize_allocation(initial_allocation, task_requirements, optimization_target)
-        allocation = ResourceAllocation(allocation_id=allocation_id, agent_id=agent_id, cpu_cores=optimized_allocation[ResourceType.CPU], memory_gb=optimized_allocation[ResourceType.MEMORY], gpu_count=optimized_allocation[ResourceType.GPU], gpu_memory_gb=optimized_allocation.get('gpu_memory', 0.0), storage_gb=optimized_allocation[ResourceType.STORAGE], network_bandwidth=optimized_allocation[ResourceType.NETWORK], optimization_target=optimization_target, status='allocated', allocated_at=datetime.now(UTC))
+        allocation = ResourceAllocation(
+            allocation_id=allocation_id,
+            agent_id=agent_id,
+            cpu_cores=optimized_allocation[ResourceType.CPU],
+            memory_gb=optimized_allocation[ResourceType.MEMORY],
+            gpu_count=optimized_allocation[ResourceType.GPU],
+            gpu_memory_gb=optimized_allocation.get("gpu_memory", 0.0),
+            storage_gb=optimized_allocation[ResourceType.STORAGE],
+            network_bandwidth=optimized_allocation[ResourceType.NETWORK],
+            optimization_target=optimization_target,
+            status="allocated",
+            allocated_at=datetime.now(UTC),
+        )
         session.add(allocation)
         session.commit()
         session.refresh(allocation)
-        logger.info('Allocated resources for agent %s with target %s', agent_id, optimization_target.value)
+        logger.info("Allocated resources for agent %s with target %s", agent_id, optimization_target.value)
         return allocation
 
     def calculate_initial_allocation(self, task_requirements: dict[str, Any]) -> dict[ResourceType, float]:
         """Calculate initial resource allocation based on task requirements"""
-        allocation = {ResourceType.CPU: 2.0, ResourceType.MEMORY: 4.0, ResourceType.GPU: 0.0, ResourceType.STORAGE: 50.0, ResourceType.NETWORK: 100.0}
-        task_type = task_requirements.get('task_type', 'general')
-        if task_type == 'inference':
+        allocation = {
+            ResourceType.CPU: 2.0,
+            ResourceType.MEMORY: 4.0,
+            ResourceType.GPU: 0.0,
+            ResourceType.STORAGE: 50.0,
+            ResourceType.NETWORK: 100.0,
+        }
+        task_type = task_requirements.get("task_type", "general")
+        if task_type == "inference":
             allocation[ResourceType.CPU] = 4.0
             allocation[ResourceType.MEMORY] = 8.0
-            allocation[ResourceType.GPU] = 1.0 if task_requirements.get('model_size') == 'large' else 0.0
+            allocation[ResourceType.GPU] = 1.0 if task_requirements.get("model_size") == "large" else 0.0
             allocation[ResourceType.NETWORK] = 200.0
-        elif task_type == 'training':
+        elif task_type == "training":
             allocation[ResourceType.CPU] = 8.0
             allocation[ResourceType.MEMORY] = 16.0
             allocation[ResourceType.GPU] = 2.0
             allocation[ResourceType.STORAGE] = 200.0
             allocation[ResourceType.NETWORK] = 500.0
-        elif task_type == 'text_generation':
+        elif task_type == "text_generation":
             allocation[ResourceType.CPU] = 2.0
             allocation[ResourceType.MEMORY] = 6.0
             allocation[ResourceType.GPU] = 0.0
             allocation[ResourceType.NETWORK] = 50.0
-        elif task_type == 'image_generation':
+        elif task_type == "image_generation":
             allocation[ResourceType.CPU] = 4.0
             allocation[ResourceType.MEMORY] = 12.0
             allocation[ResourceType.GPU] = 1.0
             allocation[ResourceType.STORAGE] = 100.0
             allocation[ResourceType.NETWORK] = 100.0
-        workload_factor = task_requirements.get('workload_factor', 1.0)
+        workload_factor = task_requirements.get("workload_factor", 1.0)
         for resource_type in allocation:
             allocation[resource_type] *= workload_factor
         return allocation
 
-    async def optimize_allocation(self, initial_allocation: dict[ResourceType, float], task_requirements: dict[str, Any], target: OptimizationTarget) -> dict[ResourceType, float]:
+    async def optimize_allocation(
+        self, initial_allocation: dict[ResourceType, float], task_requirements: dict[str, Any], target: OptimizationTarget
+    ) -> dict[ResourceType, float]:
         """Optimize resource allocation based on target"""
         if target == OptimizationTarget.SPEED:
             return await self.optimize_for_speed(initial_allocation, task_requirements)
@@ -229,98 +338,159 @@ class ResourceManager:
         else:
             return initial_allocation
 
-    async def optimize_for_speed(self, allocation: dict[ResourceType, float], task_requirements: dict[str, Any]) -> dict[ResourceType, float]:
+    async def optimize_for_speed(
+        self, allocation: dict[ResourceType, float], task_requirements: dict[str, Any]
+    ) -> dict[ResourceType, float]:
         """Optimize allocation for speed"""
         optimized = allocation.copy()
-        optimized[ResourceType.CPU] = min(self.resource_constraints[ResourceType.CPU]['max'], optimized[ResourceType.CPU] * 1.5)
-        optimized[ResourceType.MEMORY] = min(self.resource_constraints[ResourceType.MEMORY]['max'], optimized[ResourceType.MEMORY] * 1.3)
-        if task_requirements.get('task_type') in ['inference', 'image_generation']:
-            optimized[ResourceType.GPU] = min(self.resource_constraints[ResourceType.GPU]['max'], max(optimized[ResourceType.GPU], 1.0))
+        optimized[ResourceType.CPU] = min(
+            self.resource_constraints[ResourceType.CPU]["max"], optimized[ResourceType.CPU] * 1.5
+        )
+        optimized[ResourceType.MEMORY] = min(
+            self.resource_constraints[ResourceType.MEMORY]["max"], optimized[ResourceType.MEMORY] * 1.3
+        )
+        if task_requirements.get("task_type") in ["inference", "image_generation"]:
+            optimized[ResourceType.GPU] = min(
+                self.resource_constraints[ResourceType.GPU]["max"], max(optimized[ResourceType.GPU], 1.0)
+            )
         return optimized
 
-    async def optimize_for_accuracy(self, allocation: dict[ResourceType, float], task_requirements: dict[str, Any]) -> dict[ResourceType, float]:
+    async def optimize_for_accuracy(
+        self, allocation: dict[ResourceType, float], task_requirements: dict[str, Any]
+    ) -> dict[ResourceType, float]:
         """Optimize allocation for accuracy"""
         optimized = allocation.copy()
-        optimized[ResourceType.MEMORY] = min(self.resource_constraints[ResourceType.MEMORY]['max'], optimized[ResourceType.MEMORY] * 2.0)
-        if task_requirements.get('task_type') in ['training', 'inference']:
-            optimized[ResourceType.GPU] = min(self.resource_constraints[ResourceType.GPU]['max'], max(optimized[ResourceType.GPU], 2.0))
+        optimized[ResourceType.MEMORY] = min(
+            self.resource_constraints[ResourceType.MEMORY]["max"], optimized[ResourceType.MEMORY] * 2.0
+        )
+        if task_requirements.get("task_type") in ["training", "inference"]:
+            optimized[ResourceType.GPU] = min(
+                self.resource_constraints[ResourceType.GPU]["max"], max(optimized[ResourceType.GPU], 2.0)
+            )
             optimized[ResourceType.GPU_MEMORY_GB] = optimized[ResourceType.GPU] * 8.0
         return optimized
 
-    async def optimize_for_efficiency(self, allocation: dict[ResourceType, float], task_requirements: dict[str, Any]) -> dict[ResourceType, float]:
+    async def optimize_for_efficiency(
+        self, allocation: dict[ResourceType, float], task_requirements: dict[str, Any]
+    ) -> dict[ResourceType, float]:
         """Optimize allocation for efficiency"""
         optimized = allocation.copy()
-        task_type = task_requirements.get('task_type', 'general')
-        if task_type == 'text_generation':
-            optimized[ResourceType.CPU] = max(self.resource_constraints[ResourceType.CPU]['min'], optimized[ResourceType.CPU] * 0.8)
+        task_type = task_requirements.get("task_type", "general")
+        if task_type == "text_generation":
+            optimized[ResourceType.CPU] = max(
+                self.resource_constraints[ResourceType.CPU]["min"], optimized[ResourceType.CPU] * 0.8
+            )
             optimized[ResourceType.GPU] = 0.0
-        elif task_type == 'inference':
-            optimized[ResourceType.GPU] = min(self.resource_constraints[ResourceType.GPU]['max'], max(0.5, optimized[ResourceType.GPU] * 0.7))
+        elif task_type == "inference":
+            optimized[ResourceType.GPU] = min(
+                self.resource_constraints[ResourceType.GPU]["max"], max(0.5, optimized[ResourceType.GPU] * 0.7)
+            )
         return optimized
 
-    async def optimize_for_cost(self, allocation: dict[ResourceType, float], task_requirements: dict[str, Any]) -> dict[ResourceType, float]:
+    async def optimize_for_cost(
+        self, allocation: dict[ResourceType, float], task_requirements: dict[str, Any]
+    ) -> dict[ResourceType, float]:
         """Optimize allocation for cost"""
         optimized = allocation.copy()
         optimized[ResourceType.GPU] = 0.0
-        optimized[ResourceType.CPU] = max(self.resource_constraints[ResourceType.CPU]['min'], optimized[ResourceType.CPU] * 0.5)
-        optimized[ResourceType.MEMORY] = max(self.resource_constraints[ResourceType.MEMORY]['min'], optimized[ResourceType.MEMORY] * 0.7)
+        optimized[ResourceType.CPU] = max(
+            self.resource_constraints[ResourceType.CPU]["min"], optimized[ResourceType.CPU] * 0.5
+        )
+        optimized[ResourceType.MEMORY] = max(
+            self.resource_constraints[ResourceType.MEMORY]["min"], optimized[ResourceType.MEMORY] * 0.7
+        )
         return optimized
 
     def genetic_optimization(self, allocation: dict[ResourceType, float]) -> dict[str, Any]:
         """Genetic algorithm for resource optimization"""
-        return {'algorithm': 'genetic_algorithm', 'population_size': 50, 'generations': 100, 'mutation_rate': 0.1, 'crossover_rate': 0.8}
+        return {
+            "algorithm": "genetic_algorithm",
+            "population_size": 50,
+            "generations": 100,
+            "mutation_rate": 0.1,
+            "crossover_rate": 0.8,
+        }
 
     def simulated_annealing(self, allocation: dict[ResourceType, float]) -> dict[str, Any]:
         """Simulated annealing optimization"""
-        return {'algorithm': 'simulated_annealing', 'initial_temperature': 100.0, 'cooling_rate': 0.95, 'iterations': 1000}
+        return {"algorithm": "simulated_annealing", "initial_temperature": 100.0, "cooling_rate": 0.95, "iterations": 1000}
 
     def gradient_optimization(self, allocation: dict[ResourceType, float]) -> dict[str, Any]:
         """Gradient descent optimization"""
-        return {'algorithm': 'gradient_descent', 'learning_rate': 0.01, 'iterations': 500, 'momentum': 0.9}
+        return {"algorithm": "gradient_descent", "learning_rate": 0.01, "iterations": 500, "momentum": 0.9}
 
     def bayesian_optimization(self, allocation: dict[ResourceType, float]) -> dict[str, Any]:
         """Bayesian optimization"""
-        return {'algorithm': 'bayesian_optimization', 'acquisition_function': 'expected_improvement', 'iterations': 50, 'exploration_weight': 0.1}
+        return {
+            "algorithm": "bayesian_optimization",
+            "acquisition_function": "expected_improvement",
+            "iterations": 50,
+            "exploration_weight": 0.1,
+        }
+
 
 class PerformanceOptimizer:
     """Advanced performance optimization system"""
 
     def __init__(self) -> None:
-        self.optimization_techniques = {'hyperparameter_tuning': self.tune_hyperparameters, 'architecture_optimization': self.optimize_architecture, 'algorithm_selection': self.select_algorithm, 'data_optimization': self.optimize_data_pipeline}
-        self.performance_targets = {PerformanceMetric.ACCURACY: {'weight': 0.3, 'target': 0.95}, PerformanceMetric.LATENCY: {'weight': 0.25, 'target': 100.0}, PerformanceMetric.THROUGHPUT: {'weight': 0.2, 'target': 100.0}, PerformanceMetric.RESOURCE_EFFICIENCY: {'weight': 0.15, 'target': 0.8}, PerformanceMetric.COST_EFFICIENCY: {'weight': 0.1, 'target': 0.9}}
+        self.optimization_techniques = {
+            "hyperparameter_tuning": self.tune_hyperparameters,
+            "architecture_optimization": self.optimize_architecture,
+            "algorithm_selection": self.select_algorithm,
+            "data_optimization": self.optimize_data_pipeline,
+        }
+        self.performance_targets = {
+            PerformanceMetric.ACCURACY: {"weight": 0.3, "target": 0.95},
+            PerformanceMetric.LATENCY: {"weight": 0.25, "target": 100.0},
+            PerformanceMetric.THROUGHPUT: {"weight": 0.2, "target": 100.0},
+            PerformanceMetric.RESOURCE_EFFICIENCY: {"weight": 0.15, "target": 0.8},
+            PerformanceMetric.COST_EFFICIENCY: {"weight": 0.1, "target": 0.9},
+        }
 
-    async def optimize_agent_performance(self, session: Session, agent_id: str, target_metric: PerformanceMetric, current_performance: dict[str, float]) -> PerformanceOptimization:
+    async def optimize_agent_performance(
+        self, session: Session, agent_id: str, target_metric: PerformanceMetric, current_performance: dict[str, float]
+    ) -> PerformanceOptimization:
         """Optimize agent performance for specific metric"""
-        optimization_id = f'opt_{uuid4().hex[:8]}'
-        optimization = PerformanceOptimization(optimization_id=optimization_id, agent_id=agent_id, optimization_type='comprehensive', target_metric=target_metric, baseline_performance=current_performance, baseline_cost=self.calculate_cost(current_performance), status='running')
+        optimization_id = f"opt_{uuid4().hex[:8]}"
+        optimization = PerformanceOptimization(
+            optimization_id=optimization_id,
+            agent_id=agent_id,
+            optimization_type="comprehensive",
+            target_metric=target_metric,
+            baseline_performance=current_performance,
+            baseline_cost=self.calculate_cost(current_performance),
+            status="running",
+        )
         session.add(optimization)
         session.commit()
         session.refresh(optimization)
         try:
             optimization_results = await self.run_optimization_process(agent_id, target_metric, current_performance)
-            optimization.optimized_performance = optimization_results['performance']
-            optimization.optimized_resources = optimization_results['resources']
-            optimization.optimized_cost = optimization_results['cost']
-            optimization.performance_improvement = optimization_results['improvement']
-            optimization.resource_savings = optimization_results['savings']
-            optimization.cost_savings = optimization_results['cost_savings']
-            optimization.overall_efficiency_gain = optimization_results['efficiency_gain']
-            optimization.optimization_duration = optimization_results['duration']
-            optimization.iterations_required = optimization_results['iterations']
-            optimization.convergence_achieved = optimization_results['converged']
+            optimization.optimized_performance = optimization_results["performance"]
+            optimization.optimized_resources = optimization_results["resources"]
+            optimization.optimized_cost = optimization_results["cost"]
+            optimization.performance_improvement = optimization_results["improvement"]
+            optimization.resource_savings = optimization_results["savings"]
+            optimization.cost_savings = optimization_results["cost_savings"]
+            optimization.overall_efficiency_gain = optimization_results["efficiency_gain"]
+            optimization.optimization_duration = optimization_results["duration"]
+            optimization.iterations_required = optimization_results["iterations"]
+            optimization.convergence_achieved = optimization_results["converged"]
             optimization.optimization_applied = True
-            optimization.status = 'completed'
+            optimization.status = "completed"
             optimization.completed_at = datetime.now(UTC)
             session.commit()
-            logger.info('Performance optimization %s completed for agent %s', optimization_id, agent_id)
+            logger.info("Performance optimization %s completed for agent %s", optimization_id, agent_id)
             return optimization
         except Exception as e:
-            logger.error('Error optimizing performance for agent %s: %s', agent_id, str(e))
-            optimization.status = 'failed'
+            logger.error("Error optimizing performance for agent %s: %s", agent_id, str(e))
+            optimization.status = "failed"
             session.commit()
             raise
 
-    async def run_optimization_process(self, agent_id: str, target_metric: PerformanceMetric, current_performance: dict[str, float]) -> dict[str, Any]:
+    async def run_optimization_process(
+        self, agent_id: str, target_metric: PerformanceMetric, current_performance: dict[str, float]
+    ) -> dict[str, Any]:
         """Run comprehensive optimization process"""
         start_time = datetime.now(UTC)
         analysis_results = self.analyze_current_performance(current_performance, target_metric)
@@ -330,31 +500,52 @@ class PerformanceOptimizer:
         improvements = self.calculate_improvements(current_performance, applied_performance)
         end_time = datetime.now(UTC)
         duration = (end_time - start_time).total_seconds()
-        return {'performance': applied_performance, 'resources': best_candidate.get('resources', {}), 'cost': self.calculate_cost(applied_performance), 'improvement': improvements['overall'], 'savings': improvements['resource'], 'cost_savings': improvements['cost'], 'efficiency_gain': improvements['efficiency'], 'duration': duration, 'iterations': len(candidates), 'converged': improvements['overall'] > 0.05}
+        return {
+            "performance": applied_performance,
+            "resources": best_candidate.get("resources", {}),
+            "cost": self.calculate_cost(applied_performance),
+            "improvement": improvements["overall"],
+            "savings": improvements["resource"],
+            "cost_savings": improvements["cost"],
+            "efficiency_gain": improvements["efficiency"],
+            "duration": duration,
+            "iterations": len(candidates),
+            "converged": improvements["overall"] > 0.05,
+        }
 
-    def analyze_current_performance(self, current_performance: dict[str, float], target_metric: PerformanceMetric) -> dict[str, Any]:
+    def analyze_current_performance(
+        self, current_performance: dict[str, float], target_metric: PerformanceMetric
+    ) -> dict[str, Any]:
         """Analyze current performance to identify bottlenecks"""
-        analysis: dict[str, Any] = {'current_value': current_performance.get(target_metric.value, 0.0), 'target_value': self.performance_targets[target_metric]['target'], 'gap': 0.0, 'bottlenecks': [], 'improvement_potential': 0.0}
-        current_value = analysis['current_value']
-        target_value = analysis['target_value']
+        analysis: dict[str, Any] = {
+            "current_value": current_performance.get(target_metric.value, 0.0),
+            "target_value": self.performance_targets[target_metric]["target"],
+            "gap": 0.0,
+            "bottlenecks": [],
+            "improvement_potential": 0.0,
+        }
+        current_value = analysis["current_value"]
+        target_value = analysis["target_value"]
         if target_metric == PerformanceMetric.ACCURACY:
-            analysis['gap'] = target_value - current_value
-            analysis['improvement_potential'] = min(1.0, analysis['gap'] / target_value)
+            analysis["gap"] = target_value - current_value
+            analysis["improvement_potential"] = min(1.0, analysis["gap"] / target_value)
         elif target_metric == PerformanceMetric.LATENCY:
-            analysis['gap'] = current_value - target_value
-            analysis['improvement_potential'] = min(1.0, analysis['gap'] / current_value)
+            analysis["gap"] = current_value - target_value
+            analysis["improvement_potential"] = min(1.0, analysis["gap"] / current_value)
         else:
-            analysis['gap'] = target_value - current_value
-            analysis['improvement_potential'] = min(1.0, analysis['gap'] / target_value)
-        if current_performance.get('cpu_utilization', 0) > 0.9:
-            analysis['bottlenecks'].append('cpu')
-        if current_performance.get('memory_utilization', 0) > 0.9:
-            analysis['bottlenecks'].append('memory')
-        if current_performance.get('gpu_utilization', 0) > 0.9:
-            analysis['bottlenecks'].append('gpu')
+            analysis["gap"] = target_value - current_value
+            analysis["improvement_potential"] = min(1.0, analysis["gap"] / target_value)
+        if current_performance.get("cpu_utilization", 0) > 0.9:
+            analysis["bottlenecks"].append("cpu")
+        if current_performance.get("memory_utilization", 0) > 0.9:
+            analysis["bottlenecks"].append("memory")
+        if current_performance.get("gpu_utilization", 0) > 0.9:
+            analysis["bottlenecks"].append("gpu")
         return analysis
 
-    async def generate_optimization_candidates(self, target_metric: PerformanceMetric, analysis: dict[str, Any]) -> list[dict[str, Any]]:
+    async def generate_optimization_candidates(
+        self, target_metric: PerformanceMetric, analysis: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """Generate optimization candidates"""
         candidates = []
         hp_candidate = await self.tune_hyperparameters(target_metric, analysis)
@@ -372,9 +563,9 @@ class PerformanceOptimizer:
         best_candidate = None
         best_score = 0.0
         for candidate in candidates:
-            expected_improvement = candidate.get('expected_improvement', 0.0)
-            resource_cost = candidate.get('resource_cost', 1.0)
-            implementation_complexity = candidate.get('complexity', 0.5)
+            expected_improvement = candidate.get("expected_improvement", 0.0)
+            resource_cost = candidate.get("resource_cost", 1.0)
+            implementation_complexity = candidate.get("complexity", 0.5)
             score = expected_improvement * 0.6 - resource_cost * 0.2 - implementation_complexity * 0.2
             if score > best_score:
                 best_score = score
@@ -383,11 +574,11 @@ class PerformanceOptimizer:
 
     async def apply_optimization(self, candidate: dict[str, Any]) -> dict[str, float]:
         """Apply optimization and return expected performance"""
-        base_performance = candidate.get('base_performance', {})
-        improvement_factor = candidate.get('expected_improvement', 0.0)
+        base_performance = candidate.get("base_performance", {})
+        improvement_factor = candidate.get("expected_improvement", 0.0)
         applied_performance = {}
         for metric, value in base_performance.items():
-            if metric == candidate.get('target_metric'):
+            if metric == candidate.get("target_metric"):
                 applied_performance[metric] = value * (1.0 + improvement_factor)
             else:
                 applied_performance[metric] = value * (1.0 + improvement_factor * 0.1)
@@ -395,42 +586,73 @@ class PerformanceOptimizer:
 
     def calculate_improvements(self, baseline: dict[str, float], optimized: dict[str, float]) -> dict[str, float]:
         """Calculate performance improvements"""
-        improvements = {'overall': 0.0, 'resource': 0.0, 'cost': 0.0, 'efficiency': 0.0}
+        improvements = {"overall": 0.0, "resource": 0.0, "cost": 0.0, "efficiency": 0.0}
         baseline_total = sum(baseline.values())
         optimized_total = sum(optimized.values())
-        improvements['overall'] = (optimized_total - baseline_total) / baseline_total if baseline_total > 0 else 0.0
-        baseline_resources = baseline.get('cpu_cores', 1.0) + baseline.get('memory_gb', 2.0)
-        optimized_resources = optimized.get('cpu_cores', 1.0) + optimized.get('memory_gb', 2.0)
-        improvements['resource'] = (baseline_resources - optimized_resources) / baseline_resources if baseline_resources > 0 else 0.0
+        improvements["overall"] = (optimized_total - baseline_total) / baseline_total if baseline_total > 0 else 0.0
+        baseline_resources = baseline.get("cpu_cores", 1.0) + baseline.get("memory_gb", 2.0)
+        optimized_resources = optimized.get("cpu_cores", 1.0) + optimized.get("memory_gb", 2.0)
+        improvements["resource"] = (
+            (baseline_resources - optimized_resources) / baseline_resources if baseline_resources > 0 else 0.0
+        )
         baseline_cost = self.calculate_cost(baseline)
         optimized_cost = self.calculate_cost(optimized)
-        improvements['cost'] = (baseline_cost - optimized_cost) / baseline_cost if baseline_cost > 0 else 0.0
-        improvements['efficiency'] = improvements['overall'] + improvements['resource'] + improvements['cost']
+        improvements["cost"] = (baseline_cost - optimized_cost) / baseline_cost if baseline_cost > 0 else 0.0
+        improvements["efficiency"] = improvements["overall"] + improvements["resource"] + improvements["cost"]
         return improvements
 
     def calculate_cost(self, performance: dict[str, float]) -> float:
         """Calculate cost based on resource usage"""
-        cpu_cost = performance.get('cpu_cores', 1.0) * 10.0
-        memory_cost = performance.get('memory_gb', 2.0) * 2.0
-        gpu_cost = performance.get('gpu_count', 0.0) * 100.0
-        storage_cost = performance.get('storage_gb', 50.0) * 0.1
+        cpu_cost = performance.get("cpu_cores", 1.0) * 10.0
+        memory_cost = performance.get("memory_gb", 2.0) * 2.0
+        gpu_cost = performance.get("gpu_count", 0.0) * 100.0
+        storage_cost = performance.get("storage_gb", 50.0) * 0.1
         return cpu_cost + memory_cost + gpu_cost + storage_cost
 
     async def tune_hyperparameters(self, target_metric: PerformanceMetric, analysis: dict[str, Any]) -> dict[str, Any]:
         """Tune hyperparameters for performance optimization"""
-        return {'technique': 'hyperparameter_tuning', 'target_metric': target_metric.value, 'parameters': {'learning_rate': 0.001, 'batch_size': 64, 'dropout_rate': 0.1, 'weight_decay': 0.0001}, 'expected_improvement': 0.15, 'resource_cost': 0.1, 'complexity': 0.3}
+        return {
+            "technique": "hyperparameter_tuning",
+            "target_metric": target_metric.value,
+            "parameters": {"learning_rate": 0.001, "batch_size": 64, "dropout_rate": 0.1, "weight_decay": 0.0001},
+            "expected_improvement": 0.15,
+            "resource_cost": 0.1,
+            "complexity": 0.3,
+        }
 
     async def optimize_architecture(self, target_metric: PerformanceMetric, analysis: dict[str, Any]) -> dict[str, Any]:
         """Optimize model architecture"""
-        return {'technique': 'architecture_optimization', 'target_metric': target_metric.value, 'architecture': {'layers': [256, 128, 64], 'activations': ['relu', 'relu', 'tanh'], 'normalization': 'batch_norm'}, 'expected_improvement': 0.25, 'resource_cost': 0.2, 'complexity': 0.7}
+        return {
+            "technique": "architecture_optimization",
+            "target_metric": target_metric.value,
+            "architecture": {"layers": [256, 128, 64], "activations": ["relu", "relu", "tanh"], "normalization": "batch_norm"},
+            "expected_improvement": 0.25,
+            "resource_cost": 0.2,
+            "complexity": 0.7,
+        }
 
     async def select_algorithm(self, target_metric: PerformanceMetric, analysis: dict[str, Any]) -> dict[str, Any]:
         """Select optimal algorithm"""
-        return {'technique': 'algorithm_selection', 'target_metric': target_metric.value, 'algorithm': 'transformer', 'expected_improvement': 0.2, 'resource_cost': 0.3, 'complexity': 0.5}
+        return {
+            "technique": "algorithm_selection",
+            "target_metric": target_metric.value,
+            "algorithm": "transformer",
+            "expected_improvement": 0.2,
+            "resource_cost": 0.3,
+            "complexity": 0.5,
+        }
 
     async def optimize_data_pipeline(self, target_metric: PerformanceMetric, analysis: dict[str, Any]) -> dict[str, Any]:
         """Optimize data processing pipeline"""
-        return {'technique': 'data_optimization', 'target_metric': target_metric.value, 'optimizations': {'data_augmentation': True, 'batch_normalization': True, 'early_stopping': True}, 'expected_improvement': 0.1, 'resource_cost': 0.05, 'complexity': 0.2}
+        return {
+            "technique": "data_optimization",
+            "target_metric": target_metric.value,
+            "optimizations": {"data_augmentation": True, "batch_normalization": True, "early_stopping": True},
+            "expected_improvement": 0.1,
+            "resource_cost": 0.05,
+            "complexity": 0.2,
+        }
+
 
 class AgentPerformanceService:
     """Main service for advanced agent performance management"""
@@ -441,24 +663,41 @@ class AgentPerformanceService:
         self.resource_manager = ResourceManager()
         self.performance_optimizer = PerformanceOptimizer()
 
-    async def create_performance_profile(self, agent_id: str, agent_type: str='hermes', initial_metrics: dict[str, float] | None=None) -> AgentPerformanceProfile:
+    async def create_performance_profile(
+        self, agent_id: str, agent_type: str = "hermes", initial_metrics: dict[str, float] | None = None
+    ) -> AgentPerformanceProfile:
         """Create comprehensive agent performance profile"""
-        profile_id = f'perf_{uuid4().hex[:8]}'
-        profile = AgentPerformanceProfile(profile_id=profile_id, agent_id=agent_id, agent_type=agent_type, performance_metrics=initial_metrics or {}, learning_strategies=['meta_learning', 'transfer_learning'], specialization_areas=['general'], expertise_levels={}, performance_history=[], benchmark_scores={}, created_at=datetime.now(UTC))
+        profile_id = f"perf_{uuid4().hex[:8]}"
+        profile = AgentPerformanceProfile(
+            profile_id=profile_id,
+            agent_id=agent_id,
+            agent_type=agent_type,
+            performance_metrics=initial_metrics or {},
+            learning_strategies=["meta_learning", "transfer_learning"],
+            specialization_areas=["general"],
+            expertise_levels={},
+            performance_history=[],
+            benchmark_scores={},
+            created_at=datetime.now(UTC),
+        )
         self.session.add(profile)
         self.session.commit()
         self.session.refresh(profile)
-        logger.info('Created performance profile %s for agent %s', profile_id, agent_id)
+        logger.info("Created performance profile %s for agent %s", profile_id, agent_id)
         return profile
 
-    async def update_performance_metrics(self, agent_id: str, new_metrics: dict[str, float], task_context: dict[str, Any] | None=None) -> AgentPerformanceProfile:
+    async def update_performance_metrics(
+        self, agent_id: str, new_metrics: dict[str, float], task_context: dict[str, Any] | None = None
+    ) -> AgentPerformanceProfile:
         """Update agent performance metrics"""
-        profile = self.session.execute(select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)).first()
+        profile = self.session.execute(
+            select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
+        ).first()
         if not profile:
-            profile = await self.create_performance_profile(agent_id, 'hermes', new_metrics)
+            profile = await self.create_performance_profile(agent_id, "hermes", new_metrics)
         else:
             profile.performance_metrics.update(new_metrics)
-            history_entry = {'timestamp': datetime.now(UTC).isoformat(), 'metrics': new_metrics, 'context': task_context or {}}
+            history_entry = {"timestamp": datetime.now(UTC).isoformat(), "metrics": new_metrics, "context": task_context or {}}
             profile.performance_history.append(history_entry)
             profile.overall_score = self.calculate_overall_score(profile.performance_metrics)
             profile.improvement_trends = self.calculate_improvement_trends(profile.performance_history)
@@ -471,7 +710,7 @@ class AgentPerformanceService:
         """Calculate overall performance score"""
         if not metrics:
             return 0.0
-        weights = {'accuracy': 0.3, 'latency': -0.2, 'throughput': 0.2, 'efficiency': 0.15, 'cost_efficiency': 0.15}
+        weights = {"accuracy": 0.3, "latency": -0.2, "throughput": 0.2, "efficiency": 0.15, "cost_efficiency": 0.15}
         score = 0.0
         total_weight = 0.0
         for metric, value in metrics.items():
@@ -485,8 +724,8 @@ class AgentPerformanceService:
         if len(history) < 2:
             return {}
         trends = {}
-        latest_metrics = history[-1]['metrics']
-        previous_metrics = history[-2]['metrics']
+        latest_metrics = history[-1]["metrics"]
+        previous_metrics = history[-2]["metrics"]
         for metric in latest_metrics:
             if metric in previous_metrics:
                 latest_value = latest_metrics[metric]
@@ -498,7 +737,28 @@ class AgentPerformanceService:
 
     async def get_comprehensive_profile(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive agent performance profile"""
-        profile = self.session.execute(select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)).first()
+        profile = self.session.execute(
+            select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
+        ).first()
         if not profile:
-            return {'error': 'Profile not found'}
-        return {'profile_id': profile.profile_id, 'agent_id': profile.agent_id, 'agent_type': profile.agent_type, 'overall_score': profile.overall_score, 'performance_metrics': profile.performance_metrics, 'learning_strategies': profile.learning_strategies, 'specialization_areas': profile.specialization_areas, 'expertise_levels': profile.expertise_levels, 'resource_efficiency': profile.resource_efficiency, 'cost_per_task': profile.cost_per_task, 'throughput': profile.throughput, 'average_latency': profile.average_latency, 'performance_history': profile.performance_history, 'improvement_trends': profile.improvement_trends, 'benchmark_scores': profile.benchmark_scores, 'ranking_position': profile.ranking_position, 'percentile_rank': profile.percentile_rank, 'last_assessed': profile.last_assessed.isoformat() if profile.last_assessed else None}
+            return {"error": "Profile not found"}
+        return {
+            "profile_id": profile.profile_id,
+            "agent_id": profile.agent_id,
+            "agent_type": profile.agent_type,
+            "overall_score": profile.overall_score,
+            "performance_metrics": profile.performance_metrics,
+            "learning_strategies": profile.learning_strategies,
+            "specialization_areas": profile.specialization_areas,
+            "expertise_levels": profile.expertise_levels,
+            "resource_efficiency": profile.resource_efficiency,
+            "cost_per_task": profile.cost_per_task,
+            "throughput": profile.throughput,
+            "average_latency": profile.average_latency,
+            "performance_history": profile.performance_history,
+            "improvement_trends": profile.improvement_trends,
+            "benchmark_scores": profile.benchmark_scores,
+            "ranking_position": profile.ranking_position,
+            "percentile_rank": profile.percentile_rank,
+            "last_assessed": profile.last_assessed.isoformat() if profile.last_assessed else None,
+        }

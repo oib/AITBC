@@ -148,7 +148,7 @@ class GovernanceService:
             amount_staked=amount,
             lock_period_days=lock_period_days,
             unstakes_at=datetime.now(UTC) + timedelta(days=lock_period_days),
-            is_active=True
+            is_active=True,
         )
         self.session.add(stake)
 
@@ -175,12 +175,7 @@ class GovernanceService:
         """Get or create governance token record for address"""
         token_record = await self._get_token_record(address)
         if not token_record:
-            token_record = GovernanceToken(
-                holder_address=address,
-                token_balance=0.0,
-                staked_tokens=0.0,
-                voting_power=0.0
-            )
+            token_record = GovernanceToken(holder_address=address, token_balance=0.0, staked_tokens=0.0, voting_power=0.0)
             self.session.add(token_record)
             await self.session.commit()
             await self.session.refresh(token_record)
@@ -201,10 +196,7 @@ class GovernanceService:
             raise ValueError(f"Insufficient voting power: {delegator_power} < {amount}")
 
         delegation = Delegation(
-            delegator_address=delegator_address,
-            delegate_address=delegate_address,
-            voting_power=amount,
-            is_active=True
+            delegator_address=delegator_address, delegate_address=delegate_address, voting_power=amount, is_active=True
         )
         self.session.add(delegation)
         await self.session.commit()
@@ -221,12 +213,7 @@ class GovernanceService:
             raise ValueError(f"Proposal not in succeeded state: {proposal.status}")
 
         # Log execution start
-        execution_log = ProposalExecutionLog(
-            proposal_id=proposal_id,
-            execution_step="start",
-            status="pending",
-            result: dict[str, Any] = {}
-        )
+        execution_log = ProposalExecutionLog(proposal_id=proposal_id, execution_step="start", status="pending", result={})
         self.session.add(execution_log)
 
         try:

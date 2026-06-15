@@ -23,13 +23,13 @@ def generate_p2p_node_id() -> str:
 def update_env_file(env_path: Path, key: str, value: str, preserve_existing: bool = True) -> bool:
     """
     Update or add a key-value pair in an environment file.
-    
+
     Args:
         env_path: Path to the environment file
         key: The key to update/add
         value: The value to set
         preserve_existing: If True, don't overwrite existing values
-    
+
     Returns:
         True if the file was modified, False otherwise
     """
@@ -41,7 +41,7 @@ def update_env_file(env_path: Path, key: str, value: str, preserve_existing: boo
         return True
 
     content = env_path.read_text()
-    lines = content.split('\n')
+    lines = content.split("\n")
 
     # Check if key already exists
     key_found = False
@@ -53,7 +53,7 @@ def update_env_file(env_path: Path, key: str, value: str, preserve_existing: boo
                 new_lines.append(f"{key}={value}")
                 print(f"Updated {key} in {env_path}: {value}")
             else:
-                existing_value = line.split('=', 1)[1]
+                existing_value = line.split("=", 1)[1]
                 print(f"Preserving existing {key} in {env_path}: {existing_value}")
                 new_lines.append(line)
         else:
@@ -62,11 +62,11 @@ def update_env_file(env_path: Path, key: str, value: str, preserve_existing: boo
     if not key_found:
         new_lines.append(f"{key}={value}\n")
         print(f"Added {key} to {env_path}: {value}")
-        env_path.write_text('\n'.join(new_lines))
+        env_path.write_text("\n".join(new_lines))
         return True
 
     if not preserve_existing:
-        env_path.write_text('\n'.join(new_lines))
+        env_path.write_text("\n".join(new_lines))
         return True
 
     return False

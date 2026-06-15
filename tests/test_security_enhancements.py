@@ -3,7 +3,6 @@ Security Enhancement Tests
 Tests for enhanced secret management and blockchain-specific validation
 """
 
-
 import pytest
 
 from aitbc.crypto.security import SecretManager
@@ -75,7 +74,8 @@ class TestEnhancedSecretManager:
 
         # Rotate to new key
         from cryptography.fernet import Fernet
-        new_key = Fernet.generate_key().decode('utf-8')
+
+        new_key = Fernet.generate_key().decode("utf-8")
         success = manager.rotate_encryption_key(new_key)
 
         assert success
@@ -133,7 +133,7 @@ class TestBlockchainValidation:
         valid_keys = [
             "0x" + "a" * 64,
             "f" * 64,
-            "0x1234567890abcdef" + "0" * 48  # Mix of hex chars
+            "0x1234567890abcdef" + "0" * 48,  # Mix of hex chars
         ]
 
         for key in valid_keys:
@@ -147,7 +147,7 @@ class TestBlockchainValidation:
             "0x" + "a" * 63,  # Too short
             "0x" + "a" * 65,  # Too long
             "",  # Empty
-            "not_a_key_at_all"
+            "not_a_key_at_all",
         ]
 
         for key in invalid_keys:
@@ -169,11 +169,7 @@ class TestBlockchainValidation:
 
     def test_validate_contract_address_valid(self):
         """Test valid contract address validation"""
-        valid_addresses = [
-            "0x" + "a" * 40,
-            "0x1234567890abcdef1234567890abcdef12345678",
-            "0x" + "0" * 40
-        ]
+        valid_addresses = ["0x" + "a" * 40, "0x1234567890abcdef1234567890abcdef12345678", "0x" + "0" * 40]
 
         for address in valid_addresses:
             assert SecurityValidator.validate_contract_address(address)
@@ -184,7 +180,7 @@ class TestBlockchainValidation:
             "0x" + "a" * 39,  # Too short
             "0x" + "a" * 41,  # Too long
             "0x" + "g" * 40,  # Invalid hex
-            ""  # Empty
+            "",  # Empty
         ]
 
         for address in invalid_addresses:
@@ -239,7 +235,7 @@ class TestBlockchainValidation:
             "0x",  # Just prefix
             "0xaabbcc",  # Valid hex
             "deadbeef",  # Valid hex without prefix
-            "0x" + "00" * 32  # 32 bytes of zeros
+            "0x" + "00" * 32,  # 32 bytes of zeros
         ]
 
         for data in valid_data:

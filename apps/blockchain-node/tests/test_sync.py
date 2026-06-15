@@ -34,6 +34,7 @@ def session_factory(db_engine):
     def _factory():
         with Session(db_engine) as session:
             yield session
+
     return _factory
 
 
@@ -52,54 +53,77 @@ def _seed_chain(session_factory, count=5, chain_id="test-chain", proposer="propo
             bh = _make_block_hash(chain_id, h, parent_hash, ts)
             block = Block(
                 chain_id=chain_id,
-                height=h, hash=bh, parent_hash=parent_hash,
-                proposer=proposer, timestamp=ts, tx_count=0,
+                height=h,
+                hash=bh,
+                parent_hash=parent_hash,
+                proposer=proposer,
+                timestamp=ts,
+                tx_count=0,
             )
             session.add(block)
-            blocks.append({"height": h, "hash": bh, "parent_hash": parent_hash,
-                           "proposer": proposer, "timestamp": ts.isoformat()})
+            blocks.append(
+                {"height": h, "hash": bh, "parent_hash": parent_hash, "proposer": proposer, "timestamp": ts.isoformat()}
+            )
             parent_hash = bh
         session.commit()
     return blocks
 
 
 class TestProposerSignatureValidator:
-
     def test_valid_block(self):
         v = ProposerSignatureValidator()
         ts = datetime.now(UTC)
         bh = _make_block_hash("test", 1, "0x00", ts)
-        ok, reason = v.validate_block_signature({
-            "height": 1, "hash": bh, "parent_hash": "0x00",
-            "proposer": "node-a", "timestamp": ts.isoformat(),
-        })
+        ok, reason = v.validate_block_signature(
+            {
+                "height": 1,
+                "hash": bh,
+                "parent_hash": "0x00",
+                "proposer": "node-a",
+                "timestamp": ts.isoformat(),
+            }
+        )
         assert ok is True
         assert reason == "Valid"
 
     def test_missing_proposer(self):
         v = ProposerSignatureValidator()
-        ok, reason = v.validate_block_signature({
-            "height": 1, "hash": "0x" + "a" * 64, "parent_hash": "0x00",
-            "timestamp": datetime.now(UTC).isoformat(),
-        })
+        ok, reason = v.validate_block_signature(
+            {
+                "height": 1,
+                "hash": "0x" + "a" * 64,
+                "parent_hash": "0x00",
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
         assert ok is False
         assert "Missing proposer" in reason
 
     def test_invalid_hash_format(self):
         v = ProposerSignatureValidator()
-        ok, reason = v.validate_block_signature({
-            "height": 1, "hash": "badhash", "parent_hash": "0x00",
-            "proposer": "node-a", "timestamp": datetime.now(UTC).isoformat(),
-        })
+        ok, reason = v.validate_block_signature(
+            {
+                "height": 1,
+                "hash": "badhash",
+                "parent_hash": "0x00",
+                "proposer": "node-a",
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
         assert ok is False
         assert "Invalid block hash" in reason
 
     def test_invalid_hash_length(self):
         v = ProposerSignatureValidator()
-        ok, reason = v.validate_block_signature({
-            "height": 1, "hash": "0xabc", "parent_hash": "0x00",
-            "proposer": "node-a", "timestamp": datetime.now(UTC).isoformat(),
-        })
+        ok, reason = v.validate_block_signature(
+            {
+                "height": 1,
+                "hash": "0xabc",
+                "parent_hash": "0x00",
+                "proposer": "node-a",
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
         assert ok is False
         assert "Invalid hash length" in reason
 
@@ -107,10 +131,15 @@ class TestProposerSignatureValidator:
         v = ProposerSignatureValidator(trusted_proposers=["node-a", "node-b"])
         ts = datetime.now(UTC)
         bh = _make_block_hash("test", 1, "0x00", ts)
-        ok, reason = v.validate_block_signature({
-            "height": 1, "hash": bh, "parent_hash": "0x00",
-            "proposer": "node-evil", "timestamp": ts.isoformat(),
-        })
+        ok, reason = v.validate_block_signature(
+            {
+                "height": 1,
+                "hash": bh,
+                "parent_hash": "0x00",
+                "proposer": "node-evil",
+                "timestamp": ts.isoformat(),
+            }
+        )
         assert ok is False
         assert "not in trusted set" in reason
 
@@ -118,10 +147,15 @@ class TestProposerSignatureValidator:
         v = ProposerSignatureValidator(trusted_proposers=["node-a"])
         ts = datetime.now(UTC)
         bh = _make_block_hash("test", 1, "0x00", ts)
-        ok, reason = v.validate_block_signature({
-            "height": 1, "hash": bh, "parent_hash": "0x00",
-            "proposer": "node-a", "timestamp": ts.isoformat(),
-        })
+        ok, reason = v.validate_block_signature(
+            {
+                "height": 1,
+                "hash": bh,
+                "parent_hash": "0x00",
+                "proposer": "node-a",
+                "timestamp": ts.isoformat(),
+            }
+        )
         assert ok is True
 
     def test_add_remove_trusted(self):
@@ -134,24 +168,31 @@ class TestProposerSignatureValidator:
 
     def test_missing_required_field(self):
         v = ProposerSignatureValidator()
-        ok, reason = v.validate_block_signature({
-            "hash": "0x" + "a" * 64, "proposer": "node-a",
-            # missing height, parent_hash, timestamp
-        })
+        ok, reason = v.validate_block_signature(
+            {
+                "hash": "0x" + "a" * 64,
+                "proposer": "node-a",
+                # missing height, parent_hash, timestamp
+            }
+        )
         assert ok is False
         assert "Missing required field" in reason
 
 
 class TestChainSyncAppend:
-
     def test_append_to_empty_chain(self, session_factory):
         sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
         ts = datetime.now(UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
-        result = sync.import_block({
-            "height": 0, "hash": bh, "parent_hash": "0x00",
-            "proposer": "node-a", "timestamp": ts.isoformat(),
-        })
+        result = sync.import_block(
+            {
+                "height": 0,
+                "hash": bh,
+                "parent_hash": "0x00",
+                "proposer": "node-a",
+                "timestamp": ts.isoformat(),
+            }
+        )
         assert result.accepted is True
         assert result.height == 0
 
@@ -162,20 +203,30 @@ class TestChainSyncAppend:
 
         ts = datetime(2026, 1, 1, 0, 0, 3)
         bh = _make_block_hash("test", 3, last["hash"], ts)
-        result = sync.import_block({
-            "height": 3, "hash": bh, "parent_hash": last["hash"],
-            "proposer": "node-a", "timestamp": ts.isoformat(),
-        })
+        result = sync.import_block(
+            {
+                "height": 3,
+                "hash": bh,
+                "parent_hash": last["hash"],
+                "proposer": "node-a",
+                "timestamp": ts.isoformat(),
+            }
+        )
         assert result.accepted is True
         assert result.height == 3
 
     def test_duplicate_rejected(self, session_factory):
         sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
         blocks = _seed_chain(session_factory, count=2, chain_id="test")
-        result = sync.import_block({
-            "height": 0, "hash": blocks[0]["hash"], "parent_hash": "0x00",
-            "proposer": "proposer-a", "timestamp": blocks[0]["timestamp"],
-        })
+        result = sync.import_block(
+            {
+                "height": 0,
+                "hash": blocks[0]["hash"],
+                "parent_hash": "0x00",
+                "proposer": "proposer-a",
+                "timestamp": blocks[0]["timestamp"],
+            }
+        )
         assert result.accepted is False
         assert "already exists" in result.reason
 
@@ -184,10 +235,15 @@ class TestChainSyncAppend:
         _seed_chain(session_factory, count=5, chain_id="test")
         ts = datetime(2026, 6, 1)
         bh = _make_block_hash("test", 2, "0x00", ts)
-        result = sync.import_block({
-            "height": 2, "hash": bh, "parent_hash": "0x00",
-            "proposer": "node-b", "timestamp": ts.isoformat(),
-        })
+        result = sync.import_block(
+            {
+                "height": 2,
+                "hash": bh,
+                "parent_hash": "0x00",
+                "proposer": "node-b",
+                "timestamp": ts.isoformat(),
+            }
+        )
         assert result.accepted is False
         assert "Stale" in result.reason or "Fork" in result.reason or "longer" in result.reason
 
@@ -196,16 +252,20 @@ class TestChainSyncAppend:
         _seed_chain(session_factory, count=3, chain_id="test")
         ts = datetime(2026, 6, 1)
         bh = _make_block_hash("test", 10, "0x00", ts)
-        result = sync.import_block({
-            "height": 10, "hash": bh, "parent_hash": "0x00",
-            "proposer": "node-a", "timestamp": ts.isoformat(),
-        })
+        result = sync.import_block(
+            {
+                "height": 10,
+                "hash": bh,
+                "parent_hash": "0x00",
+                "proposer": "node-a",
+                "timestamp": ts.isoformat(),
+            }
+        )
         assert result.accepted is False
         assert "Gap" in result.reason
 
 
 class TestChainSyncBulkImport:
-
     @pytest.mark.asyncio
     async def test_bulk_import_stops_on_first_failed_block(self):
         local_head = Mock(height=349)
@@ -273,10 +333,17 @@ class TestChainSyncBulkImport:
             {"tx_hash": "0x" + "a" * 64, "sender": "alice", "recipient": "bob"},
             {"tx_hash": "0x" + "b" * 64, "sender": "charlie", "recipient": "dave"},
         ]
-        result = sync.import_block({
-            "height": 1, "hash": bh, "parent_hash": last["hash"],
-            "proposer": "node-a", "timestamp": ts.isoformat(), "tx_count": 2,
-        }, transactions=txs)
+        result = sync.import_block(
+            {
+                "height": 1,
+                "hash": bh,
+                "parent_hash": last["hash"],
+                "proposer": "node-a",
+                "timestamp": ts.isoformat(),
+                "tx_count": 2,
+            },
+            transactions=txs,
+        )
 
         assert result.accepted is True
         # Verify transactions were stored
@@ -292,14 +359,16 @@ class TestChainSyncBulkImport:
         ts = datetime(2026, 1, 1, 0, 0, 1)
         bh = _make_block_hash("test", 1, last["hash"], ts)
 
-        result = sync.import_block({
-            "height": 1,
-            "hash": bh,
-            "parent_hash": last["hash"],
-            "proposer": "node-a",
-            "timestamp": ts.isoformat(),
-            "state_root": "0x" + "11" * 32,
-        })
+        result = sync.import_block(
+            {
+                "height": 1,
+                "hash": bh,
+                "parent_hash": last["hash"],
+                "proposer": "node-a",
+                "timestamp": ts.isoformat(),
+                "state_root": "0x" + "11" * 32,
+            }
+        )
 
         assert result.accepted is False
         assert "State root mismatch" in result.reason
@@ -309,16 +378,20 @@ class TestChainSyncBulkImport:
 
 
 class TestChainSyncSignatureValidation:
-
     def test_untrusted_proposer_rejected_on_import(self, session_factory):
         validator = ProposerSignatureValidator(trusted_proposers=["node-a"])
         sync = ChainSync(session_factory, chain_id="test", validator=validator, validate_signatures=True)
         ts = datetime.now(UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
-        result = sync.import_block({
-            "height": 0, "hash": bh, "parent_hash": "0x00",
-            "proposer": "node-evil", "timestamp": ts.isoformat(),
-        })
+        result = sync.import_block(
+            {
+                "height": 0,
+                "hash": bh,
+                "parent_hash": "0x00",
+                "proposer": "node-evil",
+                "timestamp": ts.isoformat(),
+            }
+        )
         assert result.accepted is False
         assert "not in trusted set" in result.reason
 
@@ -327,10 +400,15 @@ class TestChainSyncSignatureValidation:
         sync = ChainSync(session_factory, chain_id="test", validator=validator, validate_signatures=True)
         ts = datetime.now(UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
-        result = sync.import_block({
-            "height": 0, "hash": bh, "parent_hash": "0x00",
-            "proposer": "node-a", "timestamp": ts.isoformat(),
-        })
+        result = sync.import_block(
+            {
+                "height": 0,
+                "hash": bh,
+                "parent_hash": "0x00",
+                "proposer": "node-a",
+                "timestamp": ts.isoformat(),
+            }
+        )
         assert result.accepted is True
 
     def test_validation_disabled(self, session_factory):
@@ -338,27 +416,36 @@ class TestChainSyncSignatureValidation:
         sync = ChainSync(session_factory, chain_id="test", validator=validator, validate_signatures=False)
         ts = datetime.now(UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
-        result = sync.import_block({
-            "height": 0, "hash": bh, "parent_hash": "0x00",
-            "proposer": "node-evil", "timestamp": ts.isoformat(),
-        })
+        result = sync.import_block(
+            {
+                "height": 0,
+                "hash": bh,
+                "parent_hash": "0x00",
+                "proposer": "node-evil",
+                "timestamp": ts.isoformat(),
+            }
+        )
         assert result.accepted is True  # validation disabled
 
 
 class TestChainSyncConflictResolution:
-
     def test_fork_at_same_height_rejected(self, session_factory):
         """Fork at same height as our chain — our chain wins (equal length)."""
         sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
-        blocks = _seed_chain(session_factory, count=5, chain_id="test")
+        _seed_chain(session_factory, count=5, chain_id="test")
 
         # Try to import a different block at height 3
         ts = datetime(2026, 6, 15)
         bh = _make_block_hash("test", 3, "0xdifferent", ts)
-        result = sync.import_block({
-            "height": 3, "hash": bh, "parent_hash": "0xdifferent",
-            "proposer": "node-b", "timestamp": ts.isoformat(),
-        })
+        result = sync.import_block(
+            {
+                "height": 3,
+                "hash": bh,
+                "parent_hash": "0xdifferent",
+                "proposer": "node-b",
+                "timestamp": ts.isoformat(),
+            }
+        )
         assert result.accepted is False
         assert "longer" in result.reason or "Fork" in result.reason
 
@@ -373,15 +460,19 @@ class TestChainSyncConflictResolution:
 
 
 class TestSyncMetrics:
-
     def test_accepted_block_increments_metrics(self, session_factory):
         sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
         ts = datetime.now(UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
-        sync.import_block({
-            "height": 0, "hash": bh, "parent_hash": "0x00",
-            "proposer": "node-a", "timestamp": ts.isoformat(),
-        })
+        sync.import_block(
+            {
+                "height": 0,
+                "hash": bh,
+                "parent_hash": "0x00",
+                "proposer": "node-a",
+                "timestamp": ts.isoformat(),
+            }
+        )
         prom = metrics_registry.render_prometheus()
         assert "sync_blocks_received_total" in prom
         assert "sync_blocks_accepted_total" in prom
@@ -391,10 +482,15 @@ class TestSyncMetrics:
         sync = ChainSync(session_factory, chain_id="test", validator=validator, validate_signatures=True)
         ts = datetime.now(UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
-        sync.import_block({
-            "height": 0, "hash": bh, "parent_hash": "0x00",
-            "proposer": "node-evil", "timestamp": ts.isoformat(),
-        })
+        sync.import_block(
+            {
+                "height": 0,
+                "hash": bh,
+                "parent_hash": "0x00",
+                "proposer": "node-evil",
+                "timestamp": ts.isoformat(),
+            }
+        )
         prom = metrics_registry.render_prometheus()
         assert "sync_blocks_rejected_total" in prom
 
@@ -403,10 +499,15 @@ class TestSyncMetrics:
         _seed_chain(session_factory, count=1, chain_id="test")
         with session_factory() as session:
             block = session.exec(select(Block).where(Block.height == 0)).first()
-        sync.import_block({
-            "height": 0, "hash": block.hash, "parent_hash": "0x00",
-            "proposer": "proposer-a", "timestamp": block.timestamp.isoformat(),
-        })
+        sync.import_block(
+            {
+                "height": 0,
+                "hash": block.hash,
+                "parent_hash": "0x00",
+                "proposer": "proposer-a",
+                "timestamp": block.timestamp.isoformat(),
+            }
+        )
         prom = metrics_registry.render_prometheus()
         assert "sync_blocks_duplicate_total" in prom
 
@@ -415,9 +516,14 @@ class TestSyncMetrics:
         _seed_chain(session_factory, count=5, chain_id="test")
         ts = datetime(2026, 6, 15)
         bh = _make_block_hash("test", 3, "0xdifferent", ts)
-        sync.import_block({
-            "height": 3, "hash": bh, "parent_hash": "0xdifferent",
-            "proposer": "node-b", "timestamp": ts.isoformat(),
-        })
+        sync.import_block(
+            {
+                "height": 3,
+                "hash": bh,
+                "parent_hash": "0xdifferent",
+                "proposer": "node-b",
+                "timestamp": ts.isoformat(),
+            }
+        )
         prom = metrics_registry.render_prometheus()
         assert "sync_forks_detected_total" in prom

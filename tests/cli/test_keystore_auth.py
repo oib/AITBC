@@ -78,10 +78,8 @@ class TestDecryptPrivateKey:
 
         keystore_data = {
             "crypto": {
-                "cipherparams": {
-                    "salt": base64.b64encode(salt).decode()
-                },
-                "ciphertext": base64.b64encode(ciphertext).decode()
+                "cipherparams": {"salt": base64.b64encode(salt).decode()},
+                "ciphertext": base64.b64encode(ciphertext).decode(),
             }
         }
 
@@ -121,10 +119,10 @@ class TestLoadKeystore:
             keystore_data = {"address": address, "crypto": {}}
 
             keystore_file = keystore_dir / f"{address}.json"
-            with open(keystore_file, 'w') as f:
+            with open(keystore_file, "w") as f:
                 json.dump(keystore_data, f)
 
-            with patch('keystore_auth.get_keystore_path', return_value=keystore_dir):
+            with patch("keystore_auth.get_keystore_path", return_value=keystore_dir):
                 loaded = load_keystore(address)
 
             assert loaded == keystore_data
@@ -138,7 +136,7 @@ class TestLoadKeystore:
         except ImportError:
             pytest.skip("aitbc.utils.paths import failed")
 
-        with patch('keystore_auth.get_keystore_path', return_value=Path("/nonexistent")):
+        with patch("keystore_auth.get_keystore_path", return_value=Path("/nonexistent")):
             with pytest.raises(FileNotFoundError):
                 load_keystore("0xnonexistent")
 
@@ -146,7 +144,7 @@ class TestLoadKeystore:
 class TestGetPrivateKey:
     """Test get_private_key function"""
 
-    @patch.dict('os.environ', {'KEYSTORE_PASSWORD': 'env_password'})
+    @patch.dict("os.environ", {"KEYSTORE_PASSWORD": "env_password"})
     def test_get_private_key_from_env(self):
         """Test getting private key with environment password"""
         try:
@@ -154,9 +152,9 @@ class TestGetPrivateKey:
         except ImportError:
             pytest.skip("Required imports failed")
 
-        with patch('keystore_auth.load_keystore', return_value={"crypto": {}}):
-            with patch('keystore_auth.decrypt_private_key', return_value="decrypted_key"):
-                with patch('keystore_auth.get_keystore_path', return_value=Path("/tmp")):
+        with patch("keystore_auth.load_keystore", return_value={"crypto": {}}):
+            with patch("keystore_auth.decrypt_private_key", return_value="decrypted_key"):
+                with patch("keystore_auth.get_keystore_path", return_value=Path("/tmp")):
                     try:
                         result = get_private_key("0xabc")
                         assert result == "decrypted_key"
@@ -171,8 +169,8 @@ class TestGetPrivateKey:
         except ImportError:
             pytest.skip("Required imports failed")
 
-        with patch.dict('os.environ', {}, clear=True):
-            with patch('keystore_auth.get_keystore_path', return_value=Path("/nonexistent")):
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("keystore_auth.get_keystore_path", return_value=Path("/nonexistent")):
                 with pytest.raises(ValueError):
                     get_private_key("0xabc")
 
@@ -216,8 +214,8 @@ class TestGetAuthHeaders:
         except ImportError:
             pytest.skip("Required imports failed")
 
-        with patch('keystore_auth.get_private_key', return_value="a" * 64):
-            with patch('keystore_auth.sign_message', return_value="0xsignature"):
+        with patch("keystore_auth.get_private_key", return_value="a" * 64):
+            with patch("keystore_auth.sign_message", return_value="0xsignature"):
                 try:
                     headers = get_auth_headers("0xabc")
 

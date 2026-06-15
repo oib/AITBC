@@ -16,36 +16,36 @@ PERFORMANCE_TIERS = {
         "min_accuracy": 70.0,
         "max_accuracy": 79.9,
         "min_submissions": 5,
-        "success_rate_range": (0.70, 0.80)
+        "success_rate_range": (0.70, 0.80),
     },
     "SILVER": {
         "multiplier": 1.25,
         "min_accuracy": 80.0,
         "max_accuracy": 89.9,
         "min_submissions": 10,
-        "success_rate_range": (0.80, 0.90)
+        "success_rate_range": (0.80, 0.90),
     },
     "GOLD": {
         "multiplier": 1.5,
         "min_accuracy": 90.0,
         "max_accuracy": 94.9,
         "min_submissions": 20,
-        "success_rate_range": (0.90, 0.95)
+        "success_rate_range": (0.90, 0.95),
     },
     "PLATINUM": {
         "multiplier": 2.0,
         "min_accuracy": 95.0,
         "max_accuracy": 97.9,
         "min_submissions": 50,
-        "success_rate_range": (0.95, 0.98)
+        "success_rate_range": (0.95, 0.98),
     },
     "DIAMOND": {
         "multiplier": 3.0,
         "min_accuracy": 98.0,
         "max_accuracy": 100.0,
         "min_submissions": 100,
-        "success_rate_range": (0.98, 1.00)
-    }
+        "success_rate_range": (0.98, 1.00),
+    },
 }
 
 # Lock period multipliers
@@ -53,17 +53,11 @@ LOCK_PERIOD_MULTIPLIERS = {
     "short": {"days": 7, "multiplier": 1.0},
     "medium": {"days": 30, "multiplier": 1.1},
     "long": {"days": 90, "multiplier": 1.5},
-    "extended": {"days": 365, "multiplier": 2.0}
+    "extended": {"days": 365, "multiplier": 2.0},
 }
 
 # Stake amount ranges
-STAKE_AMOUNTS = {
-    "minimum": 100.0,
-    "small": 1000.0,
-    "medium": 10000.0,
-    "large": 50000.0,
-    "maximum": 100000.0
-}
+STAKE_AMOUNTS = {"minimum": 100.0, "small": 1000.0, "medium": 10000.0, "large": 50000.0, "maximum": 100000.0}
 
 
 def generate_agent_wallet() -> str:
@@ -94,7 +88,7 @@ def generate_agent_metrics(tier: str = "GOLD") -> dict[str, Any]:
         "total_staked": 0.0,
         "staker_count": 0,
         "total_rewards_distributed": 0.0,
-        "last_update_time": timezone.utcnow().isoformat()
+        "last_update_time": timezone.utcnow().isoformat(),
     }
 
 
@@ -121,7 +115,7 @@ def generate_stake_data(
     tier: str = "GOLD",
     amount_category: str = "medium",
     lock_period_category: str = "medium",
-    auto_compound: bool = False
+    auto_compound: bool = False,
 ) -> dict[str, Any]:
     """Generate realistic stake data"""
     amount = STAKE_AMOUNTS[amount_category]
@@ -145,7 +139,7 @@ def generate_stake_data(
         "current_apy": expected_apy,
         "agent_tier": tier,
         "performance_multiplier": PERFORMANCE_TIERS[tier]["multiplier"],
-        "auto_compound": auto_compound
+        "auto_compound": auto_compound,
     }
 
 
@@ -159,7 +153,7 @@ def generate_staking_pool(agent_wallet: str, total_staked: float) -> dict[str, A
         "staker_count": 0,
         "active_stakers": [],
         "last_distribution_time": timezone.utcnow().isoformat(),
-        "distribution_frequency": 1
+        "distribution_frequency": 1,
     }
 
 
@@ -170,7 +164,7 @@ def generate_test_scenario(num_agents: int = 5, num_stakes_per_agent: int = 3) -
         "generated_at": timezone.utcnow().isoformat(),
         "agents": [],
         "stakes": [],
-        "pools": []
+        "pools": [],
     }
 
     # Generate agents with different tiers
@@ -185,7 +179,7 @@ def generate_test_scenario(num_agents: int = 5, num_stakes_per_agent: int = 3) -
         scenario["pools"].append(pool)
 
         # Generate stakes for this agent
-        for j in range(num_stakes_per_agent):
+        for _j in range(num_stakes_per_agent):
             staker_address = generate_staker_address()
             amount_category = random.choice(["small", "medium", "large"])
             lock_period_category = random.choice(["short", "medium", "long", "extended"])
@@ -197,7 +191,7 @@ def generate_test_scenario(num_agents: int = 5, num_stakes_per_agent: int = 3) -
                 tier=tier,
                 amount_category=amount_category,
                 lock_period_category=lock_period_category,
-                auto_compound=auto_compound
+                auto_compound=auto_compound,
             )
             scenario["stakes"].append(stake)
 
@@ -215,73 +209,64 @@ def generate_edge_case_scenarios() -> list[dict[str, Any]]:
     scenarios = []
 
     # Scenario 1: Minimum stake amount
-    scenarios.append({
-        "name": "Minimum Stake Amount",
-        "description": "Test with minimum valid stake amount (100 AIT)",
-        "stake": generate_stake_data(
-            generate_agent_wallet(),
-            generate_staker_address(),
-            amount_category="minimum",
-            lock_period_category="medium"
-        )
-    })
+    scenarios.append(
+        {
+            "name": "Minimum Stake Amount",
+            "description": "Test with minimum valid stake amount (100 AIT)",
+            "stake": generate_stake_data(
+                generate_agent_wallet(), generate_staker_address(), amount_category="minimum", lock_period_category="medium"
+            ),
+        }
+    )
 
     # Scenario 2: Maximum stake amount
-    scenarios.append({
-        "name": "Maximum Stake Amount",
-        "description": "Test with maximum valid stake amount (100,000 AIT)",
-        "stake": generate_stake_data(
-            generate_agent_wallet(),
-            generate_staker_address(),
-            amount_category="maximum",
-            lock_period_category="medium"
-        )
-    })
+    scenarios.append(
+        {
+            "name": "Maximum Stake Amount",
+            "description": "Test with maximum valid stake amount (100,000 AIT)",
+            "stake": generate_stake_data(
+                generate_agent_wallet(), generate_staker_address(), amount_category="maximum", lock_period_category="medium"
+            ),
+        }
+    )
 
     # Scenario 3: Short lock period
-    scenarios.append({
-        "name": "Short Lock Period",
-        "description": "Test with minimum lock period (7 days)",
-        "stake": generate_stake_data(
-            generate_agent_wallet(),
-            generate_staker_address(),
-            lock_period_category="short"
-        )
-    })
+    scenarios.append(
+        {
+            "name": "Short Lock Period",
+            "description": "Test with minimum lock period (7 days)",
+            "stake": generate_stake_data(generate_agent_wallet(), generate_staker_address(), lock_period_category="short"),
+        }
+    )
 
     # Scenario 4: Extended lock period
-    scenarios.append({
-        "name": "Extended Lock Period",
-        "description": "Test with maximum lock period (365 days)",
-        "stake": generate_stake_data(
-            generate_agent_wallet(),
-            generate_staker_address(),
-            lock_period_category="extended"
-        )
-    })
+    scenarios.append(
+        {
+            "name": "Extended Lock Period",
+            "description": "Test with maximum lock period (365 days)",
+            "stake": generate_stake_data(generate_agent_wallet(), generate_staker_address(), lock_period_category="extended"),
+        }
+    )
 
     # Scenario 5: Diamond tier with extended lock
-    scenarios.append({
-        "name": "Diamond Tier Extended Lock",
-        "description": "Test maximum APY scenario (Diamond tier + 365 days)",
-        "stake": generate_stake_data(
-            generate_agent_wallet(),
-            generate_staker_address(),
-            tier="DIAMOND",
-            lock_period_category="extended"
-        )
-    })
+    scenarios.append(
+        {
+            "name": "Diamond Tier Extended Lock",
+            "description": "Test maximum APY scenario (Diamond tier + 365 days)",
+            "stake": generate_stake_data(
+                generate_agent_wallet(), generate_staker_address(), tier="DIAMOND", lock_period_category="extended"
+            ),
+        }
+    )
 
     # Scenario 6: Auto-compound enabled
-    scenarios.append({
-        "name": "Auto-Compound Enabled",
-        "description": "Test stake with auto-compound enabled",
-        "stake": generate_stake_data(
-            generate_agent_wallet(),
-            generate_staker_address(),
-            auto_compound=True
-        )
-    })
+    scenarios.append(
+        {
+            "name": "Auto-Compound Enabled",
+            "description": "Test stake with auto-compound enabled",
+            "stake": generate_stake_data(generate_agent_wallet(), generate_staker_address(), auto_compound=True),
+        }
+    )
 
     return scenarios
 
@@ -291,77 +276,69 @@ def generate_unbonding_scenarios() -> list[dict[str, Any]]:
     scenarios = []
 
     # Scenario 1: Unbonding before lock period (should fail)
-    scenarios.append({
-        "name": "Unbond Before Lock Period",
-        "description": "Test unbonding before lock period ends (should fail)",
-        "stake": generate_stake_data(
-            generate_agent_wallet(),
-            generate_staker_address(),
-            lock_period_category="medium"
-        ),
-        "action": "unbond",
-        "expected_result": "failure",
-        "expected_error": "Lock period has not ended"
-    })
+    scenarios.append(
+        {
+            "name": "Unbond Before Lock Period",
+            "description": "Test unbonding before lock period ends (should fail)",
+            "stake": generate_stake_data(generate_agent_wallet(), generate_staker_address(), lock_period_category="medium"),
+            "action": "unbond",
+            "expected_result": "failure",
+            "expected_error": "Lock period has not ended",
+        }
+    )
 
     # Scenario 2: Unbonding after lock period (should succeed)
-    stake = generate_stake_data(
-        generate_agent_wallet(),
-        generate_staker_address(),
-        lock_period_category="medium"
-    )
+    stake = generate_stake_data(generate_agent_wallet(), generate_staker_address(), lock_period_category="medium")
     stake["end_time"] = (timezone.utcnow() - timedelta(days=1)).isoformat()
-    scenarios.append({
-        "name": "Unbond After Lock Period",
-        "description": "Test unbonding after lock period ends (should succeed)",
-        "stake": stake,
-        "action": "unbond",
-        "expected_result": "success",
-        "expected_status": "UNBONDING"
-    })
+    scenarios.append(
+        {
+            "name": "Unbond After Lock Period",
+            "description": "Test unbonding after lock period ends (should succeed)",
+            "stake": stake,
+            "action": "unbond",
+            "expected_result": "success",
+            "expected_status": "UNBONDING",
+        }
+    )
 
     # Scenario 3: Complete unbonding with penalty
-    stake = generate_stake_data(
-        generate_agent_wallet(),
-        generate_staker_address(),
-        lock_period_category="medium"
-    )
+    stake = generate_stake_data(generate_agent_wallet(), generate_staker_address(), lock_period_category="medium")
     stake["end_time"] = (timezone.utcnow() - timedelta(days=1)).isoformat()
     stake["status"] = "UNBONDING"
     stake["unbonding_time"] = (timezone.utcnow() - timedelta(days=10)).isoformat()
-    scenarios.append({
-        "name": "Complete Unbonding With Penalty",
-        "description": "Test completing unbonding within 30 days (10% penalty)",
-        "stake": stake,
-        "action": "complete_unbonding",
-        "expected_result": "success",
-        "expected_penalty": 0.10
-    })
+    scenarios.append(
+        {
+            "name": "Complete Unbonding With Penalty",
+            "description": "Test completing unbonding within 30 days (10% penalty)",
+            "stake": stake,
+            "action": "complete_unbonding",
+            "expected_result": "success",
+            "expected_penalty": 0.10,
+        }
+    )
 
     # Scenario 4: Complete unbonding without penalty
-    stake = generate_stake_data(
-        generate_agent_wallet(),
-        generate_staker_address(),
-        lock_period_category="medium"
-    )
+    stake = generate_stake_data(generate_agent_wallet(), generate_staker_address(), lock_period_category="medium")
     stake["end_time"] = (timezone.utcnow() - timedelta(days=1)).isoformat()
     stake["status"] = "UNBONDING"
     stake["unbonding_time"] = (timezone.utcnow() - timedelta(days=35)).isoformat()
-    scenarios.append({
-        "name": "Complete Unbonding No Penalty",
-        "description": "Test completing unbonding after 30 days (no penalty)",
-        "stake": stake,
-        "action": "complete_unbonding",
-        "expected_result": "success",
-        "expected_penalty": 0.0
-    })
+    scenarios.append(
+        {
+            "name": "Complete Unbonding No Penalty",
+            "description": "Test completing unbonding after 30 days (no penalty)",
+            "stake": stake,
+            "action": "complete_unbonding",
+            "expected_result": "success",
+            "expected_penalty": 0.0,
+        }
+    )
 
     return scenarios
 
 
 def save_test_data(data: dict[str, Any], output_file: str):
     """Save test data to JSON file"""
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(data, f, indent=2, default=str)
     print(f"Test data saved to: {output_file}")
 
@@ -396,20 +373,12 @@ def main():
 
     # Stake data for each amount category
     for amount_cat in STAKE_AMOUNTS.keys():
-        stake = generate_stake_data(
-            generate_agent_wallet(),
-            generate_staker_address(),
-            amount_category=amount_cat
-        )
+        stake = generate_stake_data(generate_agent_wallet(), generate_staker_address(), amount_category=amount_cat)
         save_test_data(stake, f"/var/lib/aitbc/data/test_stake_{amount_cat}.json")
 
     # Stake data for each lock period
     for lock_cat in LOCK_PERIOD_MULTIPLIERS.keys():
-        stake = generate_stake_data(
-            generate_agent_wallet(),
-            generate_staker_address(),
-            lock_period_category=lock_cat
-        )
+        stake = generate_stake_data(generate_agent_wallet(), generate_staker_address(), lock_period_category=lock_cat)
         save_test_data(stake, f"/var/lib/aitbc/data/test_stake_lock_{lock_cat}.json")
 
     print("\n✅ Test data generation complete!")

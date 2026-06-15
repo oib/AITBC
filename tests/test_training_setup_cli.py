@@ -17,7 +17,7 @@ class TestTrainingSetupCLI:
 
     def test_cli_is_click_group(self):
         """Test CLI is a click group"""
-        assert hasattr(cli, 'commands')
+        assert hasattr(cli, "commands")
 
 
 if __name__ == "__main__":

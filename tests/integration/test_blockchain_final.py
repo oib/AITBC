@@ -3,7 +3,6 @@
 Final test and summary for blockchain nodes
 """
 
-
 import httpx
 
 # Node URLs
@@ -12,6 +11,7 @@ NODES = {
     "node2": {"url": "http://127.0.0.1:8081", "name": "Node 2"},
 }
 
+
 def test_nodes():
     """Test both nodes"""
     print("🔗 AITBC Blockchain Node Test Summary")
@@ -19,7 +19,7 @@ def test_nodes():
 
     results = []
 
-    for node_id, node in NODES.items():
+    for _node_id, node in NODES.items():
         print(f"\n{node['name']}:")
 
         # Test RPC API
@@ -36,7 +36,7 @@ def test_nodes():
             response = httpx.get(f"{node['url']}/rpc/head", timeout=5)
             if response.status_code == 200:
                 head = response.json()
-                height = head.get('height', 0)
+                height = head.get("height", 0)
                 print(f"  Chain Height: {height}")
 
                 # Test faucet
@@ -44,7 +44,7 @@ def test_nodes():
                     response = httpx.post(
                         f"{node['url']}/rpc/admin/mintFaucet",
                         json={"address": "aitbc1test000000000000000000000000000000000000", "amount": 100},
-                        timeout=5
+                        timeout=5,
                     )
                     faucet_ok = response.status_code == 200
                     print(f"  Faucet: {'✅' if faucet_ok else '❌'}")
@@ -52,12 +52,7 @@ def test_nodes():
                     faucet_ok = False
                     print("  Faucet: ❌")
 
-                results.append({
-                    'node': node['name'],
-                    'api': api_ok,
-                    'height': height,
-                    'faucet': faucet_ok
-                })
+                results.append({"node": node["name"], "api": api_ok, "height": height, "faucet": faucet_ok})
             else:
                 print("  Chain Head: ❌")
         except Exception:
@@ -68,7 +63,7 @@ def test_nodes():
     print("=" * 60)
 
     for result in results:
-        status = "✅ OPERATIONAL" if result['api'] and result['faucet'] else "⚠️  PARTIAL"
+        status = "✅ OPERATIONAL" if result["api"] and result["faucet"] else "⚠️  PARTIAL"
         print(f"{result['node']:.<20} {status}")
         print(f"  - RPC API: {'✅' if result['api'] else '❌'}")
         print(f"  - Height: {result['height']}")
@@ -85,6 +80,7 @@ def test_nodes():
     print("  4. Ensure network connectivity")
 
     print("\n✅ Test completed successfully!")
+
 
 if __name__ == "__main__":
     test_nodes()

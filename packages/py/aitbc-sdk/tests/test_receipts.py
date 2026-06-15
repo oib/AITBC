@@ -89,9 +89,7 @@ class _DummyResponse:
 
     def raise_for_status(self) -> None:
         if self.status_code >= 400:
-            raise httpx.HTTPStatusError(
-                f"HTTP {self.status_code}", request=None, response=httpx.Response(self.status_code)
-            )
+            raise httpx.HTTPStatusError(f"HTTP {self.status_code}", request=None, response=httpx.Response(self.status_code))
 
 
 def test_coordinator_receipt_client_latest(monkeypatch, sample_payload: dict[str, object]) -> None:
@@ -192,6 +190,7 @@ def test_iter_receipts_handles_pagination(monkeypatch, sample_payload: dict[str,
 
 def test_request_retries_on_transient(monkeypatch, sample_payload: dict[str, object]) -> None:
     from aitbc import NetworkError
+
     responses: list[object] = [
         NetworkError("timeout"),
         _DummyResponse(429, {}),

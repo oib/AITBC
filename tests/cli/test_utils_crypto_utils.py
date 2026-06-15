@@ -21,12 +21,7 @@ class TestCreateSignatureChallenge:
         """Test creating a signature challenge"""
         from aitbc_cli.utils.crypto_utils import create_signature_challenge
 
-        tx_data = {
-            "tx_id": "tx123",
-            "to": "0xabc123",
-            "amount": 100,
-            "timestamp": 1234567890
-        }
+        tx_data = {"tx_id": "tx123", "to": "0xabc123", "amount": 100, "timestamp": 1234567890}
         nonce = "nonce123"
 
         result = create_signature_challenge(tx_data, nonce)
@@ -38,12 +33,7 @@ class TestCreateSignatureChallenge:
         """Test that challenge is deterministic for same inputs"""
         from aitbc_cli.utils.crypto_utils import create_signature_challenge
 
-        tx_data = {
-            "tx_id": "tx123",
-            "to": "0xabc123",
-            "amount": 100,
-            "timestamp": 1234567890
-        }
+        tx_data = {"tx_id": "tx123", "to": "0xabc123", "amount": 100, "timestamp": 1234567890}
         nonce = "nonce123"
 
         result1 = create_signature_challenge(tx_data, nonce)
@@ -55,18 +45,8 @@ class TestCreateSignatureChallenge:
         """Test that different inputs produce different challenges"""
         from aitbc_cli.utils.crypto_utils import create_signature_challenge
 
-        tx_data1 = {
-            "tx_id": "tx123",
-            "to": "0xabc123",
-            "amount": 100,
-            "timestamp": 1234567890
-        }
-        tx_data2 = {
-            "tx_id": "tx456",
-            "to": "0xabc123",
-            "amount": 100,
-            "timestamp": 1234567890
-        }
+        tx_data1 = {"tx_id": "tx123", "to": "0xabc123", "amount": 100, "timestamp": 1234567890}
+        tx_data2 = {"tx_id": "tx456", "to": "0xabc123", "amount": 100, "timestamp": 1234567890}
         nonce = "nonce123"
 
         result1 = create_signature_challenge(tx_data1, nonce)

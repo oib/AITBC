@@ -67,7 +67,7 @@ def test_register_region():
         capacity=8000,
         current_load=2000,
         latency_ms=50,
-        compliance_level="full"
+        compliance_level="full",
     )
     response = client.post("/api/v1/regions/register", json=region.model_dump())
     assert response.status_code == 200
@@ -89,7 +89,7 @@ def test_register_duplicate_region():
         capacity=8000,
         current_load=2000,
         latency_ms=50,
-        compliance_level="full"
+        compliance_level="full",
     )
     client.post("/api/v1/regions/register", json=region.model_dump())
 
@@ -121,7 +121,7 @@ def test_get_region():
         capacity=8000,
         current_load=2000,
         latency_ms=50,
-        compliance_level="full"
+        compliance_level="full",
     )
     client.post("/api/v1/regions/register", json=region.model_dump())
 
@@ -153,7 +153,7 @@ def test_create_deployment():
         capacity=8000,
         current_load=2000,
         latency_ms=50,
-        compliance_level="full"
+        compliance_level="full",
     )
     client.post("/api/v1/regions/register", json=region.model_dump())
 
@@ -163,7 +163,7 @@ def test_create_deployment():
         target_regions=["us-west-1"],
         configuration={"replicas": 3},
         deployment_strategy="blue_green",
-        health_checks=["/health"]
+        health_checks=["/health"],
     )
     response = client.post("/api/v1/deployments/create", json=deployment.model_dump())
     assert response.status_code == 200
@@ -182,7 +182,7 @@ def test_create_deployment_nonexistent_region():
         target_regions=["nonexistent"],
         configuration={"replicas": 3},
         deployment_strategy="blue_green",
-        health_checks=["/health"]
+        health_checks=["/health"],
     )
     response = client.post("/api/v1/deployments/create", json=deployment.model_dump())
     assert response.status_code == 400
@@ -202,7 +202,7 @@ def test_get_deployment():
         capacity=8000,
         current_load=2000,
         latency_ms=50,
-        compliance_level="full"
+        compliance_level="full",
     )
     client.post("/api/v1/regions/register", json=region.model_dump())
 
@@ -212,7 +212,7 @@ def test_get_deployment():
         target_regions=["us-west-1"],
         configuration={"replicas": 3},
         deployment_strategy="blue_green",
-        health_checks=["/health"]
+        health_checks=["/health"],
     )
     create_response = client.post("/api/v1/deployments/create", json=deployment.model_dump())
     deployment_id = create_response.json()["deployment_id"]
@@ -248,7 +248,7 @@ def test_create_load_balancer():
         capacity=8000,
         current_load=2000,
         latency_ms=50,
-        compliance_level="full"
+        compliance_level="full",
     )
     client.post("/api/v1/regions/register", json=region.model_dump())
 
@@ -258,7 +258,7 @@ def test_create_load_balancer():
         algorithm="round_robin",
         target_regions=["us-west-1"],
         health_check_interval=30,
-        failover_threshold=3
+        failover_threshold=3,
     )
     response = client.post("/api/v1/load-balancers/create", json=balancer.model_dump())
     assert response.status_code == 200
@@ -290,9 +290,9 @@ def test_record_performance_metrics():
         network_io=1000.5,
         disk_io=500.3,
         active_connections=100,
-        response_time_ms=45.2
+        response_time_ms=45.2,
     )
-    response = client.post("/api/v1/performance/metrics", json=metrics.model_dump(mode='json'))
+    response = client.post("/api/v1/performance/metrics", json=metrics.model_dump(mode="json"))
     assert response.status_code == 200
     data = response.json()
     assert data["metrics_id"]
@@ -312,9 +312,9 @@ def test_get_region_performance():
         network_io=1000.5,
         disk_io=500.3,
         active_connections=100,
-        response_time_ms=45.2
+        response_time_ms=45.2,
     )
-    client.post("/api/v1/performance/metrics", json=metrics.model_dump(mode='json'))
+    client.post("/api/v1/performance/metrics", json=metrics.model_dump(mode="json"))
 
     response = client.get("/api/v1/performance/us-west-1")
     assert response.status_code == 200
@@ -337,7 +337,7 @@ def test_get_region_compliance():
         capacity=8000,
         current_load=2000,
         latency_ms=50,
-        compliance_level="full"
+        compliance_level="full",
     )
     client.post("/api/v1/regions/register", json=region.model_dump())
 

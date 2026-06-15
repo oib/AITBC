@@ -14,6 +14,7 @@ from .router import router
 
 class GPURegistrationRequest(BaseModel):
     """Request to register GPU on-chain."""
+
     gpu_id: str = Field(..., description="GPU unique identifier")
     miner_id: str = Field(..., description="Miner/provider ID")
     model: str = Field(..., description="GPU model (e.g., RTX 4090)")
@@ -27,6 +28,7 @@ class GPURegistrationRequest(BaseModel):
 
 class GPUAllocationRequest(BaseModel):
     """Request to allocate GPU on-chain."""
+
     gpu_id: str = Field(..., description="GPU ID to allocate")
     client_id: str = Field(..., description="Client wallet address")
     duration_hours: float = Field(..., ge=0, description="Allocation duration in hours")
@@ -48,6 +50,7 @@ async def list_gpus(chain_id: str | None = None, status: str | None = None) -> d
 
         with session_scope() as session:
             from sqlalchemy import select
+
             query = select(GPURegistration).where(GPURegistration.chain_id == chain_id)  # type: ignore[arg-type]
 
             if status:
@@ -66,11 +69,11 @@ async def list_gpus(chain_id: str | None = None, status: str | None = None) -> d
                         "region": g.region,
                         "price_per_hour": g.price_per_hour,
                         "status": g.status,
-                        "registered_at": g.registered_at.isoformat() if g.registered_at else None
+                        "registered_at": g.registered_at.isoformat() if g.registered_at else None,
                     }
                     for g in gpus
                 ],
-                "total": len(gpus)
+                "total": len(gpus),
             }
 
     except Exception as e:
@@ -92,11 +95,12 @@ async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[
 
         with session_scope() as session:
             from sqlalchemy import and_, select
+
             result = session.execute(
                 select(GPUAllocation).where(
                     and_(
                         GPUAllocation.chain_id == chain_id,  # type: ignore[arg-type]
-                        GPUAllocation.gpu_id == gpu_id  # type: ignore[arg-type]
+                        GPUAllocation.gpu_id == gpu_id,  # type: ignore[arg-type]
                     )
                 )
             )
@@ -113,11 +117,11 @@ async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[
                         "status": a.status,
                         "allocated_by": a.allocated_by,
                         "allocated_at": a.allocated_at.isoformat() if a.allocated_at else None,
-                        "completed_at": a.completed_at.isoformat() if a.completed_at else None
+                        "completed_at": a.completed_at.isoformat() if a.completed_at else None,
                     }
                     for a in allocations
                 ],
-                "total": len(allocations)
+                "total": len(allocations),
             }
 
     except Exception as e:
@@ -141,11 +145,12 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
         with session_scope() as session:
             # Check if GPU already registered
             from sqlalchemy import and_, select
+
             result = session.execute(
                 select(GPURegistration).where(
                     and_(
                         GPURegistration.chain_id == chain_id,  # type: ignore[arg-type]
-                        GPURegistration.gpu_id == request.gpu_id  # type: ignore[arg-type]
+                        GPURegistration.gpu_id == request.gpu_id,  # type: ignore[arg-type]
                     )
                 )
             )
@@ -162,11 +167,7 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
                 existing.status = "active"
                 existing.updated_at = datetime.now(UTC)
                 session.commit()
-                return {
-                    "gpu_id": request.gpu_id,
-                    "status": "updated",
-                    "message": "GPU registration updated on-chain"
-                }
+                return {"gpu_id": request.gpu_id, "status": "updated", "message": "GPU registration updated on-chain"}
 
             # Create new registration
             registration = GPURegistration(
@@ -181,16 +182,12 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
                 price_per_hour=request.price_per_hour,
                 registered_by=request.registered_by,
                 registered_at=datetime.now(UTC),
-                status="active"
+                status="active",
             )
             session.add(registration)
             session.commit()
 
-            return {
-                "gpu_id": request.gpu_id,
-                "status": "registered",
-                "message": "GPU registered on-chain successfully"
-            }
+            return {"gpu_id": request.gpu_id, "status": "registered", "message": "GPU registered on-chain successfully"}
 
     except Exception as e:
         metrics_registry.increment("rpc_gpu_register_errors_total")
@@ -212,11 +209,12 @@ async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
 
         with session_scope() as session:
             from sqlalchemy import and_, select
+
             result = session.execute(
                 select(GPURegistration).where(
                     and_(
                         GPURegistration.chain_id == chain_id,  # type: ignore[arg-type]
-                        GPURegistration.gpu_id == gpu_id  # type: ignore[arg-type]
+                        GPURegistration.gpu_id == gpu_id,  # type: ignore[arg-type]
                     )
                 )
             )
@@ -236,7 +234,7 @@ async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
                 "price_per_hour": gpu.price_per_hour,
                 "registered_by": gpu.registered_by,
                 "registered_at": gpu.registered_at.isoformat() if gpu.registered_at else None,
-                "status": gpu.status
+                "status": gpu.status,
             }
 
     except HTTPException:
@@ -273,7 +271,7 @@ async def allocate_gpu(request: GPUAllocationRequest, chain_id: str | None = Non
                 total_cost=request.total_cost,
                 status="active",
                 allocated_by=request.allocated_by,
-                allocated_at=datetime.now(UTC)
+                allocated_at=datetime.now(UTC),
             )
             session.add(allocation)
             session.commit()
@@ -282,7 +280,7 @@ async def allocate_gpu(request: GPUAllocationRequest, chain_id: str | None = Non
                 "allocation_id": allocation_id,
                 "gpu_id": request.gpu_id,
                 "status": "allocated",
-                "message": "GPU allocation recorded on-chain"
+                "message": "GPU allocation recorded on-chain",
             }
 
     except Exception as e:

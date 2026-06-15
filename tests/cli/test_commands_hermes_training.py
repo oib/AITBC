@@ -22,8 +22,9 @@ class TestHermesTrainingCommands:
         """Test that hermes_training command group exists"""
         try:
             from aitbc_cli.commands.hermes_training import hermes_training
+
             assert hermes_training is not None
-            assert hasattr(hermes_training, 'name')
+            assert hasattr(hermes_training, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import hermes_training commands: {e}")
 
@@ -31,12 +32,13 @@ class TestHermesTrainingCommands:
         """Test hermes_training group name"""
         try:
             from aitbc_cli.commands.hermes_training import hermes_training
+
             assert hermes_training.name == "hermes-training"
         except ImportError as e:
             pytest.skip(f"Cannot import hermes_training commands: {e}")
 
-    @patch('aitbc_cli.commands.hermes_training.output')
-    @patch('aitbc_cli.commands.hermes_training.error')
+    @patch("aitbc_cli.commands.hermes_training.output")
+    @patch("aitbc_cli.commands.hermes_training.error")
     def test_hermes_training_train_command(self, mock_error, mock_output):
         """Test hermes_training train command - skip due to Click context issues"""
         pytest.skip("Click context mocking requires complex setup")

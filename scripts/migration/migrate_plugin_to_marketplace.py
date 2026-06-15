@@ -17,7 +17,6 @@ sys.path.insert(0, str(Path("/opt/aitbc/aitbc")))
 sys.path.insert(0, str(Path("/opt/aitbc/apps/marketplace/src")))
 
 
-
 # Database URL from environment
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:////var/lib/aitbc/data/marketplace_service.db")
 
@@ -61,9 +60,8 @@ async def migrate_to_database(plugin_data):
             try:
                 # Check if already exists
                 from sqlalchemy import select
-                result = await session.execute(
-                    select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)
-                )
+
+                result = await session.execute(select(SoftwareService).where(SoftwareService.plugin_id == plugin_id))
                 existing = result.scalar_one_or_none()
 
                 if existing:
@@ -152,4 +150,5 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())

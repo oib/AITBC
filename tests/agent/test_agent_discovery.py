@@ -40,7 +40,7 @@ class TestAgentInfo:
             metadata={"region": "us-east"},
             last_heartbeat=datetime.now(UTC),
             registration_time=datetime.now(UTC),
-            health_score=0.95
+            health_score=0.95,
         )
 
         assert agent_info.agent_id == "agent_001"
@@ -60,7 +60,7 @@ class TestAgentInfo:
             endpoints={"http": "http://localhost:8081"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         # Convert to dict
@@ -83,7 +83,7 @@ class TestAgentInfo:
             agent_type="worker",
             capabilities=["compute"],
             services=["processing"],
-            endpoints={"http": "http://localhost:8082"}
+            endpoints={"http": "http://localhost:8082"},
         )
 
         assert agent_info.agent_id == "agent_003"
@@ -119,7 +119,7 @@ class TestAgentRegistry:
             endpoints={"http": "http://localhost:8083"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         success = await registry.register_agent(agent_info)
@@ -143,7 +143,7 @@ class TestAgentRegistry:
             endpoints={"http": "http://localhost:8084"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(agent_info)
@@ -166,7 +166,7 @@ class TestAgentRegistry:
             endpoints={"http": "http://localhost:8085"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(agent_info)
@@ -190,7 +190,7 @@ class TestAgentRegistry:
             endpoints={"http": "http://localhost:8086"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(agent_info)
@@ -219,7 +219,7 @@ class TestAgentRegistry:
                 endpoints={"http": f"http://localhost:808{i}"},
                 metadata={},
                 last_heartbeat=datetime.now(UTC),
-                registration_time=datetime.now(UTC)
+                registration_time=datetime.now(UTC),
             )
             await registry.register_agent(agent_info)
 
@@ -244,7 +244,7 @@ class TestAgentRegistry:
             endpoints={"http": "http://localhost:8090"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         cpu_agent = AgentInfo(
@@ -256,7 +256,7 @@ class TestAgentRegistry:
             endpoints={"http": "http://localhost:8091"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(gpu_agent)
@@ -282,7 +282,7 @@ class TestAgentRegistry:
             endpoints={"http": "http://localhost:8092"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         busy_agent = AgentInfo(
@@ -294,7 +294,7 @@ class TestAgentRegistry:
             endpoints={"http": "http://localhost:8093"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(active_agent)
@@ -321,7 +321,7 @@ class TestAgentRegistry:
             metadata={},
             last_heartbeat=datetime.now(UTC),
             registration_time=datetime.now(UTC),
-            health_score=0.9
+            health_score=0.9,
         )
 
         unhealthy_agent = AgentInfo(
@@ -334,7 +334,7 @@ class TestAgentRegistry:
             metadata={},
             last_heartbeat=datetime.now(UTC),
             registration_time=datetime.now(UTC),
-            health_score=0.5
+            health_score=0.5,
         )
 
         await registry.register_agent(healthy_agent)
@@ -360,7 +360,7 @@ class TestAgentRegistry:
             endpoints={"http": "http://localhost:8096"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(agent_info)
@@ -383,7 +383,7 @@ class TestAgentRegistry:
             endpoints={"http": "http://localhost:8097"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(agent_info)
@@ -406,7 +406,7 @@ class TestAgentRegistry:
             endpoints={"http": "http://localhost:8098"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(agent_info)
@@ -431,7 +431,7 @@ class TestAgentRegistry:
                 endpoints={"http": f"http://localhost:810{i}"},
                 metadata={},
                 last_heartbeat=datetime.now(UTC),
-                registration_time=datetime.now(UTC)
+                registration_time=datetime.now(UTC),
             )
             await registry.register_agent(agent_info)
 
@@ -459,7 +459,7 @@ class TestAgentRegistry:
             metadata={},
             last_heartbeat=datetime.now(UTC),
             registration_time=datetime.now(UTC),
-            load_metrics={"cpu": 0.9, "memory": 0.85}
+            load_metrics={"cpu": 0.9, "memory": 0.85},
         )
 
         # Agent with low load should have higher health score
@@ -473,7 +473,7 @@ class TestAgentRegistry:
             metadata={},
             last_heartbeat=datetime.now(UTC),
             registration_time=datetime.now(UTC),
-            load_metrics={"cpu": 0.3, "memory": 0.4}
+            load_metrics={"cpu": 0.3, "memory": 0.4},
         )
 
         await registry.register_agent(high_load_agent)
@@ -531,7 +531,7 @@ class TestAgentDiscoveryService:
             metadata={},
             last_heartbeat=datetime.now(UTC),
             registration_time=datetime.now(UTC),
-            health_score=0.95
+            health_score=0.95,
         )
 
         other_agent = AgentInfo(
@@ -544,17 +544,14 @@ class TestAgentDiscoveryService:
             metadata={},
             last_heartbeat=datetime.now(UTC),
             registration_time=datetime.now(UTC),
-            health_score=0.7
+            health_score=0.7,
         )
 
         await registry.register_agent(best_agent)
         await registry.register_agent(other_agent)
 
         # Find best agent
-        found = await service.find_best_agent({
-            "capabilities": ["gpu"],
-            "min_health_score": 0.5
-        })
+        found = await service.find_best_agent({"capabilities": ["gpu"], "min_health_score": 0.5})
 
         assert found is not None
         assert found.agent_id == "agent_best"
@@ -574,7 +571,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8104", "ws": "ws://localhost:8105"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(agent_info)
@@ -598,7 +595,7 @@ class TestAgentDiscoveryService:
             last_heartbeat=datetime.now(UTC),
             registration_time=datetime.now(UTC),
             load_metrics={"cpu": 0.5},
-            tags={"production"}
+            tags={"production"},
         )
 
         # Convert to dict
@@ -630,7 +627,7 @@ class TestAgentDiscoveryService:
             endpoints={},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.capabilities) == 0
@@ -645,14 +642,10 @@ class TestAgentDiscoveryService:
             status=AgentStatus.ACTIVE,
             capabilities=["gpu"],
             services=["inference"],
-            endpoints={
-                "http": "http://localhost:8080",
-                "grpc": "grpc://localhost:9090",
-                "ws": "ws://localhost:8081"
-            },
+            endpoints={"http": "http://localhost:8080", "grpc": "grpc://localhost:9090", "ws": "ws://localhost:8081"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.endpoints) == 3
@@ -672,7 +665,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8086"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.capabilities) == 4
@@ -692,7 +685,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8087"},
             metadata={"region": "us-west"},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         # Add metadata
@@ -715,7 +708,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8101"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert agent.agent_type == AgentType.SPECIALIST
@@ -733,7 +726,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8102"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert agent.agent_type == AgentType.COORDINATOR
@@ -751,7 +744,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8113"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.capabilities) == 3
@@ -770,7 +763,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8114"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.services) == 1
@@ -788,7 +781,7 @@ class TestAgentDiscoveryService:
             endpoints={},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.endpoints) == 0
@@ -802,14 +795,10 @@ class TestAgentDiscoveryService:
             status=AgentStatus.ACTIVE,
             capabilities=["gpu"],
             services=["inference"],
-            endpoints={
-                "http": "http://localhost:8116",
-                "grpc": "grpc://localhost:9096",
-                "ws": "ws://localhost:8096"
-            },
+            endpoints={"http": "http://localhost:8116", "grpc": "grpc://localhost:9096", "ws": "ws://localhost:8096"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.endpoints) == 3
@@ -828,7 +817,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8117"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.services) == 0
@@ -845,7 +834,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8118"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.capabilities) == 1
@@ -863,7 +852,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8119"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert agent.agent_type == AgentType.SPECIALIST
@@ -880,7 +869,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8120"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert agent.status == AgentStatus.MAINTENANCE
@@ -897,7 +886,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8121"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "12345" in agent.agent_id
@@ -914,7 +903,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8122"},
             metadata={"name": "A very long agent name for testing purposes"},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.metadata["name"]) > 20
@@ -931,7 +920,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8123"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.metadata) == 0
@@ -948,7 +937,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8124"},
             metadata={"name": "Agent", "version": "1.0", "region": "us-west"},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.metadata) == 3
@@ -965,7 +954,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8125"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.capabilities) == 1
@@ -982,7 +971,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8126"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.services) == 3
@@ -999,7 +988,7 @@ class TestAgentDiscoveryService:
             endpoints={},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.endpoints) == 0
@@ -1016,7 +1005,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8127"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.endpoints) == 1
@@ -1033,7 +1022,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8128"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "-" in agent.agent_id
@@ -1051,7 +1040,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8129"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "_" in agent.agent_id
@@ -1068,7 +1057,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8130"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert agent.agent_id[0].isupper()
@@ -1085,7 +1074,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8131"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.services) == 1
@@ -1102,7 +1091,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8132"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.capabilities) == 0
@@ -1119,7 +1108,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8133"},
             metadata={"key1": "value1", "key2": "value2", "key3": "value3"},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.metadata) == 3
@@ -1136,7 +1125,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8134"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.metadata) == 0
@@ -1153,7 +1142,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8135", "grpc": "localhost:8136"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.endpoints) == 2
@@ -1170,7 +1159,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8137"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.capabilities) == 1
@@ -1187,7 +1176,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8138"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.services) == 1
@@ -1204,7 +1193,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8139"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "123" in agent.agent_id
@@ -1221,7 +1210,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8140"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "-" in agent.agent_id
@@ -1238,7 +1227,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8141"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "@" in agent.agent_id
@@ -1257,7 +1246,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8142"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "_" in agent.agent_id
@@ -1274,7 +1263,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8143"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert agent.agent_id == ""
@@ -1291,7 +1280,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8144"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert len(agent.agent_id) == 1
@@ -1308,7 +1297,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8145"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "Agent" in agent.agent_id
@@ -1326,7 +1315,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8146"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert agent.agent_id == "123"
@@ -1343,7 +1332,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8147"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "-" in agent.agent_id
@@ -1360,7 +1349,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8148"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "." in agent.agent_id
@@ -1377,7 +1366,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8149"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "@" in agent.agent_id
@@ -1396,7 +1385,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8150"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert " " in agent.agent_id
@@ -1413,7 +1402,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8151"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "_" in agent.agent_id
@@ -1430,7 +1419,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8152"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "|" in agent.agent_id
@@ -1447,7 +1436,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8153"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert ":" in agent.agent_id
@@ -1464,7 +1453,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8154"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert ";" in agent.agent_id
@@ -1481,7 +1470,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8155"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "=" in agent.agent_id
@@ -1498,7 +1487,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8156"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "+" in agent.agent_id
@@ -1515,7 +1504,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8157"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "/" in agent.agent_id
@@ -1532,7 +1521,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8158"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "\\" in agent.agent_id
@@ -1549,7 +1538,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8159"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "[" in agent.agent_id
@@ -1567,7 +1556,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8160"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "(" in agent.agent_id
@@ -1585,7 +1574,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8161"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "{" in agent.agent_id
@@ -1603,7 +1592,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8162"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "<" in agent.agent_id
@@ -1621,7 +1610,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8163"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "$" in agent.agent_id
@@ -1638,7 +1627,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8164"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "@" in agent.agent_id
@@ -1655,7 +1644,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8165"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "%" in agent.agent_id
@@ -1672,7 +1661,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8166"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "&" in agent.agent_id
@@ -1689,7 +1678,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8167"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "#" in agent.agent_id
@@ -1706,7 +1695,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8168"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "!" in agent.agent_id
@@ -1723,7 +1712,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8169"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "*" in agent.agent_id
@@ -1740,7 +1729,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8170"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "+" in agent.agent_id
@@ -1757,7 +1746,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8171"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "=" in agent.agent_id
@@ -1774,7 +1763,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8172"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "[" in agent.agent_id
@@ -1791,7 +1780,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8173"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "{" in agent.agent_id
@@ -1808,7 +1797,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8174"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "|" in agent.agent_id
@@ -1825,7 +1814,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8175"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert ":" in agent.agent_id
@@ -1842,7 +1831,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8176"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert ";" in agent.agent_id
@@ -1859,7 +1848,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8177"},
             metadata={},
             last_heartbeat=now,
-            registration_time=now
+            registration_time=now,
         )
 
         assert "," in agent.agent_id
@@ -1878,7 +1867,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8178"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         specialist_agent = AgentInfo(
@@ -1890,7 +1879,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8179"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(worker_agent)
@@ -1917,7 +1906,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8180", "grpc": "grpc://localhost:8181"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(agent_info)
@@ -2005,7 +1994,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8182"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(agent_info)
@@ -2027,7 +2016,7 @@ class TestAgentDiscoveryService:
             endpoints={"http": "http://localhost:8183"},
             metadata={},
             last_heartbeat=datetime.now(UTC),
-            registration_time=datetime.now(UTC)
+            registration_time=datetime.now(UTC),
         )
 
         await registry.register_agent(agent_info)
@@ -2051,15 +2040,13 @@ class TestAgentDiscoveryService:
             metadata={},
             last_heartbeat=datetime.now(UTC),
             registration_time=datetime.now(UTC),
-            health_score=0.9
+            health_score=0.9,
         )
 
         await registry.register_agent(agent_info)
-        filtered_agents = await registry.discover_agents({
-            "agent_type": "worker",
-            "capabilities": ["gpu"],
-            "min_health_score": 0.8
-        })
+        filtered_agents = await registry.discover_agents(
+            {"agent_type": "worker", "capabilities": ["gpu"], "min_health_score": 0.8}
+        )
 
         assert len(filtered_agents) == 1
         assert filtered_agents[0].agent_id == "agent_multi"
@@ -2080,14 +2067,11 @@ class TestAgentDiscoveryService:
             metadata={},
             last_heartbeat=datetime.now(UTC),
             registration_time=datetime.now(UTC),
-            health_score=0.95
+            health_score=0.95,
         )
 
         await registry.register_agent(best_agent)
-        found = await service.find_best_agent({
-            "capabilities": ["gpu"],
-            "min_health_score": 0.9
-        })
+        found = await service.find_best_agent({"capabilities": ["gpu"], "min_health_score": 0.9})
 
         assert found is not None
         assert found.agent_id == "best_agent_test"
@@ -2108,14 +2092,11 @@ class TestAgentDiscoveryService:
             metadata={},
             last_heartbeat=datetime.now(UTC),
             registration_time=datetime.now(UTC),
-            health_score=0.5
+            health_score=0.5,
         )
 
         await registry.register_agent(agent_info)
-        found = await service.find_best_agent({
-            "capabilities": ["gpu"],
-            "min_health_score": 0.9
-        })
+        found = await service.find_best_agent({"capabilities": ["gpu"], "min_health_score": 0.9})
 
         assert found is None
 

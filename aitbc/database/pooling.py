@@ -19,7 +19,7 @@ def create_pooled_engine(
     pool_recycle: int = 3600,
     pool_pre_ping: bool = True,
     echo: bool = False,
-    use_static_pool: bool = False
+    use_static_pool: bool = False,
 ):
     """
     Create SQLAlchemy engine with connection pooling.
@@ -70,11 +70,7 @@ def create_pooled_engine(
     return engine
 
 
-def create_pooled_sessionmaker(
-    engine,
-    autoflush: bool = False,
-    autocommit: bool = False
-):
+def create_pooled_sessionmaker(engine, autoflush: bool = False, autocommit: bool = False):
     """
     Create session factory with connection pooling.
 
@@ -95,7 +91,7 @@ def create_async_pooled_engine(
     max_overflow: int = 20,
     pool_recycle: int = 3600,
     pool_pre_ping: bool = True,
-    echo: bool = False
+    echo: bool = False,
 ):
     """
     Create async SQLAlchemy engine with connection pooling.
@@ -131,10 +127,7 @@ def create_async_pooled_engine(
     return engine
 
 
-def create_async_pooled_sessionmaker(
-    engine,
-    expire_on_commit: bool = False
-):
+def create_async_pooled_sessionmaker(engine, expire_on_commit: bool = False):
     """
     Create async session factory with connection pooling.
 

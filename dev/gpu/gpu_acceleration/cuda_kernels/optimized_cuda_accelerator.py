@@ -15,13 +15,14 @@ import numpy as np
 class FieldElement(ctypes.Structure):
     _fields_ = [("limbs", ctypes.c_uint64 * 4)]
 
+
 class OptimizedCUDAZKAccelerator:
     """Optimized Python interface for CUDA-accelerated ZK circuit operations"""
 
     def __init__(self, lib_path: str = None):
         """
         Initialize optimized CUDA accelerator
-        
+
         Args:
             lib_path: Path to compiled CUDA library (.so file)
         """
@@ -45,7 +46,7 @@ class OptimizedCUDAZKAccelerator:
             "./field_operations.so",
             "../field_operations.so",
             "../../field_operations.so",
-            "/usr/local/lib/libfield_operations.so"
+            "/usr/local/lib/libfield_operations.so",
         ]
 
         for path in possible_paths:
@@ -69,7 +70,7 @@ class OptimizedCUDAZKAccelerator:
             np.ctypeslib.ndpointer(FieldElement, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(FieldElement, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_uint64, flags="C_CONTIGUOUS"),
-            ctypes.c_int
+            ctypes.c_int,
         ]
         self.lib.gpu_field_addition.restype = ctypes.c_int
 
@@ -78,7 +79,7 @@ class OptimizedCUDAZKAccelerator:
             np.ctypeslib.ndpointer(ctypes.c_void_p, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(FieldElement, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_bool, flags="C_CONTIGUOUS"),
-            ctypes.c_int
+            ctypes.c_int,
         ]
         self.lib.gpu_constraint_verification.restype = ctypes.c_int
 
@@ -103,10 +104,10 @@ class OptimizedCUDAZKAccelerator:
     def benchmark_optimized_performance(self, max_elements: int = 10000000) -> dict:
         """
         Benchmark optimized GPU performance with varying dataset sizes
-        
+
         Args:
             max_elements: Maximum number of elements to test
-            
+
         Returns:
             Performance benchmark results
         """
@@ -118,11 +119,11 @@ class OptimizedCUDAZKAccelerator:
 
         # Test different dataset sizes
         test_sizes = [
-            1000,      # 1K elements
-            10000,     # 10K elements
-            100000,    # 100K elements
-            1000000,   # 1M elements
-            5000000,   # 5M elements
+            1000,  # 1K elements
+            10000,  # 10K elements
+            100000,  # 100K elements
+            1000000,  # 1M elements
+            5000000,  # 5M elements
             10000000,  # 10M elements
         ]
 
@@ -142,7 +143,7 @@ class OptimizedCUDAZKAccelerator:
 
             # GPU benchmark with multiple runs
             gpu_times = []
-            for run in range(3):  # 3 runs for consistency
+            for _run in range(3):  # 3 runs for consistency
                 start_time = time.time()
                 success, gpu_result = self.field_addition_optimized(a_elements, b_elements, modulus)
                 gpu_time = time.time() - start_time
@@ -159,7 +160,7 @@ class OptimizedCUDAZKAccelerator:
 
             # CPU benchmark
             start_time = time.time()
-            cpu_result = self._cpu_field_addition(a_elements, b_elements, modulus)
+            _ = self._cpu_field_addition(a_elements, b_elements, modulus)
             cpu_time = time.time() - start_time
 
             # Calculate speedup
@@ -172,7 +173,7 @@ class OptimizedCUDAZKAccelerator:
                 "speedup": speedup,
                 "gpu_throughput": size / avg_gpu_time if avg_gpu_time > 0 else 0,
                 "cpu_throughput": size / cpu_time if cpu_time > 0 else 0,
-                "gpu_success": True
+                "gpu_success": True,
             }
 
             results.append(result)
@@ -187,35 +188,34 @@ class OptimizedCUDAZKAccelerator:
         best_throughput = max(results, key=lambda x: x["gpu_throughput"]) if results else None
 
         summary = {
-            "test_sizes": test_sizes[:len(results)],
+            "test_sizes": test_sizes[: len(results)],
             "results": results,
             "best_speedup": best_speedup,
             "best_throughput": best_throughput,
-            "gpu_device": "NVIDIA GeForce RTX 4060 Ti"
+            "gpu_device": "NVIDIA GeForce RTX 4060 Ti",
         }
 
         print("\n🎯 Performance Summary:")
         if best_speedup:
             print(f"   Best Speedup: {best_speedup['speedup']:.2f}x at {best_speedup['elements']:,} elements")
         if best_throughput:
-            print(f"   Best Throughput: {best_throughput['gpu_throughput']:.0f} elements/s at {best_throughput['elements']:,} elements")
+            print(
+                f"   Best Throughput: {best_throughput['gpu_throughput']:.0f} elements/s at {best_throughput['elements']:,} elements"
+            )
 
         return summary
 
     def field_addition_optimized(
-        self,
-        a: list[FieldElement],
-        b: list[FieldElement],
-        modulus: list[int]
+        self, a: list[FieldElement], b: list[FieldElement], modulus: list[int]
     ) -> tuple[bool, list[FieldElement] | None]:
         """
         Perform optimized parallel field addition on GPU
-        
+
         Args:
             a: First operand array
             b: Second operand array
             modulus: Field modulus (4 x 64-bit limbs)
-            
+
         Returns:
             (success, result_array)
         """
@@ -235,9 +235,7 @@ class OptimizedCUDAZKAccelerator:
             modulus_array = np.array(modulus, dtype=ctypes.c_uint64)
 
             # Call GPU function
-            result = self.lib.gpu_field_addition(
-                a_array, b_array, result_array, modulus_array, num_elements
-            )
+            result = self.lib.gpu_field_addition(a_array, b_array, result_array, modulus_array, num_elements)
 
             if result == 0:
                 return True, result_array.tolist()
@@ -271,7 +269,9 @@ class OptimizedCUDAZKAccelerator:
 
         return a_elements, b_elements
 
-    def _cpu_field_addition(self, a_elements: list[FieldElement], b_elements: list[FieldElement], modulus: list[int]) -> list[FieldElement]:
+    def _cpu_field_addition(
+        self, a_elements: list[FieldElement], b_elements: list[FieldElement], modulus: list[int]
+    ) -> list[FieldElement]:
         """Optimized CPU field addition for benchmarking"""
         num_elements = len(a_elements)
         result = []
@@ -293,7 +293,7 @@ class OptimizedCUDAZKAccelerator:
             "memory_bandwidth": self._test_memory_bandwidth(),
             "compute_utilization": self._test_compute_utilization(),
             "data_transfer": self._test_data_transfer(),
-            "kernel_launch": self._test_kernel_launch_overhead()
+            "kernel_launch": self._test_kernel_launch_overhead(),
         }
 
         print("\n📊 Performance Analysis Results:")
@@ -310,8 +310,7 @@ class OptimizedCUDAZKAccelerator:
             a_elements, b_elements = self._generate_test_data(size)
 
             start_time = time.time()
-            success, _ = self.field_addition_optimized(a_elements, b_elements,
-                                                      [0xFFFFFFFFFFFFFFFF] * 4)
+            success, _ = self.field_addition_optimized(a_elements, b_elements, [0xFFFFFFFFFFFFFFFF] * 4)
             test_time = time.time() - start_time
 
             if success:
@@ -334,7 +333,7 @@ class OptimizedCUDAZKAccelerator:
 
             # Test data transfer time
             start_time = time.time()
-            a_array = np.array(a_elements, dtype=FieldElement)
+            _ = np.array(a_elements, dtype=FieldElement)
             transfer_time = time.time() - start_time
 
             return f"{transfer_time:.4f}s for {size:,} elements"
@@ -348,8 +347,7 @@ class OptimizedCUDAZKAccelerator:
             a_elements, b_elements = self._generate_test_data(size)
 
             start_time = time.time()
-            success, _ = self.field_addition_optimized(a_elements, b_elements,
-                                                      [0xFFFFFFFFFFFFFFFF] * 4)
+            success, _ = self.field_addition_optimized(a_elements, b_elements, [0xFFFFFFFFFFFFFFFF] * 4)
             total_time = time.time() - start_time
 
             if success:
@@ -358,6 +356,7 @@ class OptimizedCUDAZKAccelerator:
                 return "Test failed"
         except Exception as e:
             return f"Error: {e}"
+
 
 def main():
     """Main function for testing optimized CUDA acceleration"""
@@ -380,7 +379,7 @@ def main():
         results = accelerator.benchmark_optimized_performance(10000000)
 
         # Analyze performance bottlenecks
-        bottleneck_analysis = accelerator.analyze_performance_bottlenecks()
+        _ = accelerator.analyze_performance_bottlenecks()
 
         print("\n✅ Optimized CUDA acceleration test completed!")
 
@@ -389,6 +388,7 @@ def main():
 
     except Exception as e:
         print(f"❌ Test failed: {e}")
+
 
 if __name__ == "__main__":
     main()

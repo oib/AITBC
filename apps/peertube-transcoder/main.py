@@ -48,11 +48,16 @@ async def transcode_video(req: TranscodeRequest):
         "codec": req.target_codec,
         "elapsed_seconds": 45.2,
     }
-    result_hash = hashlib.sha256(json.dumps({
-        'video_url': req.video_url,
-        'transcoded_url': result['transcoded_url'],
-        'duration': result['duration_seconds'],
-    }, sort_keys=True).encode()).hexdigest()
+    result_hash = hashlib.sha256(
+        json.dumps(
+            {
+                "video_url": req.video_url,
+                "transcoded_url": result["transcoded_url"],
+                "duration": result["duration_seconds"],
+            },
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
 
     return {
         **result,

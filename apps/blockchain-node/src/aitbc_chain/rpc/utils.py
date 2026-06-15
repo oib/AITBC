@@ -100,6 +100,7 @@ def normalize_transaction_data(tx_data: dict[str, Any], chain_id: str) -> dict[s
     if isinstance(payload, str):
         try:
             import json
+
             payload = json.loads(payload)
         except Exception:
             payload = {}

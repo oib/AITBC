@@ -16,6 +16,7 @@ router = APIRouter(prefix="/miners", tags=["miners"])
 
 class MinerRegistration(BaseModel):
     """Miner registration request"""
+
     miner_id: str
     pool_id: str
     capabilities: list[str]
@@ -26,6 +27,7 @@ class MinerRegistration(BaseModel):
 
 class MinerStatus(BaseModel):
     """Miner status update"""
+
     miner_id: str
     status: str  # available, busy, maintenance, offline
     current_jobs: int = 0
@@ -35,6 +37,7 @@ class MinerStatus(BaseModel):
 
 class MinerInfo(BaseModel):
     """Miner information response"""
+
     miner_id: str
     pool_id: str
     capabilities: list[str]
@@ -58,9 +61,7 @@ def get_scoring() -> ScoringEngine:
 @router.post("/register", response_model=MinerInfo)
 @rate_limit(rate=50, per=60)
 async def register_miner(
-    request: Request,
-    registration: MinerRegistration,
-    registry: MinerRegistry = Depends(get_registry)
+    request: Request, registration: MinerRegistration, registry: MinerRegistry = Depends(get_registry)
 ) -> MinerInfo:
     """Register a new miner with the pool hub."""
     try:
@@ -70,7 +71,7 @@ async def register_miner(
             capabilities=registration.capabilities,
             gpu_info=registration.gpu_info,
             endpoint=registration.endpoint,
-            max_concurrent_jobs=registration.max_concurrent_jobs
+            max_concurrent_jobs=registration.max_concurrent_jobs,
         )
         return miner  # type: ignore[no-any-return]
     except ValueError as e:
@@ -80,10 +81,7 @@ async def register_miner(
 @router.post("/{miner_id}/heartbeat")
 @rate_limit(rate=100, per=60)
 async def miner_heartbeat(
-    request: Request,
-    miner_id: str,
-    status: MinerStatus,
-    registry: MinerRegistry = Depends(get_registry)
+    request: Request, miner_id: str, status: MinerStatus, registry: MinerRegistry = Depends(get_registry)
 ) -> dict[str, str]:
     """Update miner heartbeat and status."""
     miner = await registry.get(miner_id)
@@ -95,18 +93,14 @@ async def miner_heartbeat(
         status=status.status,
         current_jobs=status.current_jobs,
         gpu_utilization=status.gpu_utilization,
-        memory_used_gb=status.memory_used_gb
+        memory_used_gb=status.memory_used_gb,
     )
     return {"status": "ok"}
 
 
 @router.get("/{miner_id}", response_model=MinerInfo)
 @rate_limit(rate=200, per=60)
-async def get_miner(
-    request: Request,
-    miner_id: str,
-    registry: MinerRegistry = Depends(get_registry)
-) -> MinerInfo:
+async def get_miner(request: Request, miner_id: str, registry: MinerRegistry = Depends(get_registry)) -> MinerInfo:
     """Get miner information."""
     miner = await registry.get(miner_id)
     if not miner:
@@ -122,24 +116,17 @@ async def list_miners(
     status: str | None = Query(None),
     capability: str | None = Query(None),
     limit: int = Query(50, le=100),
-    registry: MinerRegistry = Depends(get_registry)
+    registry: MinerRegistry = Depends(get_registry),
 ) -> list[MinerInfo]:
     """List miners with optional filters."""
     return await registry.list(  # type: ignore[no-any-return]
-        pool_id=pool_id,
-        status=status,
-        capability=capability,
-        limit=limit
+        pool_id=pool_id, status=status, capability=capability, limit=limit
     )
 
 
 @router.delete("/{miner_id}")
 @rate_limit(rate=50, per=60)
-async def unregister_miner(
-    request: Request,
-    miner_id: str,
-    registry: MinerRegistry = Depends(get_registry)
-) -> dict[str, str]:
+async def unregister_miner(request: Request, miner_id: str, registry: MinerRegistry = Depends(get_registry)) -> dict[str, str]:
     """Unregister a miner from the pool hub."""
     miner = await registry.get(miner_id)
     if not miner:
@@ -155,7 +142,7 @@ async def get_miner_score(
     request: Request,
     miner_id: str,
     registry: MinerRegistry = Depends(get_registry),
-    scoring: ScoringEngine = Depends(get_scoring)
+    scoring: ScoringEngine = Depends(get_scoring),
 ) -> dict[str, Any]:
     """Get miner's current score and ranking."""
     miner = await registry.get(miner_id)
@@ -165,21 +152,13 @@ async def get_miner_score(
     score = await scoring.calculate_score(miner)
     rank = await scoring.get_rank(miner_id)
 
-    return {
-        "miner_id": miner_id,
-        "score": score,
-        "rank": rank,
-        "components": await scoring.get_score_breakdown(miner)
-    }
+    return {"miner_id": miner_id, "score": score, "rank": rank, "components": await scoring.get_score_breakdown(miner)}
 
 
 @router.post("/{miner_id}/capabilities")
 @rate_limit(rate=50, per=60)
 async def update_capabilities(
-    request: Request,
-    miner_id: str,
-    capabilities: list[str],
-    registry: MinerRegistry = Depends(get_registry)
+    request: Request, miner_id: str, capabilities: list[str], registry: MinerRegistry = Depends(get_registry)
 ) -> dict[str, Any]:
     """Update miner capabilities."""
     miner = await registry.get(miner_id)

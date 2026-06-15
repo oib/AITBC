@@ -3,7 +3,6 @@ ETH-AIT Bridge API Routes
 REST API endpoints for bridge operations.
 """
 
-
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -29,7 +28,7 @@ async def get_price() -> dict[str, Any]:
         "eth_usd": rate_info["eth_usd"],
         "ait_usd": rate_info["ait_usd"],
         "exchange_rate": rate_info["eth_ait_rate_usd"],
-        "timestamp": rate_info["timestamp"]
+        "timestamp": rate_info["timestamp"],
     }
 
 
@@ -37,7 +36,7 @@ async def get_price() -> dict[str, Any]:
 async def list_deposits(status: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
     """
     List ETH deposits.
-    
+
     Query parameters:
     - status: Filter by status (pending, verified, completed, rejected)
     - limit: Maximum number of results (default: 50)
@@ -48,10 +47,7 @@ async def list_deposits(status: str | None = None, limit: int = 50, offset: int 
     else:
         deposits = get_all_deposits(limit=limit, offset=offset)
 
-    return {
-        "deposits": deposits,
-        "count": len(deposits)
-    }
+    return {"deposits": deposits, "count": len(deposits)}
 
 
 @router.get("/deposits/{deposit_id}")
@@ -86,11 +82,7 @@ async def verify_deposit(deposit_id: str) -> dict[str, Any]:
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update deposit status")
 
-    return {
-        "success": True,
-        "message": "Deposit verified",
-        "deposit_id": deposit_id
-    }
+    return {"success": True, "message": "Deposit verified", "deposit_id": deposit_id}
 
 
 @router.post("/deposits/{deposit_id}/complete")
@@ -111,18 +103,14 @@ async def complete_deposit(deposit_id: str) -> dict[str, Any]:
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update deposit status")
 
-    return {
-        "success": True,
-        "message": "Deposit completed",
-        "deposit_id": deposit_id
-    }
+    return {"success": True, "message": "Deposit completed", "deposit_id": deposit_id}
 
 
 @router.get("/calculate")
 async def calculate_exchange(eth_amount: float) -> dict[str, Any]:
     """
     Calculate AIT amount for a given ETH amount.
-    
+
     Query parameters:
     - eth_amount: Amount of ETH to convert
     """
@@ -134,11 +122,7 @@ async def calculate_exchange(eth_amount: float) -> dict[str, Any]:
     if ait_amount is None:
         raise HTTPException(status_code=503, detail="Failed to calculate exchange rate")
 
-    return {
-        "eth_amount": eth_amount,
-        "ait_amount": ait_amount,
-        "exchange_rate": ait_amount / eth_amount
-    }
+    return {"eth_amount": eth_amount, "ait_amount": ait_amount, "exchange_rate": ait_amount / eth_amount}
 
 
 @router.get("/history")
@@ -165,7 +149,7 @@ async def get_price_history() -> dict[str, Any]:
             "current": current_rates,
             "averages": None,
             "change_vs_average": None,
-            "timestamp": current_rates["timestamp"]
+            "timestamp": current_rates["timestamp"],
         }
 
     # Calculate change vs average
@@ -182,13 +166,10 @@ async def get_price_history() -> dict[str, Any]:
             "ait_eur": 1.0 * (averages["eth_eur_avg"] / averages["eth_usd_avg"]),
             "eth_ait_rate_usd": averages["eth_usd_avg"],
             "eth_ait_rate_eur": averages["eth_eur_avg"] / (1.0 * (averages["eth_eur_avg"] / averages["eth_usd_avg"])),
-            "count": averages["count"]
+            "count": averages["count"],
         },
-        "change_vs_average": {
-            "eth_usd_percent": change_usd,
-            "eth_eur_percent": change_eur
-        },
-        "timestamp": current_rates["timestamp"]
+        "change_vs_average": {"eth_usd_percent": change_usd, "eth_eur_percent": change_eur},
+        "timestamp": current_rates["timestamp"],
     }
 
 
@@ -203,5 +184,5 @@ async def get_bridge_status() -> dict[str, Any]:
         "enabled": os.getenv("BRIDGE_ENABLED", "false").lower() == "true",
         "wallet_address": os.getenv("ETH_WALLET_ADDRESS", ""),
         "rpc_url": os.getenv("ETH_RPC_URL", ""),
-        "poll_interval": int(os.getenv("BRIDGE_POLL_INTERVAL", "30"))
+        "poll_interval": int(os.getenv("BRIDGE_POLL_INTERVAL", "30")),
     }

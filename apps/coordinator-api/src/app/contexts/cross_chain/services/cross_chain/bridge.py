@@ -4,6 +4,7 @@ Cross-Chain Bridge Service
 Secure cross-chain asset transfer protocol with ZK proof validation.
 Enables bridging of assets between different blockchain networks.
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,10 +39,18 @@ from ..schemas.cross_chain_bridge import (  # type: ignore[import-not-found]
 
 logger = logging.getLogger(__name__)
 
+
 class CrossChainBridgeService:
     """Secure cross-chain asset transfer protocol"""
 
-    def __init__(self, session: Session, contract_service: ContractInteractionService, zk_proof_service: ZKProofService, merkle_tree_service: MerkleTreeService, bridge_monitor: BridgeMonitor) -> None:
+    def __init__(
+        self,
+        session: Session,
+        contract_service: ContractInteractionService,
+        zk_proof_service: ZKProofService,
+        merkle_tree_service: MerkleTreeService,
+        bridge_monitor: BridgeMonitor,
+    ) -> None:
         self.session = session
         self.contract_service = contract_service
         self.zk_proof_service = zk_proof_service
@@ -61,17 +70,23 @@ class CrossChainBridgeService:
                 raise HTTPException(status_code=400, detail=validation_result.error_message)
             token_config = await self._get_supported_token(transfer_request.source_token)
             if not token_config or not token_config.is_active:
-                raise HTTPException(status_code=400, detail='Source token not supported for bridging')
+                raise HTTPException(status_code=400, detail="Source token not supported for bridging")
             source_chain = await self._get_chain_config(transfer_request.source_chain_id)
             target_chain = await self._get_chain_config(transfer_request.target_chain_id)
             if not source_chain or not target_chain:
-                raise HTTPException(status_code=400, detail='Unsupported blockchain network')
+                raise HTTPException(status_code=400, detail="Unsupported blockchain network")
             bridge_fee = transfer_request.amount * self.bridge_fee_percentage / 100
             total_amount = transfer_request.amount + bridge_fee
             if transfer_request.amount > token_config.bridge_limit:
-                raise HTTPException(status_code=400, detail=f'Amount exceeds bridge limit of {token_config.bridge_limit}')
+                raise HTTPException(status_code=400, detail=f"Amount exceeds bridge limit of {token_config.bridge_limit}")
             zk_proof = await self._generate_transfer_zk_proof(transfer_request, sender_address)
-            contract_request_id = await self.contract_service.initiate_bridge(transfer_request.source_token, transfer_request.target_token, transfer_request.amount, transfer_request.target_chain_id, transfer_request.recipient_address)
+            contract_request_id = await self.contract_service.initiate_bridge(
+                transfer_request.source_token,
+                transfer_request.target_token,
+                transfer_request.amount,
+                transfer_request.target_chain_id,
+                transfer_request.recipient_address,
+            )
             bridge_request = BridgeRequest(
                 contract_request_id=str(contract_request_id),
                 sender_address=sender_address,
@@ -86,18 +101,18 @@ class CrossChainBridgeService:
                 status=BridgeRequestStatus.PENDING,
                 zk_proof=zk_proof.proof,  # type: ignore[attr-defined]
                 created_at=datetime.now(UTC),
-                expires_at=datetime.now(UTC) + timedelta(seconds=self.bridge_timeout)
+                expires_at=datetime.now(UTC) + timedelta(seconds=self.bridge_timeout),
             )
             self.session.add(bridge_request)
             self.session.commit()
             self.session.refresh(bridge_request)
             await self.bridge_monitor.start_monitoring(bridge_request.id)
-            logger.info('Initiated bridge transfer %s from %s', bridge_request.id, sender_address)
+            logger.info("Initiated bridge transfer %s from %s", bridge_request.id, sender_address)
             return BridgeResponse.from_orm(bridge_request)
         except HTTPException:
             raise
         except Exception as e:
-            logger.error('Error initiating bridge transfer: %s', str(e))
+            logger.error("Error initiating bridge transfer: %s", str(e))
             self.session.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -106,7 +121,7 @@ class CrossChainBridgeService:
         try:
             bridge_request = self.session.get(BridgeRequest, request_id)
             if not bridge_request:
-                raise HTTPException(status_code=404, detail='Bridge request not found')
+                raise HTTPException(status_code=404, detail="Bridge request not found")
             contract_status = await self.contract_service.get_bridge_status(bridge_request.contract_request_id)
             if contract_status.status != bridge_request.status.value:
                 bridge_request.status = BridgeRequestStatus(contract_status.status)
@@ -115,24 +130,35 @@ class CrossChainBridgeService:
             confirmations = await self._get_bridge_confirmations(request_id)
             transactions = await self._get_bridge_transactions(request_id)
             estimated_completion = await self._calculate_estimated_completion(bridge_request)
-            status_response = BridgeStatusResponse(request_id=request_id, status=bridge_request.status, source_chain_id=bridge_request.source_chain_id, target_chain_id=bridge_request.target_chain_id, amount=bridge_request.amount, created_at=bridge_request.created_at, updated_at=bridge_request.updated_at, confirmations=confirmations, transactions=transactions, estimated_completion=estimated_completion)
+            status_response = BridgeStatusResponse(
+                request_id=request_id,
+                status=bridge_request.status,
+                source_chain_id=bridge_request.source_chain_id,
+                target_chain_id=bridge_request.target_chain_id,
+                amount=bridge_request.amount,
+                created_at=bridge_request.created_at,
+                updated_at=bridge_request.updated_at,
+                confirmations=confirmations,
+                transactions=transactions,
+                estimated_completion=estimated_completion,
+            )
             return status_response
         except HTTPException:
             raise
         except Exception as e:
-            logger.error('Error monitoring bridge status: %s', str(e))
+            logger.error("Error monitoring bridge status: %s", str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
     async def dispute_resolution(self, dispute_data: dict) -> dict:
         """Automated dispute resolution for failed transfers"""
         try:
-            request_id = dispute_data.get('request_id')
-            dispute_reason = dispute_data.get('reason')
+            request_id = dispute_data.get("request_id")
+            dispute_reason = dispute_data.get("reason")
             bridge_request = self.session.get(BridgeRequest, request_id)
             if not bridge_request:
-                raise HTTPException(status_code=404, detail='Bridge request not found')
+                raise HTTPException(status_code=404, detail="Bridge request not found")
             if bridge_request.status != BridgeRequestStatus.FAILED:
-                raise HTTPException(status_code=400, detail='Dispute only available for failed transfers')
+                raise HTTPException(status_code=400, detail="Dispute only available for failed transfers")
             failure_analysis = await self._analyze_bridge_failure(bridge_request)
             resolution_action = await self._determine_resolution_action(bridge_request, failure_analysis)
             resolution_result = await self._execute_resolution(bridge_request, resolution_action)
@@ -141,12 +167,12 @@ class CrossChainBridgeService:
             bridge_request.resolved_at = datetime.now(UTC)
             bridge_request.status = BridgeRequestStatus.RESOLVED
             self.session.commit()
-            logger.info('Resolved dispute for bridge request %s', request_id)
+            logger.info("Resolved dispute for bridge request %s", request_id)
             return resolution_result
         except HTTPException:
             raise
         except Exception as e:
-            logger.error('Error resolving dispute: %s', str(e))
+            logger.error("Error resolving dispute: %s", str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
     async def confirm_bridge_transfer(self, confirm_request: BridgeConfirmRequest, validator_address: str) -> dict:
@@ -154,19 +180,32 @@ class CrossChainBridgeService:
         try:
             validator = await self._get_validator(validator_address)
             if not validator or not validator.is_active:
-                raise HTTPException(status_code=403, detail='Not an active validator')
+                raise HTTPException(status_code=403, detail="Not an active validator")
             bridge_request = self.session.get(BridgeRequest, confirm_request.request_id)
             if not bridge_request:
-                raise HTTPException(status_code=404, detail='Bridge request not found')
+                raise HTTPException(status_code=404, detail="Bridge request not found")
             if bridge_request.status != BridgeRequestStatus.PENDING:
-                raise HTTPException(status_code=400, detail='Bridge request not in pending status')
+                raise HTTPException(status_code=400, detail="Bridge request not in pending status")
             signature_valid = await self._verify_validator_signature(confirm_request, validator_address)
             if not signature_valid:
-                raise HTTPException(status_code=400, detail='Invalid validator signature')
-            existing_confirmation = self.session.execute(select(BridgeTransaction).where(BridgeTransaction.bridge_request_id == bridge_request.id, BridgeTransaction.validator_address == validator_address, BridgeTransaction.transaction_type == 'confirmation')).first()
+                raise HTTPException(status_code=400, detail="Invalid validator signature")
+            existing_confirmation = self.session.execute(
+                select(BridgeTransaction).where(
+                    BridgeTransaction.bridge_request_id == bridge_request.id,
+                    BridgeTransaction.validator_address == validator_address,
+                    BridgeTransaction.transaction_type == "confirmation",
+                )
+            ).first()
             if existing_confirmation:
-                raise HTTPException(status_code=400, detail='Already confirmed by this validator')
-            confirmation = BridgeTransaction(bridge_request_id=bridge_request.id, validator_address=validator_address, transaction_type='confirmation', transaction_hash=confirm_request.lock_tx_hash, signature=confirm_request.signature, confirmed_at=datetime.now(UTC))
+                raise HTTPException(status_code=400, detail="Already confirmed by this validator")
+            confirmation = BridgeTransaction(
+                bridge_request_id=bridge_request.id,
+                validator_address=validator_address,
+                transaction_type="confirmation",
+                transaction_hash=confirm_request.lock_tx_hash,
+                signature=confirm_request.signature,
+                confirmed_at=datetime.now(UTC),
+            )
             self.session.add(confirmation)
             total_confirmations = await self._count_confirmations(bridge_request.id)
             required_confirmations = await self._get_required_confirmations(bridge_request.source_chain_id)
@@ -175,13 +214,18 @@ class CrossChainBridgeService:
                 bridge_request.confirmed_at = datetime.now(UTC)
                 merkle_proof = await self._generate_merkle_proof(bridge_request)
                 bridge_request.merkle_proof = merkle_proof.proof_hash
-                logger.info('Bridge request %s confirmed by validators', bridge_request.id)
+                logger.info("Bridge request %s confirmed by validators", bridge_request.id)
             self.session.commit()
-            return {'request_id': bridge_request.id, 'confirmations': total_confirmations, 'required': required_confirmations, 'status': bridge_request.status.value}
+            return {
+                "request_id": bridge_request.id,
+                "confirmations": total_confirmations,
+                "required": required_confirmations,
+                "status": bridge_request.status.value,
+            }
         except HTTPException:
             raise
         except Exception as e:
-            logger.error('Error confirming bridge transfer: %s', str(e))
+            logger.error("Error confirming bridge transfer: %s", str(e))
             self.session.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -190,26 +234,40 @@ class CrossChainBridgeService:
         try:
             bridge_request = self.session.get(BridgeRequest, complete_request.request_id)
             if not bridge_request:
-                raise HTTPException(status_code=404, detail='Bridge request not found')
+                raise HTTPException(status_code=404, detail="Bridge request not found")
             if bridge_request.status != BridgeRequestStatus.CONFIRMED:
-                raise HTTPException(status_code=400, detail='Bridge request not confirmed')
+                raise HTTPException(status_code=400, detail="Bridge request not confirmed")
             proof_valid = await self._verify_merkle_proof(complete_request.merkle_proof, bridge_request)
             if not proof_valid:
-                raise HTTPException(status_code=400, detail='Invalid Merkle proof')
-            await self.contract_service.complete_bridge(bridge_request.contract_request_id, complete_request.unlock_tx_hash, complete_request.merkle_proof)
-            completion = BridgeTransaction(bridge_request_id=bridge_request.id, validator_address=executor_address, transaction_type='completion', transaction_hash=complete_request.unlock_tx_hash, merkle_proof=complete_request.merkle_proof, completed_at=datetime.now(UTC))
+                raise HTTPException(status_code=400, detail="Invalid Merkle proof")
+            await self.contract_service.complete_bridge(
+                bridge_request.contract_request_id, complete_request.unlock_tx_hash, complete_request.merkle_proof
+            )
+            completion = BridgeTransaction(
+                bridge_request_id=bridge_request.id,
+                validator_address=executor_address,
+                transaction_type="completion",
+                transaction_hash=complete_request.unlock_tx_hash,
+                merkle_proof=complete_request.merkle_proof,
+                completed_at=datetime.now(UTC),
+            )
             self.session.add(completion)
             bridge_request.status = BridgeRequestStatus.COMPLETED
             bridge_request.completed_at = datetime.now(UTC)
             bridge_request.unlock_tx_hash = complete_request.unlock_tx_hash
             self.session.commit()
             await self.bridge_monitor.stop_monitoring(bridge_request.id)
-            logger.info('Completed bridge transfer %s', bridge_request.id)
-            return {'request_id': bridge_request.id, 'status': 'completed', 'unlock_tx_hash': complete_request.unlock_tx_hash, 'completed_at': bridge_request.completed_at}
+            logger.info("Completed bridge transfer %s", bridge_request.id)
+            return {
+                "request_id": bridge_request.id,
+                "status": "completed",
+                "unlock_tx_hash": complete_request.unlock_tx_hash,
+                "completed_at": bridge_request.completed_at,
+            }
         except HTTPException:
             raise
         except Exception as e:
-            logger.error('Error completing bridge transfer: %s', str(e))
+            logger.error("Error completing bridge transfer: %s", str(e))
             self.session.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -218,17 +276,25 @@ class CrossChainBridgeService:
         try:
             existing_token = await self._get_supported_token(token_request.token_address)
             if existing_token:
-                raise HTTPException(status_code=400, detail='Token already supported')
-            supported_token = SupportedToken(token_address=token_request.token_address, token_symbol=token_request.token_symbol, bridge_limit=token_request.bridge_limit, fee_percentage=token_request.fee_percentage, requires_whitelist=token_request.requires_whitelist, is_active=True, created_at=datetime.now(UTC))
+                raise HTTPException(status_code=400, detail="Token already supported")
+            supported_token = SupportedToken(
+                token_address=token_request.token_address,
+                token_symbol=token_request.token_symbol,
+                bridge_limit=token_request.bridge_limit,
+                fee_percentage=token_request.fee_percentage,
+                requires_whitelist=token_request.requires_whitelist,
+                is_active=True,
+                created_at=datetime.now(UTC),
+            )
             self.session.add(supported_token)
             self.session.commit()
             self.session.refresh(supported_token)
-            logger.info('Added supported token %s', token_request.token_symbol)
-            return {'token_id': supported_token.id, 'status': 'supported'}
+            logger.info("Added supported token %s", token_request.token_symbol)
+            return {"token_id": supported_token.id, "status": "supported"}
         except HTTPException:
             raise
         except Exception as e:
-            logger.error('Error adding supported token: %s', str(e))
+            logger.error("Error adding supported token: %s", str(e))
             self.session.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -237,37 +303,48 @@ class CrossChainBridgeService:
         try:
             existing_chain = await self._get_chain_config(chain_request.chain_id)
             if existing_chain:
-                raise HTTPException(status_code=400, detail='Chain already supported')
-            chain_config = ChainConfig(chain_id=chain_request.chain_id, chain_name=chain_request.chain_name, chain_type=chain_request.chain_type, bridge_contract_address=chain_request.bridge_contract_address, min_confirmations=chain_request.min_confirmations, avg_block_time=chain_request.avg_block_time, is_active=True, created_at=datetime.now(UTC))
+                raise HTTPException(status_code=400, detail="Chain already supported")
+            chain_config = ChainConfig(
+                chain_id=chain_request.chain_id,
+                chain_name=chain_request.chain_name,
+                chain_type=chain_request.chain_type,
+                bridge_contract_address=chain_request.bridge_contract_address,
+                min_confirmations=chain_request.min_confirmations,
+                avg_block_time=chain_request.avg_block_time,
+                is_active=True,
+                created_at=datetime.now(UTC),
+            )
             self.session.add(chain_config)
             self.session.commit()
             self.session.refresh(chain_config)
-            logger.info('Added supported chain %s', chain_request.chain_name)
-            return {'chain_id': chain_config.id, 'status': 'supported'}
+            logger.info("Added supported chain %s", chain_request.chain_name)
+            return {"chain_id": chain_config.id, "status": "supported"}
         except HTTPException:
             raise
         except Exception as e:
-            logger.error('Error adding supported chain: %s', str(e))
+            logger.error("Error adding supported chain: %s", str(e))
             self.session.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
     async def _validate_transfer_request(self, transfer_request: BridgeCreateRequest, sender_address: str) -> ValidationResult:
         """Validate bridge transfer request"""
         if not self._is_valid_address(sender_address):
-            return ValidationResult(is_valid=False, error_message='Invalid sender address')
+            return ValidationResult(is_valid=False, error_message="Invalid sender address")
         if not self._is_valid_address(transfer_request.recipient_address):
-            return ValidationResult(is_valid=False, error_message='Invalid recipient address')
+            return ValidationResult(is_valid=False, error_message="Invalid recipient address")
         if transfer_request.amount <= 0:
-            return ValidationResult(is_valid=False, error_message='Amount must be greater than 0')
+            return ValidationResult(is_valid=False, error_message="Amount must be greater than 0")
         if transfer_request.amount > self.max_bridge_amount:
-            return ValidationResult(is_valid=False, error_message=f'Amount exceeds maximum bridge limit of {self.max_bridge_amount}')
+            return ValidationResult(
+                is_valid=False, error_message=f"Amount exceeds maximum bridge limit of {self.max_bridge_amount}"
+            )
         if transfer_request.source_chain_id == transfer_request.target_chain_id:
-            return ValidationResult(is_valid=False, error_message='Source and target chains must be different')
+            return ValidationResult(is_valid=False, error_message="Source and target chains must be different")
         return ValidationResult(is_valid=True)
 
     def _is_valid_address(self, address: str) -> bool:
         """Validate blockchain address"""
-        return address.startswith('0x') and len(address) == 42 and all(c in '0123456789abcdefABCDEF' for c in address[2:])
+        return address.startswith("0x") and len(address) == 42 and all(c in "0123456789abcdefABCDEF" for c in address[2:])
 
     async def _get_supported_token(self, token_address: str) -> SupportedToken | None:
         """Get supported token configuration"""
@@ -279,19 +356,47 @@ class CrossChainBridgeService:
 
     async def _generate_transfer_zk_proof(self, transfer_request: BridgeCreateRequest, sender_address: str) -> dict:
         """Generate ZK proof for transfer"""
-        proof_inputs = {'sender': sender_address, 'recipient': transfer_request.recipient_address, 'amount': transfer_request.amount, 'source_chain': transfer_request.source_chain_id, 'target_chain': transfer_request.target_chain_id, 'timestamp': int(datetime.now(UTC).timestamp())}
-        zk_proof = await self.zk_proof_service.generate_proof('bridge_transfer', proof_inputs)
+        proof_inputs = {
+            "sender": sender_address,
+            "recipient": transfer_request.recipient_address,
+            "amount": transfer_request.amount,
+            "source_chain": transfer_request.source_chain_id,
+            "target_chain": transfer_request.target_chain_id,
+            "timestamp": int(datetime.now(UTC).timestamp()),
+        }
+        zk_proof = await self.zk_proof_service.generate_proof("bridge_transfer", proof_inputs)
         return zk_proof  # type: ignore[no-any-return]
 
     async def _get_bridge_confirmations(self, request_id: int) -> list[dict]:
         """Get bridge confirmations"""
-        confirmations = self.session.execute(select(BridgeTransaction).where(BridgeTransaction.bridge_request_id == request_id, BridgeTransaction.transaction_type == 'confirmation')).all()
-        return [{'validator_address': conf.validator_address, 'transaction_hash': conf.transaction_hash, 'confirmed_at': conf.confirmed_at} for conf in confirmations]
+        confirmations = self.session.execute(
+            select(BridgeTransaction).where(
+                BridgeTransaction.bridge_request_id == request_id, BridgeTransaction.transaction_type == "confirmation"
+            )
+        ).all()
+        return [
+            {
+                "validator_address": conf.validator_address,
+                "transaction_hash": conf.transaction_hash,
+                "confirmed_at": conf.confirmed_at,
+            }
+            for conf in confirmations
+        ]
 
     async def _get_bridge_transactions(self, request_id: int) -> list[dict]:
         """Get all bridge transactions"""
-        transactions = self.session.execute(select(BridgeTransaction).where(BridgeTransaction.bridge_request_id == request_id)).all()
-        return [{'transaction_type': tx.transaction_type, 'validator_address': tx.validator_address, 'transaction_hash': tx.transaction_hash, 'created_at': tx.created_at} for tx in transactions]
+        transactions = self.session.execute(
+            select(BridgeTransaction).where(BridgeTransaction.bridge_request_id == request_id)
+        ).all()
+        return [
+            {
+                "transaction_type": tx.transaction_type,
+                "validator_address": tx.validator_address,
+                "transaction_hash": tx.transaction_hash,
+                "created_at": tx.created_at,
+            }
+            for tx in transactions
+        ]
 
     async def _calculate_estimated_completion(self, bridge_request: BridgeRequest) -> datetime | None:
         """Calculate estimated completion time"""
@@ -308,21 +413,31 @@ class CrossChainBridgeService:
 
     async def _analyze_bridge_failure(self, bridge_request: BridgeRequest) -> dict:
         """Analyze bridge failure reason"""
-        return {'failure_type': 'timeout', 'failure_reason': 'Bridge request expired', 'recoverable': True}
+        return {"failure_type": "timeout", "failure_reason": "Bridge request expired", "recoverable": True}
 
     async def _determine_resolution_action(self, bridge_request: BridgeRequest, failure_analysis: dict) -> dict:
         """Determine resolution action for failed bridge"""
-        if failure_analysis.get('recoverable', False):
-            return {'action_type': 'refund', 'refund_amount': bridge_request.total_amount, 'refund_to': bridge_request.sender_address}
+        if failure_analysis.get("recoverable", False):
+            return {
+                "action_type": "refund",
+                "refund_amount": bridge_request.total_amount,
+                "refund_to": bridge_request.sender_address,
+            }
         else:
-            return {'action_type': 'manual_review', 'escalate_to': 'support_team'}
+            return {"action_type": "manual_review", "escalate_to": "support_team"}
 
     async def _execute_resolution(self, bridge_request: BridgeRequest, resolution_action: dict) -> dict:
         """Execute resolution action"""
-        if resolution_action['action_type'] == 'refund':
-            refund_result = await self.contract_service.process_bridge_refund(bridge_request.contract_request_id, resolution_action['refund_amount'], resolution_action['refund_to'])
-            return {'resolution_type': 'refund_processed', 'refund_tx_hash': refund_result.transaction_hash, 'refund_amount': resolution_action['refund_amount']}
-        return {'resolution_type': 'escalated'}
+        if resolution_action["action_type"] == "refund":
+            refund_result = await self.contract_service.process_bridge_refund(
+                bridge_request.contract_request_id, resolution_action["refund_amount"], resolution_action["refund_to"]
+            )
+            return {
+                "resolution_type": "refund_processed",
+                "refund_tx_hash": refund_result.transaction_hash,
+                "refund_amount": resolution_action["refund_amount"],
+            }
+        return {"resolution_type": "escalated"}
 
     async def _get_validator(self, validator_address: str) -> Validator | None:
         """Get validator information"""
@@ -334,7 +449,11 @@ class CrossChainBridgeService:
 
     async def _count_confirmations(self, request_id: int) -> int:
         """Count confirmations for bridge request"""
-        confirmations = self.session.execute(select(BridgeTransaction).where(BridgeTransaction.bridge_request_id == request_id, BridgeTransaction.transaction_type == 'confirmation')).all()
+        confirmations = self.session.execute(
+            select(BridgeTransaction).where(
+                BridgeTransaction.bridge_request_id == request_id, BridgeTransaction.transaction_type == "confirmation"
+            )
+        ).all()
         return len(confirmations)
 
     async def _get_required_confirmations(self, chain_id: int) -> int:
@@ -344,18 +463,31 @@ class CrossChainBridgeService:
 
     async def _generate_merkle_proof(self, bridge_request: BridgeRequest) -> MerkleProof:
         """Generate Merkle proof for bridge completion"""
-        leaf_data = {'request_id': bridge_request.id, 'sender': bridge_request.sender_address, 'recipient': bridge_request.recipient_address, 'amount': bridge_request.amount, 'target_chain': bridge_request.target_chain_id}
+        leaf_data = {
+            "request_id": bridge_request.id,
+            "sender": bridge_request.sender_address,
+            "recipient": bridge_request.recipient_address,
+            "amount": bridge_request.amount,
+            "target_chain": bridge_request.target_chain_id,
+        }
         merkle_proof = await self.merkle_tree_service.generate_proof(leaf_data)
         return merkle_proof
 
     async def _verify_merkle_proof(self, merkle_proof: list[str], bridge_request: BridgeRequest) -> bool:
         """Verify Merkle proof"""
-        leaf_data = {'request_id': bridge_request.id, 'sender': bridge_request.sender_address, 'recipient': bridge_request.recipient_address, 'amount': bridge_request.amount, 'target_chain': bridge_request.target_chain_id}
+        leaf_data = {
+            "request_id": bridge_request.id,
+            "sender": bridge_request.sender_address,
+            "recipient": bridge_request.recipient_address,
+            "amount": bridge_request.amount,
+            "target_chain": bridge_request.target_chain_id,
+        }
         return await self.merkle_tree_service.verify_proof(leaf_data, merkle_proof)  # type: ignore[no-any-return]
+
 
 class ValidationResult:
     """Validation result for requests"""
 
-    def __init__(self, is_valid: bool, error_message: str=''):
+    def __init__(self, is_valid: bool, error_message: str = ""):
         self.is_valid = is_valid
         self.error_message = error_message

@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 @dataclass
 class ChainInfo:
     """Chain information from daemon"""
+
     chain_id: str
     name: str
     status: str
@@ -33,6 +34,7 @@ class ChainInfo:
 @dataclass
 class WalletInfo:
     """Wallet information from daemon"""
+
     wallet_id: str
     chain_id: str
     public_key: str
@@ -44,6 +46,7 @@ class WalletInfo:
 @dataclass
 class WalletBalance:
     """Wallet balance information"""
+
     wallet_id: str
     chain_id: str
     balance: float
@@ -54,6 +57,7 @@ class WalletBalance:
 @dataclass
 class WalletMigrationResult:
     """Result of wallet migration between chains"""
+
     success: bool
     source_wallet: WalletInfo
     target_wallet: WalletInfo
@@ -65,16 +69,12 @@ class WalletDaemonClient:
 
     def __init__(self, config: "Config"):
         self.config = config
-        self.base_url = config.wallet_url.rstrip('/')
-        self.timeout = getattr(config, 'timeout', 30)
+        self.base_url = config.wallet_url.rstrip("/")
+        self.timeout = getattr(config, "timeout", 30)
 
     def _get_http_client(self) -> AITBCHTTPClient:
         """Create HTTP client with appropriate settings"""
-        return AITBCHTTPClient(
-            base_url=self.base_url,
-            timeout=self.timeout,
-            headers={"Content-Type": "application/json"}
-        )
+        return AITBCHTTPClient(base_url=self.base_url, timeout=self.timeout, headers={"Content-Type": "application/json"})
 
     def is_available(self) -> bool:
         """Check if wallet daemon is available and responsive"""
@@ -101,11 +101,7 @@ class WalletDaemonClient:
         """Create a new wallet in the daemon"""
         try:
             client = self._get_http_client()
-            payload = {
-                "wallet_id": wallet_id,
-                "password": password,
-                "metadata": metadata or {}
-            }
+            payload = {"wallet_id": wallet_id, "password": password, "metadata": metadata or {}}
 
             data = client.post("/v1/wallets", json=payload)
             return WalletInfo(
@@ -114,7 +110,7 @@ class WalletDaemonClient:
                 public_key=data["public_key"],
                 address=data.get("address"),
                 created_at=data.get("created_at"),
-                metadata=data.get("metadata")
+                metadata=data.get("metadata"),
             )
         except NetworkError as e:
             error(f"Error creating wallet: {e}")
@@ -132,14 +128,16 @@ class WalletDaemonClient:
             # Handle both "wallets" and "items" keys for compatibility
             wallet_list = data.get("wallets", data.get("items", []))
             for wallet_data in wallet_list:
-                wallets.append(WalletInfo(
-                    wallet_id=wallet_data.get("wallet_id", wallet_data.get("wallet_name", "")),
-                    chain_id=wallet_data.get("chain_id", "default"),
-                    public_key=wallet_data.get("public_key", ""),
-                    address=wallet_data.get("address", ""),
-                    created_at=wallet_data.get("created_at", ""),
-                    metadata=wallet_data.get("metadata", {})
-                ))
+                wallets.append(
+                    WalletInfo(
+                        wallet_id=wallet_data.get("wallet_id", wallet_data.get("wallet_name", "")),
+                        chain_id=wallet_data.get("chain_id", "default"),
+                        public_key=wallet_data.get("public_key", ""),
+                        address=wallet_data.get("address", ""),
+                        created_at=wallet_data.get("created_at", ""),
+                        metadata=wallet_data.get("metadata", {}),
+                    )
+                )
             return wallets
         except NetworkError as e:
             error(f"Failed to list daemon wallets: {str(e)}")
@@ -159,7 +157,7 @@ class WalletDaemonClient:
                 public_key=data["public_key"],
                 address=data.get("address"),
                 created_at=data.get("created_at"),
-                metadata=data.get("metadata")
+                metadata=data.get("metadata"),
             )
         except NetworkError as e:
             error(f"Failed to get wallet info: {e}")
@@ -178,7 +176,7 @@ class WalletDaemonClient:
                 chain_id=data.get("chain_id", "default"),
                 balance=data["balance"],
                 address=data.get("address"),
-                last_updated=data.get("last_updated")
+                last_updated=data.get("last_updated"),
             )
         except NetworkError as e:
             error(f"Failed to get wallet balance: {e}")
@@ -194,10 +192,7 @@ class WalletDaemonClient:
             # Encode message as base64 for transmission
             message_b64 = base64.b64encode(message).decode()
 
-            payload = {
-                "password": password,
-                "message": message_b64
-            }
+            payload = {"password": password, "message": message_b64}
 
             data = client.post(f"/v1/wallets/{wallet_id}/sign", json=payload)
             return data["signature_base64"]
@@ -208,17 +203,13 @@ class WalletDaemonClient:
             error(f"Error signing message: {str(e)}")
             raise
 
-    def send_transaction(self, wallet_id: str, password: str, to_address: str, amount: float,
-                        description: str | None = None) -> dict[str, Any]:
+    def send_transaction(
+        self, wallet_id: str, password: str, to_address: str, amount: float, description: str | None = None
+    ) -> dict[str, Any]:
         """Send a transaction via the daemon"""
         try:
             client = self._get_http_client()
-            payload = {
-                "password": password,
-                "to_address": to_address,
-                "amount": amount,
-                "description": description or ""
-            }
+            payload = {"password": password, "to_address": to_address, "amount": amount, "description": description or ""}
 
             return client.post(f"/v1/wallets/{wallet_id}/send", json=payload)
         except NetworkError as e:
@@ -261,12 +252,7 @@ class WalletDaemonClient:
         """Make a JSON-RPC call to the daemon"""
         try:
             client = self._get_http_client()
-            payload = {
-                "jsonrpc": "2.0",
-                "method": method,
-                "params": params or {},
-                "id": 1
-            }
+            payload = {"jsonrpc": "2.0", "method": method, "params": params or {}, "id": 1}
 
             return client.post("/rpc", json=payload)
         except NetworkError as e:
@@ -287,16 +273,18 @@ class WalletDaemonClient:
                     data = response.json()
                     chains = []
                     for chain_data in data.get("chains", []):
-                        chains.append(ChainInfo(
-                            chain_id=chain_data["chain_id"],
-                            name=chain_data["name"],
-                            status=chain_data["status"],
-                            coordinator_url=chain_data["coordinator_url"],
-                            created_at=chain_data["created_at"],
-                            updated_at=chain_data["updated_at"],
-                            wallet_count=chain_data["wallet_count"],
-                            recent_activity=chain_data["recent_activity"]
-                        ))
+                        chains.append(
+                            ChainInfo(
+                                chain_id=chain_data["chain_id"],
+                                name=chain_data["name"],
+                                status=chain_data["status"],
+                                coordinator_url=chain_data["coordinator_url"],
+                                created_at=chain_data["created_at"],
+                                updated_at=chain_data["updated_at"],
+                                wallet_count=chain_data["wallet_count"],
+                                recent_activity=chain_data["recent_activity"],
+                            )
+                        )
                     return chains
                 else:
                     error(f"Failed to list chains: {response.text}")
@@ -305,8 +293,9 @@ class WalletDaemonClient:
             error(f"Error listing chains: {str(e)}")
             raise
 
-    def create_chain(self, chain_id: str, name: str, coordinator_url: str,
-                    coordinator_api_key: str, metadata: dict[str, Any] | None = None) -> ChainInfo:
+    def create_chain(
+        self, chain_id: str, name: str, coordinator_url: str, coordinator_api_key: str, metadata: dict[str, Any] | None = None
+    ) -> ChainInfo:
         """Create a new blockchain chain"""
         try:
             with self._get_http_client() as client:
@@ -315,7 +304,7 @@ class WalletDaemonClient:
                     "name": name,
                     "coordinator_url": coordinator_url,
                     "coordinator_api_key": coordinator_api_key,
-                    "metadata": metadata or {}
+                    "metadata": metadata or {},
                 }
 
                 response = client.post("/v1/chains", json=payload)
@@ -330,7 +319,7 @@ class WalletDaemonClient:
                         created_at=chain_data["created_at"],
                         updated_at=chain_data["updated_at"],
                         wallet_count=chain_data["wallet_count"],
-                        recent_activity=chain_data["recent_activity"]
+                        recent_activity=chain_data["recent_activity"],
                     )
                 else:
                     error(f"Failed to create chain: {response.text}")
@@ -343,11 +332,7 @@ class WalletDaemonClient:
         """Create a new wallet in the daemon"""
         try:
             client = self._get_http_client()
-            payload = {
-                "wallet_id": wallet_id,
-                "password": password,
-                "metadata": metadata or {}
-            }
+            payload = {"wallet_id": wallet_id, "password": password, "metadata": metadata or {}}
 
             data = client.post("/v1/wallets", json=payload)
             return WalletInfo(
@@ -355,7 +340,7 @@ class WalletDaemonClient:
                 public_key=data["public_key"],
                 address=data.get("address"),
                 created_at=data.get("created_at"),
-                metadata=data.get("metadata")
+                metadata=data.get("metadata"),
             )
         except NetworkError as e:
             error(f"Failed to create wallet: {e}")
@@ -364,17 +349,13 @@ class WalletDaemonClient:
             error(f"Error creating wallet: {str(e)}")
             raise
 
-    def create_wallet_in_chain(self, chain_id: str, wallet_id: str, password: str,
-                              metadata: dict[str, Any] | None = None) -> WalletInfo:
+    def create_wallet_in_chain(
+        self, chain_id: str, wallet_id: str, password: str, metadata: dict[str, Any] | None = None
+    ) -> WalletInfo:
         """Create a wallet in a specific chain"""
         try:
             with self._get_http_client() as client:
-                payload = {
-                    "chain_id": chain_id,
-                    "wallet_id": wallet_id,
-                    "password": password,
-                    "metadata": metadata or {}
-                }
+                payload = {"chain_id": chain_id, "wallet_id": wallet_id, "password": password, "metadata": metadata or {}}
 
                 response = client.post(f"/v1/chains/{chain_id}/wallets", json=payload)
                 if response.status_code == 201:
@@ -386,7 +367,7 @@ class WalletDaemonClient:
                         public_key=wallet_data["public_key"],
                         address=wallet_data.get("address"),
                         created_at=wallet_data.get("created_at"),
-                        metadata=wallet_data.get("metadata")
+                        metadata=wallet_data.get("metadata"),
                     )
                 else:
                     error(f"Failed to create wallet in chain {chain_id}: {response.text}")
@@ -404,14 +385,16 @@ class WalletDaemonClient:
                     data = response.json()
                     wallets = []
                     for wallet_data in data.get("items", []):
-                        wallets.append(WalletInfo(
-                            wallet_id=wallet_data["wallet_id"],
-                            chain_id=wallet_data["chain_id"],
-                            public_key=wallet_data["public_key"],
-                            address=wallet_data.get("address"),
-                            created_at=wallet_data.get("created_at"),
-                            metadata=wallet_data.get("metadata")
-                        ))
+                        wallets.append(
+                            WalletInfo(
+                                wallet_id=wallet_data["wallet_id"],
+                                chain_id=wallet_data["chain_id"],
+                                public_key=wallet_data["public_key"],
+                                address=wallet_data.get("address"),
+                                created_at=wallet_data.get("created_at"),
+                                metadata=wallet_data.get("metadata"),
+                            )
+                        )
                     return wallets
                 else:
                     error(f"Failed to list wallets in chain {chain_id}: {response.text}")
@@ -446,10 +429,7 @@ class WalletDaemonClient:
         """Sign a message with a wallet in a specific chain"""
         try:
             with self._get_http_client() as client:
-                payload = {
-                    "password": password,
-                    "message_base64": base64.b64encode(message).decode()
-                }
+                payload = {"password": password, "message_base64": base64.b64encode(message).decode()}
 
                 response = client.post(f"/v1/chains/{chain_id}/wallets/{wallet_id}/sign", json=payload)
                 if response.status_code == 200:
@@ -471,15 +451,16 @@ class WalletDaemonClient:
                     wallet_id=wallet_id,
                     chain_id=chain_id,
                     balance=0.0,  # Placeholder
-                    address=wallet_info.address
+                    address=wallet_info.address,
                 )
             return None
         except Exception as e:
             error(f"Error getting wallet balance in chain {chain_id}: {str(e)}")
             return None
 
-    def migrate_wallet(self, source_chain_id: str, target_chain_id: str, wallet_id: str,
-                      password: str, new_password: str | None = None) -> WalletMigrationResult | None:
+    def migrate_wallet(
+        self, source_chain_id: str, target_chain_id: str, wallet_id: str, password: str, new_password: str | None = None
+    ) -> WalletMigrationResult | None:
         """Migrate a wallet from one chain to another"""
         try:
             with self._get_http_client() as client:
@@ -487,7 +468,7 @@ class WalletDaemonClient:
                     "source_chain_id": source_chain_id,
                     "target_chain_id": target_chain_id,
                     "wallet_id": wallet_id,
-                    "password": password
+                    "password": password,
                 }
                 if new_password:
                     payload["new_password"] = new_password
@@ -501,7 +482,7 @@ class WalletDaemonClient:
                         chain_id=data["source_wallet"]["chain_id"],
                         public_key=data["source_wallet"]["public_key"],
                         address=data["source_wallet"].get("address"),
-                        metadata=data["source_wallet"].get("metadata")
+                        metadata=data["source_wallet"].get("metadata"),
                     )
 
                     target_wallet = WalletInfo(
@@ -509,14 +490,14 @@ class WalletDaemonClient:
                         chain_id=data["target_wallet"]["chain_id"],
                         public_key=data["target_wallet"]["public_key"],
                         address=data["target_wallet"].get("address"),
-                        metadata=data["target_wallet"].get("metadata")
+                        metadata=data["target_wallet"].get("metadata"),
                     )
 
                     return WalletMigrationResult(
                         success=data["success"],
                         source_wallet=source_wallet,
                         target_wallet=target_wallet,
-                        migration_timestamp=data["migration_timestamp"]
+                        migration_timestamp=data["migration_timestamp"],
                     )
                 else:
                     error(f"Failed to migrate wallet: {response.text}")
@@ -541,10 +522,10 @@ class WalletDaemonClient:
                         "name": chain.name,
                         "status": chain.status,
                         "wallet_count": chain.wallet_count,
-                        "recent_activity": chain.recent_activity
+                        "recent_activity": chain.recent_activity,
                     }
                     for chain in chains
-                ]
+                ],
             }
         except Exception as e:
             error(f"Error getting chain status: {str(e)}")

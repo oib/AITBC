@@ -17,15 +17,14 @@ def load_module_from_path(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-api_utils = load_module_from_path(
-    "aitbc.api_utils",
-    Path("/opt/aitbc/aitbc/api_utils.py")
-)
+
+api_utils = load_module_from_path("aitbc.api_utils", Path("/opt/aitbc/aitbc/api_utils.py"))
 
 
 # ============================================================================
 # API Response Tests
 # ============================================================================
+
 
 class TestAPIResponse:
     """Test APIResponse class"""
@@ -56,17 +55,13 @@ class TestAPIResponse:
 # Paginated Response Tests
 # ============================================================================
 
+
 class TestPaginatedResponse:
     """Test PaginatedResponse class"""
 
     def test_paginated_response_initialization(self):
         pagination = {"page": 1, "total": 10}
-        response = api_utils.PaginatedResponse(
-            success=True,
-            message="test",
-            data=[1, 2, 3],
-            pagination=pagination
-        )
+        response = api_utils.PaginatedResponse(success=True, message="test", data=[1, 2, 3], pagination=pagination)
         assert response.success is True
         assert response.data == [1, 2, 3]
         assert response.pagination == pagination
@@ -74,19 +69,14 @@ class TestPaginatedResponse:
 
     def test_paginated_response_custom_timestamp(self):
         custom_ts = "2024-01-01T00:00:00Z"
-        response = api_utils.PaginatedResponse(
-            success=True,
-            message="test",
-            data=[],
-            pagination={},
-            timestamp=custom_ts
-        )
+        response = api_utils.PaginatedResponse(success=True, message="test", data=[], pagination={}, timestamp=custom_ts)
         assert response.timestamp == custom_ts
 
 
 # ============================================================================
 # Response Builder Tests
 # ============================================================================
+
 
 class TestResponseBuilders:
     """Test response builder functions"""
@@ -180,6 +170,7 @@ class TestResponseBuilders:
 # ============================================================================
 # Pagination Tests
 # ============================================================================
+
 
 class TestPaginationParams:
     """Test PaginationParams class"""
@@ -285,16 +276,12 @@ class TestBuildPaginatedResponse:
 # Rate Limit Headers Tests
 # ============================================================================
 
+
 class TestRateLimitHeaders:
     """Test RateLimitHeaders class"""
 
     def test_get_headers(self):
-        headers = api_utils.RateLimitHeaders.get_headers(
-            limit=100,
-            remaining=50,
-            reset=1234567890,
-            window=3600
-        )
+        headers = api_utils.RateLimitHeaders.get_headers(limit=100, remaining=50, reset=1234567890, window=3600)
         assert headers["X-RateLimit-Limit"] == "100"
         assert headers["X-RateLimit-Remaining"] == "50"
         assert headers["X-RateLimit-Reset"] == "1234567890"
@@ -308,6 +295,7 @@ class TestRateLimitHeaders:
 # ============================================================================
 # CORS Headers Tests
 # ============================================================================
+
 
 class TestCORSHeaders:
     """Test CORS header functions"""
@@ -324,7 +312,7 @@ class TestCORSHeaders:
             allowed_origins=["https://example.com"],
             allowed_methods=["GET", "POST"],
             allowed_headers=["Content-Type"],
-            max_age=7200
+            max_age=7200,
         )
         assert headers["Access-Control-Allow-Origin"] == "https://example.com"
         assert headers["Access-Control-Allow-Methods"] == "GET, POST"
@@ -335,6 +323,7 @@ class TestCORSHeaders:
 # ============================================================================
 # Standard Headers Tests
 # ============================================================================
+
 
 class TestStandardHeaders:
     """Test standard header functions"""
@@ -359,9 +348,7 @@ class TestStandardHeaders:
 
     def test_build_standard_headers_all_options(self):
         headers = api_utils.build_standard_headers(
-            content_type="application/json",
-            cache_control="max-age=3600",
-            x_request_id="req-123"
+            content_type="application/json", cache_control="max-age=3600", x_request_id="req-123"
         )
         assert headers["Content-Type"] == "application/json"
         assert headers["Cache-Control"] == "max-age=3600"
@@ -371,6 +358,7 @@ class TestStandardHeaders:
 # ============================================================================
 # Sort Validation Tests
 # ============================================================================
+
 
 class TestSortValidation:
     """Test sort validation functions"""
@@ -396,11 +384,7 @@ class TestSortValidation:
             api_utils.validate_sort_order("invalid")
 
     def test_build_sort_params_valid(self):
-        result = api_utils.build_sort_params(
-            sort_by="name",
-            sort_order="asc",
-            allowed_fields=["name", "email"]
-        )
+        result = api_utils.build_sort_params(sort_by="name", sort_order="asc", allowed_fields=["name", "email"])
         assert result == {"sort_by": "name", "sort_order": "ASC"}
 
     def test_build_sort_params_no_sort(self):
@@ -415,6 +399,7 @@ class TestSortValidation:
 # ============================================================================
 # Field Filtering Tests
 # ============================================================================
+
 
 class TestFieldFiltering:
     """Test field filtering functions"""
@@ -443,6 +428,7 @@ class TestFieldFiltering:
 # ============================================================================
 # Response Sanitization Tests
 # ============================================================================
+
 
 class TestResponseSanitization:
     """Test response sanitization functions"""
@@ -486,6 +472,7 @@ class TestResponseSanitization:
 # Response Merging Tests
 # ============================================================================
 
+
 class TestResponseMerging:
     """Test response merging functions"""
 
@@ -513,7 +500,7 @@ class TestResponseMerging:
     def test_merge_responses_non_dict_data(self):
         # Test behavior when first response has non-dict data
         response1 = api_utils.APIResponse(success=True, message="test1", data="string")
-        response2 = api_utils.APIResponse(success=True, message="test2", data={"key2": "value2"})
+        api_utils.APIResponse(success=True, message="test2", data={"key2": "value2"})
         # The function replaces merged["data"] with non-dict, then can't update with dict
         # This is a known limitation/bug in the implementation
         result = api_utils.merge_responses(response1)
@@ -523,6 +510,7 @@ class TestResponseMerging:
 # ============================================================================
 # Request Metadata Tests
 # ============================================================================
+
 
 class TestRequestMetadata:
     """Test request metadata functions"""
@@ -568,11 +556,7 @@ class TestRequestMetadata:
 
     def test_build_request_metadata(self):
         request = Mock()
-        request.headers = {
-            "X-Forwarded-For": "192.168.1.1",
-            "User-Agent": "Mozilla/5.0",
-            "X-Request-ID": "req-123"
-        }
+        request.headers = {"X-Forwarded-For": "192.168.1.1", "User-Agent": "Mozilla/5.0", "X-Request-ID": "req-123"}
         result = api_utils.build_request_metadata(request)
         assert result["client_ip"] == "192.168.1.1"
         assert result["user_agent"] == "Mozilla/5.0"

@@ -16,6 +16,7 @@ logger = get_logger(__name__)
 @dataclass
 class EdgeAPIConfig:
     """Edge API configuration"""
+
     host: str = "localhost"
     port: int = 8103
     timeout: int = 30
@@ -31,10 +32,7 @@ class EdgeAPIClient:
 
     async def __aenter__(self) -> "EdgeAPIClient":
         """Async context manager entry"""
-        self._client = httpx.AsyncClient(
-            base_url=self.base_url,
-            timeout=self.config.timeout
-        )
+        self._client = httpx.AsyncClient(base_url=self.base_url, timeout=self.config.timeout)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -44,10 +42,7 @@ class EdgeAPIClient:
 
     # GPU Operations
     async def list_gpus(
-        self,
-        architecture: str | None = None,
-        edge_optimized: bool = False,
-        min_memory_gb: int | None = None
+        self, architecture: str | None = None, edge_optimized: bool = False, min_memory_gb: int | None = None
     ) -> list[dict[str, Any]]:
         """List available GPUs"""
         params = {}
@@ -77,10 +72,7 @@ class EdgeAPIClient:
 
     async def get_gpu_metrics(self, gpu_id: str, limit: int = 100) -> dict[str, Any]:
         """Get GPU metrics"""
-        response = await self._client.get(
-            f"/v1/gpu/{gpu_id}/metrics",
-            params={"limit": limit}
-        )
+        response = await self._client.get(f"/v1/gpu/{gpu_id}/metrics", params={"limit": limit})
         response.raise_for_status()
         return response.json()
 
@@ -91,18 +83,11 @@ class EdgeAPIClient:
         return response.json()
 
     # Database Operations
-    async def init_database(
-        self,
-        database_id: str,
-        island_id: str,
-        capacity_gb: int
-    ) -> dict[str, Any]:
+    async def init_database(self, database_id: str, island_id: str, capacity_gb: int) -> dict[str, Any]:
         """Initialize edge database"""
-        response = await self._client.post("/v1/database/init", json={
-            "database_id": database_id,
-            "island_id": island_id,
-            "capacity_gb": capacity_gb
-        })
+        response = await self._client.post(
+            "/v1/database/init", json={"database_id": database_id, "island_id": island_id, "capacity_gb": capacity_gb}
+        )
         response.raise_for_status()
         return response.json()
 
@@ -137,27 +122,17 @@ class EdgeAPIClient:
 
     # Serve Operations
     async def submit_compute_request(
-        self,
-        gpu_id: str,
-        model_name: str,
-        input_data: dict[str, Any],
-        priority: str = "normal"
+        self, gpu_id: str, model_name: str, input_data: dict[str, Any], priority: str = "normal"
     ) -> dict[str, Any]:
         """Submit compute request"""
-        response = await self._client.post("/v1/serve/requests", json={
-            "gpu_id": gpu_id,
-            "model_name": model_name,
-            "input_data": input_data,
-            "priority": priority
-        })
+        response = await self._client.post(
+            "/v1/serve/requests",
+            json={"gpu_id": gpu_id, "model_name": model_name, "input_data": input_data, "priority": priority},
+        )
         response.raise_for_status()
         return response.json()
 
-    async def list_compute_requests(
-        self,
-        gpu_id: str | None = None,
-        status: str | None = None
-    ) -> list[dict[str, Any]]:
+    async def list_compute_requests(self, gpu_id: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
         """List compute requests"""
         params = {}
         if gpu_id:
@@ -189,24 +164,13 @@ class EdgeAPIClient:
         return response.json()
 
     # Metrics Operations
-    async def record_metrics(
-        self,
-        gpu_id: str,
-        metrics: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def record_metrics(self, gpu_id: str, metrics: dict[str, Any]) -> dict[str, Any]:
         """Record edge metrics"""
-        response = await self._client.post("/v1/metrics/", json={
-            "gpu_id": gpu_id,
-            "metrics": metrics
-        })
+        response = await self._client.post("/v1/metrics/", json={"gpu_id": gpu_id, "metrics": metrics})
         response.raise_for_status()
         return response.json()
 
-    async def list_metrics(
-        self,
-        gpu_id: str | None = None,
-        limit: int = 100
-    ) -> list[dict[str, Any]]:
+    async def list_metrics(self, gpu_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """List edge metrics"""
         params = {"limit": limit}
         if gpu_id:
@@ -231,29 +195,19 @@ class EdgeAPIClient:
 
     # Island Operations
     async def join_island(
-        self,
-        island_id: str,
-        island_name: str,
-        chain_id: str,
-        role: str = "compute-provider",
-        is_hub: bool = False
+        self, island_id: str, island_name: str, chain_id: str, role: str = "compute-provider", is_hub: bool = False
     ) -> dict[str, Any]:
         """Join an island"""
-        response = await self._client.post("/v1/islands/join", json={
-            "island_id": island_id,
-            "island_name": island_name,
-            "chain_id": chain_id,
-            "role": role,
-            "is_hub": is_hub
-        })
+        response = await self._client.post(
+            "/v1/islands/join",
+            json={"island_id": island_id, "island_name": island_name, "chain_id": chain_id, "role": role, "is_hub": is_hub},
+        )
         response.raise_for_status()
         return response.json()
 
     async def leave_island(self, island_id: str) -> dict[str, Any]:
         """Leave an island"""
-        response = await self._client.post("/v1/islands/leave", json={
-            "island_id": island_id
-        })
+        response = await self._client.post("/v1/islands/leave", json={"island_id": island_id})
         response.raise_for_status()
         return response.json()
 
@@ -272,8 +226,6 @@ class EdgeAPIClient:
 
     async def request_bridge(self, target_island_id: str) -> dict[str, Any]:
         """Request bridge to another island"""
-        response = await self._client.post("/v1/islands/bridge", json={
-            "target_island_id": target_island_id
-        })
+        response = await self._client.post("/v1/islands/bridge", json={"target_island_id": target_island_id})
         response.raise_for_status()
         return response.json()

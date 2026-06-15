@@ -26,7 +26,7 @@ def test_region_model():
         capacity=10000,
         current_load=3500,
         latency_ms=45,
-        compliance_level="full"
+        compliance_level="full",
     )
     assert region.region_id == "us-east-1"
     assert region.name == "US East"
@@ -44,7 +44,7 @@ def test_global_deployment_model():
         target_regions=["us-east-1", "eu-west-1"],
         configuration={"replicas": 3},
         deployment_strategy="blue_green",
-        health_checks=["/health", "/ready"]
+        health_checks=["/health", "/ready"],
     )
     assert deployment.deployment_id == "deploy_123"
     assert deployment.service_name == "test-service"
@@ -61,7 +61,7 @@ def test_load_balancer_model():
         algorithm="round_robin",
         target_regions=["us-east-1", "eu-west-1"],
         health_check_interval=30,
-        failover_threshold=3
+        failover_threshold=3,
     )
     assert balancer.balancer_id == "lb_123"
     assert balancer.name == "Main LB"
@@ -80,7 +80,7 @@ def test_performance_metrics_model():
         network_io=1000.5,
         disk_io=500.3,
         active_connections=100,
-        response_time_ms=45.2
+        response_time_ms=45.2,
     )
     assert metrics.region_id == "us-east-1"
     assert metrics.cpu_usage == 50.5

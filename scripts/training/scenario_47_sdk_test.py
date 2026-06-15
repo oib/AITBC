@@ -3,14 +3,16 @@
 Scenario 47: Cross-Chain Atomic Swap - SDK Version
 Demonstrates the complete atomic swap flow using the fixed SDK
 """
+
 import asyncio
 import hashlib
 import secrets
 import sys
 
 # Add paths
-sys.path.insert(0, '/opt/aitbc')
-sys.path.insert(0, '/opt/aitbc/packages/py/aitbc-agent-sdk/src')
+sys.path.insert(0, "/opt/aitbc")
+sys.path.insert(0, "/opt/aitbc/packages/py/aitbc-agent-sdk/src")
+
 
 async def main():
     print("=" * 60)
@@ -31,7 +33,7 @@ async def main():
         cross_chain_atomic_swap="0xcrosschainatomicswap_1778182201",
         use_cli=True,  # Use CLI client (no Web3 needed)
         network="mainnet",
-        rpc_url=""
+        rpc_url="",
     )
     print("  ✓ Config created")
     print(f"  - use_cli: {config.use_cli}")
@@ -66,7 +68,7 @@ async def main():
             participant="ait1144a6e75b728930da9f7eb784b6946a0cd7f60de",
             hashlock=hashlock,
             timelock=3600,
-            contract_address="0xcrosschainatomicswap_1778182201"
+            contract_address="0xcrosschainatomicswap_1778182201",
         )
         print("  ✓ Swap initiated!")
         print(f"  - Status: {result.get('status')}")
@@ -75,34 +77,31 @@ async def main():
     except Exception as e:
         print(f"  ✗ Failed to initiate swap: {e}")
         import traceback
+
         traceback.print_exc()
         return
 
     # Step 5: Check swap status
     print("Step 5: Checking swap status via SDK...")
     try:
-        status = await integration.get_swap_status(
-            swap_id=swap_id,
-            contract_address="0xcrosschainatomicswap_1778182201"
-        )
+        status = await integration.get_swap_status(swap_id=swap_id, contract_address="0xcrosschainatomicswap_1778182201")
         print("  ✓ Status checked!")
         print(f"  - Swap ID: {status.get('swap_id', '')[:20]}...")
         print(f"  - Status: {status.get('status')}")
-        if 'note' in status:
+        if "note" in status:
             print(f"  - Note: {status.get('note')}")
         print()
     except Exception as e:
         print(f"  ✗ Failed to check status: {e}")
         import traceback
+
         traceback.print_exc()
 
     # Step 6: Complete atomic swap (reveal secret)
     print("Step 6: Completing atomic swap (revealing secret)...")
     try:
         result = await integration.complete_atomic_swap(
-            swap_id=swap_id,
-            secret=secret,
-            contract_address="0xcrosschainatomicswap_1778182201"
+            swap_id=swap_id, secret=secret, contract_address="0xcrosschainatomicswap_1778182201"
         )
         print("  ✓ Swap completed!")
         print(f"  - Status: {result.get('status')}")
@@ -111,6 +110,7 @@ async def main():
     except Exception as e:
         print(f"  ✗ Failed to complete swap: {e}")
         import traceback
+
         traceback.print_exc()
 
     # Summary
@@ -126,6 +126,7 @@ async def main():
     print("doesn't return actual contract state yet. To check status,")
     print("use: aitbc contract call --method getSwapStatus")
     print()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
