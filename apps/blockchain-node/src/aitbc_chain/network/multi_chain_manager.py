@@ -121,11 +121,11 @@ class MultiChainManager:
         self.chains[chain_id] = chain
         try:
             db_path.parent.mkdir(parents=True, exist_ok=True)
-            from aitbc_chain.database import BlockchainDB  # type: ignore[import-not-found]
+            from aitbc_chain.database import BlockchainDB  # type: ignore[attr-defined]
 
             chain_db = BlockchainDB(str(db_path))
             chain_db.initialize()
-            from aitbc_chain.rpc import RPCServer  # type: ignore[import-not-found]
+            from aitbc_chain.rpc import RPCServer  # type: ignore[attr-defined]
 
             rpc_server = RPCServer(rpc_port, chain_db)
             await rpc_server.start()
@@ -133,7 +133,7 @@ class MultiChainManager:
 
             p2p_service = P2PService(p2p_port, chain_id)
             await p2p_service.start()
-            from aitbc_chain.consensus import EthereumConsensus  # type: ignore[import-not-found]
+            from aitbc_chain.consensus import EthereumConsensus  # type: ignore[attr-defined]
 
             consensus = EthereumConsensus(chain_db)
             await consensus.initialize()

@@ -283,6 +283,22 @@ class EconomicSecurityMonitor:
                 )
                 self.attack_detections.append(detection)
 
+    async def _record_detection(
+        self, attack_type: AttackType, message: str, threat_level: ThreatLevel = ThreatLevel.MEDIUM
+    ) -> None:
+        """Record an attack detection."""
+        detection = AttackDetection(
+            attack_type=attack_type,
+            threat_level=threat_level,
+            attacker_address="unknown",
+            evidence={"message": message},
+            detected_at=time.time(),
+            confidence=0.7,
+            recommended_action="Monitor and investigate",
+        )
+        self.attack_detections.append(detection)
+        logger.warning("Attack detected: %s - %s", attack_type.value, message)
+
     async def _detect_stake_grinding(self, current_time: float) -> None:
         """Detect stake grinding attacks"""
         rule = self.detection_rules[AttackType.STAKE_GRINDING]
@@ -297,7 +313,7 @@ class EconomicSecurityMonitor:
             get_state_manager()
             if len(recent_detections) >= rule["threshold"]:
                 logger.warning("Potential stake grinding attack detected: %s events in window", len(recent_detections))
-                await self._record_detection(AttackType.STAKE_GRINDING, "Multiple stake movements detected in short window")  # type: ignore[attr-defined]
+                await self._record_detection(AttackType.STAKE_GRINDING, "Multiple stake movements detected in short window")
         except Exception as e:
             logger.debug("Stake grinding detection error: %s", e)
 
@@ -313,7 +329,7 @@ class EconomicSecurityMonitor:
                 logger.warning("Low validator participation: %s", participation_rate)
                 await self._record_detection(
                     AttackType.NOTHING_AT_STAKE, f"Validator participation below threshold: {participation_rate:.2%}"
-                )  # type: ignore[attr-defined]
+                )
         except Exception as e:
             logger.debug("Nothing-at-stake detection error: %s", e)
 
@@ -339,7 +355,7 @@ class EconomicSecurityMonitor:
                 logger.warning("Potential gas manipulation detected: %s vs avg %s", current_gas, avg_gas)
                 await self._record_detection(
                     AttackType.GAS_MANIPULATION, f"Gas price spike detected: {current_gas} vs avg {avg_gas}"
-                )  # type: ignore[attr-defined]
+                )
         except Exception as e:
             logger.debug("Front-running detection error: %s", e)
 
