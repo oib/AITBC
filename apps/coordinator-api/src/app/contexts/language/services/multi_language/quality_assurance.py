@@ -8,12 +8,15 @@ from collections import Counter
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
+
 import nltk  # type: ignore[import-not-found]
 import numpy as np
 import spacy  # type: ignore[import-not-found]
 from nltk.tokenize import sent_tokenize, word_tokenize  # type: ignore[import-not-found]
 from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu  # type: ignore[import-not-found]
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class QualityMetric(Enum):
@@ -215,9 +218,9 @@ class TranslationQualityChecker:
         all_items = set(counter1.keys()) | set(counter2.keys())
         if not all_items:
             return 1.0
-        dot_product = sum((counter1[item] * counter2[item] for item in all_items))
-        magnitude1 = sum((counter1[item] ** 2 for item in all_items)) ** 0.5
-        magnitude2 = sum((counter2[item] ** 2 for item in all_items)) ** 0.5
+        dot_product = sum(counter1[item] * counter2[item] for item in all_items)
+        magnitude1 = sum(counter1[item] ** 2 for item in all_items) ** 0.5
+        magnitude2 = sum(counter2[item] ** 2 for item in all_items) ** 0.5
         if magnitude1 == 0 or magnitude2 == 0:
             return 0.0
         return float(dot_product / (magnitude1 * magnitude2))
@@ -233,8 +236,8 @@ class TranslationQualityChecker:
         """Calculate weighted overall quality score"""
         if not scores:
             return 0.0
-        weighted_sum = sum((score.score * score.weight for score in scores))
-        total_weight = sum((score.weight for score in scores))
+        weighted_sum = sum(score.score * score.weight for score in scores)
+        total_weight = sum(score.weight for score in scores)
         return weighted_sum / total_weight if total_weight > 0 else 0.0
 
     def _generate_recommendations(self, scores: list[QualityScore], overall_score: float) -> list[str]:

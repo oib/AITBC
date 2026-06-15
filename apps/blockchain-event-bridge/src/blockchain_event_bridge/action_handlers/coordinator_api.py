@@ -1,8 +1,10 @@
 """Coordinator API action handler for triggering hermes agent actions."""
 from typing import Any
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network.http_client import AsyncAITBCHTTPClient
+
 logger = get_logger(__name__)
 
 class CoordinatorAPIHandler:

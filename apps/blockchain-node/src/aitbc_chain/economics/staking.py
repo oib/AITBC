@@ -7,6 +7,7 @@ import time
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
+from typing import Any
 
 
 class StakingStatus(Enum):
@@ -45,7 +46,7 @@ class StakingManager:
         self.stake_positions: dict[str, StakePosition] = {}  # key: validator:delegator
         self.validator_info: dict[str, ValidatorStakeInfo] = {}
         self.unstaking_requests: dict[str, float] = {}  # key: validator:delegator, value: request_time
-        self.slashing_events: list[dict] = []
+        self.slashing_events: list[dict[str, Any]] = []
 
         # Staking parameters
         self.unstaking_period = 21  # days
@@ -465,7 +466,7 @@ class StakingManager:
             if pos.status == StakingStatus.ACTIVE
         ))
 
-    def get_staking_statistics(self) -> dict:
+    def get_staking_statistics(self) -> dict[str, Any]:
         """Get staking system statistics"""
         active_positions = [
             pos for pos in self.stake_positions.values()

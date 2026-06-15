@@ -5,8 +5,10 @@ import logging
 import os
 import re
 from datetime import datetime
+
 from fastapi import HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
 
@@ -83,7 +85,7 @@ class APIKeyRotator:
     @staticmethod
     def validate_api_key_format(api_key: str) -> bool:
         """Validate API key format."""
-        return len(api_key) == 64 and all((c in '0123456789abcdef' for c in api_key.lower()))
+        return len(api_key) == 64 and all(c in '0123456789abcdef' for c in api_key.lower())
 
 async def verify_api_key(request: Request, credentials: HTTPAuthorizationCredentials | None = None) -> str:
     """Verify API key from request."""

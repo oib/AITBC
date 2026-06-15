@@ -7,7 +7,9 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class ComplianceFramework(StrEnum):
@@ -157,7 +159,7 @@ class GDPRCompliance:
         """Check if data breach notification is required"""
         try:
             affected_data = breach_data.get('affected_data_categories', [])
-            has_personal_data = any((category in [DataCategory.PERSONAL_DATA, DataCategory.SENSITIVE_DATA, DataCategory.HEALTH_DATA, DataCategory.BIOMETRIC_DATA] for category in affected_data))
+            has_personal_data = any(category in [DataCategory.PERSONAL_DATA, DataCategory.SENSITIVE_DATA, DataCategory.HEALTH_DATA, DataCategory.BIOMETRIC_DATA] for category in affected_data)
             if not has_personal_data:
                 return False
             affected_individuals = breach_data.get('affected_individuals', 0)
@@ -337,7 +339,7 @@ class AMLKYCCompliance:
         documents = customer_data.get('documents', [])
         required_docs = ['id_document', 'proof_of_address']
         for doc_type in required_docs:
-            if not any((doc.get('type') == doc_type for doc in documents)):
+            if not any(doc.get('type') == doc_type for doc in documents):
                 return False
         return True
 
@@ -393,8 +395,8 @@ class AMLKYCCompliance:
         """Generate AML compliance report"""
         total_customers = len(self.customer_records)
         high_risk_customers = len([c for c in self.customer_records.values() if c.get('risk_level') == 'high'])
-        total_transactions = sum((len(transactions) for transactions in self.transaction_monitoring.values()))
-        suspicious_transactions = sum((len([t for t in transactions if t.get('suspicious', False)]) for transactions in self.transaction_monitoring.values()))
+        total_transactions = sum(len(transactions) for transactions in self.transaction_monitoring.values())
+        suspicious_transactions = sum(len([t for t in transactions if t.get('suspicious', False)]) for transactions in self.transaction_monitoring.values())
         pending_sars = len([sar for sar in self.suspicious_activity_reports.values() if sar.get('status') == 'pending_review'])
         return {'framework': 'AML/KYC', 'total_customers': total_customers, 'high_risk_customers': high_risk_customers, 'total_transactions': total_transactions, 'suspicious_transactions': suspicious_transactions, 'pending_sars': pending_sars, 'suspicious_rate': suspicious_transactions / total_transactions if total_transactions > 0 else 0, 'report_date': datetime.now(UTC).isoformat()}
 
@@ -493,7 +495,7 @@ class EnterpriseComplianceEngine:
             soc2_compliance = await self._check_soc2_compliance({})
             aml_compliance = await self._check_aml_kyc_compliance({})
             frameworks = [gdpr_compliance, soc2_compliance, aml_compliance]
-            compliant_frameworks = sum((1 for f in frameworks if f.get('compliant', False)))
+            compliant_frameworks = sum(1 for f in frameworks if f.get('compliant', False))
             overall_score = compliant_frameworks / len(frameworks) * 100
             return {'overall_compliance_score': overall_score, 'frameworks': {'GDPR': gdpr_compliance, 'SOC 2': soc2_compliance, 'AML/KYC': aml_compliance}, 'total_rules': len(self.compliance_rules), 'last_updated': datetime.now(UTC).isoformat(), 'status': 'compliant' if overall_score >= 80 else 'needs_attention'}
         except Exception as e:

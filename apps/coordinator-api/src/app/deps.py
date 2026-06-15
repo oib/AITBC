@@ -5,9 +5,13 @@ Provides unified dependency injection using storage.Annotated[Session, Depends(g
 """
 from collections.abc import Callable
 from typing import Any
+
 from fastapi import Header, HTTPException
+
 from aitbc import get_logger
+
 from .config import settings
+
 logger = get_logger(__name__)
 
 def _validate_api_key(allowed_keys: list[str], api_key: str | None) -> str:

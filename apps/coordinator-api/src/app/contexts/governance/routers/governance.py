@@ -1,16 +1,24 @@
 from __future__ import annotations
+
 from typing import Annotated
+
 from sqlalchemy.orm import Session
+
 '\nDecentralized Governance API Endpoints\nREST API for hermes DAO voting, proposals, and governance analytics\n'
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from typing import Any
+
 from pydantic import BaseModel, Field
+
 from ....domain.governance import GovernanceProfile, Proposal, TransparencyReport, Vote, VoteType
 from ....storage import get_session
 from ..services.governance_service import GovernanceService
+
 router = APIRouter(prefix='/governance', tags=['governance'])
 
 class ProfileInitRequest(BaseModel):

@@ -5,11 +5,25 @@ Implements performance-based reward calculations, distributions, and tier manage
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import Session, and_, select
+
 from ....domain.reputation import AgentReputation
-from ....domain.rewards import AgentRewardProfile, RewardCalculation, RewardDistribution, RewardEvent, RewardMilestone, RewardStatus, RewardTier, RewardTierConfig, RewardType
+from ....domain.rewards import (
+    AgentRewardProfile,
+    RewardCalculation,
+    RewardDistribution,
+    RewardEvent,
+    RewardMilestone,
+    RewardStatus,
+    RewardTier,
+    RewardTierConfig,
+    RewardType,
+)
+
 
 class RewardCalculator:
     """Advanced reward calculation algorithms"""
@@ -267,7 +281,7 @@ class RewardEngine:
         distributions = self.session.execute(select(RewardDistribution).where(and_(RewardDistribution.created_at >= start_date, RewardDistribution.created_at <= end_date, RewardDistribution.status == RewardStatus.DISTRIBUTED)).all())  # type: ignore[attr-defined]
         if not distributions:
             return {'period_type': period_type, 'start_date': start_date.isoformat(), 'end_date': end_date.isoformat(), 'total_rewards_distributed': 0.0, 'total_agents_rewarded': 0, 'average_reward_per_agent': 0.0}
-        total_rewards = sum((d.reward_amount for d in distributions))
+        total_rewards = sum(d.reward_amount for d in distributions)
         unique_agents = len({d.agent_id for d in distributions})
         average_reward = total_rewards / unique_agents if unique_agents > 0 else 0.0
         agent_ids = list({d.agent_id for d in distributions})

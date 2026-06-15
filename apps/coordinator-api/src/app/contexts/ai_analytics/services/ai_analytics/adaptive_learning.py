@@ -1,15 +1,20 @@
 from typing import Annotated
 from uuid import uuid4
+
 from fastapi import Depends
 from sqlalchemy.orm import Session
+
 '\nAdaptive Learning Systems - Phase 5.2\nReinforcement learning frameworks for agent self-improvement\n'
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
+
 import numpy as np
 from app.storage import get_session  # type: ignore[import-not-found]
+
 
 class LearningAlgorithm(StrEnum):
     """Reinforcement learning algorithms"""
@@ -419,7 +424,7 @@ class AdaptiveLearningService:
                     break
             evaluation_rewards.append(episode_reward)
             evaluation_lengths.append(steps)
-        return {'agent_id': agent_id, 'environment_id': environment_id, 'evaluation_episodes': num_episodes, 'average_reward': float(np.mean(evaluation_rewards)), 'reward_std': float(np.std(evaluation_rewards)), 'max_reward': float(max(evaluation_rewards)), 'min_reward': float(min(evaluation_rewards)), 'average_episode_length': float(np.mean(evaluation_lengths)), 'success_rate': sum((1 for r in evaluation_rewards if r > 0)) / len(evaluation_rewards), 'evaluation_timestamp': datetime.now(UTC).isoformat()}
+        return {'agent_id': agent_id, 'environment_id': environment_id, 'evaluation_episodes': num_episodes, 'average_reward': float(np.mean(evaluation_rewards)), 'reward_std': float(np.std(evaluation_rewards)), 'max_reward': float(max(evaluation_rewards)), 'min_reward': float(min(evaluation_rewards)), 'average_episode_length': float(np.mean(evaluation_lengths)), 'success_rate': sum(1 for r in evaluation_rewards if r > 0) / len(evaluation_rewards), 'evaluation_timestamp': datetime.now(UTC).isoformat()}
 
     async def create_reward_function(self, reward_id: str, reward_type: RewardType, config: dict[str, Any]) -> dict[str, Any]:
         """Create custom reward function"""

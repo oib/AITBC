@@ -14,11 +14,14 @@ from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
+
 from websockets.exceptions import ConnectionClosed
+
 if TYPE_CHECKING:
     from websockets.legacy.server import WebSocketServerProtocol
 WebSocketServerProtocol = Any  # type: ignore[assignment, misc]
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class StreamStatus(Enum):
@@ -420,10 +423,10 @@ class WebSocketStreamManager:
             stream_metrics = []
             for stream in self.streams.values():
                 stream_metrics.append(stream.get_metrics())
-            total_queue_size = sum((m['queue_size'] for m in stream_metrics))
-            total_messages_sent = sum((m['messages_sent'] for m in stream_metrics))
-            total_messages_dropped = sum((m['messages_dropped'] for m in stream_metrics))
-            total_bytes_sent = sum((m['bytes_sent'] for m in stream_metrics))
+            total_queue_size = sum(m['queue_size'] for m in stream_metrics)
+            total_messages_sent = sum(m['messages_sent'] for m in stream_metrics)
+            total_messages_dropped = sum(m['messages_dropped'] for m in stream_metrics)
+            total_bytes_sent = sum(m['bytes_sent'] for m in stream_metrics)
             status_counts: dict[str, int] = {}
             for stream in self.streams.values():
                 status = stream.status.value

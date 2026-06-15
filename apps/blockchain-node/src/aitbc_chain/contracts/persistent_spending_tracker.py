@@ -4,11 +4,15 @@ Fixes the critical vulnerability where spending limits were lost on restart
 """
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from eth_utils import to_checksum_address
+from typing import Any
+
+from eth_utils import to_checksum_address  # type: ignore[attr-defined]
 from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 Base = declarative_base()
 
@@ -101,7 +105,7 @@ class PersistentSpendingTracker:
         agent_address = to_checksum_address(agent_address)
         with self.get_session() as session:
             total = session.query(SpendingRecord).filter(SpendingRecord.agent_address == agent_address, SpendingRecord.period_type == period, SpendingRecord.period_key == period_key).with_entities(SpendingRecord.amount).all()
-            return float(sum((record.amount for record in total if record.amount is not None)))
+            return float(sum(record.amount for record in total if record.amount is not None))
 
     def record_spending(self, agent_address: str, amount: float, transaction_hash: str, timestamp: datetime | None = None) -> bool:
         """
@@ -183,7 +187,7 @@ class PersistentSpendingTracker:
             time_lock_until = timestamp + timedelta(hours=float(limits.time_lock_delay_hours if limits.time_lock_delay_hours is not None else 0))
         return SpendingCheckResult(allowed=True, reason='Spending limits check passed', current_spent=current_spent, remaining=remaining, requires_time_lock=requires_time_lock, time_lock_until=time_lock_until)
 
-    def update_spending_limits(self, agent_address: str, new_limits: dict, guardian_address: str) -> bool:
+    def update_spending_limits(self, agent_address: str, new_limits: dict[str, Any], guardian_address: str) -> bool:
         """
         Update spending limits for an agent
         
@@ -268,7 +272,7 @@ class PersistentSpendingTracker:
             auth = session.query(GuardianAuthorization).filter(GuardianAuthorization.agent_address == agent_address, GuardianAuthorization.guardian_address == guardian_address, GuardianAuthorization.is_active == True).first()
             return auth is not None
 
-    def get_spending_summary(self, agent_address: str) -> dict:
+    def get_spending_summary(self, agent_address: str) -> dict[str, Any]:
         """
         Get comprehensive spending summary for an agent
         

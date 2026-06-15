@@ -1,15 +1,20 @@
 from typing import Annotated
+
 '\nhermes Enhanced Service Health Check Router\nProvides health monitoring for agent orchestration, edge computing, and ecosystem development\n'
 import sys
 from datetime import UTC, datetime
 from typing import Any
+
 import psutil
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 from ....storage import get_session
 from ..services.hermes_enhanced import hermesEnhancedService
+
 router = APIRouter()
 logger = get_logger(__name__)
 
@@ -58,7 +63,7 @@ async def hermes_enhanced_deep_health(request: Request, session: Annotated[Sessi
         except Exception:
             feature_tests['ecosystem_development'] = {'status': 'fail', 'error': 'Test failed'}
         edge_status = await check_edge_computing_status()
-        return {'status': 'healthy' if edge_status['available'] else 'degraded', 'service': 'hermes-enhanced', 'port': 8007, 'timestamp': datetime.now(UTC).isoformat(), 'feature_tests': feature_tests, 'edge_computing': edge_status, 'overall_health': 'pass' if edge_status['available'] and all((test.get('status') == 'pass' for test in feature_tests.values())) else 'degraded'}
+        return {'status': 'healthy' if edge_status['available'] else 'degraded', 'service': 'hermes-enhanced', 'port': 8007, 'timestamp': datetime.now(UTC).isoformat(), 'feature_tests': feature_tests, 'edge_computing': edge_status, 'overall_health': 'pass' if edge_status['available'] and all(test.get('status') == 'pass' for test in feature_tests.values()) else 'degraded'}
     except Exception as e:
         logger.error('Deep hermes Enhanced health check failed: %s', e)
         return {'status': 'unhealthy', 'service': 'hermes-enhanced', 'port': 8007, 'timestamp': datetime.now(UTC).isoformat(), 'error': 'Deep health check failed'}

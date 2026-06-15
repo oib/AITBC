@@ -1,15 +1,26 @@
 from typing import Annotated
+
 from sqlalchemy.orm import Session
+
 '\nCommunity and Developer Ecosystem API Endpoints\nREST API for managing hermes developer profiles, SDKs, solutions, and hackathons\n'
 from typing import Any
+
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from ....domain.community import AgentSolution, CommunityPost, DeveloperProfile, Hackathon, InnovationLab
-from ....services.community_service import CommunityPlatformService, DeveloperEcosystemService, InnovationLabService, ThirdPartySolutionService
+from ....services.community_service import (
+    CommunityPlatformService,
+    DeveloperEcosystemService,
+    InnovationLabService,
+    ThirdPartySolutionService,
+)
 from ....storage import get_session
+
 router = APIRouter(prefix='/community', tags=['community'])
 
 class DeveloperProfileCreate(BaseModel):

@@ -9,7 +9,7 @@ import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum, StrEnum
+from enum import StrEnum
 from typing import Any
 
 from aitbc import get_logger
@@ -88,7 +88,7 @@ class LoadBalancer:
         self.agent_weights: dict[str, AgentWeight] = {}
         self.agent_metrics: dict[str, LoadMetrics] = {}
         self.task_assignments: dict[str, TaskAssignment] = {}
-        self.assignment_history: deque = deque(maxlen=1000)
+        self.assignment_history: deque[Any] = deque(maxlen=1000)
         self.round_robin_index = 0
         self.consistent_hash_ring: dict[int, str] = {}
         self.prediction_models: dict[str, Any] = {}
@@ -263,7 +263,7 @@ class LoadBalancer:
         elif self.strategy == LoadBalancingStrategy.CONSISTENT_HASH:
             return self._consistent_hash_selection(eligible_agents, task_data)
         else:
-            return eligible_agents[0]  # type: ignore[unreachable]
+            return eligible_agents[0]
 
     def _round_robin_selection(self, agents: list[str]) -> str:
         """Round-robin agent selection"""

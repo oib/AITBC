@@ -6,7 +6,9 @@ import asyncio
 import json
 import logging
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger('chain_sync')
 try:
     from .config import settings as chain_settings

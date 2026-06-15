@@ -1,15 +1,21 @@
 from typing import Annotated
+
 from fastapi import Depends
 from sqlalchemy.orm import Session
+
 '\nMulti-Modal Agent Service - Phase 5.1\nAdvanced AI agent capabilities with unified multi-modal processing pipeline\n'
 import asyncio
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
+
 from ....domain import AgentExecution, AgentStatus
 from ....storage import get_session
+
 
 class ModalityType(StrEnum):
     """Supported data modalities"""
@@ -226,19 +232,19 @@ class MultiModalAgentService:
     def _is_image_data(self, data: Any) -> bool:
         """Check if data is image-like"""
         if isinstance(data, dict):
-            return any((key in data for key in ['image_data', 'pixels', 'width', 'height']))
+            return any(key in data for key in ['image_data', 'pixels', 'width', 'height'])
         return False
 
     def _is_audio_data(self, data: Any) -> bool:
         """Check if data is audio-like"""
         if isinstance(data, dict):
-            return any((key in data for key in ['audio_data', 'waveform', 'sample_rate', 'spectrogram']))
+            return any(key in data for key in ['audio_data', 'waveform', 'sample_rate', 'spectrogram'])
         return False
 
     def _is_video_data(self, data: Any) -> bool:
         """Check if data is video-like"""
         if isinstance(data, dict):
-            return any((key in data for key in ['video_data', 'frames', 'fps', 'duration']))
+            return any(key in data for key in ['video_data', 'frames', 'fps', 'duration'])
         return False
 
     def _is_tabular_data(self, data: Any) -> bool:
@@ -250,7 +256,7 @@ class MultiModalAgentService:
     def _is_graph_data(self, data: Any) -> bool:
         """Check if data is graph-like"""
         if isinstance(data, dict):
-            return any((key in data for key in ['nodes', 'edges', 'adjacency', 'graph']))
+            return any(key in data for key in ['nodes', 'edges', 'adjacency', 'graph'])
         return False
 
     def _extract_text_features(self, text: str) -> dict[str, Any]:
@@ -402,7 +408,7 @@ class MultiModalPerformanceTracker:
         """Calculate performance metrics"""
         modalities = context['modalities']
         processing_mode = context['processing_mode']
-        total_inputs = sum((1 for _ in results.values() if 'error' not in _))
+        total_inputs = sum(1 for _ in results.values() if 'error' not in _)
         throughput = total_inputs / processing_time if processing_time > 0 else 0
         accuracy = 0.95
         mode_efficiency = {ProcessingMode.SEQUENTIAL: 0.7, ProcessingMode.PARALLEL: 0.9, ProcessingMode.FUSION: 0.85, ProcessingMode.ATTENTION: 0.8}

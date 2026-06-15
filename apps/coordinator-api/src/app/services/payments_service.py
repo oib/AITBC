@@ -9,11 +9,14 @@ Provides:
 - Refund handling
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
+
 from aitbc.aitbc_logging import get_logger
+
 logger = get_logger(__name__)
 
 class PaymentStatus(Enum):
@@ -209,12 +212,12 @@ class PaymentsService:
     def get_payment_stats(self) -> dict[str, Any]:
         """Get payment statistics"""
         payments = list(self._payments.values())
-        total_volume = sum((p.amount for p in payments if p.status in [PaymentStatus.completed, PaymentStatus.released]))
+        total_volume = sum(p.amount for p in payments if p.status in [PaymentStatus.completed, PaymentStatus.released])
         completed = len([p for p in payments if p.status == PaymentStatus.completed])
         pending = len([p for p in payments if p.status == PaymentStatus.pending])
         escrowed = len([p for p in payments if p.status == PaymentStatus.escrowed])
         refunded = len([p for p in payments if p.status == PaymentStatus.refunded])
-        return {'total_payments': len(payments), 'total_volume': total_volume, 'by_status': {'completed': completed, 'pending': pending, 'escrowed': escrowed, 'refunded': refunded}, 'escrow_holdings': sum((e['amount'] for e in self._escrows.values() if e['status'] == 'held'))}
+        return {'total_payments': len(payments), 'total_volume': total_volume, 'by_status': {'completed': completed, 'pending': pending, 'escrowed': escrowed, 'refunded': refunded}, 'escrow_holdings': sum(e['amount'] for e in self._escrows.values() if e['status'] == 'held')}
 _payments_service: PaymentsService | None = None
 
 def get_payments_service() -> PaymentsService:

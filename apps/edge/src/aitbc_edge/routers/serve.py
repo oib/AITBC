@@ -14,7 +14,7 @@ class SubmitComputeRequest(BaseModel):
     """Request model for submitting compute request"""
     gpu_id: str
     model_name: str
-    input_data: dict
+    input_data: dict[str, Any]
     priority: str = Field(default="normal")
 
 

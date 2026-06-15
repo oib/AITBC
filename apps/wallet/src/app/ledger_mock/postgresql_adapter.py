@@ -1,10 +1,12 @@
 """PostgreSQL adapter for Wallet Daemon"""
 import json
 from typing import Any, cast
+
 import psycopg2
+from aitbc.logging import get_logger  # type: ignore
 from psycopg2 import extensions
 from psycopg2.extras import RealDictCursor
-from aitbc.logging import get_logger  # type: ignore
+
 logger = get_logger(__name__)
 
 class PostgreSQLLedgerAdapter:

@@ -1,10 +1,15 @@
 """
 Marketplace matching service for matching GPU providers with consumers
 """
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
+
 from aitbc import get_logger
+
 from ..domain.marketplace import MarketplaceOffer
+
 logger = get_logger(__name__)
 
 class MatchingService:
@@ -13,7 +18,7 @@ class MatchingService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def find_best_match(self, bid_requirements: dict, max_price: float | None=None, preferred_region: str | None=None, min_gpu_memory: int | None=None, required_gpu_model: str | None=None) -> dict | None:
+    async def find_best_match(self, bid_requirements: dict[str, Any], max_price: float | None=None, preferred_region: str | None=None, min_gpu_memory: int | None=None, required_gpu_model: str | None=None) -> dict[str, Any] | None:
         """
         Find the best matching offer for a bid based on requirements
         
@@ -51,7 +56,7 @@ class MatchingService:
             logger.error('Error in find_best_match: %s: %s', type(e).__name__, str(e))
             raise
 
-    def _calculate_match_score(self, offer: MarketplaceOffer, requirements: dict) -> float:
+    def _calculate_match_score(self, offer: MarketplaceOffer, requirements: dict[str, Any]) -> float:
         """
         Calculate a match score for an offer based on requirements
         

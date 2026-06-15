@@ -7,34 +7,115 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from aitbc.rate_limiting import rate_limit
+
 from ..config import settings
 from ..logger import get_logger
 from ..mempool import get_mempool
+
 _logger = get_logger(__name__)
 from .accounts import create_account, faucet_request, get_account, get_account_alias, get_balance_breakdown, reconcile_balance
 from .blocks import get_block, get_blocks_range, get_genesis_allocations, get_head, import_block
 from .subscription import get_lease_status, get_subscribers, heartbeat, register_subscription, revoke_subscription
-from .transactions import TransactionRequest, get_mempool, query_transactions, submit_marketplace_transaction, submit_transaction
+from .transactions import (
+    TransactionRequest,
+    get_mempool,
+    query_transactions,
+    submit_marketplace_transaction,
+    submit_transaction,
+)
+
 try:
-    from .disputes import authorize_arbitrator, file_dispute, get_active_disputes, get_arbitration_votes, get_arbitrator_disputes, get_authorized_arbitrators, get_dispute, get_dispute_evidence, get_user_disputes, submit_arbitration_vote, submit_evidence, verify_evidence
+    from .disputes import (
+        authorize_arbitrator,
+        file_dispute,
+        get_active_disputes,
+        get_arbitration_votes,
+        get_arbitrator_disputes,
+        get_authorized_arbitrators,
+        get_dispute,
+        get_dispute_evidence,
+        get_user_disputes,
+        submit_arbitration_vote,
+        submit_evidence,
+        verify_evidence,
+    )
 except ImportError:
     _logger.warning('Disputes module not available')
 try:
-    from ..models.dispute import AuthorizeArbitratorRequest, AuthorizeArbitratorResponse, FileDisputeRequest, FileDisputeResponse, GetArbitrationVotesResponse, GetDisputeResponse, GetEvidenceResponse, SubmitArbitrationVoteRequest, SubmitArbitrationVoteResponse, SubmitEvidenceRequest, SubmitEvidenceResponse, VerifyEvidenceRequest, VerifyEvidenceResponse
+    from ..models.dispute import (
+        AuthorizeArbitratorRequest,
+        AuthorizeArbitratorResponse,
+        FileDisputeRequest,
+        FileDisputeResponse,
+        GetArbitrationVotesResponse,
+        GetDisputeResponse,
+        GetEvidenceResponse,
+        SubmitArbitrationVoteRequest,
+        SubmitArbitrationVoteResponse,
+        SubmitEvidenceRequest,
+        SubmitEvidenceResponse,
+        VerifyEvidenceRequest,
+        VerifyEvidenceResponse,
+    )
 except ImportError:
     _logger.warning('Dispute models not available')
 try:
-    from .contracts import call_contract, create_forum_topic, deploy_contract, deploy_messaging_contract, get_agent_reputation, get_forum_topics, get_messaging_contract_state, get_topic_messages, list_contracts, moderate_message, post_message, search_messages, verify_contract, vote_message
+    from .contracts import (
+        call_contract,
+        create_forum_topic,
+        deploy_contract,
+        deploy_messaging_contract,
+        get_agent_reputation,
+        get_forum_topics,
+        get_messaging_contract_state,
+        get_topic_messages,
+        list_contracts,
+        moderate_message,
+        post_message,
+        search_messages,
+        verify_contract,
+        vote_message,
+    )
 except ImportError:
     _logger.warning('Contracts module not available')
-    from .contracts_stub import call_contract, create_forum_topic, deploy_contract, deploy_messaging_contract, get_agent_reputation, get_forum_topics, get_messaging_contract_state, get_topic_messages, list_contracts, moderate_message, post_message, search_messages, verify_contract, vote_message
+    from .contracts_stub import (
+        call_contract,
+        create_forum_topic,
+        deploy_contract,
+        deploy_messaging_contract,
+        get_agent_reputation,
+        get_forum_topics,
+        get_messaging_contract_state,
+        get_topic_messages,
+        list_contracts,
+        moderate_message,
+        post_message,
+        search_messages,
+        verify_contract,
+        vote_message,
+    )
 from .gossip import GetLogsRequest, GetLogsResponse, get_logs
 from .sync import export_chain, force_sync, import_chain
+
 try:
-    from .islands import BridgeRequestRequest, BridgeRequestResponse, JoinIslandRequest, JoinIslandResponse, LeaveIslandRequest, LeaveIslandResponse, get_island, join_island, leave_island, list_islands, request_bridge
+    from .islands import (
+        BridgeRequestRequest,
+        BridgeRequestResponse,
+        JoinIslandRequest,
+        JoinIslandResponse,
+        LeaveIslandRequest,
+        LeaveIslandResponse,
+        get_island,
+        join_island,
+        leave_island,
+        list_islands,
+        request_bridge,
+    )
 except ImportError:
     _logger.warning('Islands module not available')
     join_island = None
@@ -57,7 +138,17 @@ except ImportError:
     get_bridge_transfer = None
     list_pending_transfers = None
 try:
-    from .staking import cast_governance_vote, create_governance_proposal, get_agent_identity, get_governance_proposal, get_staking_info, register_agent_identity, stake_tokens, unstake_tokens, verify_agent_identity
+    from .staking import (
+        cast_governance_vote,
+        create_governance_proposal,
+        get_agent_identity,
+        get_governance_proposal,
+        get_staking_info,
+        register_agent_identity,
+        stake_tokens,
+        unstake_tokens,
+        verify_agent_identity,
+    )
 except ImportError:
     _logger.warning('Staking module not available')
     stake_tokens = None
@@ -80,38 +171,38 @@ _import_lock = asyncio.Lock()
 
 @router.get('/genesis_allocations', summary='Get genesis allocations from blockchain')
 @rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
-async def get_genesis_allocations_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:  
+async def get_genesis_allocations_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get genesis allocations from genesis block metadata for RPC bootstrap"""
     return await get_genesis_allocations(request, chain_id)  # type: ignore[no-any-return]
 
 @router.get('/head', summary='Get current chain head')
 @rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
-async def get_head_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:  
+async def get_head_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get current chain head"""
     return await get_head(request, chain_id)  # type: ignore[no-any-return]
 
 @router.get('/height', summary='Get current chain height')
 @rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
-async def get_height_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:  
+async def get_height_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get current chain height"""
     head = await get_head(request, chain_id)
     return {'height': head.get('height', 0)}  # type: ignore[no-any-return]
 
 @router.get('/blocks/{height}', summary='Get block by height')
 @rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
-async def get_block_route(request: Request, height: int, chain_id: str | None = None) -> dict[str, Any]:  
+async def get_block_route(request: Request, height: int, chain_id: str | None = None) -> dict[str, Any]:
     """Get block by height"""
     return await get_block(request, height, chain_id)  # type: ignore[no-any-return]
 
 @router.get('/blocks-range', summary='Get blocks in height range')
 @rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
-async def get_blocks_range_route(request: Request, start: int=0, end: int=10, include_tx: bool=True, chain_id: str | None = None) -> dict[str, Any]:  
+async def get_blocks_range_route(request: Request, start: int=0, end: int=10, include_tx: bool=True, chain_id: str | None = None) -> dict[str, Any]:
     """Get blocks in a height range"""
     return await get_blocks_range(request, start, end, include_tx, chain_id)  # type: ignore[no-any-return]
 
 @router.get('/info', summary='Get blockchain information')
 @rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
-async def get_info_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:  
+async def get_info_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get comprehensive blockchain information including transactions, accounts, and genesis parameters"""
     head = await get_head(request, chain_id)
     genesis_params = head.get('genesis_params', {})
@@ -164,7 +255,7 @@ async def submit_transaction_route(request: Request, tx_data: TransactionRequest
 
 @router.get('/mempool', summary='Get pending transactions')
 @rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
-async def get_mempool_route(request: Request, chain_id: str | None = None, limit: int=100) -> dict[str, Any]:  
+async def get_mempool_route(request: Request, chain_id: str | None = None, limit: int=100) -> dict[str, Any]:
     """Get pending transactions from mempool"""
     return await get_mempool(request, chain_id, limit)  # type: ignore[no-any-return]
 
@@ -176,19 +267,19 @@ async def submit_marketplace_transaction_route(request: Request, tx_data: dict[s
 
 @router.get('/transactions', summary='Query transactions')
 @rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
-async def query_transactions_route(request: Request, transaction_type: str | None=None, island_id: str | None=None, pair: str | None=None, status: str | None=None, order_id: str | None=None, limit: int | None=100, chain_id: str | None = None) -> list[dict[str, Any]]:  
+async def query_transactions_route(request: Request, transaction_type: str | None=None, island_id: str | None=None, pair: str | None=None, status: str | None=None, order_id: str | None=None, limit: int | None=100, chain_id: str | None = None) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
     return await query_transactions(request, transaction_type, island_id, pair, status, order_id, limit, chain_id)  # type: ignore[no-any-return]
 
 @router.get('/account/{address}', summary='Get account information')
 @rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
-async def get_account_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:  
+async def get_account_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get account information"""
     return await get_account(request, address, chain_id)  # type: ignore[no-any-return]
 
 @router.get('/accounts/{address}', summary='Get account information (alias)')
 @rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
-async def get_account_alias_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:  
+async def get_account_alias_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get account information (alias endpoint)"""
     return await get_account_alias(request, address, chain_id)  # type: ignore[no-any-return]
 
@@ -206,13 +297,13 @@ async def faucet_request_route(request: Request, faucet_data: dict) -> dict[str,
 
 @router.get('/balance/{address}', summary='Get detailed balance breakdown')
 @rate_limit(rate=100, per=60)  # type: ignore[untyped-decorator]
-async def get_balance_breakdown_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:  
+async def get_balance_breakdown_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get detailed balance breakdown"""
     return await get_balance_breakdown(request, address, chain_id)  # type: ignore[no-any-return]
 
 @router.get('/balance/{address}/reconcile', summary='Reconcile balance')
 @rate_limit(rate=20, per=60)  # type: ignore[untyped-decorator]
-async def reconcile_balance_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:  
+async def reconcile_balance_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Reconcile account balance against all recorded operations"""
     return await reconcile_balance(request, address, chain_id)  # type: ignore[no-any-return]
 
@@ -362,7 +453,7 @@ async def moderate_message_route(request: Request, message_id: str, moderation_d
 
 @router.get('/export-chain', summary='Export full chain state')
 @rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
-async def export_chain_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:  
+async def export_chain_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Export full chain state as JSON for manual synchronization"""
     return await export_chain(request, chain_id)  # type: ignore[no-any-return]
 
@@ -380,7 +471,7 @@ async def force_sync_route(request: Request, peer_data: dict) -> dict[str, Any]:
 
 @router.post('/eth_getLogs', summary='Query smart contract event logs')
 @rate_limit(rate=200, per=60)  # type: ignore[untyped-decorator]
-async def get_logs_route(request: Request, logs_request: GetLogsRequest, chain_id: str | None=None) -> GetLogsResponse:  
+async def get_logs_route(request: Request, logs_request: GetLogsRequest, chain_id: str | None=None) -> GetLogsResponse:
     """Query smart contract event logs using eth_getLogs-compatible endpoint"""
     return await get_logs(request, logs_request, chain_id)  # type: ignore[no-any-return]
 
@@ -447,7 +538,7 @@ async def get_bridge_transfer_route(request: Request, transfer_id: str) -> dict[
 
 @router.get('/bridge/pending', summary='List pending bridge transfers')
 @rate_limit(rate=50, per=60)  # type: ignore[untyped-decorator]
-async def list_pending_transfers_route(request: Request, chain_id: str | None = None) -> list[dict[str, Any]]:  
+async def list_pending_transfers_route(request: Request, chain_id: str | None = None) -> list[dict[str, Any]]:
     """List all pending cross-chain transfers"""
     if list_pending_transfers is None:
         raise HTTPException(status_code=501, detail='Bridge module not available')
@@ -471,7 +562,7 @@ async def unstake_tokens_route(request: Request, unstake_data: dict) -> dict[str
 
 @router.get('/staking/{address}', summary='Get staking info')
 @rate_limit(rate=100, per=60)  # type: ignore[untyped-decorator]
-async def get_staking_info_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:  
+async def get_staking_info_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get staking information for an address"""
     if get_staking_info is None:
         raise HTTPException(status_code=501, detail='Staking module not available')
@@ -487,7 +578,7 @@ async def register_agent_identity_route(request: Request, identity_data: dict) -
 
 @router.get('/identity/{agent_id}', summary='Get agent identity')
 @rate_limit(rate=50, per=60)  # type: ignore[untyped-decorator]
-async def get_agent_identity_route(request: Request, agent_id: str, chain_id: str | None = None) -> dict[str, Any]:  
+async def get_agent_identity_route(request: Request, agent_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get agent identity from blockchain"""
     if get_agent_identity is None:
         raise HTTPException(status_code=501, detail='Identity module not available')
@@ -519,7 +610,7 @@ async def cast_governance_vote_route(request: Request, vote_data: dict) -> dict[
 
 @router.get('/governance/proposal/{proposal_id}', summary='Get governance proposal')
 @rate_limit(rate=50, per=60)
-async def get_governance_proposal_route(request: Request, proposal_id: str, chain_id: str | None = None) -> dict[str, Any]:  
+async def get_governance_proposal_route(request: Request, proposal_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get a governance proposal from the blockchain"""
     if get_governance_proposal is None:
         raise HTTPException(status_code=501, detail='Governance module not available')
@@ -591,13 +682,13 @@ async def revoke_lease_route(node_id: str) -> dict[str, Any]:  # type: ignore[un
 
 @router.get('/subscribers', summary='Get all valid subscribers')
 @rate_limit(rate=100, per=60)
-async def subscribers_route(chain_id: str | None=None) -> dict[str, Any]:  
+async def subscribers_route(chain_id: str | None=None) -> dict[str, Any]:
     """Get all subscribers with valid leases"""
     return await get_subscribers(chain_id)  # type: ignore[no-any-return]
 
 @router.get('/pending', summary='Get pending transactions')
 @rate_limit(rate=100, per=60)
-async def get_pending_transactions_route(request: Request, chain_id: str | None = None, limit: int=100) -> dict[str, Any]:  
+async def get_pending_transactions_route(request: Request, chain_id: str | None = None, limit: int=100) -> dict[str, Any]:
     """Get pending transactions from mempool (alias for /mempool)"""
     try:
         mempool = get_mempool()

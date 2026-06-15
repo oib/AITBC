@@ -5,14 +5,18 @@ Provides endpoints for SLA metrics, capacity planning, and billing integration.
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
+
 from ..database import get_db  # type: ignore
 from ..models import CapacitySnapshot  # type: ignore
 from ..services.billing_integration import BillingIntegration  # type: ignore
 from ..services.sla_collector import SLACollector  # type: ignore
+
 logger = get_logger(__name__)
 router = APIRouter(prefix='/sla', tags=['SLA'])
 
@@ -212,9 +216,9 @@ async def get_sla_status(db: Session=Depends(get_db)) -> dict[str, Any]:
         sla_collector = SLACollector(db)
         active_violations = await sla_collector.get_sla_violations(resolved=False)
         recent_metrics = await sla_collector.get_sla_metrics(hours=1)
-        if any((v.severity == 'critical' for v in active_violations)):
+        if any(v.severity == 'critical' for v in active_violations):
             status = 'critical'
-        elif any((v.severity == 'high' for v in active_violations)):
+        elif any(v.severity == 'high' for v in active_violations):
             status = 'degraded'
         else:
             status = 'healthy'

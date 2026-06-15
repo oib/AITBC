@@ -5,8 +5,10 @@ import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session
+
 try:
     from ..exceptions import QuotaExceededError, TenantError
     from ..models.multitenant import Tenant, TenantApiKey, TenantAuditLog, TenantQuota, TenantStatus, TenantUser
@@ -17,7 +19,14 @@ except ImportError:
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     try:
         from app.exceptions import QuotaExceededError, TenantError  # type: ignore[import-not-found, no-redef]
-        from app.models.multitenant import Tenant, TenantApiKey, TenantAuditLog, TenantQuota, TenantStatus, TenantUser  # type: ignore[import-not-found, no-redef]
+        from app.models.multitenant import (  # type: ignore[import-not-found, no-redef]
+            Tenant,
+            TenantApiKey,
+            TenantAuditLog,
+            TenantQuota,
+            TenantStatus,
+            TenantUser,
+        )
         from app.storage.db import get_db  # type: ignore[import-not-found]
     except ImportError:
 

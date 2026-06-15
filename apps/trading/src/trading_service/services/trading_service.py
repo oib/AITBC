@@ -38,7 +38,7 @@ class TradingService:
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
-    async def create_request(self, request_data: dict) -> TradeRequest:
+    async def create_request(self, request_data: dict[str, Any]) -> TradeRequest:
         """Create a new trade request"""
         if "request_id" not in request_data:
             request_data["request_id"] = f"req_{uuid4().hex[:8]}"
@@ -65,7 +65,7 @@ class TradingService:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def create_match(self, match_data: dict) -> TradeMatch:
+    async def create_match(self, match_data: dict[str, Any]) -> TradeMatch:
         """Create a new trade match"""
         if "match_id" not in match_data:
             match_data["match_id"] = f"match_{uuid4().hex[:8]}"
@@ -92,7 +92,7 @@ class TradingService:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def create_agreement(self, agreement_data: dict) -> TradeAgreement:
+    async def create_agreement(self, agreement_data: dict[str, Any]) -> TradeAgreement:
         """Create a new trade agreement"""
         if "agreement_id" not in agreement_data:
             agreement_data["agreement_id"] = f"agree_{uuid4().hex[:8]}"

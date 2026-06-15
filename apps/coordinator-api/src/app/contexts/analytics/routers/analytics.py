@@ -1,18 +1,24 @@
 from uuid import uuid4
+
 from sqlalchemy import and_, desc
 from sqlalchemy.orm import Session
 from sqlmodel import select
+
 '\nMarketplace Analytics API Endpoints\nREST API for analytics, insights, reporting, and dashboards\n'
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from ....domain.analytics import AnalyticsPeriod, AnalyticsReport, DashboardConfig, MarketInsight, MarketMetric, ReportType
 from ....services.agent_coordination.marketplace import AgentServiceMarketplace
 from ....storage import get_session
+
 router = APIRouter(prefix='/analytics', tags=['analytics'])
 
 class MetricResponse(BaseModel):
@@ -121,7 +127,7 @@ async def get_market_insights(request: Request, time_period: str=Query(default='
                 if filtered:
                     filtered_insights[type_name] = filtered[:limit]
             result['insight_groups'] = filtered_insights
-            result['total_insights'] = sum((len(insights) for insights in filtered_insights.values()))
+            result['total_insights'] = sum(len(insights) for insights in filtered_insights.values())
         return result  # type: ignore[no-any-return]
     except Exception as e:
         logger.error('Error getting market insights: %s', str(e))

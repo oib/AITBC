@@ -3,17 +3,21 @@ Staking-related RPC endpoints.
 """
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from fastapi import HTTPException, Request
 from sqlmodel import select
+
 from aitbc.rate_limiting import rate_limit
+
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, AgentIdentity, GovernanceProposal, GovernanceVote, Stake
 from .utils import get_chain_id
+
 _logger = get_logger(__name__)
 
 @rate_limit(rate=20, per=60)
-async def stake_tokens(request: Request, stake_data: dict) -> dict[str, Any]:
+async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str, Any]:
     """
     Stake tokens for consensus participation.
     
@@ -48,7 +52,7 @@ async def stake_tokens(request: Request, stake_data: dict) -> dict[str, Any]:
         return {'success': True, 'stake_id': stake.id, 'address': address, 'amount': amount, 'chain_id': chain_id, 'locked_until': locked_until.isoformat(), 'status': 'active', 'remaining_balance': account.balance}
 
 @rate_limit(rate=10, per=60)
-async def unstake_tokens(request: Request, unstake_data: dict) -> dict[str, Any]:
+async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict[str, Any]:
     """
     Unstake tokens after lock period expires.
     
@@ -93,12 +97,12 @@ async def get_staking_info(request: Request, address: str, chain_id: str | None 
     with session_scope() as session:
         statement = select(Stake).where(Stake.chain_id == chain_id, Stake.address == address)
         stakes = session.exec(statement).all()
-        total_staked = sum((s.amount for s in stakes if s.status == 'active'))
+        total_staked = sum(s.amount for s in stakes if s.status == 'active')
         active_stakes = [{'stake_id': s.id, 'amount': s.amount, 'locked_until': s.locked_until.isoformat() if s.locked_until else None, 'status': s.status, 'created_at': s.created_at.isoformat() if s.created_at else None} for s in stakes if s.status == 'active']
         return {'success': True, 'address': address, 'chain_id': chain_id, 'total_staked': total_staked, 'active_stake_count': len(active_stakes), 'active_stakes': active_stakes}
 
 @rate_limit(rate=20, per=60)
-async def register_agent_identity(request: Request, identity_data: dict) -> dict[str, Any]:
+async def register_agent_identity(request: Request, identity_data: dict[str, Any]) -> dict[str, Any]:
     """
     Register an agent identity on the blockchain.
     
@@ -137,7 +141,7 @@ async def get_agent_identity(request: Request, agent_id: str, chain_id: str | No
         return {'success': True, 'identity_id': identity.id, 'agent_id': identity.agent_id, 'agent_address': identity.agent_address, 'display_name': identity.display_name, 'agent_type': identity.agent_type, 'capabilities': identity.capabilities, 'status': identity.status, 'is_verified': identity.is_verified, 'verified_at': identity.verified_at.isoformat() if identity.verified_at else None, 'created_at': identity.created_at.isoformat() if identity.created_at else None, 'chain_id': chain_id}
 
 @rate_limit(rate=50, per=60)
-async def verify_agent_identity(request: Request, verification_data: dict) -> dict[str, Any]:
+async def verify_agent_identity(request: Request, verification_data: dict[str, Any]) -> dict[str, Any]:
     """
     Verify an agent identity on the blockchain.
     
@@ -161,7 +165,7 @@ async def verify_agent_identity(request: Request, verification_data: dict) -> di
         return {'success': True, 'identity_id': identity.id, 'agent_id': agent_id, 'is_verified': True, 'verified_at': identity.verified_at.isoformat(), 'verified_by': verifier_address, 'chain_id': chain_id}
 
 @rate_limit(rate=20, per=60)
-async def create_governance_proposal(request: Request, proposal_data: dict) -> dict[str, Any]:
+async def create_governance_proposal(request: Request, proposal_data: dict[str, Any]) -> dict[str, Any]:
     """
     Create a governance proposal on the blockchain.
     
@@ -199,7 +203,7 @@ async def create_governance_proposal(request: Request, proposal_data: dict) -> d
         return {'success': True, 'proposal_id': proposal.proposal_id, 'proposer_address': proposal.proposer_address, 'title': proposal.title, 'status': proposal.status, 'voting_starts': proposal.voting_starts.isoformat(), 'voting_ends': proposal.voting_ends.isoformat(), 'chain_id': chain_id}
 
 @rate_limit(rate=50, per=60)
-async def cast_governance_vote(request: Request, vote_data: dict) -> dict[str, Any]:
+async def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> dict[str, Any]:
     """
     Cast a vote on a governance proposal.
     

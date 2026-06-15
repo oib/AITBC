@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from aitbc_sdk.receipts import (  # type: ignore[import-not-found]
     CoordinatorReceiptClient,
@@ -15,7 +16,7 @@ from aitbc_sdk.receipts import (  # type: ignore[import-not-found]
 class ReceiptValidationResult:
     job_id: str
     receipt_id: str
-    receipt: dict
+    receipt: dict[str, Any]
     miner_signature: SignatureValidation
     coordinator_attestations: list[SignatureValidation]
 

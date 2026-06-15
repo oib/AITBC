@@ -4,7 +4,9 @@ Handles STUN-based public endpoint discovery for P2P mesh networks
 """
 import socket
 from dataclasses import dataclass
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 @dataclass

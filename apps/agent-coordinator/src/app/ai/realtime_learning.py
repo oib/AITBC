@@ -34,7 +34,7 @@ class PredictiveModel:
     target: str
     accuracy: float
     last_updated: datetime
-    predictions: deque = field(default_factory=lambda: deque(maxlen=1000))
+    predictions: deque[Any] = field(default_factory=lambda: deque(maxlen=1000))
 
 class RealTimeLearningSystem:
     """Real-time learning system with adaptive capabilities"""
@@ -42,7 +42,7 @@ class RealTimeLearningSystem:
     def __init__(self) -> None:
         self.experiences: list[LearningExperience] = []
         self.models: dict[str, PredictiveModel] = {}
-        self.performance_history: deque = deque(maxlen=1000)
+        self.performance_history: deque[Any] = deque(maxlen=1000)
         self.adaptation_threshold = 0.1
         self.learning_rate = 0.01
         self.prediction_window = timedelta(hours=1)
