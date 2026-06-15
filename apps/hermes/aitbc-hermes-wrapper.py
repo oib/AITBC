@@ -44,5 +44,6 @@ exec_cmd = [
     hermes_port,
     "--log-level",
     "critical",
+    "--no-access-log",
 ]
 os.execvp(exec_cmd[0], exec_cmd)
