@@ -24,9 +24,8 @@ except (ImportError, Exception) as e:
     CUDA_AVAILABLE = False
     logger = get_logger(__name__)
     logger.warning(
-        "PyCUDA not available or no CUDA-capable device detected: %s. GPU optimization will run in simulation mode.", e
+        "PyCUDA not available or no CUDA-capable device detected: %s. GPU optimization will run in simulation mode", e
     )
-logger = get_logger(__name__)
 
 
 class MarketplaceGPUOptimizer:
