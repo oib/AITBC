@@ -71,30 +71,30 @@ jobs:
             const fs = require('fs');
             let safetyReport = '';
             let pipAuditReport = '';
-            
+
             try {
               safetyReport = fs.readFileSync('safety-report.txt', 'utf8');
             } catch (e) {}
-            
+
             try {
               pipAuditReport = fs.readFileSync('pip-audit-report.json', 'utf8');
             } catch (e) {}
-            
+
             const body = `
             ## 🔒 Dependency Security Vulnerabilities Detected
-            
+
             Automated security scan detected vulnerabilities in project dependencies.
-            
+
             ### Safety Report:
             \`\`\`
             ${safetyReport || 'No safety report available'}
             \`\`\`
-            
+
             ### pip-audit Report:
             \`\`\`
             ${pipAuditReport || 'No pip-audit report available'}
             \`\`\`
-            
+
             ### Recommended Actions:
             1. Review the vulnerabilities above
             2. Update affected dependencies to secure versions
@@ -102,7 +102,7 @@ jobs:
             4. Test thoroughly after updates
             5. Commit the updated requirements.txt
             `;
-            
+
             github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -142,20 +142,20 @@ jobs:
       - name: Update dependencies with safety check
         run: |
           echo "=== Updating dependencies ==="
-          
+
           # Create backup
           cp requirements.txt requirements.txt.backup
-          
+
           # Update all packages
           pip install --upgrade -r requirements.txt
-          
+
           # Freeze updated requirements
           pip freeze > requirements.txt.new
-          
+
           # Check for security issues in updated dependencies
           echo "=== Security check on updated dependencies ==="
           safety check --file requirements.txt.new --continue-on-error || true
-          
+
           # Show changes
           echo "=== Dependency Changes ==="
           diff -u requirements.txt.backup requirements.txt.new || true
@@ -165,14 +165,14 @@ jobs:
         run: |
           if [ -f requirements.txt.new ] && [ ! requirements.txt.new -ef requirements.txt ]; then
             mv requirements.txt.new requirements.txt
-            
+
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git checkout -b deps/update-$(date +%Y%m%d)
             git add requirements.txt
             git commit -m "deps: update dependencies [skip ci]"
             git push origin deps/update-$(date +%Y%m%d)
-            
+
             echo "created=true" >> $GITHUB_OUTPUT
           else
             echo "No dependency updates needed"

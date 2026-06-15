@@ -61,24 +61,24 @@ logger = logging.getLogger(__name__)
 
 class ProductionBlockchain:
     """Production-grade blockchain implementation"""
-    
+
     def __init__(self, node_id: str):
         self.node_id = node_id
         self.data_dir = Path(f'/opt/aitbc/production/data/blockchain/{node_id}')
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Initialize blockchain
         self.blockchain = Blockchain()
         self.consensus = MultiValidatorPoA(chain_id=1337)
-        
+
         # Add production validators
         self._setup_validators()
-        
+
         # Load existing data if available
         self._load_blockchain()
-        
+
         logger.info(f"Production blockchain initialized for node: {node_id}")
-    
+
     def _setup_validators(self):
         """Setup production validators"""
         validators = [
@@ -88,12 +88,12 @@ class ProductionBlockchain:
             ('0xvalidator_prod_2', 5000.0),
             ('0xvalidator_prod_3', 5000.0)
         ]
-        
+
         for address, stake in validators:
             self.consensus.add_validator(address, stake)
-        
+
         logger.info(f"Added {len(validators)} validators to consensus")
-    
+
     def _load_blockchain(self):
         """Load existing blockchain data"""
         chain_file = self.data_dir / 'blockchain.json'
@@ -105,7 +105,7 @@ class ProductionBlockchain:
                 logger.info(f"Loaded existing blockchain with {len(data.get('blocks', []))} blocks")
             except Exception as e:
                 logger.error(f"Failed to load blockchain: {e}")
-    
+
     def _save_blockchain(self):
         """Save blockchain state"""
         chain_file = self.data_dir / 'blockchain.json'
@@ -120,7 +120,7 @@ class ProductionBlockchain:
             logger.debug(f"Blockchain saved to {chain_file}")
         except Exception as e:
             logger.error(f"Failed to save blockchain: {e}")
-    
+
     def create_transaction(self, from_address: str, to_address: str, amount: float, data: dict = None):
         """Create and process a transaction"""
         try:
@@ -130,30 +130,30 @@ class ProductionBlockchain:
                 amount=amount,
                 data=data or {}
             )
-            
+
             # Sign transaction (simplified for production)
             transaction.sign(f"private_key_{from_address}")
-            
+
             # Add to blockchain
             self.blockchain.add_transaction(transaction)
-            
+
             # Create new block
             block = self.blockchain.mine_block()
-            
+
             # Save state
             self._save_blockchain()
-            
+
             logger.info(f"Transaction processed: {transaction.tx_hash}")
             return transaction.tx_hash
-            
+
         except Exception as e:
             logger.error(f"Failed to create transaction: {e}")
             raise
-    
+
     def get_balance(self, address: str) -> float:
         """Get balance for address"""
         return self.blockchain.get_balance(address)
-    
+
     def get_blockchain_info(self) -> dict:
         """Get blockchain information"""
         return {
@@ -167,7 +167,7 @@ class ProductionBlockchain:
 if __name__ == '__main__':
     node_id = os.getenv('NODE_ID', 'aitbc')
     blockchain = ProductionBlockchain(node_id)
-    
+
     # Example transaction
     try:
         tx_hash = blockchain.create_transaction(
@@ -177,11 +177,11 @@ if __name__ == '__main__':
             data={'type': 'payment', 'description': 'Production test transaction'}
         )
         print(f"Transaction created: {tx_hash}")
-        
+
         # Print blockchain info
         info = blockchain.get_blockchain_info()
         print(f"Blockchain info: {info}")
-        
+
     except Exception as e:
         logger.error(f"Production blockchain error: {e}")
         sys.exit(1)
@@ -249,55 +249,55 @@ class Bid(BaseModel):
 
 class ProductionMarketplace:
     """Production-grade marketplace with persistence"""
-    
+
     def __init__(self):
         self.data_dir = Path('/opt/aitbc/production/data/marketplace')
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Load existing data
         self._load_data()
-        
+
         logger.info("Production marketplace initialized")
-    
+
     def _load_data(self):
         """Load marketplace data from disk"""
         self.gpu_listings = {}
         self.bids = {}
-        
+
         listings_file = self.data_dir / 'gpu_listings.json'
         bids_file = self.data_dir / 'bids.json'
-        
+
         try:
             if listings_file.exists():
                 with open(listings_file, 'r') as f:
                     self.gpu_listings = json.load(f)
-            
+
             if bids_file.exists():
                 with open(bids_file, 'r') as f:
                     self.bids = json.load(f)
-                    
+
             logger.info(f"Loaded {len(self.gpu_listings)} GPU listings and {len(self.bids)} bids")
-            
+
         except Exception as e:
             logger.error(f"Failed to load marketplace data: {e}")
-    
+
     def _save_data(self):
         """Save marketplace data to disk"""
         try:
             listings_file = self.data_dir / 'gpu_listings.json'
             bids_file = self.data_dir / 'bids.json'
-            
+
             with open(listings_file, 'w') as f:
                 json.dump(self.gpu_listings, f, indent=2)
-            
+
             with open(bids_file, 'w') as f:
                 json.dump(self.bids, f, indent=2)
-                
+
             logger.debug("Marketplace data saved")
-            
+
         except Exception as e:
             logger.error(f"Failed to save marketplace data: {e}")
-    
+
     def add_gpu_listing(self, listing: dict) -> str:
         """Add a new GPU listing"""
         try:
@@ -305,17 +305,17 @@ class ProductionMarketplace:
             listing['id'] = gpu_id
             listing['created_at'] = time.time()
             listing['status'] = 'available'
-            
+
             self.gpu_listings[gpu_id] = listing
             self._save_data()
-            
+
             logger.info(f"GPU listing added: {gpu_id}")
             return gpu_id
-            
+
         except Exception as e:
             logger.error(f"Failed to add GPU listing: {e}")
             raise
-    
+
     def create_bid(self, bid_data: dict) -> str:
         """Create a new bid"""
         try:
@@ -323,17 +323,17 @@ class ProductionMarketplace:
             bid_data['id'] = bid_id
             bid_data['created_at'] = time.time()
             bid_data['status'] = 'pending'
-            
+
             self.bids[bid_id] = bid_data
             self._save_data()
-            
+
             logger.info(f"Bid created: {bid_id}")
             return bid_id
-            
+
         except Exception as e:
             logger.error(f"Failed to create bid: {e}")
             raise
-    
+
     def get_marketplace_stats(self) -> dict:
         """Get marketplace statistics"""
         return {

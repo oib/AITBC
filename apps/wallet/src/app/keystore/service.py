@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
-
 from secrets import token_bytes
 
 from nacl.signing import SigningKey
 
-from ..crypto.encryption import EncryptionSuite, EncryptionError
+from ..crypto.encryption import EncryptionError, EncryptionSuite
 from ..security import validate_password_rules, wipe_buffer
 
 
@@ -18,31 +17,31 @@ class WalletRecord:
     salt: bytes
     nonce: bytes
     ciphertext: bytes
-    metadata: Dict[str, str]
+    metadata: dict[str, str]
 
 
 class KeystoreService:
     """In-memory keystore with Argon2id + XChaCha20-Poly1305 encryption."""
 
-    def __init__(self, encryption: Optional[EncryptionSuite] = None) -> None:
-        self._wallets: Dict[str, WalletRecord] = {}
+    def __init__(self, encryption: EncryptionSuite | None = None) -> None:
+        self._wallets: dict[str, WalletRecord] = {}
         self._encryption = encryption or EncryptionSuite()
 
-    def list_wallets(self) -> List[str]:
+    def list_wallets(self) -> list[str]:
         return list(self._wallets.keys())
 
     def list_records(self) -> Iterable[WalletRecord]:
         return list(self._wallets.values())
 
-    def get_wallet(self, wallet_id: str) -> Optional[WalletRecord]:
+    def get_wallet(self, wallet_id: str) -> WalletRecord | None:
         return self._wallets.get(wallet_id)
 
     def create_wallet(
         self,
         wallet_id: str,
         password: str,
-        secret: Optional[bytes] = None,
-        metadata: Optional[Dict[str, str]] = None,
+        secret: bytes | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> WalletRecord:
         if wallet_id in self._wallets:
             raise ValueError("wallet already exists")
@@ -79,7 +78,9 @@ class KeystoreService:
         if record is None:
             raise KeyError("wallet not found")
         try:
-            return self._encryption.decrypt(password=password, ciphertext=record.ciphertext, salt=record.salt, nonce=record.nonce)
+            return self._encryption.decrypt(
+                password=password, ciphertext=record.ciphertext, salt=record.salt, nonce=record.nonce
+            )
         except EncryptionError as exc:
             raise ValueError("failed to decrypt wallet") from exc
 

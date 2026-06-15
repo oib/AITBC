@@ -84,10 +84,10 @@ for container in "${containers[@]}"; do
         if incus info "$container" | grep -q "Status: RUNNING"; then
             container_ip="${container_ips[$container]}"
             print_container "Container $container (IP: $container_ip):"
-            
+
             # Check common AITBC services in container
             services=("aitbc-coordinator-api" "aitbc-wallet-daemon" "aitbc-blockchain-node")
-            
+
             for service in "${services[@]}"; do
                 if incus exec "$container" -- systemctl list-unit-files 2>/dev/null | grep -q "^${service}.service"; then
                     if incus exec "$container" -- systemctl is-active --quiet "$service" 2>/dev/null; then
@@ -122,7 +122,7 @@ ports=("8001:Coordinator API" "8002:Wallet Daemon" "8003:Blockchain RPC" "8203:C
 for port_info in "${ports[@]}"; do
     port=$(echo "$port_info" | cut -d: -f1)
     service_name=$(echo "$port_info" | cut -d: -f2)
-    
+
     if netstat -tlnp 2>/dev/null | grep -q ":$port "; then
         process_info=$(netstat -tlnp 2>/dev/null | grep ":$port " | head -1)
         pid=$(echo "$process_info" | awk '{print $7}' | cut -d/ -f1)
@@ -144,7 +144,7 @@ for port_info in "${ports[@]}"; do
                 fi
             fi
         done
-        
+
         if [ "$found" = false ]; then
             print_error "  ❌ Port $port ($service_name): NOT ACCESSIBLE"
         fi
@@ -162,7 +162,7 @@ health_endpoints=(
 for endpoint_info in "${health_endpoints[@]}"; do
     url=$(echo "$endpoint_info" | cut -d: -f1-3)
     service_name=$(echo "$endpoint_info" | cut -d: -f4)
-    
+
     if curl -s --max-time 3 "$url" >/dev/null 2>&1; then
         print_success "  ✅ $service_name: HEALTHY (LOCAL)"
     else
@@ -179,7 +179,7 @@ for endpoint_info in "${health_endpoints[@]}"; do
                 fi
             fi
         done
-        
+
         if [ "$found" = false ]; then
             print_error "  ❌ $service_name: NOT RESPONDING"
         fi

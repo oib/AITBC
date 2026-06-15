@@ -56,7 +56,7 @@ log_warning() {
 check_p2p_peers() {
     local node_name="$1"
     local node_ip="$2"
-    
+
     log "Skipping SSH-based P2P peer check for ${node_name} (not supported without SSH)"
     log "P2P connectivity will be tested via port connectivity checks"
     return 0
@@ -66,7 +66,7 @@ check_p2p_peers() {
 check_p2p_connectivity() {
     local source_name="$1"
     local target_name="$2"
-    
+
     log "Skipping SSH-based P2P connectivity check from ${source_name} to ${target_name} (not supported without SSH)"
     return 0
 }
@@ -74,7 +74,7 @@ check_p2p_connectivity() {
 # Check Redis gossip backend connectivity
 check_gossip_backend() {
     log "Checking Redis gossip backend connectivity (${REDIS_HOST}:${REDIS_PORT})"
-    
+
     if redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" ping > /dev/null 2>&1; then
         log_success "Redis gossip backend connectivity OK"
         return 0
@@ -87,7 +87,7 @@ check_gossip_backend() {
 # Check for P2P handshake errors in logs (RPC-based only, no SSH)
 check_p2p_logs() {
     local node_name="$1"
-    
+
     log "Skipping SSH-based P2P log check for ${node_name} (not supported without SSH)"
     return 0
 }
@@ -96,7 +96,7 @@ check_p2p_logs() {
 verify_node_p2p() {
     local node_name="$1"
     local node_ip="$2"
-    
+
     log "Skipping SSH-based P2P verification for ${node_name} (RPC health only mode)"
     return 0
 }
@@ -104,25 +104,25 @@ verify_node_p2p() {
 # Main execution
 main() {
     log "=== P2P Network Verification Started ==="
-    
+
     # Create log directory if it doesn't exist
     mkdir -p "${LOG_DIR}"
-    
+
     local total_failures=0
-    
+
     # Check Redis gossip backend
     if ! check_gossip_backend; then
         log_error "Gossip backend connectivity failed"
         ((total_failures++))
     fi
-    
+
     # Skip SSH-based node P2P checks
     log "=== Skipping SSH-based P2P node checks (RPC health only mode) ==="
     log "P2P network verification limited to Redis gossip backend connectivity"
-    
+
     log "=== P2P Network Verification Completed ==="
     log "Total failures: ${total_failures}"
-    
+
     if [ ${total_failures} -eq 0 ]; then
         log_success "P2P network verification passed (Redis connectivity only)"
         exit 0

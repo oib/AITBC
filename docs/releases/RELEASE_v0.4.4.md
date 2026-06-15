@@ -1,7 +1,7 @@
 # AITBC v0.4.4 Release Notes
 
-**Date**: June 3, 2026  
-**Status**: ✅ Released  
+**Date**: June 3, 2026
+**Status**: ✅ Released
 **Scope**: Infrastructure Reorganization & Microservices Consolidation
 
 ## 🎯 Overview
@@ -242,7 +242,7 @@ GET /rpc/network/peers         # Peer list
    # Update blockchain RPC URL
    sed -i 's/:8006/:8202/g' /etc/aitbc/blockchain.env
    sed -i 's/:7070/:8200/g' /etc/aitbc/blockchain.env
-   
+
    # Update service configurations
    sed -i 's/:8011/:8107/g' /etc/aitbc/node.env
    sed -i 's/:8014/:8103/g' /etc/aitbc/node.env
@@ -257,7 +257,7 @@ GET /rpc/network/peers         # Peer list
    HARDWARE_PROFILE=nogpu
    HUB_BLOCKCHAIN_URL=http://hub.aitbc.bubuit.net:8202
    EOF
-   
+
    # Create node.env
    cat > /etc/aitbc/node.env << EOF
    GENESIS_PRIVATE_KEY=0x...
@@ -270,7 +270,7 @@ GET /rpc/network/peers         # Peer list
    ```bash
    # Export existing GPU registrations from local database
    aitbc gpu export > gpu_registrations.json
-   
+
    # Re-register via blockchain transactions
    aitbc gpu register --from-file gpu_registrations.json
    ```
@@ -286,7 +286,7 @@ GET /rpc/network/peers         # Peer list
    ```bash
    # Reload systemd to pick up new service configurations
    systemctl daemon-reload
-   
+
    # Restart affected services
    systemctl restart aitbc-blockchain-node
    systemctl restart aitbc-hermes
@@ -305,13 +305,13 @@ GET /rpc/network/peers         # Peer list
    ```bash
    # Check blockchain RPC
    curl http://localhost:8202/height
-   
+
    # Check wallet daemon
    curl http://localhost:8108/v1/wallet/balance
-   
+
    # Check Hermes
    curl http://localhost:8103/health
-   
+
    # Check Agent Coordinator
    curl http://localhost:8107/health
    ```
@@ -428,6 +428,6 @@ GET /rpc/network/peers         # Peer list
 
 ---
 
-*Last Updated: 2026-06-03*  
-*Version: 0.4.4*  
+*Last Updated: 2026-06-03*
+*Version: 0.4.4*
 *Status: Released*

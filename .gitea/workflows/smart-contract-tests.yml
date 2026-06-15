@@ -47,7 +47,7 @@ jobs:
         run: |
           cd "/opt/aitbc/${{ matrix.project.path }}"
           echo "=== Testing ${{ matrix.project.name }} ==="
-          
+
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
@@ -132,25 +132,25 @@ jobs:
         run: |
           export PATH="$HOME/.foundry/bin:$PATH"
           cd "/opt/aitbc/contracts"
-          
+
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
           echo "=== Running Foundry Tests ==="
-          
+
           # Install OpenZeppelin dependencies (v4.9.6 for compatibility with existing imports)
           forge install OpenZeppelin/openzeppelin-contracts
           cd lib/openzeppelin-contracts && git checkout v4.9.6 && cd ../..
           echo "✅ OpenZeppelin dependencies installed (v4.9.6)"
-          
+
           # Build contracts
           forge build
           echo "✅ Foundry build completed"
-          
+
           # Run tests
           forge test
           echo "✅ Foundry tests passed"
-          
+
           # Run fuzz tests
           forge test --match-path "test/fuzz/**/*.t.sol"
           echo "✅ Foundry fuzz tests passed"
@@ -176,7 +176,7 @@ jobs:
       - name: Lint contracts
         run: |
           cd /opt/aitbc
-          
+
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
@@ -184,7 +184,7 @@ jobs:
             if [[ -d "$project" ]] && [[ -f "$project/package.json" ]]; then
               echo "=== Linting $project ==="
               cd "$project"
-              
+
               # Install pnpm if not available
               if ! command -v pnpm &> /dev/null; then
                 npm install -g pnpm
@@ -225,36 +225,35 @@ jobs:
       - name: Deploy contracts to localhost
         run: |
           cd "/opt/aitbc/contracts"
-          
+
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
           echo "=== Deploying Contracts to Localhost ==="
-          
+
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
             npm install -g pnpm
           fi
-          
+
           # Install dependencies
           pnpm install
-          
+
           # Compile contracts
           pnpm hardhat compile
-          
+
           # Start local node in background
           pnpm hardhat node &
           NODE_PID=$!
           sleep 10
-          
+
           # Deploy contracts
           pnpm hardhat run scripts/deploy-automation.js --network localhost
           echo "✅ Contracts deployed successfully"
-          
+
           # Verify deployment
           DEPLOYMENT_FILE="deployments-localhost.json" pnpm hardhat run scripts/verify-deployment.js --network localhost
           echo "✅ Deployment verified"
-          
+
           # Cleanup
           kill $NODE_PID 2>/dev/null || true
-

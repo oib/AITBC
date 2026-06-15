@@ -28,10 +28,10 @@ check() {
     local description=$1
     local command=$2
     local expected=$3
-    
+
     TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
     echo -n "   Checking $description... "
-    
+
     if eval "$command" | grep -q "$expected" 2>/dev/null; then
         echo "✅ PASS"
         PASSED_CHECKS=$((PASSED_CHECKS + 1))
@@ -48,7 +48,7 @@ check_service() {
     local service=$1
     TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
     echo -n "   Checking $service status... "
-    
+
     if systemctl is-active "$service" >/dev/null 2>&1; then
         echo "✅ PASS"
         PASSED_CHECKS=$((PASSED_CHECKS + 1))
@@ -64,10 +64,10 @@ check_service() {
 check_endpoint() {
     local url=$1
     local description=$2
-    
+
     TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
     echo -n "   Checking $description... "
-    
+
     if curl -s --max-time 10 "$url" >/dev/null 2>&1; then
         echo "✅ PASS"
         PASSED_CHECKS=$((PASSED_CHECKS + 1))

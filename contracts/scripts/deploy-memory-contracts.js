@@ -5,20 +5,20 @@ const path = require("path");
 async function main() {
     console.log("🚀 Deploying Decentralized Memory & Storage Contracts");
     console.log("==============================================");
-    
+
     const [deployer] = await ethers.getSigners();
     const balance = await deployer.getBalance();
-    
+
     console.log(`Deployer: ${deployer.address}`);
     console.log(`Balance: ${ethers.utils.formatEther(balance)} ETH`);
-    
+
     if (balance.lt(ethers.utils.parseEther("1"))) {
         throw new Error("Insufficient ETH balance. Minimum 1 ETH recommended for deployment.");
     }
-    
+
     console.log("");
     console.log("Proceeding with contract deployment...");
-    
+
     // Deployment configuration
     const deployedContracts = {
         network: hre.network.name,
@@ -26,28 +26,28 @@ async function main() {
         timestamp: new Date().toISOString(),
         contracts: {}
     };
-    
+
     try {
         // Deploy AgentMemory contract
         console.log("📦 Deploying AgentMemory contract...");
         const AgentMemory = await ethers.getContractFactory("AgentMemory");
         const agentMemory = await AgentMemory.deploy();
         await agentMemory.deployed();
-        
+
         deployedContracts.contracts.AgentMemory = {
             address: agentMemory.address,
             deploymentHash: agentMemory.deployTransaction.hash,
             gasUsed: (await agentMemory.deployTransaction.wait()).gasUsed.toString()
         };
-        
+
         console.log(`✅ AgentMemory: ${agentMemory.address}`);
-        
+
         // Deploy MemoryVerifier contract
         console.log("📦 Deploying MemoryVerifier contract...");
         const ZKReceiptVerifier = await ethers.getContractFactory("ZKReceiptVerifier");
         const zkVerifier = await ZKReceiptVerifier.deploy();
         await zkVerifier.deployed();
-        
+
         const MemoryVerifier = await ethers.getContractFactory("MemoryVerifier", {
             libraries: {
                 ZKReceiptVerifier: zkVerifier.address
@@ -55,22 +55,22 @@ async function main() {
         });
         const memoryVerifier = await MemoryVerifier.deploy(zkVerifier.address);
         await memoryVerifier.deployed();
-        
+
         deployedContracts.contracts.MemoryVerifier = {
             address: memoryVerifier.address,
             deploymentHash: memoryVerifier.deployTransaction.hash,
             gasUsed: (await memoryVerifier.deployTransaction.wait()).gasUsed.toString()
         };
-        
+
         console.log(`✅ MemoryVerifier: ${memoryVerifier.address}`);
-        
+
         // Deploy KnowledgeGraphMarket contract
         console.log("📦 Deploying KnowledgeGraphMarket contract...");
-        
+
         // Get existing AITBCPaymentProcessor address or deploy a mock one
         let paymentProcessorAddress;
         let aitbcTokenAddress;
-        
+
         try {
             // Try to get existing payment processor
             const paymentProcessorFile = `deployed-contracts-${hre.network.name}.json`;
@@ -82,7 +82,7 @@ async function main() {
         } catch (error) {
             console.log("Could not load existing contracts, deploying mock ones...");
         }
-        
+
         // Deploy mock AITBC token if needed
         if (!aitbcTokenAddress) {
             console.log("📦 Deploying mock AITBC token...");
@@ -94,16 +94,16 @@ async function main() {
             );
             await aitbcToken.deployed();
             aitbcTokenAddress = aitbcToken.address;
-            
+
             deployedContracts.contracts.AITBCToken = {
                 address: aitbcTokenAddress,
                 deploymentHash: aitbcToken.deployTransaction.hash,
                 gasUsed: (await aitbcToken.deployTransaction.wait()).gasUsed.toString()
             };
-            
+
             console.log(`✅ AITBC Token: ${aitbcTokenAddress}`);
         }
-        
+
         // Deploy mock payment processor if needed
         if (!paymentProcessorAddress) {
             console.log("📦 Deploying mock AITBC Payment Processor...");
@@ -111,16 +111,16 @@ async function main() {
             const paymentProcessor = await MockPaymentProcessor.deploy(aitbcTokenAddress);
             await paymentProcessor.deployed();
             paymentProcessorAddress = paymentProcessor.address;
-            
+
             deployedContracts.contracts.AITBCPaymentProcessor = {
                 address: paymentProcessorAddress,
                 deploymentHash: paymentProcessor.deployTransaction.hash,
                 gasUsed: (await paymentProcessor.deployTransaction.wait()).gasUsed.toString()
             };
-            
+
             console.log(`✅ Payment Processor: ${paymentProcessorAddress}`);
         }
-        
+
         // Deploy KnowledgeGraphMarket
         const KnowledgeGraphMarket = await ethers.getContractFactory("KnowledgeGraphMarket");
         const knowledgeGraphMarket = await KnowledgeGraphMarket.deploy(
@@ -128,29 +128,29 @@ async function main() {
             aitbcTokenAddress
         );
         await knowledgeGraphMarket.deployed();
-        
+
         deployedContracts.contracts.KnowledgeGraphMarket = {
             address: knowledgeGraphMarket.address,
             deploymentHash: knowledgeGraphMarket.deployTransaction.hash,
             gasUsed: (await knowledgeGraphMarket.deployTransaction.wait()).gasUsed.toString()
         };
-        
+
         console.log(`✅ KnowledgeGraphMarket: ${knowledgeGraphMarket.address}`);
-        
+
         // Initialize contracts
         console.log("🔧 Initializing contracts...");
-        
+
         // Authorize deployer as memory verifier
         await memoryVerifier.authorizeVerifier(deployer.address, 100000, 300);
         console.log("✅ Authorized deployer as memory verifier");
-        
+
         // Save deployment information
         const deploymentFile = `deployed-contracts-${hre.network.name}.json`;
         fs.writeFileSync(
             path.join(__dirname, "..", deploymentFile),
             JSON.stringify(deployedContracts, null, 2)
         );
-        
+
         // Generate environment variables for frontend
         const envVars = `
 # AITBC Decentralized Memory & Storage - ${hre.network.name.toUpperCase()}
@@ -177,10 +177,10 @@ VITE_MEMORY_UPLOAD_THRESHOLD=100
 VITE_MEMORY_BATCH_SIZE=50
 VITE_MEMORY_EXPIRY_DAYS=30
 `;
-        
+
         const envFile = path.join(__dirname, "..", "..", "apps", "marketplace-web", ".env.memory");
         fs.writeFileSync(envFile, envVars);
-        
+
         console.log("");
         console.log("🎉 CONTRACT DEPLOYMENT COMPLETED");
         console.log("===============================");
@@ -200,7 +200,7 @@ VITE_MEMORY_EXPIRY_DAYS=30
         console.log("  2. Update frontend with new contract addresses");
         console.log("  3. Test contract functionality");
         console.log("  4. Set up IPFS node for storage");
-        
+
     } catch (error) {
         console.error("❌ Deployment failed:", error);
         process.exit(1);

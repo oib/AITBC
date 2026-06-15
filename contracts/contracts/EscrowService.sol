@@ -14,12 +14,12 @@ import "./AITBCPaymentProcessor.sol";
  * @notice Secure payment holding with automated release conditions and dispute protection
  */
 contract EscrowService is Ownable, ReentrancyGuard, Pausable {
-    
+
     // State variables
     IERC20 public aitbcToken;
     AIPowerRental public aiPowerRental;
     AITBCPaymentProcessor public paymentProcessor;
-    
+
     uint256 public escrowCounter;
     uint256 public minEscrowAmount = 1e15; // 0.001 AITBC minimum
     uint256 public maxEscrowAmount = 1e22; // 10,000 AITBC maximum
@@ -29,16 +29,16 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     uint256 public emergencyReleaseDelay = 86400; // 24 hours for emergency
     uint256 public platformFeePercentage = 50; // 0.5% in basis points
     uint256 public constant BASIS_POINTS = 10000; // 100% in basis points
-    
+
     // Multi-oracle verification state variables
     uint256 public oracleVerificationThreshold = 2; // Minimum oracles required
     uint256 public oracleVerificationDelay = 1 hours; // Delay after verification before release
-    
+
     // Emergency release voting threshold state variables
     uint256 public emergencyReleaseVotingThreshold = 66; // 66% approval threshold (in basis points)
     uint256 public emergencyReleaseQuorum = 3; // Minimum arbiters required to vote
     uint256 public emergencyReleaseTimelock = 1 hours; // Time lock after approval before execution
-    
+
     // Structs
     struct EscrowAccount {
         uint256 escrowId;
@@ -59,7 +59,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         uint256 currentSignatures;
         mapping(address => bool) hasSigned;
     }
-    
+
     struct ConditionalRelease {
         uint256 escrowId;
         bytes32 condition;
@@ -74,11 +74,11 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         uint256 requiredVerifications;
         uint256 finalVerificationTime;
     }
-    
+
     // Separate mappings for multi-oracle verification (to avoid nested mappings in struct)
     mapping(uint256 => mapping(address => bool)) public oracleHasVerified;
     mapping(uint256 => mapping(address => bool)) public oracleVerdict;
-    
+
     struct MultiSigRelease {
         uint256 escrowId;
         address[] requiredSigners;
@@ -88,7 +88,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         uint256 deadline;
         bool isExecuted;
     }
-    
+
     struct TimeLockRelease {
         uint256 escrowId;
         uint256 lockStartTime;
@@ -98,7 +98,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         uint256 earlyReleaseFee;
         bool isReleased;
     }
-    
+
     struct EmergencyRelease {
         uint256 escrowId;
         address initiator;
@@ -113,7 +113,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         bool isExecuted;
         uint256 approvalTime; // Timestamp when approval was achieved
     }
-    
+
     // Enums
     enum EscrowType {
         Standard,
@@ -124,7 +124,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         MilestoneBased,
         Emergency
     }
-    
+
     enum ReleaseCondition {
         Manual,
         Automatic,
@@ -134,7 +134,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         MultiSignature,
         Emergency
     }
-    
+
     enum EscrowStatus {
         Created,
         Funded,
@@ -147,7 +147,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         Frozen,
         Expired
     }
-    
+
     // Mappings
     mapping(uint256 => EscrowAccount) public escrowAccounts;
     mapping(uint256 => ConditionalRelease) public conditionalReleases;
@@ -159,11 +159,11 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     mapping(bytes32 => uint256) public conditionEscrows;
     mapping(address => bool) public authorizedOracles;
     mapping(address => bool) public authorizedArbiters;
-    
+
     // Arrays for tracking
     uint256[] public activeEscrows;
     uint256[] public pendingReleases;
-    
+
     // Events
     event EscrowCreated(
         uint256 indexed escrowId,
@@ -173,93 +173,93 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         EscrowType escrowType,
         ReleaseCondition releaseCondition
     );
-    
+
     event EscrowFunded(
         uint256 indexed escrowId,
         uint256 amount,
         uint256 platformFee
     );
-    
+
     event EscrowReleased(
         uint256 indexed escrowId,
         address indexed beneficiary,
         uint256 amount,
         string reason
     );
-    
+
     event EscrowRefunded(
         uint256 indexed escrowId,
         address indexed depositor,
         uint256 amount,
         string reason
     );
-    
+
     event ConditionSet(
         uint256 indexed escrowId,
         bytes32 indexed condition,
         address indexed oracle,
         string conditionDescription
     );
-    
+
     event ConditionMet(
         uint256 indexed escrowId,
         bytes32 indexed condition,
         bool conditionMet,
         uint256 verificationTime
     );
-    
+
     event MultiSignatureRequired(
         uint256 indexed escrowId,
         address[] requiredSigners,
         uint256 signaturesRequired
     );
-    
+
     event SignatureSubmitted(
         uint256 indexed escrowId,
         address indexed signer,
         uint256 currentSignatures,
         uint256 requiredSignatures
     );
-    
+
     event TimeLockSet(
         uint256 indexed escrowId,
         uint256 lockDuration,
         uint256 releaseWindow,
         bool canEarlyRelease
     );
-    
+
     event EmergencyReleaseRequested(
         uint256 indexed escrowId,
         address indexed initiator,
         string reason,
         uint256 votingDeadline
     );
-    
+
     event EmergencyReleaseApproved(
         uint256 indexed escrowId,
         uint256 votesFor,
         uint256 votesAgainst,
         bool approved
     );
-    
+
     event EscrowFrozen(
         uint256 indexed escrowId,
         address indexed freezer,
         string reason
     );
-    
+
     event EscrowUnfrozen(
         uint256 indexed escrowId,
         address indexed unfreezer,
         string reason
     );
-    
+
     event PlatformFeeCollected(
         uint256 indexed escrowId,
         uint256 feeAmount,
         address indexed collector
     );
-    
+
     // Multi-oracle verification events
     event OracleVerificationSubmitted(
         uint256 indexed escrowId,
@@ -274,23 +274,23 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     );
     event OracleAuthorized(address indexed oracle);
     event OracleRevoked(address indexed oracle);
-    
+
     // Modifiers
     modifier onlyAuthorizedOracle() {
         require(authorizedOracles[msg.sender], "Not authorized oracle");
         _;
     }
-    
+
     modifier onlyAuthorizedArbiter() {
         require(authorizedArbiters[msg.sender], "Not authorized arbiter");
         _;
     }
-    
+
     modifier escrowExists(uint256 _escrowId) {
         require(_escrowId < escrowCounter, "Escrow does not exist");
         _;
     }
-    
+
     modifier onlyParticipant(uint256 _escrowId) {
         require(
             msg.sender == escrowAccounts[_escrowId].depositor ||
@@ -300,32 +300,32 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         );
         _;
     }
-    
+
     modifier sufficientBalance(address _user, uint256 _amount) {
         require(aitbcToken.balanceOf(_user) >= _amount, "Insufficient balance");
         _;
     }
-    
+
     modifier sufficientAllowance(address _user, uint256 _amount) {
         require(aitbcToken.allowance(_user, address(this)) >= _amount, "Insufficient allowance");
         _;
     }
-    
+
     modifier escrowNotFrozen(uint256 _escrowId) {
         require(!escrowAccounts[_escrowId].isFrozen, "Escrow is frozen");
         _;
     }
-    
+
     modifier escrowNotReleased(uint256 _escrowId) {
         require(!escrowAccounts[_escrowId].isReleased, "Escrow already released");
         _;
     }
-    
+
     modifier escrowNotRefunded(uint256 _escrowId) {
         require(!escrowAccounts[_escrowId].isRefunded, "Escrow already refunded");
         _;
     }
-    
+
     // Constructor
     constructor(
         address _aitbcToken,
@@ -337,7 +337,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         paymentProcessor = AITBCPaymentProcessor(_paymentProcessor);
         escrowCounter = 0;
     }
-    
+
     /**
      * @dev Creates a new escrow account
      * @param _beneficiary Beneficiary address
@@ -361,31 +361,31 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         require(_beneficiary != msg.sender, "Cannot be own beneficiary");
         require(_amount >= minEscrowAmount && _amount <= maxEscrowAmount, "Invalid amount");
         require(_releaseTime == 0 || _releaseTime > block.timestamp, "Invalid release time");
-        
+
         uint256 escrowId = escrowCounter++;
-        
+
         // Initialize escrow account
         _initializeEscrowAccount(escrowId, _beneficiary, _arbiter, _amount, _escrowType, _releaseCondition, _conditionDescription);
-        
+
         // Update tracking arrays
         _updateEscrowTracking(escrowId, _beneficiary);
-        
+
         // Transfer tokens to contract
         _transferTokensForEscrow(_amount);
-        
+
         emit EscrowCreated(escrowId, msg.sender, _beneficiary, _amount, _escrowType, _releaseCondition);
         emit EscrowFunded(escrowId, _amount, (_amount * platformFeePercentage) / 10000);
-        
+
         // Setup specific escrow type configurations
         if (_escrowType == EscrowType.TimeLocked) {
             _setupTimeLock(escrowId, _releaseTime - block.timestamp);
         } else if (_escrowType == EscrowType.MultiSignature) {
             _setupMultiSignature(escrowId);
         }
-        
+
         return escrowId;
     }
-    
+
     function _initializeEscrowAccount(
         uint256 _escrowId,
         address _beneficiary,
@@ -396,7 +396,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         string memory _conditionDescription
     ) internal {
         uint256 platformFee = (_amount * platformFeePercentage) / 10000;
-        
+
         escrowAccounts[_escrowId].escrowId = _escrowId;
         escrowAccounts[_escrowId].depositor = msg.sender;
         escrowAccounts[_escrowId].beneficiary = _beneficiary;
@@ -407,23 +407,23 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         escrowAccounts[_escrowId].escrowType = _escrowType;
         escrowAccounts[_escrowId].releaseCondition = _releaseCondition;
     }
-    
+
     function _updateEscrowTracking(uint256 _escrowId, address _beneficiary) internal {
         depositorEscrows[msg.sender].push(_escrowId);
         beneficiaryEscrows[_beneficiary].push(_escrowId);
         activeEscrows.push(_escrowId);
     }
-    
+
     function _transferTokensForEscrow(uint256 _amount) internal {
         uint256 platformFee = (_amount * platformFeePercentage) / 10000;
         uint256 totalAmount = _amount + platformFee;
-        
+
         require(
             aitbcToken.transferFrom(msg.sender, address(this), totalAmount),
             "Escrow funding failed"
         );
     }
-    
+
     /**
      * @dev Sets release condition for escrow
      * @param _escrowId ID of the escrow
@@ -438,10 +438,10 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         string memory _conditionData
     ) external escrowExists(_escrowId) onlyParticipant(_escrowId) escrowNotFrozen(_escrowId) escrowNotReleased(_escrowId) {
         require(authorizedOracles[_oracle] || _oracle == address(0), "Invalid oracle");
-        
+
         EscrowAccount storage escrow = escrowAccounts[_escrowId];
         escrow.conditionHash = _condition;
-        
+
         // Initialize ConditionalRelease with multi-oracle support
         ConditionalRelease storage condRelease = conditionalReleases[_escrowId];
         condRelease.escrowId = _escrowId;
@@ -455,17 +455,17 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         condRelease.verificationCount = 0;
         condRelease.requiredVerifications = oracleVerificationThreshold;
         condRelease.finalVerificationTime = 0;
-        
+
         // If a single oracle is specified, add to assigned oracles
         if (_oracle != address(0)) {
             condRelease.assignedOracles.push(_oracle);
         }
-        
+
         conditionEscrows[_condition] = _escrowId;
-        
+
         emit ConditionSet(_escrowId, _condition, _oracle, _conditionData);
     }
-    
+
     /**
      * @dev Verifies and meets release condition
      * @param _escrowId ID of the escrow
@@ -478,32 +478,32 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         uint256 _confidence
     ) external onlyAuthorizedOracle escrowExists(_escrowId) escrowNotFrozen(_escrowId) escrowNotReleased(_escrowId) {
         ConditionalRelease storage condRelease = conditionalReleases[_escrowId];
-        
+
         // Check if oracle is assigned (for backward compatibility with single oracle mode)
         if (condRelease.assignedOracles.length == 0) {
             require(condRelease.oracle == msg.sender, "Not assigned oracle");
-            
+
             condRelease.conditionMet = _conditionMet;
             condRelease.verificationTime = block.timestamp;
             condRelease.confidence = _confidence;
-            
+
             emit ConditionMet(_escrowId, condRelease.condition, _conditionMet, block.timestamp);
-            
+
             if (_conditionMet) {
                 _releaseEscrow(_escrowId, "Condition verified and met");
             }
             return;
         }
-        
+
         // Multi-oracle verification mode
         require(!oracleHasVerified[_escrowId][msg.sender], "Oracle already verified");
-        
+
         oracleHasVerified[_escrowId][msg.sender] = true;
         oracleVerdict[_escrowId][msg.sender] = _conditionMet;
         condRelease.verificationCount++;
-        
+
         emit OracleVerificationSubmitted(_escrowId, msg.sender, _conditionMet, _confidence);
-        
+
         // Check if threshold is met
         if (condRelease.verificationCount >= condRelease.requiredVerifications) {
             // Count positive verdicts
@@ -513,14 +513,14 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
                     positiveVotes++;
                 }
             }
-            
+
             // Check if majority approves
             if (positiveVotes > condRelease.assignedOracles.length / 2) {
                 condRelease.conditionMet = true;
                 condRelease.finalVerificationTime = block.timestamp;
-                
+
                 emit OracleVerificationThresholdMet(_escrowId, condRelease.verificationCount, condRelease.requiredVerifications);
-                
+
                 // Apply time delay before release
                 if (block.timestamp >= condRelease.finalVerificationTime + oracleVerificationDelay) {
                     _releaseEscrow(_escrowId, "Multi-oracle verification completed");
@@ -528,49 +528,49 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             }
         }
     }
-    
+
     /**
      * @dev Submits signature for multi-signature release
      * @param _escrowId ID of the escrow
      */
-    function submitSignature(uint256 _escrowId) 
-        external 
-        escrowExists(_escrowId) 
-        onlyParticipant(_escrowId) 
-        escrowNotFrozen(_escrowId) 
-        escrowNotReleased(_escrowId) 
+    function submitSignature(uint256 _escrowId)
+        external
+        escrowExists(_escrowId)
+        onlyParticipant(_escrowId)
+        escrowNotFrozen(_escrowId)
+        escrowNotReleased(_escrowId)
     {
         EscrowAccount storage escrow = escrowAccounts[_escrowId];
         MultiSigRelease storage multiSig = multiSigReleases[_escrowId];
-        
+
         require(!escrow.hasSigned[msg.sender], "Already signed");
         require(escrow.requiredSignatures > 0, "Multi-signature not setup");
-        
+
         escrow.hasSigned[msg.sender] = true;
         escrow.currentSignatures++;
-        
+
         emit SignatureSubmitted(_escrowId, msg.sender, escrow.currentSignatures, escrow.requiredSignatures);
-        
+
         if (escrow.currentSignatures >= escrow.requiredSignatures) {
             _releaseEscrow(_escrowId, "Multi-signature requirement met");
         }
     }
-    
+
     /**
      * @dev Releases escrow to beneficiary
      * @param _escrowId ID of the escrow
      * @param _reason Reason for release
      */
-    function releaseEscrow(uint256 _escrowId, string memory _reason) 
-        external 
-        escrowExists(_escrowId) 
-        escrowNotFrozen(_escrowId) 
-        escrowNotReleased(_escrowId) 
-        escrowNotRefunded(_escrowId) 
-        nonReentrant 
+    function releaseEscrow(uint256 _escrowId, string memory _reason)
+        external
+        escrowExists(_escrowId)
+        escrowNotFrozen(_escrowId)
+        escrowNotReleased(_escrowId)
+        escrowNotRefunded(_escrowId)
+        nonReentrant
     {
         EscrowAccount storage escrow = escrowAccounts[_escrowId];
-        
+
         require(
             msg.sender == escrow.depositor ||
             msg.sender == escrow.beneficiary ||
@@ -578,7 +578,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             msg.sender == owner(),
             "Not authorized to release"
         );
-        
+
         // Check release conditions
         if (escrow.releaseCondition == ReleaseCondition.Manual) {
             require(msg.sender == escrow.depositor || msg.sender == escrow.arbiter, "Manual release requires depositor or arbiter");
@@ -589,67 +589,67 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         } else if (escrow.releaseCondition == ReleaseCondition.MultiSignature) {
             require(escrow.currentSignatures >= escrow.requiredSignatures, "Insufficient signatures");
         }
-        
+
         _releaseEscrow(_escrowId, _reason);
     }
-    
+
     /**
      * @dev Refunds escrow to depositor
      * @param _escrowId ID of the escrow
      * @param _reason Reason for refund
      */
-    function refundEscrow(uint256 _escrowId, string memory _reason) 
-        external 
-        escrowExists(_escrowId) 
-        escrowNotFrozen(_escrowId) 
-        escrowNotReleased(_escrowId) 
-        escrowNotRefunded(_escrowId) 
-        nonReentrant 
+    function refundEscrow(uint256 _escrowId, string memory _reason)
+        external
+        escrowExists(_escrowId)
+        escrowNotFrozen(_escrowId)
+        escrowNotReleased(_escrowId)
+        escrowNotRefunded(_escrowId)
+        nonReentrant
     {
         EscrowAccount storage escrow = escrowAccounts[_escrowId];
-        
+
         require(
             msg.sender == escrow.depositor ||
             msg.sender == escrow.arbiter ||
             msg.sender == owner(),
             "Not authorized to refund"
         );
-        
+
         // Check refund conditions
         if (escrow.releaseCondition == ReleaseCondition.TimeBased) {
             require(block.timestamp < escrow.releaseTime, "Release time passed, cannot refund");
         } else if (escrow.releaseCondition == ReleaseCondition.OracleVerified) {
             require(!conditionalReleases[_escrowId].conditionMet, "Condition met, cannot refund");
         }
-        
+
         escrow.isRefunded = true;
-        
+
         require(
             aitbcToken.transfer(escrow.depositor, escrow.amount),
             "Refund transfer failed"
         );
-        
+
         emit EscrowRefunded(_escrowId, escrow.depositor, escrow.amount, _reason);
     }
-    
+
     /**
      * @dev Requests emergency release
      * @param _escrowId ID of the escrow
      * @param _reason Reason for emergency release
      */
-    function requestEmergencyRelease(uint256 _escrowId, string memory _reason) 
-        external 
-        escrowExists(_escrowId) 
-        onlyParticipant(_escrowId) 
-        escrowNotFrozen(_escrowId) 
-        escrowNotReleased(_escrowId) 
-        escrowNotRefunded(_escrowId) 
+    function requestEmergencyRelease(uint256 _escrowId, string memory _reason)
+        external
+        escrowExists(_escrowId)
+        onlyParticipant(_escrowId)
+        escrowNotFrozen(_escrowId)
+        escrowNotReleased(_escrowId)
+        escrowNotRefunded(_escrowId)
     {
         EscrowAccount storage escrow = escrowAccounts[_escrowId];
-        
+
         EmergencyRelease storage emergency = emergencyReleases[_escrowId];
         require(emergency.requestTime == 0, "Emergency release already requested");
-        
+
         // Initialize emergency release without nested mapping
         emergencyReleases[_escrowId].escrowId = _escrowId;
         emergencyReleases[_escrowId].initiator = msg.sender;
@@ -661,45 +661,45 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         emergencyReleases[_escrowId].totalVotes = 0;
         emergencyReleases[_escrowId].isApproved = false;
         emergencyReleases[_escrowId].isExecuted = false;
-        
+
         emit EmergencyReleaseRequested(_escrowId, msg.sender, _reason, block.timestamp + emergencyReleaseDelay);
     }
-    
+
     /**
      * @dev Votes on emergency release
      * @param _escrowId ID of the escrow
      * @param _vote True to approve, false to reject
      */
-    function voteEmergencyRelease(uint256 _escrowId, bool _vote) 
-        external 
-        escrowExists(_escrowId) 
-        onlyAuthorizedArbiter 
+    function voteEmergencyRelease(uint256 _escrowId, bool _vote)
+        external
+        escrowExists(_escrowId)
+        onlyAuthorizedArbiter
     {
         EmergencyRelease storage emergency = emergencyReleases[_escrowId];
-        
+
         require(emergency.requestTime > 0, "No emergency release requested");
         require(block.timestamp <= emergency.votingDeadline, "Voting deadline passed");
         require(!emergency.hasVoted[msg.sender], "Already voted");
-        
+
         emergency.hasVoted[msg.sender] = true;
         emergency.totalVotes++;
-        
+
         if (_vote) {
             emergency.votesFor++;
         } else {
             emergency.votesAgainst++;
         }
-        
+
         // Check if voting is complete and approved
         if (emergency.totalVotes >= emergencyReleaseQuorum) {
             // Calculate approval percentage
             uint256 approvalPercentage = (emergency.votesFor * BASIS_POINTS) / emergency.totalVotes;
-            
+
             if (approvalPercentage >= emergencyReleaseVotingThreshold) {
                 emergency.isApproved = true;
                 emergency.approvalTime = block.timestamp;
                 emit EmergencyReleaseApproved(_escrowId, emergency.votesFor, emergency.votesAgainst, true);
-                
+
                 // Apply timelock before execution
                 if (block.timestamp >= emergency.approvalTime + emergencyReleaseTimelock) {
                     _releaseEscrow(_escrowId, "Emergency release approved and timelock elapsed");
@@ -707,48 +707,48 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             }
         }
     }
-    
+
     /**
      * @dev Freezes an escrow account
      * @param _escrowId ID of the escrow
      * @param _reason Reason for freezing
      */
-    function freezeEscrow(uint256 _escrowId, string memory _reason) 
-        external 
-        escrowExists(_escrowId) 
-        escrowNotFrozen(_escrowId) 
+    function freezeEscrow(uint256 _escrowId, string memory _reason)
+        external
+        escrowExists(_escrowId)
+        escrowNotFrozen(_escrowId)
     {
         require(
             msg.sender == escrowAccounts[_escrowId].arbiter ||
             msg.sender == owner(),
             "Not authorized to freeze"
         );
-        
+
         escrowAccounts[_escrowId].isFrozen = true;
-        
+
         emit EscrowFrozen(_escrowId, msg.sender, _reason);
     }
-    
+
     /**
      * @dev Unfreezes an escrow account
      * @param _escrowId ID of the escrow
      * @param _reason Reason for unfreezing
      */
-    function unfreezeEscrow(uint256 _escrowId, string memory _reason) 
-        external 
-        escrowExists(_escrowId) 
+    function unfreezeEscrow(uint256 _escrowId, string memory _reason)
+        external
+        escrowExists(_escrowId)
     {
         require(
             msg.sender == escrowAccounts[_escrowId].arbiter ||
             msg.sender == owner(),
             "Not authorized to unfreeze"
         );
-        
+
         escrowAccounts[_escrowId].isFrozen = false;
-        
+
         emit EscrowUnfrozen(_escrowId, msg.sender, _reason);
     }
-    
+
     /**
      * @dev Authorizes an oracle
      * @param _oracle Address of the oracle
@@ -757,7 +757,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         require(_oracle != address(0), "Invalid oracle address");
         authorizedOracles[_oracle] = true;
     }
-    
+
     /**
      * @dev Revokes oracle authorization
      * @param _oracle Address of the oracle
@@ -766,7 +766,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         authorizedOracles[_oracle] = false;
         emit OracleRevoked(_oracle);
     }
-    
+
     /**
      * @dev Sets the oracle verification threshold
      * @param newThreshold Minimum oracles required for verification
@@ -776,7 +776,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         require(newThreshold <= 10, "Threshold too high");
         oracleVerificationThreshold = newThreshold;
     }
-    
+
     /**
      * @dev Sets the oracle verification delay
      * @param newDelay Delay after verification before release
@@ -786,7 +786,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         require(newDelay <= 24 hours, "Delay too long");
         oracleVerificationDelay = newDelay;
     }
-    
+
     /**
      * @dev Assigns multiple oracles to a conditional release
      * @param _escrowId ID of the escrow
@@ -794,22 +794,22 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
      */
     function assignMultipleOracles(uint256 _escrowId, address[] memory _oracles) external onlyOwner escrowExists(_escrowId) {
         ConditionalRelease storage condRelease = conditionalReleases[_escrowId];
-        
+
         // Clear existing assigned oracles
         delete condRelease.assignedOracles;
-        
+
         // Assign new oracles
         for (uint256 i = 0; i < _oracles.length; i++) {
             require(authorizedOracles[_oracles[i]], "Unauthorized oracle");
             condRelease.assignedOracles.push(_oracles[i]);
         }
-        
+
         // Update required verifications based on oracle count
-        condRelease.requiredVerifications = _oracles.length >= oracleVerificationThreshold 
-            ? oracleVerificationThreshold 
+        condRelease.requiredVerifications = _oracles.length >= oracleVerificationThreshold
+            ? oracleVerificationThreshold
             : _oracles.length;
     }
-    
+
     /**
      * @dev Sets the emergency release voting threshold
      * @param newThreshold Percentage threshold (in basis points)
@@ -819,7 +819,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         require(newThreshold <= 100, "Threshold cannot exceed 100%");
         emergencyReleaseVotingThreshold = newThreshold;
     }
-    
+
     /**
      * @dev Sets the emergency release quorum
      * @param newQuorum Minimum arbiters required to vote
@@ -829,7 +829,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         require(newQuorum <= 10, "Quorum too high");
         emergencyReleaseQuorum = newQuorum;
     }
-    
+
     /**
      * @dev Sets the emergency release timelock
      * @param newTimelock Time lock after approval before execution
@@ -839,7 +839,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         require(newTimelock <= 24 hours, "Timelock too long");
         emergencyReleaseTimelock = newTimelock;
     }
-    
+
     /**
      * @dev Authorizes an arbiter
      * @param _arbiter Address of the arbiter
@@ -848,7 +848,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         require(_arbiter != address(0), "Invalid arbiter address");
         authorizedArbiters[_arbiter] = true;
     }
-    
+
     /**
      * @dev Revokes arbiter authorization
      * @param _arbiter Address of the arbiter
@@ -856,12 +856,12 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     function revokeArbiter(address _arbiter) external onlyOwner {
         authorizedArbiters[_arbiter] = false;
     }
-    
+
     // Internal functions
-    
+
     function _setupTimeLock(uint256 _escrowId, uint256 _duration) internal {
         require(_duration >= minTimeLock && _duration <= maxTimeLock, "Invalid duration");
-        
+
         timeLockReleases[_escrowId] = TimeLockRelease({
             escrowId: _escrowId,
             lockStartTime: block.timestamp,
@@ -871,64 +871,64 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             earlyReleaseFee: 1000, // 10% fee for early release
             isReleased: false
         });
-        
+
         emit TimeLockSet(_escrowId, _duration, _duration / 10, false);
     }
-    
+
     function _setupMultiSignature(uint256 _escrowId) internal {
         EscrowAccount storage escrow = escrowAccounts[_escrowId];
-        
+
         // Default to requiring depositor + beneficiary signatures
         address[] memory requiredSigners = new address[](2);
         requiredSigners[0] = escrow.depositor;
         requiredSigners[1] = escrow.beneficiary;
-        
+
         // Initialize multi-sig release without nested mapping
         multiSigReleases[_escrowId].escrowId = _escrowId;
         multiSigReleases[_escrowId].signaturesRequired = 2;
         multiSigReleases[_escrowId].currentSignatures = 0;
         multiSigReleases[_escrowId].deadline = block.timestamp + 7 days;
         multiSigReleases[_escrowId].isExecuted = false;
-        
+
         escrow.requiredSignatures = 2;
-        
+
         emit MultiSignatureRequired(_escrowId, requiredSigners, 2);
     }
-    
+
     function _releaseEscrow(uint256 _escrowId, string memory _reason) internal {
         EscrowAccount storage escrow = escrowAccounts[_escrowId];
-        
+
         escrow.isReleased = true;
-        
+
         // Transfer amount to beneficiary
         require(
             aitbcToken.transfer(escrow.beneficiary, escrow.amount),
             "Escrow release failed"
         );
-        
+
         // Transfer platform fee to owner
         if (escrow.platformFee > 0) {
             require(
                 aitbcToken.transfer(owner(), escrow.platformFee),
                 "Platform fee transfer failed"
             );
-            
+
             emit PlatformFeeCollected(_escrowId, escrow.platformFee, owner());
         }
-        
+
         emit EscrowReleased(_escrowId, escrow.beneficiary, escrow.amount, _reason);
     }
-    
+
     // View functions
-    
+
     /**
      * @dev Gets escrow account details
      * @param _escrowId ID of the escrow
      */
-    function getEscrowAccount(uint256 _escrowId) 
-        external 
-        view 
-        escrowExists(_escrowId) 
+    function getEscrowAccount(uint256 _escrowId)
+        external
+        view
+        escrowExists(_escrowId)
         returns (
             address depositor,
             address beneficiary,
@@ -939,7 +939,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             ReleaseCondition releaseCondition,
             bool isReleased,
             bool isRefunded
-        ) 
+        )
     {
         EscrowAccount storage escrow = escrowAccounts[_escrowId];
         return (
@@ -954,33 +954,33 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             escrow.isRefunded
         );
     }
-    
+
     /**
      * @dev Gets conditional release details
      * @param _escrowId ID of the escrow
      */
-    function getConditionalRelease(uint256 _escrowId) 
-        external 
-        view 
-        returns (ConditionalRelease memory) 
+    function getConditionalRelease(uint256 _escrowId)
+        external
+        view
+        returns (ConditionalRelease memory)
     {
         return conditionalReleases[_escrowId];
     }
-    
+
     /**
      * @dev Gets multi-signature release details
      * @param _escrowId ID of the escrow
      */
-    function getMultiSigRelease(uint256 _escrowId) 
-        external 
-        view 
+    function getMultiSigRelease(uint256 _escrowId)
+        external
+        view
         returns (
             uint256 escrowId,
             uint256 signaturesRequired,
             uint256 currentSignatures,
             uint256 deadline,
             bool isExecuted
-        ) 
+        )
     {
         MultiSigRelease storage multiSig = multiSigReleases[_escrowId];
         return (
@@ -991,26 +991,26 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             multiSig.isExecuted
         );
     }
-    
+
     /**
      * @dev Gets time-lock release details
      * @param _escrowId ID of the escrow
      */
-    function getTimeLockRelease(uint256 _escrowId) 
-        external 
-        view 
-        returns (TimeLockRelease memory) 
+    function getTimeLockRelease(uint256 _escrowId)
+        external
+        view
+        returns (TimeLockRelease memory)
     {
         return timeLockReleases[_escrowId];
     }
-    
+
     /**
      * @dev Gets emergency release details
      * @param _escrowId ID of the escrow
      */
-    function getEmergencyRelease(uint256 _escrowId) 
-        external 
-        view 
+    function getEmergencyRelease(uint256 _escrowId)
+        external
+        view
         returns (
             uint256 escrowId,
             address initiator,
@@ -1022,7 +1022,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             uint256 totalVotes,
             bool isApproved,
             bool isExecuted
-        ) 
+        )
     {
         EmergencyRelease storage emergency = emergencyReleases[_escrowId];
         return (
@@ -1038,42 +1038,42 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             emergency.isExecuted
         );
     }
-    
+
     /**
      * @dev Gets all escrows for a depositor
      * @param _depositor Address of the depositor
      */
-    function getDepositorEscrows(address _depositor) 
-        external 
-        view 
-        returns (uint256[] memory) 
+    function getDepositorEscrows(address _depositor)
+        external
+        view
+        returns (uint256[] memory)
     {
         return depositorEscrows[_depositor];
     }
-    
+
     /**
      * @dev Gets all escrows for a beneficiary
      * @param _beneficiary Address of the beneficiary
      */
-    function getBeneficiaryEscrows(address _beneficiary) 
-        external 
-        view 
-        returns (uint256[] memory) 
+    function getBeneficiaryEscrows(address _beneficiary)
+        external
+        view
+        returns (uint256[] memory)
     {
         return beneficiaryEscrows[_beneficiary];
     }
-    
+
     /**
      * @dev Gets active escrows
      */
-    function getActiveEscrows() 
-        external 
-        view 
-        returns (uint256[] memory) 
+    function getActiveEscrows()
+        external
+        view
+        returns (uint256[] memory)
     {
         uint256[] memory active = new uint256[](activeEscrows.length);
         uint256 activeCount = 0;
-        
+
         for (uint256 i = 0; i < activeEscrows.length; i++) {
             EscrowAccount storage escrow = escrowAccounts[activeEscrows[i]];
             if (!escrow.isReleased && !escrow.isRefunded) {
@@ -1081,23 +1081,23 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
                 activeCount++;
             }
         }
-        
+
         // Create correctly sized array and copy elements
         uint256[] memory result = new uint256[](activeCount);
         for (uint256 i = 0; i < activeCount; i++) {
             result[i] = active[i];
         }
-        
+
         return result;
     }
-    
+
     /**
      * @dev Emergency pause function
      */
     function pause() external onlyOwner {
         _pause();
     }
-    
+
     /**
      * @dev Unpause function
      */

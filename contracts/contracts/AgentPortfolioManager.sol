@@ -24,7 +24,7 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
     uint256 public rebalanceThreshold = 500; // 5% threshold for rebalancing (in basis points)
     uint256 public maxRiskScore = 10000; // Maximum risk score (100% in basis points)
     uint256 public platformFeePercentage = 50; // 0.5% platform fee
-    
+
     // Enums
     enum StrategyType { CONSERVATIVE, BALANCED, AGGRESSIVE, DYNAMIC }
     enum TradeStatus { PENDING, EXECUTED, FAILED, CANCELLED }
@@ -126,7 +126,7 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
 
     constructor(address _aitbcToken) {
         aitbcToken = IERC20(_aitbcToken);
-        
+
         // Initialize with basic assets
         _addAsset(address(aitbcToken), "AITBC", 18, 100000000); // $1.00 USD
     }
@@ -137,11 +137,11 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
      * @param strategyId The strategy ID to use
      * @return portfolioId The ID of the created portfolio
      */
-    function createPortfolio(address agentAddress, uint256 strategyId) 
-        external 
-        nonReentrant 
-        whenNotPaused 
-        returns (uint256) 
+    function createPortfolio(address agentAddress, uint256 strategyId)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256)
     {
         require(agentAddress != address(0), "Invalid agent address");
         require(strategies[strategyId].isActive, "Strategy not active");
@@ -187,15 +187,15 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
         string memory buyToken,
         uint256 sellAmount,
         uint256 minBuyAmount
-    ) 
-        external 
-        nonReentrant 
+    )
+        external
+        nonReentrant
         whenNotPaused
         validPortfolio(portfolioId)
         onlyPortfolioOwner(portfolioId)
         validAsset(sellToken)
         validAsset(buyToken)
-        returns (uint256) 
+        returns (uint256)
     {
         require(sellAmount > 0, "Invalid sell amount");
         require(portfolios[portfolioId].assetBalances[sellToken] >= sellAmount, "Insufficient balance");
@@ -228,15 +228,15 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
      * @param portfolioId The portfolio ID to rebalance
      * @return success Whether the rebalancing was successful
      */
-    function rebalancePortfolio(uint256 portfolioId) 
-        external 
-        nonReentrant 
+    function rebalancePortfolio(uint256 portfolioId)
+        external
+        nonReentrant
         whenNotPaused
         validPortfolio(portfolioId)
-        returns (bool success) 
+        returns (bool success)
     {
         AgentPortfolio storage portfolio = portfolios[portfolioId];
-        
+
         // Check if rebalancing is needed
         if (!_needsRebalancing(portfolioId)) {
             return false;
@@ -251,24 +251,24 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
             string memory symbol = supportedAssetSymbols[i];
             uint256 targetAllocation = portfolio.targetAllocations[symbol];
             uint256 targetValue = (totalValue * targetAllocation) / 10000;
-            
+
             uint256 currentBalance = currentAllocations[symbol];
-            uint256 currentValue = (currentBalance * supportedAssets[symbol].priceOracle) / 
+            uint256 currentValue = (currentBalance * supportedAssets[symbol].priceOracle) /
                                   (10 ** supportedAssets[symbol].decimals);
 
             if (currentValue > targetValue) {
                 // Sell excess
                 uint256 excessValue = currentValue - targetValue;
-                uint256 sellAmount = (excessValue * (10 ** supportedAssets[symbol].decimals)) / 
+                uint256 sellAmount = (excessValue * (10 ** supportedAssets[symbol].decimals)) /
                                    supportedAssets[symbol].priceOracle;
-                
+
                 // Find underweight asset to buy
                 for (uint j = 0; j < supportedAssetSymbols.length; j++) {
                     string memory buySymbol = supportedAssetSymbols[j];
                     uint256 buyTargetValue = (totalValue * portfolio.targetAllocations[buySymbol]) / 10000;
-                    uint256 buyCurrentValue = (currentAllocations[buySymbol] * supportedAssets[buySymbol].priceOracle) / 
+                    uint256 buyCurrentValue = (currentAllocations[buySymbol] * supportedAssets[buySymbol].priceOracle) /
                                             (10 ** supportedAssets[buySymbol].decimals);
-                    
+
                     if (buyCurrentValue < buyTargetValue) {
                         // Execute rebalancing trade
                         _executeRebalancingTrade(portfolioId, symbol, buySymbol, sellAmount);
@@ -298,10 +298,10 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
         StrategyType strategyType,
         uint256 maxDrawdown,
         uint256 rebalanceFrequency
-    ) 
-        external 
-        onlyOwner 
-        returns (uint256) 
+    )
+        external
+        onlyOwner
+        returns (uint256)
     {
         strategyCounter++;
         uint256 strategyId = strategyCounter;
@@ -328,21 +328,21 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
         uint256 strategyId,
         string[] memory allocations,
         uint256[] memory allocationValues
-    ) 
-        external 
-        onlyOwner 
+    )
+        external
+        onlyOwner
     {
         require(allocations.length == allocationValues.length, "Arrays must have same length");
         require(strategyId <= strategyCounter, "Invalid strategy ID");
-        
+
         TradingStrategy storage strategy = strategies[strategyId];
-        
+
         uint256 totalAllocation = 0;
         for (uint i = 0; i < allocations.length; i++) {
             strategy.targetAllocations[allocations[i]] = allocationValues[i];
             totalAllocation += allocationValues[i];
         }
-        
+
         require(totalAllocation == 10000, "Allocations must sum to 100%");
     }
 
@@ -351,10 +351,10 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
      * @param portfolioId The portfolio ID
      * @return riskScore The calculated risk score (0-10000)
      */
-    function calculateRiskScore(uint256 portfolioId) 
-        external 
-        view 
-        returns (uint256 riskScore) 
+    function calculateRiskScore(uint256 portfolioId)
+        external
+        view
+        returns (uint256 riskScore)
     {
         if (!portfolios[portfolioId].isActive) {
             return 0;
@@ -368,10 +368,10 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
             string memory symbol = supportedAssetSymbols[i];
             uint256 balance = portfolio.assetBalances[symbol];
             if (balance > 0) {
-                uint256 value = (balance * supportedAssets[symbol].priceOracle) / 
+                uint256 value = (balance * supportedAssets[symbol].priceOracle) /
                                (10 ** supportedAssets[symbol].decimals);
                 uint256 allocation = (value * 10000) / portfolio.totalValue;
-                
+
                 // Risk contribution based on asset type and allocation
                 uint256 assetRisk = _getAssetRisk(symbol);
                 totalRisk += (allocation * assetRisk) / 10000;
@@ -390,10 +390,10 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
      * @param portfolioId The portfolio ID
      * @return totalValue The total portfolio value (scaled by 1e8)
      */
-    function getPortfolioValue(uint256 portfolioId) 
-        external 
-        view 
-        returns (uint256 totalValue) 
+    function getPortfolioValue(uint256 portfolioId)
+        external
+        view
+        returns (uint256 totalValue)
     {
         if (!portfolios[portfolioId].isActive) {
             return 0;
@@ -406,7 +406,7 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
             string memory symbol = supportedAssetSymbols[i];
             uint256 balance = portfolio.assetBalances[symbol];
             if (balance > 0) {
-                uint256 value = (balance * supportedAssets[symbol].priceOracle) / 
+                uint256 value = (balance * supportedAssets[symbol].priceOracle) /
                                (10 ** supportedAssets[symbol].decimals);
                 totalValue += value;
             }
@@ -439,7 +439,7 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
         uint256 price
     ) internal returns (uint256) {
         uint256 tradeId = portfolioTrades[portfolioId].length + 1;
-        
+
         trades[tradeId] = Trade({
             tradeId: tradeId,
             portfolioId: portfolioId,
@@ -465,7 +465,7 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
             string memory symbol = supportedAssetSymbols[i];
             uint256 balance = portfolio.assetBalances[symbol];
             if (balance > 0) {
-                uint256 value = (balance * supportedAssets[symbol].priceOracle) / 
+                uint256 value = (balance * supportedAssets[symbol].priceOracle) /
                                (10 ** supportedAssets[symbol].decimals);
                 totalValue += value;
             }
@@ -491,7 +491,7 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
 
     function _needsRebalancing(uint256 portfolioId) internal view returns (bool) {
         AgentPortfolio storage portfolio = portfolios[portfolioId];
-        
+
         // Check time-based rebalancing
         if (block.timestamp - portfolio.lastRebalance > strategies[1].rebalanceFrequency) {
             return true;
@@ -503,12 +503,12 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
             string memory symbol = supportedAssetSymbols[i];
             uint256 targetAllocation = portfolio.targetAllocations[symbol];
             uint256 targetValue = (totalValue * targetAllocation) / 10000;
-            
+
             uint256 currentBalance = portfolio.assetBalances[symbol];
-            uint256 currentValue = (currentBalance * supportedAssets[symbol].priceOracle) / 
+            uint256 currentValue = (currentBalance * supportedAssets[symbol].priceOracle) /
                                   (10 ** supportedAssets[symbol].decimals);
 
-            uint256 deviation = currentValue > targetValue ? 
+            uint256 deviation = currentValue > targetValue ?
                 ((currentValue - targetValue) * 10000) / targetValue :
                 ((targetValue - currentValue) * 10000) / targetValue;
 

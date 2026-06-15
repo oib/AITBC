@@ -16,6 +16,7 @@ import logging
 from datetime import datetime
 
 import asyncpg
+
 from aitbc.logging import get_logger
 
 logging.basicConfig(level=logging.INFO)
@@ -180,7 +181,7 @@ class DataMigration:
             return None
         if isinstance(value, datetime):
             return value
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             return datetime.fromtimestamp(value)
         try:
             return datetime.fromisoformat(value.replace("Z", "+00:00"))

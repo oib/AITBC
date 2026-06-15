@@ -32,6 +32,6 @@ This compliance matrix is currently under development and will be populated as t
 
 ---
 
-**Last Updated**: 2026-02-17  
-**Next Review**: TBD  
+**Last Updated**: 2026-02-17
+**Next Review**: TBD
 **Owner**: Compliance Team

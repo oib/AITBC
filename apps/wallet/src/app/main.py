@@ -157,5 +157,11 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8108)
+    import os
+
+    host = os.getenv("WALLET_BIND_HOST", "0.0.0.0")
+    port = int(os.getenv("WALLET_BIND_PORT", "8108"))
+
+    uvicorn.run(app, host=host, port=port)

@@ -142,7 +142,7 @@ def test_metrics_collection_format():
     # Verify metric values are numeric
     numeric_fields = ["cpu_usage", "memory_usage", "request_count", "error_count"]
     for field in numeric_fields:
-        if isinstance(metrics_response.get(field), (int, float)):
+        if isinstance(metrics_response.get(field), int | float):
             print(f"✅ {field} is numeric")
         else:
             print(f"❌ {field} is not numeric")

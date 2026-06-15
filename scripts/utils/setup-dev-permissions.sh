@@ -49,15 +49,15 @@ check_root() {
 # Add development user to service user group
 setup_user_groups() {
     print_header "Setting up User Groups"
-    
+
     # Add dev user to service user group
     print_status "Adding $DEV_USER to $SERVICE_USER group"
     usermod -aG $SERVICE_USER $DEV_USER
-    
+
     # Add service user to development group
     print_status "Adding $SERVICE_USER to codebase group"
     usermod -aG codebase $SERVICE_USER
-    
+
     # Verify groups
     print_status "Verifying group memberships:"
     echo "  $DEV_USER groups: $(groups $DEV_USER | grep -o '$SERVICE_USER\|codebase' || echo 'Not in groups yet')"
@@ -67,26 +67,26 @@ setup_user_groups() {
 # Set up proper directory permissions
 setup_directory_permissions() {
     print_header "Setting up Directory Permissions"
-    
+
     # Set ownership with shared group
     print_status "Setting project directory ownership"
     chown -R $DEV_USER:$SERVICE_USER $PROJECT_DIR
-    
+
     # Set proper permissions
     print_status "Setting directory permissions (2775 for directories, 664 for files)"
     find $PROJECT_DIR -type d -exec chmod 2775 {} \;
     find $PROJECT_DIR -type f -exec chmod 664 {} \;
-    
+
     # Make executable files executable
     find $PROJECT_DIR -name "*.py" -exec chmod +x {} \;
     find $PROJECT_DIR -name "*.sh" -exec chmod +x {} \;
-    
+
     # Set special permissions for critical directories
     print_status "Setting special permissions for logs and data"
     mkdir -p $LOG_DIR $DATA_DIR
     chown -R $SERVICE_USER:$SERVICE_USER $LOG_DIR $DATA_DIR
     chmod 775 $LOG_DIR $DATA_DIR
-    
+
     # Set SGID bit for new files to inherit group
     find $PROJECT_DIR -type d -exec chmod g+s {} \;
 }
@@ -94,10 +94,10 @@ setup_directory_permissions() {
 # Set up sudoers for development
 setup_sudoers() {
     print_header "Setting up Sudoers Configuration"
-    
+
     # Create sudoers file for AITBC development
     sudoers_file="/etc/sudoers.d/aitbc-dev"
-    
+
     cat > "$sudoers_file" << EOF
 # AITBC Development Sudoers Configuration
 # Allows development user to manage AITBC services without password
@@ -132,17 +132,17 @@ $DEV_USER ALL=(root) NOPASSWD: /usr/bin/poetry install
 $DEV_USER ALL=(root) NOPASSWD: /usr/bin/kill -HUP *aitbc*
 $DEV_USER ALL=(root) NOPASSWD: /usr/bin/pkill -f aitbc
 EOF
-    
+
     # Set proper permissions on sudoers file
     chmod 440 "$sudoers_file"
-    
+
     print_status "Sudoers configuration created: $sudoers_file"
 }
 
 # Create development helper scripts
 create_helper_scripts() {
     print_header "Creating Development Helper Scripts"
-    
+
     # Service management script
     cat > "$PROJECT_DIR/scripts/manage-services.sh" << 'EOF'
 #!/bin/bash
@@ -195,7 +195,7 @@ case "${1:-help}" in
         ;;
 esac
 EOF
-    
+
     # Permission fix script
     cat > "$PROJECT_DIR/scripts/fix-permissions.sh" << 'EOF'
 #!/bin/bash
@@ -221,18 +221,18 @@ sudo find /opt/aitbc -type d -exec chmod g+s {} \;
 
 echo "Permissions fixed!"
 EOF
-    
+
     # Make scripts executable
     chmod +x "$PROJECT_DIR/scripts/manage-services.sh"
     chmod +x "$PROJECT_DIR/scripts/fix-permissions.sh"
-    
+
     print_status "Helper scripts created in $PROJECT_DIR/scripts/"
 }
 
 # Create development environment setup
 setup_dev_environment() {
     print_header "Setting up Development Environment"
-    
+
     # Create .env file for development
     cat > "$PROJECT_DIR/.env.dev" << 'EOF'
 # AITBC Development Environment Configuration
@@ -260,7 +260,7 @@ export AITBC_VENV_PATH=/opt/aitbc/cli/venv
 export AITBC_LOG_DIR=/opt/aitbc/logs
 export AITBC_LOG_FILE=/opt/aitbc/logs/aitbc-dev.log
 EOF
-    
+
     print_status "Development environment file created: $PROJECT_DIR/.env.dev"
 }
 
@@ -274,23 +274,23 @@ main() {
     echo "  Service user: $SERVICE_USER"
     echo "  Project directory: $PROJECT_DIR"
     echo ""
-    
+
     read -p "Continue with permission setup? (y/N): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         print_status "Setup cancelled"
         exit 0
     fi
-    
+
     check_root
-    
+
     # Execute setup steps
     setup_user_groups
     setup_directory_permissions
     setup_sudoers
     create_helper_scripts
     setup_dev_environment
-    
+
     print_header "Setup Complete!"
     echo ""
     echo "✅ User permissions configured"

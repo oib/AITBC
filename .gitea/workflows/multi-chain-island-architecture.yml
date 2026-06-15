@@ -59,9 +59,9 @@ jobs:
       - name: Check Redis connectivity
         run: |
           echo "🔍 Checking Redis connectivity"
-          
+
           REDIS_HOST="${{ inputs.redis_host || 'localhost' }}"
-          
+
           if redis-cli -h "$REDIS_HOST" -p 6379 PING; then
             echo "✅ Redis reachable at $REDIS_HOST"
           else
@@ -72,24 +72,24 @@ jobs:
       - name: Run multi-chain island architecture test
         run: |
           cd /opt/aitbc
-          
+
           TEST_DURATION="${{ inputs.test_duration || '120' }}"
           SKIP_WAIT="${{ inputs.skip_wait || 'false' }}"
           REDIS_HOST="${{ inputs.redis_host || 'localhost' }}"
-          
+
           echo "🧪 Running multi-chain island architecture test"
           echo "Test duration: ${TEST_DURATION}s"
           echo "Skip wait: ${SKIP_WAIT}"
           echo "Redis host: ${REDIS_HOST}"
           echo "Running in CI mode - skipping SSH-dependent checks"
-          
+
           # Export REDIS_HOST for nested bash -c
           export REDIS_HOST
-          
+
           # Run only local checks in CI mode (skip SSH-dependent tests)
           bash -c '
             echo "=== Local Multi-Chain Island Architecture Validation ==="
-            
+
             # Check broadcaster module (optional in CI)
             if python3 -c "from broadcaster import Broadcast; print(\"OK\")" 2>/dev/null; then
               echo "✅ broadcaster module installed"
@@ -97,7 +97,7 @@ jobs:
               echo "⚠️  broadcaster module not installed (expected in CI environment)"
               echo "   This is expected in CI - module is checked in full local validation"
             fi
-            
+
             # Check gossip backend configuration
             if grep gossip_backend /etc/aitbc/.env | grep -q "broadcast"; then
               echo "✅ gossip_backend=broadcast configured"
@@ -105,7 +105,7 @@ jobs:
               echo "⚠️  gossip_backend not configured in /etc/aitbc/.env"
               echo "   This is expected in CI - configuration checked in full local validation"
             fi
-            
+
             # Check chain configuration (optional in CI)
             if [ -f /etc/aitbc/.env ]; then
               AITBC_PRODUCTION=$(grep block_production_chains /etc/aitbc/.env | cut -d\'=' -f2)
@@ -118,14 +118,14 @@ jobs:
             else
               echo "⚠️  /etc/aitbc/.env not found (expected in CI environment)"
             fi
-            
+
             # Check Redis subscriptions (optional in CI - nodes may not be running)
             MAINNET_SUBS=$(redis-cli -h "$REDIS_HOST" -p 6379 PUBSUB NUMSUB blocks.ait-mainnet | tail -n1)
             TESTNET_SUBS=$(redis-cli -h "$REDIS_HOST" -p 6379 PUBSUB NUMSUB blocks.ait-testnet | tail -n1)
-            
+
             echo "blocks.ait-mainnet subscribers: $MAINNET_SUBS"
             echo "blocks.ait-testnet subscribers: $TESTNET_SUBS"
-            
+
             if [ "$MAINNET_SUBS" -ge 1 ] && [ "$TESTNET_SUBS" -ge 1 ]; then
               echo "✅ Redis subscriptions active (at least 1 per topic)"
             else
@@ -133,7 +133,7 @@ jobs:
               echo "   This is expected in CI - blockchain nodes may not be running"
               echo "   Subscriptions are checked in full local validation"
             fi
-            
+
             echo "=== All local validation checks passed ==="
           '
 
@@ -147,4 +147,3 @@ jobs:
           echo "Note: Full multi-node validation requires SSH access to aitbc1 and gitea-runner."
           echo "Run the test script locally on aitbc for full validation:"
           echo "  bash scripts/workflow/46_multi_chain_island_test.sh"
-

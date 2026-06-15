@@ -3,17 +3,10 @@ Analytics Handler Tests
 Tests for analytics command handlers
 """
 
-import sys
-from pathlib import Path
 from unittest.mock import Mock, patch
 
-# Add CLI path for imports
-cli_path = Path("/opt/aitbc/cli")
-if str(cli_path) not in sys.path:
-    sys.path.insert(0, str(cli_path))
-
-import pytest  # noqa: E402
-from handlers.analytics import (  # noqa: E402
+import pytest
+from handlers.analytics import (
     handle_analytics_export,
     handle_analytics_metrics,
     handle_analytics_optimize,

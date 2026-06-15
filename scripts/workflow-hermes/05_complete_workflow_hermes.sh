@@ -113,68 +113,68 @@ echo "✅ Wallet operations completed"
 echo "6. Running comprehensive verification via Hermes CoordinatorAgent..."
 hermes execute --agent CoordinatorAgent --task comprehensive_verification || {
     echo "⚠️ Hermes comprehensive verification failed - using manual verification"
-    
+
     # Manual verification as fallback
     echo "=== Manual Verification ==="
-    
+
     # Check both nodes are running
     echo "Checking aitbc node..."
     curl -s http://localhost:8202/health | jq .status
-    
+
     echo "Checking aitbc1 node..."
     ssh aitbc1 'curl -s http://localhost:8202/health | jq .status'
-    
+
     # Check sync status
     GENESIS_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height)
     FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height')
-    
+
     echo "Sync Status: Genesis=$GENESIS_HEIGHT, Follower=$FOLLOWER_HEIGHT"
-    
+
     # Check wallet operations
     cd /opt/aitbc
     source venv/bin/activate
     echo "Total wallets created:"
     ./aitbc-cli wallet list | wc -l
-    
+
     # Check Hermes agent status
     hermes status --agent all
-    
+
     # Check blockchain height
     echo "Blockchain Height:"
     curl -s http://localhost:8202/rpc/head | jq .height
-    
+
     # Check proposer
     echo "Proposer:"
     curl -s http://localhost:8202/health | jq .proposer_id
-    
+
     # Check services
     echo "Services:"
     systemctl is-active aitbc-blockchain-node.service aitbc-blockchain-rpc.service
-    
+
     # Check node connectivity
     echo "Node Connectivity:"
     ping -c 1 aitbc1 >/dev/null 2>&1 && echo "✅ aitbc1 reachable" || echo "❌ aitbc1 not reachable"
-    
+
     # Check cross-node transactions
     echo "Cross-Node Transactions:"
     ./aitbc-cli transaction list --limit 3
-    
+
     # Check AI operations
     echo "AI Operations:"
     ./aitbc-cli ai submit --wallet wallet --type inference --prompt "Generate image" --payment 100
-    
+
     # Check resource allocation
     echo "Resource Allocation:"
     ./aitbc-cli resource allocate --agent-id agent-name --memory 8192 --duration 3600
-    
+
     # Check marketplace participation
     echo "Marketplace Participation:"
     ./aitbc-cli market create --type ai-inference --price 50 --description "Service" --wallet wallet
-    
+
     # Check governance
     echo "Governance:"
     ./aitbc-cli smart-contract --action create --name "Contract" --code "Code" --wallet wallet
-    
+
     # Check monitoring
     echo "Monitoring:"
     python3 /tmp/aitbc1_heartbeat.py
@@ -184,23 +184,23 @@ hermes execute --agent CoordinatorAgent --task comprehensive_verification || {
 echo "7. Running performance testing via Hermes..."
 hermes execute --agent CoordinatorAgent --task performance_testing || {
     echo "⚠️ Hermes performance testing failed - using manual testing"
-    
+
     # Manual performance testing
     echo "=== Manual Performance Testing ==="
-    
+
     # Test RPC response times
     echo "Testing RPC response times..."
     time curl -s http://localhost:8202/rpc/head > /dev/null
     time ssh aitbc1 'curl -s http://localhost:8202/rpc/head > /dev/null'
-    
+
     # Test transaction speed
     cd /opt/aitbc
     source venv/bin/activate
-    
+
     # Get addresses for transaction test
     CLIENT_ADDR=$(./aitbc-cli wallet address --wallet client-wallet)
     USER_ADDR=$(./aitbc-cli wallet address --wallet user-wallet)
-    
+
     echo "Testing transaction speed..."
     time ./aitbc-cli wallet send 1 $USER_ADDR "Performance test transaction"
 }
@@ -209,25 +209,25 @@ hermes execute --agent CoordinatorAgent --task performance_testing || {
 echo "8. Running network health check via Hermes..."
 hermes execute --agent CoordinatorAgent --task network_health_check || {
     echo "⚠️ Hermes health check failed - using manual health check"
-    
+
     # Manual health check
     echo "=== Manual Network Health Check ==="
-    
+
     # Check service health
     echo "Service Health:"
     echo "aitbc-coordinator-api: $(systemctl is-active aitbc-coordinator-api.service)"
     echo "aitbc-exchange-api: $(systemctl is-active aitbc-exchange-api.service)"
     echo "aitbc-blockchain-node: $(systemctl is-active aitbc-blockchain-node.service)"
     echo "aitbc-blockchain-rpc: $(systemctl is-active aitbc-blockchain-rpc.service)"
-    
+
     # Check network connectivity
     echo "Network Connectivity:"
     ping -c 1 aitbc1 >/dev/null 2>&1 && echo "✅ aitbc1 reachable" || echo "❌ aitbc1 not reachable"
-    
+
     # Check blockchain sync
     GENESIS_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height)
     FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height')
-    
+
     if [ "$GENESIS_HEIGHT" -eq "$FOLLOWER_HEIGHT" ]; then
         echo "✅ Blockchain sync: Nodes are synchronized"
     else
@@ -239,14 +239,14 @@ hermes execute --agent CoordinatorAgent --task network_health_check || {
 echo "9. Generating comprehensive report via Hermes..."
 hermes report --workflow complete_multi_node --format json > /tmp/hermes_complete_report.json || {
     echo "⚠️ Hermes comprehensive report failed - using manual report generation"
-    
+
     # Manual report generation
     cat > /tmp/hermes_complete_report.json << 'EOF'
 {
     "workflow_status": "completed",
     "phases_completed": [
         "preflight_setup",
-        "genesis_authority_setup", 
+        "genesis_authority_setup",
         "follower_node_setup",
         "wallet_operations",
         "comprehensive_verification",
@@ -276,7 +276,7 @@ hermes status --agent all || {
     echo "⚠️ Hermes agent status check failed - using manual status"
     echo "=== Manual Agent Status ==="
     echo "CoordinatorAgent: ✅ Active"
-    echo "GenesisAgent: ✅ Active"  
+    echo "GenesisAgent: ✅ Active"
     echo "FollowerAgent: ✅ Active"
     echo "WalletAgent: ✅ Active"
 }
@@ -285,13 +285,13 @@ hermes status --agent all || {
 echo "11. Cleanup and finalization via Hermes..."
 hermes execute --agent CoordinatorAgent --task cleanup_and_finalize || {
     echo "⚠️ Hermes cleanup failed - using manual cleanup"
-    
+
     # Manual cleanup
     echo "=== Manual Cleanup ==="
-    
+
     # Clean temporary files
     rm -f /tmp/hermes_*.json
-    
+
     # Reset agent status files
     echo "workflow_completed" > /var/lib/hermes/workflow.status
 }
@@ -354,7 +354,7 @@ cat > "$FINAL_REPORT" << EOF
             "wallets": $GENESIS_WALLETS
         },
         "aitbc1": {
-            "role": "follower", 
+            "role": "follower",
             "status": "active",
             "height": $FOLLOWER_HEIGHT,
             "wallets": $FOLLOWER_WALLETS
@@ -363,7 +363,7 @@ cat > "$FINAL_REPORT" << EOF
     "agents": {
         "CoordinatorAgent": "completed",
         "GenesisAgent": "completed",
-        "FollowerAgent": "completed", 
+        "FollowerAgent": "completed",
         "WalletAgent": "completed"
     },
     "success": true

@@ -9,10 +9,11 @@ from typing import Any
 
 from aitbc import get_logger
 
+from ..domain.job import Job
+from .bridges.base import BridgeStatus, SettlementMessage, SettlementResult
+from .manager import BridgeManager
+
 logger = get_logger(__name__)
-from ..domain.job import Job  # noqa: E402
-from .bridges.base import BridgeStatus, SettlementMessage, SettlementResult  # noqa: E402
-from .manager import BridgeManager  # noqa: E402
 
 
 class SettlementHook:

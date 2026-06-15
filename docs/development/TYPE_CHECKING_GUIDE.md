@@ -72,7 +72,7 @@ If you modify a file that has type errors:
    # Before (missing types)
    def process_data(data):
        return data.upper()
-   
+
    # After (with types)
    def process_data(data: str) -> str:
        return data.upper()
@@ -95,10 +95,10 @@ If you modify a file that has type errors:
 2. **Common patterns**:
    ```python
    from typing import Optional, dict, list, Any
-   
+
    def fetch_user(user_id: int) -> Optional[dict[str, Any]]:
        ...
-   
+
    def process_items(items: list[str]) -> list[int]:
        ...
    ```

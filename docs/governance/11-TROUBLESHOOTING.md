@@ -58,7 +58,7 @@ This document covers common issues and solutions for the Governance Service, sma
    ```bash
    # SQLite
    ls -la /var/lib/aitbc/data/governance_service.db
-   
+
    # PostgreSQL
    sudo -u postgres psql -h localhost -U aitbc_governance -d aitbc_governance
    ```
@@ -112,11 +112,11 @@ This document covers common issues and solutions for the Governance Service, sma
    ```bash
    # SQLite: Delete database
    rm /var/lib/aitbc/data/governance_service.db
-   
+
    # PostgreSQL: Drop database
    sudo -u postgres psql -c "DROP DATABASE aitbc_governance;"
    sudo -u postgres psql -c "CREATE DATABASE aitbc_governance;"
-   
+
    # Re-run migrations
    /opt/aitbc/venv/bin/alembic upgrade head
    ```
@@ -132,7 +132,7 @@ This document covers common issues and solutions for the Governance Service, sma
    ```bash
    # Check alembic.ini
    cat alembic/alembic.ini | grep sqlalchemy.url
-   
+
    # Test connection
    psql -h localhost -U aitbc_governance -d aitbc_governance
    ```
@@ -149,7 +149,7 @@ This document covers common issues and solutions for the Governance Service, sma
    ```bash
    # Check for open connections
    sudo lsof /var/lib/aitbc/data/governance_service.db
-   
+
    # Kill processes
    sudo kill -9 <pid>
    ```
@@ -158,7 +158,7 @@ This document covers common issues and solutions for the Governance Service, sma
    ```bash
    # Check max connections
    sudo -u postgres psql -c "SHOW max_connections;"
-   
+
    # Increase if needed
    sudo nano /etc/postgresql/*/main/postgresql.conf
    # Add: max_connections = 100
@@ -405,7 +405,7 @@ This document covers common issues and solutions for the Governance Service, sma
    ```bash
    # SQLite
    sqlite3 /var/lib/aitbc/data/governance_service.db ".tables"
-   
+
    # PostgreSQL
    sudo -u postgres psql -d aitbc_governance -c "\dt"
    ```
@@ -570,7 +570,7 @@ aitbc governance get-proposal <proposal_id>
    ```bash
    # SQLite
    ls -lh /var/lib/aitbc/data/governance_service.db
-   
+
    # PostgreSQL
    sudo -u postgres psql -c "SELECT pg_size_pretty(pg_database_size('aitbc_governance'));"
    ```

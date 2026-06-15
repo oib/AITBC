@@ -7,6 +7,26 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from app.agent_identity.manager import AgentIdentityManager  # type: ignore[import-not-found]
+from app.agent_identity.wallet_adapter_enhanced import (  # type: ignore[import-not-found]
+    SecurityLevel,
+    TransactionStatus,
+    WalletAdapterFactory,
+    WalletStatus,
+)
+from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (  # type: ignore[import-not-found]
+    BridgeProtocol,
+    BridgeSecurityLevel,
+    CrossChainBridgeService,
+)
+from app.domain.multi_chain_transaction import TransactionType  # type: ignore[import-not-found]
+from app.reputation.engine import CrossChainReputationEngine  # type: ignore[import-not-found]
+from app.services.multi_chain_transaction_manager import (  # type: ignore[import-not-found]
+    MultiChainTransactionManager,
+    RoutingStrategy,
+    TransactionPriority,
+)
+from app.storage.db import get_session  # type: ignore[import-not-found]
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session
 
@@ -14,26 +34,6 @@ from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
-from app.agent_identity.manager import AgentIdentityManager  # type: ignore[import-not-found]  # noqa: E402
-from app.agent_identity.wallet_adapter_enhanced import (  # type: ignore[import-not-found]  # noqa: E402
-    SecurityLevel,
-    TransactionStatus,
-    WalletAdapterFactory,
-    WalletStatus,
-)
-from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (  # type: ignore[import-not-found]  # noqa: E402
-    BridgeProtocol,
-    BridgeSecurityLevel,
-    CrossChainBridgeService,
-)
-from app.domain.multi_chain_transaction import TransactionType  # type: ignore[import-not-found]  # noqa: E402
-from app.reputation.engine import CrossChainReputationEngine  # type: ignore[import-not-found]  # noqa: E402
-from app.services.multi_chain_transaction_manager import (  # type: ignore[import-not-found]  # noqa: E402
-    MultiChainTransactionManager,
-    RoutingStrategy,
-    TransactionPriority,
-)
-from app.storage.db import get_session  # type: ignore[import-not-found]  # noqa: E402
 
 router = APIRouter(prefix="/cross-chain", tags=["Cross-Chain Integration"])
 

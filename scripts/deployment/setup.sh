@@ -81,7 +81,7 @@ check_prerequisites() {
 
     if [ "${#missing[@]}" -gt 0 ]; then
         log "Installing missing prerequisites: ${missing[*]}"
-        
+
         # Detect package manager
         if command -v apt-get >/dev/null 2>&1; then
             apt-get update -qq
@@ -137,7 +137,7 @@ check_prerequisites() {
         else
             error "Unsupported package manager. Please install manually: ${missing[*]}"
         fi
-        
+
         log "Prerequisites installed"
     fi
 
@@ -154,17 +154,17 @@ check_prerequisites() {
 # Clone repository
 clone_repo() {
     log "Cloning AITBC repository..."
-    
+
     # Check if repository already exists
     if [ -d "/opt/aitbc/.git" ]; then
         success "AITBC repository already exists, skipping clone"
         return 0
     fi
-    
+
     # Clone repository
     cd /opt
     git clone https://github.com/oib/AITBC.git aitbc || error "Failed to clone repository"
-    
+
     cd /opt/aitbc
     success "Repository cloned successfully"
 }
@@ -172,7 +172,7 @@ clone_repo() {
 # Setup runtime directories
 setup_runtime_directories() {
     log "Setting up runtime directories..."
-    
+
     # Create standard Linux directories
     directories=(
         "/var/lib/aitbc"
@@ -185,12 +185,12 @@ setup_runtime_directories() {
         "/etc/aitbc/credentials"
         "/run/aitbc/secrets"
     )
-    
+
     for dir in "${directories[@]}"; do
         mkdir -p "$dir"
         log "Created directory: $dir"
     done
-    
+
     # Set permissions
     chmod 755 /var/lib/aitbc
     chmod 700 /var/lib/aitbc/keystore  # Secure keystore
@@ -201,7 +201,7 @@ setup_runtime_directories() {
     chmod 755 /etc/aitbc
     chmod 700 /etc/aitbc/credentials  # Secure credentials
     chmod 700 /run/aitbc/secrets  # Runtime secrets (tmpfs)
-    
+
     # Set ownership
     chown root:root /var/lib/aitbc
     chown root:root /var/lib/aitbc/keystore
@@ -214,14 +214,14 @@ setup_runtime_directories() {
     chown root:root /etc/aitbc
     chown root:root /etc/aitbc/credentials
     chown root:root /run/aitbc/secrets
-    
+
     # Disable Btrfs CoW on data directory to prevent SQLite corruption
     # SQLite expects overwrite-in-place behavior, which conflicts with CoW
     if command -v chattr >/dev/null 2>&1; then
         chattr +C /var/lib/aitbc 2>/dev/null || log "Could not disable CoW (not Btrfs or no permissions)"
         log "Disabled Btrfs CoW on /var/lib/aitbc to prevent SQLite corruption"
     fi
-    
+
     # Create README files
     echo "# AITBC Runtime Data Directory" > /var/lib/aitbc/README.md
     echo "# Keystore for blockchain keys (SECURE)" > /var/lib/aitbc/keystore/README.md
@@ -232,7 +232,7 @@ setup_runtime_directories() {
     echo "# AITBC Configuration Files" > /etc/aitbc/README.md
     echo "# Secure credential storage (600 permissions)" > /etc/aitbc/credentials/README.md
     echo "# Runtime secrets (tmpfs, cleared on reboot)" > /run/aitbc/secrets/README.md
-    
+
     success "Runtime directories setup completed"
 }
 
@@ -259,7 +259,7 @@ setup_service_users() {
 
     for user_info in "${service_users[@]}"; do
         IFS=':' read -r username description <<< "$user_info"
-        
+
         if ! id "$username" >/dev/null 2>&1; then
             log "Creating user: $username ($description)"
             useradd -r -s /bin/false -g aitbc-services "$username" || warning "Failed to create user $username (may already exist)"
@@ -284,7 +284,7 @@ setup_service_users() {
     log "Creating service-specific directories..."
     mkdir -p /var/lib/aitbc/wallets
     mkdir -p /var/lib/aitbc/whisper-cache
-    
+
     # Set ownership for service-specific directories
     chown -R aitbc-wallet:aitbc-services /var/lib/aitbc/wallets
     chown -R aitbc-public:aitbc-services /var/lib/aitbc/whisper-cache
@@ -343,7 +343,7 @@ setup_postgresql_databases() {
 
             # Generate secure password for this user
             db_password=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))" 2>/dev/null || openssl rand -base64 32 2>/dev/null || echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)")
-            
+
             # Store password in credentials directory
             echo "$db_password" > /etc/aitbc/credentials/postgres_${db_user}_password
             chmod 600 /etc/aitbc/credentials/postgres_${db_user}_password
@@ -401,7 +401,7 @@ setup_node_profiles() {
             BLOCKCHAIN_MODE="follower"
             MARKET_ROLE="customer"
             HARDWARE_PROFILE="nogpu"
-            
+
             set_env_blockchain() {
                 local key="$1"
                 local value="$2"
@@ -748,7 +748,7 @@ setup_credentials() {
 # Setup Python virtual environments
 setup_venvs() {
     log "Setting up Python virtual environments..."
-    
+
     # Create central virtual environment if it doesn't exist
     if [ ! -d "/opt/aitbc/venv" ]; then
         log "Creating central virtual environment..."
@@ -756,7 +756,7 @@ setup_venvs() {
         if ! python3 -m venv venv; then
             warning "Failed to create virtual environment"
             warning "Checking if configs exist that might need cleanup..."
-            
+
             # Check for existing configs that might have been created before venv failure
             if [ -d "/etc/aitbc" ] && [ "$(ls -A /etc/aitbc 2>/dev/null)" ]; then
                 warning "Found existing configs in /etc/aitbc"
@@ -770,7 +770,7 @@ setup_venvs() {
                 error "Please ensure python3-venv is installed: apt install python3-venv"
             fi
         fi
-        
+
         # Activate venv with error handling
         if ! source venv/bin/activate; then
             warning "Failed to activate virtual environment"
@@ -778,7 +778,7 @@ setup_venvs() {
             warning "Manual fix: rm -rf /opt/aitbc/venv && python3 -m venv /opt/aitbc/venv"
             return 0
         fi
-        
+
         # Upgrade pip with error handling
         if ! pip install --upgrade pip; then
             warning "Failed to upgrade pip in virtual environment"
@@ -793,17 +793,17 @@ setup_venvs() {
             return 0
         fi
     fi
-    
+
     # Install dependencies using install-profiles.sh
     log "Installing dependencies using install-profiles.sh..."
 
     # Detect appropriate profile based on configuration
     local PROFILE="server-no-gpu"  # default
-    
+
     # Check if install-profiles.sh exists
     if [ -f "/opt/aitbc/scripts/deployment/install-profiles.sh" ]; then
         log "Using install-profiles.sh for dependency installation..."
-        
+
         # Try to detect profile from environment if available
         if [ -f "/etc/aitbc/blockchain.env" ]; then
             source /etc/aitbc/blockchain.env
@@ -815,15 +815,15 @@ setup_venvs() {
                 PROFILE="customer-no-gpu"
             fi
         fi
-        
+
         log "Installing profile: $PROFILE"
         /opt/aitbc/scripts/deployment/install-profiles.sh "$PROFILE" || warning "Failed to install profile $PROFILE"
-        
+
         # Install pydantic-settings for blockchain-node (required dependency)
         pip install pydantic-settings || warning "Failed to install pydantic-settings"
     else
         log "install-profiles.sh not found, using manual installation..."
-        
+
         # Fallback to manual installation
         if [ -f "/opt/aitbc/requirements.txt" ]; then
             log "Installing core production dependencies..."
@@ -853,7 +853,7 @@ setup_venvs() {
     else
         warning "CLI directory not found at /opt/aitbc/cli"
     fi
-    
+
     success "Virtual environments setup completed"
 }
 
@@ -928,7 +928,7 @@ prepare_health_check() {
 # Start services
 start_services() {
     log "Starting AITBC services..."
-    
+
     # Try systemd first
     if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-hermes aitbc-ai aitbc-learning aitbc-explorer aitbc-agent-coordinator aitbc-agent-registry aitbc-multimodal aitbc-modality-optimization 2>/dev/null; then
         log "Services started via systemd"
@@ -945,10 +945,10 @@ start_services() {
         log "Systemd services not available, using manual startup"
         /opt/aitbc/start-services.sh
     fi
-    
+
     # Wait for services to initialize
     sleep 10
-    
+
     # Run health check
     "$HEALTH_CHECK_SCRIPT"
 }
@@ -956,7 +956,7 @@ start_services() {
 # Setup auto-start
 setup_autostart() {
     log "Setting up auto-start..."
-    
+
     # Enable services for auto-start on boot
     systemctl enable aitbc-wallet.service
     systemctl enable aitbc-coordinator-api.service
@@ -973,7 +973,7 @@ setup_autostart() {
     systemctl enable aitbc-agent-registry.service
     systemctl enable aitbc-multimodal.service
     systemctl enable aitbc-modality-optimization.service
-    
+
     success "Auto-start configured"
 }
 

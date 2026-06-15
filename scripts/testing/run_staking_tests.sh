@@ -46,11 +46,11 @@ run_test() {
     local test_name="$1"
     local test_command="$2"
     local log_file="$3"
-    
+
     echo ""
     echo "🧪 Running: $test_name"
     echo "================================"
-    
+
     if eval "$test_command" > "$log_file" 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
@@ -78,7 +78,7 @@ if [ -f "$SERVICE_TEST_FILE" ]; then
         "$SERVICE_TEST_FILE" -v --tb=short > "$SERVICE_LOG" 2>&1; then
         echo -e "${GREEN}✅ Service tests passed${NC}"
         ((TESTS_PASSED++))
-        
+
         # Extract test count from log
         SERVICE_COUNT=$(grep -o "[0-9]* passed" "$SERVICE_LOG" | tail -1 | grep -o "[0-9]*" || echo "8")
         TOTAL_TESTS=$((TOTAL_TESTS + SERVICE_COUNT))
@@ -107,7 +107,7 @@ if [ -f "$INTEGRATION_TEST_FILE" ]; then
         "$INTEGRATION_TEST_FILE" -v --tb=short > "$INTEGRATION_LOG" 2>&1; then
         echo -e "${GREEN}✅ Integration tests passed${NC}"
         ((TESTS_PASSED++))
-        
+
         # Extract test count from log
         INTEGRATION_COUNT=$(grep -o "[0-9]* passed" "$INTEGRATION_LOG" | tail -1 | grep -o "[0-9]*" || echo "4")
         TOTAL_TESTS=$((TOTAL_TESTS + INTEGRATION_COUNT))
@@ -133,7 +133,7 @@ if [ -f "$CONTRACT_TEST_FILE" ]; then
     if npx hardhat test "test/AgentStaking.test.js" > "$CONTRACT_LOG" 2>&1; then
         echo -e "${GREEN}✅ Contract tests passed${NC}"
         ((TESTS_PASSED++))
-        
+
         # Extract test count from log
         CONTRACT_COUNT=$(grep -o "passing" "$CONTRACT_LOG" | wc -l || echo "3")
         TOTAL_TESTS=$((TOTAL_TESTS + CONTRACT_COUNT))

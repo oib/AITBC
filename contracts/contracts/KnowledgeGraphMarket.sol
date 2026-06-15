@@ -22,7 +22,7 @@ contract KnowledgeGraphMarket is Ownable, ReentrancyGuard {
         uint256 totalSales;
         bool isActive;
     }
-    
+
     struct Purchase {
         uint256 graphId;
         address buyer;
@@ -32,7 +32,7 @@ contract KnowledgeGraphMarket is Ownable, ReentrancyGuard {
 
     mapping(uint256 => KnowledgeGraph) public graphs;
     mapping(uint256 => mapping(address => bool)) public hasPurchased;
-    
+
     // graphId => array of purchases
     mapping(uint256 => Purchase[]) public purchases;
 
@@ -55,10 +55,10 @@ contract KnowledgeGraphMarket is Ownable, ReentrancyGuard {
     function updateGraph(uint256 _id, uint256 _newPrice, bool _isActive) external {
         KnowledgeGraph storage graph = graphs[_id];
         require(graph.creator == msg.sender, "Not creator");
-        
+
         graph.price = _newPrice;
         graph.isActive = _isActive;
-        
+
         emit GraphUpdated(_id, _newPrice, _isActive);
     }
 
@@ -76,7 +76,7 @@ contract KnowledgeGraphMarket is Ownable, ReentrancyGuard {
 
         graph.totalSales++;
         hasPurchased[_id][msg.sender] = true;
-        
+
         purchases[_id].push(Purchase({
             graphId: _id,
             buyer: msg.sender,
@@ -91,7 +91,7 @@ contract KnowledgeGraphMarket is Ownable, ReentrancyGuard {
         KnowledgeGraph storage graph = graphs[_id];
         require(graph.creator == msg.sender, "Not creator");
         require(hasPurchased[_id][_buyer], "Buyer has not purchased");
-        
+
         Purchase[] storage graphPurchases = purchases[_id];
         bool found = false;
         for (uint i = 0; i < graphPurchases.length; i++) {
@@ -108,7 +108,7 @@ contract KnowledgeGraphMarket is Ownable, ReentrancyGuard {
 
     function getMyPurchaseKey(uint256 _id) external view returns (string memory) {
         require(hasPurchased[_id][msg.sender], "Not purchased");
-        
+
         Purchase[] storage graphPurchases = purchases[_id];
         for (uint i = 0; i < graphPurchases.length; i++) {
             if (graphPurchases[i].buyer == msg.sender) {

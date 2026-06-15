@@ -46,11 +46,11 @@ echo ""
 run_test() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🧪 Testing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
@@ -66,11 +66,11 @@ run_test() {
 run_test_verbose() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🧪 Testing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
@@ -208,7 +208,7 @@ if command -v ufw >/dev/null 2>&1; then
     ufw deny out to $FOLLOWER_NODE port 8200 >/dev/null 2>&1
     echo "Network partition simulated"
     sleep 3
-    
+
     # Create transaction during partition
     echo "Creating transaction during partition..."
     PARTITION_TX=$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/sendTx \
@@ -223,22 +223,22 @@ if command -v ufw >/dev/null 2>&1; then
           \"amount\": 1
         }
       }")
-    
+
     sleep 5
-    
+
     # Restore network
     ufw --force delete deny out to $FOLLOWER_NODE port 8200 >/dev/null 2>&1
     echo "Network partition restored"
-    
+
     # Wait for sync recovery
     echo "Waiting for sync recovery..."
     sleep 10
-    
+
     # Check if nodes recovered consensus
     RECOVERY_HEIGHT_LOCAL=$(curl -s http://localhost:$GENESIS_PORT/rpc/head | jq .height)
     RECOVERY_HEIGHT_REMOTE=$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/head | jq .height')
     RECOVERY_DIFF=$((RECOVERY_HEIGHT_LOCAL - RECOVERY_HEIGHT_REMOTE))
-    
+
     if [ "$RECOVERY_DIFF" -le 10 ]; then
         echo -e "${GREEN}✅ PASS${NC}: Network partition recovery successful"
         ((TESTS_PASSED++))

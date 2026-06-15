@@ -561,6 +561,6 @@ Before starting services, verify:
 
 ---
 
-**Version:** 1.0  
-**Last Updated:** 2026-05-19  
+**Version:** 1.0
+**Last Updated:** 2026-05-19
 **Status:** Complete

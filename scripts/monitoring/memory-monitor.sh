@@ -25,13 +25,13 @@ log_message() {
 check_system_memory() {
     local total_mem=$(free -m | awk '/^Mem:/{print $2}')
     local used_mem=$(free -m | awk '/^Mem:/{print $3}')
-    
+
     if [ -z "$total_mem" ] || [ "$total_mem" -eq 0 ]; then
         echo "SKIPPED: Unable to get system memory information (permission issue)"
         log_message "WARNING" "Unable to get system memory information (permission issue)"
         return 0  # Don't fail on permission issues
     fi
-    
+
     local mem_percent=$((used_mem * 100 / total_mem))
 
     echo "=== System Memory Status ==="
@@ -54,26 +54,26 @@ check_system_memory() {
 check_service_memory() {
     echo ""
     echo "=== Service Memory Status ==="
-    
+
     local services=$(systemctl list-units --type=service --state=running | grep aitbc | awk '{print $1}')
     local alert_count=0
-    
+
     for service in $services; do
         local memory_current=$(systemctl show "$service" -p MemoryCurrent --value)
         local memory_max=$(systemctl show "$service" -p MemoryMax --value)
         local memory_limit=$(systemctl show "$service" -p MemoryLimit --value)
-        
+
         # Convert bytes to MB
         local memory_current_mb=$((memory_current / 1024 / 1024))
         local memory_max_mb=$((memory_max / 1024 / 1024))
         local memory_limit_mb=$((memory_limit / 1024 / 1024))
-        
+
         # Calculate usage percentage
         local usage_percent=0
         if [ "$memory_max" != "18446744073709551615" ] && [ "$memory_max" != "infinity" ]; then
             usage_percent=$((memory_current * 100 / memory_max))
         fi
-        
+
         # Check if service is near limit
         if [ "$memory_max" != "18446744073709551615" ] && [ "$memory_max" != "infinity" ]; then
             if [ $usage_percent -gt 80 ]; then
@@ -90,7 +90,7 @@ check_service_memory() {
             echo "OK: $service - ${memory_current_mb}MB (no limit)"
         fi
     done
-    
+
     if [ $alert_count -gt 0 ]; then
         return 1
     else
@@ -102,9 +102,9 @@ check_service_memory() {
 check_oom_events() {
     echo ""
     echo "=== OOM Killer Events ==="
-    
+
     local oom_count=$(sudo dmesg 2>/dev/null | grep -i "out of memory" | wc -l)
-    
+
     if [ $oom_count -gt 0 ]; then
         echo -e "${RED}ALERT: Found $oom_count OOM killer events in kernel log${NC}"
         log_message "ALERT" "Found $oom_count OOM killer events in kernel log"
@@ -122,19 +122,19 @@ main() {
     echo "AITBC Memory Monitoring Report"
     echo "=============================="
     echo ""
-    
+
     # Create log directory if it doesn't exist
     mkdir -p "$(dirname "$LOG_FILE")"
-    
+
     # Run checks
     local system_status=0
     local service_status=0
     local oom_status=0
-    
+
     check_system_memory || system_status=1
     check_service_memory || service_status=1
     check_oom_events || oom_status=2
-    
+
     echo ""
     echo "=== Summary ==="
     if [ $service_status -eq 0 ] && [ $oom_status -eq 0 ]; then

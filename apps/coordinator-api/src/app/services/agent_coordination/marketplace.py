@@ -4,16 +4,16 @@ Implements a sophisticated marketplace where agents can offer specialized servic
 """
 
 import asyncio
+import hashlib
+import json
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import Any
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-import hashlib  # noqa: E402
-import json  # noqa: E402
-from dataclasses import dataclass, field  # noqa: E402
-from datetime import UTC, datetime, timedelta  # noqa: E402
-from enum import StrEnum  # noqa: E402
-from typing import Any  # noqa: E402
 
 
 class ServiceStatus(StrEnum):

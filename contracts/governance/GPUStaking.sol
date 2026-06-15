@@ -52,17 +52,17 @@ contract GPUStaking is Ownable, ReentrancyGuard {
     mapping(address => GPUResource) public gpuResources;
     mapping(uint256 => StakingPool) public stakingPools;
     mapping(address => RewardInfo) public rewards;
-    
+
     uint256 public poolCounter;
     uint256 public constant MAX_UTILIZATION = 10000; // 100%
     uint256 public constant SECONDS_PER_DAY = 86400;
-    
+
     // Governance parameters
     uint256 public minStakeAmount = 100e18; // 100 AITBC
     uint256 public minLockPeriod = 7 days;
     uint256 public maxLockPeriod = 365 days;
     uint256 public baseRewardRate = 1e15; // 0.001 AITBC per GPU unit per second
-    
+
     // Events
     event GPUStaked(
         address indexed provider,
@@ -71,25 +71,25 @@ contract GPUStaking is Ownable, ReentrancyGuard {
         uint256 stakeAmount,
         uint256 lockPeriod
     );
-    
+
     event GPUUnstaked(
         address indexed provider,
         uint256 indexed poolId,
         uint256 gpuPower,
         uint256 stakeAmount
     );
-    
+
     event RewardsClaimed(
         address indexed provider,
         uint256 rewardAmount
     );
-    
+
     event PoolCreated(
         uint256 indexed poolId,
         string name,
         uint256 rewardRate
     );
-    
+
     event RewardPoolUpdated(
         uint256 indexed poolId,
         uint256 newAmount
@@ -107,7 +107,7 @@ contract GPUStaking is Ownable, ReentrancyGuard {
 
     constructor(address _stakingToken) {
         stakingToken = IERC20(_stakingToken);
-        
+
         // Create default staking pool
         _createPool("Default GPU Pool", baseRewardRate);
     }
@@ -130,13 +130,13 @@ contract GPUStaking is Ownable, ReentrancyGuard {
         require(gpuPower > 0, "Invalid GPU power");
         require(stakeAmount >= minStakeAmount, "Below minimum stake");
         require(lockPeriod >= minLockPeriod && lockPeriod <= maxLockPeriod, "Invalid lock period");
-        
+
         // Transfer staking tokens
         require(
             stakingToken.transferFrom(msg.sender, address(this), stakeAmount),
             "Transfer failed"
         );
-        
+
         // Create or update GPU resource
         GPUResource storage resource = gpuResources[msg.sender];
         if (!resource.isActive) {
@@ -144,23 +144,23 @@ contract GPUStaking is Ownable, ReentrancyGuard {
             resource.reputation = 100; // Start with base reputation
             resource.isActive = true;
         }
-        
+
         resource.gpuPower = resource.gpuPower.add(gpuPower);
         resource.stakeAmount = resource.stakeAmount.add(stakeAmount);
         resource.lockPeriod = lockPeriod;
         resource.startTime = block.timestamp;
         resource.lastRewardTime = block.timestamp;
         resource.gpuSpecs = gpuSpecs;
-        
+
         // Update staking pool
         StakingPool storage pool = stakingPools[poolId];
         pool.totalGPUPower = pool.totalGPUPower.add(gpuPower);
         pool.totalStaked = pool.totalStaked.add(stakeAmount);
         pool.providerContributions[msg.sender] = pool.providerContributions[msg.sender].add(gpuPower);
-        
+
         // Calculate reward rate based on reputation and utilization
         resource.rewardRate = _calculateRewardRate(msg.sender, poolId);
-        
+
         emit GPUStaked(msg.sender, poolId, gpuPower, stakeAmount, lockPeriod);
     }
 
@@ -175,33 +175,33 @@ contract GPUStaking is Ownable, ReentrancyGuard {
     ) external nonReentrant validPool(poolId) onlyProvider(msg.sender) {
         GPUResource storage resource = gpuResources[msg.sender];
         require(resource.gpuPower >= gpuPower, "Insufficient GPU power");
-        
+
         // Check lock period
         require(
             block.timestamp >= resource.startTime.add(resource.lockPeriod),
             "Still locked"
         );
-        
+
         // Calculate proportional stake amount to return
         uint256 stakeToReturn = (gpuPower.mul(resource.stakeAmount)).div(resource.gpuPower);
-        
+
         // Update resource
         resource.gpuPower = resource.gpuPower.sub(gpuPower);
         resource.stakeAmount = resource.stakeAmount.sub(stakeToReturn);
-        
+
         if (resource.gpuPower == 0) {
             resource.isActive = false;
         }
-        
+
         // Update pool
         StakingPool storage pool = stakingPools[poolId];
         pool.totalGPUPower = pool.totalGPUPower.sub(gpuPower);
         pool.totalStaked = pool.totalStaked.sub(stakeToReturn);
         pool.providerContributions[msg.sender] = pool.providerContributions[msg.sender].sub(gpuPower);
-        
+
         // Return staked tokens
         require(stakingToken.transfer(msg.sender, stakeToReturn), "Transfer failed");
-        
+
         emit GPUUnstaked(msg.sender, poolId, gpuPower, stakeToReturn);
     }
 
@@ -211,18 +211,18 @@ contract GPUStaking is Ownable, ReentrancyGuard {
      */
     function claimRewards(uint256 poolId) external nonReentrant validPool(poolId) onlyProvider(msg.sender) {
         uint256 rewardAmount = _calculatePendingRewards(msg.sender, poolId);
-        
+
         require(rewardAmount > 0, "No rewards to claim");
-        
+
         // Update reward info
         RewardInfo storage rewardInfo = rewards[msg.sender];
         rewardInfo.totalRewards = rewardInfo.totalRewards.add(rewardAmount);
         rewardInfo.pendingRewards = 0;
         rewardInfo.lastClaimTime = block.timestamp;
-        
+
         // Transfer rewards
         require(stakingToken.transfer(msg.sender, rewardAmount), "Transfer failed");
-        
+
         emit RewardsClaimed(msg.sender, rewardAmount);
     }
 
@@ -248,10 +248,10 @@ contract GPUStaking is Ownable, ReentrancyGuard {
         uint256 amount
     ) external onlyOwner validPool(poolId) {
         require(stakingToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
-        
+
         StakingPool storage pool = stakingPools[poolId];
         pool.rewardPool = pool.rewardPool.add(amount);
-        
+
         emit RewardPoolUpdated(poolId, amount);
     }
 
@@ -265,7 +265,7 @@ contract GPUStaking is Ownable, ReentrancyGuard {
         uint256 utilizationRate
     ) external onlyOwner validPool(poolId) {
         require(utilizationRate <= MAX_UTILIZATION, "Invalid utilization");
-        
+
         StakingPool storage pool = stakingPools[poolId];
         pool.utilizationRate = utilizationRate;
     }
@@ -280,9 +280,9 @@ contract GPUStaking is Ownable, ReentrancyGuard {
         uint256 reputation
     ) external onlyOwner {
         require(gpuResources[provider].isActive, "Provider not active");
-        
+
         gpuResources[provider].reputation = reputation;
-        
+
         // Recalculate reward rates for all pools
         for (uint256 i = 1; i <= poolCounter; i++) {
             if (stakingPools[i].isActive) {
@@ -366,19 +366,19 @@ contract GPUStaking is Ownable, ReentrancyGuard {
     ) internal view returns (uint256) {
         GPUResource storage resource = gpuResources[provider];
         StakingPool storage pool = stakingPools[poolId];
-        
+
         if (!resource.isActive || pool.totalGPUPower == 0) {
             return 0;
         }
-        
+
         uint256 timePassed = block.timestamp.sub(resource.lastRewardTime);
         uint256 providerShare = (resource.gpuPower.mul(1e18)).div(pool.totalGPUPower);
-        
+
         // Base rewards * utilization * provider share * time
         uint256 baseRewards = pool.rewardRate.mul(timePassed);
         uint256 utilizationMultiplier = pool.utilizationRate.mul(1e4).div(MAX_UTILIZATION);
         uint256 rewards = baseRewards.mul(utilizationMultiplier).mul(providerShare).div(1e22);
-        
+
         return rewards;
     }
 
@@ -394,11 +394,11 @@ contract GPUStaking is Ownable, ReentrancyGuard {
     ) internal view returns (uint256) {
         GPUResource storage resource = gpuResources[provider];
         StakingPool storage pool = stakingPools[poolId];
-        
+
         // Base rate * reputation bonus * utilization bonus
         uint256 reputationBonus = resource.reputation.add(100); // 1x + reputation/100
         uint256 utilizationBonus = pool.utilizationRate.add(MAX_UTILIZATION).div(2); // Average with 100%
-        
+
         return pool.rewardRate.mul(reputationBonus).mul(utilizationBonus).div(1e4);
     }
 
@@ -412,11 +412,11 @@ contract GPUStaking is Ownable, ReentrancyGuard {
         uint256 rewardRate
     ) internal {
         uint256 poolId = ++poolCounter;
-        
+
         StakingPool storage pool = stakingPools[poolId];
         pool.rewardRate = rewardRate;
         pool.isActive = true;
-        
+
         emit PoolCreated(poolId, name, rewardRate);
     }
 

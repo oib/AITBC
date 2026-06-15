@@ -86,18 +86,18 @@ echo "6. Funding wallets from genesis authority..."
 # Check if genesis wallet exists
 if [ -f "/var/lib/aitbc/keystore/aitbcgenesis.json" ]; then
     echo "Genesis wallet found, funding new wallets..."
-    
+
     # Get genesis address
     GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbcgenesis.json | jq -r '.address')
-    
+
     # Fund client wallet with 1000 AIT
     echo "Funding client wallet with 1000 AIT..."
     ./aitbc-cli wallet send aitbcgenesis $CLIENT_ADDR 1000 aitbc123 2>/dev/null || echo "Client wallet funding completed"
-    
+
     # Fund user wallet with 500 AIT
     echo "Funding user wallet with 500 AIT..."
     ./aitbc-cli wallet send aitbcgenesis $USER_ADDR 500 aitbc123 2>/dev/null || echo "User wallet funding completed"
-    
+
     echo "⏳ Waiting for transactions to confirm..."
     sleep 10
 else
@@ -122,7 +122,7 @@ echo "8. Executing cross-node transaction..."
 if [ ! -z "$CLIENT_ADDR" ] && [ ! -z "$MINER_ADDR" ]; then
     echo "Sending 200 AIT from client wallet to miner wallet (cross-node)..."
     ./aitbc-cli wallet send client-wallet $MINER_ADDR 200 aitbc123 2>/dev/null || echo "Cross-node transaction completed"
-    
+
     echo "⏳ Waiting for cross-node transaction to confirm..."
     sleep 15
 else
@@ -174,7 +174,7 @@ cat > /tmp/hermes_wallet_report.json << EOF
             "status": "created"
         },
         "user-wallet": {
-            "node": "aitbc", 
+            "node": "aitbc",
             "address": "$USER_ADDR",
             "status": "created"
         },

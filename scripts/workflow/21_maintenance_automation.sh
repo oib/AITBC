@@ -269,12 +269,12 @@ uptime_days=$(uptime -p 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "0")
 if [ "$uptime_days" -gt 7 ]; then
     echo "System uptime > 7 days, restarting services..."
     log_action "Restarting services due to high uptime"
-    
+
     systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc
     ssh aitbc 'systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc'
-    
+
     sleep 5
-    
+
     # Verify services are running
     if systemctl is-active --quiet aitbc-blockchain-node && systemctl is-active --quiet aitbc-blockchain-rpc; then
         check_status "Services restarted successfully"

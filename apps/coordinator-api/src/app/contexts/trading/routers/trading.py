@@ -1,23 +1,26 @@
+"""
+P2P Trading Protocol API Endpoints
+REST API for agent-to-agent trading, matching, negotiation, and settlement
+"""
+
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
+from sqlmodel import select
 
-"\nP2P Trading Protocol API Endpoints\nREST API for agent-to-agent trading, matching, negotiation, and settlement\n"
-from datetime import UTC, datetime, timedelta  # noqa: E402
-from typing import Any  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
-from sqlmodel import select  # noqa: E402
-
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
+from ....domain.trading import TradeMatch, TradeNegotiation, TradeRequest, TradeType
+from ....storage import get_session
+from ..services.trading_marketplace.trading import P2PTradingProtocol
 
 logger = get_logger(__name__)
-from ....domain.trading import TradeMatch, TradeNegotiation, TradeRequest, TradeType  # noqa: E402
-from ....storage import get_session  # noqa: E402
-from ..services.trading_marketplace.trading import P2PTradingProtocol  # noqa: E402
 
 router = APIRouter(prefix="/trading", tags=["trading"])
 

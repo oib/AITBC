@@ -42,14 +42,14 @@ echo
 execute_stage_from_json() {
     local stage_num=0
     local json_file="$SCRIPT_DIR/../docs/agent-training/stage${stage_num}_environment_setup.json"
-    
+
     print_status "Executing stage from JSON definition: $json_file"
-    
+
     if [ ! -f "$json_file" ]; then
         print_error "Stage JSON file not found: $json_file"
         return 1
     fi
-    
+
     # Use Python training setup to execute stage
     cd "$AITBC_DIR"
     if python3 -m aitbc.training_setup.cli run-stage --json "$json_file" 2>&1 | tee -a "$CURRENT_LOG"; then
@@ -65,17 +65,17 @@ execute_stage_from_json() {
 main() {
     print_status "Starting $TRAINING_STAGE"
     echo
-    
+
     if execute_stage_from_json; then
         print_success "$TRAINING_STAGE completed"
-        
+
         # Output learnings for skill update
         output_stage_learnings 0 "Environment Setup" \
             "python3 -m aitbc.training_setup.cli setup|./aitbc-cli blockchain genesis|systemctl status aitbc-blockchain-node.service" \
             "Genesis password location: /var/lib/aitbc/keystore/.genesis_password|Blockchain RPC on port 8202|Environment variables in /etc/aitbc/.env" \
             "/var/lib/aitbc/keystore/.genesis_password|/etc/aitbc/.env|/etc/aitbc/node.env" \
             "Genesis block initialization|Environment setup|Service management"
-        
+
         return 0
     else
         print_error "$TRAINING_STAGE failed"

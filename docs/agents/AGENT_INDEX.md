@@ -15,7 +15,7 @@
 
 ### Agent Types
 1. **Compute Provider** - Sell computational resources
-2. **Compute Consumer** - Rent computational power  
+2. **Compute Consumer** - Rent computational power
 3. **Platform Builder** - Contribute code improvements
 4. **Swarm Coordinator** - Participate in collective intelligence
 

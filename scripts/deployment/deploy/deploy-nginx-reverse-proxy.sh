@@ -69,7 +69,7 @@ EOF
 print_status "Checking SSL certificate..."
 if ! ssh ns3-root "test -f /etc/letsencrypt/live/aitbc.keisanki.net/fullchain.pem"; then
     print_warning "SSL certificate not found. Obtaining Let's Encrypt certificate..."
-    
+
     # Obtain SSL certificate
     ssh ns3-root << 'EOF'
 # Stop nginx temporarily
@@ -81,7 +81,7 @@ certbot certonly --standalone -d aitbc.keisanki.net -d api.aitbc.keisanki.net -d
 # Start nginx
 systemctl start nginx
 EOF
-    
+
     if [ $? -ne 0 ]; then
         print_error "Failed to obtain SSL certificate. Please run certbot manually:"
         echo "certbot certonly --standalone -d aitbc.keisanki.net -d api.aitbc.keisanki.net -d rpc.aitbc.keisanki.net"

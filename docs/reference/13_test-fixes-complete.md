@@ -33,7 +33,7 @@ All integration tests are now working correctly! The main issues were:
 
 ### test_basic_integration.py
 - ✅ test_coordinator_client_fixture - PASSED
-- ✅ test_mock_coordinator_client - PASSED  
+- ✅ test_mock_coordinator_client - PASSED
 - ⏭️ test_simple_job_creation_mock - SKIPPED (redundant)
 - ✅ test_pytest_markings - PASSED
 - ✅ test_pytest_markings_integration - PASSED
@@ -79,7 +79,7 @@ def mock_get_side_effect(url, headers=None):
 # Before
 assert response.json()["id"] == job_id
 
-# After  
+# After
 assert response.json()["job_id"] == job_id
 ```
 

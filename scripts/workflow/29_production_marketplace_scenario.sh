@@ -184,27 +184,27 @@ if [ -n "$AI_RESULT" ] && [ "$AI_RESULT" != "null" ] && [ "$AI_RESULT" != '{"det
     echo "✅ AI task submitted to real GPU"
     AI_TASK_ID=$(echo "$AI_RESULT" | jq -r .task_id 2>/dev/null || echo "unknown")
     echo "AI Task ID: $AI_TASK_ID"
-    
+
     # Wait for AI response
     echo "Waiting for AI response..."
     MAX_WAIT=30
     WAIT_COUNT=0
-    
+
     while [ "$WAIT_COUNT" -lt "$MAX_WAIT" ]; do
         echo "Checking AI response... ($((WAIT_COUNT + 1))/$MAX_WAIT)"
-        
+
         AI_RESPONSE_RESULT=$(ssh $FOLLOWER_NODE "curl -s \"http://localhost:$FOLLOWER_PORT/rpc/ai/result?task_id=$AI_TASK_ID\"" 2>/dev/null)
-        
+
         if [ -n "$AI_RESPONSE_RESULT" ] && [ "$AI_RESPONSE_RESULT" != "null" ] && [ "$AI_RESPONSE_RESULT" != '{"detail":"Not Found"}' ]; then
             AI_RESPONSE=$(echo "$AI_RESPONSE_RESULT" | jq -r .response 2>/dev/null || echo "Response not available")
             echo "✅ AI Response received: ${GREEN}$AI_RESPONSE${NC}"
             break
         fi
-        
+
         sleep 2
         ((WAIT_COUNT++))
     done
-    
+
     if [ "$WAIT_COUNT" -ge "$MAX_WAIT" ]; then
         echo "⚠️ AI response timeout - checking task status"
         AI_STATUS=$(ssh $FOLLOWER_NODE "curl -s \"http://localhost:$FOLLOWER_PORT/rpc/ai/status?task_id=$AI_TASK_ID\"" 2>/dev/null)

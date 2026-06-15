@@ -220,7 +220,7 @@ Tests that verify multiple components work together:
   ```bash
   # Start required services first
   docker-compose up -d postgres redis
-  
+
   # Run integration tests
   pytest tests/integration/ -v
   ```
@@ -238,7 +238,7 @@ Full system tests that simulate real user workflows:
   # Start full system
   sudo systemctl start aitbc-coordinator-api.service
   sudo systemctl start aitbc-blockchain-node.service
-  
+
   # Run E2E tests
   pytest tests/e2e/ -v -s
   ```
@@ -255,7 +255,7 @@ Tests that verify security properties and vulnerability resistance:
   ```bash
   # Run security scanner
   bandit -r apps/ -f json -o bandit-report.json
-  
+
   # Run security tests
   pytest tests/security/ -v
   ```
@@ -272,13 +272,13 @@ Performance and scalability tests:
   ```bash
   # Run canonical load test with runner script (recommended)
   scripts/testing/run_load_tests.sh
-  
+
   # Run with custom parameters
   LOAD_USERS=200 LOAD_DURATION=10m scripts/testing/run_load_tests.sh
-  
+
   # Run Locust web UI directly
   locust -f tests/load/test_api_load.py --web-host 127.0.0.1
-  
+
   # Run headless directly
   locust -f tests/load/test_api_load.py --headless -u 100 -r 10 -t 5m
   ```
@@ -362,16 +362,16 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python: "3.11"
-      
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
           pip install -r requirements-test.txt
-      
+
       - name: Run unit tests
         run: |
           pytest tests/unit/ -v --cov=apps --cov-report=xml
-      
+
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
@@ -389,7 +389,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      
+
       redis:
         image: redis:7
         options: >-
@@ -397,18 +397,18 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    
+
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
           python: "3.11"
-      
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
           pip install -r requirements-test.txt
-      
+
       - name: Run integration tests
         run: |
           pytest tests/integration/ -v
@@ -425,7 +425,7 @@ jobs:
    ```bash
    # Ensure PYTHONPATH is set
    export PYTHONPATH="${PYTHONPATH}:$(pwd)"
-   
+
    # Or install in development mode
    pip install -e .
    ```
@@ -434,7 +434,7 @@ jobs:
    ```bash
    # Check if PostgreSQL is running
    pg_isready -h localhost -p 5432
-   
+
    # Create test database
    createdb -h localhost -p 5432 aitbc_test
    ```
@@ -443,7 +443,7 @@ jobs:
    ```bash
    # Check if Redis is running
    redis-cli ping
-   
+
    # Use correct database
    redis-cli -n 1 FLUSHDB
    ```
@@ -452,7 +452,7 @@ jobs:
    ```bash
    # Increase timeout for slow tests
    pytest --timeout=600
-   
+
    # Run tests sequentially
    pytest -n 0
    ```

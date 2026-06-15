@@ -1,21 +1,19 @@
-from typing import Annotated
+"""
+Advanced Agent Performance API Endpoints
+REST API for meta-learning, resource optimization, and performance enhancement
+"""
 
-"\nAdvanced Agent Performance API Endpoints\nREST API for meta-learning, resource optimization, and performance enhancement\n"
-from datetime import UTC, datetime  # noqa: E402
-from typing import Any  # noqa: E402
+from datetime import UTC, datetime
+from typing import Annotated, Any
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
-
-logger = get_logger(__name__)
-from uuid import uuid4  # noqa: E402
-
-from sqlmodel import Session, select  # noqa: E402
-
-from app.domain.agent_performance import (  # type: ignore[import-not-found]  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
+from app.domain.agent_performance import (  # type: ignore[import-not-found]
     AgentCapability,
     AgentPerformanceProfile,
     LearningStrategy,
@@ -26,13 +24,15 @@ from app.domain.agent_performance import (  # type: ignore[import-not-found]  # 
     ResourceAllocation,
 )
 
-from ..services.agent_performance_service import (  # noqa: E402
+from ..services.agent_performance_service import (
     AgentPerformanceService,
     MetaLearningEngine,
     PerformanceOptimizer,
     ResourceManager,
 )
-from ..storage import get_session  # noqa: E402
+from ..storage import get_session
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/v1/agent-performance", tags=["agent-performance"])
 

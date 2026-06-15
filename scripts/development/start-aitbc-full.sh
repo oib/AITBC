@@ -63,7 +63,7 @@ print_status "Starting incus containers..."
 containers=("aitbc" "aitbc1")
 for container in "${containers[@]}"; do
     print_status "Starting container: $container"
-    
+
     if incus info "$container" >/dev/null 2>&1; then
         if incus info "$container" | grep -q "Status: RUNNING"; then
             print_warning "Container $container is already running"
@@ -100,9 +100,9 @@ container_services=(
 for service_info in "${container_services[@]}"; do
     container=$(echo "$service_info" | cut -d: -f1)
     service=$(echo "$service_info" | cut -d: -f2)
-    
+
     print_status "Starting $service in container $container"
-    
+
     # Check if service exists in container
     if incus exec "$container" -- systemctl list-unit-files | grep -q "$service.service"; then
         # Start the service inside container
@@ -127,12 +127,12 @@ if [ -z "$aitbc_services" ]; then
 else
     print_status "Found AITBC services:"
     echo "$aitbc_services" | sed 's/^/  - /'
-    
+
     # Start each service
     for service in $aitbc_services; do
         service_name=$(echo "$service" | sed 's/\.service$//')
         print_status "Starting service: $service_name"
-        
+
         if is_service_running "$service_name"; then
             print_warning "Service $service_name is already running"
         else
@@ -170,7 +170,7 @@ print_status "Container Services Status:"
 for service_info in "${container_services[@]}"; do
     container=$(echo "$service_info" | cut -d: -f1)
     service=$(echo "$service_info" | cut -d: -f2)
-    
+
     if incus exec "$container" -- systemctl is-active --quiet "$service" 2>/dev/null; then
         print_success "$service in $container: RUNNING"
     else
@@ -194,7 +194,7 @@ ports=(
 for port_info in "${ports[@]}"; do
     port=$(echo "$port_info" | cut -d: -f1)
     service_name=$(echo "$port_info" | cut -d: -f2)
-    
+
     if is_port_in_use "$port"; then
         print_success "$service_name (port $port): RUNNING"
     else
@@ -214,7 +214,7 @@ health_endpoints=(
 for endpoint_info in "${health_endpoints[@]}"; do
     url=$(echo "$endpoint_info" | cut -d: -f1-3)
     service_name=$(echo "$endpoint_info" | cut -d: -f4)
-    
+
     if curl -s --max-time 5 "$url" >/dev/null 2>&1; then
         print_success "$service_name: HEALTHY"
     else
@@ -228,18 +228,18 @@ print_status "Container status and network information..."
 for container in "${containers[@]}"; do
     if incus info "$container" | grep -q "Status: RUNNING"; then
         print_success "Container $container: RUNNING"
-        
+
         # Get container IP
         container_ip=$(incus exec "$container" -- ip addr show eth0 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d/ -f1 || echo "N/A")
         if [ "$container_ip" != "N/A" ]; then
             print_status "  IP: $container_ip"
-            
+
             # Test connectivity to container services
             print_status "  Testing container services:"
             for service_info in "${container_services[@]}"; do
                 cont=$(echo "$service_info" | cut -d: -f1)
                 serv=$(echo "$service_info" | cut -d: -f2)
-                
+
                 if [ "$cont" = "$container" ]; then
                     case $serv in
                         "aitbc-coordinator-api")

@@ -236,7 +236,7 @@ df -h
 # Check service permissions
 systemctl status aitbc-multimodal.service
 
-# Audit service logs 
+# Audit service logs
 journalctl -u aitbc-marketplace.service --since "1 hour ago"
 
 # Monitor resource usage

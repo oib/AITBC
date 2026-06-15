@@ -42,13 +42,13 @@ log() {
 
 check_prerequisites() {
     log "INFO" "Checking prerequisites..."
-    
+
     # Check AITBC CLI
     if [ ! -f "$AITBC_DIR/aitbc-cli" ]; then
         log "ERROR" "AITBC CLI not found at $AITBC_DIR/aitbc-cli"
         return 1
     fi
-    
+
     # Check AITBC node status
     cd "$AITBC_DIR"
     local node_status
@@ -58,14 +58,14 @@ check_prerequisites() {
     else
         log "INFO" "AITBC node detected: $(echo "$node_status" | head -1)"
     fi
-    
+
     log "SUCCESS" "Prerequisites check completed"
     return 0
 }
 
 setup_faucet() {
     log "INFO" "Setting up faucet mechanism..."
-    
+
     if [ -f "$SCRIPT_DIR/setup_faucet.sh" ]; then
         bash "$SCRIPT_DIR/setup_faucet.sh"
         log "SUCCESS" "Faucet setup completed"
@@ -76,7 +76,7 @@ setup_faucet() {
 
 fund_accounts() {
     log "INFO" "Funding training accounts..."
-    
+
     if [ -f "$SCRIPT_DIR/fund_accounts.sh" ]; then
         bash "$SCRIPT_DIR/fund_accounts.sh"
         log "SUCCESS" "Account funding completed"
@@ -87,7 +87,7 @@ fund_accounts() {
 
 configure_messaging() {
     log "INFO" "Configuring messaging authentication..."
-    
+
     if [ -f "$SCRIPT_DIR/configure_messaging.sh" ]; then
         bash "$SCRIPT_DIR/configure_messaging.sh"
         log "SUCCESS" "Messaging configuration completed"
@@ -98,35 +98,35 @@ configure_messaging() {
 
 verify_environment() {
     log "INFO" "Verifying training environment..."
-    
+
     cd "$AITBC_DIR"
-    
+
     # Check wallet list
     local wallets
     wallets=$(./aitbc-cli wallet list 2>&1 || echo "error")
     if [[ "$wallets" != *"error"* ]]; then
         log "INFO" "Wallets found: $(echo "$wallets" | grep -c "ait1" || echo "0")"
     fi
-    
+
     # Check blockchain status
     local chain_status
     chain_status=$(./aitbc-cli blockchain info 2>&1 || echo "error")
     if [[ "$chain_status" != *"error"* ]]; then
         log "INFO" "Blockchain status: $(echo "$chain_status" | head -1)"
     fi
-    
+
     log "SUCCESS" "Environment verification completed"
 }
 
 main() {
     log "INFO" "Starting AITBC training environment setup..."
-    
+
     check_prerequisites || exit 1
     setup_faucet
     fund_accounts
     configure_messaging
     verify_environment
-    
+
     log "SUCCESS" "Training environment setup completed"
     echo ""
     echo -e "${GREEN}=== Setup Summary ===${NC}"

@@ -35,7 +35,7 @@ from aitbc import AsyncAITBCClient
 
 async def process_images(image_paths):
     client = AsyncAITBCClient(api_key="your_key")
-    
+
     tasks = []
     for path in image_paths:
         job = await client.jobs.create({
@@ -43,7 +43,7 @@ async def process_images(image_paths):
             "type": "image-analysis"
         })
         tasks.append(client.jobs.wait_for_completion(job["job_id"]))
-    
+
     results = await asyncio.gather(*tasks)
     return results
 ```
@@ -58,7 +58,7 @@ import { AITBCClient } from '@aitbc/client';
 function JobList() {
     const [jobs, setJobs] = useState([]);
     const client = new AITBCClient({ apiKey: 'your_key' });
-    
+
     useEffect(() => {
         async function fetchJobs() {
             const jobList = await client.jobs.list();
@@ -66,7 +66,7 @@ function JobList() {
         }
         fetchJobs();
     }, []);
-    
+
     return (
         <div>
             {jobs.map(job => (

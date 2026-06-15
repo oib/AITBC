@@ -12,8 +12,7 @@ from sqlmodel import Session, select
 
 from aitbc import get_logger
 
-logger = get_logger(__name__)
-from ....domain.governance import (  # noqa: E402
+from ....domain.governance import (
     DaoTreasury,
     GovernanceProfile,
     GovernanceRole,
@@ -23,6 +22,8 @@ from ....domain.governance import (  # noqa: E402
     Vote,
     VoteType,
 )
+
+logger = get_logger(__name__)
 
 
 class GovernanceService:

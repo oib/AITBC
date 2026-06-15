@@ -132,7 +132,7 @@ ssh $SERVER 'cat > /etc/nginx/sites-available/aitbc << EOF
 server {
     listen 80;
     server_name aitbc.bubuit.net;
-    
+
     # API routes
     location /api/ {
         proxy_pass http://127.0.0.1:8000/v1/;
@@ -141,7 +141,7 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
-    
+
     # Admin routes
     location /admin/ {
         proxy_pass http://127.0.0.1:8000/admin/;
@@ -150,7 +150,7 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
-    
+
     # Blockchain RPC
     location /rpc/ {
         proxy_pass http://127.0.0.1:9080/rpc/;
@@ -159,7 +159,7 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
-    
+
     # Marketplace UI
     location /Marketplace {
         proxy_pass http://127.0.0.1:3001/;
@@ -168,7 +168,7 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
-    
+
     # Trade Exchange
     location /Exchange {
         proxy_pass http://127.0.0.1:3002/;
@@ -177,13 +177,13 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
-    
+
     # Health endpoint
     location /health {
         proxy_pass http://127.0.0.1:8000/v1/health;
         proxy_set_header Host \$host;
     }
-    
+
     # Default redirect
     location / {
         return 301 /Marketplace;

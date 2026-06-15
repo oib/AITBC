@@ -7,11 +7,9 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
-logger = logging.getLogger(__name__)
-from typing import Any  # noqa: E402
-
-from models.chain import (  # noqa: E402
+from models.chain import (  # type: ignore[import-not-found]
     ChainBackupResult,
     ChainConfig,
     ChainInfo,
@@ -22,8 +20,10 @@ from models.chain import (  # noqa: E402
     GenesisBlock,
 )
 
-from .config import MultiChainConfig  # noqa: E402
-from .node_client import NodeClient  # noqa: E402
+from .config import MultiChainConfig
+from .node_client import NodeClient
+
+logger = logging.getLogger(__name__)
 
 
 class ChainAlreadyExistsError(Exception):

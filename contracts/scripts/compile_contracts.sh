@@ -32,16 +32,16 @@ echo "Compiling contracts..."
 for contract in "${contracts[@]}"; do
     if [ -f "$contract" ]; then
         echo "Compiling $contract..."
-        
+
         # Extract contract name from file path
         contract_name=$(basename "$contract" .sol)
-        
+
         # Compile with solc
         solc --bin --abi --optimize --output-dir artifacts \
               --base-path . \
               --include-path node_modules/@openzeppelin/contracts/node_modules/@openzeppelin/contracts \
               "$contract"
-        
+
         if [ $? -eq 0 ]; then
             echo "✅ $contract_name compiled successfully"
         else

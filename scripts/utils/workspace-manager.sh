@@ -47,43 +47,43 @@ ensure_workspace_base() {
 setup_workspace() {
     local workspace_type="$1"
     local workspace_dir="$WORKSPACE_BASE/$workspace_type"
-    
+
     log_info "=== Setting up $workspace_type workspace ==="
-    
+
     # Cleanup existing workspace
     if [[ -d "$workspace_dir" ]]; then
         log_warning "Removing existing workspace: $workspace_dir"
         rm -rf "$workspace_dir"
     fi
-    
+
     # Create new workspace
     mkdir -p "$workspace_dir"
     cd "$workspace_dir"
-    
+
     # Clone repository
     log_info "Cloning repository to: $workspace_dir/repo"
     if ! git clone "$REPO_URL" repo; then
         log_error "Failed to clone repository"
         return 1
     fi
-    
+
     cd repo
     log_success "✅ $workspace_type workspace ready at $workspace_dir/repo"
     log_info "Current directory: $(pwd)"
     log_info "Repository contents:"
     ls -la | head -10
-    
+
     # Set git config for CI
     git config --global http.sslVerify false
     git config --global http.postBuffer 1048576000
-    
+
     return 0
 }
 
 # Cleanup all workspaces
 cleanup_all_workspaces() {
     log_info "=== Cleaning up all workspaces ==="
-    
+
     if [[ -d "$WORKSPACE_BASE" ]]; then
         log_warning "Removing workspace base directory: $WORKSPACE_BASE"
         rm -rf "$WORKSPACE_BASE"
@@ -96,21 +96,21 @@ cleanup_all_workspaces() {
 # List all workspaces
 list_workspaces() {
     log_info "=== AITBC Workspaces ==="
-    
+
     if [[ ! -d "$WORKSPACE_BASE" ]]; then
         log_info "No workspace base directory found"
         return 0
     fi
-    
+
     log_info "Workspace base: $WORKSPACE_BASE"
     echo
-    
+
     for workspace in "$WORKSPACE_BASE"/*; do
         if [[ -d "$workspace" ]]; then
             local workspace_name=$(basename "$workspace")
             local size=$(du -sh "$workspace" 2>/dev/null | cut -f1)
             local files=$(find "$workspace" -type f 2>/dev/null | wc -l)
-            
+
             echo "📁 $workspace_name"
             echo "   Size: $size"
             echo "   Files: $files"
@@ -124,40 +124,40 @@ list_workspaces() {
 check_workspace() {
     local workspace_type="$1"
     local workspace_dir="$WORKSPACE_BASE/$workspace_type"
-    
+
     log_info "=== Checking $workspace_type workspace ==="
-    
+
     if [[ ! -d "$workspace_dir" ]]; then
         log_warning "Workspace does not exist: $workspace_dir"
         return 1
     fi
-    
+
     if [[ ! -d "$workspace_dir/repo" ]]; then
         log_warning "Repository not found in workspace: $workspace_dir/repo"
         return 1
     fi
-    
+
     cd "$workspace_dir/repo"
-    
+
     local git_status=$(git status --porcelain 2>/dev/null | wc -l)
     local current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
     local last_commit=$(git log -1 --format="%h %s" 2>/dev/null || echo "unknown")
     local workspace_size=$(du -sh "$workspace_dir" 2>/dev/null | cut -f1)
-    
+
     echo "📊 Workspace Status:"
     echo "   Path: $workspace_dir/repo"
     echo "   Size: $workspace_size"
     echo "   Branch: $current_branch"
     echo "   Modified files: $git_status"
     echo "   Last commit: $last_commit"
-    
+
     return 0
 }
 
 # Main function
 main() {
     local command="${1:-help}"
-    
+
     case "$command" in
         "setup")
             ensure_workspace_base

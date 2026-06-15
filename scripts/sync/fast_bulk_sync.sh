@@ -34,9 +34,9 @@ while [ "$current_start" -le "$end_height" ]; do
     if [ "$current_end" -gt "$end_height" ]; then
         current_end=$end_height
     fi
-    
+
     echo "Processing batch: $current_start to $current_end"
-    
+
     # Get blocks and import them
     curl -s "http://$GENESIS_NODE:$GENESIS_PORT/rpc/blocks-range?start=$current_start&end=$current_end" | \
     jq -r '.blocks[] | @base64' | while read -r block_b64; do
@@ -48,21 +48,21 @@ while [ "$current_start" -le "$end_height" ]; do
             proposer=$(echo "$block" | jq -r .proposer)
             timestamp=$(echo "$block" | jq -r .timestamp)
             tx_count=$(echo "$block" | jq -r .tx_count)
-            
+
             # Create import request
             import_req="{\"height\":$height,\"hash\":\"$hash\",\"parent_hash\":\"$parent_hash\",\"proposer\":\"$proposer\",\"timestamp\":\"$timestamp\",\"tx_count\":$tx_count}"
-            
+
             # Import block
             result=$(curl -s -X POST "http://localhost:$LOCAL_PORT/rpc/importBlock" \
                 -H "Content-Type: application/json" \
                 -d "$import_req" | jq -r .accepted 2>/dev/null || echo "false")
-            
+
             if [ "$result" = "true" ]; then
                 echo "✅ Imported block $height"
             fi
         fi
     done
-    
+
     current_start=$((current_end + 1))
     sleep 0.5
 done

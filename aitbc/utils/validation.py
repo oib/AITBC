@@ -145,7 +145,7 @@ def validate_non_empty(value: Any, field_name: str = "value") -> bool:
     if isinstance(value, str) and not value.strip():
         raise ValidationError(f"{field_name} cannot be empty string")
 
-    if isinstance(value, (list, dict)) and len(value) == 0:
+    if isinstance(value, list | dict) and len(value) == 0:
         raise ValidationError(f"{field_name} cannot be empty")
 
     return True
@@ -165,7 +165,7 @@ def validate_positive_number(value: Any, field_name: str = "value") -> bool:
     Raises:
         ValidationError: If value is not positive
     """
-    if not isinstance(value, (int, float)):
+    if not isinstance(value, int | float):
         raise ValidationError(f"{field_name} must be a number, got {type(value)}")
 
     if value <= 0:
@@ -190,7 +190,7 @@ def validate_range(value: Any, min_val: float, max_val: float, field_name: str =
     Raises:
         ValidationError: If value is outside range
     """
-    if not isinstance(value, (int, float)):
+    if not isinstance(value, int | float):
         raise ValidationError(f"{field_name} must be a number, got {type(value)}")
 
     if value < min_val or value > max_val:

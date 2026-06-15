@@ -38,15 +38,15 @@ sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
 try:
     from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA
     poa = MultiValidatorPoA(chain_id=1337)
-    
+
     # Add test validators if empty
     if len(poa.validators) == 0:
         poa.add_validator('0xvalidator1', 1000.0)
         poa.add_validator('0xvalidator2', 1000.0)
-    
+
     total_stake = sum(v.stake for v in poa.validators.values())
     print(f'CONSENSUS:ACTIVE:{len(poa.validators)}:{total_stake}')
-    
+
     # Get proposer
     proposer = poa.select_proposer(block_height=1)
     print(f'PROPOSER:{proposer}')
@@ -58,7 +58,7 @@ if [[ "$consensus_info" == CONSENSUS:ACTIVE:* ]]; then
     validator_count=$(echo "$consensus_info" | cut -d: -f3)
     total_stake=$(echo "$consensus_info" | cut -d: -f4)
     proposer=$(echo "$consensus_info" | cut -d: -f5-)
-    
+
     echo -e "${GREEN}✅ Consensus: ACTIVE${NC}"
     echo "   Validators: $validator_count"
     echo "   Total Stake: $total_stake AITBC"

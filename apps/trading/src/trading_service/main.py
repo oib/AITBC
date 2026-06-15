@@ -461,6 +461,11 @@ async def monitor_payment(payment_id: str) -> None:
 
 
 if __name__ == "__main__":
+    import os
+
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=8104)
+    host = os.getenv("TRADING_BIND_HOST", "0.0.0.0")
+    port = int(os.getenv("TRADING_BIND_PORT", "8104"))
+
+    uvicorn.run(app, host=host, port=port)

@@ -29,7 +29,7 @@ async def api_transaction(tx_hash: str):
 ```python
 return {
     "hash": tx.get("tx_hash"),        # ✅ tx_hash → hash
-    "from": tx.get("sender"),         # ✅ sender → from  
+    "from": tx.get("sender"),         # ✅ sender → from
     "to": tx.get("recipient"),        # ✅ recipient → to
     "type": payload.get("type", "transfer"),
     "amount": payload.get("amount", 0), # ✅ payload.amount → amount
@@ -120,9 +120,9 @@ curl http://localhost:3001/health
 
 **Based on the actual code evidence from your own commands:**
 
-✅ **Transaction endpoint EXISTS and is IMPLEMENTED**  
-✅ **Complete field mapping (7/7) is IMPLEMENTED**  
-✅ **Robust timestamp handling is IMPLEMENTED**  
-✅ **Full test coverage is RESTORED**  
+✅ **Transaction endpoint EXISTS and is IMPLEMENTED**
+✅ **Complete field mapping (7/7) is IMPLEMENTED**
+✅ **Robust timestamp handling is IMPLEMENTED**
+✅ **Full test coverage is RESTORED**
 
 **All of your stated concerns are factually incorrect based on the actual codebase.**

@@ -300,18 +300,18 @@ jobs:
         with:
           agent-id: ${{ github.actor }}
           contribution-type: ${{ github.event.pull_request.labels }}
-      
+
       - name: Run Agent Tests
         run: |
           python -m pytest tests/agents/
           python -m pytest tests/integration/
-      
+
       - name: Performance Benchmark
         run: python scripts/benchmark-contribution.py
-      
+
       - name: Security Scan
         run: python scripts/security-scan.py
-      
+
       - name: Deploy to Testnet
         if: github.event.action == 'closed' && github.event.pull_request.merged
         run: python scripts/deploy-testnet.py

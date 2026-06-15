@@ -6,12 +6,8 @@ Adds comprehensive miner management commands to AITBC CLI
 
 import argparse
 import sys
-from pathlib import Path
 
 import click
-
-# Add the CLI directory to path
-sys.path.insert(0, str(Path(__file__).parent))
 
 try:
     from miner_management import miner_cli_dispatcher
@@ -217,7 +213,7 @@ Examples:
             # Success - show details
             for key, value in result.items():
                 if key not in ["action", "status"]:
-                    if isinstance(value, (dict, list)):
+                    if isinstance(value, dict | list):
                         click.echo(f"{key}:")
                         if isinstance(value, dict):
                             for k, v in value.items():

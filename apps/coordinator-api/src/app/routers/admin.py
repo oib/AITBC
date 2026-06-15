@@ -24,7 +24,6 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.get("/debug-settings", summary="Debug settings")
 @rate_limit(rate=100, per=60)
 async def debug_settings(request: Request) -> dict:
-
     def mask_keys(keys: list[str]) -> list[str]:
         return [key[:8] + "..." if len(key) > 8 else "***" for key in keys]
 

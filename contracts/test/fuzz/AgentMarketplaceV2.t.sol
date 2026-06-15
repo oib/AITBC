@@ -45,7 +45,7 @@ contract AgentMarketplaceV2FuzzTest is Test {
         uint256 capabilityId = marketplace.listCapability(metadataURI, pricePerCall, subscriptionPrice, isSubscriptionEnabled);
 
         (address providerAgent, string memory storedURI, uint256 storedPricePerCall, uint256 storedSubscriptionPrice, bool storedIsSubscriptionEnabled, bool isActive, , , , ) = marketplace.capabilities(capabilityId);
-        
+
         assertEq(providerAgent, provider);
         assertEq(storedURI, metadataURI);
         assertEq(storedPricePerCall, pricePerCall);
@@ -76,7 +76,7 @@ contract AgentMarketplaceV2FuzzTest is Test {
         marketplace.updateCapability(id, newPricePerCall, newSubscriptionPrice, newIsSubscriptionEnabled, newIsActive);
 
         (, , uint256 storedPricePerCall, uint256 storedSubscriptionPrice, bool storedIsSubscriptionEnabled, bool storedIsActive, , , , ) = marketplace.capabilities(id);
-        
+
         assertEq(storedPricePerCall, newPricePerCall);
         assertEq(storedSubscriptionPrice, newSubscriptionPrice);
         assertEq(storedIsSubscriptionEnabled, newIsSubscriptionEnabled);
@@ -241,7 +241,7 @@ contract AgentMarketplaceV2FuzzTest is Test {
         for (uint256 i = 0; i < numSubscriptions; i++) {
             vm.prank(provider);
             uint256 capabilityId = marketplace.listCapability(string(abi.encodePacked("ipfs://", i)), 1e18, 10e18, true);
-            
+
             vm.prank(consumer);
             marketplace.subscribeToCapability(capabilityId);
         }

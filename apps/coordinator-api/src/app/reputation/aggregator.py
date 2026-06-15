@@ -6,13 +6,14 @@ Aggregates reputation data from multiple blockchains and normalizes scores
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlmodel import Session, select
+
 from aitbc import get_logger
 
-logger = get_logger(__name__)
-from sqlmodel import Session, select  # noqa: E402
+from ..domain.cross_chain_reputation import CrossChainReputationAggregation, CrossChainReputationConfig
+from ..domain.reputation import AgentReputation, ReputationEvent
 
-from ..domain.cross_chain_reputation import CrossChainReputationAggregation, CrossChainReputationConfig  # noqa: E402
-from ..domain.reputation import AgentReputation, ReputationEvent  # noqa: E402
+logger = get_logger(__name__)
 
 
 class CrossChainReputationAggregator:

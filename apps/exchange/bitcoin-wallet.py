@@ -9,11 +9,11 @@ import json
 import logging
 import os
 import time
+from dataclasses import dataclass
+
+import requests
 
 logger = logging.getLogger(__name__)
-from dataclasses import dataclass  # noqa: E402
-
-import requests  # noqa: E402
 
 
 @dataclass

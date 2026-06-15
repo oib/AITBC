@@ -2,7 +2,6 @@
 
 import json
 import os
-import sys
 from datetime import datetime
 
 import click
@@ -23,9 +22,6 @@ def _load_env_file(path: str):
 _load_env_file("/etc/aitbc/blockchain.env")
 _load_env_file("/etc/aitbc/blockchain-secrets.env")
 _load_env_file("/etc/aitbc/node.env")
-
-# Add path to import Hermes storage
-sys.path.insert(0, "/opt/aitbc/apps/hermes/src")
 
 from hermes_service.services import TransactionService  # noqa: E402
 from hermes_service.storage import CoinRequest, CoinRequestStatus, get_db_session, init_db  # noqa: E402

@@ -8,12 +8,10 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from sqlmodel import Session, select
+
 from aitbc import get_logger
-
-logger = get_logger(__name__)
-from sqlmodel import Session, select  # noqa: E402
-
-from app.domain.agent_performance import (  # type: ignore[import-not-found]  # noqa: E402
+from app.domain.agent_performance import (  # type: ignore[import-not-found]
     AgentPerformanceProfile,
     LearningStrategy,
     MetaLearningModel,
@@ -23,6 +21,8 @@ from app.domain.agent_performance import (  # type: ignore[import-not-found]  # 
     ResourceAllocation,
     ResourceType,
 )
+
+logger = get_logger(__name__)
 
 
 class MetaLearningEngine:

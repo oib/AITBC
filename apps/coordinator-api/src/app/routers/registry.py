@@ -198,7 +198,7 @@ async def validate_service_request(service_id: str, request_data: dict[str, Any]
             if param.type == "integer" and not isinstance(value, int):
                 validation_result["valid"] = False
                 validation_result["errors"].append(f"Parameter {param.name} must be an integer")
-            elif param.type == "float" and not isinstance(value, (int, float)):
+            elif param.type == "float" and not isinstance(value, int | float):
                 validation_result["valid"] = False
                 validation_result["errors"].append(f"Parameter {param.name} must be a number")
             elif param.type == "boolean" and not isinstance(value, bool):

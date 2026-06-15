@@ -1,22 +1,22 @@
 """Utility functions for AITBC CLI"""
 
+import json
 import logging
+import os
+import sys
 import time
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any
+
+import yaml
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.panel import Panel
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.table import Table
 
 logger = logging.getLogger(__name__)
-import json  # noqa: E402
-import os  # noqa: E402
-import sys  # noqa: E402
-from contextlib import contextmanager  # noqa: E402
-from pathlib import Path  # noqa: E402
-from typing import Any  # noqa: E402
-
-import yaml  # noqa: E402
-from rich.console import Console  # noqa: E402
-from rich.logging import RichHandler  # noqa: E402
-from rich.panel import Panel  # noqa: E402
-from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn  # noqa: E402
-from rich.table import Table  # noqa: E402
 
 try:
     from tabulate import tabulate
@@ -205,7 +205,7 @@ def render(data: Any, format_type: str = "table", title: str = None):
             table.add_column("Value", style="green")
 
             for key, value in data.items():
-                if isinstance(value, (dict, list)):
+                if isinstance(value, dict | list):
                     value = json.dumps(value, default=str)
                 table.add_row(str(key), str(value))
 

@@ -28,7 +28,7 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
     uint256 public defaultFee = 30; // 0.3% default fee
     uint256 public protocolFeePercentage = 20; // 20% of fees go to protocol
     address public protocolFeeRecipient;
-    
+
     // Flash loan protection state variables
     uint256 public maxPriceDeviation = 500; // 5% max price deviation (in basis points)
     uint256 public twapPeriod = 30 minutes; // TWAP observation period
@@ -36,7 +36,7 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
     bool public circuitBreakerTriggered = false;
     uint256 public circuitBreakerCooldown = 1 hours;
     uint256 public circuitBreakerTriggerTime;
-    
+
     // Front-running protection state variables
     uint256 public largeTradeThreshold = 1e18; // Threshold for commit-reveal scheme
     mapping(address => bytes32) public commitHashes; // Mapping from trader to commit hash
@@ -44,7 +44,7 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
     uint256 public commitRevealWindow = 5 minutes; // Time window to reveal commitment
     uint256 public maxPriceImpact = 300; // 3% max price impact (in basis points)
     uint256 public batchExecutionDelay = 10 seconds; // Delay for batch execution
-    
+
     // Emergency withdraw timelock state variables
     uint256 public emergencyWithdrawTimelock = 48 hours; // 48 hour timelock
     mapping(bytes32 => bool) public emergencyWithdrawScheduled; // Mapping from operation hash to scheduled status
@@ -92,7 +92,7 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         address recipient;
         uint256 deadline;
     }
-    
+
     struct Commitment {
         bytes32 commitHash;
         uint256 timestamp;
@@ -154,12 +154,12 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         require(amount > 0, "Amount must be greater than 0");
         _;
     }
-    
+
     modifier circuitBreakerCheck(uint256 poolId) {
         require(!circuitBreakerTriggered, "Circuit breaker triggered");
         _;
     }
-    
+
     modifier swapDelayCheck(uint256 poolId) {
         LiquidityPool storage pool = pools[poolId];
         if (pool.lastSwapTime > 0) {
@@ -242,20 +242,20 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         uint256 amountB,
         uint256 minAmountA,
         uint256 minAmountB
-    ) 
-        external 
-        nonReentrant 
+    )
+        external
+        nonReentrant
         whenNotPaused
         validPool(poolId)
         nonZeroAmount(amountA)
         nonZeroAmount(amountB)
-        returns (uint256 liquidityAmount) 
+        returns (uint256 liquidityAmount)
     {
         LiquidityPool storage pool = pools[poolId];
-        
+
         // Calculate optimal amounts based on current reserves
         uint256 optimalAmountB = _calculateOptimalAmountB(poolId, amountA);
-        
+
         if (pool.reserveA == 0 && pool.reserveB == 0) {
             // First liquidity provider - set initial prices
             optimalAmountB = amountB;
@@ -316,13 +316,13 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         uint256 liquidityAmount,
         uint256 minAmountA,
         uint256 minAmountB
-    ) 
-        external 
-        nonReentrant 
+    )
+        external
+        nonReentrant
         whenNotPaused
         validPool(poolId)
         nonZeroAmount(liquidityAmount)
-        returns (uint256 amountA, uint256 amountB) 
+        returns (uint256 amountA, uint256 amountB)
     {
         LiquidityPool storage pool = pools[poolId];
         LiquidityPosition storage position = liquidityPositions[msg.sender][poolId];
@@ -362,14 +362,14 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
      * @param params Swap parameters
      * @return amountOut Amount of tokens received
      */
-    function _swap(SwapParams memory params) 
-        internal 
-        nonReentrant 
+    function _swap(SwapParams memory params)
+        internal
+        nonReentrant
         whenNotPaused
         validPool(params.poolId)
         validDeadline(params.deadline)
         nonZeroAmount(params.amountIn)
-        returns (uint256 amountOut) 
+        returns (uint256 amountOut)
     {
         LiquidityPool storage pool = pools[params.poolId];
 
@@ -387,15 +387,15 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         // Calculate output amount
         amountOut = _calculateSwapOutput(params.poolId, params.amountIn, params.tokenIn);
         require(amountOut >= params.minAmountOut, "Insufficient output amount");
-        
+
         // Flash loan protection: Check price deviation
         _checkPriceDeviation(params.poolId, params.amountIn, amountOut, params.tokenIn);
-        
+
         // Front-running protection: Check price impact for large trades
         if (params.amountIn >= largeTradeThreshold) {
             _checkPriceImpact(params.poolId, params.amountIn, amountOut, params.tokenIn);
         }
-        
+
         // Transfer input tokens
         IERC20(params.tokenIn).safeTransferFrom(msg.sender, address(this), params.amountIn);
 
@@ -410,10 +410,10 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
 
         // Transfer output tokens
         IERC20(params.tokenOut).safeTransfer(params.recipient, amountOut);
-        
+
         // Update TWAP and price tracking
         _updateTwapPrice(params.poolId);
-        
+
         // Update last swap time for delay enforcement
         pool.lastSwapTime = block.timestamp;
 
@@ -424,17 +424,17 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         emit SwapExecuted(params.poolId, params.recipient, params.tokenIn, params.tokenOut, params.amountIn, amountOut);
         emit PoolUpdated(params.poolId, pool.reserveA, pool.reserveB);
     }
-    
+
     /**
      * @dev Executes a token swap (public function)
      * @param params Swap parameters
      * @return amountOut Amount of tokens received
      */
-    function swap(SwapParams calldata params) 
-        external 
+    function swap(SwapParams calldata params)
+        external
         circuitBreakerCheck(params.poolId)
         swapDelayCheck(params.poolId)
-        returns (uint256 amountOut) 
+        returns (uint256 amountOut)
     {
         return _swap(params);
     }
@@ -445,11 +445,11 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
      * @param amountIn Amount of tokenIn
      * @return amountOut Optimal amount of tokenOut
      */
-    function calculateOptimalSwap(uint256 poolId, uint256 amountIn) 
-        external 
-        view 
+    function calculateOptimalSwap(uint256 poolId, uint256 amountIn)
+        external
+        view
         validPool(poolId)
-        returns (uint256 amountOut) 
+        returns (uint256 amountOut)
     {
         return _calculateSwapOutput(poolId, amountIn, pools[poolId].tokenA);
     }
@@ -459,17 +459,17 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
      * @param poolId The pool ID
      * @return metrics Pool metrics
      */
-    function getPoolMetrics(uint256 poolId) 
-        external 
-        view 
+    function getPoolMetrics(uint256 poolId)
+        external
+        view
         validPool(poolId)
-        returns (PoolMetrics memory metrics) 
+        returns (PoolMetrics memory metrics)
     {
         LiquidityPool storage pool = pools[poolId];
-        
+
         uint256 totalValue = pool.reserveA + pool.reserveB; // Simplified TVL calculation
         uint256 annualFees = pool.fee24h * 365; // Simplified APR calculation
-        
+
         metrics = PoolMetrics({
             totalVolume: pool.volume24h,
             totalFees: pool.fee24h,
@@ -485,10 +485,10 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
      * @param poolId The pool ID
      * @return liquidityAmount Amount of liquidity tokens
      */
-    function getLiquidityAmount(address provider, uint256 poolId) 
-        external 
-        view 
-        returns (uint256 liquidityAmount) 
+    function getLiquidityAmount(address provider, uint256 poolId)
+        external
+        view
+        returns (uint256 liquidityAmount)
     {
         return liquidityPositions[provider][poolId].liquidityAmount;
     }
@@ -500,7 +500,7 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         if (pool.reserveA == 0) return 0;
         return (amountA * pool.reserveB) / pool.reserveA;
     }
-    
+
     /**
      * @dev Calculates current price of tokenA in terms of tokenB
      * @param poolId Pool ID
@@ -511,7 +511,7 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         if (pool.reserveA == 0) return 0;
         return (pool.reserveB * 1e18) / pool.reserveA;
     }
-    
+
     /**
      * @dev Checks if price deviation exceeds threshold and triggers circuit breaker if needed
      * @param poolId Pool ID
@@ -526,14 +526,14 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         address tokenIn
     ) internal {
         LiquidityPool storage pool = pools[poolId];
-        
+
         // Skip check if this is the first trade or TWAP not established
         if (pool.twapObservationCount < 2) return;
-        
+
         // Calculate current price after swap
         uint256 newReserveA = pool.reserveA;
         uint256 newReserveB = pool.reserveB;
-        
+
         if (tokenIn == pool.tokenA) {
             newReserveA += amountIn;
             newReserveB -= amountOut;
@@ -541,10 +541,10 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
             newReserveB += amountIn;
             newReserveA -= amountOut;
         }
-        
+
         uint256 currentPrice = newReserveA > 0 ? (newReserveB * 1e18) / newReserveA : 0;
         uint256 twapPrice = pool.twapPriceA;
-        
+
         // Calculate price deviation
         if (twapPrice > 0 && currentPrice > 0) {
             uint256 deviation;
@@ -553,7 +553,7 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
             } else {
                 deviation = ((twapPrice - currentPrice) * BASIS_POINTS) / twapPrice;
             }
-            
+
             if (deviation > maxPriceDeviation) {
                 emit PriceDeviationExceeded(poolId, currentPrice, twapPrice, deviation);
                 _triggerCircuitBreaker(poolId);
@@ -561,17 +561,17 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
             }
         }
     }
-    
+
     /**
      * @dev Updates TWAP price for the pool
      * @param poolId Pool ID
      */
     function _updateTwapPrice(uint256 poolId) internal {
         LiquidityPool storage pool = pools[poolId];
-        
+
         uint256 currentPrice = _calculateCurrentPrice(poolId);
         uint256 currentTime = block.timestamp;
-        
+
         if (pool.twapObservationCount == 0) {
             // First observation
             pool.twapPriceA = currentPrice;
@@ -580,7 +580,7 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         } else {
             // Update TWAP
             uint256 timeElapsed = currentTime - pool.lastPriceUpdateTime;
-            
+
             if (timeElapsed > 0 && currentPrice > 0) {
                 // Calculate weighted average price
                 uint256 weightedPrice = (pool.twapPriceA * pool.twapObservationCount) + currentPrice;
@@ -589,10 +589,10 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
                 pool.lastPriceUpdateTime = currentTime;
             }
         }
-        
+
         pool.lastPriceA = currentPrice;
     }
-    
+
     /**
      * @dev Triggers circuit breaker for the pool
      * @param poolId Pool ID
@@ -602,7 +602,7 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         circuitBreakerTriggerTime = block.timestamp;
         emit CircuitBreakerTriggered(poolId, block.timestamp);
     }
-    
+
     /**
      * @dev Checks if price impact exceeds threshold
      * @param poolId Pool ID
@@ -617,10 +617,10 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         address tokenIn
     ) internal {
         LiquidityPool storage pool = pools[poolId];
-        
+
         uint256 reserveIn;
         uint256 reserveOut;
-        
+
         if (tokenIn == pool.tokenA) {
             reserveIn = pool.reserveA;
             reserveOut = pool.reserveB;
@@ -628,11 +628,11 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
             reserveIn = pool.reserveB;
             reserveOut = pool.reserveA;
         }
-        
+
         // Calculate price impact
         if (reserveIn > 0) {
             uint256 priceImpact = (amountIn * BASIS_POINTS) / (reserveIn + amountIn);
-            
+
             if (priceImpact > maxPriceImpact) {
                 emit PriceImpactExceeded(poolId, priceImpact, maxPriceImpact);
                 revert("Price impact exceeded");
@@ -640,16 +640,16 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         }
     }
 
-    function _calculateSwapOutput(uint256 poolId, uint256 amountIn, address tokenIn) 
-        internal 
-        view 
-        returns (uint256 amountOut) 
+    function _calculateSwapOutput(uint256 poolId, uint256 amountIn, address tokenIn)
+        internal
+        view
+        returns (uint256 amountOut)
     {
         LiquidityPool storage pool = pools[poolId];
-        
+
         uint256 reserveIn;
         uint256 reserveOut;
-        
+
         if (tokenIn == pool.tokenA) {
             reserveIn = pool.reserveA;
             reserveOut = pool.reserveB;
@@ -672,7 +672,7 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
 
     function _collectFees(uint256 poolId) internal {
         LiquidityPool storage pool = pools[poolId];
-        
+
         if (pool.fee24h == 0) return;
 
         uint256 protocolFees = (pool.fee24h * protocolFeePercentage) / BASIS_POINTS;
@@ -724,57 +724,57 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
     function emergencyPause() external onlyOwner {
         _pause();
     }
-    
+
     // Flash loan protection admin functions
-    
+
     function setMaxPriceDeviation(uint256 newMaxDeviation) external onlyOwner {
         require(newMaxDeviation <= BASIS_POINTS, "Invalid deviation");
         maxPriceDeviation = newMaxDeviation;
     }
-    
+
     function setTwapPeriod(uint256 newTwapPeriod) external onlyOwner {
         require(newTwapPeriod > 0, "Invalid period");
         twapPeriod = newTwapPeriod;
     }
-    
+
     function setMinSwapDelay(uint256 newMinSwapDelay) external onlyOwner {
         require(newMinSwapDelay >= 1, "Invalid delay");
         minSwapDelay = newMinSwapDelay;
     }
-    
+
     function setCircuitBreakerCooldown(uint256 newCooldown) external onlyOwner {
         require(newCooldown > 0, "Invalid cooldown");
         circuitBreakerCooldown = newCooldown;
     }
-    
+
     function resetCircuitBreaker() external onlyOwner {
         require(circuitBreakerTriggered, "Circuit breaker not triggered");
         require(block.timestamp >= circuitBreakerTriggerTime + circuitBreakerCooldown, "Cooldown not elapsed");
         circuitBreakerTriggered = false;
         emit CircuitBreakerReset(block.timestamp);
     }
-    
+
     // Front-running protection functions
-    
+
     /**
      * @dev Submit a commitment for a large trade (commit-reveal scheme)
      * @param commitHash Keccak256 hash of (poolId, tokenIn, tokenOut, amountIn, minAmountOut, recipient, deadline, secret)
      */
     function commitTrade(bytes32 commitHash) external {
         require(commitHashes[msg.sender] == bytes32(0), "Commitment already exists");
-        
+
         commitments[msg.sender] = Commitment({
             commitHash: commitHash,
             timestamp: block.timestamp,
             revealed: false
         });
-        
+
         commitHashes[msg.sender] = commitHash;
         commitTimestamps[msg.sender] = block.timestamp;
-        
+
         emit CommitmentSubmitted(msg.sender, commitHash, block.timestamp);
     }
-    
+
     /**
      * @dev Reveal a commitment and execute the trade
      * @param poolId Pool ID
@@ -797,17 +797,17 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         uint256 secret
     ) external {
         Commitment storage commitment = commitments[msg.sender];
-        
+
         require(commitment.commitHash != bytes32(0), "No commitment found");
         require(!commitment.revealed, "Already revealed");
         require(block.timestamp <= commitment.timestamp + commitRevealWindow, "Reveal window expired");
-        
+
         // Verify commitment
         bytes32 computedHash = keccak256(abi.encodePacked(poolId, tokenIn, tokenOut, amountIn, minAmountOut, recipient, deadline, secret));
         require(computedHash == commitment.commitHash, "Invalid commitment");
-        
+
         commitment.revealed = true;
-        
+
         // Construct swap params
         SwapParams memory swapParams = SwapParams({
             poolId: poolId,
@@ -818,37 +818,37 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
             recipient: recipient,
             deadline: deadline
         });
-        
+
         // Execute swap via internal function
         _swap(swapParams);
-        
+
         emit CommitmentRevealed(msg.sender, commitment.commitHash, block.timestamp);
     }
-    
+
     // Front-running protection admin functions
-    
+
     function setLargeTradeThreshold(uint256 newThreshold) external onlyOwner {
         require(newThreshold > 0, "Invalid threshold");
         largeTradeThreshold = newThreshold;
     }
-    
+
     function setCommitRevealWindow(uint256 newWindow) external onlyOwner {
         require(newWindow > 0, "Invalid window");
         commitRevealWindow = newWindow;
     }
-    
+
     function setMaxPriceImpact(uint256 newMaxImpact) external onlyOwner {
         require(newMaxImpact <= BASIS_POINTS, "Invalid impact");
         maxPriceImpact = newMaxImpact;
     }
-    
+
     function setBatchExecutionDelay(uint256 newDelay) external onlyOwner {
         require(newDelay >= 1, "Invalid delay");
         batchExecutionDelay = newDelay;
     }
-    
+
     // Emergency withdraw timelock functions
-    
+
     /**
      * @dev Schedule an emergency withdrawal with timelock
      * @param token Token address to withdraw
@@ -856,18 +856,18 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
      */
     function scheduleEmergencyWithdraw(address token, uint256 amount) external onlyOwner {
         bytes32 operationHash = keccak256(abi.encodePacked("emergencyWithdraw", token, amount, msg.sender, block.timestamp));
-        
+
         require(!emergencyWithdrawScheduled[operationHash], "Operation already scheduled");
-        
+
         uint256 executeAfter = block.timestamp + emergencyWithdrawTimelock;
-        
+
         emergencyWithdrawScheduled[operationHash] = true;
         emergencyWithdrawTimestamps[operationHash] = executeAfter;
         emergencyWithdrawProposers[operationHash] = msg.sender;
-        
+
         emit EmergencyWithdrawScheduled(operationHash, token, amount, executeAfter);
     }
-    
+
     /**
      * @dev Execute a scheduled emergency withdrawal
      * @param token Token address to withdraw
@@ -875,7 +875,7 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
      */
     function executeEmergencyWithdraw(address token, uint256 amount) external onlyOwner {
         bytes32 operationHash = keccak256(abi.encodePacked("emergencyWithdraw", token, amount, msg.sender, block.timestamp - emergencyWithdrawTimelock));
-        
+
         // Try to find the operation hash by checking all possible timestamps within the timelock window
         for (uint256 i = 0; i <= emergencyWithdrawTimelock; i++) {
             bytes32 testHash = keccak256(abi.encodePacked("emergencyWithdraw", token, amount, msg.sender, block.timestamp - i));
@@ -884,18 +884,18 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
                 break;
             }
         }
-        
+
         require(emergencyWithdrawScheduled[operationHash], "Operation not scheduled");
         require(block.timestamp >= emergencyWithdrawTimestamps[operationHash], "Timelock not elapsed");
         require(emergencyWithdrawProposers[operationHash] == msg.sender, "Not the proposer");
-        
+
         emergencyWithdrawScheduled[operationHash] = false;
-        
+
         IERC20(token).safeTransfer(owner(), amount);
-        
+
         emit EmergencyWithdrawExecuted(operationHash, token, amount);
     }
-    
+
     /**
      * @dev Cancel a scheduled emergency withdrawal
      * @param token Token address to withdraw
@@ -905,16 +905,16 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
      */
     function cancelEmergencyWithdraw(address token, uint256 amount, address proposer, uint256 scheduleTime) external onlyOwner {
         bytes32 operationHash = keccak256(abi.encodePacked("emergencyWithdraw", token, amount, proposer, scheduleTime));
-        
+
         require(emergencyWithdrawScheduled[operationHash], "Operation not scheduled");
-        
+
         emergencyWithdrawScheduled[operationHash] = false;
-        
+
         emit EmergencyWithdrawCancelled(operationHash);
     }
-    
+
     // Emergency withdraw timelock admin functions
-    
+
     function setEmergencyWithdrawTimelock(uint256 newTimelock) external onlyOwner {
         require(newTimelock >= 1 hours, "Timelock too short");
         require(newTimelock <= 7 days, "Timelock too long");

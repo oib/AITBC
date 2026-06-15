@@ -5,7 +5,7 @@ const { ethers } = hardhat;
 describe("TreasuryManager", function () {
   let treasuryManager, aitbcToken, contractRegistry;
   let deployer, user1, user2;
-  
+
   const INITIAL_BALANCE = ethers.parseEther("1000000");
   const BUDGET_AMOUNT = ethers.parseEther("10000");
 
@@ -51,7 +51,7 @@ describe("TreasuryManager", function () {
   describe("Budget Category Management", function () {
     it("Should create budget category", async function () {
       await treasuryManager.createBudgetCategory("operations", BUDGET_AMOUNT);
-      
+
       const category = await treasuryManager.budgetCategories("operations");
       expect(category.name).to.equal("operations");
       expect(category.totalBudget).to.equal(BUDGET_AMOUNT);
@@ -69,7 +69,7 @@ describe("TreasuryManager", function () {
 
     it("Should revert if category already exists", async function () {
       await treasuryManager.createBudgetCategory("operations", BUDGET_AMOUNT);
-      
+
       await expect(
         treasuryManager.createBudgetCategory("operations", BUDGET_AMOUNT)
       ).to.be.revertedWith("Category already exists");
@@ -95,7 +95,7 @@ describe("TreasuryManager", function () {
 
     it("Should allocate funds", async function () {
       await treasuryManager.allocateFunds("operations", user1.address, ethers.parseEther("1000"));
-      
+
       const category = await treasuryManager.budgetCategories("operations");
       expect(category.allocatedAmount).to.equal(ethers.parseEther("1000"));
     });
@@ -124,7 +124,7 @@ describe("TreasuryManager", function () {
       const depositAmount = ethers.parseEther("1000");
       await aitbcToken.mint(deployer.address, depositAmount);
       await aitbcToken.approve(await treasuryManager.getAddress(), depositAmount);
-      
+
       await expect(
         treasuryManager.depositFunds(depositAmount)
       ).to.emit(treasuryManager, "TreasuryDeposited");
@@ -133,9 +133,9 @@ describe("TreasuryManager", function () {
     it("Should emergency withdraw funds from treasury", async function () {
       const withdrawAmount = ethers.parseEther("1000");
       const initialBalance = await aitbcToken.balanceOf(deployer.address);
-      
+
       await treasuryManager.emergencyWithdraw(await aitbcToken.getAddress(), withdrawAmount);
-      
+
       const finalBalance = await aitbcToken.balanceOf(deployer.address);
       expect(finalBalance - initialBalance).to.equal(withdrawAmount);
     });
@@ -157,14 +157,14 @@ describe("TreasuryManager", function () {
     it("Should get category count", async function () {
       await treasuryManager.createBudgetCategory("operations", BUDGET_AMOUNT);
       await treasuryManager.createBudgetCategory("development", BUDGET_AMOUNT);
-      
+
       expect(await treasuryManager.categoryCounter()).to.equal(2);
     });
 
     it("Should get allocation count", async function () {
       await treasuryManager.createBudgetCategory("operations", BUDGET_AMOUNT);
       await treasuryManager.allocateFunds("operations", user1.address, ethers.parseEther("1000"));
-      
+
       expect(await treasuryManager.allocationCounter()).to.equal(1);
     });
   });

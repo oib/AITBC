@@ -2,7 +2,7 @@
 -- Date: 2026-01-26
 
 -- Add payment tracking to jobs table
-ALTER TABLE job 
+ALTER TABLE job
 ADD COLUMN payment_id VARCHAR(255) REFERENCES job_payments(id),
 ADD COLUMN payment_status VARCHAR(20);
 

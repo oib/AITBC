@@ -26,9 +26,9 @@ contract TreasuryManagerFuzzTest is Test {
         user2 = address(0x2);
 
         token = new MockToken();
-        
+
         registry = new ContractRegistry();
-        
+
         treasuryManager = new TreasuryManager(address(token));
         treasuryManager.initialize(address(registry));
 
@@ -45,7 +45,7 @@ contract TreasuryManagerFuzzTest is Test {
         treasuryManager.createBudgetCategory(category, budget);
 
         (string memory name, uint256 totalBudget, uint256 allocatedAmount, uint256 spentAmount, bool isActive, , , ) = treasuryManager.budgetCategories(category);
-        
+
         assertEq(name, category);
         assertEq(totalBudget, budget);
         assertEq(allocatedAmount, 0);
@@ -119,7 +119,7 @@ contract TreasuryManagerFuzzTest is Test {
         treasuryManager.updateBudgetCategory(category, newBudget);
 
         (string memory name, uint256 totalBudget, , , , , , ) = treasuryManager.budgetCategories(category);
-        
+
         assertEq(name, category);
         assertEq(totalBudget, newBudget);
     }
@@ -189,7 +189,7 @@ contract TreasuryManagerFuzzTest is Test {
         treasuryManager.createBudgetCategory("development", 20_000 * 10**18);
 
         (uint256 totalBudget, uint256 allocatedAmount, uint256 spentAmount, uint256 availableBalance, uint256 activeCategories) = treasuryManager.getTreasuryStats();
-        
+
         assertEq(totalBudget, 30_000 * 10**18);
         assertEq(allocatedAmount, 0);
         assertEq(spentAmount, 0);

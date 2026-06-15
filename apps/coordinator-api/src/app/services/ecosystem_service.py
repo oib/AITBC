@@ -10,8 +10,9 @@ from typing import Any
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
+from ..domain.bounty import AgentMetrics, AgentStake, Bounty, BountyStatus, BountySubmission, EcosystemMetrics
+
 logger = logging.getLogger(__name__)
-from ..domain.bounty import AgentMetrics, AgentStake, Bounty, BountyStatus, BountySubmission, EcosystemMetrics  # noqa: E402
 
 
 class EcosystemService:

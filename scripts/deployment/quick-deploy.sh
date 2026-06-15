@@ -61,16 +61,16 @@ source "$env_config"
 deploy_phase() {
     local phase="$1"
     local script_name="$2"
-    
+
     log_info "Deploying phase: $phase"
-    
+
     local script_path="$SCRIPTS_DIR/$script_name"
-    
+
     if [[ ! -f "$script_path" ]]; then
         log_error "Phase script not found: $script_path"
         return 1
     fi
-    
+
     # Execute phase script
     if bash "$script_path"; then
         log_info "Phase $phase deployed successfully"
@@ -97,7 +97,7 @@ failed_phases=()
 for phase_info in "${phases[@]}"; do
     phase="${phase_info%:*}"
     script="${phase_info#*:}"
-    
+
     if ! deploy_phase "$phase" "$script"; then
         failed_phases+=("$phase")
         log_warn "Continuing with next phase despite $phase failure"

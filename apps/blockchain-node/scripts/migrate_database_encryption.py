@@ -10,11 +10,6 @@ import shutil
 import sys
 from pathlib import Path
 
-# Add the src directory to the path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-# Add the repo root to the path for aitbc module
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-
 from aitbc_chain.database_encryption import (
     DatabaseEncryptor,
     KeyManager,

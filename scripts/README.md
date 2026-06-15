@@ -47,7 +47,7 @@ Comprehensive startup script for the complete AITBC development environment.
 
 **Services Started:**
 - **Local Services:** All `aitbc-*` systemd services
-- **Container Services:** 
+- **Container Services:**
   - `aitbc-coordinator-api`
   - `aitbc-wallet-daemon`
   - `aitbc-blockchain-node`

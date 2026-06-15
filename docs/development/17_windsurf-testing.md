@@ -12,7 +12,7 @@ This guide explains how to use Windsurf's integrated testing features with the A
 
 ### 2. Debug Configuration (`.vscode/launch.json`)
 - ✅ Debug Python Tests
-- ✅ Debug All Tests  
+- ✅ Debug All Tests
 - ✅ Debug Current Test File
 - ✅ Uses `debugpy` (not deprecated `python`)
 

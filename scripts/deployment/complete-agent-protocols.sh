@@ -28,30 +28,30 @@ AGENTS_DIR="$PROJECT_ROOT/apps/agents"
 # Complete implementation
 main() {
     print_header "COMPLETING AGENT PROTOCOLS IMPLEMENTATION"
-    
+
     # Step 5: Implement Integration Layer
     print_header "Step 5: Implementing Integration Layer"
     implement_integration_layer
-    
+
     # Step 6: Create Agent Services
     print_header "Step 6: Creating Agent Services"
     create_agent_services
-    
+
     # Step 7: Set up Testing Framework
     print_header "Step 7: Setting Up Testing Framework"
     setup_testing_framework
-    
+
     # Step 8: Configure Deployment
     print_header "Step 8: Configuring Deployment"
     configure_deployment
-    
+
     print_header "Agent Protocols Implementation Complete! 🎉"
 }
 
 # Implement Integration Layer
 implement_integration_layer() {
     print_status "Implementing integration layer..."
-    
+
     cat > "$SERVICES_DIR/agent-bridge/src/integration_layer.py" << 'EOF'
 #!/usr/bin/env python3
 """
@@ -67,7 +67,7 @@ from datetime import datetime
 
 class AITBCServiceIntegration:
     """Integration layer for AITBC services"""
-    
+
     def __init__(self):
         self.service_endpoints = {
             "coordinator_api": "http://localhost:8000",
@@ -77,15 +77,15 @@ class AITBCServiceIntegration:
             "agent_registry": "http://localhost:8013"
         }
         self.session = None
-    
+
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self.session:
             await self.session.close()
-    
+
     async def get_blockchain_info(self) -> Dict[str, Any]:
         """Get blockchain information"""
         try:
@@ -93,7 +93,7 @@ class AITBCServiceIntegration:
                 return await response.json()
         except Exception as e:
             return {"error": str(e), "status": "unavailable"}
-    
+
     async def get_exchange_status(self) -> Dict[str, Any]:
         """Get exchange service status"""
         try:
@@ -101,7 +101,7 @@ class AITBCServiceIntegration:
                 return await response.json()
         except Exception as e:
             return {"error": str(e), "status": "unavailable"}
-    
+
     async def get_coordinator_status(self) -> Dict[str, Any]:
         """Get coordinator API status"""
         try:
@@ -109,7 +109,7 @@ class AITBCServiceIntegration:
                 return await response.json()
         except Exception as e:
             return {"error": str(e), "status": "unavailable"}
-    
+
     async def submit_transaction(self, transaction_data: Dict[str, Any]) -> Dict[str, Any]:
         """Submit transaction to blockchain"""
         try:
@@ -120,7 +120,7 @@ class AITBCServiceIntegration:
                 return await response.json()
         except Exception as e:
             return {"error": str(e), "status": "failed"}
-    
+
     async def get_market_data(self, symbol: str = "AITBC/BTC") -> Dict[str, Any]:
         """Get market data from exchange"""
         try:
@@ -128,7 +128,7 @@ class AITBCServiceIntegration:
                 return await response.json()
         except Exception as e:
             return {"error": str(e), "status": "failed"}
-    
+
     async def register_agent_with_coordinator(self, agent_data: Dict[str, Any]) -> Dict[str, Any]:
         """Register agent with coordinator"""
         try:
@@ -142,11 +142,11 @@ class AITBCServiceIntegration:
 
 class AgentServiceBridge:
     """Bridge between agents and AITBC services"""
-    
+
     def __init__(self):
         self.integration = AITBCServiceIntegration()
         self.active_agents = {}
-    
+
     async def start_agent(self, agent_id: str, agent_config: Dict[str, Any]) -> bool:
         """Start an agent with service integration"""
         try:
@@ -158,7 +158,7 @@ class AgentServiceBridge:
                     "capabilities": agent_config.get("capabilities", []),
                     "endpoint": agent_config.get("endpoint", f"http://localhost:{8000 + len(self.active_agents) + 10}")
                 })
-            
+
             if registration_result.get("status") == "ok":
                 self.active_agents[agent_id] = {
                     "config": agent_config,
@@ -171,27 +171,27 @@ class AgentServiceBridge:
         except Exception as e:
             print(f"Failed to start agent {agent_id}: {e}")
             return False
-    
+
     async def stop_agent(self, agent_id: str) -> bool:
         """Stop an agent"""
         if agent_id in self.active_agents:
             del self.active_agents[agent_id]
             return True
         return False
-    
+
     async def get_agent_status(self, agent_id: str) -> Dict[str, Any]:
         """Get agent status with service integration"""
         if agent_id not in self.active_agents:
             return {"status": "not_found"}
-        
+
         agent_info = self.active_agents[agent_id]
-        
+
         async with self.integration as integration:
             # Get service statuses
             blockchain_status = await integration.get_blockchain_info()
             exchange_status = await integration.get_exchange_status()
             coordinator_status = await integration.get_coordinator_status()
-            
+
             return {
                 "agent_id": agent_id,
                 "status": "active",
@@ -202,14 +202,14 @@ class AgentServiceBridge:
                     "coordinator": coordinator_status
                 }
             }
-    
+
     async def execute_agent_task(self, agent_id: str, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute agent task with service integration"""
         if agent_id not in self.active_agents:
             return {"status": "error", "message": "Agent not found"}
-        
+
         task_type = task_data.get("type")
-        
+
         if task_type == "market_analysis":
             return await self._execute_market_analysis(task_data)
         elif task_type == "trading":
@@ -218,13 +218,13 @@ class AgentServiceBridge:
             return await self._execute_compliance_check(task_data)
         else:
             return {"status": "error", "message": f"Unknown task type: {task_type}"}
-    
+
     async def _execute_market_analysis(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute market analysis task"""
         try:
             async with self.integration as integration:
                 market_data = await integration.get_market_data(task_data.get("symbol", "AITBC/BTC"))
-                
+
                 # Perform basic analysis
                 analysis_result = {
                     "symbol": task_data.get("symbol", "AITBC/BTC"),
@@ -236,18 +236,18 @@ class AgentServiceBridge:
                     },
                     "timestamp": datetime.utcnow().isoformat()
                 }
-                
+
                 return {"status": "success", "result": analysis_result}
         except Exception as e:
             return {"status": "error", "message": str(e)}
-    
+
     async def _execute_trading_task(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute trading task"""
         try:
             # Get market data first
             async with self.integration as integration:
                 market_data = await integration.get_market_data(task_data.get("symbol", "AITBC/BTC"))
-                
+
                 # Create transaction
                 transaction = {
                     "type": "trade",
@@ -256,14 +256,14 @@ class AgentServiceBridge:
                     "amount": task_data.get("amount", 0.1),
                     "price": task_data.get("price", market_data.get("price", 0.001))
                 }
-                
+
                 # Submit transaction
                 tx_result = await integration.submit_transaction(transaction)
-                
+
                 return {"status": "success", "transaction": tx_result}
         except Exception as e:
             return {"status": "error", "message": str(e)}
-    
+
     async def _execute_compliance_check(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute compliance check task"""
         try:
@@ -275,19 +275,19 @@ class AgentServiceBridge:
                 "checks_performed": ["kyc", "aml", "sanctions"],
                 "timestamp": datetime.utcnow().isoformat()
             }
-            
+
             return {"status": "success", "result": compliance_result}
         except Exception as e:
             return {"status": "error", "message": str(e)}
 EOF
-    
+
     print_status "Integration layer implemented"
 }
 
 # Create Agent Services
 create_agent_services() {
     print_status "Creating agent services..."
-    
+
     # Trading Agent
     cat > "$AGENTS_DIR/trading/src/trading_agent.py" << 'EOF'
 #!/usr/bin/env python3
@@ -311,7 +311,7 @@ from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceB
 
 class TradingAgent:
     """Automated trading agent"""
-    
+
     def __init__(self, agent_id: str, config: Dict[str, Any]):
         self.agent_id = agent_id
         self.config = config
@@ -320,7 +320,7 @@ class TradingAgent:
         self.trading_strategy = config.get("strategy", "basic")
         self.symbols = config.get("symbols", ["AITBC/BTC"])
         self.trade_interval = config.get("trade_interval", 60)  # seconds
-    
+
     async def start(self) -> bool:
         """Start trading agent"""
         try:
@@ -330,7 +330,7 @@ class TradingAgent:
                 "capabilities": ["market_analysis", "trading", "risk_management"],
                 "endpoint": f"http://localhost:8012"
             })
-            
+
             if success:
                 self.is_running = True
                 print(f"Trading agent {self.agent_id} started successfully")
@@ -341,7 +341,7 @@ class TradingAgent:
         except Exception as e:
             print(f"Error starting trading agent: {e}")
             return False
-    
+
     async def stop(self) -> bool:
         """Stop trading agent"""
         self.is_running = False
@@ -349,19 +349,19 @@ class TradingAgent:
         if success:
             print(f"Trading agent {self.agent_id} stopped successfully")
         return success
-    
+
     async def run_trading_loop(self):
         """Main trading loop"""
         while self.is_running:
             try:
                 for symbol in self.symbols:
                     await self._analyze_and_trade(symbol)
-                
+
                 await asyncio.sleep(self.trade_interval)
             except Exception as e:
                 print(f"Error in trading loop: {e}")
                 await asyncio.sleep(10)  # Wait before retrying
-    
+
     async def _analyze_and_trade(self, symbol: str) -> None:
         """Analyze market and execute trades"""
         try:
@@ -371,31 +371,31 @@ class TradingAgent:
                 "symbol": symbol,
                 "strategy": self.trading_strategy
             }
-            
+
             analysis_result = await self.bridge.execute_agent_task(self.agent_id, analysis_task)
-            
+
             if analysis_result.get("status") == "success":
                 analysis = analysis_result["result"]["analysis"]
-                
+
                 # Make trading decision
                 if self._should_trade(analysis):
                     await self._execute_trade(symbol, analysis)
             else:
                 print(f"Market analysis failed for {symbol}: {analysis_result}")
-        
+
         except Exception as e:
             print(f"Error in analyze_and_trade for {symbol}: {e}")
-    
+
     def _should_trade(self, analysis: Dict[str, Any]) -> bool:
         """Determine if should execute trade"""
         recommendation = analysis.get("recommendation", "hold")
         return recommendation in ["buy", "sell"]
-    
+
     async def _execute_trade(self, symbol: str, analysis: Dict[str, Any]) -> None:
         """Execute trade based on analysis"""
         try:
             recommendation = analysis.get("recommendation", "hold")
-            
+
             if recommendation == "buy":
                 trade_task = {
                     "type": "trading",
@@ -414,17 +414,17 @@ class TradingAgent:
                 }
             else:
                 return
-            
+
             trade_result = await self.bridge.execute_agent_task(self.agent_id, trade_task)
-            
+
             if trade_result.get("status") == "success":
                 print(f"Trade executed successfully: {trade_result}")
             else:
                 print(f"Trade execution failed: {trade_result}")
-        
+
         except Exception as e:
             print(f"Error executing trade: {e}")
-    
+
     async def get_status(self) -> Dict[str, Any]:
         """Get agent status"""
         return await self.bridge.get_agent_status(self.agent_id)
@@ -439,9 +439,9 @@ async def main():
         "trade_interval": 30,
         "trade_amount": 0.1
     }
-    
+
     agent = TradingAgent(agent_id, config)
-    
+
     # Start agent
     if await agent.start():
         try:
@@ -457,7 +457,7 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 EOF
-    
+
     # Compliance Agent
     cat > "$AGENTS_DIR/compliance/src/compliance_agent.py" << 'EOF'
 #!/usr/bin/env python3
@@ -481,7 +481,7 @@ from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceB
 
 class ComplianceAgent:
     """Automated compliance agent"""
-    
+
     def __init__(self, agent_id: str, config: Dict[str, Any]):
         self.agent_id = agent_id
         self.config = config
@@ -489,7 +489,7 @@ class ComplianceAgent:
         self.is_running = False
         self.check_interval = config.get("check_interval", 300)  # 5 minutes
         self.monitored_entities = config.get("monitored_entities", [])
-    
+
     async def start(self) -> bool:
         """Start compliance agent"""
         try:
@@ -498,7 +498,7 @@ class ComplianceAgent:
                 "capabilities": ["kyc_check", "aml_screening", "regulatory_reporting"],
                 "endpoint": f"http://localhost:8014"
             })
-            
+
             if success:
                 self.is_running = True
                 print(f"Compliance agent {self.agent_id} started successfully")
@@ -509,7 +509,7 @@ class ComplianceAgent:
         except Exception as e:
             print(f"Error starting compliance agent: {e}")
             return False
-    
+
     async def stop(self) -> bool:
         """Stop compliance agent"""
         self.is_running = False
@@ -517,19 +517,19 @@ class ComplianceAgent:
         if success:
             print(f"Compliance agent {self.agent_id} stopped successfully")
         return success
-    
+
     async def run_compliance_loop(self):
         """Main compliance monitoring loop"""
         while self.is_running:
             try:
                 for entity in self.monitored_entities:
                     await self._perform_compliance_check(entity)
-                
+
                 await asyncio.sleep(self.check_interval)
             except Exception as e:
                 print(f"Error in compliance loop: {e}")
                 await asyncio.sleep(30)  # Wait before retrying
-    
+
     async def _perform_compliance_check(self, entity_id: str) -> None:
         """Perform compliance check for entity"""
         try:
@@ -539,22 +539,22 @@ class ComplianceAgent:
                 "check_type": "full",
                 "monitored_activities": ["trading", "transfers", "wallet_creation"]
             }
-            
+
             result = await self.bridge.execute_agent_task(self.agent_id, compliance_task)
-            
+
             if result.get("status") == "success":
                 compliance_result = result["result"]
                 await self._handle_compliance_result(entity_id, compliance_result)
             else:
                 print(f"Compliance check failed for {entity_id}: {result}")
-        
+
         except Exception as e:
             print(f"Error performing compliance check for {entity_id}: {e}")
-    
+
     async def _handle_compliance_result(self, entity_id: str, result: Dict[str, Any]) -> None:
         """Handle compliance check result"""
         status = result.get("status", "unknown")
-        
+
         if status == "passed":
             print(f"✅ Compliance check passed for {entity_id}")
         elif status == "failed":
@@ -563,7 +563,7 @@ class ComplianceAgent:
             await self._trigger_compliance_alert(entity_id, result)
         else:
             print(f"⚠️ Compliance check inconclusive for {entity_id}")
-    
+
     async def _trigger_compliance_alert(self, entity_id: str, result: Dict[str, Any]) -> None:
         """Trigger compliance alert"""
         alert_data = {
@@ -573,10 +573,10 @@ class ComplianceAgent:
             "details": result,
             "timestamp": datetime.utcnow().isoformat()
         }
-        
+
         # In a real implementation, this would send to alert system
         print(f"🚨 COMPLIANCE ALERT: {json.dumps(alert_data, indent=2)}")
-    
+
     async def get_status(self) -> Dict[str, Any]:
         """Get agent status"""
         status = await self.bridge.get_agent_status(self.agent_id)
@@ -592,9 +592,9 @@ async def main():
         "check_interval": 60,  # 1 minute for testing
         "monitored_entities": ["user001", "user002", "user003"]
     }
-    
+
     agent = ComplianceAgent(agent_id, config)
-    
+
     # Start agent
     if await agent.start():
         try:
@@ -610,14 +610,14 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 EOF
-    
+
     print_status "Agent services created"
 }
 
 # Set up Testing Framework
 setup_testing_framework() {
     print_status "Setting up testing framework..."
-    
+
     cat > "$PROJECT_ROOT/apps/agent-protocols/tests/test_agent_protocols.py" << 'EOF'
 #!/usr/bin/env python3
 """
@@ -640,12 +640,12 @@ from src.task_manager import TaskManager, TaskStatus, TaskPriority
 
 class TestMessageProtocol(unittest.TestCase):
     """Test message protocol functionality"""
-    
+
     def setUp(self):
         self.protocol = MessageProtocol()
         self.sender_id = "agent-001"
         self.receiver_id = "agent-002"
-    
+
     def test_message_creation(self):
         """Test message creation"""
         message = self.protocol.create_message(
@@ -654,12 +654,12 @@ class TestMessageProtocol(unittest.TestCase):
             message_type=MessageTypes.TASK_ASSIGNMENT,
             payload={"task": "test_task", "data": "test_data"}
         )
-        
+
         self.assertEqual(message["sender_id"], self.sender_id)
         self.assertEqual(message["receiver_id"], self.receiver_id)
         self.assertEqual(message["message_type"], MessageTypes.TASK_ASSIGNMENT)
         self.assertIsNotNone(message["signature"])
-    
+
     def test_message_verification(self):
         """Test message verification"""
         message = self.protocol.create_message(
@@ -668,30 +668,30 @@ class TestMessageProtocol(unittest.TestCase):
             message_type=MessageTypes.TASK_ASSIGNMENT,
             payload={"task": "test_task"}
         )
-        
+
         # Valid message should verify
         self.assertTrue(self.protocol.verify_message(message))
-        
+
         # Tampered message should not verify
         message["payload"] = "tampered"
         self.assertFalse(self.protocol.verify_message(message))
-    
+
     def test_message_encryption(self):
         """Test message encryption/decryption"""
         original_payload = {"sensitive": "data", "numbers": [1, 2, 3]}
-        
+
         message = self.protocol.create_message(
             sender_id=self.sender_id,
             receiver_id=self.receiver_id,
             message_type=MessageTypes.DATA_RESPONSE,
             payload=original_payload
         )
-        
+
         # Decrypt message
         decrypted = self.protocol.decrypt_message(message)
-        
+
         self.assertEqual(decrypted["payload"], original_payload)
-    
+
     def test_message_queueing(self):
         """Test message queuing and delivery"""
         message = self.protocol.create_message(
@@ -700,11 +700,11 @@ class TestMessageProtocol(unittest.TestCase):
             message_type=MessageTypes.HEARTBEAT,
             payload={"status": "active"}
         )
-        
+
         # Send message
         success = self.protocol.send_message(message)
         self.assertTrue(success)
-        
+
         # Receive message
         messages = self.protocol.receive_messages(self.receiver_id)
         self.assertEqual(len(messages), 1)
@@ -712,15 +712,15 @@ class TestMessageProtocol(unittest.TestCase):
 
 class TestTaskManager(unittest.TestCase):
     """Test task manager functionality"""
-    
+
     def setUp(self):
         self.temp_db = tempfile.NamedTemporaryFile(delete=False)
         self.temp_db.close()
         self.task_manager = TaskManager(self.temp_db.name)
-    
+
     def tearDown(self):
         os.unlink(self.temp_db.name)
-    
+
     def test_task_creation(self):
         """Test task creation"""
         task = self.task_manager.create_task(
@@ -729,12 +729,12 @@ class TestTaskManager(unittest.TestCase):
             required_capabilities=["market_data", "analysis"],
             priority=TaskPriority.HIGH
         )
-        
+
         self.assertIsNotNone(task.id)
         self.assertEqual(task.task_type, "market_analysis")
         self.assertEqual(task.status, TaskStatus.PENDING)
         self.assertEqual(task.priority, TaskPriority.HIGH)
-    
+
     def test_task_assignment(self):
         """Test task assignment"""
         task = self.task_manager.create_task(
@@ -742,16 +742,16 @@ class TestTaskManager(unittest.TestCase):
             payload={"symbol": "AITBC/BTC", "side": "buy"},
             required_capabilities=["trading", "market_access"]
         )
-        
+
         success = self.task_manager.assign_task(task.id, "agent-001")
         self.assertTrue(success)
-        
+
         # Verify assignment
         updated_task = self.task_manager.get_agent_tasks("agent-001")[0]
         self.assertEqual(updated_task.id, task.id)
         self.assertEqual(updated_task.assigned_agent_id, "agent-001")
         self.assertEqual(updated_task.status, TaskStatus.ASSIGNED)
-    
+
     def test_task_completion(self):
         """Test task completion"""
         task = self.task_manager.create_task(
@@ -759,21 +759,21 @@ class TestTaskManager(unittest.TestCase):
             payload={"user_id": "user001"},
             required_capabilities=["compliance"]
         )
-        
+
         # Assign and start task
         self.task_manager.assign_task(task.id, "agent-002")
         self.task_manager.start_task(task.id)
-        
+
         # Complete task
         result = {"status": "passed", "checks": ["kyc", "aml"]}
         success = self.task_manager.complete_task(task.id, result)
         self.assertTrue(success)
-        
+
         # Verify completion
         completed_task = self.task_manager.get_agent_tasks("agent-002")[0]
         self.assertEqual(completed_task.status, TaskStatus.COMPLETED)
         self.assertEqual(completed_task.result, result)
-    
+
     def test_task_statistics(self):
         """Test task statistics"""
         # Create multiple tasks
@@ -783,38 +783,38 @@ class TestTaskManager(unittest.TestCase):
                 payload={"index": i},
                 required_capabilities=["basic"]
             )
-        
+
         stats = self.task_manager.get_task_statistics()
-        
+
         self.assertIn("task_counts", stats)
         self.assertIn("agent_statistics", stats)
         self.assertEqual(stats["task_counts"]["pending"], 5)
 
 class TestAgentMessageClient(unittest.TestCase):
     """Test agent message client"""
-    
+
     def setUp(self):
         self.client = AgentMessageClient("agent-001", "http://localhost:8013")
-    
+
     def test_task_assignment_message(self):
         """Test task assignment message creation"""
         task_data = {"task": "test_task", "parameters": {"param1": "value1"}}
-        
+
         success = self.client.send_task_assignment("agent-002", task_data)
         self.assertTrue(success)
-        
+
         # Check message queue
         messages = self.client.receive_messages()
         self.assertEqual(len(messages), 1)
         self.assertEqual(messages[0]["message_type"], MessageTypes.TASK_ASSIGNMENT)
-    
+
     def test_coordination_message(self):
         """Test coordination message"""
         coordination_data = {"action": "coordinate", "details": {"target": "goal"}}
-        
+
         success = self.client.send_coordination_message("agent-003", coordination_data)
         self.assertTrue(success)
-        
+
         # Check message queue
         messages = self.client.get_coordination_messages()
         self.assertEqual(len(messages), 1)
@@ -823,14 +823,14 @@ class TestAgentMessageClient(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 EOF
-    
+
     print_status "Testing framework set up"
 }
 
 # Configure Deployment
 configure_deployment() {
     print_status "Configuring deployment..."
-    
+
     # Create systemd service files
     cat > "/etc/systemd/system/aitbc-agent-registry.service" << 'EOF'
 [Unit]
@@ -850,7 +850,7 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 EOF
-    
+
     cat > "/etc/systemd/system/aitbc-agent-coordinator.service" << 'EOF'
 [Unit]
 Description=AITBC Agent Coordinator Service
@@ -869,7 +869,7 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 EOF
-    
+
     # Create deployment script
     cat > "$PROJECT_ROOT/scripts/deploy-agent-protocols.sh" << 'EOF'
 #!/bin/bash
@@ -904,9 +904,9 @@ curl -s http://localhost:8012/api/health || echo "Agent Coordinator not respondi
 
 echo "✅ Agent Protocols deployment complete!"
 EOF
-    
+
     chmod +x "$PROJECT_ROOT/scripts/deploy-agent-protocols.sh"
-    
+
     print_status "Deployment configured"
 }
 

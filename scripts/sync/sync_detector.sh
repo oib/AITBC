@@ -13,29 +13,29 @@ log_sync() {
 check_sync_diff() {
     local_height=$(curl -s "http://localhost:$LOCAL_PORT/rpc/head" | jq -r .height 2>/dev/null || echo "0")
     genesis_height=$(curl -s "http://$GENESIS_NODE:$GENESIS_PORT/rpc/head" | jq -r .height 2>/dev/null || echo "0")
-    
+
     if [ "$local_height" -eq 0 ] || [ "$genesis_height" -eq 0 ]; then
         log_sync "ERROR: Cannot get blockchain heights"
         return 1
     fi
-    
+
     diff=$((genesis_height - local_height))
     echo "$diff"
 }
 
 main() {
     log_sync "Starting sync check"
-    
+
     diff=$(check_sync_diff)
     log_sync "Sync difference: $diff blocks"
-    
+
     if [ "$diff" -gt "$MAX_SYNC_DIFF" ]; then
         log_sync "Large sync difference detected ($diff > $MAX_SYNC_DIFF), initiating bulk sync"
         /opt/aitbc/scripts/bulk_sync.sh >> "$LOG_FILE" 2>&1
-        
+
         new_diff=$(check_sync_diff)
         log_sync "Post-sync difference: $new_diff blocks"
-        
+
         if [ "$new_diff" -le "$MAX_SYNC_DIFF" ]; then
             log_sync "Bulk sync successful"
         else
@@ -44,7 +44,7 @@ main() {
     else
         log_sync "Sync difference is normal ($diff <= $MAX_SYNC_DIFF)"
     fi
-    
+
     log_sync "Sync check completed"
 }
 
