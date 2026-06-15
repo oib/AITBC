@@ -20,7 +20,6 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-ffmpeg
 MemoryMax=512M
-MemoryLimit=512M
 
 [Install]
 WantedBy=multi-user.target
