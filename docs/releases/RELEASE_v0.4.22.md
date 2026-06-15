@@ -285,6 +285,60 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 - **Files changed**: 1,023 files
 - **Lines changed**: +14,089 / -15,626
 
+### Phase 9: Extended MyPy Compliance — 9 More Apps (Priority 9)
+
+#### Apps Fixed and Error Counts
+
+| App | Errors Fixed | Key Issues |
+|-----|-------------|------------|
+| coordinator-api | 92 | type-arg, unused-ignore, attr-defined, assignment, operator |
+| agent-coordinator | 69 | union-attr (cryptography key types), unused-ignore |
+| blockchain-node | 59 | attr-defined, arg-type, untyped-decorator, import-untyped |
+| agent-management | 8 | SQLAlchemy where(bool), desc(datetime), double .scalars() |
+| marketplace | 8 | .isnot() on Python values instead of columns |
+| wallet | 6 | WalletRecord.get(), import-untyped for aitbc_sdk |
+| blockchain-event-bridge | 4 | import-untyped for aitbc_chain.gossip |
+| pool-hub | 2 | Misplaced # type: ignore on wrong line |
+| **Total** | **~250** | |
+
+#### Fix Techniques Applied
+
+1. **[type-arg]** — Added type arguments to bare generics:
+   - `dict` → `dict[str, Any]`, `list` → `list[Any]`, `set` → `set[str]`,
+     `tuple` → `tuple[int, ...]`, `Callable` → `Callable[..., Any]`
+
+2. **[unused-ignore]** — Removed 30+ stale `# type: ignore` comments whose errors no longer exist
+
+3. **[attr-defined] — eth_utils**:
+   - `from eth_utils import to_checksum_address` → `from eth_utils.address import to_checksum_address`
+
+4. **[attr-defined] — cryptography union types** (agent-coordinator):
+   - Added `isinstance(key, RSAPublicKey)` / `isinstance(key, RSAPrivateKey)` narrowing
+     before calling `.encrypt()`, `.decrypt()`, `.sign()`, `.verify()`
+
+5. **[attr-defined] — SQLAlchemy columns typed as Python primitives**:
+   - `Model.column.desc()` (where column typed as `int`) → `text("column DESC")`
+   - `Model.column.isnot(None)` (where typed as `float | None`) → `col(Model.column).isnot(None)`
+   - `where(Model.bool_column)` → `where(col(Model.bool_column) == True)`
+
+6. **[import-untyped]** — Added `py.typed` marker files to declare packages as typed:
+   - `apps/blockchain-node/src/aitbc_chain/py.typed` (resolves bridge + multi-chain errors)
+   - `packages/py/aitbc-sdk/src/aitbc_sdk/py.typed` (resolves wallet errors)
+
+7. **[arg-type] — Decimal fields**:
+   - `float` passed to SQLModel `Decimal` fields in `persistent_spending_tracker.py`
+     → wrapped with `# type: ignore[arg-type]` (SQLAlchemy typing limitation)
+
+8. **Architecture fixes**:
+   - Removed empty `apps/blockchain-node/src/__init__.py` that caused duplicate module names
+   - Added missing `_record_detection()` method to `EconomicSecurityMonitor`
+   - Fixed `ScalarResult[str].scalars()` double-call → single `.scalars()` in agent_router.py
+
+#### Estimated Effort
+- **Time**: 4-6 hours
+- **Complexity**: Medium (distributed across 66 files)
+- **Files changed**: 66 files
+
 ## 🎯 Success Criteria
 
 ### Minimum Viable v0.4.22
@@ -383,9 +437,10 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 ## 📊 Final Results
 
 ### MyPy Type Safety
-- ✅ **All 8 applications**: 0 errors (100% MyPy compliance)
+- ✅ **All 11 applications**: 0 errors (100% MyPy compliance)
 - ✅ **Strict mode enabled**: 12/12 strict options with all apps passing
 - ✅ **Zero type errors**: Complete type safety across codebase
+- ✅ **~250 additional errors fixed** in v0.4.22 late additions (9 apps)
 
 ### Test Coverage
 - ✅ **Final coverage**: 29% (up from 22.96%)
@@ -412,7 +467,7 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 
 ### Summary
 v0.4.22 successfully achieved all primary goals and stretch goals:
-- Complete MyPy compliance across all 8 applications
+- Complete MyPy compliance across all 11 applications (0 errors)
 - Full strict MyPy mode enabled (12/12 options)
 - Zero linting errors (Ruff)
 - Improved test coverage (29%)
@@ -420,6 +475,7 @@ v0.4.22 successfully achieved all primary goals and stretch goals:
 - Comprehensive documentation updates
 - Removed ~319 sys.path hacks across the codebase
 - Fixed ~1,123 E402 import order violations (ruff E402: 1123 → 0)
+- Fixed ~250 additional MyPy errors across coordinator-api, blockchain-node, agent-coordinator, pool-hub, wallet, agent-management, marketplace, blockchain-event-bridge
 
 **Release Manager**: Development Team
 **Reviewers**: Development Team
