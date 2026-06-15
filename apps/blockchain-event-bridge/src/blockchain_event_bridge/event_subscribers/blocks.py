@@ -37,7 +37,7 @@ class BlockEventSubscriber:
             blockchain_node_src = Path('/opt/aitbc/apps/blockchain-node/src')
             if str(blockchain_node_src) not in sys.path:
                 sys.path.insert(0, str(blockchain_node_src))
-            from aitbc_chain.gossip.broker import GossipBroker, create_backend
+            from aitbc_chain.gossip.broker import GossipBroker, create_backend  # type: ignore[import-not-found]
             backend = create_backend(self.settings.gossip_backend, broadcast_url=self.settings.gossip_broadcast_url)
             self._broker = GossipBroker(backend)
             self._subscription = await self._broker.subscribe('blocks', max_queue_size=100)
@@ -50,8 +50,8 @@ class BlockEventSubscriber:
             return
         while self._running:
             try:
-                block_data = await self._subscription.get()
-                event_queue_size.labels(topic='blocks').set(self._subscription.queue.qsize())
+                block_data = await self._subscription.get()  # type: ignore[attr-defined]
+                event_queue_size.labels(topic='blocks').set(self._subscription.queue.qsize())  # type: ignore[attr-defined]
                 logger.info('Received block event: height=%s', block_data.get('height'))
                 if self._bridge:
                     await self._bridge.handle_block_event(block_data)
