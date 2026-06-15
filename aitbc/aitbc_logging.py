@@ -49,7 +49,7 @@ def setup_logger(name: str, level: str = "INFO", format_string: str | None = Non
             formatter: logging.Formatter = StructuredFormatter()
         else:
             if format_string is None:
-                format_string = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                format_string = "[%(levelname)s] %(message)s"
             formatter = logging.Formatter(format_string)
 
         handler.setFormatter(formatter)
@@ -77,6 +77,12 @@ def configure_logging(level: str = "INFO", structured: bool = False) -> None:
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(StructuredFormatter())
         root_logger.addHandler(handler)
+    else:
+        # Ensure root logger has a handler with compact bracketed format
+        if not root_logger.handlers:
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+            root_logger.addHandler(handler)
 
 
 @contextmanager
