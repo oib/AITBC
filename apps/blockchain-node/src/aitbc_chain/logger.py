@@ -24,7 +24,8 @@ class TextFormatter(logging.Formatter):
         if extra_fields:
             message = f"{message} [{', '.join(extra_fields)}]"
 
-        return f"{record.levelname} {record.name} {message}"
+        # Use compact bracketed format: [LEVEL] message
+        return f"[{record.levelname}] {message}"
 
 
 def get_logger(name: str) -> logging.Logger:
