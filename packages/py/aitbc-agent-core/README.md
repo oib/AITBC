@@ -42,10 +42,10 @@ from app.services.agent_security import AgentSecurityManager
 class AgentSecurityManagerAdapter(ISecurityManager):
     def __init__(self, manager: AgentSecurityManager):
         self._manager = manager
-    
+
     async def validate_operation(self, operation: str, context: dict) -> bool:
         return await self._manager.validate_operation(operation, context)
-    
+
     async def audit_event(self, event_type: str, details: dict) -> None:
         await self._manager.audit_event(event_type, details)
 ```

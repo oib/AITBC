@@ -7,10 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
-from aitbc import get_logger
-
-logger = get_logger(__name__)
-from app.domain.trading import (  # type: ignore[import-not-found]  # type: ignore[import-not-found]  # noqa: E402
+from app.domain.trading import (  # type: ignore[import-not-found]  # type: ignore[import-not-found]
     NegotiationStatus,
     SettlementType,
     TradeAgreement,
@@ -20,7 +17,11 @@ from app.domain.trading import (  # type: ignore[import-not-found]  # type: igno
     TradeStatus,
     TradeType,
 )
-from sqlmodel import Session, or_, select  # noqa: E402
+from sqlmodel import Session, or_, select
+
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class MatchingEngine:
@@ -67,7 +68,7 @@ class MatchingEngine:
         for key in common_keys:
             buyer_value = buyer_specs[key]
             seller_value = seller_specs[key]
-            if isinstance(buyer_value, (int, float)) and isinstance(seller_value, (int, float)):
+            if isinstance(buyer_value, int | float) and isinstance(seller_value, int | float):
                 if buyer_value == seller_value:
                     score = 100.0
                 elif buyer_value > seller_value:
@@ -256,7 +257,7 @@ class NegotiationSystem:
         for key, value in seller_specs.items():
             if key not in merged:
                 merged[key] = value
-            elif isinstance(value, (int, float)) and isinstance(merged[key], (int, float)):
+            elif isinstance(value, int | float) and isinstance(merged[key], int | float):
                 merged[key] = max(merged[key], value)
         return merged
 
@@ -355,7 +356,7 @@ class NegotiationSystem:
         for key in common_keys:
             required_value = required_specs[key]
             offered_value = offered_specs[key]
-            if isinstance(required_value, (int, float)) and isinstance(offered_value, (int, float)):
+            if isinstance(required_value, int | float) and isinstance(offered_value, int | float):
                 if offered_value >= required_value:
                     score = 100.0
                 else:

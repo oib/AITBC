@@ -50,7 +50,7 @@ jobs:
       - name: Lint Markdown files
         run: |
           cd "/opt/aitbc"
-          
+
           echo "=== Linting Markdown ==="
           if command -v markdownlint >/dev/null 2>&1; then
             shopt -s globstar nullglob
@@ -249,4 +249,3 @@ jobs:
           echo "Strict docs scope: ${#targets[@]} policy Markdown files"
           markdownlint "${targets[@]}"
           echo "✅ Policy docs lint passed"
-

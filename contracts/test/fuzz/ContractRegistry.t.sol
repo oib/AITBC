@@ -135,7 +135,7 @@ contract ContractRegistryFuzzTest is Test {
         vm.assume(contractAddress != address(0));
 
         bool isRegistered = registry.isRegisteredContract(contractAddress);
-        
+
         if (contractAddress == address(registry)) {
             assertTrue(isRegistered);
         } else {
@@ -156,7 +156,7 @@ contract ContractRegistryFuzzTest is Test {
 
     function testFuzz_GetRegistryStats() public {
         (uint256 totalContracts, uint256 totalVersion, bool isPaused, address registryOwner) = registry.getRegistryStats();
-        
+
         assertEq(totalContracts, 1); // Registry itself
         assertEq(totalVersion, 1);
         assertFalse(isPaused);

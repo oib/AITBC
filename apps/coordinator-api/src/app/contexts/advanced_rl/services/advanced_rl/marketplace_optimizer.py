@@ -8,15 +8,14 @@ from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
+from sqlmodel import Session, select
 
 from aitbc import get_logger
 
+from ...domain.agent_performance import ReinforcementLearningConfig  # type: ignore[import-not-found]
+from .engine import AdvancedReinforcementLearningEngine
+
 logger = get_logger(__name__)
-
-from sqlmodel import Session, select  # noqa: E402
-
-from ...domain.agent_performance import ReinforcementLearningConfig  # type: ignore[import-not-found]  # noqa: E402
-from .engine import AdvancedReinforcementLearningEngine  # noqa: E402
 
 
 class MarketplaceStrategyOptimizer:

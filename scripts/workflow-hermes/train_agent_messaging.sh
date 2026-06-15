@@ -52,7 +52,7 @@ cat > /tmp/agent_messaging_workflow.json << 'EOF'
     ],
     "message_types": [
         "post",
-        "reply", 
+        "reply",
         "announcement",
         "question",
         "answer"

@@ -16,7 +16,7 @@ mkdir -p "$REPORT_DIR"
 cat > "$REPORT_FILE" << EOF
 # Contract Performance Benchmark Report
 
-**Generated:** $(date -u +%Y-%m-%dT%H:%M:%SZ)  
+**Generated:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
 **Commit:** $(cd /opt/aitbc && git rev-parse --short HEAD)
 
 ## Summary

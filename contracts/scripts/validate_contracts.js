@@ -8,7 +8,7 @@ console.log("=== AITBC Smart Contract Validation ===");
 // Contract files to validate
 const contracts = [
     'contracts/AIPowerRental.sol',
-    'contracts/AITBCPaymentProcessor.sol', 
+    'contracts/AITBCPaymentProcessor.sol',
     'contracts/PerformanceVerifier.sol',
     'contracts/DisputeResolution.sol',
     'contracts/EscrowService.sol',
@@ -29,7 +29,7 @@ contracts.forEach(contractPath => {
     if (fs.existsSync(contractPath)) {
         const content = fs.readFileSync(contractPath, 'utf8');
         const lines = content.split('\n').length;
-        
+
         // Basic validation checks
         const checks = {
             hasSPDXLicense: content.includes('SPDX-License-Identifier'),
@@ -44,19 +44,19 @@ contracts.forEach(contractPath => {
             hasAccessControl: content.includes('onlyOwner') || content.includes('require(msg.sender'),
             lineCount: lines
         };
-        
+
         // Calculate validation score
         const score = Object.values(checks).filter(Boolean).length;
         const maxScore = Object.keys(checks).length;
         const isValid = score >= (maxScore * 0.7); // 70% threshold
-        
+
         validationResults.totalContracts++;
         validationResults.totalLines += lines;
-        
+
         if (isValid) {
             validationResults.validContracts++;
         }
-        
+
         validationResults.contracts.push({
             name: path.basename(contractPath),
             path: contractPath,
@@ -66,7 +66,7 @@ contracts.forEach(contractPath => {
             maxScore: maxScore,
             isValid: isValid
         });
-        
+
         console.log(`${isValid ? '✅' : '❌'} ${path.basename(contractPath)} (${lines} lines, ${score}/${maxScore} checks)`);
     } else {
         console.log(`❌ ${contractPath} (file not found)`);
@@ -86,11 +86,11 @@ validationResults.contracts.forEach(contract => {
     console.log(`   Lines: ${contract.lines}`);
     console.log(`   Score: ${contract.score}/${contract.maxScore}`);
     console.log(`   Status: ${contract.isValid ? '✅ Valid' : '❌ Needs Review'}`);
-    
+
     const failedChecks = Object.entries(contract.checks)
         .filter(([key, value]) => !value)
         .map(([key]) => key);
-    
+
     if (failedChecks.length > 0) {
         console.log(`   Missing: ${failedChecks.join(', ')}`);
     }
@@ -114,9 +114,9 @@ Object.entries(crossReferences).forEach(([contract, dependencies]) => {
     if (contractData) {
         const content = fs.readFileSync(contractData.path, 'utf8');
         const foundDependencies = dependencies.filter(dep => content.includes(dep));
-        
+
         console.log(`${foundDependencies.length === dependencies.length ? '✅' : '❌'} ${contract} references: ${foundDependencies.length}/${dependencies.length}`);
-        
+
         if (foundDependencies.length < dependencies.length) {
             const missing = dependencies.filter(dep => !foundDependencies.includes(dep));
             console.log(`   Missing references: ${missing.join(', ')}`);
@@ -138,7 +138,7 @@ const securityChecks = {
 
 validationResults.contracts.forEach(contract => {
     const content = fs.readFileSync(contract.path, 'utf8');
-    
+
     Object.keys(securityChecks).forEach(securityFeature => {
         if (content.includes(securityFeature)) {
             securityChecks[securityFeature]++;
@@ -173,13 +173,13 @@ const gasOptimizationFeatures = [
 validationResults.contracts.forEach(contract => {
     const content = fs.readFileSync(contract.path, 'utf8');
     let contractGasScore = 0;
-    
+
     gasOptimizationFeatures.forEach(feature => {
         if (content.includes(feature)) {
             contractGasScore++;
         }
     });
-    
+
     if (contractGasScore >= 5) {
         gasOptimizationScore++;
         console.log(`✅ ${contract.name}: Optimized (${contractGasScore}/${gasOptimizationFeatures.length} features)`);

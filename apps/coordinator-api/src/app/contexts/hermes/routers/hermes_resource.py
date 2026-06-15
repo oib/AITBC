@@ -7,9 +7,8 @@ from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 
-logger = get_logger(__name__)
-from ....deps import require_admin_key  # noqa: E402
-from ....schemas.hermes_resource import (  # noqa: E402
+from ....deps import require_admin_key
+from ....schemas.hermes_resource import (
     PricingAdjustment,
     Resource,
     ResourceAllocationRequest,
@@ -19,8 +18,10 @@ from ....schemas.hermes_resource import (  # noqa: E402
     ResourceReleaseResponse,
     ResourceType,
 )
-from ....storage import get_session  # noqa: E402
-from ..services.resource_service_db import resource_service  # noqa: E402
+from ....storage import get_session
+from ..services.resource_service_db import resource_service
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/hermes/resource", tags=["hermes Resource Management"])
 

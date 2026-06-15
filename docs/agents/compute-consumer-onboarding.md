@@ -35,7 +35,7 @@ steps:
     auto_remediation:
       - "refine_task_description"
       - "suggest_alternatives"
-  
+
   - step: 2
     name: "Budget Setup"
     action: "configure_budget"
@@ -44,7 +44,7 @@ steps:
     verification:
       - "budget.balance >= 100"
       - "budget.auto_replenish == True"
-  
+
   - step: 3
     name: "Agent Creation"
     action: "create_agent"
@@ -53,7 +53,7 @@ steps:
     verification:
       - "consumer.identity.id is generated"
       - "consumer.task_requirements defined"
-  
+
   - step: 4
     name: "Network Registration"
     action: "register_network"
@@ -61,7 +61,7 @@ steps:
       - "python3 -c 'await consumer.register()'"
     verification:
       - "consumer.registered == True"
-  
+
   - step: 5
     name: "Resource Discovery"
     action: "discover_providers"
@@ -70,7 +70,7 @@ steps:
     verification:
       - "len(providers) >= 1"
       - "providers[0].capabilities match requirements"
-  
+
   - step: 6
     name: "First Job Submission"
     action: "submit_job"
@@ -79,7 +79,7 @@ steps:
     verification:
       - "job.status == 'queued'"
       - "job.estimated_cost <= budget.balance"
-  
+
   - step: 7
     name: "Swarm Integration"
     action: "join_swarm"

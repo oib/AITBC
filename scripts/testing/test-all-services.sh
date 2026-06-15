@@ -25,9 +25,9 @@ test_service() {
     local name="$1"
     local url="$2"
     local expected_pattern="$3"
-    
+
     echo -n "Testing $name... "
-    
+
     if response=$(curl -s "$url" 2>/dev/null); then
         if [[ $response =~ $expected_pattern ]]; then
             echo -e "${GREEN}✅ PASS${NC}"
@@ -51,9 +51,9 @@ test_service() {
 test_port() {
     local port="$1"
     local name="$2"
-    
+
     echo -n "Testing port $port ($name)... "
-    
+
     if sudo netstat -tlnp 2>/dev/null | grep -q ":$port "; then
         echo -e "${GREEN}✅ PASS${NC}"
         ((PASSED++))

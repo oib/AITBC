@@ -2,14 +2,10 @@
 
 import sys
 from collections.abc import Generator
-from pathlib import Path
 from typing import Any
 
 import pytest
 from starlette.testclient import TestClient
-
-# Add the agent-coordinator source to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "apps" / "agent-coordinator" / "src"))
 
 for mod_name in list(sys.modules.keys()):
     if mod_name == "app" or mod_name.startswith("app."):

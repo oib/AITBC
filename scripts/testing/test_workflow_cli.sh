@@ -34,10 +34,10 @@ log_warn() {
 run_test() {
     local test_name="$1"
     local test_command="$2"
-    
+
     TESTS_RUN=$((TESTS_RUN + 1))
     log_info "Running: $test_name"
-    
+
     if eval "$test_command"; then
         TESTS_PASSED=$((TESTS_PASSED + 1))
         log_info "PASSED: $test_name"

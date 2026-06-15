@@ -5,16 +5,10 @@ Automated trading agent for AITBC marketplace
 """
 
 import asyncio
-import os
-import sys
 from typing import Any
 
-# Add parent directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
-
-from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceBridge
-
 from aitbc import get_logger
+from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceBridge  # type: ignore[import-not-found]
 
 logger = get_logger(__name__)
 

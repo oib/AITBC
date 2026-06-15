@@ -134,7 +134,6 @@ def profile_function(profiler: PerformanceProfiler | None = None):
     """
 
     def decorator(func: Callable) -> Callable:
-
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             start_time = time.perf_counter()

@@ -153,7 +153,7 @@ async def _chain_health_check(self):
         for chain_id, chain in list(self.chains.items()):
             if chain.status == ChainStatus.ERROR:
                 logger.warning(f"Chain {chain_id} in error state: {chain.error_message}")
-        
+
         await asyncio.sleep(60)  # Check every minute
 ```
 

@@ -510,7 +510,9 @@ class GlobalChainMarketplace:
         """Update marketplace performance metrics"""
         try:
             total_listings = len(self.listings)
-            active_listings = len([listing for listing in self.listings.values() if listing.status == MarketplaceStatus.ACTIVE])
+            active_listings = len(
+                [listing for listing in self.listings.values() if listing.status == MarketplaceStatus.ACTIVE]
+            )
             total_transactions = len(self.transactions)
 
             # Calculate total volume and average price

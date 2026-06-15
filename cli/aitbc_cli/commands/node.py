@@ -7,7 +7,6 @@ import hashlib
 import json
 import os
 import socket
-import sys
 from datetime import datetime
 
 import click
@@ -483,7 +482,6 @@ def join(ctx, island_id, island_name, chain_id, hub, is_hub):
         # Get system hostname
         hostname = socket.gethostname()
 
-        sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
         from aitbc_chain.config import settings as chain_settings
 
         # Get public key from keystore
@@ -702,7 +700,6 @@ def register(ctx, public_address, public_port, redis_url, hub_discovery_url):
         node_id = hashlib.sha256(content.encode()).hexdigest()
 
         # Create HubManager instance
-        sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
         from aitbc_chain.network.hub_discovery import HubDiscovery
         from aitbc_chain.network.hub_manager import HubManager
 
@@ -797,7 +794,6 @@ def unregister(ctx, redis_url, hub_discovery_url):
         node_id = hashlib.sha256(content.encode()).hexdigest()
 
         # Create HubManager instance
-        sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
         from aitbc_chain.network.hub_discovery import HubDiscovery
         from aitbc_chain.network.hub_manager import HubManager
 

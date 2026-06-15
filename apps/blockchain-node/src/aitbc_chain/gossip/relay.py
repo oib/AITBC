@@ -8,13 +8,14 @@ import logging
 from typing import Any
 
 import uvicorn
-from aitbc.logging import get_logger  # type: ignore[import-not-found]
 from starlette.applications import Starlette
 from starlette.broadcast import Broadcast  # type: ignore[import-not-found]
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket
+
+from aitbc.logging import get_logger  # type: ignore[import-not-found]
 
 logging.basicConfig(level=logging.INFO)
 logger = get_logger(__name__)

@@ -8,14 +8,14 @@ _aitbc_completion() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    
+
     # Main commands
     if [[ ${COMP_CWORD} -eq 1 ]]; then
         opts="client miner wallet auth blockchain marketplace admin config simulate help --help --version --url --api-key --output -v --debug --config-file"
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
         return 0
     fi
-    
+
     # Command-specific completions
     case "${COMP_WORDS[1]}" in
         client)
@@ -59,7 +59,7 @@ _aitbc_client_completion() {
     local cur prev opts
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    
+
     if [[ ${COMP_CWORD} -eq 2 ]]; then
         opts="submit status blocks receipts cancel history"
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
@@ -84,7 +84,7 @@ _aitbc_miner_completion() {
     local cur prev opts
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    
+
     if [[ ${COMP_CWORD} -eq 2 ]]; then
         opts="register poll mine heartbeat status"
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
@@ -96,7 +96,7 @@ _aitbc_wallet_completion() {
     local cur prev opts
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    
+
     if [[ ${COMP_CWORD} -eq 2 ]]; then
         opts="balance earn spend history address stats send request"
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
@@ -108,7 +108,7 @@ _aitbc_auth_completion() {
     local cur prev opts
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    
+
     if [[ ${COMP_CWORD} -eq 2 ]]; then
         opts="login logout token status refresh keys import-env"
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
@@ -129,7 +129,7 @@ _aitbc_blockchain_completion() {
     local cur prev opts
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    
+
     if [[ ${COMP_CWORD} -eq 2 ]]; then
         opts="blocks block transaction status sync-status peers info supply validators"
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
@@ -141,7 +141,7 @@ _aitbc_marketplace_completion() {
     local cur prev opts
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    
+
     if [[ ${COMP_CWORD} -eq 2 ]]; then
         opts="gpu orders pricing reviews"
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
@@ -162,7 +162,7 @@ _aitbc_admin_completion() {
     local cur prev opts
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    
+
     if [[ ${COMP_CWORD} -eq 2 ]]; then
         opts="status jobs miners analytics logs maintenance action"
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
@@ -183,7 +183,7 @@ _aitbc_config_completion() {
     local cur prev opts
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    
+
     if [[ ${COMP_CWORD} -eq 2 ]]; then
         opts="show set path edit reset export import validate environments profiles"
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
@@ -212,7 +212,7 @@ _aitbc_simulate_completion() {
     local cur prev opts
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    
+
     if [[ ${COMP_CWORD} -eq 2 ]]; then
         opts="init user workflow load-test scenario results reset"
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )

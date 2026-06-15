@@ -1125,6 +1125,6 @@ If critical issues are detected during migration:
 
 ---
 
-*Last Updated: 2026-06-07*  
-*Version: 0.4.12*  
+*Last Updated: 2026-06-07*
+*Version: 0.4.12*
 *Status: Concept Plan*

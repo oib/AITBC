@@ -42,7 +42,7 @@ check_root() {
 
 check_prerequisites() {
     log_info "Checking prerequisites..."
-    
+
     # Check for required commands
     for cmd in git python3 pip3 systemctl; do
         if ! command -v $cmd &> /dev/null; then
@@ -50,7 +50,7 @@ check_prerequisites() {
             exit 1
         fi
     done
-    
+
     # Check Python version
     PYTHON_VERSION=$(python3 --version | cut -d' ' -f2 | cut -d'.' -f1,2)
     REQUIRED_VERSION="3.13"
@@ -58,13 +58,13 @@ check_prerequisites() {
         log_error "Python $REQUIRED_VERSION+ required, found $PYTHON_VERSION"
         exit 1
     fi
-    
+
     log_info "Prerequisites check passed"
 }
 
 clone_repository() {
     log_info "Cloning AITBC repository..."
-    
+
     if [ -d "$INSTALL_DIR" ]; then
         log_warn "Directory $INSTALL_DIR already exists"
         log_info "Updating existing repository via git pull"
@@ -76,28 +76,28 @@ clone_repository() {
         log_info "Repository updated successfully"
         return
     fi
-    
+
     git clone "$REPO_URL" "$INSTALL_DIR"
     cd "$INSTALL_DIR"
-    
+
     log_info "Repository cloned successfully"
 }
 
 setup_python_environment() {
     log_info "Setting up Python environment..."
-    
+
     cd "$INSTALL_DIR"
-    
+
     # Create virtual environment
     python3 -m venv venv
-    
+
     # Activate virtual environment
     source venv/bin/activate
-    
+
     # Install essential blockchain-node dependencies
     log_info "Installing essential dependencies"
     pip install pydantic pydantic-settings fastapi uvicorn sqlalchemy sqlmodel psycopg2-binary psycopg2 aiosqlite httpx redis prometheus-client alembic
-    
+
     # Install blockchain-node package in editable mode
     if [ -f "apps/blockchain-node/pyproject.toml" ]; then
         log_info "Installing blockchain-node package in editable mode"
@@ -107,35 +107,35 @@ setup_python_environment() {
         deactivate
         exit 1
     fi
-    
+
     deactivate
-    
+
     log_info "Python environment setup complete"
 }
 
 setup_directories() {
     log_info "Setting up directories..."
-    
+
     # Create runtime directories
     mkdir -p /var/lib/aitbc/keystore
     mkdir -p /var/lib/aitbc/data
     mkdir -p /var/log/aitbc
-    
+
     # Create configuration directory
     mkdir -p /etc/aitbc
-    
+
     # Set permissions
     chmod 700 /var/lib/aitbc/keystore
     chmod 755 /var/lib/aitbc/data
     chmod 755 /var/log/aitbc
     chmod 755 /etc/aitbc
-    
+
     log_info "Directories setup complete"
 }
 
 setup_postgresql() {
     log_info "Setting up PostgreSQL for mempool..."
-    
+
     # Install PostgreSQL and development headers
     if command -v apt-get &> /dev/null; then
         apt-get update
@@ -146,16 +146,16 @@ setup_postgresql() {
         log_error "Unsupported package manager"
         exit 1
     fi
-    
+
     # Start PostgreSQL service
     if command -v systemctl &> /dev/null; then
         systemctl enable postgresql
         systemctl start postgresql
     fi
-    
+
     # Wait for PostgreSQL to be ready
     sleep 5
-    
+
     # Create mempool database and user
     log_info "Creating mempool database and user..."
     sudo -u postgres psql << EOF
@@ -164,17 +164,17 @@ CREATE USER aitbc_mempool WITH PASSWORD 'aitbc_mempool_password';
 GRANT ALL PRIVILEGES ON DATABASE aitbc_mempool TO aitbc_mempool;
 ALTER USER aitbc_mempool WITH SUPERUSER;
 EOF
-    
+
     log_info "PostgreSQL setup complete"
 }
 
 setup_environment_files() {
     log_info "Setting up environment files..."
-    
+
     # Generate unique chain ID for this node
     NODE_ID=$(hostname)
     CHAIN_ID="ait-${NODE_ID}"
-    
+
     # Create blockchain.env if it doesn't exist
     if [ ! -f "$ENV_FILE" ]; then
         cat > "$ENV_FILE" << EOF
@@ -198,7 +198,7 @@ EOF
     else
         log_info "$ENV_FILE already exists, skipping"
     fi
-    
+
     # Create node.env if it doesn't exist
     if [ ! -f "$NODE_ENV_FILE" ]; then
         cat > "$NODE_ENV_FILE" << EOF
@@ -218,14 +218,14 @@ EOF
 
 generate_wallet_and_genesis() {
     log_info "Generating wallet for node..."
-    
+
     cd "$INSTALL_DIR"
     source venv/bin/activate
-    
+
     # Get chain ID from environment file
     CHAIN_ID=$(grep "^CHAIN_ID=" "$ENV_FILE" | cut -d'=' -f2)
     NODE_ID=$(grep "^NODE_ID=" "$NODE_ENV_FILE" | cut -d'=' -f2)
-    
+
     # Generate wallet using Python
     python3 << EOF
 import secrets
@@ -255,27 +255,27 @@ with open(wallet_path, "w") as f:
 print(f"Generated wallet: {address}")
 print(f"Saved wallet to: {wallet_path}")
 EOF
-    
+
     deactivate
-    
+
     log_info "Wallet generated successfully"
 }
 
 fund_wallet() {
     log_info "Funding wallet via blockchain API..."
-    
+
     cd "$INSTALL_DIR"
     source venv/bin/activate
-    
+
     # Get chain ID from environment file
     CHAIN_ID=$(grep "^CHAIN_ID=" "$ENV_FILE" | cut -d'=' -f2)
-    
+
     # Get wallet address
     if [ ! -f "/var/lib/aitbc/keystore/genesis-wallet.json" ]; then
         log_error "Wallet file not found, cannot fund"
         return 1
     fi
-    
+
     WALLET_ADDRESS=$(python3 << EOF
 import json
 with open("/var/lib/aitbc/keystore/genesis-wallet.json") as f:
@@ -283,7 +283,7 @@ with open("/var/lib/aitbc/keystore/genesis-wallet.json") as f:
 print(wallet["address"])
 EOF
 )
-    
+
     # Fund wallet using Python to directly update database
     python3 << EOF
 import sys
@@ -315,38 +315,38 @@ with session_scope() as session:
     session.commit()
     print(f"Successfully funded wallet {address} with {amount} units")
 EOF
-    
+
     deactivate
-    
+
     log_info "Wallet funded successfully"
 }
 
 generate_genesis_block() {
     log_info "Generating genesis block for chain..."
-    
+
     cd "$INSTALL_DIR"
     source venv/bin/activate
-    
+
     # Get chain ID from environment file
     CHAIN_ID=$(grep "^CHAIN_ID=" "$ENV_FILE" | cut -d'=' -f2)
     NODE_ID=$(grep "^NODE_ID=" "$NODE_ENV_FILE" | cut -d'=' -f2)
-    
+
     log_info "Generating genesis for chain: $CHAIN_ID, node: $NODE_ID"
-    
+
     # Run genesis initialization script
     cd apps/blockchain-node
     python3 init_genesis.py
-    
+
     deactivate
-    
+
     log_info "Genesis block generation complete"
 }
 
 setup_systemd_service() {
     log_info "Setting up systemd service..."
-    
+
     SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-    
+
     cat > "$SERVICE_FILE" << EOF
 [Unit]
 Description=AITBC Production Blockchain Node
@@ -369,21 +369,21 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 EOF
-    
+
     systemctl daemon-reload
     systemctl enable $SERVICE_NAME
-    
+
     log_info "Systemd service setup complete"
 }
 
 start_service() {
     log_info "Starting blockchain node service..."
-    
+
     systemctl start $SERVICE_NAME
-    
+
     # Wait for service to start
     sleep 5
-    
+
     if systemctl is-active --quiet $SERVICE_NAME; then
         log_info "Service started successfully"
     else
@@ -395,7 +395,7 @@ start_service() {
 
 verify_deployment() {
     log_info "Verifying deployment..."
-    
+
     # Check service status
     if systemctl is-active --quiet $SERVICE_NAME; then
         log_info "✓ Service is running"
@@ -403,7 +403,7 @@ verify_deployment() {
         log_error "✗ Service is not running"
         exit 1
     fi
-    
+
     # Check RPC endpoint
     if curl -s http://localhost:8006/rpc/head > /dev/null; then
         log_info "✓ RPC endpoint is accessible"
@@ -411,7 +411,7 @@ verify_deployment() {
         log_error "✗ RPC endpoint is not accessible"
         exit 1
     fi
-    
+
     # Check mempool endpoint
     if curl -s http://localhost:8006/rpc/mempool > /dev/null; then
         log_info "✓ Mempool endpoint is accessible"
@@ -419,7 +419,7 @@ verify_deployment() {
         log_error "✗ Mempool endpoint is not accessible"
         exit 1
     fi
-    
+
     log_info "Deployment verification complete"
 }
 
@@ -454,7 +454,7 @@ main() {
     echo "  Integrated Blockchain Node Deployment"
     echo "=========================================="
     echo ""
-    
+
     check_root
     check_prerequisites
     clone_repository
@@ -468,7 +468,7 @@ main() {
     start_service
     verify_deployment
     print_summary
-    
+
     log_info "Deployment completed successfully!"
 }
 

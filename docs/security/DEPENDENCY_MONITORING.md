@@ -123,7 +123,7 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 
 ### Immediate (Within 24 hours)
 - **Trigger**: Critical/High severity in production runtime dependencies
-- **Action**: 
+- **Action**:
   1. Assess exploitability
   2. Apply patch or upgrade
   3. Deploy to production

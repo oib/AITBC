@@ -1,9 +1,5 @@
 """Tests for coordinator-api /v1 endpoints"""
 
-import sys
-
-sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
-
 from app.main import app
 from fastapi.testclient import TestClient
 

@@ -180,6 +180,54 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 - **Time**: 1 hour
 - **Complexity**: Low
 
+### Phase 7: Pre-commit Hooks & Multi-node Deployment (Priority 7)
+
+#### Pre-commit Hooks Implementation
+1. **Installed pre-commit** in venv
+2. **Updated .pre-commit-config.yaml** with:
+   - pre-commit-hooks: Basic file checks (trailing whitespace, YAML, JSON, merge conflicts, etc.)
+   - Ruff: Linting with auto-fix (--unsafe-fixes) and formatting
+   - MyPy: Type checking on the 12 clean apps only
+   - Bandit: Security scanning (runs on pre-push only)
+3. **Created scripts/ci/mypy-precommit.sh** for MyPy hook
+4. **Fixed issues found by hooks**:
+   - Fixed executable permissions on 20+ non-executable files
+   - Fixed late import in persistent_service.py
+   - Auto-fixed 54 UP038 isinstance pattern issues
+   - Added noqa comments for intentional late imports
+
+#### Multi-node Deployment Fixes
+1. **Changed service bindings from 127.0.0.1 to 0.0.0.0** (all interfaces):
+   - marketplace: 127.0.0.1 → 0.0.0.0 (default)
+   - gpu: 127.0.0.1 → 0.0.0.0 (default)
+   - trading: 127.0.0.1 → 0.0.0.0 (default)
+   - governance: 127.0.0.1 → 0.0.0.0 (default)
+   - wallet: 127.0.0.1 → 0.0.0.0 (default)
+
+2. **Added environment variable support** for bind configuration:
+   - MARKETPLACE_BIND_HOST/PORT
+   - GPU_BIND_HOST/PORT
+   - TRADING_BIND_HOST/PORT
+   - GOVERNANCE_BIND_HOST/PORT
+   - WALLET_BIND_HOST/PORT
+
+#### Environment Variable Standardization
+1. **Standardized naming convention**: `{SERVICE}_BIND_HOST` and `{SERVICE}_BIND_PORT`
+2. **Updated services**:
+   - Hermes: HERMES_BIND_HOST/PORT (backward compatible with BIND_HOST, HERMES_PORT)
+   - Agent Coordinator: AGENT_COORDINATOR_BIND_HOST/PORT (backward compatible with HOST, PORT)
+   - FFmpeg: FFMPEG_BIND_HOST/PORT (backward compatible with FFMPEG_PORT)
+   - Whisper: WHISPER_BIND_HOST/PORT (backward compatible with WHISPER_PORT)
+   - Transcoder: TRANSCODER_BIND_HOST/PORT (backward compatible with TRANSCODER_PORT)
+3. **Additional fixes**:
+   - Fixed logger initialization order in coordinator-api/src/app/main.py
+   - Added missing import sys in tests/fixtures/blockchain.py
+   - Added noqa comments for intentional late imports in test files
+
+#### Estimated Effort
+- **Time**: 2 hours
+- **Complexity**: Low
+
 ## 🎯 Success Criteria
 
 ### Minimum Viable v0.4.22
@@ -193,6 +241,9 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 - [x] Additional strict MyPy options enabled ✅ **HIGH PRIORITY** (12/12 strict options)
 - [x] All linting issues resolved ✅ **COMPLETE** (zero Ruff errors)
 - [x] Service configuration drift fixed ✅ **ADDED**
+- [x] Pre-commit hooks implemented ✅ **ADDED**
+- [x] Multi-node deployment bind fixes ✅ **ADDED**
+- [x] Environment variable standardization ✅ **ADDED**
 
 ## 📅 Timeline Estimate
 
@@ -204,7 +255,8 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 | Phase 4: Test coverage (30% target) | 3-5 hours | Medium | ✅ Complete |
 | Phase 5: Documentation | 30 minutes | Low | ✅ Complete |
 | Phase 6: Service config drift | 1 hour | Low | ✅ Complete |
-| **Total** | **11.5-18.5 hours** | - | ✅ **ALL COMPLETE** |
+| Phase 7: Pre-commit & Multi-node | 2 hours | Low | ✅ Complete |
+| **Total** | **13.5-20.5 hours** | - | ✅ **ALL COMPLETE** |
 
 ### Execution Order
 1. ✅ **Phase 1**: Complete blockchain-node MyPy fixes (required)
@@ -213,6 +265,7 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 4. ✅ **Phase 4**: Improve test coverage to 30% (target)
 5. ✅ **Phase 5**: Update documentation
 6. ✅ **Phase 6**: Fix service configuration drift (added during execution)
+7. ✅ **Phase 7**: Pre-commit hooks & multi-node deployment fixes (added during execution)
 
 ## 🔧 Technical Considerations
 

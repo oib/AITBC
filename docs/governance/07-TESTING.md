@@ -238,7 +238,7 @@ class GovernanceUser(HttpUser):
     @task
     def health_check(self):
         self.client.get("/health")
-    
+
     @task
     def get_proposals(self):
         self.client.get("/v1/governance/proposals")

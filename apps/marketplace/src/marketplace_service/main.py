@@ -690,6 +690,13 @@ async def get_transactions(
 
 
 if __name__ == "__main__":
+    import os
+
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=8102)
+    # Allow configuration via environment variable for multi-node deployments
+    # Default to 0.0.0.0 to accept connections from other nodes
+    host = os.getenv("MARKETPLACE_BIND_HOST", "0.0.0.0")
+    port = int(os.getenv("MARKETPLACE_BIND_PORT", "8102"))
+
+    uvicorn.run(app, host=host, port=port)

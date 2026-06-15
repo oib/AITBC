@@ -136,11 +136,11 @@ The contracts use Solidity 0.8+ which has built-in overflow protection and follo
 function unstake(uint256 amount) external {
     require(stakedTokens[msg.sender] >= amount, "Insufficient staked tokens");
     require(block.timestamp >= stakeLockEnd[msg.sender], "Stake still locked");
-    
+
     // Checks
     // Effects
     stakedTokens[msg.sender] -= amount;
-    
+
     // Interactions
     _transfer(address(this), msg.sender, amount);
 }
@@ -179,7 +179,7 @@ class StakeRequest(BaseModel):
     staker_address: str = Field(..., regex=r"^0x[a-fA-F0-9]{40}$")
     amount: int = Field(..., gt=0)
     lock_period_days: int = Field(..., ge=30)
-    
+
     @validator('amount')
     def validate_amount(cls, v):
         if v > 1_000_000_000 * 10**18:

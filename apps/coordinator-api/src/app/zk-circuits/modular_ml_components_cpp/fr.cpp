@@ -212,7 +212,7 @@ void RawFr::set(Element &r, int value) {
   }
 
   mpz_export((void *)(r.v), NULL, -1, 8, -1, 0, mr);
-      
+
   for (int i=0; i<Fr_N64; i++) r.v[i] = 0;
   mpz_export((void *)(r.v), NULL, -1, 8, -1, 0, mr);
   Fr_rawToMontgomery(r.v,r.v);
@@ -294,11 +294,11 @@ int RawFr::toRprBE(const Element &element, uint8_t *data, int bytes)
 
     mpz_t r;
     mpz_init(r);
-  
+
     toMpz(r, element);
-    
+
     mpz_export(data, NULL, 1, 8, 1, 0, r);
-  
+
     return Fr_N64 * 8;
 }
 
@@ -318,4 +318,3 @@ int RawFr::fromRprBE(Element &element, const uint8_t *data, int bytes)
 static bool init = Fr_init();
 
 RawFr RawFr::field;
-

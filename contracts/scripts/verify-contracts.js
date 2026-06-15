@@ -5,35 +5,35 @@ const path = require("path");
 async function main() {
     console.log("🔍 Verifying AITBC Developer Ecosystem Contracts");
     console.log("==============================================");
-    
+
     const network = network.name;
-    
+
     if (network === "localhost" || network === "hardhat") {
         console.log("⏭️ Skipping verification for local network");
         return;
     }
-    
+
     // Read deployed contracts
     const deploymentFile = `deployed-contracts-${network}.json`;
     const deploymentPath = path.join(__dirname, "..", deploymentFile);
-    
+
     if (!fs.existsSync(deploymentPath)) {
         console.error(`❌ Deployment file not found: ${deploymentFile}`);
         process.exit(1);
     }
-    
+
     const deployedContracts = JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
-    
+
     console.log(`Network: ${network}`);
     console.log(`Contracts to verify: ${Object.keys(deployedContracts.contracts).length}`);
     console.log("");
-    
+
     const verificationResults = {
         verified: [],
         failed: [],
         skipped: []
     };
-    
+
     // Verification configurations for each contract
     const verificationConfigs = {
         AITBCToken: {
@@ -77,11 +77,11 @@ async function main() {
             ]
         }
     };
-    
+
     // Verify each contract
     for (const [contractName, contractInfo] of Object.entries(deployedContracts.contracts)) {
         console.log(`🔍 Verifying ${contractName}...`);
-        
+
         try {
             const config = verificationConfigs[contractName];
             if (!config) {
@@ -89,20 +89,20 @@ async function main() {
                 verificationResults.skipped.push(contractName);
                 continue;
             }
-            
+
             // Wait for a few block confirmations
             console.log(`⏳ Waiting for block confirmations...`);
             await ethers.provider.waitForTransaction(contractInfo.deploymentHash, 3);
-            
+
             // Verify contract
             await hre.run("verify:verify", {
                 address: contractInfo.address,
                 constructorArguments: config.constructorArguments
             });
-            
+
             console.log(`✅ ${contractName} verified successfully`);
             verificationResults.verified.push(contractName);
-            
+
         } catch (error) {
             if (error.message.includes("Already Verified")) {
                 console.log(`✅ ${contractName} already verified`);
@@ -115,11 +115,11 @@ async function main() {
                 });
             }
         }
-        
+
         // Add delay between verifications to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 2000));
     }
-    
+
     console.log("");
     console.log("📊 Verification Summary");
     console.log("======================");
@@ -127,7 +127,7 @@ async function main() {
     console.log(`Failed: ${verificationResults.failed.length}`);
     console.log(`Skipped: ${verificationResults.skipped.length}`);
     console.log("");
-    
+
     if (verificationResults.verified.length > 0) {
         console.log("✅ Verified Contracts:");
         verificationResults.verified.forEach(name => {
@@ -135,7 +135,7 @@ async function main() {
         });
         console.log("");
     }
-    
+
     if (verificationResults.failed.length > 0) {
         console.log("❌ Failed Verifications:");
         verificationResults.failed.forEach(({ contract, error }) => {
@@ -143,7 +143,7 @@ async function main() {
         });
         console.log("");
     }
-    
+
     if (verificationResults.skipped.length > 0) {
         console.log("⏭️ Skipped Verifications:");
         verificationResults.skipped.forEach(name => {
@@ -151,7 +151,7 @@ async function main() {
         });
         console.log("");
     }
-    
+
     // Save verification results
     const verificationResultsFile = `verification-results-${network}.json`;
     fs.writeFileSync(
@@ -162,10 +162,10 @@ async function main() {
             results: verificationResults
         }, null, 2)
     );
-    
+
     console.log(`📄 Verification results saved to ${verificationResultsFile}`);
     console.log("");
-    
+
     if (verificationResults.failed.length > 0) {
         console.log("⚠️ Some contracts failed verification. Check the logs above.");
         process.exit(1);

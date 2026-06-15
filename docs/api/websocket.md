@@ -81,13 +81,13 @@ import json
 
 async def monitor_job(job_id: str, api_key: str):
     uri = f"ws://localhost:8203/v1/jobs/{job_id}/ws?api_key={api_key}"
-    
+
     async with websockets.connect(uri) as websocket:
         async for message in websocket:
             data = json.loads(message)
             print(f"State: {data['state']}")
             print(f"Progress: {data.get('progress', 0)}")
-            
+
             if data['state'] in ['COMPLETED', 'FAILED', 'CANCELLED', 'EXPIRED']:
                 break
 
@@ -103,7 +103,7 @@ ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
   console.log(`State: ${data.state}`);
   console.log(`Progress: ${data.progress || 0}`);
-  
+
   if (['COMPLETED', 'FAILED', 'CANCELLED', 'EXPIRED'].includes(data.state)) {
     ws.close();
   }
@@ -165,11 +165,11 @@ import json
 
 async def monitor_blockchain():
     uri = "ws://localhost:8202/v1/events"
-    
+
     async with websockets.connect(uri) as websocket:
         async for message in websocket:
             data = json.loads(message)
-            
+
             if data['type'] == 'new_block':
                 print(f"New block: {data['block']['height']}")
             elif data['type'] == 'transaction_confirmed':
@@ -185,7 +185,7 @@ const ws = new WebSocket('ws://localhost:8202/v1/events');
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
-  
+
   switch (data.type) {
     case 'new_block':
       console.log(`New block: ${data.block.height}`);
@@ -241,11 +241,11 @@ import json
 
 async def monitor_marketplace():
     uri = "ws://localhost:8102/v1/events"
-    
+
     async with websockets.connect(uri) as websocket:
         async for message in websocket:
             data = json.loads(message)
-            
+
             if data['type'] == 'new_offer':
                 offer = data['offer']
                 print(f"New offer: {offer['gpu_type']}, {offer['gpu_memory']}GB, ${offer['price_per_hour']}/hr")
@@ -282,7 +282,7 @@ import websockets
 
 async def connect_with_retry(uri, max_retries=5):
     retry_delay = 1
-    
+
     for attempt in range(max_retries):
         try:
             async with websockets.connect(uri) as websocket:
@@ -367,7 +367,7 @@ import websockets
 @pytest.mark.asyncio
 async def test_job_websocket():
     uri = "ws://localhost:8203/v1/jobs/test-job/ws?api_key=test-key"
-    
+
     async with websockets.connect(uri) as websocket:
         message = await websocket.recv()
         data = json.loads(message)
@@ -387,7 +387,7 @@ describe('WebSocket', () => {
       onerror: vi.fn(),
       onclose: vi.fn()
     });
-    
+
     const ws = new WebSocket('ws://localhost:8203/v1/jobs/test/ws');
     expect(WebSocket).toHaveBeenCalledWith('ws://localhost:8203/v1/jobs/test/ws');
   });

@@ -17,8 +17,9 @@ import numpy as np
 
 from aitbc import get_logger
 
+from .websocket_stream_manager import MessageType, StreamConfig, stream_manager
+
 logger = get_logger(__name__)
-from .websocket_stream_manager import MessageType, StreamConfig, stream_manager  # noqa: E402
 
 
 class FusionStreamType(Enum):

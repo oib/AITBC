@@ -11,14 +11,15 @@ from sqlmodel import Session, select
 
 from aitbc import get_logger
 
+from ....agent_identity.manager import AgentIdentityManager
+from ....reputation.engine import CrossChainReputationEngine
+from ....services.multi_chain_transaction_manager import TransactionPriority
+from ....storage.db import get_session
+from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol
+from ..domain.global_marketplace import GlobalMarketplaceOffer
+from ..services.global_marketplace_integration import GlobalMarketplaceIntegrationService, IntegrationStatus
+
 logger = get_logger(__name__)
-from ....agent_identity.manager import AgentIdentityManager  # noqa: E402
-from ....reputation.engine import CrossChainReputationEngine  # noqa: E402
-from ....services.multi_chain_transaction_manager import TransactionPriority  # noqa: E402
-from ....storage.db import get_session  # noqa: E402
-from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol  # noqa: E402
-from ..domain.global_marketplace import GlobalMarketplaceOffer  # noqa: E402
-from ..services.global_marketplace_integration import GlobalMarketplaceIntegrationService, IntegrationStatus  # noqa: E402
 
 router = APIRouter(prefix="/global-marketplace-integration", tags=["Global Marketplace Integration"])
 

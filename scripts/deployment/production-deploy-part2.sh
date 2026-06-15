@@ -108,11 +108,11 @@ for node in ['aitbc', 'aitbc1']:
     try:
         os.environ['NODE_ID'] = node
         from blockchain import ProductionBlockchain
-        
+
         blockchain = ProductionBlockchain(node)
         info = blockchain.get_blockchain_info()
         print(f'{node}: {info[\"blocks\"]} blocks, {info[\"validators\"]} validators')
-        
+
         # Create test transaction
         tx_hash = blockchain.create_transaction(
             from_address=f'0xuser_{node}',
@@ -121,7 +121,7 @@ for node in ['aitbc', 'aitbc1']:
             data={'type': 'test', 'node': node}
         )
         print(f'{node}: Transaction {tx_hash} created')
-        
+
     except Exception as e:
         print(f'{node}: Error - {e}')
 "

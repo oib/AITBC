@@ -47,15 +47,15 @@ try:
     # Test domain models
     from app.domain.reputation import AgentReputation, ReputationLevel
     print('✅ Base reputation models imported')
-    
+
     # Test core engine
     from app.reputation.engine import CrossChainReputationEngine
     print('✅ Reputation engine imported')
-    
+
     # Test aggregator
     from app.reputation.aggregator import CrossChainReputationAggregator
     print('✅ Reputation aggregator imported')
-    
+
     # Test model creation
     from datetime import datetime, timezone
     reputation = AgentReputation(
@@ -66,9 +66,9 @@ try:
         updated_at=datetime.now(timezone.utc)
     )
     print('✅ Model creation successful')
-    
+
     print('🎉 Core components test passed!')
-    
+
 except Exception as e:
     print(f'❌ Core components test failed: {e}')
     exit(1)
@@ -197,16 +197,16 @@ def test_cross_chain_logic():
     # Test normalization
     scores = {1: 0.8, 137: 0.7, 56: 0.9}
     normalized = sum(scores.values()) / len(scores)
-    
+
     # Test consistency
     avg_score = sum(scores.values()) / len(scores)
     variance = sum((score - avg_score) ** 2 for score in scores.values()) / len(scores)
     consistency = max(0.0, 1.0 - (variance / 0.25))
-    
+
     assert 0.0 <= normalized <= 1.0
     assert 0.0 <= consistency <= 1.0
     assert len(scores) == 3
-    
+
     print('✅ Cross-chain logic validation passed')
 
 test_cross_chain_logic()

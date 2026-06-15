@@ -5,14 +5,8 @@ Tests for reputation service and trust score calculator
 import sys
 from datetime import UTC, datetime
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
-
-# Add coordinator-api path for imports
-coordinator_path = Path("/opt/aitbc/apps/coordinator-api/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
 
 # Clear any cached 'app' modules from other test suites to avoid import conflicts
 for mod_name in list(sys.modules.keys()):

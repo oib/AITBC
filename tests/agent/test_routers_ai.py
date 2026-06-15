@@ -1,17 +1,9 @@
 """Tests for AI router module"""
 
-import sys
-from pathlib import Path
+from unittest.mock import AsyncMock, Mock
 
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
-
-from unittest.mock import AsyncMock, Mock  # noqa: E402
-
-import pytest  # noqa: E402
-from app.routers.ai import router  # noqa: E402
+import pytest
+from app.routers.ai import router
 
 
 class TestAIRouter:

@@ -53,7 +53,7 @@ export class DutchAuction implements MarketplacePlugin {
   async updatePrice(): Promise<void> {
     const now = Date.now();
     const elapsed = (now - this.lastDecrement) / 1000;
-    
+
     if (elapsed >= this.config.decrementInterval) {
       const decrements = Math.floor(elapsed / this.config.decrementInterval);
       this.currentPrice = Math.max(
@@ -74,7 +74,7 @@ export class DutchAuction implements MarketplacePlugin {
     return {
       type: 'dutch',
       currentPrice: this.currentPrice,
-      nextDecrement: this.config.decrementInterval - 
+      nextDecrement: this.config.decrementInterval -
         ((Date.now() - this.lastDecrement) / 1000)
     };
   }
@@ -155,27 +155,27 @@ export const DutchAuctionCard: React.FC<DutchAuctionCardProps> = ({ auction }) =
 
   if (!currentState) return <div>Loading...</div>;
 
-  const priceProgress = 
-    ((currentState.currentPrice - auction.config.reservePrice) / 
+  const priceProgress =
+    ((currentState.currentPrice - auction.config.reservePrice) /
      (auction.config.startPrice - auction.config.reservePrice)) * 100;
 
   return (
     <Card title={auction.title} extra={`Auction #${auction.id}`}>
       <div className="mb-4">
         <Title level={4}>Current Price: {currentState.currentPrice} AITBC</Title>
-        <Progress 
-          percent={100 - priceProgress} 
+        <Progress
+          percent={100 - priceProgress}
           status="active"
           format={() => `${timeLeft}s until next drop`}
         />
       </div>
-      
+
       <div className="flex justify-between items-center">
         <Text type="secondary">
           Reserve Price: {auction.config.reservePrice} AITBC
         </Text>
-        <Button 
-          type="primary" 
+        <Button
+          type="primary"
           onClick={handleBid}
           disabled={currentState.currentPrice <= auction.config.reservePrice}
         >
@@ -217,33 +217,33 @@ class DutchAuctionState(BaseModel):
 @router.post("/dutch-auction/create")
 async def create_dutch_auction(request: DutchAuctionRequest) -> Dict[str, str]:
     """Create a new Dutch auction."""
-    
+
     # Validate auction parameters
     if request.reserve_price >= request.start_price:
         raise HTTPException(400, "Reserve price must be less than start price")
-    
+
     # Create auction in database
     auction_id = await marketplace_service.create_extension_auction(
         type="dutch",
         config=request.dict()
     )
-    
+
     # Start price decrement task
     asyncio.create_task(start_price_decrement(auction_id))
-    
+
     return {"auction_id": auction_id}
 
 @router.get("/dutch-auction/{auction_id}/state")
 async def get_dutch_auction_state(auction_id: str) -> DutchAuctionState:
     """Get current state of a Dutch auction."""
-    
+
     auction = await marketplace_service.get_auction(auction_id)
     if not auction or auction.type != "dutch":
         raise HTTPException(404, "Dutch auction not found")
-    
+
     current_price = calculate_current_price(auction)
     next_decrement = calculate_next_decrement(auction)
-    
+
     return DutchAuctionState(
         auction_id=auction_id,
         current_price=current_price,
@@ -255,14 +255,14 @@ async def start_price_decrement(auction_id: str):
     """Background task to decrement auction price."""
     while True:
         await asyncio.sleep(60)  # Check every minute
-        
+
         auction = await marketplace_service.get_auction(auction_id)
         if not auction or auction.status != "active":
             break
-        
+
         new_price = calculate_current_price(auction)
         await marketplace_service.update_auction_price(auction_id, new_price)
-        
+
         if new_price <= auction.config["reserve_price"]:
             await marketplace_service.close_auction(auction_id)
             break
@@ -372,7 +372,7 @@ export const AdvancedSearch: React.FC<{
           onSearch={(value) => setFilters({ ...filters, query: value })}
           style={{ width: '100%' }}
         />
-        
+
         <Select
           placeholder="Select category"
           style={{ width: '100%' }}
@@ -385,7 +385,7 @@ export const AdvancedSearch: React.FC<{
             </Option>
           ))}
         </Select>
-        
+
         <div>
           <label>Price Range: {filters.priceRange[0]} - {filters.priceRange[1]} AITBC</label>
           <Slider
@@ -396,7 +396,7 @@ export const AdvancedSearch: React.FC<{
             onChange={(value) => setFilters({ ...filters, priceRange: value })}
           />
         </div>
-        
+
         <div>
           <label>GPU Memory: {filters.gpuMemory[0]} - {filters.gpuMemory[1]} GB</label>
           <Slider
@@ -407,7 +407,7 @@ export const AdvancedSearch: React.FC<{
             onChange={(value) => setFilters({ ...filters, gpuMemory: value })}
           />
         </div>
-        
+
         <div>
           <label>Minimum Provider Rating: {filters.providerRating} stars</label>
           <Slider
@@ -418,7 +418,7 @@ export const AdvancedSearch: React.FC<{
             onChange={(value) => setFilters({ ...filters, providerRating: value })}
           />
         </div>
-        
+
         <Button type="primary" onClick={handleSearch} block>
           Apply Filters
         </Button>
@@ -482,7 +482,7 @@ class SlackIntegration:
 class DiscordIntegration:
     def __init__(self, webhook_url: str):
         self.webhook_url = webhook_url
-    
+
     async def send_embed(self, title: str, description: str, fields: list) -> None:
         """Send rich embed message to Discord."""
         embed = {
@@ -491,9 +491,9 @@ class DiscordIntegration:
             "fields": fields,
             "color": 0x00ff00
         }
-        
+
         payload = {"embeds": [embed]}
-        
+
         async with httpx.AsyncClient() as client:
             await client.post(self.webhook_url, json=payload)
 ```
@@ -518,20 +518,20 @@ export interface PricingContext {
 
 export class DynamicPricingEngine {
   private rules: PricingRule[] = [];
-  
+
   addRule(rule: PricingRule) {
     this.rules.push(rule);
   }
-  
+
   calculatePrice(basePrice: number, context: PricingContext): number {
     let finalPrice = basePrice;
-    
+
     for (const rule of this.rules) {
       if (rule.condition(context)) {
         finalPrice = rule.calculate(finalPrice, context);
       }
     }
-    
+
     return Math.round(finalPrice * 100) / 100;
   }
 }

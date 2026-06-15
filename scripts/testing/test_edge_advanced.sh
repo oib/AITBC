@@ -45,17 +45,17 @@ run_test() {
     local test_name="$1"
     local test_command="$2"
     local require_edge="${3:-true}"
-    
+
     TESTS_RUN=$((TESTS_RUN + 1))
-    
+
     if [ "$require_edge" = "true" ] && ! check_edge; then
         log_warn "SKIPPED: $test_name (edge-api not available)"
         TESTS_SKIPPED=$((TESTS_SKIPPED + 1))
         return 0
     fi
-    
+
     log_info "Running: $test_name"
-    
+
     if eval "$test_command"; then
         TESTS_PASSED=$((TESTS_PASSED + 1))
         log_info "PASSED: $test_name"
