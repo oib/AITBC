@@ -37,6 +37,7 @@ class TestChainlinkOracle:
             result = oracle.get_price("ETH", "USD")
         assert result is None
 
+
 class TestCoinGeckoOracle:
     def test_get_price_unknown_coin(self):
         oracle = CoinGeckoOracle()

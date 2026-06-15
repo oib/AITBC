@@ -12,26 +12,20 @@ from fastapi.testclient import TestClient
 class TestAgentMarketplaceIntegration:
     """Test integration between agent and marketplace services"""
 
-    @patch('app.routers.agent_router.AITBCHTTPClient')
-    @patch('app.routers.marketplace.AITBCHTTPClient')
+    @patch("app.routers.agent_router.AITBCHTTPClient")
+    @patch("app.routers.marketplace.AITBCHTTPClient")
     def test_agent_registers_in_marketplace(self, mock_marketplace_client, mock_agent_client):
         """Test that an agent can register and appear in marketplace"""
         # Setup mocks
         mock_agent = Mock()
         mock_agent_client.return_value = mock_agent
-        mock_agent.post.return_value = {
-            "id": "agent1",
-            "name": "Agent 1",
-            "status": "registered"
-        }
+        mock_agent.post.return_value = {"id": "agent1", "name": "Agent 1", "status": "registered"}
 
         mock_marketplace = Mock()
         mock_marketplace_client.return_value = mock_marketplace
         mock_marketplace.get.return_value = {
-            "listings": [
-                {"id": 1, "name": "Agent 1", "agent_id": "agent1", "price": 0.50}
-            ],
-            "total": 1
+            "listings": [{"id": 1, "name": "Agent 1", "agent_id": "agent1", "price": 0.50}],
+            "total": 1,
         }
 
         # Import and test
@@ -45,11 +39,7 @@ class TestAgentMarketplaceIntegration:
         client = TestClient(app)
 
         # Register agent
-        response = client.post("/agents", json={
-            "name": "Agent 1",
-            "type": "compute",
-            "capabilities": ["gpu", "inference"]
-        })
+        response = client.post("/agents", json={"name": "Agent 1", "type": "compute", "capabilities": ["gpu", "inference"]})
         assert response.status_code == 200
 
         # Check marketplace listing

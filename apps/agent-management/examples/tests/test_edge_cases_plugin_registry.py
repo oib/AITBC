@@ -47,7 +47,7 @@ def test_plugin_registration_empty_name():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     assert plugin.name == ""
 
@@ -66,7 +66,7 @@ def test_plugin_registration_empty_tags():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     assert plugin.tags == []
 
@@ -80,7 +80,7 @@ def test_plugin_version_empty_changelog():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(UTC)
+        release_date=datetime.now(UTC),
     )
     assert version.changelog == ""
 
@@ -95,7 +95,7 @@ def test_security_scan_empty_vulnerabilities():
         scan_date=datetime.now(UTC),
         vulnerabilities=[],
         risk_score="low",
-        passed=True
+        passed=True,
     )
     assert scan.vulnerabilities == []
 
@@ -110,9 +110,9 @@ def test_add_version_nonexistent_plugin():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(UTC)
+        release_date=datetime.now(UTC),
     )
-    response = client.post("/api/v1/plugins/nonexistent/versions", json=version.model_dump(mode='json'))
+    response = client.post("/api/v1/plugins/nonexistent/versions", json=version.model_dump(mode="json"))
     assert response.status_code == 404
 
 
@@ -141,7 +141,7 @@ def test_download_nonexistent_version():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
 
@@ -161,9 +161,9 @@ def test_security_scan_nonexistent_plugin():
         scan_date=datetime.now(UTC),
         vulnerabilities=[],
         risk_score="low",
-        passed=True
+        passed=True,
     )
-    response = client.post("/api/v1/plugins/nonexistent/security-scan", json=scan.model_dump(mode='json'))
+    response = client.post("/api/v1/plugins/nonexistent/security-scan", json=scan.model_dump(mode="json"))
     assert response.status_code == 404
 
 
@@ -184,7 +184,7 @@ def test_security_scan_nonexistent_version():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
 
@@ -196,9 +196,9 @@ def test_security_scan_nonexistent_version():
         scan_date=datetime.now(UTC),
         vulnerabilities=[],
         risk_score="low",
-        passed=True
+        passed=True,
     )
-    response = client.post("/api/v1/plugins/test_plugin/security-scan", json=scan.model_dump(mode='json'))
+    response = client.post("/api/v1/plugins/test_plugin/security-scan", json=scan.model_dump(mode="json"))
     assert response.status_code == 404
 
 
@@ -219,7 +219,7 @@ def test_list_plugins_with_filters():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     client.post("/api/v1/plugins/register", json=plugin1.model_dump())
 
@@ -234,7 +234,7 @@ def test_list_plugins_with_filters():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="web"
+        plugin_type="web",
     )
     client.post("/api/v1/plugins/register", json=plugin2.model_dump())
 
@@ -263,7 +263,7 @@ def test_list_plugins_with_search():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
 
@@ -291,7 +291,7 @@ def test_security_scan_failed():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
 
@@ -302,9 +302,9 @@ def test_security_scan_failed():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(UTC)
+        release_date=datetime.now(UTC),
     )
-    client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
+    client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode="json"))
 
     # Create failed security scan
     scan = SecurityScan(
@@ -314,9 +314,9 @@ def test_security_scan_failed():
         scan_date=datetime.now(UTC),
         vulnerabilities=[{"severity": "high", "description": "Critical issue"}],
         risk_score="high",
-        passed=False
+        passed=False,
     )
-    response = client.post("/api/v1/plugins/test_plugin/security-scan", json=scan.model_dump(mode='json'))
+    response = client.post("/api/v1/plugins/test_plugin/security-scan", json=scan.model_dump(mode="json"))
     assert response.status_code == 200
     data = response.json()
     assert data["passed"] is False

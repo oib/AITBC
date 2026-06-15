@@ -22,8 +22,9 @@ class TestPoolHubCommands:
         """Test that pool_hub command group exists"""
         try:
             from aitbc_cli.commands.pool_hub import pool_hub
+
             assert pool_hub is not None
-            assert hasattr(pool_hub, 'name')
+            assert hasattr(pool_hub, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import pool_hub commands: {e}")
 
@@ -31,12 +32,13 @@ class TestPoolHubCommands:
         """Test pool_hub group name"""
         try:
             from aitbc_cli.commands.pool_hub import pool_hub
+
             assert pool_hub.name == "pool-hub"
         except ImportError as e:
             pytest.skip(f"Cannot import pool_hub commands: {e}")
 
-    @patch('aitbc_cli.commands.pool_hub.output')
-    @patch('aitbc_cli.commands.pool_hub.error')
+    @patch("aitbc_cli.commands.pool_hub.output")
+    @patch("aitbc_cli.commands.pool_hub.error")
     def test_pool_hub_status_command(self, mock_error, mock_output):
         """Test pool_hub status command - skip due to Click context issues"""
         pytest.skip("Click context mocking requires complex setup")

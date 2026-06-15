@@ -21,19 +21,14 @@ DEFAULT_RPC_URL = "http://localhost:8006"
 def send_transaction(from_wallet: str, to_address: str, amount: float, fee: float, password: str, rpc_url: str) -> str | None:
     """Send a transaction (placeholder implementation)"""
     try:
-        tx_data = {
-            "from": from_wallet,
-            "to": to_address,
-            "amount": amount,
-            "fee": fee,
-            "password": password
-        }
+        tx_data = {"from": from_wallet, "to": to_address, "amount": amount, "fee": fee, "password": password}
         response = requests.post(f"{rpc_url}/rpc/transaction/send", json=tx_data)
         if response.status_code == 200:
             return response.json().get("transaction_hash")
         return None
     except Exception:
         return None
+
 
 def get_balance(wallet_name: str, rpc_url: str = DEFAULT_RPC_URL) -> dict | None:
     """Get wallet balance (placeholder implementation)"""
@@ -45,6 +40,7 @@ def get_balance(wallet_name: str, rpc_url: str = DEFAULT_RPC_URL) -> dict | None
     except Exception:
         return None
 
+
 def batch_transactions(transactions_file: str, password: str, rpc_url: str = DEFAULT_RPC_URL):
     """Process batch transactions from JSON file"""
     try:
@@ -55,31 +51,23 @@ def batch_transactions(transactions_file: str, password: str, rpc_url: str = DEF
         for i, tx in enumerate(transactions, 1):
             click.echo(f"Processing transaction {i}/{len(transactions)}...")
             result = send_transaction(
-                tx['from_wallet'],
-                tx['to_address'],
-                tx['amount'],
-                tx.get('fee', 10.0),
-                password,
-                rpc_url
+                tx["from_wallet"], tx["to_address"], tx["amount"], tx.get("fee", 10.0), password, rpc_url
             )
 
-            results.append({
-                'transaction': tx,
-                'hash': result,
-                'success': result is not None
-            })
+            results.append({"transaction": tx, "hash": result, "success": result is not None})
 
             if result:
                 click.echo(f"✅ Success: {result}")
             else:
                 click.echo("❌ Failed")
         # Summary
-        successful = sum(1 for r in results if r['success'])
+        successful = sum(1 for r in results if r["success"])
         click.echo(f"\nBatch Summary: {successful}/{len(transactions)} successful")
         return results
     except Exception as e:
         click.echo(f"Error processing batch: {e}")
         return []
+
 
 def mining_operations(operation: str, wallet_name: str = None, threads: int = 1, rpc_url: str = DEFAULT_RPC_URL):
     """Handle mining operations"""
@@ -93,11 +81,7 @@ def mining_operations(operation: str, wallet_name: str = None, threads: int = 1,
         if not wallet_info:
             return False
 
-        mining_config = {
-            "miner_address": wallet_info['address'],
-            "threads": threads,
-            "enabled": True
-        }
+        mining_config = {"miner_address": wallet_info["address"], "threads": threads, "enabled": True}
 
         try:
             response = requests.post(f"{rpc_url}/rpc/mining/start", json=mining_config)
@@ -144,9 +128,16 @@ def mining_operations(operation: str, wallet_name: str = None, threads: int = 1,
             click.echo(f"Error: {e}")
             return False
 
-def marketplace_operations(operation: str, wallet_name: str = None, item_type: str = None,
-                         price: float = None, description: str = None, password: str = None,
-                         rpc_url: str = DEFAULT_RPC_URL):
+
+def marketplace_operations(
+    operation: str,
+    wallet_name: str = None,
+    item_type: str = None,
+    price: float = None,
+    description: str = None,
+    password: str = None,
+    rpc_url: str = DEFAULT_RPC_URL,
+):
     """Handle marketplace operations"""
     if operation == "list":
         try:
@@ -178,10 +169,10 @@ def marketplace_operations(operation: str, wallet_name: str = None, item_type: s
             return None
 
         listing_data = {
-            "seller_address": wallet_info['address'],
+            "seller_address": wallet_info["address"],
             "item_type": item_type,
             "price": price,
-            "description": description
+            "description": description,
         }
 
         try:
@@ -201,9 +192,16 @@ def marketplace_operations(operation: str, wallet_name: str = None, item_type: s
             click.echo(f"Error: {e}")
             return None
 
-def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
-                 prompt: str = None, payment: float = None, password: str = None,
-                 rpc_url: str = DEFAULT_RPC_URL):
+
+def ai_operations(
+    operation: str,
+    wallet_name: str = None,
+    job_type: str = None,
+    prompt: str = None,
+    payment: float = None,
+    password: str = None,
+    rpc_url: str = DEFAULT_RPC_URL,
+):
     """Handle AI operations"""
     if operation == "submit":
         if not all([wallet_name, job_type, prompt, payment is not None, password]):
@@ -215,12 +213,7 @@ def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
         if not wallet_info:
             return None
 
-        job_data = {
-            "client_address": wallet_info['address'],
-            "job_type": job_type,
-            "prompt": prompt,
-            "payment": payment
-        }
+        job_data = {"client_address": wallet_info["address"], "job_type": job_type, "prompt": prompt, "payment": payment}
 
         try:
             response = requests.post(f"{rpc_url}/rpc/ai/submit", json=job_data)
@@ -238,6 +231,7 @@ def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
         except Exception as e:
             click.echo(f"Error: {e}")
             return None
+
 
 def main():
     parser = argparse.ArgumentParser(description="AITBC Advanced CLI")
@@ -257,14 +251,14 @@ def main():
     mine_start_parser.add_argument("--wallet", required=True, help="Mining wallet name")
     mine_start_parser.add_argument("--threads", type=int, default=1, help="Number of threads")
 
-    mine_stop_parser = mine_subparsers.add_parser("stop", help="Stop mining")
-    mine_status_parser = mine_subparsers.add_parser("status", help="Get mining status")
+    _ = mine_subparsers.add_parser("stop", help="Stop mining")
+    _ = mine_subparsers.add_parser("status", help="Get mining status")
 
     # Marketplace operations
     market_parser = subparsers.add_parser("market", help="Marketplace operations")
     market_subparsers = market_parser.add_subparsers(dest="market_action", help="Marketplace actions")
 
-    market_list_parser = market_subparsers.add_parser("list", help="List marketplace items")
+    _ = market_subparsers.add_parser("list", help="List marketplace items")
     market_create_parser = market_subparsers.add_parser("create", help="Create marketplace listing")
     market_create_parser.add_argument("--wallet", required=True, help="Seller wallet name")
     market_create_parser.add_argument("--type", required=True, help="Item type")
@@ -314,6 +308,7 @@ def main():
 
     else:
         parser.print_help()
+
 
 if __name__ == "__main__":
     main()

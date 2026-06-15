@@ -16,28 +16,35 @@ from .partition import NetworkPartitionManager, PartitionState
 
 logger = logging.getLogger(__name__)
 
+
 def log_info(msg: str) -> None:
     logger.info(msg)
+
 
 def log_error(msg: str) -> None:
     logger.error(msg)
 
+
 def log_warn(msg: str) -> None:
     logger.warning(msg)
 
+
 def log_debug(msg: str) -> None:
     logger.debug(msg)
+
 
 class RecoveryStrategy(Enum):
     AGGRESSIVE = "aggressive"
     CONSERVATIVE = "conservative"
     ADAPTIVE = "adaptive"
 
+
 class RecoveryTrigger(Enum):
     PARTITION_DETECTED = "partition_detected"
     HIGH_LATENCY = "high_latency"
     PEER_FAILURE = "peer_failure"
     MANUAL = "manual"
+
 
 @dataclass
 class RecoveryAction:
@@ -49,11 +56,11 @@ class RecoveryAction:
     max_attempts: int
     success: bool
 
+
 class NetworkRecoveryManager:
     """Manages automatic network recovery procedures"""
 
-    def __init__(self, discovery: P2PDiscovery, health_monitor: PeerHealthMonitor,
-                 partition_manager: NetworkPartitionManager):
+    def __init__(self, discovery: P2PDiscovery, health_monitor: PeerHealthMonitor, partition_manager: NetworkPartitionManager):
         self.discovery = discovery
         self.health_monitor = health_monitor
         self.partition_manager = partition_manager
@@ -87,8 +94,9 @@ class NetworkRecoveryManager:
         self.running = False
         log_info("Stopping network recovery service")
 
-    async def trigger_recovery(self, trigger: RecoveryTrigger, target_node: str | None = None,
-                             metadata: dict[str, Any] | None = None) -> None:
+    async def trigger_recovery(
+        self, trigger: RecoveryTrigger, target_node: str | None = None, metadata: dict[str, Any] | None = None
+    ) -> None:
         """Trigger recovery procedure"""
         log_info(f"Recovery triggered: {trigger.value}")
 
@@ -110,7 +118,7 @@ class NetworkRecoveryManager:
         # Get partition status
         partition_status = self.partition_manager.get_partition_status()
 
-        if partition_status['state'] == PartitionState.PARTITIONED.value:
+        if partition_status["state"] == PartitionState.PARTITIONED.value:
             # Create recovery actions for partition
             await self._create_partition_recovery_actions(partition_status)
 
@@ -137,7 +145,7 @@ class NetworkRecoveryManager:
                 created_at=time.time(),
                 attempts=0,
                 max_attempts=5,
-                success=False
+                success=False,
             )
             self.recovery_actions.append(action)
 
@@ -149,7 +157,7 @@ class NetworkRecoveryManager:
             created_at=time.time(),
             attempts=0,
             max_attempts=3,
-            success=False
+            success=False,
         )
         self.recovery_actions.append(action)
 
@@ -169,7 +177,7 @@ class NetworkRecoveryManager:
                         created_at=time.time(),
                         attempts=0,
                         max_attempts=3,
-                        success=False
+                        success=False,
                     )
                     self.recovery_actions.append(action)
 
@@ -185,7 +193,7 @@ class NetworkRecoveryManager:
             created_at=time.time(),
             attempts=0,
             max_attempts=2,
-            success=False
+            success=False,
         )
         self.recovery_actions.append(action)
 
@@ -201,28 +209,25 @@ class NetworkRecoveryManager:
             created_at=time.time(),
             attempts=0,
             max_attempts=3,
-            success=False
+            success=False,
         )
         self.recovery_actions.append(action)
 
     async def _handle_manual_recovery(self, target_node: str | None, metadata: dict[str, Any]) -> None:
         """Handle manual recovery"""
-        recovery_type = metadata.get('type', 'standard')
+        recovery_type = metadata.get("type", "standard")
 
-        if recovery_type == 'force_reconnect':
+        if recovery_type == "force_reconnect":
             await self._force_reconnect(target_node)
-        elif recovery_type == 'reset_network':
+        elif recovery_type == "reset_network":
             await self._reset_network()
-        elif recovery_type == 'bootstrap_only':
+        elif recovery_type == "bootstrap_only":
             await self._bootstrap_only_recovery()
 
     async def _process_recovery_actions(self) -> None:
         """Process pending recovery actions"""
         # Sort actions by priority
-        sorted_actions = sorted(
-            [a for a in self.recovery_actions if not a.success],
-            key=lambda x: x.priority
-        )
+        sorted_actions = sorted([a for a in self.recovery_actions if not a.success], key=lambda x: x.priority)
 
         for action in sorted_actions[:5]:  # Process max 5 actions per cycle
             if action.attempts >= action.max_attempts:
@@ -264,7 +269,7 @@ class NetworkRecoveryManager:
 
     async def _execute_bootstrap_connect(self, action: RecoveryAction) -> bool:
         """Execute bootstrap connect action"""
-        address, port = action.target_node.split(':')
+        address, port = action.target_node.split(":")
 
         try:
             success = await self.discovery._connect_to_peer(address, int(port))
@@ -369,10 +374,9 @@ class NetworkRecoveryManager:
             return
 
         # Count recent failures
-        recent_failures = len([
-            action for action in self.recovery_actions
-            if not action.success and time.time() - action.created_at < 300
-        ])
+        recent_failures = len(
+            [action for action in self.recovery_actions if not action.success and time.time() - action.created_at < 300]
+        )
 
         # Adjust strategy based on failure rate
         if recent_failures > 10:
@@ -430,36 +434,37 @@ class NetworkRecoveryManager:
         successful_actions = [a for a in self.recovery_actions if a.success]
 
         return {
-            'strategy': self.recovery_strategy.value,
-            'pending_actions': len(pending_actions),
-            'successful_actions': len(successful_actions),
-            'total_actions': len(self.recovery_actions),
-            'recent_failures': len([
-                a for a in self.recovery_actions
-                if not a.success and time.time() - a.created_at < 300
-            ]),
-            'actions': [
+            "strategy": self.recovery_strategy.value,
+            "pending_actions": len(pending_actions),
+            "successful_actions": len(successful_actions),
+            "total_actions": len(self.recovery_actions),
+            "recent_failures": len([a for a in self.recovery_actions if not a.success and time.time() - a.created_at < 300]),
+            "actions": [
                 {
-                    'type': a.action_type,
-                    'target': a.target_node,
-                    'priority': a.priority,
-                    'attempts': a.attempts,
-                    'max_attempts': a.max_attempts,
-                    'created_at': a.created_at
+                    "type": a.action_type,
+                    "target": a.target_node,
+                    "priority": a.priority,
+                    "attempts": a.attempts,
+                    "max_attempts": a.max_attempts,
+                    "created_at": a.created_at,
                 }
                 for a in pending_actions[:10]  # Return first 10
-            ]
+            ],
         }
+
 
 # Global recovery manager
 recovery_manager: NetworkRecoveryManager | None = None
+
 
 def get_recovery_manager() -> NetworkRecoveryManager | None:
     """Get global recovery manager"""
     return recovery_manager
 
-def create_recovery_manager(discovery: P2PDiscovery, health_monitor: PeerHealthMonitor,
-                          partition_manager: NetworkPartitionManager) -> NetworkRecoveryManager:
+
+def create_recovery_manager(
+    discovery: P2PDiscovery, health_monitor: PeerHealthMonitor, partition_manager: NetworkPartitionManager
+) -> NetworkRecoveryManager:
     """Create and set global recovery manager"""
     global recovery_manager
     recovery_manager = NetworkRecoveryManager(discovery, health_monitor, partition_manager)

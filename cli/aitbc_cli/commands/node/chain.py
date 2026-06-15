@@ -18,10 +18,10 @@ def start_chain_command(ctx, chain_id, chain_type):
             "Chain Type": chain_type,
             "Status": "Starting",
             "RPC Port": "auto-allocated",
-            "P2P Port": "auto-allocated"
+            "P2P Port": "auto-allocated",
         }
 
-        output(chain_info, ctx.obj.get('output_format', 'table'), title=f"Starting Chain: {chain_id}")
+        output(chain_info, ctx.obj.get("output_format", "table"), title=f"Starting Chain: {chain_id}")
         success(f"Chain {chain_id} started successfully")
 
     except Exception as e:
@@ -43,16 +43,10 @@ def list_chains_command(ctx):
     """List all active chain instances"""
     try:
         chains = [
-            {
-                "Chain ID": "ait-mainnet",
-                "Chain Type": "micro",
-                "Status": "Active",
-                "Block Height": "12345",
-                "Peers": "5"
-            }
+            {"Chain ID": "ait-mainnet", "Chain Type": "micro", "Status": "Active", "Block Height": "12345", "Peers": "5"}
         ]
 
-        output(chains, ctx.obj.get('output_format', 'table'), title="Active Chains")
+        output(chains, ctx.obj.get("output_format", "table"), title="Active Chains")
 
     except Exception as e:
         error(f"Error listing chains: {str(e)}")

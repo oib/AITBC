@@ -1,6 +1,5 @@
 """Integration tests for plugin marketplace service"""
 
-
 import pytest
 from fastapi.testclient import TestClient
 from main import DeveloperApplication, MarketplaceReview, PluginPurchase, app, developer_applications, purchases, reviews
@@ -63,11 +62,7 @@ def test_create_review():
     """Test creating a review"""
     client = TestClient(app)
     review = MarketplaceReview(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        rating=5,
-        title="Great plugin",
-        content="Excellent functionality"
+        plugin_id="plugin_123", user_id="user_123", rating=5, title="Great plugin", content="Excellent functionality"
     )
     response = client.post("/api/v1/reviews", json=review.model_dump())
     assert response.status_code == 200
@@ -82,11 +77,7 @@ def test_get_plugin_reviews_api():
     client = TestClient(app)
     # Create a review first
     review = MarketplaceReview(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        rating=5,
-        title="Great plugin",
-        content="Excellent functionality"
+        plugin_id="plugin_123", user_id="user_123", rating=5, title="Great plugin", content="Excellent functionality"
     )
     client.post("/api/v1/reviews", json=review.model_dump())
 
@@ -111,12 +102,7 @@ def test_get_plugin_reviews_no_reviews():
 def test_create_purchase():
     """Test creating a purchase"""
     client = TestClient(app)
-    purchase = PluginPurchase(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        price=99.99,
-        payment_method="credit_card"
-    )
+    purchase = PluginPurchase(plugin_id="plugin_123", user_id="user_123", price=99.99, payment_method="credit_card")
     response = client.post("/api/v1/purchases", json=purchase.model_dump())
     assert response.status_code == 200
     data = response.json()
@@ -129,10 +115,7 @@ def test_apply_developer():
     """Test applying to become a developer"""
     client = TestClient(app)
     application = DeveloperApplication(
-        developer_name="Dev Name",
-        email="dev@example.com",
-        experience="5 years",
-        description="Experienced developer"
+        developer_name="Dev Name", email="dev@example.com", experience="5 years", description="Experienced developer"
     )
     response = client.post("/api/v1/developers/apply", json=application.model_dump())
     assert response.status_code == 200

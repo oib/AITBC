@@ -8,7 +8,7 @@ from collections.abc import Callable, Coroutine
 from functools import wraps
 from typing import Any, TypeVar
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 async def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
@@ -24,10 +24,7 @@ async def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
     return await asyncio.create_task(coro)
 
 
-async def gather_with_concurrency[T](
-    coros: list[Coroutine[Any, Any, T]],
-    limit: int = 10
-) -> list[T]:
+async def gather_with_concurrency[T](coros: list[Coroutine[Any, Any, T]], limit: int = 10) -> list[T]:
     """
     Gather coroutines with concurrency limit.
 
@@ -48,11 +45,7 @@ async def gather_with_concurrency[T](
     return await asyncio.gather(*limited_coros)
 
 
-async def run_with_timeout[T](
-    coro: Coroutine[Any, Any, T],
-    timeout: float,
-    default: T | None = None
-) -> T | None:
+async def run_with_timeout[T](coro: Coroutine[Any, Any, T], timeout: float, default: T | None = None) -> T | None:
     """
     Run a coroutine with a timeout.
 
@@ -71,10 +64,7 @@ async def run_with_timeout[T](
 
 
 async def batch_process[T](
-    items: list[Any],
-    process_func: Callable[[Any], Coroutine[Any, Any, T]],
-    batch_size: int = 10,
-    delay: float = 0.1
+    items: list[Any], process_func: Callable[[Any], Coroutine[Any, Any, T]], batch_size: int = 10, delay: float = 0.1
 ) -> list[T]:
     """
     Process items in batches with delay between batches.
@@ -90,7 +80,7 @@ async def batch_process[T](
     """
     results = []
     for i in range(0, len(items), batch_size):
-        batch = items[i:i + batch_size]
+        batch = items[i : i + batch_size]
         batch_results = await asyncio.gather(*[process_func(item) for item in batch])
         results.extend(batch_results)
 
@@ -110,9 +100,11 @@ def sync_to_async(func: Callable) -> Callable:
     Returns:
         Async wrapper function
     """
+
     @wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
         return func(*args, **kwargs)
+
     return wrapper
 
 
@@ -126,18 +118,15 @@ def async_to_sync(func: Callable) -> Callable:
     Returns:
         Synchronous wrapper function
     """
+
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         return asyncio.run(func(*args, **kwargs))
+
     return wrapper
 
 
-async def retry_async(
-    coro_func: Callable,
-    max_attempts: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0
-) -> Any:
+async def retry_async(coro_func: Callable, max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0) -> Any:
     """
     Retry an async coroutine with exponential backoff.
 
@@ -168,9 +157,7 @@ async def retry_async(
 
 
 async def wait_for_condition(
-    condition: Callable[[], Coroutine[Any, Any, bool]],
-    timeout: float = 30.0,
-    check_interval: float = 0.5
+    condition: Callable[[], Coroutine[Any, Any, bool]], timeout: float = 30.0, check_interval: float = 0.5
 ) -> bool:
     """
     Wait for a condition to become true.

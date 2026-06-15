@@ -1,6 +1,5 @@
 """Integration tests for blockchain event bridge."""
 
-
 import pytest
 from blockchain_event_bridge.bridge import BlockchainEventBridge
 from blockchain_event_bridge.config import Settings
@@ -41,11 +40,7 @@ async def test_bridge_handle_block_event():
     )
     bridge = BlockchainEventBridge(settings)
 
-    block_data = {
-        "height": 100,
-        "hash": "0x123",
-        "transactions": []
-    }
+    block_data = {"height": 100, "hash": "0x123", "transactions": []}
 
     # Should not raise an error even without handlers
     await bridge.handle_block_event(block_data)
@@ -60,10 +55,7 @@ async def test_bridge_handle_transaction_event():
     )
     bridge = BlockchainEventBridge(settings)
 
-    tx_data = {
-        "hash": "0x456",
-        "type": "transfer"
-    }
+    tx_data = {"hash": "0x456", "type": "transfer"}
 
     # Should not raise an error even without handlers
     await bridge.handle_transaction_event(tx_data)

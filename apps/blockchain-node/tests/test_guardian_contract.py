@@ -24,18 +24,13 @@ def temp_storage_dir() -> Generator[Path]:
 def guardian_config() -> GuardianConfig:
     """Create a test guardian configuration."""
     return GuardianConfig(
-        limits=SpendingLimit(
-            per_transaction=1000,
-            per_hour=5000,
-            per_day=20000,
-            per_week=100000
-        ),
+        limits=SpendingLimit(per_transaction=1000, per_hour=5000, per_day=20000, per_week=100000),
         time_lock=TimeLockConfig(
             threshold=5000,
             delay_hours=24,
-            max_delay_hours=168  # 1 week max
+            max_delay_hours=168,  # 1 week max
         ),
-        guardians=["0xguardian1", "0xguardian2", "0xguardian3"]
+        guardians=["0xguardian1", "0xguardian2", "0xguardian3"],
     )
 
 
@@ -47,16 +42,10 @@ def agent_address() -> str:
 
 @pytest.fixture
 def guardian_contract(
-    agent_address: str,
-    guardian_config: GuardianConfig,
-    temp_storage_dir: Path
+    agent_address: str, guardian_config: GuardianConfig, temp_storage_dir: Path
 ) -> Generator[GuardianContract]:
     """Create a guardian contract instance."""
-    contract = GuardianContract(
-        agent_address=agent_address,
-        config=guardian_config,
-        storage_path=str(temp_storage_dir)
-    )
+    contract = GuardianContract(agent_address=agent_address, config=guardian_config, storage_path=str(temp_storage_dir))
     yield contract
     # Cleanup is handled by temp_storage_dir fixture
 
@@ -65,17 +54,10 @@ class TestGuardianContract:
     """Test Guardian Contract functionality."""
 
     def test_contract_initialization(
-        self,
-        agent_address: str,
-        guardian_config: GuardianConfig,
-        temp_storage_dir: Path
+        self, agent_address: str, guardian_config: GuardianConfig, temp_storage_dir: Path
     ) -> None:
         """Test contract initialization."""
-        contract = GuardianContract(
-            agent_address=agent_address,
-            config=guardian_config,
-            storage_path=str(temp_storage_dir)
-        )
+        contract = GuardianContract(agent_address=agent_address, config=guardian_config, storage_path=str(temp_storage_dir))
 
         assert contract.agent_address == agent_address.lower()
         assert contract.config == guardian_config
@@ -116,7 +98,7 @@ class TestGuardianContract:
                 "timestamp": base_time.isoformat(),
                 "executed_at": base_time.isoformat(),
                 "status": "completed",
-                "nonce": 1
+                "nonce": 1,
             }
         ]
 
@@ -142,7 +124,7 @@ class TestGuardianContract:
                 "timestamp": base_time.isoformat(),
                 "executed_at": base_time.isoformat(),
                 "status": "completed",
-                "nonce": 1
+                "nonce": 1,
             }
         ]
 
@@ -168,7 +150,7 @@ class TestGuardianContract:
                 "timestamp": base_time.isoformat(),
                 "executed_at": base_time.isoformat(),
                 "status": "completed",
-                "nonce": 1
+                "nonce": 1,
             }
         ]
 
@@ -193,11 +175,7 @@ class TestGuardianContract:
 
     def test_initiate_transaction_small_amount(self, guardian_contract: GuardianContract) -> None:
         """Test initiating transaction with small amount (no time lock)."""
-        result = guardian_contract.initiate_transaction(
-            to_address="0xrecipient",
-            amount=1000,
-            data="test transaction"
-        )
+        result = guardian_contract.initiate_transaction(to_address="0xrecipient", amount=1000, data="test transaction")
 
         assert result["status"] == "approved"
         assert "operation_id" in result
@@ -210,11 +188,7 @@ class TestGuardianContract:
 
     def test_initiate_transaction_large_amount(self, guardian_contract: GuardianContract) -> None:
         """Test initiating transaction with large amount (time lock required)."""
-        result = guardian_contract.initiate_transaction(
-            to_address="0xrecipient",
-            amount=6000,
-            data="large transaction"
-        )
+        result = guardian_contract.initiate_transaction(to_address="0xrecipient", amount=6000, data="large transaction")
 
         assert result["status"] == "time_locked"
         assert "operation_id" in result
@@ -234,7 +208,7 @@ class TestGuardianContract:
         result = guardian_contract.initiate_transaction(
             to_address="0xrecipient",
             amount=1500,  # Exceeds per-transaction limit
-            data="excessive transaction"
+            data="excessive transaction",
         )
 
         assert result["status"] == "rejected"
@@ -244,11 +218,7 @@ class TestGuardianContract:
     def test_execute_transaction_success(self, guardian_contract: GuardianContract) -> None:
         """Test successful transaction execution."""
         # First initiate a transaction
-        init_result = guardian_contract.initiate_transaction(
-            to_address="0xrecipient",
-            amount=1000,
-            data="test transaction"
-        )
+        init_result = guardian_contract.initiate_transaction(to_address="0xrecipient", amount=1000, data="test transaction")
 
         operation_id = init_result["operation_id"]
         signature = "0xsignature"
@@ -280,11 +250,7 @@ class TestGuardianContract:
     def test_execute_transaction_time_locked(self, guardian_contract: GuardianContract) -> None:
         """Test executing transaction that is still time locked."""
         # Initiate a large transaction that gets time locked
-        init_result = guardian_contract.initiate_transaction(
-            to_address="0xrecipient",
-            amount=6000,
-            data="large transaction"
-        )
+        init_result = guardian_contract.initiate_transaction(to_address="0xrecipient", amount=6000, data="large transaction")
 
         operation_id = init_result["operation_id"]
         signature = "0xsignature"
@@ -346,11 +312,7 @@ class TestGuardianContract:
 
     def test_operation_hash_creation(self, guardian_contract: GuardianContract) -> None:
         """Test operation hash creation."""
-        operation = {
-            "to": "0xrecipient",
-            "amount": 1000,
-            "nonce": 1
-        }
+        operation = {"to": "0xrecipient", "amount": 1000, "nonce": 1}
 
         hash1 = guardian_contract._create_operation_hash(operation)
         hash2 = guardian_contract._create_operation_hash(operation)
@@ -360,31 +322,16 @@ class TestGuardianContract:
         assert len(hash1) == 64  # 64 hex chars (no 0x prefix)
 
     def test_persistence_across_instances(
-        self,
-        agent_address: str,
-        guardian_config: GuardianConfig,
-        temp_storage_dir: Path
+        self, agent_address: str, guardian_config: GuardianConfig, temp_storage_dir: Path
     ) -> None:
         """Test that contract state persists across instances."""
         # Create first instance and add data
-        contract1 = GuardianContract(
-            agent_address=agent_address,
-            config=guardian_config,
-            storage_path=str(temp_storage_dir)
-        )
+        contract1 = GuardianContract(agent_address=agent_address, config=guardian_config, storage_path=str(temp_storage_dir))
 
-        contract1.initiate_transaction(
-            to_address="0xrecipient",
-            amount=1000,
-            data="persistence test"
-        )
+        contract1.initiate_transaction(to_address="0xrecipient", amount=1000, data="persistence test")
 
         # Create second instance and check data is loaded
-        contract2 = GuardianContract(
-            agent_address=agent_address,
-            config=guardian_config,
-            storage_path=str(temp_storage_dir)
-        )
+        contract2 = GuardianContract(agent_address=agent_address, config=guardian_config, storage_path=str(temp_storage_dir))
 
         assert len(contract2.pending_operations) == 1
         assert contract2.nonce == 1
@@ -405,28 +352,16 @@ class TestGuardianContract:
         initial_nonce = guardian_contract.nonce
 
         # Initiate transaction
-        guardian_contract.initiate_transaction(
-            to_address="0xrecipient",
-            amount=1000,
-            data="nonce test"
-        )
+        guardian_contract.initiate_transaction(to_address="0xrecipient", amount=1000, data="nonce test")
 
         assert guardian_contract.nonce == initial_nonce + 1
 
     def test_get_pending_operations(self, guardian_contract: GuardianContract) -> None:
         """Test getting list of pending operations."""
         # Add some pending operations
-        result1 = guardian_contract.initiate_transaction(
-            to_address="0xrecipient1",
-            amount=1000,
-            data="pending 1"
-        )
+        result1 = guardian_contract.initiate_transaction(to_address="0xrecipient1", amount=1000, data="pending 1")
 
-        result2 = guardian_contract.initiate_transaction(
-            to_address="0xrecipient2",
-            amount=2000,
-            data="pending 2"
-        )
+        result2 = guardian_contract.initiate_transaction(to_address="0xrecipient2", amount=2000, data="pending 2")
 
         pending = guardian_contract.get_pending_operations()
 

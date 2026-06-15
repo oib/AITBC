@@ -27,7 +27,7 @@ class Block(SQLModel, table=True):
     __table_args__ = (
         UniqueConstraint("chain_id", "height", name="uix_block_chain_height"),
         UniqueConstraint("chain_id", "hash", name="uix_block_chain_hash"),
-        {"extend_existing": True}
+        {"extend_existing": True},
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -47,16 +47,16 @@ class Block(SQLModel, table=True):
         sa_relationship_kwargs={
             "lazy": "selectin",
             "primaryjoin": "and_(aitbc_chain.base_models.Transaction.block_height==Block.height, aitbc_chain.base_models.Transaction.chain_id==Block.chain_id)",
-            "foreign_keys": "[aitbc_chain.base_models.Transaction.block_height, aitbc_chain.base_models.Transaction.chain_id]"
-        }
+            "foreign_keys": "[aitbc_chain.base_models.Transaction.block_height, aitbc_chain.base_models.Transaction.chain_id]",
+        },
     )
     receipts: list["Receipt"] = Relationship(
         back_populates="block",
         sa_relationship_kwargs={
             "lazy": "selectin",
             "primaryjoin": "and_(Receipt.block_height==Block.height, Receipt.chain_id==Block.chain_id)",
-            "foreign_keys": "[Receipt.block_height, Receipt.chain_id]"
-        }
+            "foreign_keys": "[Receipt.block_height, Receipt.chain_id]",
+        },
     )
 
     @field_validator("hash", mode="before")
@@ -108,8 +108,8 @@ class Transaction(SQLModel, table=True):
         back_populates="transactions",
         sa_relationship_kwargs={
             "primaryjoin": "and_(aitbc_chain.base_models.Transaction.block_height==Block.height, aitbc_chain.base_models.Transaction.chain_id==Block.chain_id)",
-            "foreign_keys": "[aitbc_chain.base_models.Transaction.block_height, aitbc_chain.base_models.Transaction.chain_id]"
-        }
+            "foreign_keys": "[aitbc_chain.base_models.Transaction.block_height, aitbc_chain.base_models.Transaction.chain_id]",
+        },
     )
 
     @field_validator("tx_hash", mode="before")
@@ -153,8 +153,8 @@ class Receipt(SQLModel, table=True):
         back_populates="receipts",
         sa_relationship_kwargs={
             "primaryjoin": "and_(Receipt.block_height==Block.height, Receipt.chain_id==Block.chain_id)",
-            "foreign_keys": "[Receipt.block_height, Receipt.chain_id]"
-        }
+            "foreign_keys": "[Receipt.block_height, Receipt.chain_id]",
+        },
     )
 
     @field_validator("receipt_id", mode="before")
@@ -173,6 +173,7 @@ class Account(SQLModel, table=True):
     nonce: int = Field(default=0, sa_type=BigInteger)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+
 class Escrow(SQLModel, table=True):
     __tablename__ = "escrow"
     __table_args__ = {"extend_existing": True}
@@ -187,6 +188,7 @@ class Escrow(SQLModel, table=True):
 
 class CrossChainTransfer(SQLModel, table=True):
     """Cross-chain bridge transfer record"""
+
     __tablename__ = "cross_chain_transfer"
     __table_args__ = {"extend_existing": True}
 
@@ -206,6 +208,7 @@ class CrossChainTransfer(SQLModel, table=True):
 
 class Stake(SQLModel, table=True):
     """On-chain staking record"""
+
     __tablename__ = "stake"
     __table_args__ = {"extend_existing": True}
 
@@ -221,10 +224,11 @@ class Stake(SQLModel, table=True):
 
 class AgentIdentity(SQLModel, table=True):
     """On-chain agent identity record for verification"""
+
     __tablename__ = "agent_identity"
     __table_args__ = (
         UniqueConstraint("chain_id", "agent_id", name="uix_agent_identity_chain_agent"),
-        {"extend_existing": True}
+        {"extend_existing": True},
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -247,11 +251,9 @@ class AgentIdentity(SQLModel, table=True):
 
 class GovernanceProposal(SQLModel, table=True):
     """On-chain governance proposal record"""
+
     __tablename__ = "governance_proposal"
-    __table_args__ = (
-        UniqueConstraint("chain_id", "proposal_id", name="uix_gov_proposal_chain_id"),
-        {"extend_existing": True}
-    )
+    __table_args__ = (UniqueConstraint("chain_id", "proposal_id", name="uix_gov_proposal_chain_id"), {"extend_existing": True})
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
@@ -279,10 +281,11 @@ class GovernanceProposal(SQLModel, table=True):
 
 class GovernanceVote(SQLModel, table=True):
     """On-chain governance vote record"""
+
     __tablename__ = "governance_vote"
     __table_args__ = (
         UniqueConstraint("chain_id", "proposal_id", "voter_address", name="uix_gov_vote_unique"),
-        {"extend_existing": True}
+        {"extend_existing": True},
     )
 
     id: int | None = Field(default=None, primary_key=True)

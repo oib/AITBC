@@ -18,7 +18,7 @@ import pytest
 class TestEnsureCoordinatorApiImports:
     """Test ensure_coordinator_api_imports function"""
 
-    @patch('aitbc_cli.core.imports.sys.path')
+    @patch("aitbc_cli.core.imports.sys.path")
     def test_ensure_coordinator_api_imports_not_in_path(self, mock_path):
         """Test adding coordinator-api to sys.path when not present"""
         from aitbc_cli.core.imports import ensure_coordinator_api_imports
@@ -29,7 +29,7 @@ class TestEnsureCoordinatorApiImports:
 
         mock_path.insert.assert_called_once()
 
-    @patch('aitbc_cli.core.imports.sys.path')
+    @patch("aitbc_cli.core.imports.sys.path")
     def test_ensure_coordinator_api_imports_already_in_path(self, mock_path):
         """Test when coordinator-api already in sys.path"""
         from aitbc_cli.core.imports import ensure_coordinator_api_imports

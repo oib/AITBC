@@ -12,6 +12,7 @@ router = APIRouter()
 
 class InitDatabaseRequest(BaseModel):
     """Request model for initializing a database"""
+
     database_id: str
     island_id: str
     capacity_gb: int

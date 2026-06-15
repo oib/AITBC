@@ -25,7 +25,7 @@ class TestStructuredFormatter:
             lineno=42,
             msg="Test message",
             args=(),
-            exc_info=None
+            exc_info=None,
         )
 
         formatted = formatter.format(record)
@@ -56,7 +56,7 @@ class TestStructuredFormatter:
             lineno=42,
             msg="Test message",
             args=(),
-            exc_info=exc_info
+            exc_info=exc_info,
         )
 
         # Skip this test if exc_info is True (not a real exception tuple)
@@ -75,13 +75,7 @@ class TestStructuredFormatter:
         formatter = StructuredFormatter()
 
         record = logging.LogRecord(
-            name="test_logger",
-            level=logging.INFO,
-            pathname="test.py",
-            lineno=42,
-            msg="Test message",
-            args=(),
-            exc_info=None
+            name="test_logger", level=logging.INFO, pathname="test.py", lineno=42, msg="Test message", args=(), exc_info=None
         )
         record.extra = {"custom_field": "custom_value"}
 
@@ -111,10 +105,7 @@ class TestSetupLogger:
 
     def test_setup_logger_custom_format(self):
         """Test setting up logger with custom format"""
-        logger = setup_logger(
-            "test_logger",
-            format_string="%(levelname)s - %(message)s"
-        )
+        logger = setup_logger("test_logger", format_string="%(levelname)s - %(message)s")
 
         assert logger.name == "test_logger"
         assert len(logger.handlers) > 0
@@ -195,7 +186,7 @@ class TestLogContext:
 
     def test_log_context_adds_context(self):
         """Test that log_context adds contextual information"""
-        logger = get_logger("test_logger")
+        get_logger("test_logger")
 
         with log_context(user_id="test_user", request_id="test_request"):
             # Context should be added to logger
@@ -235,7 +226,7 @@ class TestLogContextClass:
 
     def test_log_context_class_enter_exit(self):
         """Test LogContext context manager"""
-        logger = get_logger("test_logger")
+        get_logger("test_logger")
 
         context = LogContext(user_id="test_user", request_id="test_request")
 
@@ -248,7 +239,7 @@ class TestLogContextClass:
 
     def test_log_context_class_nested(self):
         """Test nested LogContext usage"""
-        logger = get_logger("test_logger")
+        get_logger("test_logger")
 
         context1 = LogContext(user_id="user1")
         context2 = LogContext(request_id="req1")
@@ -327,7 +318,7 @@ class TestStructuredLoggingIntegration:
         logger.critical("Critical message")
 
         output = stream.getvalue()
-        lines = output.strip().split('\n')
+        lines = output.strip().split("\n")
 
         assert len(lines) == 5
         for line in lines:
@@ -363,10 +354,7 @@ class TestBackwardCompatibility:
 
     def test_traditional_format_string(self):
         """Test traditional format string still works"""
-        logger = setup_logger(
-            "test_logger",
-            format_string="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        logger = setup_logger("test_logger", format_string="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
         # Capture log output
         stream = StringIO()

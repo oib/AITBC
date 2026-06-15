@@ -23,6 +23,7 @@ except ImportError as e:
 # HierarchicalConfig Tests
 # ============================================================================
 
+
 class TestHierarchicalConfig:
     """Test HierarchicalConfig class"""
 
@@ -55,8 +56,9 @@ class TestHierarchicalConfig:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "config.yaml"
             config_data = {"app_name": "Test App", "port": 9000}
-            with open(config_file, 'w') as f:
+            with open(config_file, "w") as f:
                 import yaml
+
                 yaml.dump(config_data, f)
 
             loader = hierarchical_config.HierarchicalConfig()
@@ -67,7 +69,7 @@ class TestHierarchicalConfig:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "config.json"
             config_data = {"app_name": "Test App", "port": 9000}
-            with open(config_file, 'w') as f:
+            with open(config_file, "w") as f:
                 json.dump(config_data, f)
 
             loader = hierarchical_config.HierarchicalConfig()
@@ -158,8 +160,9 @@ class TestHierarchicalConfig:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "config.yaml"
             config_data = {"app_name": "Custom App", "port": 9000}
-            with open(config_file, 'w') as f:
+            with open(config_file, "w") as f:
                 import yaml
+
                 yaml.dump(config_data, f)
 
             loader = hierarchical_config.HierarchicalConfig(config_file)
@@ -188,6 +191,7 @@ class TestHierarchicalConfig:
 # ValidatedAITBCConfig Tests
 # ============================================================================
 
+
 class TestValidatedAITBCConfig:
     """Test ValidatedAITBCConfig class"""
 
@@ -204,9 +208,7 @@ class TestValidatedAITBCConfig:
 
     def test_validate_environment_valid(self):
         config = hierarchical_config.ValidatedAITBCConfig(
-            environment="production",
-            secret_key="test_secret",
-            jwt_secret="test_jwt_secret"
+            environment="production", secret_key="test_secret", jwt_secret="test_jwt_secret"
         )
         assert config.environment == "production"
 
@@ -216,9 +218,7 @@ class TestValidatedAITBCConfig:
 
     def test_validate_environment_case_insensitive(self):
         config = hierarchical_config.ValidatedAITBCConfig(
-            environment="PRODUCTION",
-            secret_key="test_secret",
-            jwt_secret="test_jwt_secret"
+            environment="PRODUCTION", secret_key="test_secret", jwt_secret="test_jwt_secret"
         )
         assert config.environment == "production"
 
@@ -272,44 +272,33 @@ class TestValidatedAITBCConfig:
 
     def test_validate_production_settings_valid(self):
         config = hierarchical_config.ValidatedAITBCConfig(
-            environment="production",
-            debug=False,
-            secret_key="test_secret",
-            jwt_secret="test_jwt_secret"
+            environment="production", debug=False, secret_key="test_secret", jwt_secret="test_jwt_secret"
         )
         assert config.environment == "production"
 
     def test_validate_production_settings_debug_enabled(self):
         with pytest.raises(ValueError, match="Debug mode should not be enabled in production"):
             hierarchical_config.ValidatedAITBCConfig(
-                environment="production",
-                debug=True,
-                secret_key="test_secret",
-                jwt_secret="test_jwt_secret"
+                environment="production", debug=True, secret_key="test_secret", jwt_secret="test_jwt_secret"
             )
 
     def test_validate_production_settings_no_secret_key(self):
         with pytest.raises(ValueError, match="Secret key must be set in production"):
             hierarchical_config.ValidatedAITBCConfig(
-                environment="production",
-                debug=False,
-                secret_key=None,
-                jwt_secret="test_jwt_secret"
+                environment="production", debug=False, secret_key=None, jwt_secret="test_jwt_secret"
             )
 
     def test_validate_production_settings_no_jwt_secret(self):
         with pytest.raises(ValueError, match="JWT secret must be set in production"):
             hierarchical_config.ValidatedAITBCConfig(
-                environment="production",
-                debug=False,
-                secret_key="test_secret",
-                jwt_secret=None
+                environment="production", debug=False, secret_key="test_secret", jwt_secret=None
             )
 
 
 # ============================================================================
 # Module Functions Tests
 # ============================================================================
+
 
 class TestModuleFunctions:
     """Test module-level functions"""

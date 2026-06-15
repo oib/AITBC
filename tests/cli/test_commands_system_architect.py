@@ -22,8 +22,9 @@ class TestSystemArchitectCommands:
         """Test that system_architect command group exists"""
         try:
             from aitbc_cli.commands.system_architect import system_architect
+
             assert system_architect is not None
-            assert hasattr(system_architect, 'name')
+            assert hasattr(system_architect, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import system_architect commands: {e}")
 
@@ -31,11 +32,12 @@ class TestSystemArchitectCommands:
         """Test system_architect group name"""
         try:
             from aitbc_cli.commands.system_architect import system_architect
+
             assert system_architect.name == "system-architect"
         except ImportError as e:
             pytest.skip(f"Cannot import system_architect commands: {e}")
 
-    @patch('aitbc_cli.commands.system_architect.click')
+    @patch("aitbc_cli.commands.system_architect.click")
     def test_system_architect_audit_command(self, mock_click):
         """Test system architect audit command"""
         try:
@@ -51,7 +53,7 @@ class TestSystemArchitectCommands:
         except Exception as e:
             pytest.skip(f"Cannot test system_architect audit: {e}")
 
-    @patch('aitbc_cli.commands.system_architect.click')
+    @patch("aitbc_cli.commands.system_architect.click")
     def test_system_architect_paths_command(self, mock_click):
         """Test system architect paths command"""
         try:

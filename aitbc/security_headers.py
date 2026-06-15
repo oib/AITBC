@@ -13,6 +13,7 @@ logger = get_logger(__name__)
 @dataclass
 class SecurityHeaders:
     """Security headers configuration"""
+
     X_Content_Type_Options: str = "nosniff"
     X_Frame_Options: str = "DENY"
     X_XSS_Protection: str = "1; mode=block"
@@ -27,6 +28,7 @@ class SecurityHeaders:
 @dataclass
 class CORSConfig:
     """CORS configuration"""
+
     allow_origins: list[str]
     allow_methods: list[str]
     allow_headers: list[str]
@@ -66,7 +68,7 @@ class SecurityHeadersMiddleware:
             "Referrer-Policy": self.headers.Referrer_Policy,
             "Permissions-Policy": self.headers.Permissions_Policy,
             "Cache-Control": self.headers.Cache_Control,
-            "Pragma": self.headers.Pragma
+            "Pragma": self.headers.Pragma,
         }
 
     def apply_to_response(self, response_headers: dict[str, str]) -> dict[str, str]:
@@ -172,7 +174,7 @@ def create_production_security_headers() -> SecurityHeaders:
         Referrer_Policy="strict-origin-when-cross-origin",
         Permissions_Policy="geolocation=(), microphone=(), camera=()",
         Cache_Control="no-cache, no-store, must-revalidate",
-        Pragma="no-cache"
+        Pragma="no-cache",
     )
 
 
@@ -192,7 +194,7 @@ def create_development_security_headers() -> SecurityHeaders:
         Referrer_Policy="strict-origin-when-cross-origin",
         Permissions_Policy="",
         Cache_Control="no-cache",
-        Pragma="no-cache"
+        Pragma="no-cache",
     )
 
 
@@ -212,7 +214,7 @@ def create_strict_cors_config(allowed_origins: list[str]) -> CORSConfig:
         allow_headers=["Content-Type", "Authorization", "X-API-Key"],
         allow_credentials=True,
         expose_headers=["X-Request-ID"],
-        max_age=3600
+        max_age=3600,
     )
 
 
@@ -229,5 +231,5 @@ def create_permissive_cors_config() -> CORSConfig:
         allow_headers=["*"],
         allow_credentials=False,
         expose_headers=["*"],
-        max_age=86400
+        max_age=86400,
     )

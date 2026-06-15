@@ -21,6 +21,7 @@ class TestContractHandlers:
         """Test that handle_contract_list function exists"""
         try:
             from handlers.contract import handle_contract_list
+
             assert handle_contract_list is not None
         except ImportError as e:
             pytest.skip(f"Cannot import contract handlers: {e}")

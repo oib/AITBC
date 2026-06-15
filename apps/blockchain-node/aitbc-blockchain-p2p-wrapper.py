@@ -32,9 +32,13 @@ exec_cmd = [
     "/opt/aitbc/venv/bin/python",
     "-m",
     "aitbc_chain.p2p_network",
-    "--host", p2p_host,
-    "--port", p2p_port,
-    "--peers", p2p_peers,
-    "--node-id", p2p_node_id
+    "--host",
+    p2p_host,
+    "--port",
+    p2p_port,
+    "--peers",
+    p2p_peers,
+    "--node-id",
+    p2p_node_id,
 ]
 os.execvp(exec_cmd[0], exec_cmd)

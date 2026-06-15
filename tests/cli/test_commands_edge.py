@@ -22,8 +22,9 @@ class TestEdgeCommands:
         """Test that edge command group exists"""
         try:
             from aitbc_cli.commands.edge import edge
+
             assert edge is not None
-            assert hasattr(edge, 'name')
+            assert hasattr(edge, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import edge commands: {e}")
 
@@ -31,12 +32,13 @@ class TestEdgeCommands:
         """Test edge group name"""
         try:
             from aitbc_cli.commands.edge import edge
+
             assert edge.name == "edge"
         except ImportError as e:
             pytest.skip(f"Cannot import edge commands: {e}")
 
-    @patch('aitbc_cli.commands.edge.output')
-    @patch('aitbc_cli.commands.edge.error')
+    @patch("aitbc_cli.commands.edge.output")
+    @patch("aitbc_cli.commands.edge.error")
     def test_edge_status_command(self, mock_error, mock_output):
         """Test edge status command - skip due to complex httpx and config dependencies"""
         pytest.skip("Edge commands have complex httpx and config dependencies")

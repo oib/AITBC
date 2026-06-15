@@ -2,6 +2,7 @@
 Enhanced Marketplace Service - Simplified Version for Deployment
 Basic marketplace enhancement features compatible with existing domain models
 """
+
 from aitbc import get_logger
 
 logger = get_logger(__name__)
@@ -16,22 +17,28 @@ from ..domain import MarketplaceOffer  # type: ignore[attr-defined]
 
 class RoyaltyTier(StrEnum):
     """Royalty distribution tiers"""
-    PRIMARY = 'primary'
-    SECONDARY = 'secondary'
-    TERTIARY = 'tertiary'
+
+    PRIMARY = "primary"
+    SECONDARY = "secondary"
+    TERTIARY = "tertiary"
+
 
 class LicenseType(StrEnum):
     """Model license types"""
-    COMMERCIAL = 'commercial'
-    RESEARCH = 'research'
-    EDUCATIONAL = 'educational'
-    CUSTOM = 'custom'
+
+    COMMERCIAL = "commercial"
+    RESEARCH = "research"
+    EDUCATIONAL = "educational"
+    CUSTOM = "custom"
+
 
 class VerificationType(StrEnum):
     """Model verification types"""
-    COMPREHENSIVE = 'comprehensive'
-    PERFORMANCE = 'performance'
-    SECURITY = 'security'
+
+    COMPREHENSIVE = "comprehensive"
+    PERFORMANCE = "performance"
+    SECURITY = "security"
+
 
 class EnhancedMarketplaceService:
     """Simplified enhanced marketplace service"""
@@ -39,22 +46,33 @@ class EnhancedMarketplaceService:
     def __init__(self, session: Session):
         self.session = session
 
-    async def create_royalty_distribution(self, offer_id: str, royalty_tiers: dict[str, float], dynamic_rates: bool=False) -> dict[str, Any]:
+    async def create_royalty_distribution(
+        self, offer_id: str, royalty_tiers: dict[str, float], dynamic_rates: bool = False
+    ) -> dict[str, Any]:
         """Create royalty distribution for marketplace offer"""
         try:
             offer = self.session.get(MarketplaceOffer, offer_id)
             if not offer:
-                raise ValueError(f'Offer not found: {offer_id}')
+                raise ValueError(f"Offer not found: {offer_id}")
             total_percentage = sum(royalty_tiers.values())
             if total_percentage > 100.0:
-                raise ValueError('Total royalty percentage cannot exceed 100%')
-            if not hasattr(offer, 'attributes') or offer.attributes is None:
+                raise ValueError("Total royalty percentage cannot exceed 100%")
+            if not hasattr(offer, "attributes") or offer.attributes is None:
                 offer.attributes = {}
-            offer.attributes['royalty_distribution'] = {'tiers': royalty_tiers, 'dynamic_rates': dynamic_rates, 'created_at': datetime.now(UTC).isoformat()}
+            offer.attributes["royalty_distribution"] = {
+                "tiers": royalty_tiers,
+                "dynamic_rates": dynamic_rates,
+                "created_at": datetime.now(UTC).isoformat(),
+            }
             self.session.commit()
-            return {'offer_id': offer_id, 'tiers': royalty_tiers, 'dynamic_rates': dynamic_rates, 'created_at': datetime.now(UTC).isoformat()}
+            return {
+                "offer_id": offer_id,
+                "tiers": royalty_tiers,
+                "dynamic_rates": dynamic_rates,
+                "created_at": datetime.now(UTC).isoformat(),
+            }
         except Exception as e:
-            logger.error('Error creating royalty distribution: %s', e)
+            logger.error("Error creating royalty distribution: %s", e)
             raise
 
     async def calculate_royalties(self, offer_id: str, sale_amount: float) -> dict[str, float]:
@@ -62,78 +80,124 @@ class EnhancedMarketplaceService:
         try:
             offer = self.session.get(MarketplaceOffer, offer_id)
             if not offer:
-                raise ValueError(f'Offer not found: {offer_id}')
-            royalty_config = getattr(offer, 'attributes', {}).get('royalty_distribution', {})
+                raise ValueError(f"Offer not found: {offer_id}")
+            royalty_config = getattr(offer, "attributes", {}).get("royalty_distribution", {})
             if not royalty_config:
-                return {'primary': sale_amount * 0.1}
+                return {"primary": sale_amount * 0.1}
             royalties = {}
-            for tier, percentage in royalty_config.get('tiers', {}).items():
+            for tier, percentage in royalty_config.get("tiers", {}).items():
                 royalties[tier] = sale_amount * (percentage / 100.0)
             return royalties
         except Exception as e:
-            logger.error('Error calculating royalties: %s', e)
+            logger.error("Error calculating royalties: %s", e)
             raise
 
-    async def create_model_license(self, offer_id: str, license_type: LicenseType, terms: dict[str, Any], usage_rights: list[str], custom_terms: dict[str, Any] | None=None) -> dict[str, Any]:
+    async def create_model_license(
+        self,
+        offer_id: str,
+        license_type: LicenseType,
+        terms: dict[str, Any],
+        usage_rights: list[str],
+        custom_terms: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create model license for marketplace offer"""
         try:
             offer = self.session.get(MarketplaceOffer, offer_id)
             if not offer:
-                raise ValueError(f'Offer not found: {offer_id}')
-            if not hasattr(offer, 'attributes') or offer.attributes is None:
+                raise ValueError(f"Offer not found: {offer_id}")
+            if not hasattr(offer, "attributes") or offer.attributes is None:
                 offer.attributes = {}
-            license_data = {'license_type': license_type.value, 'terms': terms, 'usage_rights': usage_rights, 'created_at': datetime.now(UTC).isoformat()}
+            license_data = {
+                "license_type": license_type.value,
+                "terms": terms,
+                "usage_rights": usage_rights,
+                "created_at": datetime.now(UTC).isoformat(),
+            }
             if custom_terms:
-                license_data['custom_terms'] = custom_terms
-            offer.attributes['license'] = license_data
+                license_data["custom_terms"] = custom_terms
+            offer.attributes["license"] = license_data
             self.session.commit()
             return license_data
         except Exception as e:
-            logger.error('Error creating model license: %s', e)
+            logger.error("Error creating model license: %s", e)
             raise
 
-    async def verify_model(self, offer_id: str, verification_type: VerificationType=VerificationType.COMPREHENSIVE) -> dict[str, Any]:
+    async def verify_model(
+        self, offer_id: str, verification_type: VerificationType = VerificationType.COMPREHENSIVE
+    ) -> dict[str, Any]:
         """Verify model quality and performance"""
         try:
             offer = self.session.get(MarketplaceOffer, offer_id)
             if not offer:
-                raise ValueError(f'Offer not found: {offer_id}')
-            verification_result: dict[str, Any] = {'offer_id': offer_id, 'verification_type': verification_type.value, 'status': 'verified', 'checks': {}, 'created_at': datetime.now(UTC).isoformat()}
+                raise ValueError(f"Offer not found: {offer_id}")
+            verification_result: dict[str, Any] = {
+                "offer_id": offer_id,
+                "verification_type": verification_type.value,
+                "status": "verified",
+                "checks": {},
+                "created_at": datetime.now(UTC).isoformat(),
+            }
             if verification_type == VerificationType.COMPREHENSIVE:
-                verification_result['checks'] = {'quality': {'score': 0.85, 'status': 'pass'}, 'performance': {'score': 0.9, 'status': 'pass'}, 'security': {'score': 0.88, 'status': 'pass'}, 'compliance': {'score': 0.92, 'status': 'pass'}}
+                verification_result["checks"] = {
+                    "quality": {"score": 0.85, "status": "pass"},
+                    "performance": {"score": 0.9, "status": "pass"},
+                    "security": {"score": 0.88, "status": "pass"},
+                    "compliance": {"score": 0.92, "status": "pass"},
+                }
             elif verification_type == VerificationType.PERFORMANCE:
-                verification_result['checks'] = {'performance': {'score': 0.91, 'status': 'pass'}}
+                verification_result["checks"] = {"performance": {"score": 0.91, "status": "pass"}}
             elif verification_type == VerificationType.SECURITY:
-                verification_result['checks'] = {'security': {'score': 0.87, 'status': 'pass'}}
-            if not hasattr(offer, 'attributes') or offer.attributes is None:
+                verification_result["checks"] = {"security": {"score": 0.87, "status": "pass"}}
+            if not hasattr(offer, "attributes") or offer.attributes is None:
                 offer.attributes = {}
-            offer.attributes['verification'] = verification_result
+            offer.attributes["verification"] = verification_result
             self.session.commit()
             return verification_result
         except Exception as e:
-            logger.error('Error verifying model: %s', e)
+            logger.error("Error verifying model: %s", e)
             raise
 
-    async def get_marketplace_analytics(self, period_days: int=30, metrics: list[str] | None=None) -> dict[str, Any]:
+    async def get_marketplace_analytics(self, period_days: int = 30, metrics: list[str] | None = None) -> dict[str, Any]:
         """Get marketplace analytics and insights"""
         try:
             if not metrics:
-                metrics = ['volume', 'trends', 'performance', 'revenue']
+                metrics = ["volume", "trends", "performance", "revenue"]
             end_date = datetime.now(UTC)
             start_date = end_date - timedelta(days=period_days)
             offers_query = select(MarketplaceOffer).where(MarketplaceOffer.created_at >= start_date)
             offers = self.session.execute(offers_query).scalars().all()
-            bids: list[Any] = []
-            analytics: dict[str, Any] = {'period_days': period_days, 'start_date': start_date.isoformat(), 'end_date': end_date.isoformat(), 'metrics': {}}
-            if 'volume' in metrics:
-                analytics['metrics']['volume'] = {'total_offers': len(offers), 'total_capacity': sum(offer.capacity or 0 for offer in offers), 'average_capacity': sum(offer.capacity or 0 for offer in offers) / len(offers) if offers else 0, 'daily_average': len(offers) / period_days}
-            if 'trends' in metrics:
-                analytics['metrics']['trends'] = {'price_trend': 'stable', 'demand_trend': 'increasing', 'capacity_utilization': 0.75}
-            if 'performance' in metrics:
-                analytics['metrics']['performance'] = {'average_response_time': 0.5, 'success_rate': 0.95, 'provider_satisfaction': 4.2}
-            if 'revenue' in metrics:
-                analytics['metrics']['revenue'] = {'total_revenue': 0.0, 'average_price': sum(offer.price or 0 for offer in offers) / len(offers) if offers else 0, 'revenue_growth': 0.12}
+            analytics: dict[str, Any] = {
+                "period_days": period_days,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "metrics": {},
+            }
+            if "volume" in metrics:
+                analytics["metrics"]["volume"] = {
+                    "total_offers": len(offers),
+                    "total_capacity": sum(offer.capacity or 0 for offer in offers),
+                    "average_capacity": sum(offer.capacity or 0 for offer in offers) / len(offers) if offers else 0,
+                    "daily_average": len(offers) / period_days,
+                }
+            if "trends" in metrics:
+                analytics["metrics"]["trends"] = {
+                    "price_trend": "stable",
+                    "demand_trend": "increasing",
+                    "capacity_utilization": 0.75,
+                }
+            if "performance" in metrics:
+                analytics["metrics"]["performance"] = {
+                    "average_response_time": 0.5,
+                    "success_rate": 0.95,
+                    "provider_satisfaction": 4.2,
+                }
+            if "revenue" in metrics:
+                analytics["metrics"]["revenue"] = {
+                    "total_revenue": 0.0,
+                    "average_price": sum(offer.price or 0 for offer in offers) / len(offers) if offers else 0,
+                    "revenue_growth": 0.12,
+                }
             return analytics
         except Exception as e:
-            logger.error('Error getting marketplace analytics: %s', e)
+            logger.error("Error getting marketplace analytics: %s", e)
             raise

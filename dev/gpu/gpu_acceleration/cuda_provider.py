@@ -20,6 +20,7 @@ try:
     import pycuda.autoinit
     import pycuda.driver as cuda
     from pycuda.compiler import SourceModule
+
     CUDA_AVAILABLE = True
 except ImportError:
     CUDA_AVAILABLE = False
@@ -37,12 +38,12 @@ class CUDADevice(ComputeDevice):
         """Initialize CUDA device info."""
         super().__init__(
             device_id=device_id,
-            name=cuda_device.name().decode('utf-8'),
+            name=cuda_device.name().decode("utf-8"),
             backend=ComputeBackend.CUDA,
             memory_total=cuda_device.total_memory(),
             memory_available=cuda_device.total_memory(),  # Will be updated
             compute_capability=f"{cuda_device.compute_capability()[0]}.{cuda_device.compute_capability()[1]}",
-            is_available=True
+            is_available=True,
         )
         self.cuda_device = cuda_device
         self._update_memory_info()
@@ -83,7 +84,7 @@ class CUDAComputeProvider(ComputeProvider):
     def __init__(self, lib_path: str | None = None):
         """
         Initialize CUDA compute provider.
-        
+
         Args:
             lib_path: Path to compiled CUDA library
         """
@@ -124,7 +125,7 @@ class CUDAComputeProvider(ComputeProvider):
             "../liboptimized_field_operations.so",
             "../../liboptimized_field_operations.so",
             "/usr/local/lib/liboptimized_field_operations.so",
-            os.path.join(os.path.dirname(__file__), "liboptimized_field_operations.so")
+            os.path.join(os.path.dirname(__file__), "liboptimized_field_operations.so"),
         ]
 
         for path in possible_paths:
@@ -143,7 +144,7 @@ class CUDAComputeProvider(ComputeProvider):
             ctypes.POINTER(ctypes.c_uint64),  # a
             ctypes.POINTER(ctypes.c_uint64),  # b
             ctypes.POINTER(ctypes.c_uint64),  # result
-            ctypes.c_int                     # count
+            ctypes.c_int,  # count
         ]
         self.lib.field_add.restype = ctypes.c_int
 
@@ -151,23 +152,23 @@ class CUDAComputeProvider(ComputeProvider):
             ctypes.POINTER(ctypes.c_uint64),  # a
             ctypes.POINTER(ctypes.c_uint64),  # b
             ctypes.POINTER(ctypes.c_uint64),  # result
-            ctypes.c_int                     # count
+            ctypes.c_int,  # count
         ]
         self.lib.field_mul.restype = ctypes.c_int
 
         self.lib.field_inverse.argtypes = [
             ctypes.POINTER(ctypes.c_uint64),  # a
             ctypes.POINTER(ctypes.c_uint64),  # result
-            ctypes.c_int                     # count
+            ctypes.c_int,  # count
         ]
         self.lib.field_inverse.restype = ctypes.c_int
 
         self.lib.multi_scalar_mul.argtypes = [
             ctypes.POINTER(ctypes.POINTER(ctypes.c_uint64)),  # scalars
             ctypes.POINTER(ctypes.POINTER(ctypes.c_uint64)),  # points
-            ctypes.POINTER(ctypes.c_uint64),                  # result
-            ctypes.c_int,                                     # scalar_count
-            ctypes.c_int                                      # point_count
+            ctypes.POINTER(ctypes.c_uint64),  # result
+            ctypes.c_int,  # scalar_count
+            ctypes.c_int,  # point_count
         ]
         self.lib.multi_scalar_mul.restype = ctypes.c_int
 
@@ -302,7 +303,7 @@ class CUDAComputeProvider(ComputeProvider):
         grid_size: tuple[int, int, int],
         block_size: tuple[int, int, int],
         args: list[Any],
-        shared_memory: int = 0
+        shared_memory: int = 0,
     ) -> bool:
         """Execute a CUDA kernel."""
         if not self.initialized:
@@ -380,9 +381,7 @@ class CUDAComputeProvider(ComputeProvider):
             cuda.memcpy_htod(b_dev, b)
 
             # Execute kernel
-            success = self.lib.field_add(
-                a_dev, b_dev, result_dev, len(a)
-            ) == 0
+            success = self.lib.field_add(a_dev, b_dev, result_dev, len(a)) == 0
 
             if success:
                 # Copy result back
@@ -415,9 +414,7 @@ class CUDAComputeProvider(ComputeProvider):
             cuda.memcpy_htod(b_dev, b)
 
             # Execute kernel
-            success = self.lib.field_mul(
-                a_dev, b_dev, result_dev, len(a)
-            ) == 0
+            success = self.lib.field_mul(a_dev, b_dev, result_dev, len(a)) == 0
 
             if success:
                 # Copy result back
@@ -448,9 +445,7 @@ class CUDAComputeProvider(ComputeProvider):
             cuda.memcpy_htod(a_dev, a)
 
             # Execute kernel
-            success = self.lib.field_inverse(
-                a_dev, result_dev, len(a)
-            ) == 0
+            success = self.lib.field_inverse(a_dev, result_dev, len(a)) == 0
 
             if success:
                 # Copy result back
@@ -466,12 +461,7 @@ class CUDAComputeProvider(ComputeProvider):
             logger.error("CUDA field inverse failed: %s", e)
             return False
 
-    def zk_multi_scalar_mul(
-        self,
-        scalars: list[np.ndarray],
-        points: list[np.ndarray],
-        result: np.ndarray
-    ) -> bool:
+    def zk_multi_scalar_mul(self, scalars: list[np.ndarray], points: list[np.ndarray], result: np.ndarray) -> bool:
         """Perform multi-scalar multiplication using CUDA."""
         if not self.lib or not self.initialized:
             return False
@@ -499,22 +489,25 @@ class CUDAComputeProvider(ComputeProvider):
             result_dev = cuda.mem_alloc(result.nbytes)
 
             # Execute kernel
-            success = self.lib.multi_scalar_mul(
-                (ctypes.POINTER(ctypes.c_void64) * scalar_count)(*scalar_ptrs),
-                (ctypes.POINTER(ctypes.c_void64) * point_count)(*point_ptrs),
-                result_dev,
-                scalar_count,
-                point_count
-            ) == 0
+            success = (
+                self.lib.multi_scalar_mul(
+                    (ctypes.POINTER(ctypes.c_void64) * scalar_count)(*scalar_ptrs),
+                    (ctypes.POINTER(ctypes.c_void64) * point_count)(*point_ptrs),
+                    result_dev,
+                    scalar_count,
+                    point_count,
+                )
+                == 0
+            )
 
             if success:
                 # Copy result back
                 cuda.memcpy_dtoh(result, result_dev)
 
             # Clean up
-            for scalar_dev in [ptr for ptr in scalar_ptrs]:
+            for _scalar_dev in [ptr for ptr in scalar_ptrs]:
                 cuda.mem_free(ptr)
-            for point_dev in [ptr for ptr in point_ptrs]:
+            for _point_dev in [ptr for ptr in point_ptrs]:
                 cuda.mem_free(ptr)
             result_dev.free()
 
@@ -568,7 +561,7 @@ class CUDAComputeProvider(ComputeProvider):
                 "total_time": total_time,
                 "average_time": avg_time,
                 "operations_per_second": ops_per_second,
-                "iterations": iterations
+                "iterations": iterations,
             }
 
         except Exception as e:
@@ -592,7 +585,7 @@ class CUDAComputeProvider(ComputeProvider):
                     "free": free_mem,
                     "total": total_mem,
                     "used": total_mem - free_mem,
-                    "utilization": ((total_mem - free_mem) / total_mem) * 100
+                    "utilization": ((total_mem - free_mem) / total_mem) * 100,
                 },
                 "utilization": utilization,
                 "temperature": temperature,
@@ -603,10 +596,10 @@ class CUDAComputeProvider(ComputeProvider):
                         "memory_total": device.memory_total,
                         "compute_capability": device.compute_capability,
                         "utilization": device.utilization,
-                        "temperature": device.temperature
+                        "temperature": device.temperature,
                     }
                     for device in self.devices
-                ]
+                ],
             }
 
         except Exception as e:

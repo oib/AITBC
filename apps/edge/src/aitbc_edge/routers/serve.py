@@ -12,6 +12,7 @@ router = APIRouter()
 
 class SubmitComputeRequest(BaseModel):
     """Request model for submitting compute request"""
+
     gpu_id: str
     model_name: str
     input_data: dict[str, Any]
@@ -31,7 +32,9 @@ async def submit_compute_request(request: SubmitComputeRequest, svc: ServeServic
 
 
 @router.get("/requests")
-async def list_compute_requests(gpu_id: str = Query(None), status: str = Query(None), svc: ServeService = Depends(get_serve_service)) -> dict[str, Any]:
+async def list_compute_requests(
+    gpu_id: str = Query(None), status: str = Query(None), svc: ServeService = Depends(get_serve_service)
+) -> dict[str, Any]:
     """List compute requests, optionally filtered"""
     requests = await svc.list_compute_requests(gpu_id, status)
     return {"requests": requests, "total": len(requests)}

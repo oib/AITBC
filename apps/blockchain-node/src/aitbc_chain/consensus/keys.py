@@ -2,6 +2,7 @@
 Validator Key Management
 Handles cryptographic key operations for validators
 """
+
 import json
 import os
 import time
@@ -18,6 +19,7 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+
 @dataclass
 class ValidatorKeyPair:
     address: str
@@ -26,10 +28,11 @@ class ValidatorKeyPair:
     created_at: float
     last_rotated: float
 
+
 class KeyManager:
     """Manages validator cryptographic keys"""
 
-    def __init__(self, keys_dir: str='/opt/aitbc/dev'):
+    def __init__(self, keys_dir: str = "/opt/aitbc/dev"):
         self.keys_dir = keys_dir
         self.key_pairs: dict[str, ValidatorKeyPair] = {}
         self._ensure_keys_directory()
@@ -41,24 +44,40 @@ class KeyManager:
 
     def _load_existing_keys(self) -> None:
         """Load existing key pairs from disk"""
-        keys_file = os.path.join(self.keys_dir, 'validator_keys.json')
+        keys_file = os.path.join(self.keys_dir, "validator_keys.json")
         if os.path.exists(keys_file):
             try:
                 with open(keys_file) as f:
                     keys_data = json.load(f)
                 for address, key_data in keys_data.items():
-                    self.key_pairs[address] = ValidatorKeyPair(address=address, private_key_pem=key_data['private_key_pem'], public_key_pem=key_data['public_key_pem'], created_at=key_data['created_at'], last_rotated=key_data['last_rotated'])
+                    self.key_pairs[address] = ValidatorKeyPair(
+                        address=address,
+                        private_key_pem=key_data["private_key_pem"],
+                        public_key_pem=key_data["public_key_pem"],
+                        created_at=key_data["created_at"],
+                        last_rotated=key_data["last_rotated"],
+                    )
             except Exception as e:
-                logger.error('Error loading keys: %s', e)
+                logger.error("Error loading keys: %s", e)
 
     def generate_key_pair(self, address: str) -> ValidatorKeyPair:
         """Generate new RSA key pair for validator"""
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048, backend=default_backend())
-        private_key_pem = private_key.private_bytes(encoding=Encoding.PEM, format=PrivateFormat.PKCS8, encryption_algorithm=NoEncryption()).decode('utf-8')
+        private_key_pem = private_key.private_bytes(
+            encoding=Encoding.PEM, format=PrivateFormat.PKCS8, encryption_algorithm=NoEncryption()
+        ).decode("utf-8")
         public_key = private_key.public_key()
-        public_key_pem = public_key.public_bytes(encoding=Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo).decode('utf-8')
+        public_key_pem = public_key.public_bytes(
+            encoding=Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ).decode("utf-8")
         current_time = time.time()
-        key_pair = ValidatorKeyPair(address=address, private_key_pem=private_key_pem, public_key_pem=public_key_pem, created_at=current_time, last_rotated=current_time)
+        key_pair = ValidatorKeyPair(
+            address=address,
+            private_key_pem=private_key_pem,
+            public_key_pem=public_key_pem,
+            created_at=current_time,
+            last_rotated=current_time,
+        )
         self.key_pairs[address] = key_pair
         self._save_keys()
         return key_pair
@@ -82,8 +101,15 @@ class KeyManager:
         if address not in self.key_pairs:
             return None
         key_pair = self.key_pairs[address]
-        private_key = cast(RSAPrivateKey, serialization.load_pem_private_key(key_pair.private_key_pem.encode(), password=None, backend=default_backend()))
-        signature = private_key.sign(message.encode(), padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH), hashes.SHA256())
+        private_key = cast(
+            RSAPrivateKey,
+            serialization.load_pem_private_key(key_pair.private_key_pem.encode(), password=None, backend=default_backend()),
+        )
+        signature = private_key.sign(
+            message.encode(),
+            padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
+            hashes.SHA256(),
+        )
         return signature.hex()
 
     def verify_signature(self, address: str, message: str, signature: str) -> bool:
@@ -91,10 +117,17 @@ class KeyManager:
         if address not in self.key_pairs:
             return False
         key_pair = self.key_pairs[address]
-        public_key = cast(RSAPublicKey, serialization.load_pem_public_key(key_pair.public_key_pem.encode(), backend=default_backend()))
+        public_key = cast(
+            RSAPublicKey, serialization.load_pem_public_key(key_pair.public_key_pem.encode(), backend=default_backend())
+        )
         try:
             signature_bytes = bytes.fromhex(signature)
-            public_key.verify(signature_bytes, message.encode(), padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH), hashes.SHA256())
+            public_key.verify(
+                signature_bytes,
+                message.encode(),
+                padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
+                hashes.SHA256(),
+            )
             return True
         except Exception:
             return False
@@ -106,18 +139,23 @@ class KeyManager:
 
     def _save_keys(self) -> None:
         """Save key pairs to disk"""
-        keys_file = os.path.join(self.keys_dir, 'validator_keys.json')
+        keys_file = os.path.join(self.keys_dir, "validator_keys.json")
         keys_data = {}
         for address, key_pair in self.key_pairs.items():
-            keys_data[address] = {'private_key_pem': key_pair.private_key_pem, 'public_key_pem': key_pair.public_key_pem, 'created_at': key_pair.created_at, 'last_rotated': key_pair.last_rotated}
+            keys_data[address] = {
+                "private_key_pem": key_pair.private_key_pem,
+                "public_key_pem": key_pair.public_key_pem,
+                "created_at": key_pair.created_at,
+                "last_rotated": key_pair.last_rotated,
+            }
         try:
-            with open(keys_file, 'w') as f:
+            with open(keys_file, "w") as f:
                 json.dump(keys_data, f, indent=2)
             os.chmod(keys_file, 384)
         except Exception as e:
-            logger.error('Error saving keys: %s', str(e))
+            logger.error("Error saving keys: %s", str(e))
 
-    def should_rotate_key(self, address: str, rotation_interval: int=86400) -> bool:
+    def should_rotate_key(self, address: str, rotation_interval: int = 86400) -> bool:
         """Check if key should be rotated (default: 24 hours)"""
         key_pair = self.get_key_pair(address)
         if not key_pair:
@@ -130,4 +168,6 @@ class KeyManager:
         if not key_pair:
             return None
         return time.time() - key_pair.created_at
+
+
 key_manager = KeyManager()

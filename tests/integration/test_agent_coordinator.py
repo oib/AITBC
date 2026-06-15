@@ -25,9 +25,10 @@ except Exception as _e:
 def coordinator_client() -> Generator[TestClient]:
     """Create a test client for coordinator API with Redis storage."""
     import os
+
     # Ensure Redis URL is set
-    os.environ.setdefault('REDIS_URL', 'redis://localhost:6379/1')
-    
+    os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
+
     app = create_app()
     with TestClient(app) as client:
         yield client
@@ -37,6 +38,7 @@ def coordinator_client() -> Generator[TestClient]:
 def authenticated_client(coordinator_client: TestClient) -> Generator[TestClient]:
     """Create an authenticated test client with admin token."""
     import os
+
     # Login to get a token
     admin_password = os.getenv("TEST_ADMIN_PASSWORD") or os.getenv("DEMO_ADMIN_PASSWORD") or "admin123"
     login_data = {"username": "admin", "password": admin_password}
@@ -59,21 +61,14 @@ def sample_agent_data() -> dict[str, Any]:
         "capabilities": ["data-processing", "analysis"],
         "services": ["task-execution"],
         "endpoints": {"http": "http://localhost:9002"},
-        "metadata": {"version": "1.0.0", "test": True}
+        "metadata": {"version": "1.0.0", "test": True},
     }
 
 
 @pytest.fixture
 def sample_task_data() -> dict[str, Any]:
     """Sample task submission data."""
-    return {
-        "task_data": {
-            "model": "llama2",
-            "prompt": "test prompt"
-        },
-        "priority": "normal",
-        "requirements": {}
-    }
+    return {"task_data": {"model": "llama2", "prompt": "test prompt"}, "priority": "normal", "requirements": {}}
 
 
 class TestAgentRegistration:
@@ -180,10 +175,7 @@ class TestTaskDistribution:
 
     def test_submit_task_invalid_priority(self, coordinator_client: TestClient):
         """Test task submission with invalid priority."""
-        invalid_data = {
-            "task_data": {"model": "llama2"},
-            "priority": "invalid"
-        }
+        invalid_data = {"task_data": {"model": "llama2"}, "priority": "invalid"}
         response = coordinator_client.post("/v1/tasks/submit", json=invalid_data)
         # API returns 400 for invalid priority (not 422)
         assert response.status_code in (400, 422)
@@ -200,7 +192,9 @@ class TestTaskDistribution:
         assert "load_balancer_stats" in data["stats"]
         assert "active_agents" in data["stats"]["load_balancer_stats"]
 
-    def test_task_assignment_with_active_agent(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any], sample_task_data: dict[str, Any]):
+    def test_task_assignment_with_active_agent(
+        self, coordinator_client: TestClient, sample_agent_data: dict[str, Any], sample_task_data: dict[str, Any]
+    ):
         """Test task assignment with active agent."""
         coordinator_client.post("/v1/agents/register", json=sample_agent_data)
         coordinator_client.put(f"/v1/agents/{sample_agent_data['agent_id']}/status", json={"status": "active"})
@@ -220,7 +214,7 @@ class TestLoadBalancing:
                 "agent_type": "worker",
                 "capabilities": ["data-processing"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:{9002+i}"}
+                "endpoints": {"http": f"http://localhost:{9002 + i}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
             agents.append(agent_data)
@@ -228,10 +222,7 @@ class TestLoadBalancing:
         for agent in agents:
             coordinator_client.put(f"/v1/agents/{agent['agent_id']}/status", json={"status": "active"})
 
-        task_data = {
-            "task_data": {"model": "llama2", "prompt": "test"},
-            "priority": "normal"
-        }
+        task_data = {"task_data": {"model": "llama2", "prompt": "test"}, "priority": "normal"}
         response = coordinator_client.post("/v1/tasks/submit", json=task_data)
         assert response.status_code in (200, 201)
 
@@ -318,6 +309,7 @@ class TestAuthentication:
     def test_login_admin_success(self, coordinator_client: TestClient):
         """Test successful admin login."""
         import os
+
         admin_password = os.getenv("TEST_ADMIN_PASSWORD")
         if not admin_password:
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
@@ -334,6 +326,7 @@ class TestAuthentication:
     def test_login_invalid_credentials(self, coordinator_client: TestClient):
         """Test login with invalid credentials."""
         import os
+
         if not os.getenv("TEST_ADMIN_PASSWORD"):
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         login_data = {"username": "admin", "password": "wrongpassword"}
@@ -349,6 +342,7 @@ class TestAuthentication:
     def test_refresh_token_success(self, coordinator_client: TestClient):
         """Test successful token refresh."""
         import os
+
         admin_password = os.getenv("TEST_ADMIN_PASSWORD")
         if not admin_password:
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
@@ -368,6 +362,7 @@ class TestAuthentication:
     def test_validate_token_success(self, coordinator_client: TestClient):
         """Test successful token validation."""
         import os
+
         admin_password = os.getenv("TEST_ADMIN_PASSWORD")
         if not admin_password:
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
@@ -488,22 +483,14 @@ class TestConsensus:
 
     def test_register_consensus_node(self, coordinator_client: TestClient):
         """Test registering a consensus node."""
-        node_data = {
-            "node_id": "test-node-001",
-            "address": "http://localhost:9003",
-            "stake": 1000
-        }
+        node_data = {"node_id": "test-node-001", "address": "http://localhost:9003", "stake": 1000}
         response = coordinator_client.post("/v1/consensus/node/register", json=node_data)
         # Should work or return appropriate error
         assert response.status_code in (200, 201, 500)
 
     def test_register_consensus_node_authorized(self, authenticated_client: TestClient):
         """Test registering a consensus node with authentication."""
-        node_data = {
-            "node_id": "test-node-002",
-            "address": "http://localhost:9004",
-            "stake": 2000
-        }
+        node_data = {"node_id": "test-node-002", "address": "http://localhost:9004", "stake": 2000}
         response = authenticated_client.post("/v1/consensus/node/register", json=node_data)
         # Should work or return appropriate error
         assert response.status_code in (200, 201, 500)
@@ -513,7 +500,7 @@ class TestConsensus:
         proposal_data = {
             "proposal_id": "prop-001",
             "proposer": "test-node-001",
-            "content": {"action": "upgrade", "version": "2.0"}
+            "content": {"action": "upgrade", "version": "2.0"},
         }
         response = coordinator_client.post("/v1/consensus/proposal/create", json=proposal_data)
         # Should work or return appropriate error
@@ -524,7 +511,7 @@ class TestConsensus:
         proposal_data = {
             "proposal_id": "prop-002",
             "proposer": "test-node-002",
-            "content": {"action": "config", "setting": "timeout"}
+            "content": {"action": "config", "setting": "timeout"},
         }
         response = authenticated_client.post("/v1/consensus/proposal/create", json=proposal_data)
         # Should work or return appropriate error
@@ -577,7 +564,7 @@ class TestMessages:
             "recipient": "test-agent-002",
             "content": {"action": "execute", "task_id": "task-001"},
             "message_type": "task",
-            "priority": "normal"
+            "priority": "normal",
         }
         response = coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
         # Should work or return appropriate error
@@ -589,7 +576,7 @@ class TestMessages:
             "message_type": "task",
             "payload": {"action": "shutdown"},
             "priority": "high",
-            "agent_type": "worker"
+            "agent_type": "worker",
         }
         response = coordinator_client.post("/api/v1/agent/messages/broadcast", json=broadcast_data)
         # Should work or return appropriate error
@@ -633,19 +620,25 @@ class TestMessages:
 
     def test_set_load_balancing_strategy(self, coordinator_client: TestClient):
         """Test setting load balancing strategy."""
-        response = coordinator_client.put("/api/v1/agent/messages/load-balancer/strategy", params={"strategy": "least_connections"})
+        response = coordinator_client.put(
+            "/api/v1/agent/messages/load-balancer/strategy", params={"strategy": "least_connections"}
+        )
         # Should work or return appropriate error
         assert response.status_code in (200, 400, 503)
 
     def test_add_peer(self, coordinator_client: TestClient):
         """Test adding a peer connection."""
-        response = coordinator_client.post("/api/v1/agent/messages/peers/add", params={"agent_id": "agent-001", "peer_id": "agent-002"})
+        response = coordinator_client.post(
+            "/api/v1/agent/messages/peers/add", params={"agent_id": "agent-001", "peer_id": "agent-002"}
+        )
         # Should work or return appropriate error
         assert response.status_code in (200, 503, 500)
 
     def test_remove_peer(self, coordinator_client: TestClient):
         """Test removing a peer connection."""
-        response = coordinator_client.post("/api/v1/agent/messages/peers/remove", params={"agent_id": "agent-001", "peer_id": "agent-002"})
+        response = coordinator_client.post(
+            "/api/v1/agent/messages/peers/remove", params={"agent_id": "agent-001", "peer_id": "agent-002"}
+        )
         # Should work or return appropriate error
         assert response.status_code in (200, 503, 500)
 
@@ -668,7 +661,7 @@ class TestMessages:
             "recipient": "test-agent-002",
             "content": {"status": "online", "timestamp": "2026-05-08T12:00:00Z"},
             "message_type": "status",
-            "priority": "high"
+            "priority": "high",
         }
         response = coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
         assert response.status_code in (200, 201, 400, 503, 500)
@@ -687,7 +680,7 @@ class TestMessages:
             "message_type": "task",
             "payload": {"action": "compute", "task_id": "gpu-task-001"},
             "priority": "normal",
-            "capabilities": ["gpu-compute"]
+            "capabilities": ["gpu-compute"],
         }
         response = coordinator_client.post("/api/v1/agent/messages/broadcast", json=broadcast_data)
         assert response.status_code in (200, 400, 503, 500)
@@ -714,7 +707,7 @@ class TestMessages:
                 "recipient": "test-agent-002",
                 "content": {"action": "test", "protocol": protocol},
                 "message_type": "task",
-                "priority": "normal"
+                "priority": "normal",
             }
             response = coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
             assert response.status_code in (200, 201, 400, 503, 500)
@@ -728,7 +721,7 @@ class TestMessages:
                 "recipient": "test-agent-002",
                 "content": {"action": "test", "priority": priority},
                 "message_type": "task",
-                "priority": priority
+                "priority": priority,
             }
             response = coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
             assert response.status_code in (200, 201, 400, 503, 500)
@@ -742,7 +735,7 @@ class TestMessages:
                 "recipient": "test-agent-002",
                 "content": {"action": "test", "type": msg_type},
                 "message_type": msg_type,
-                "priority": "normal"
+                "priority": "normal",
             }
             response = coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
             assert response.status_code in (200, 201, 400, 503, 500)
@@ -757,7 +750,7 @@ class TestAI:
             "context": {"task_type": "data-processing", "agent_type": "worker"},
             "action": "execute_task",
             "reward": 0.9,
-            "next_state": {"task_completed": True}
+            "next_state": {"task_completed": True},
         }
         response = coordinator_client.post("/v1/ai/learning/experience", json=experience_data)
         # Should work or return appropriate error
@@ -780,18 +773,15 @@ class TestAI:
         """Test getting AI-recommended action."""
         context = {"task_type": "data-processing", "agent_type": "worker"}
         available_actions = ["execute_task", "defer_task", "reject_task"]
-        response = coordinator_client.post("/v1/ai/learning/recommend", json=context, params={"available_actions": available_actions})
+        response = coordinator_client.post(
+            "/v1/ai/learning/recommend", json=context, params={"available_actions": available_actions}
+        )
         # Should work or return appropriate error
         assert response.status_code in (200, 422, 500)
 
     def test_create_neural_network(self, coordinator_client: TestClient):
         """Test creating a neural network."""
-        config = {
-            "input_size": 10,
-            "hidden_layers": [64, 32],
-            "output_size": 2,
-            "activation": "relu"
-        }
+        config = {"input_size": 10, "hidden_layers": [64, 32], "output_size": 2, "activation": "relu"}
         response = coordinator_client.post("/v1/ai/neural-network/create", json=config)
         # Should work or return appropriate error
         assert response.status_code in (200, 500)
@@ -800,9 +790,11 @@ class TestAI:
         """Test training a neural network."""
         training_data = [
             {"features": [1.0, 2.0, 3.0], "target": [0.0, 1.0]},
-            {"features": [4.0, 5.0, 6.0], "target": [1.0, 0.0]}
+            {"features": [4.0, 5.0, 6.0], "target": [1.0, 0.0]},
         ]
-        response = coordinator_client.post("/v1/ai/neural-network/test-nn-001/train", json=training_data, params={"epochs": 10})
+        response = coordinator_client.post(
+            "/v1/ai/neural-network/test-nn-001/train", json=training_data, params={"epochs": 10}
+        )
         # Should work or return appropriate error
         assert response.status_code in (200, 500)
 
@@ -818,7 +810,7 @@ class TestAI:
         config = {
             "model_type": "random_forest",
             "features": ["cpu_usage", "memory_usage", "task_complexity"],
-            "target": "task_completion_time"
+            "target": "task_completion_time",
         }
         response = coordinator_client.post("/v1/ai/ml-model/create", json=config)
         # Should work or return appropriate error
@@ -828,7 +820,7 @@ class TestAI:
         """Test training an ML model."""
         training_data = [
             {"cpu_usage": 0.5, "memory_usage": 0.3, "task_complexity": 0.7, "task_completion_time": 10.0},
-            {"cpu_usage": 0.8, "memory_usage": 0.6, "task_complexity": 0.9, "task_completion_time": 15.0}
+            {"cpu_usage": 0.8, "memory_usage": 0.6, "task_complexity": 0.9, "task_completion_time": 15.0},
         ]
         response = coordinator_client.post("/v1/ai/ml-model/test-ml-001/train", json=training_data)
         # Should work or return appropriate error
@@ -853,8 +845,14 @@ class TestLoadBalancer:
 
     def test_set_load_balancing_strategies(self, coordinator_client: TestClient):
         """Test setting all load balancing strategies."""
-        strategies = ["round_robin", "least_connections", "least_response_time",
-                     "weighted_round_robin", "resource_based", "capability_based"]
+        strategies = [
+            "round_robin",
+            "least_connections",
+            "least_response_time",
+            "weighted_round_robin",
+            "resource_based",
+            "capability_based",
+        ]
         for strategy in strategies:
             response = coordinator_client.put("/api/v1/agent/messages/load-balancer/strategy", params={"strategy": strategy})
             assert response.status_code in (200, 400, 503)
@@ -876,7 +874,7 @@ class TestLoadBalancer:
                 "agent_type": "worker",
                 "capabilities": ["data-processing"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:9002{i}"}
+                "endpoints": {"http": f"http://localhost:9002{i}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
             coordinator_client.put(f"/v1/agents/lb-agent-{i}/status", json={"status": "active"})
@@ -885,10 +883,7 @@ class TestLoadBalancer:
         strategies = ["round_robin", "least_connections"]
         for strategy in strategies:
             coordinator_client.put("/api/v1/agent/messages/load-balancer/strategy", params={"strategy": strategy})
-            task_data = {
-                "task_data": {"model": "llama2", "prompt": "test"},
-                "priority": "normal"
-            }
+            task_data = {"task_data": {"model": "llama2", "prompt": "test"}, "priority": "normal"}
             response = coordinator_client.post("/v1/tasks/submit", json=task_data)
             assert response.status_code in (200, 201, 503)
 
@@ -899,12 +894,13 @@ class TestAuthMiddleware:
     def test_login_all_user_types(self, coordinator_client: TestClient):
         """Test login for all user types."""
         import os
+
         if not os.getenv("TEST_ADMIN_PASSWORD"):
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         users = [
             {"username": "admin", "password": os.getenv("TEST_ADMIN_PASSWORD")},
             {"username": "operator", "password": os.getenv("TEST_OPERATOR_PASSWORD", "operator123")},
-            {"username": "user", "password": os.getenv("TEST_USER_PASSWORD", "user123")}
+            {"username": "user", "password": os.getenv("TEST_USER_PASSWORD", "user123")},
         ]
         for user in users:
             response = coordinator_client.post("/api/v1/auth/login", json=user)
@@ -917,6 +913,7 @@ class TestAuthMiddleware:
     def test_refresh_token_multiple_times(self, coordinator_client: TestClient):
         """Test refreshing token multiple times."""
         import os
+
         if not os.getenv("TEST_ADMIN_PASSWORD"):
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         # Login to get initial tokens
@@ -936,6 +933,7 @@ class TestAuthMiddleware:
     def test_validate_token_various_formats(self, coordinator_client: TestClient):
         """Test validating tokens in various formats."""
         import os
+
         if not os.getenv("TEST_ADMIN_PASSWORD"):
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         # Get valid token
@@ -950,11 +948,7 @@ class TestAuthMiddleware:
         assert data["valid"] is True
 
         # Test invalid tokens
-        invalid_tokens = [
-            "invalid_token",
-            "Bearer invalid",
-            ""
-        ]
+        invalid_tokens = ["invalid_token", "Bearer invalid", ""]
         for invalid_token in invalid_tokens:
             response = coordinator_client.post("/api/v1/auth/validate", json={"token": invalid_token})
             assert response.status_code in (401, 422)
@@ -962,6 +956,7 @@ class TestAuthMiddleware:
     def test_api_key_operations(self, coordinator_client: TestClient):
         """Test API key generation and validation."""
         import os
+
         if not os.getenv("TEST_ADMIN_PASSWORD"):
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         # First login as admin to get auth
@@ -971,8 +966,7 @@ class TestAuthMiddleware:
 
         # Generate API key (this may fail due to permissions, but that's OK for coverage)
         response = coordinator_client.post(
-            "/api/v1/auth/api-key/generate?user_id=test_user&permissions=READ",
-            headers={"Authorization": f"Bearer {token}"}
+            "/api/v1/auth/api-key/generate?user_id=test_user&permissions=READ", headers={"Authorization": f"Bearer {token}"}
         )
         # May fail due to permissions or state, but exercises the code path
         assert response.status_code in (200, 403, 500)
@@ -984,12 +978,7 @@ class TestAuthMiddleware:
 
     def test_protected_endpoints_without_auth(self, coordinator_client: TestClient):
         """Test that protected endpoints reject requests without auth."""
-        protected_endpoints = [
-            "/protected/admin",
-            "/protected/operator",
-            "/alerts",
-            "/users/test_user/role"
-        ]
+        protected_endpoints = ["/protected/admin", "/protected/operator", "/alerts", "/users/test_user/role"]
         for endpoint in protected_endpoints:
             response = coordinator_client.get(endpoint)
             # Should return 401 or 403
@@ -1105,12 +1094,7 @@ class TestSwarmEndpoints:
 
     def test_join_swarm(self, coordinator_client: TestClient):
         """Test joining agent swarm."""
-        join_data = {
-            "role": "worker",
-            "capability": "gpu-compute",
-            "priority": "high",
-            "region": "us-east"
-        }
+        join_data = {"role": "worker", "capability": "gpu-compute", "priority": "high", "region": "us-east"}
         response = coordinator_client.post("/v1/swarm/join", json=join_data)
         assert response.status_code == 201
         data = response.json()
@@ -1123,7 +1107,7 @@ class TestSwarmEndpoints:
             "task": "matrix_multiplication",
             "collaborators": 5,
             "strategy": "distributed",
-            "timeout_seconds": 300
+            "timeout_seconds": 300,
         }
         response = coordinator_client.post("/v1/swarm/coordinate", json=coordinate_data)
         assert response.status_code == 202
@@ -1204,10 +1188,7 @@ class TestEdgeCases:
         """Test task submission with various priorities."""
         priorities = ["low", "normal", "high", "critical", "urgent"]
         for priority in priorities:
-            task_data = {
-                "task_data": {"model": "llama2", "prompt": "test"},
-                "priority": priority
-            }
+            task_data = {"task_data": {"model": "llama2", "prompt": "test"}, "priority": priority}
             response = coordinator_client.post("/v1/tasks/submit", json=task_data)
             assert response.status_code in (200, 201, 503)
 
@@ -1228,7 +1209,7 @@ class TestEdgeCases:
             {"status": "active"},
             {"agent_type": "worker"},
             {"capabilities": ["data-processing"]},
-            {"status": "active", "agent_type": "worker"}
+            {"status": "active", "agent_type": "worker"},
         ]
         for filter_data in filters:
             response = coordinator_client.post("/v1/agents/discover", json=filter_data)
@@ -1236,12 +1217,7 @@ class TestEdgeCases:
 
     def test_nonexistent_endpoints(self, coordinator_client: TestClient):
         """Test that nonexistent endpoints return 404."""
-        endpoints = [
-            "/nonexistent",
-            "/v1/agents/nonexistent",
-            "/tasks/nonexistent",
-            "/api/v1/nonexistent"
-        ]
+        endpoints = ["/nonexistent", "/v1/agents/nonexistent", "/tasks/nonexistent", "/api/v1/nonexistent"]
         for endpoint in endpoints:
             response = coordinator_client.get(endpoint)
             assert response.status_code == 404
@@ -1270,7 +1246,7 @@ class TestLoadBalancerAdvanced:
             "resource_based",
             "capability_based",
             "predictive",
-            "consistent_hash"
+            "consistent_hash",
         ]
         for strategy in strategies:
             response = coordinator_client.put("/api/v1/agent/messages/load-balancer/strategy", params={"strategy": strategy})
@@ -1285,7 +1261,7 @@ class TestLoadBalancerAdvanced:
                 "agent_type": agent_type,
                 "capabilities": ["data-processing", "analysis"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i}"}
+                "endpoints": {"http": f"http://localhost:900{i}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
             coordinator_client.put(f"/v1/agents/lb-agent-{agent_type}-{i}/status", json={"status": "active"})
@@ -1313,7 +1289,9 @@ class TestAIAdvanced:
         message_types = ["task", "status", "heartbeat", "control", "data", "result", "error"]
         for msg_type in message_types:
             context = {"task_type": "data-processing", "agent_type": "worker"}
-            response = coordinator_client.post("/v1/ai/learning/predict", json=context, params={"action": f"handle_{msg_type}"})
+            response = coordinator_client.post(
+                "/v1/ai/learning/predict", json=context, params={"action": f"handle_{msg_type}"}
+            )
             assert response.status_code in (200, 500)
 
     def test_ai_neural_network_various_configs(self, coordinator_client: TestClient):
@@ -1321,7 +1299,7 @@ class TestAIAdvanced:
         configs = [
             {"input_size": 5, "hidden_layers": [10], "output_size": 2, "activation": "relu"},
             {"input_size": 20, "hidden_layers": [64, 32, 16], "output_size": 5, "activation": "sigmoid"},
-            {"input_size": 100, "hidden_layers": [128, 64], "output_size": 10, "activation": "tanh"}
+            {"input_size": 100, "hidden_layers": [128, 64], "output_size": 10, "activation": "tanh"},
         ]
         for config in configs:
             response = coordinator_client.post("/v1/ai/neural-network/create", json=config)
@@ -1334,7 +1312,7 @@ class TestAIAdvanced:
             config = {
                 "model_type": model_type,
                 "features": ["cpu_usage", "memory_usage", "task_complexity"],
-                "target": "task_completion_time"
+                "target": "task_completion_time",
             }
             response = coordinator_client.post("/v1/ai/ml-model/create", json=config)
             assert response.status_code in (200, 500)
@@ -1344,15 +1322,13 @@ class TestAIAdvanced:
         contexts = [
             {"task_type": "data-processing", "agent_type": "worker", "priority": "high"},
             {"task_type": "gpu-compute", "agent_type": "worker", "priority": "critical"},
-            {"task_type": "monitoring", "agent_type": "monitor", "priority": "normal"}
+            {"task_type": "monitoring", "agent_type": "monitor", "priority": "normal"},
         ]
         for context in contexts:
-            response = coordinator_client.post("/v1/ai/learning/experience", json={
-                "context": context,
-                "action": "execute_task",
-                "reward": 0.9,
-                "next_state": {"task_completed": True}
-            })
+            response = coordinator_client.post(
+                "/v1/ai/learning/experience",
+                json={"context": context, "action": "execute_task", "reward": 0.9, "next_state": {"task_completed": True}},
+            )
             assert response.status_code in (200, 500)
 
 
@@ -1370,7 +1346,7 @@ class TestCommunicationAdvanced:
                     "recipient": "test-agent-002",
                     "content": {"action": "test", "type": msg_type, "protocol": protocol},
                     "message_type": msg_type,
-                    "priority": "normal"
+                    "priority": "normal",
                 }
                 response = coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
                 assert response.status_code in (200, 201, 400, 503, 500)
@@ -1383,7 +1359,7 @@ class TestCommunicationAdvanced:
                 "message_type": "task",
                 "priority": "normal",
                 "agent_type": agent_type,
-                "payload": {"action": "test", "target_type": agent_type}
+                "payload": {"action": "test", "target_type": agent_type},
             }
             response = coordinator_client.post("/api/v1/agent/messages/broadcast", json=broadcast_data)
             assert response.status_code in (200, 400, 503, 500)
@@ -1405,7 +1381,7 @@ class TestConsensusAdvanced:
             proposal_data = {
                 "proposal_id": f"prop-{i}",
                 "proposer": f"node-{i}",
-                "content": {"action": "config", "setting": f"value-{i}"}
+                "content": {"action": "config", "setting": f"value-{i}"},
             }
             response = coordinator_client.post("/v1/consensus/proposal/create", json=proposal_data)
             assert response.status_code in (200, 201, 500)
@@ -1450,7 +1426,7 @@ class TestAlertsAdvanced:
     def test_sla_all_metrics(self, coordinator_client: TestClient):
         """Test SLA monitoring with various metrics."""
         # Test recording different SLA metrics
-        for i in range(3):
+        for _i in range(3):
             response = coordinator_client.post("/v1/sla/test-sla-001/record?value=0.9")
             # May fail due to auth, but exercises the code path
             assert response.status_code in (200, 401, 403, 500)
@@ -1499,6 +1475,7 @@ class TestAuthAdvanced:
     def test_auth_token_expiration_scenarios(self, coordinator_client: TestClient):
         """Test token expiration and refresh scenarios."""
         import os
+
         if not os.getenv("TEST_ADMIN_PASSWORD"):
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         # Login
@@ -1524,7 +1501,7 @@ class TestAuthAdvanced:
             {"username": "nonexistent", "password": "wrong"},
             {"username": "admin", "password": "wrong"},
             {"username": "", "password": ""},
-            {"username": None, "password": None}
+            {"username": None, "password": None},
         ]
         for creds in invalid_credentials:
             if creds.get("username") is not None:
@@ -1539,19 +1516,12 @@ class TestAuthAdvanced:
 
         for user_id in user_ids:
             for perm in permissions:
-                response = coordinator_client.post(
-                    f"/api/v1/auth/api-key/generate?user_id={user_id}&permissions={perm}"
-                )
+                response = coordinator_client.post(f"/api/v1/auth/api-key/generate?user_id={user_id}&permissions={perm}")
                 assert response.status_code in (200, 401, 403, 500)
 
     def test_auth_protected_endpoints_with_valid_token(self, authenticated_client: TestClient):
         """Test protected endpoints with valid authentication."""
-        endpoints = [
-            "/protected/admin",
-            "/protected/operator",
-            "/users/test_user/role",
-            "/alerts"
-        ]
+        endpoints = ["/protected/admin", "/protected/operator", "/users/test_user/role", "/alerts"]
         for endpoint in endpoints:
             response = authenticated_client.get(endpoint)
             # May succeed or fail due to permissions, but exercises auth middleware
@@ -1573,7 +1543,7 @@ class TestAgentsAdvanced:
                     "agent_type": agent_type,
                     "capabilities": ["data-processing", "analysis"],
                     "services": ["task-execution"],
-                    "endpoints": {"http": "http://localhost:9001"}
+                    "endpoints": {"http": "http://localhost:9001"},
                 }
                 coordinator_client.post("/v1/agents/register", json=agent_data)
                 coordinator_client.put(f"/v1/agents/agent-{agent_type}-{status}/status", json={"status": status})
@@ -1588,7 +1558,7 @@ class TestAgentsAdvanced:
             {"services": ["task-execution"]},
             {"status": "active", "agent_type": "worker"},
             {"capabilities": ["data-processing"], "services": ["task-execution"]},
-            {"status": "active", "agent_type": "worker", "capabilities": ["data-processing"]}
+            {"status": "active", "agent_type": "worker", "capabilities": ["data-processing"]},
         ]
 
         for filters in filter_combinations:
@@ -1605,7 +1575,7 @@ class TestAgentsAdvanced:
             "agent_type": "worker",
             "capabilities": ["data-processing"],
             "services": ["task-execution"],
-            "endpoints": {"http": "http://localhost:9001"}
+            "endpoints": {"http": "http://localhost:9001"},
         }
         response = coordinator_client.post("/v1/agents/register", json=agent_data)
         assert response.status_code in (200, 201)
@@ -1634,10 +1604,7 @@ class TestTasksAdvanced:
 
         for priority in priorities:
             for model in models:
-                task_data = {
-                    "task_data": {"model": model, "prompt": "test prompt"},
-                    "priority": priority
-                }
+                task_data = {"task_data": {"model": model, "prompt": "test prompt"}, "priority": priority}
                 response = coordinator_client.post("/v1/tasks/submit", json=task_data)
                 assert response.status_code in (200, 201, 503)
 
@@ -1666,7 +1633,7 @@ class TestTasksAdvanced:
             {"model": "llama2", "prompt": "simple test"},
             {"model": "llama2", "prompt": "test", "max_tokens": 100, "temperature": 0.7},
             {"model": "llama2", "prompt": "test", "system_prompt": "You are a helpful assistant"},
-            {"model": "llama2", "prompt": "test", "context": {"user_id": "123", "session_id": "456"}}
+            {"model": "llama2", "prompt": "test", "context": {"user_id": "123", "session_id": "456"}},
         ]
 
         for payload in payloads:
@@ -1711,10 +1678,7 @@ class TestStorageAdvanced:
         ]
 
         for scenario in message_scenarios:
-            message_data = {
-                **scenario,
-                "content": {"data": "test"}
-            }
+            message_data = {**scenario, "content": {"data": "test"}}
             response = coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
             assert response.status_code in (200, 201, 400, 503, 500)
 
@@ -1724,7 +1688,7 @@ class TestStorageAdvanced:
             {"sender_id": "agent-coordinator"},
             {"receiver_id": "agent-001"},
             {"limit": 5},
-            {"limit": 10, "offset": 5}
+            {"limit": 10, "offset": 5},
         ]
 
         for filter_params in filters:
@@ -1740,7 +1704,7 @@ class TestStorageAdvanced:
                 "agent_type": "worker",
                 "capabilities": ["data-processing", "gpu-compute"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i}"}
+                "endpoints": {"http": f"http://localhost:900{i}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
             coordinator_client.put(f"/v1/agents/integration-agent-{i}/status", json={"status": "active"})
@@ -1772,7 +1736,7 @@ class TestErrorHandling:
             ("/v1/agents/discover", "POST"),
             ("/v1/tasks/submit", "POST"),
             ("/api/v1/agent/messages/send", "POST"),
-            ("/api/v1/auth/login", "POST")
+            ("/api/v1/auth/login", "POST"),
         ]
 
         for endpoint, method in endpoints:
@@ -1782,12 +1746,7 @@ class TestErrorHandling:
 
     def test_malformed_request_data(self, coordinator_client: TestClient):
         """Test endpoints with malformed request data."""
-        malformed_data = [
-            None,
-            "",
-            "invalid string",
-            {"nested": {"deeply": {"invalid": "structure"}}}
-        ]
+        malformed_data = [None, "", "invalid string", {"nested": {"deeply": {"invalid": "structure"}}}]
 
         for data in malformed_data:
             if data is not None:
@@ -1796,12 +1755,7 @@ class TestErrorHandling:
 
     def test_special_characters_in_ids(self, coordinator_client: TestClient):
         """Test endpoints with special characters in IDs."""
-        special_ids = [
-            "agent-with-dashes",
-            "agent_with_underscores",
-            "agent.with.dots",
-            "agent@with#special"
-        ]
+        special_ids = ["agent-with-dashes", "agent_with_underscores", "agent.with.dots", "agent@with#special"]
 
         for agent_id in special_ids:
             agent_data = {
@@ -1809,7 +1763,7 @@ class TestErrorHandling:
                 "agent_type": "worker",
                 "capabilities": ["data-processing"],
                 "services": ["task-execution"],
-                "endpoints": {"http": "http://localhost:9001"}
+                "endpoints": {"http": "http://localhost:9001"},
             }
             response = coordinator_client.post("/v1/agents/register", json=agent_data)
             assert response.status_code in (200, 201, 400, 422)
@@ -1823,7 +1777,7 @@ class TestErrorHandling:
             "agent_type": "worker",
             "capabilities": [long_string[:50]],
             "services": [long_string[:50]],
-            "endpoints": {"http": "http://localhost:9001"}
+            "endpoints": {"http": "http://localhost:9001"},
         }
         response = coordinator_client.post("/v1/agents/register", json=agent_data)
         assert response.status_code in (200, 201, 400, 422, 503)
@@ -1836,7 +1790,7 @@ class TestErrorHandling:
             999999999,
             0.0,
             -0.1,
-            1.7976931348623157e+308  # Max float
+            1.7976931348623157e308,  # Max float
         ]
 
         for num in numeric_cases:
@@ -1848,7 +1802,7 @@ class TestErrorHandling:
         test_cases = [
             {"agent_id": "test", "agent_type": "worker", "capabilities": None},
             {"agent_id": "test", "agent_type": "worker", "capabilities": True},
-            {"agent_id": "test", "agent_type": "worker", "capabilities": False}
+            {"agent_id": "test", "agent_type": "worker", "capabilities": False},
         ]
 
         for case in test_cases:
@@ -1862,7 +1816,7 @@ class TestErrorHandling:
             ["single-item"],
             ["item1", "item2", "item3", "item4", "item5"],  # Multiple items
             [None, None, None],  # Array of nulls
-            ["", "", ""]  # Array of empty strings
+            ["", "", ""],  # Array of empty strings
         ]
 
         for capabilities in array_cases:
@@ -1871,7 +1825,7 @@ class TestErrorHandling:
                 "agent_type": "worker",
                 "capabilities": capabilities,
                 "services": ["task-execution"],
-                "endpoints": {"http": "http://localhost:9001"}
+                "endpoints": {"http": "http://localhost:9001"},
             }
             response = coordinator_client.post("/v1/agents/register", json=agent_data)
             assert response.status_code in (200, 400, 422, 503)
@@ -1885,7 +1839,7 @@ class TestErrorHandling:
                 "agent_type": "worker",
                 "capabilities": ["data-processing"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i % 10}"}
+                "endpoints": {"http": f"http://localhost:900{i % 10}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
 
@@ -1910,7 +1864,7 @@ class TestIntegrationScenarios:
             "agent_type": "worker",
             "capabilities": ["gpu-compute", "data-processing"],
             "services": ["task-execution"],
-            "endpoints": {"http": "http://localhost:9001"}
+            "endpoints": {"http": "http://localhost:9001"},
         }
         coordinator_client.post("/v1/agents/register", json=agent_data)
         coordinator_client.put("/v1/agents/workflow-agent-001/status", json={"status": "active"})
@@ -1938,18 +1892,14 @@ class TestIntegrationScenarios:
                 "agent_type": "worker" if i < 3 else "coordinator",
                 "capabilities": ["data-processing", "gpu-compute"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i}"}
+                "endpoints": {"http": f"http://localhost:900{i}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
             coordinator_client.put(f"/v1/agents/coord-agent-{i}/status", json={"status": "active"})
             agents.append(f"coord-agent-{i}")
 
         # Broadcast message to all agents
-        broadcast_data = {
-            "message_type": "control",
-            "priority": "high",
-            "payload": {"action": "coordinate"}
-        }
+        broadcast_data = {"message_type": "control", "priority": "high", "payload": {"action": "coordinate"}}
         coordinator_client.post("/api/v1/agent/messages/broadcast", json=broadcast_data)
 
         # Check all agents
@@ -1959,11 +1909,7 @@ class TestIntegrationScenarios:
     def test_swarm_coordination_workflow(self, coordinator_client: TestClient):
         """Test swarm coordination workflow."""
         # Join swarm
-        join_data = {
-            "role": "worker",
-            "capability": "gpu-compute",
-            "priority": "high"
-        }
+        join_data = {"role": "worker", "capability": "gpu-compute", "priority": "high"}
         response = coordinator_client.post("/v1/swarm/join", json=join_data)
         swarm_id = response.json().get("swarm_id") if response.status_code == 201 else "test-swarm"
 
@@ -1972,7 +1918,7 @@ class TestIntegrationScenarios:
             "task": "distributed_computation",
             "collaborators": 3,
             "strategy": "distributed",
-            "timeout_seconds": 300
+            "timeout_seconds": 300,
         }
         response = coordinator_client.post("/v1/swarm/coordinate", json=coordinate_data)
         task_id = response.json().get("task_id") if response.status_code == 202 else "task-001"
@@ -1993,7 +1939,7 @@ class TestIntegrationScenarios:
         experiences = [
             {"context": {"task": "data-processing"}, "action": "execute", "reward": 0.9, "next_state": {"done": True}},
             {"context": {"task": "gpu-compute"}, "action": "execute", "reward": 0.8, "next_state": {"done": True}},
-            {"context": {"task": "monitoring"}, "action": "defer", "reward": 0.7, "next_state": {"pending": True}}
+            {"context": {"task": "monitoring"}, "action": "defer", "reward": 0.7, "next_state": {"pending": True}},
         ]
 
         for exp in experiences:
@@ -2012,6 +1958,7 @@ class TestIntegrationScenarios:
     def test_authentication_authorization_workflow(self, coordinator_client: TestClient):
         """Test authentication and authorization workflow."""
         import os
+
         if not os.getenv("TEST_ADMIN_PASSWORD"):
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         # Login as admin
@@ -2062,13 +2009,13 @@ class TestLoadBalancerComprehensive:
         """Test load balancer weight and capacity management."""
         # Register agents with different weights
         weights = [0.5, 1.0, 1.5, 2.0, 3.0]
-        for i, weight in enumerate(weights):
+        for i, _weight in enumerate(weights):
             agent_data = {
                 "agent_id": f"weight-agent-{i}",
                 "agent_type": "worker",
                 "capabilities": ["data-processing"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i}"}
+                "endpoints": {"http": f"http://localhost:900{i}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
             coordinator_client.put(f"/v1/agents/weight-agent-{i}/status", json={"status": "active"})
@@ -2090,7 +2037,7 @@ class TestLoadBalancerComprehensive:
                 "agent_type": "worker",
                 "capabilities": ["data-processing"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i}"}
+                "endpoints": {"http": f"http://localhost:900{i}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
             coordinator_client.put(f"/v1/agents/recovery-agent-{i}/status", json={"status": "active"})
@@ -2120,11 +2067,7 @@ class TestConsensusComprehensive:
         # Register multiple consensus nodes
         nodes = []
         for i in range(5):
-            node_data = {
-                "node_id": f"consensus-node-{i}",
-                "address": f"http://localhost:910{i}",
-                "stake": 1000 * (i + 1)
-            }
+            node_data = {"node_id": f"consensus-node-{i}", "address": f"http://localhost:910{i}", "stake": 1000 * (i + 1)}
             coordinator_client.post("/v1/consensus/node/register", json=node_data)
             nodes.append(f"consensus-node-{i}")
 
@@ -2133,16 +2076,14 @@ class TestConsensusComprehensive:
             proposal_data = {
                 "proposal_id": f"multi-prop-{i}",
                 "proposer": node_id,
-                "content": {"action": "config", "value": i}
+                "content": {"action": "config", "value": i},
             }
             coordinator_client.post("/v1/consensus/proposal/create", json=proposal_data)
 
         # Cast votes from different nodes
         for i in range(len(nodes)):
             for prop_id in range(3):
-                coordinator_client.post(
-                    f"/consensus/proposal/multi-prop-{prop_id}/vote?node_id={nodes[i]}&vote={i % 2 == 0}"
-                )
+                coordinator_client.post(f"/consensus/proposal/multi-prop-{prop_id}/vote?node_id={nodes[i]}&vote={i % 2 == 0}")
 
         # Get proposal statuses
         for i in range(3):
@@ -2162,14 +2103,12 @@ class TestConsensusComprehensive:
             proposal_data = {
                 "proposal_id": f"algo-prop-{algorithm}",
                 "proposer": "node-001",
-                "content": {"action": "test", "algorithm": algorithm}
+                "content": {"action": "test", "algorithm": algorithm},
             }
             coordinator_client.post("/v1/consensus/proposal/create", json=proposal_data)
 
             # Cast vote
-            coordinator_client.post(
-                f"/consensus/proposal/algo-prop-{algorithm}/vote?node_id=node-001&vote=true"
-            )
+            coordinator_client.post(f"/consensus/proposal/algo-prop-{algorithm}/vote?node_id=node-001&vote=true")
 
             # Check status
             coordinator_client.get(f"/consensus/proposal/algo-prop-{algorithm}")
@@ -2272,7 +2211,7 @@ class TestMessageComprehensive:
                         "message_type": msg_type,
                         "priority": priority,
                         "protocol": protocol,
-                        "payload": {"test": True}
+                        "payload": {"test": True},
                     }
                     coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
 
@@ -2285,18 +2224,12 @@ class TestMessageComprehensive:
                 "message_type": "task",
                 "priority": "normal",
                 "protocol": "hierarchical",
-                "payload": {"index": i}
+                "payload": {"index": i},
             }
             coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
 
         # Read messages with various filters
-        filters = [
-            {},
-            {"limit": 10},
-            {"limit": 5, "offset": 0},
-            {"sender_id": "agent-coordinator"},
-            {"limit": 3, "offset": 2}
-        ]
+        filters = [{}, {"limit": 10}, {"limit": 5, "offset": 0}, {"sender_id": "agent-coordinator"}, {"limit": 3, "offset": 2}]
         for filter_params in filters:
             coordinator_client.get("/api/v1/agent/messages/history", params=filter_params)
 
@@ -2309,11 +2242,7 @@ class TestMessageComprehensive:
         # Broadcast with different message types
         message_types = ["task", "control", "data"]
         for msg_type in message_types:
-            broadcast_data = {
-                "message_type": msg_type,
-                "priority": "high",
-                "payload": {"type": msg_type}
-            }
+            broadcast_data = {"message_type": msg_type, "priority": "high", "payload": {"type": msg_type}}
             coordinator_client.post("/api/v1/agent/messages/broadcast", json=broadcast_data)
 
         # Broadcast with agent type filter
@@ -2323,19 +2252,14 @@ class TestMessageComprehensive:
                 "message_type": "task",
                 "priority": "normal",
                 "agent_type": agent_type,
-                "payload": {"target": agent_type}
+                "payload": {"target": agent_type},
             }
             coordinator_client.post("/api/v1/agent/messages/broadcast", json=broadcast_data)
 
         # Broadcast with capability filter
         capabilities = ["gpu-compute", "data-processing", "storage"]
         for cap in capabilities:
-            broadcast_data = {
-                "message_type": "task",
-                "priority": "normal",
-                "capabilities": [cap],
-                "payload": {"require": cap}
-            }
+            broadcast_data = {"message_type": "task", "priority": "normal", "capabilities": [cap], "payload": {"require": cap}}
             coordinator_client.post("/api/v1/agent/messages/broadcast", json=broadcast_data)
 
 
@@ -2377,7 +2301,7 @@ class TestStorageComprehensive:
                 "message_type": "task",
                 "priority": "normal",
                 "content": {"index": i},
-                "encrypt": False
+                "encrypt": False,
             }
             coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
 
@@ -2388,7 +2312,7 @@ class TestStorageComprehensive:
             {"limit": 5, "offset": 5},
             {"limit": 10, "offset": 10},
             {"limit": 20, "offset": 0},
-            {"limit": 100, "offset": 0}
+            {"limit": 100, "offset": 0},
         ]
         for config in pagination_configs:
             response = coordinator_client.get("/api/v1/agent/messages/history", params=config)
@@ -2407,7 +2331,7 @@ class TestStorageComprehensive:
                 "message_type": ["task", "status"][i % 2],
                 "priority": ["low", "normal", "high"][i % 3],
                 "protocol": "hierarchical",
-                "payload": {"index": i}
+                "payload": {"index": i},
             }
             coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
 
@@ -2420,7 +2344,7 @@ class TestStorageComprehensive:
             {"offset": 5},
             {"limit": 5, "offset": 2},
             {"sender_id": "agent-coordinator", "limit": 10},
-            {"receiver_id": "filter-agent-1", "limit": 5}
+            {"receiver_id": "filter-agent-1", "limit": 5},
         ]
         for filters in filter_combinations:
             coordinator_client.get("/api/v1/agent/messages/history", params=filters)
@@ -2441,14 +2365,7 @@ class TestUserPermissionComprehensive:
 
     def test_permission_all_operations(self, coordinator_client: TestClient):
         """Test all permission operations."""
-        permissions = [
-            "SECURITY_MANAGE",
-            "AGENT_MANAGE",
-            "TASK_MANAGE",
-            "VIEW_ONLY",
-            "SYSTEM_ADMIN",
-            "MONITOR_ACCESS"
-        ]
+        permissions = ["SECURITY_MANAGE", "AGENT_MANAGE", "TASK_MANAGE", "VIEW_ONLY", "SYSTEM_ADMIN", "MONITOR_ACCESS"]
 
         for perm in permissions:
             # Grant
@@ -2472,11 +2389,8 @@ class TestUserPermissionComprehensive:
         coordinator_client.get("/roles")
 
         # Test protected endpoints with different expected behaviors
-        endpoints = [
-            ("/protected/admin", "admin"),
-            ("/protected/operator", "operator")
-        ]
-        for endpoint, expected_role in endpoints:
+        endpoints = [("/protected/admin", "admin"), ("/protected/operator", "operator")]
+        for endpoint, _expected_role in endpoints:
             coordinator_client.get(endpoint)
 
 
@@ -2487,7 +2401,7 @@ class TestAIModelComprehensive:
         """Test complete neural network lifecycle."""
         configs = [
             {"input_size": 10, "hidden_layers": [5], "output_size": 2, "activation": "relu"},
-            {"input_size": 20, "hidden_layers": [10, 5], "output_size": 3, "activation": "sigmoid"}
+            {"input_size": 20, "hidden_layers": [10, 5], "output_size": 3, "activation": "sigmoid"},
         ]
 
         for i, config in enumerate(configs):
@@ -2497,10 +2411,7 @@ class TestAIModelComprehensive:
             coordinator_client.post("/v1/ai/neural-network/create", json=config)
 
             # Train
-            training_data = [
-                {"features": [1.0, 2.0], "target": [0.0, 1.0]},
-                {"features": [3.0, 4.0], "target": [1.0, 0.0]}
-            ]
+            training_data = [{"features": [1.0, 2.0], "target": [0.0, 1.0]}, {"features": [3.0, 4.0], "target": [1.0, 0.0]}]
             coordinator_client.post(f"/ai/neural-network/{network_id}/train", json=training_data, params={"epochs": 10})
 
             # Predict
@@ -2511,7 +2422,7 @@ class TestAIModelComprehensive:
         """Test complete ML model lifecycle."""
         model_configs = [
             {"model_type": "random_forest", "features": ["cpu", "mem"], "target": "time"},
-            {"model_type": "linear_regression", "features": ["load", "temp"], "target": "perf"}
+            {"model_type": "linear_regression", "features": ["load", "temp"], "target": "perf"},
         ]
 
         for i, config in enumerate(model_configs):
@@ -2521,10 +2432,7 @@ class TestAIModelComprehensive:
             coordinator_client.post("/v1/ai/ml-model/create", json=config)
 
             # Train
-            training_data = [
-                {"cpu": 0.5, "mem": 0.3, "time": 10.0},
-                {"cpu": 0.8, "mem": 0.6, "time": 15.0}
-            ]
+            training_data = [{"cpu": 0.5, "mem": 0.3, "time": 10.0}, {"cpu": 0.8, "mem": 0.6, "time": 15.0}]
             coordinator_client.post(f"/ai/ml-model/{model_id}/train", json=training_data)
 
             # Predict
@@ -2538,7 +2446,7 @@ class TestAIModelComprehensive:
             {"context": {"task": "A"}, "action": "execute", "reward": 1.0, "next_state": {"done": True}},
             {"context": {"task": "B"}, "action": "defer", "reward": 0.5, "next_state": {"pending": True}},
             {"context": {"task": "C"}, "action": "reject", "reward": 0.0, "next_state": {"rejected": True}},
-            {"context": {"task": "D"}, "action": "execute", "reward": 0.8, "next_state": {"partial": True}}
+            {"context": {"task": "D"}, "action": "execute", "reward": 0.8, "next_state": {"partial": True}},
         ]
 
         for exp in experiences:
@@ -2548,11 +2456,7 @@ class TestAIModelComprehensive:
         coordinator_client.get("/v1/ai/learning/statistics")
 
         # Predict for different contexts
-        contexts = [
-            {"task": "A", "priority": "high"},
-            {"task": "B", "priority": "normal"},
-            {"task": "C", "priority": "low"}
-        ]
+        contexts = [{"task": "A", "priority": "high"}, {"task": "B", "priority": "normal"}, {"task": "C", "priority": "low"}]
 
         for context in contexts:
             coordinator_client.post("/v1/ai/learning/predict", json=context, params={"action": "execute"})
@@ -2571,7 +2475,7 @@ class TestSwarmComprehensive:
         join_data = [
             {"role": "worker", "capability": "gpu-compute", "priority": "high"},
             {"role": "coordinator", "capability": "coordination", "priority": "critical"},
-            {"role": "monitor", "capability": "monitoring", "priority": "normal"}
+            {"role": "monitor", "capability": "monitoring", "priority": "normal"},
         ]
 
         swarm_ids = []
@@ -2585,7 +2489,7 @@ class TestSwarmComprehensive:
             "task": "distributed_computation",
             "collaborators": 3,
             "strategy": "distributed",
-            "timeout_seconds": 300
+            "timeout_seconds": 300,
         }
         response = coordinator_client.post("/v1/swarm/coordinate", json=coordinate_data)
         task_id = response.json().get("task_id") if response.status_code == 202 else "task-001"
@@ -2606,12 +2510,7 @@ class TestSwarmComprehensive:
         strategies = ["distributed", "centralized", "hierarchical", "peer_to_peer"]
 
         for strategy in strategies:
-            coordinate_data = {
-                "task": f"test_{strategy}",
-                "collaborators": 3,
-                "strategy": strategy,
-                "timeout_seconds": 300
-            }
+            coordinate_data = {"task": f"test_{strategy}", "collaborators": 3, "strategy": strategy, "timeout_seconds": 300}
             response = coordinator_client.post("/v1/swarm/coordinate", json=coordinate_data)
             if response.status_code == 202:
                 task_id = response.json().get("task_id")
@@ -2691,7 +2590,7 @@ class TestAgentDiscoveryComprehensive:
                 "agent_type": agent_type,
                 "capabilities": [cap, "general"],
                 "services": [service, "general"],
-                "endpoints": {"http": f"http://localhost:900{i}"}
+                "endpoints": {"http": f"http://localhost:900{i}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
             coordinator_client.put(f"/v1/agents/discovery-agent-{i}/status", json={"status": "active"})
@@ -2710,7 +2609,7 @@ class TestAgentDiscoveryComprehensive:
             {"status": "active", "capabilities": ["data-processing"]},
             {"agent_type": "worker", "capabilities": ["data-processing"]},
             {"capabilities": ["data-processing"], "services": ["task-execution"]},
-            {"status": "active", "agent_type": "worker", "capabilities": ["data-processing"]}
+            {"status": "active", "agent_type": "worker", "capabilities": ["data-processing"]},
         ]
 
         for filters in filter_combinations:
@@ -2739,7 +2638,7 @@ class TestAgentDiscoveryComprehensive:
                 "agent_type": "worker",
                 "capabilities": ["data-processing"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i}"}
+                "endpoints": {"http": f"http://localhost:900{i}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
 
@@ -2763,12 +2662,10 @@ class TestAdvancedFeatures:
     def test_realtime_learning_integration(self, coordinator_client: TestClient):
         """Test realtime learning integration."""
         # Record learning experience
-        coordinator_client.post("/v1/ai/learning/experience", json={
-            "context": {"task": "test"},
-            "action": "execute",
-            "reward": 0.9,
-            "next_state": {"done": True}
-        })
+        coordinator_client.post(
+            "/v1/ai/learning/experience",
+            json={"context": {"task": "test"}, "action": "execute", "reward": 0.9, "next_state": {"done": True}},
+        )
 
         # Get learning statistics
         coordinator_client.get("/v1/ai/learning/statistics")
@@ -2779,18 +2676,16 @@ class TestAdvancedFeatures:
     def test_distributed_consensus_integration(self, coordinator_client: TestClient):
         """Test distributed consensus integration."""
         # Register node
-        coordinator_client.post("/v1/consensus/node/register", json={
-            "node_id": "advanced-node-001",
-            "address": "http://localhost:9100",
-            "stake": 1000
-        })
+        coordinator_client.post(
+            "/v1/consensus/node/register",
+            json={"node_id": "advanced-node-001", "address": "http://localhost:9100", "stake": 1000},
+        )
 
         # Create proposal
-        coordinator_client.post("/v1/consensus/proposal/create", json={
-            "proposal_id": "advanced-prop-001",
-            "proposer": "advanced-node-001",
-            "content": {"action": "test"}
-        })
+        coordinator_client.post(
+            "/v1/consensus/proposal/create",
+            json={"proposal_id": "advanced-prop-001", "proposer": "advanced-node-001", "content": {"action": "test"}},
+        )
 
         # Get consensus statistics
         coordinator_client.get("/v1/consensus/statistics")
@@ -2801,12 +2696,10 @@ class TestAdvancedFeatures:
     def test_advanced_ai_integration(self, coordinator_client: TestClient):
         """Test advanced AI integration."""
         # Create neural network
-        coordinator_client.post("/v1/ai/neural-network/create", json={
-            "input_size": 10,
-            "hidden_layers": [5],
-            "output_size": 2,
-            "activation": "relu"
-        })
+        coordinator_client.post(
+            "/v1/ai/neural-network/create",
+            json={"input_size": 10, "hidden_layers": [5], "output_size": 2, "activation": "relu"},
+        )
 
         # Get AI statistics
         coordinator_client.get("/v1/ai/statistics")
@@ -2826,7 +2719,7 @@ class TestLoadTesting:
                 "agent_type": "worker",
                 "capabilities": ["data-processing", "gpu-compute"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"}
+                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"},
             }
             response = coordinator_client.post("/v1/agents/register", json=agent_data)
             assert response.status_code in (200, 201, 409)
@@ -2840,16 +2733,13 @@ class TestLoadTesting:
                 "agent_type": "worker",
                 "capabilities": ["data-processing"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"}
+                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
 
         # Submit tasks concurrently
         for i in range(10):
-            task_data = {
-                "task_data": {"model": "llama2", "prompt": f"test task {i}"},
-                "priority": "normal"
-            }
+            task_data = {"task_data": {"model": "llama2", "prompt": f"test task {i}"}, "priority": "normal"}
             response = coordinator_client.post("/v1/tasks/submit", json=task_data)
             assert response.status_code in (200, 201, 503)
 
@@ -2862,7 +2752,7 @@ class TestLoadTesting:
                 "agent_type": "worker",
                 "capabilities": ["communication"],
                 "services": ["message-handling"],
-                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"}
+                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
 
@@ -2875,7 +2765,7 @@ class TestLoadTesting:
                         "recipient": f"load-msg-agent-{j}",
                         "message_type": "task",
                         "priority": "normal",
-                        "content": {"from": f"load-msg-agent-{i}"}
+                        "content": {"from": f"load-msg-agent-{i}"},
                     }
                     response = coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
                     assert response.status_code in (200, 201, 400, 503, 500)
@@ -2889,7 +2779,7 @@ class TestLoadTesting:
                 "agent_type": "worker",
                 "capabilities": ["compute"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"}
+                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
             coordinator_client.put(f"/v1/agents/load-lb-agent-{i}/status", json={"status": "active"})
@@ -2900,10 +2790,7 @@ class TestLoadTesting:
             coordinator_client.put("/api/v1/agent/messages/load-balancer/strategy", params={"strategy": strategy})
             # Submit tasks under each strategy
             for i in range(5):
-                task_data = {
-                    "task_data": {"model": "llama2", "prompt": f"load test {i}"},
-                    "priority": "normal"
-                }
+                task_data = {"task_data": {"model": "llama2", "prompt": f"load test {i}"}, "priority": "normal"}
                 response = coordinator_client.post("/v1/tasks/submit", json=task_data)
                 assert response.status_code in (200, 201, 503)
 
@@ -2916,7 +2803,7 @@ class TestLoadTesting:
                 "agent_type": "worker",
                 "capabilities": ["compute", "storage"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"}
+                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
 
@@ -2935,25 +2822,21 @@ class TestLoadTesting:
                 "agent_type": "worker",
                 "capabilities": ["distributed-compute"],
                 "services": ["coordination"],
-                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"}
+                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
 
         # Join swarm
-        for i in range(10):
-            coordinator_client.post("/v1/swarm/join", json={
-                "role": "worker",
-                "capability": "distributed-compute",
-                "priority": "normal"
-            })
+        for _i in range(10):
+            coordinator_client.post(
+                "/v1/swarm/join", json={"role": "worker", "capability": "distributed-compute", "priority": "normal"}
+            )
 
         # Coordinate tasks
-        coordinator_client.post("/v1/swarm/coordinate", json={
-            "task": "distributed-task",
-            "collaborators": 5,
-            "strategy": "distributed",
-            "timeout_seconds": 300
-        })
+        coordinator_client.post(
+            "/v1/swarm/coordinate",
+            json={"task": "distributed-task", "collaborators": 5, "strategy": "distributed", "timeout_seconds": 300},
+        )
 
     def test_concurrent_status_updates(self, coordinator_client: TestClient):
         """Test concurrent status updates on 10 agents."""
@@ -2964,7 +2847,7 @@ class TestLoadTesting:
                 "agent_type": "worker",
                 "capabilities": ["compute"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"}
+                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
 
@@ -2978,7 +2861,7 @@ class TestLoadTesting:
     def test_concurrent_auth_operations(self, coordinator_client: TestClient):
         """Test concurrent authentication operations."""
         # Test multiple login attempts
-        for i in range(10):
+        for _i in range(10):
             login_data = {"username": "admin", "password": "admin123"}
             response = coordinator_client.post("/api/v1/auth/login", json=login_data)
             assert response.status_code in (200, 401)
@@ -2987,7 +2870,7 @@ class TestLoadTesting:
         login_response = coordinator_client.post("/api/v1/auth/login", json={"username": "admin", "password": "admin123"})
         if login_response.status_code == 200:
             token = login_response.json()["access_token"]
-            for i in range(10):
+            for _i in range(10):
                 response = coordinator_client.post("/api/v1/auth/validate", json={"token": token})
                 assert response.status_code in (200, 401)
 
@@ -3004,7 +2887,7 @@ class TestLowCoverageModules:
                 "agent_type": "worker",
                 "capabilities": ["compute", "storage"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"}
+                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
             coordinator_client.put(f"/v1/agents/lb-cov-agent-{i}/status", json={"status": "active"})
@@ -3018,7 +2901,7 @@ class TestLowCoverageModules:
             "resource_based",
             "capability_based",
             "predictive",
-            "consistent_hash"
+            "consistent_hash",
         ]
         for strategy in strategies:
             coordinator_client.put("/api/v1/agent/messages/load-balancer/strategy", params={"strategy": strategy})
@@ -3029,13 +2912,13 @@ class TestLowCoverageModules:
         """Test load balancer weight and capacity management."""
         # Register agents with different weights
         weights = [0.5, 1.0, 1.5, 2.0, 3.0]
-        for i, weight in enumerate(weights):
+        for i, _weight in enumerate(weights):
             agent_data = {
                 "agent_id": f"lb-weight-agent-{i}",
                 "agent_type": "worker",
                 "capabilities": ["compute"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"}
+                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
             coordinator_client.put(f"/v1/agents/lb-weight-agent-{i}/status", json={"status": "active"})
@@ -3057,7 +2940,7 @@ class TestLowCoverageModules:
                 "agent_type": "worker",
                 "capabilities": ["compute"],
                 "services": ["task-execution"],
-                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"}
+                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
             coordinator_client.put(f"/v1/agents/lb-recovery-agent-{i}/status", json={"status": "active"})
@@ -3085,12 +2968,10 @@ class TestLowCoverageModules:
         # Test different activation functions
         activations = ["relu", "sigmoid", "tanh", "softmax", "leaky_relu", "elu", "gelu"]
         for activation in activations:
-            coordinator_client.post("/v1/ai/neural-network/create", json={
-                "input_size": 10,
-                "hidden_layers": [5, 3],
-                "output_size": 2,
-                "activation": activation
-            })
+            coordinator_client.post(
+                "/v1/ai/neural-network/create",
+                json={"input_size": 10, "hidden_layers": [5, 3], "output_size": 2, "activation": activation},
+            )
 
         # Test different architectures
         architectures = [
@@ -3099,21 +2980,25 @@ class TestLowCoverageModules:
             {"input_size": 100, "hidden_layers": [50, 25, 10], "output_size": 5},
         ]
         for arch in architectures:
-            coordinator_client.post("/v1/ai/neural-network/create", json={
-                **arch,
-                "activation": "relu"
-            })
+            coordinator_client.post("/v1/ai/neural-network/create", json={**arch, "activation": "relu"})
 
     def test_advanced_ai_ml_model_variations(self, coordinator_client: TestClient):
         """Test ML model creation with various configurations."""
         # Test different model types
-        model_types = ["random_forest", "linear_regression", "neural_network", "decision_tree", "gradient_boosting", "svm", "knn"]
+        model_types = [
+            "random_forest",
+            "linear_regression",
+            "neural_network",
+            "decision_tree",
+            "gradient_boosting",
+            "svm",
+            "knn",
+        ]
         for model_type in model_types:
-            coordinator_client.post("/v1/ai/ml-model/create", json={
-                "model_type": model_type,
-                "features": ["cpu", "memory", "gpu"],
-                "target": "performance"
-            })
+            coordinator_client.post(
+                "/v1/ai/ml-model/create",
+                json={"model_type": model_type, "features": ["cpu", "memory", "gpu"], "target": "performance"},
+            )
 
         # Test with different feature sets
         feature_sets = [
@@ -3123,21 +3008,44 @@ class TestLowCoverageModules:
             ["cpu", "memory", "gpu", "network"],
         ]
         for features in feature_sets:
-            coordinator_client.post("/v1/ai/ml-model/create", json={
-                "model_type": "random_forest",
-                "features": features,
-                "target": "performance"
-            })
+            coordinator_client.post(
+                "/v1/ai/ml-model/create", json={"model_type": "random_forest", "features": features, "target": "performance"}
+            )
 
     def test_advanced_ai_learning_experiences(self, coordinator_client: TestClient):
         """Test AI learning experience recording and retrieval."""
         # Record various learning experiences
         experiences = [
-            {"context": {"task": "data-processing", "agent_type": "worker"}, "action": "execute", "reward": 0.9, "next_state": {"done": True}},
-            {"context": {"task": "gpu-compute", "agent_type": "compute"}, "action": "execute", "reward": 0.8, "next_state": {"done": True}},
-            {"context": {"task": "monitoring", "agent_type": "monitor"}, "action": "defer", "reward": 0.7, "next_state": {"pending": True}},
-            {"context": {"task": "storage", "agent_type": "storage"}, "action": "execute", "reward": 0.6, "next_state": {"done": True}},
-            {"context": {"task": "coordination", "agent_type": "coordinator"}, "action": "coordinate", "reward": 0.85, "next_state": {"coordinated": True}},
+            {
+                "context": {"task": "data-processing", "agent_type": "worker"},
+                "action": "execute",
+                "reward": 0.9,
+                "next_state": {"done": True},
+            },
+            {
+                "context": {"task": "gpu-compute", "agent_type": "compute"},
+                "action": "execute",
+                "reward": 0.8,
+                "next_state": {"done": True},
+            },
+            {
+                "context": {"task": "monitoring", "agent_type": "monitor"},
+                "action": "defer",
+                "reward": 0.7,
+                "next_state": {"pending": True},
+            },
+            {
+                "context": {"task": "storage", "agent_type": "storage"},
+                "action": "execute",
+                "reward": 0.6,
+                "next_state": {"done": True},
+            },
+            {
+                "context": {"task": "coordination", "agent_type": "coordinator"},
+                "action": "coordinate",
+                "reward": 0.85,
+                "next_state": {"coordinated": True},
+            },
         ]
 
         for exp in experiences:
@@ -3178,7 +3086,7 @@ class TestLowCoverageModules:
                 "agent_type": "worker",
                 "capabilities": ["communication"],
                 "services": ["message-handling"],
-                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"}
+                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"},
             }
             coordinator_client.post("/v1/agents/register", json=agent_data)
 
@@ -3190,29 +3098,35 @@ class TestLowCoverageModules:
                 "message_type": "task",
                 "priority": "normal",
                 "protocol": protocol,
-                "payload": {"test": protocol}
+                "payload": {"test": protocol},
             }
             coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
 
         # Test broadcast with all protocols
         for protocol in protocols:
-            coordinator_client.post("/api/v1/agent/messages/broadcast", json={
-                "message_type": "status",
-                "priority": "normal",
-                "protocol": protocol,
-                "payload": {"broadcast": protocol}
-            })
+            coordinator_client.post(
+                "/api/v1/agent/messages/broadcast",
+                json={
+                    "message_type": "status",
+                    "priority": "normal",
+                    "protocol": protocol,
+                    "payload": {"broadcast": protocol},
+                },
+            )
 
     def test_protocols_message_types_priorities(self, coordinator_client: TestClient):
         """Test all message types with all priority levels."""
         # Register agent
-        coordinator_client.post("/v1/agents/register", json={
-            "agent_id": "msg-type-priority-agent",
-            "agent_type": "worker",
-            "capabilities": ["communication"],
-            "services": ["message-handling"],
-            "endpoints": {"http": "http://localhost:9001"}
-        })
+        coordinator_client.post(
+            "/v1/agents/register",
+            json={
+                "agent_id": "msg-type-priority-agent",
+                "agent_type": "worker",
+                "capabilities": ["communication"],
+                "services": ["message-handling"],
+                "endpoints": {"http": "http://localhost:9001"},
+            },
+        )
 
         # Test all message types
         message_types = ["task", "status", "heartbeat", "control", "data", "result", "error", "notification", "alert"]
@@ -3220,35 +3134,44 @@ class TestLowCoverageModules:
 
         for msg_type in message_types:
             for priority in priorities:
-                coordinator_client.post("/api/v1/agent/messages/send", json={
-                    "receiver_id": "msg-type-priority-agent",
-                    "message_type": msg_type,
-                    "priority": priority,
-                    "protocol": "hierarchical",
-                    "payload": {"type": msg_type, "priority": priority}
-                })
+                coordinator_client.post(
+                    "/api/v1/agent/messages/send",
+                    json={
+                        "receiver_id": "msg-type-priority-agent",
+                        "message_type": msg_type,
+                        "priority": priority,
+                        "protocol": "hierarchical",
+                        "payload": {"type": msg_type, "priority": priority},
+                    },
+                )
 
     def test_protocols_message_history_retrieval(self, coordinator_client: TestClient):
         """Test message history retrieval with filters."""
         # Register agents and send messages
         for i in range(5):
-            coordinator_client.post("/v1/agents/register", json={
-                "agent_id": f"msg-history-agent-{i}",
-                "agent_type": "worker",
-                "capabilities": ["communication"],
-                "services": ["message-handling"],
-                "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"}
-            })
+            coordinator_client.post(
+                "/v1/agents/register",
+                json={
+                    "agent_id": f"msg-history-agent-{i}",
+                    "agent_type": "worker",
+                    "capabilities": ["communication"],
+                    "services": ["message-handling"],
+                    "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"},
+                },
+            )
 
         # Send messages
         for i in range(5):
-            coordinator_client.post("/api/v1/agent/messages/send", json={
-                "receiver_id": f"msg-history-agent-{i}",
-                "message_type": "task",
-                "priority": "normal",
-                "protocol": "hierarchical",
-                "payload": {"index": i}
-            })
+            coordinator_client.post(
+                "/api/v1/agent/messages/send",
+                json={
+                    "receiver_id": f"msg-history-agent-{i}",
+                    "message_type": "task",
+                    "priority": "normal",
+                    "protocol": "hierarchical",
+                    "payload": {"index": i},
+                },
+            )
 
         # Get message history
         coordinator_client.get("/api/v1/agent/messages/history")

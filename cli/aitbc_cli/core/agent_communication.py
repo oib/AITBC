@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class MessageType(Enum):
     """Agent message types"""
+
     DISCOVERY = "discovery"
     ROUTING = "routing"
     COMMUNICATION = "communication"
@@ -27,16 +28,20 @@ class MessageType(Enum):
     REPUTATION = "reputation"
     GOVERNANCE = "governance"
 
+
 class AgentStatus(Enum):
     """Agent status"""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     BUSY = "busy"
     OFFLINE = "offline"
 
+
 @dataclass
 class AgentInfo:
     """Agent information"""
+
     agent_id: str
     name: str
     chain_id: str
@@ -48,9 +53,11 @@ class AgentInfo:
     endpoint: str
     version: str
 
+
 @dataclass
 class AgentMessage:
     """Agent communication message"""
+
     message_id: str
     sender_id: str
     receiver_id: str
@@ -63,9 +70,11 @@ class AgentMessage:
     priority: int
     ttl_seconds: int
 
+
 @dataclass
 class AgentCollaboration:
     """Agent collaboration record"""
+
     collaboration_id: str
     agent_ids: list[str]
     chain_ids: list[str]
@@ -76,9 +85,11 @@ class AgentCollaboration:
     shared_resources: dict[str, Any]
     governance_rules: dict[str, Any]
 
+
 @dataclass
 class AgentReputation:
     """Agent reputation record"""
+
     agent_id: str
     chain_id: str
     reputation_score: float
@@ -87,6 +98,7 @@ class AgentReputation:
     total_interactions: int
     last_updated: datetime
     feedback_scores: list[float]
+
 
 class CrossChainAgentCommunication:
     """Cross-chain agent communication system"""
@@ -103,11 +115,11 @@ class CrossChainAgentCommunication:
 
         # Communication thresholds
         self.thresholds = {
-            'max_message_size': 1048576,  # 1MB
-            'max_ttl_seconds': 3600,  # 1 hour
-            'max_queue_size': 1000,
-            'min_reputation_score': 0.5,
-            'max_collaboration_size': 10
+            "max_message_size": 1048576,  # 1MB
+            "max_ttl_seconds": 3600,  # 1 hour
+            "max_queue_size": 1000,
+            "min_reputation_score": 0.5,
+            "max_collaboration_size": 10,
         }
 
     async def register_agent(self, agent_info: AgentInfo) -> bool:
@@ -135,7 +147,7 @@ class CrossChainAgentCommunication:
                         failed_interactions=0,
                         total_interactions=0,
                         last_updated=datetime.now(),
-                        feedback_scores=[]
+                        feedback_scores=[],
                     )
 
             # Update routing table
@@ -163,7 +175,7 @@ class CrossChainAgentCommunication:
         # Discover agents from chain
         agents = []
 
-        for agent_id, agent_info in self.agents.items():
+        for _agent_id, agent_info in self.agents.items():
             if agent_info.chain_id == chain_id and agent_info.status == AgentStatus.ACTIVE:
                 if capabilities:
                     # Check if agent has required capabilities
@@ -190,7 +202,7 @@ class CrossChainAgentCommunication:
 
             # Check receiver reputation
             receiver_reputation = self.reputations.get(message.receiver_id)
-            if receiver_reputation and receiver_reputation.reputation_score < self.thresholds['min_reputation_score']:
+            if receiver_reputation and receiver_reputation.reputation_score < self.thresholds["min_reputation_score"]:
                 return False
 
             # Add message to queue
@@ -229,7 +241,9 @@ class CrossChainAgentCommunication:
         """Deliver message on the same chain"""
         try:
             # Simulate message delivery
-            logger.info("Delivering message %s to agent %s on chain %s", message.message_id, receiver.agent_id, message.chain_id)
+            logger.info(
+                "Delivering message %s to agent %s on chain %s", message.message_id, receiver.agent_id, message.chain_id
+            )
             # Update agent status
             receiver.last_seen = datetime.now()
             self.agents[receiver.agent_id] = receiver
@@ -283,11 +297,13 @@ class CrossChainAgentCommunication:
             logger.error("Error in cross-chain delivery: %s", e)
             return False
 
-    async def create_collaboration(self, agent_ids: list[str], collaboration_type: str, governance_rules: dict[str, Any]) -> str | None:
+    async def create_collaboration(
+        self, agent_ids: list[str], collaboration_type: str, governance_rules: dict[str, Any]
+    ) -> str | None:
         """Create a multi-agent collaboration"""
         try:
             # Validate collaboration
-            if len(agent_ids) > self.thresholds['max_collaboration_size']:
+            if len(agent_ids) > self.thresholds["max_collaboration_size"]:
                 return None
 
             # Check if all agents exist and are active
@@ -304,7 +320,7 @@ class CrossChainAgentCommunication:
 
             # Create collaboration
             collaboration_id = str(uuid.uuid4())
-            chain_ids = list(set(agent.chain_id for agent in active_agents))
+            chain_ids = list({agent.chain_id for agent in active_agents})
 
             collaboration = AgentCollaboration(
                 collaboration_id=collaboration_id,
@@ -315,7 +331,7 @@ class CrossChainAgentCommunication:
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
                 shared_resources={},
-                governance_rules=governance_rules
+                governance_rules=governance_rules,
             )
 
             self.collaborations[collaboration_id] = collaboration
@@ -333,12 +349,12 @@ class CrossChainAgentCommunication:
                         "action": "collaboration_created",
                         "collaboration_id": collaboration_id,
                         "collaboration_type": collaboration_type,
-                        "participants": agent_ids
+                        "participants": agent_ids,
                     },
                     timestamp=datetime.now(),
                     signature="system_notification",
                     priority=5,
-                    ttl_seconds=3600
+                    ttl_seconds=3600,
                 )
                 await self.send_message(notification)
 
@@ -370,7 +386,9 @@ class CrossChainAgentCommunication:
 
             # Calculate new reputation score
             success_rate = reputation.successful_interactions / reputation.total_interactions
-            feedback_avg = sum(reputation.feedback_scores) / len(reputation.feedback_scores) if reputation.feedback_scores else 0.5
+            feedback_avg = (
+                sum(reputation.feedback_scores) / len(reputation.feedback_scores) if reputation.feedback_scores else 0.5
+            )
 
             # Weighted average: 70% success rate, 30% feedback
             reputation.reputation_score = (success_rate * 0.7) + (feedback_avg * 0.3)
@@ -400,8 +418,7 @@ class CrossChainAgentCommunication:
 
             # Get active collaborations
             active_collaborations = [
-                collab for collab in self.collaborations.values()
-                if agent_id in collab.agent_ids and collab.status == "active"
+                collab for collab in self.collaborations.values() if agent_id in collab.agent_ids and collab.status == "active"
             ]
 
             status = {
@@ -410,7 +427,7 @@ class CrossChainAgentCommunication:
                 "message_queue_size": queue_size,
                 "active_collaborations": len(active_collaborations),
                 "last_seen": agent.last_seen.isoformat(),
-                "status": agent.status.value
+                "status": agent.status.value,
             }
 
             return status
@@ -460,7 +477,7 @@ class CrossChainAgentCommunication:
                 "queued_messages": queued_messages,
                 "average_reputation": avg_reputation,
                 "routing_table_size": len(self.routing_table),
-                "discovery_cache_size": len(self.discovery_cache)
+                "discovery_cache_size": len(self.discovery_cache),
             }
 
             return overview
@@ -487,10 +504,10 @@ class CrossChainAgentCommunication:
         if not message.sender_id or not message.receiver_id:
             return False
 
-        if message.ttl_seconds > self.thresholds['max_ttl_seconds']:
+        if message.ttl_seconds > self.thresholds["max_ttl_seconds"]:
             return False
 
-        if len(json.dumps(message.payload)) > self.thresholds['max_message_size']:
+        if len(json.dumps(message.payload)) > self.thresholds["max_message_size"]:
             return False
 
         return True

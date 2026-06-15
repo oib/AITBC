@@ -87,7 +87,7 @@ def test_health_check_response_format():
         "status": "healthy",
         "timestamp": datetime.now(UTC).isoformat(),
         "response_time": 0.1,
-        "service_active": True
+        "service_active": True,
     }
 
     # Verify required fields
@@ -127,7 +127,7 @@ def test_metrics_collection_format():
         "request_count": 1000,
         "error_count": 5,
         "average_response_time": 0.15,
-        "uptime_percentage": 99.9
+        "uptime_percentage": 99.9,
     }
 
     # Verify required fields
@@ -160,16 +160,8 @@ def test_alerting_rules_configuration():
     # Mock alerting rules
     alerting_rules = {
         "rules": [
-            {
-                "name": "high_cpu_usage",
-                "condition": "cpu_usage > 90",
-                "severity": "critical"
-            },
-            {
-                "name": "high_memory_usage",
-                "condition": "memory_usage > 95",
-                "severity": "critical"
-            }
+            {"name": "high_cpu_usage", "condition": "cpu_usage > 90", "severity": "critical"},
+            {"name": "high_memory_usage", "condition": "memory_usage > 95", "severity": "critical"},
         ],
         "channels": ["log", "email"],
         "thresholds": {
@@ -178,8 +170,8 @@ def test_alerting_rules_configuration():
             "memory_usage_warning": 85.0,
             "memory_usage_critical": 95.0,
             "error_rate_warning": 0.05,
-            "error_rate_critical": 0.10
-        }
+            "error_rate_critical": 0.10,
+        },
     }
 
     # Verify alerting rules structure
@@ -224,7 +216,7 @@ async def test_deployment_rollback_logic():
         "id": "test-deployment",
         "agent_version": "v2.0.0",
         "previous_version": "v1.5.0",
-        "rollback_enabled": True
+        "rollback_enabled": True,
     }
 
     # Test rollback scenario
@@ -249,7 +241,7 @@ async def test_deployment_rollback_logic():
         "id": "test-deployment-2",
         "agent_version": "v2.0.0",
         "previous_version": None,
-        "rollback_enabled": True
+        "rollback_enabled": True,
     }
 
     if not no_rollback_config["previous_version"]:
@@ -276,7 +268,7 @@ async def test_instance_removal_logic():
         f"systemctl stop {service_name}",
         f"systemctl disable {service_name}",
         f"rm {service_file}",
-        "systemctl daemon-reload"
+        "systemctl daemon-reload",
     ]
 
     print(f"Instance ID: {instance_id}")

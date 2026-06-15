@@ -1,6 +1,5 @@
 """Bounty operations using CLI commands"""
 
-
 from aitbc.aitbc_logging import get_logger
 
 from .command_executor import CommandExecutor
@@ -22,7 +21,7 @@ class BountyOperations:
             if result["success"]:
                 return result["data"].get("bounty_id", "")
             else:
-                logger.error("Bounty create failed: %s", result.get('error'))
+                logger.error("Bounty create failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("create_bounty failed: %s", e)
@@ -36,7 +35,7 @@ class BountyOperations:
             if result["success"]:
                 return result["data"].get("bounties", [])
             else:
-                logger.error("Bounty list failed: %s", result.get('error'))
+                logger.error("Bounty list failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("list_bounties failed: %s", e)
@@ -50,7 +49,7 @@ class BountyOperations:
             if result["success"]:
                 return result["data"].get("submission_id", "")
             else:
-                logger.error("Bounty submit failed: %s", result.get('error'))
+                logger.error("Bounty submit failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("submit_bounty_solution failed: %s", e)
@@ -64,7 +63,7 @@ class BountyOperations:
             if result["success"]:
                 return result["data"].get("claimed", False)
             else:
-                logger.error("Bounty claim failed: %s", result.get('error'))
+                logger.error("Bounty claim failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("claim_bounty failed: %s", e)

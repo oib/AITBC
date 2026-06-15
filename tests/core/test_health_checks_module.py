@@ -15,6 +15,7 @@ from aitbc import health_checks
 # HealthStatus Enum Tests
 # ============================================================================
 
+
 class TestHealthStatus:
     """Test HealthStatus enum"""
 
@@ -28,15 +29,13 @@ class TestHealthStatus:
 # HealthCheck Dataclass Tests
 # ============================================================================
 
+
 class TestHealthCheck:
     """Test HealthCheck dataclass"""
 
     def test_health_check_initialization(self):
         check = health_checks.HealthCheck(
-            service="test-service",
-            status=health_checks.HealthStatus.HEALTHY,
-            message="All good",
-            timestamp=datetime.now()
+            service="test-service", status=health_checks.HealthStatus.HEALTHY, message="All good", timestamp=datetime.now()
         )
         assert check.service == "test-service"
         assert check.status == health_checks.HealthStatus.HEALTHY
@@ -49,7 +48,7 @@ class TestHealthCheck:
             status=health_checks.HealthStatus.HEALTHY,
             message="All good",
             timestamp=datetime.now(),
-            details={"key": "value"}
+            details={"key": "value"},
         )
         assert check.details == {"key": "value"}
 
@@ -57,6 +56,7 @@ class TestHealthCheck:
 # ============================================================================
 # HealthChecker Tests
 # ============================================================================
+
 
 class TestHealthChecker:
     """Test HealthChecker class"""
@@ -205,6 +205,7 @@ class TestHealthChecker:
 # create_basic_health_check Function Tests
 # ============================================================================
 
+
 class TestCreateBasicHealthCheck:
     """Test create_basic_health_check function"""
 
@@ -218,7 +219,7 @@ class TestCreateBasicHealthCheck:
         assert "disk" in checker._checks
 
     def test_create_basic_health_check_without_psutil(self):
-        with patch.dict('sys.modules', {'psutil': None}):
+        with patch.dict("sys.modules", {"psutil": None}):
             checker = health_checks.create_basic_health_check("test-service")
             # Should not raise, but checks won't be registered
             assert checker.service_name == "test-service"

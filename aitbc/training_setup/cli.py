@@ -163,15 +163,15 @@ def run_stage(json_path, aitbc_dir):
         click.echo(f"Title: {result['title']}")
         click.echo(f"Success: {result['success']}")
 
-        if result['success']:
+        if result["success"]:
             click.echo(f"\nCommands executed: {len(result['commands'])}")
-            for i, cmd_result in enumerate(result['commands'], 1):
-                status = "✓" if cmd_result['success'] else "✗"
+            for i, cmd_result in enumerate(result["commands"], 1):
+                status = "✓" if cmd_result["success"] else "✗"
                 click.echo(f"  {status} Command {i}: {'Success' if cmd_result['success'] else 'Failed'}")
-                if cmd_result.get('tx_hash'):
+                if cmd_result.get("tx_hash"):
                     click.echo(f"      TX Hash: {cmd_result['tx_hash']}")
 
-        sys.exit(0 if result['success'] else 1)
+        sys.exit(0 if result["success"] else 1)
     except TrainingSetupError as e:
         click.echo(f"✗ Stage execution failed: {e}", err=True)
         sys.exit(1)

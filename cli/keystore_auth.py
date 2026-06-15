@@ -22,9 +22,10 @@ def derive_key(password: str, salt: bytes = b"") -> tuple[bytes, bytes]:
     """Derive a 32-byte key from the password using PBKDF2-HMAC-SHA256."""
     if not salt:
         import secrets
+
         salt = secrets.token_bytes(16)
     # Use PBKDF2 for secure key derivation (100,000 iterations for security)
-    dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000, dklen=32)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000, dklen=32)
     return base64.urlsafe_b64encode(dk), salt
 
 
@@ -57,11 +58,10 @@ def load_keystore(address: str, keystore_dir: Path | str = None) -> dict[str, An
         return json.load(f)
 
 
-def get_private_key(address: str, password: str | None = None,
-                    password_file: str | None = None) -> str:
+def get_private_key(address: str, password: str | None = None, password_file: str | None = None) -> str:
     """
     Get decrypted private key for an address.
-    
+
     Priority for password:
     1. Provided password parameter
     2. KEYSTORE_PASSWORD environment variable
@@ -95,7 +95,7 @@ def sign_message(message: str, private_key_hex: str) -> str:
     """
     Sign a message using the private key.
     Returns the signature as a hex string.
-    
+
     Note: This is a simplified implementation. In production, use proper cryptographic signing.
     """
     import hashlib
@@ -109,11 +109,10 @@ def sign_message(message: str, private_key_hex: str) -> str:
     return f"0x{signature}"
 
 
-def get_auth_headers(address: str, password: str | None = None,
-                    password_file: str | None = None) -> dict[str, str]:
+def get_auth_headers(address: str, password: str | None = None, password_file: str | None = None) -> dict[str, str]:
     """
     Get authentication headers for authenticated RPC calls.
-    
+
     Returns a dict with 'X-Address' and 'X-Signature' headers.
     """
     private_key = get_private_key(address, password, password_file)

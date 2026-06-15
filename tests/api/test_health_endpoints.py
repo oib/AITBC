@@ -26,7 +26,7 @@ class TestHealthEndpoints:
             "status": "healthy",
             "service": "agent-coordinator",
             "timestamp": datetime.now(UTC).isoformat(),
-            "version": "1.0.0"
+            "version": "1.0.0",
         }
 
         assert "status" in health_response
@@ -61,8 +61,8 @@ class TestHealthEndpoints:
                 "/tasks/status",
                 "/messages/send",
                 "/load-balancer/stats",
-                "/registry/stats"
-            ]
+                "/registry/stats",
+            ],
         }
 
         assert "service" in root_response
@@ -85,7 +85,7 @@ class TestHealthEndpoints:
             "/tasks/status",
             "/messages/send",
             "/load-balancer/stats",
-            "/registry/stats"
+            "/registry/stats",
         ]
 
         assert len(expected_endpoints) == 10

@@ -2,7 +2,6 @@
 Tests for security headers and CORS utilities
 """
 
-
 from aitbc.security_headers import (
     CORSConfig,
     CORSMiddleware,
@@ -34,8 +33,7 @@ class TestSecurityHeaders:
     def test_custom_security_headers(self):
         """Test custom security headers values"""
         headers = SecurityHeaders(
-            X_Frame_Options="SAMEORIGIN",
-            Content_Security_Policy="default-src 'self' https://example.com"
+            X_Frame_Options="SAMEORIGIN", Content_Security_Policy="default-src 'self' https://example.com"
         )
         assert headers.X_Frame_Options == "SAMEORIGIN"
         assert headers.Content_Security_Policy == "default-src 'self' https://example.com"
@@ -47,9 +45,7 @@ class TestCORSConfig:
     def test_default_cors_config(self):
         """Test default CORS config values"""
         config = CORSConfig(
-            allow_origins=["http://localhost:3000"],
-            allow_methods=["GET", "POST"],
-            allow_headers=["Content-Type"]
+            allow_origins=["http://localhost:3000"], allow_methods=["GET", "POST"], allow_headers=["Content-Type"]
         )
         assert config.allow_origins == ["http://localhost:3000"]
         assert config.allow_methods == ["GET", "POST"]
@@ -65,7 +61,7 @@ class TestCORSConfig:
             allow_headers=["Content-Type"],
             allow_credentials=True,
             expose_headers=["X-Custom-Header"],
-            max_age=7200
+            max_age=7200,
         )
         assert config.allow_origins == ["*"]
         assert config.allow_credentials is True
@@ -136,9 +132,7 @@ class TestCORSMiddleware:
     def test_initialization(self):
         """Test CORS middleware initialization"""
         config = CORSConfig(
-            allow_origins=["http://localhost:3000"],
-            allow_methods=["GET", "POST"],
-            allow_headers=["Content-Type"]
+            allow_origins=["http://localhost:3000"], allow_methods=["GET", "POST"], allow_headers=["Content-Type"]
         )
         middleware = CORSMiddleware(config)
         assert middleware.config == config
@@ -146,9 +140,7 @@ class TestCORSMiddleware:
     def test_get_cors_headers_allowed_origin(self):
         """Test get_cors_headers with allowed origin"""
         config = CORSConfig(
-            allow_origins=["http://localhost:3000"],
-            allow_methods=["GET", "POST"],
-            allow_headers=["Content-Type"]
+            allow_origins=["http://localhost:3000"], allow_methods=["GET", "POST"], allow_headers=["Content-Type"]
         )
         middleware = CORSMiddleware(config)
         headers = middleware.get_cors_headers("http://localhost:3000")
@@ -161,9 +153,7 @@ class TestCORSMiddleware:
     def test_get_cors_headers_disallowed_origin(self):
         """Test get_cors_headers with disallowed origin"""
         config = CORSConfig(
-            allow_origins=["http://localhost:3000"],
-            allow_methods=["GET", "POST"],
-            allow_headers=["Content-Type"]
+            allow_origins=["http://localhost:3000"], allow_methods=["GET", "POST"], allow_headers=["Content-Type"]
         )
         middleware = CORSMiddleware(config)
         headers = middleware.get_cors_headers("http://evil.com")
@@ -172,11 +162,7 @@ class TestCORSMiddleware:
 
     def test_get_cors_headers_wildcard_origin(self):
         """Test get_cors_headers with wildcard origin"""
-        config = CORSConfig(
-            allow_origins=["*"],
-            allow_methods=["GET", "POST"],
-            allow_headers=["Content-Type"]
-        )
+        config = CORSConfig(allow_origins=["*"], allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
         middleware = CORSMiddleware(config)
         headers = middleware.get_cors_headers("http://any-origin.com")
 
@@ -188,7 +174,7 @@ class TestCORSMiddleware:
             allow_origins=["http://localhost:3000"],
             allow_methods=["GET", "POST"],
             allow_headers=["Content-Type"],
-            allow_credentials=True
+            allow_credentials=True,
         )
         middleware = CORSMiddleware(config)
         headers = middleware.get_cors_headers("http://localhost:3000")
@@ -201,7 +187,7 @@ class TestCORSMiddleware:
             allow_origins=["http://localhost:3000"],
             allow_methods=["GET", "POST"],
             allow_headers=["Content-Type"],
-            expose_headers=["X-Request-ID"]
+            expose_headers=["X-Request-ID"],
         )
         middleware = CORSMiddleware(config)
         headers = middleware.get_cors_headers("http://localhost:3000")
@@ -210,32 +196,20 @@ class TestCORSMiddleware:
 
     def test_is_origin_allowed_wildcard(self):
         """Test _is_origin_allowed with wildcard"""
-        config = CORSConfig(
-            allow_origins=["*"],
-            allow_methods=["GET"],
-            allow_headers=["Content-Type"]
-        )
+        config = CORSConfig(allow_origins=["*"], allow_methods=["GET"], allow_headers=["Content-Type"])
         middleware = CORSMiddleware(config)
         assert middleware._is_origin_allowed("http://any-origin.com") is True
 
     def test_is_origin_allowed_specific(self):
         """Test _is_origin_allowed with specific origin"""
-        config = CORSConfig(
-            allow_origins=["http://localhost:3000"],
-            allow_methods=["GET"],
-            allow_headers=["Content-Type"]
-        )
+        config = CORSConfig(allow_origins=["http://localhost:3000"], allow_methods=["GET"], allow_headers=["Content-Type"])
         middleware = CORSMiddleware(config)
         assert middleware._is_origin_allowed("http://localhost:3000") is True
         assert middleware._is_origin_allowed("http://evil.com") is False
 
     def test_is_preflight_request(self):
         """Test is_preflight_request"""
-        config = CORSConfig(
-            allow_origins=["*"],
-            allow_methods=["GET"],
-            allow_headers=["Content-Type"]
-        )
+        config = CORSConfig(allow_origins=["*"], allow_methods=["GET"], allow_headers=["Content-Type"])
         middleware = CORSMiddleware(config)
         assert middleware.is_preflight_request("OPTIONS") is True
         assert middleware.is_preflight_request("GET") is False

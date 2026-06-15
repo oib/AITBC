@@ -8,11 +8,11 @@ from aitbc import AITBCHTTPClient, NetworkError
 logger = logging.getLogger(__name__)
 
 
-
 def handle_bridge_health(args):
     """Health check for blockchain event bridge service."""
     try:
         from commands.legacy.blockchain_event_bridge import get_config as get_bridge_config
+
         config = get_bridge_config()
 
         if args.test_mode:
@@ -32,10 +32,13 @@ def handle_bridge_health(args):
         logger.error("❌ Health check failed: %s", e)
     except Exception as e:
         logger.error("❌ Error checking health: %s", e)
+
+
 def handle_bridge_metrics(args):
     """Get Prometheus metrics from blockchain event bridge service."""
     try:
         from commands.legacy.blockchain_event_bridge import get_config as get_bridge_config
+
         config = get_bridge_config()
 
         if args.test_mode:
@@ -54,10 +57,13 @@ def handle_bridge_metrics(args):
         logger.error("❌ Failed to get metrics: %s", e)
     except Exception as e:
         logger.error("❌ Error getting metrics: %s", e)
+
+
 def handle_bridge_status(args):
     """Get detailed status of blockchain event bridge service."""
     try:
         from commands.legacy.blockchain_event_bridge import get_config as get_bridge_config
+
         config = get_bridge_config()
 
         if args.test_mode:
@@ -77,10 +83,13 @@ def handle_bridge_status(args):
         logger.error("❌ Failed to get status: %s", e)
     except Exception as e:
         logger.error("❌ Error getting status: %s", e)
+
+
 def handle_bridge_config(args):
     """Show current configuration of blockchain event bridge service."""
     try:
         from commands.legacy.blockchain_event_bridge import get_config as get_bridge_config
+
         config = get_bridge_config()
 
         if args.test_mode:
@@ -100,6 +109,8 @@ def handle_bridge_config(args):
         logger.error("❌ Failed to get config: %s", e)
     except Exception as e:
         logger.error("❌ Error getting config: %s", e)
+
+
 def handle_bridge_restart(args):
     """Restart blockchain event bridge service (via systemd)."""
     try:
@@ -109,10 +120,7 @@ def handle_bridge_restart(args):
             return
 
         result = subprocess.run(
-            ["sudo", "systemctl", "restart", "aitbc-blockchain-event-bridge"],
-            capture_output=True,
-            text=True,
-            timeout=30
+            ["sudo", "systemctl", "restart", "aitbc-blockchain-event-bridge"], capture_output=True, text=True, timeout=30
         )
 
         if result.returncode == 0:

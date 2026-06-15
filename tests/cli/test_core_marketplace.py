@@ -81,7 +81,7 @@ class TestChainListing:
             chain_specifications={},
             performance_metrics={},
             reputation_requirements={},
-            governance_rules={}
+            governance_rules={},
         )
 
         assert listing.listing_id == "list123"
@@ -110,7 +110,7 @@ class TestMarketplaceTransaction:
             escrow_address="escrow123",
             smart_contract_address="contract123",
             transaction_hash=None,
-            metadata={}
+            metadata={},
         )
 
         assert transaction.transaction_id == "tx123"
@@ -136,7 +136,7 @@ class TestChainEconomy:
             agent_count=200,
             governance_tokens=Decimal("100000"),
             staking_rewards=Decimal("5000"),
-            last_updated=datetime.now()
+            last_updated=datetime.now(),
         )
 
         assert economy.chain_id == "chain123"
@@ -161,7 +161,7 @@ class TestMarketplaceMetrics:
             top_sellers=[{"seller_id": "seller1", "sales": 10}],
             price_trends={"topic": [Decimal("90"), Decimal("100"), Decimal("110")]},
             market_sentiment=0.75,
-            last_updated=datetime.now()
+            last_updated=datetime.now(),
         )
 
         assert metrics.total_listings == 100

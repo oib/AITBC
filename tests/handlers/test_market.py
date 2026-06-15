@@ -30,8 +30,8 @@ from handlers.market import (
 class TestHandleMarketListings:
     """Test handle_market_listings function"""
 
-    @patch('handlers.market.requests.get')
-    @patch('builtins.print')
+    @patch("handlers.market.requests.get")
+    @patch("builtins.print")
     def test_handle_market_listings_json(self, mock_print, mock_get):
         """Test marketplace listings with JSON output"""
         mock_response = Mock()
@@ -53,8 +53,8 @@ class TestHandleMarketListings:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.market.requests.get')
-    @patch('builtins.print')
+    @patch("handlers.market.requests.get")
+    @patch("builtins.print")
     def test_handle_market_listings_text(self, mock_print, mock_get):
         """Test marketplace listings with text output"""
         mock_response = Mock()
@@ -80,8 +80,8 @@ class TestHandleMarketListings:
 class TestHandleMarketCreate:
     """Test handle_market_create function"""
 
-    @patch('handlers.market.requests.post')
-    @patch('handlers.market.logger')
+    @patch("handlers.market.requests.post")
+    @patch("handlers.market.logger")
     def test_handle_market_create_success(self, mock_logger, mock_post):
         """Test successful marketplace listing creation"""
         mock_response = Mock()
@@ -109,7 +109,7 @@ class TestHandleMarketCreate:
 
         mock_post.assert_called_once()
 
-    @patch('handlers.market.logger')
+    @patch("handlers.market.logger")
     def test_handle_market_create_missing_params(self, mock_logger):
         """Test marketplace creation with missing parameters"""
         args = Mock()
@@ -134,8 +134,8 @@ class TestHandleMarketCreate:
 class TestHandleMarketGet:
     """Test handle_market_get function"""
 
-    @patch('handlers.market.requests.get')
-    @patch('handlers.market.logger')
+    @patch("handlers.market.requests.get")
+    @patch("handlers.market.logger")
     def test_handle_market_get_success(self, mock_logger, mock_get):
         """Test successful marketplace listing retrieval"""
         mock_response = Mock()
@@ -152,7 +152,7 @@ class TestHandleMarketGet:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.market.logger')
+    @patch("handlers.market.logger")
     def test_handle_market_get_missing_id(self, mock_logger):
         """Test marketplace retrieval with missing listing ID"""
         args = Mock()
@@ -168,8 +168,8 @@ class TestHandleMarketGet:
 class TestHandleMarketDelete:
     """Test handle_market_delete function"""
 
-    @patch('handlers.market.requests.delete')
-    @patch('handlers.market.logger')
+    @patch("handlers.market.requests.delete")
+    @patch("handlers.market.logger")
     def test_handle_market_delete_success(self, mock_logger, mock_delete):
         """Test successful marketplace deletion"""
         mock_response = Mock()
@@ -194,7 +194,7 @@ class TestHandleMarketDelete:
 
         mock_delete.assert_called_once()
 
-    @patch('handlers.market.logger')
+    @patch("handlers.market.logger")
     def test_handle_market_delete_missing_id(self, mock_logger):
         """Test marketplace deletion with missing ID"""
         args = Mock()
@@ -216,10 +216,10 @@ class TestHandleMarketDelete:
 class TestHandleMarketGpuRegister:
     """Test handle_market_gpu_register function"""
 
-    @patch('subprocess.run')
-    @patch('handlers.market.requests.post')
-    @patch('handlers.market.logger')
-    @patch('builtins.print')
+    @patch("subprocess.run")
+    @patch("handlers.market.requests.post")
+    @patch("handlers.market.logger")
+    @patch("builtins.print")
     def test_handle_market_gpu_register_success(self, mock_print, mock_logger, mock_post, mock_subprocess):
         """Test successful GPU registration"""
         mock_subprocess_result = Mock()
@@ -246,8 +246,8 @@ class TestHandleMarketGpuRegister:
 
         mock_post.assert_called_once()
 
-    @patch('subprocess.run')
-    @patch('handlers.market.logger')
+    @patch("subprocess.run")
+    @patch("handlers.market.logger")
     def test_handle_market_gpu_register_nvidia_smi_fail(self, mock_logger, mock_subprocess):
         """Test GPU registration with nvidia-smi failure"""
         mock_subprocess_result = Mock()
@@ -262,7 +262,7 @@ class TestHandleMarketGpuRegister:
 
         mock_logger.error.assert_called()
 
-    @patch('handlers.market.logger')
+    @patch("handlers.market.logger")
     def test_handle_market_gpu_register_missing_price(self, mock_logger):
         """Test GPU registration with missing price"""
         args = Mock()
@@ -277,8 +277,8 @@ class TestHandleMarketGpuRegister:
 class TestHandleMarketGpuList:
     """Test handle_market_gpu_list function"""
 
-    @patch('handlers.market.requests.get')
-    @patch('builtins.print')
+    @patch("handlers.market.requests.get")
+    @patch("builtins.print")
     def test_handle_market_gpu_list_json(self, mock_print, mock_get):
         """Test GPU list with JSON output"""
         mock_response = Mock()
@@ -301,8 +301,8 @@ class TestHandleMarketGpuList:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.market.requests.get')
-    @patch('builtins.print')
+    @patch("handlers.market.requests.get")
+    @patch("builtins.print")
     def test_handle_market_gpu_list_text(self, mock_print, mock_get):
         """Test GPU list with text output"""
         mock_response = Mock()
@@ -329,8 +329,8 @@ class TestHandleMarketGpuList:
 class TestHandleMarketBuy:
     """Test handle_market_buy function"""
 
-    @patch('handlers.market.requests.post')
-    @patch('handlers.market.logger')
+    @patch("handlers.market.requests.post")
+    @patch("handlers.market.logger")
     def test_handle_market_buy_success(self, mock_logger, mock_post):
         """Test successful marketplace purchase"""
         mock_response = Mock()
@@ -355,7 +355,7 @@ class TestHandleMarketBuy:
 
         mock_post.assert_called_once()
 
-    @patch('handlers.market.logger')
+    @patch("handlers.market.logger")
     def test_handle_market_buy_missing_params(self, mock_logger):
         """Test marketplace purchase with missing parameters"""
         args = Mock()
@@ -377,7 +377,7 @@ class TestHandleMarketBuy:
 class TestHandleMarketSell:
     """Test handle_market_sell function"""
 
-    @patch('handlers.market.handle_market_create')
+    @patch("handlers.market.handle_market_create")
     def test_handle_market_sell(self, mock_create):
         """Test marketplace sell (delegates to create)"""
         args = Mock()
@@ -396,8 +396,8 @@ class TestHandleMarketSell:
 class TestHandleMarketOrders:
     """Test handle_market_orders function"""
 
-    @patch('handlers.market.requests.get')
-    @patch('handlers.market.logger')
+    @patch("handlers.market.requests.get")
+    @patch("handlers.market.logger")
     def test_handle_market_orders_json(self, mock_logger, mock_get):
         """Test marketplace orders with JSON output"""
         mock_response = Mock()
@@ -419,8 +419,8 @@ class TestHandleMarketOrders:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.market.requests.get')
-    @patch('handlers.market.logger')
+    @patch("handlers.market.requests.get")
+    @patch("handlers.market.logger")
     def test_handle_market_orders_text(self, mock_logger, mock_get):
         """Test marketplace orders with text output"""
         mock_response = Mock()
@@ -446,8 +446,8 @@ class TestHandleMarketOrders:
 class TestHandleMarketListPlugins:
     """Test handle_market_list_plugins function"""
 
-    @patch('handlers.market.requests.get')
-    @patch('handlers.market.logger')
+    @patch("handlers.market.requests.get")
+    @patch("handlers.market.logger")
     def test_handle_market_list_plugins_json(self, mock_logger, mock_get):
         """Test plugin listing with JSON output"""
         mock_response = Mock()
@@ -468,8 +468,8 @@ class TestHandleMarketListPlugins:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.market.requests.get')
-    @patch('handlers.market.logger')
+    @patch("handlers.market.requests.get")
+    @patch("handlers.market.logger")
     def test_handle_market_list_plugins_text(self, mock_logger, mock_get):
         """Test plugin listing with text output"""
         mock_response = Mock()

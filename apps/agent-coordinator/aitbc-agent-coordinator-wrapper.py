@@ -27,14 +27,5 @@ ensure_dir(DATA_DIR / "agent-coordinator")
 ensure_dir(LOG_DIR / "agent-coordinator")
 
 # Execute the actual service
-exec_cmd = [
-    "/opt/aitbc/venv/bin/python",
-    "-m",
-    "uvicorn",
-    "app.main:app",
-    "--host",
-    "127.0.0.1",
-    "--port",
-    "8107"
-]
+exec_cmd = ["/opt/aitbc/venv/bin/python", "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8107"]
 os.execvp(exec_cmd[0], exec_cmd)

@@ -15,7 +15,7 @@ import os
 import sys
 from datetime import UTC, datetime
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from app.agent_identity.sdk.client import AgentIdentityClient
 from app.agent_identity.sdk.models import VerificationType
@@ -28,11 +28,7 @@ async def basic_identity_example():
     print("=" * 50)
 
     # Initialize the client
-    async with AgentIdentityClient(
-        base_url="http://localhost:8011/v1",
-        api_key="demo_api_key"
-    ) as client:
-
+    async with AgentIdentityClient(base_url="http://localhost:8011/v1", api_key="demo_api_key") as client:
         try:
             # 1. Create a new agent identity
             print("\n1. Creating agent identity...")
@@ -44,9 +40,9 @@ async def basic_identity_example():
                 metadata={
                     "version": "1.0.0",
                     "capabilities": ["inference", "training", "data_processing"],
-                    "created_by": "aitbc-sdk-example"
+                    "created_by": "aitbc-sdk-example",
                 },
-                tags=["demo", "ai", "cross-chain"]
+                tags=["demo", "ai", "cross-chain"],
             )
 
             print(f"✅ Created identity: {identity.agent_id}")
@@ -69,7 +65,7 @@ async def basic_identity_example():
             wallet_results = identity.wallet_results
 
             for wallet_result in wallet_results:
-                if wallet_result.get('success', False):
+                if wallet_result.get("success", False):
                     print(f"   ✅ Chain {wallet_result['chain_id']}: {wallet_result['wallet_address']}")
                 else:
                     print(f"   ❌ Chain {wallet_result['chain_id']}: {wallet_result.get('error', 'Unknown error')}")
@@ -95,12 +91,13 @@ async def basic_identity_example():
                         "chain_id": mapping.chain_id,
                         "chain_address": mapping.chain_address,
                         "timestamp": datetime.now(UTC).isoformat(),
-                        "verification_method": "demo"
+                        "verification_method": "demo",
                     }
 
                     # Generate simple proof hash
                     proof_string = json.dumps(proof_data, sort_keys=True)
                     import hashlib
+
                     proof_hash = hashlib.sha256(proof_string.encode()).hexdigest()
 
                     verification = await client.verify_identity(
@@ -109,7 +106,7 @@ async def basic_identity_example():
                         verifier_address="0xverifier12345678901234567890123456789012345678",
                         proof_hash=proof_hash,
                         proof_data=proof_data,
-                        verification_type=VerificationType.BASIC
+                        verification_type=VerificationType.BASIC,
                     )
 
                     print(f"   ✅ Chain {mapping.chain_id}: Verified (ID: {verification.verification_id})")
@@ -119,11 +116,7 @@ async def basic_identity_example():
 
             # 6. Search for identities
             print("\n6. Searching for identities...")
-            search_results = await client.search_identities(
-                query="demo",
-                limit=10,
-                min_reputation=0.0
-            )
+            search_results = await client.search_identities(query="demo", limit=10, min_reputation=0.0)
 
             print(f"   Found {search_results.total_count} identities")
             for result in search_results.results[:3]:  # Show first 3
@@ -166,6 +159,7 @@ async def basic_identity_example():
         except Exception as e:
             print(f"\n❌ Error during example: {e}")
             import traceback
+
             traceback.print_exc()
 
 
@@ -175,11 +169,7 @@ async def advanced_transaction_example():
     print("\n🔧 AITBC Agent Identity SDK - Advanced Transaction Example")
     print("=" * 60)
 
-    async with AgentIdentityClient(
-        base_url="http://localhost:8011/v1",
-        api_key="demo_api_key"
-    ) as client:
-
+    async with AgentIdentityClient(base_url="http://localhost:8011/v1", api_key="demo_api_key") as client:
         try:
             # Use existing agent or create new one
             agent_id = "demo_agent_123"
@@ -200,7 +190,7 @@ async def advanced_transaction_example():
                     chain_id=1,
                     to_address="0x4567890123456789012345678901234567890123",
                     amount=0.01,
-                    data={"purpose": "demo_transaction", "type": "payment"}
+                    data={"purpose": "demo_transaction", "type": "payment"},
                 )
 
                 print(f"   ✅ Transaction executed: {tx.transaction_hash}")
@@ -232,11 +222,8 @@ async def advanced_transaction_example():
                 updates = {
                     "display_name": "Updated Demo Agent",
                     "description": "Updated description with new capabilities",
-                    "metadata": {
-                        "version": "1.1.0",
-                        "last_updated": datetime.now(UTC).isoformat()
-                    },
-                    "tags": ["demo", "ai", "updated"]
+                    "metadata": {"version": "1.1.0", "last_updated": datetime.now(UTC).isoformat()},
+                    "tags": ["demo", "ai", "updated"],
                 }
 
                 result = await client.update_identity(agent_id, updates)
@@ -251,6 +238,7 @@ async def advanced_transaction_example():
         except Exception as e:
             print(f"\n❌ Error during advanced example: {e}")
             import traceback
+
             traceback.print_exc()
 
 
@@ -260,19 +248,11 @@ async def search_and_discovery_example():
     print("\n🔍 AITBC Agent Identity SDK - Search and Discovery Example")
     print("=" * 65)
 
-    async with AgentIdentityClient(
-        base_url="http://localhost:8011/v1",
-        api_key="demo_api_key"
-    ) as client:
-
+    async with AgentIdentityClient(base_url="http://localhost:8011/v1", api_key="demo_api_key") as client:
         try:
             # 1. Search by query
             print("\n1. Searching by query...")
-            results = await client.search_identities(
-                query="ai",
-                limit=10,
-                min_reputation=50.0
-            )
+            results = await client.search_identities(query="ai", limit=10, min_reputation=50.0)
 
             print(f"   Found {results.total_count} identities matching 'ai'")
             print(f"   Query: '{results.query}'")
@@ -290,7 +270,7 @@ async def search_and_discovery_example():
             chain_results = await client.search_identities(
                 chains=[1, 137],  # Ethereum and Polygon only
                 verification_level=VerificationType.ADVANCED,
-                limit=5
+                limit=5,
             )
 
             print(f"   Found {chain_results.total_count} identities on Ethereum/Polygon with Advanced verification")
@@ -320,7 +300,7 @@ async def search_and_discovery_example():
             print("\n5. Resolving addresses to agent IDs...")
             test_addresses = [
                 ("0x1234567890123456789012345678901234567890", 1),
-                ("0x4567890123456789012345678901234567890123", 137)
+                ("0x4567890123456789012345678901234567890123", 137),
             ]
 
             for address, chain_id in test_addresses:
@@ -335,6 +315,7 @@ async def search_and_discovery_example():
         except Exception as e:
             print(f"\n❌ Error during search example: {e}")
             import traceback
+
             traceback.print_exc()
 
 
@@ -372,6 +353,7 @@ async def main():
     except Exception as e:
         print(f"\n\n💥 Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
 
 

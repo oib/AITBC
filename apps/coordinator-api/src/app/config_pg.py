@@ -1,6 +1,5 @@
 """Coordinator API configuration with PostgreSQL support"""
 
-
 from pydantic_settings import BaseSettings
 
 

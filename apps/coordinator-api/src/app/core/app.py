@@ -16,10 +16,7 @@ def create_app() -> FastAPI:
     from .routers import register_routers
 
     app = FastAPI(
-        title="AITBC Coordinator API",
-        description="Coordinator API for AITBC Network",
-        version="1.0.0",
-        lifespan=lifespan
+        title="AITBC Coordinator API", description="Coordinator API for AITBC Network", version="1.0.0", lifespan=lifespan
     )
 
     # Setup middleware

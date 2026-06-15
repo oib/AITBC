@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 # Import data layer for toggle between mock and real data
 try:
     from aitbc import get_data_layer
+
     USE_DATA_LAYER = True
 except ImportError:
     USE_DATA_LAYER = False
@@ -27,8 +28,8 @@ except ImportError:
 app = FastAPI(title="AITBC Blockchain Explorer", version="0.1.0")
 
 # Validation patterns for user inputs to prevent SSRF
-TX_HASH_PATTERN = re.compile(r'^[a-fA-F0-9]{64}$')  # 64-character hex string for transaction hash
-CHAIN_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{3,30}$')  # Chain ID pattern
+TX_HASH_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")  # 64-character hex string for transaction hash
+CHAIN_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{3,30}$")  # Chain ID pattern
 
 
 def validate_tx_hash(tx_hash: str) -> bool:
@@ -36,7 +37,7 @@ def validate_tx_hash(tx_hash: str) -> bool:
     if not tx_hash:
         return False
     # Check for path traversal or URL manipulation
-    if any(char in tx_hash for char in ['/', '\\', '..', '\n', '\r', '\t', '?', '&']):
+    if any(char in tx_hash for char in ["/", "\\", "..", "\n", "\r", "\t", "?", "&"]):
         return False
     # Validate against hash pattern
     return bool(TX_HASH_PATTERN.match(tx_hash))
@@ -47,10 +48,11 @@ def validate_chain_id(chain_id: str) -> bool:
     if not chain_id:
         return False
     # Check for path traversal or URL manipulation
-    if any(char in chain_id for char in ['/', '\\', '..', '\n', '\r', '\t', '?', '&']):
+    if any(char in chain_id for char in ["/", "\\", "..", "\n", "\r", "\t", "?", "&"]):
         return False
     # Validate against chain ID pattern
     return bool(CHAIN_ID_PATTERN.match(chain_id))
+
 
 @app.get("/api/chains")
 def list_chains() -> dict[str, Any]:
@@ -59,18 +61,20 @@ def list_chains() -> dict[str, Any]:
         "chains": [
             {"id": "ait-devnet", "name": "AIT Development Network", "status": "active"},
             {"id": "ait-testnet", "name": "AIT Test Network", "status": "inactive"},
-            {"id": "ait-mainnet", "name": "AIT Main Network", "status": "coming_soon"}
+            {"id": "ait-mainnet", "name": "AIT Main Network", "status": "coming_soon"},
         ]
     }
+
 
 # Configuration - Multi-chain support
 BLOCKCHAIN_RPC_URLS = {
     "ait-devnet": "http://localhost:8025",
     "ait-testnet": "http://localhost:8026",
-    "ait-mainnet": "http://aitbc.keisanki.net:8082"
+    "ait-mainnet": "http://aitbc.keisanki.net:8082",
 }
 DEFAULT_CHAIN = "ait-devnet"
 EXTERNAL_RPC_URL = "http://aitbc.keisanki.net:8082"  # External access
+
 
 # Pydantic models for API
 class TransactionSearch(BaseModel):
@@ -83,6 +87,7 @@ class TransactionSearch(BaseModel):
     limit: int = Field(default=50, ge=1, le=1000)
     offset: int = Field(default=0, ge=0)
 
+
 class BlockSearch(BaseModel):
     validator: str | None = None
     since: str | None = None
@@ -91,10 +96,12 @@ class BlockSearch(BaseModel):
     limit: int = Field(default=50, ge=1, le=1000)
     offset: int = Field(default=0, ge=0)
 
+
 class AnalyticsRequest(BaseModel):
     period: str = Field(default="24h", pattern="^(1h|24h|7d|30d)$")
     granularity: str | None = None
     metrics: list[str] = Field(default_factory=list)
+
 
 # HTML Template
 HTML_TEMPLATE = r"""
@@ -182,27 +189,27 @@ HTML_TEMPLATE = r"""
                     </button>
                 </div>
             </div>
-            
+
             <!-- Simple Search -->
             <div id="simple-search" class="flex space-x-4">
-                <input type="text" id="search-input" placeholder="Search by block height, hash, address, or transaction hash" 
+                <input type="text" id="search-input" placeholder="Search by block height, hash, address, or transaction hash"
                        class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <button onclick="performSearch()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
                     <i data-lucide="search" class="w-4 h-4 inline mr-2"></i>
                     Search
                 </button>
             </div>
-            
+
             <!-- Advanced Search Panel -->
             <div id="advanced-search" class="hidden mt-6 p-4 bg-gray-50 rounded-lg">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <!-- Address Search -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                        <input type="text" id="search-address" placeholder="0x..." 
+                        <input type="text" id="search-address" placeholder="0x..."
                                class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
-                    
+
                     <!-- Amount Range -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Amount Range</label>
@@ -213,7 +220,7 @@ HTML_TEMPLATE = r"""
                                    class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                     </div>
-                    
+
                     <!-- Transaction Type -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Transaction Type</label>
@@ -224,46 +231,46 @@ HTML_TEMPLATE = r"""
                             <option value="smart_contract">Smart Contract</option>
                         </select>
                     </div>
-                    
+
                     <!-- Time Range -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-                        <input type="datetime-local" id="since-date" 
+                        <input type="datetime-local" id="since-date"
                                class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
-                    
+
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-                        <input type="datetime-local" id="until-date" 
+                        <input type="datetime-local" id="until-date"
                                class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
-                    
+
                     <!-- Validator -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Validator</label>
-                        <input type="text" id="validator" placeholder="Validator address..." 
+                        <input type="text" id="validator" placeholder="Validator address..."
                                class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                 </div>
-                
+
                 <div class="flex justify-between items-center mt-4">
                     <div class="flex space-x-2">
-                        <button onclick="performAdvancedSearch('transactions')" 
+                        <button onclick="performAdvancedSearch('transactions')"
                                 class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
                             Search Transactions
                         </button>
-                        <button onclick="performAdvancedSearch('blocks')" 
+                        <button onclick="performAdvancedSearch('blocks')"
                                 class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
                             Search Blocks
                         </button>
                     </div>
                     <div class="flex space-x-2">
-                        <button onclick="exportSearchResults('csv')" 
+                        <button onclick="exportSearchResults('csv')"
                                 class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
                             <i data-lucide="download" class="w-4 h-4 inline mr-2"></i>
                             Export CSV
                         </button>
-                        <button onclick="exportSearchResults('json')" 
+                        <button onclick="exportSearchResults('json')"
                                 class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
                             <i data-lucide="file-json" class="w-4 h-4 inline mr-2"></i>
                             Export JSON
@@ -278,7 +285,7 @@ HTML_TEMPLATE = r"""
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-xl font-bold text-gray-800">Analytics Dashboard</h2>
                 <div class="flex space-x-2">
-                    <select id="analytics-period" onchange="updateAnalytics()" 
+                    <select id="analytics-period" onchange="updateAnalytics()"
                             class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="1h">Last Hour</option>
                         <option value="24h" selected>Last 24 Hours</option>
@@ -291,7 +298,7 @@ HTML_TEMPLATE = r"""
                     </button>
                 </div>
             </div>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div class="bg-blue-50 p-4 rounded-lg">
                     <div class="flex items-center justify-between">
@@ -302,7 +309,7 @@ HTML_TEMPLATE = r"""
                         <i data-lucide="trending-up" class="w-8 h-8 text-blue-500"></i>
                     </div>
                 </div>
-                
+
                 <div class="bg-green-50 p-4 rounded-lg">
                     <div class="flex items-center justify-between">
                         <div>
@@ -312,7 +319,7 @@ HTML_TEMPLATE = r"""
                         <i data-lucide="dollar-sign" class="w-8 h-8 text-green-500"></i>
                     </div>
                 </div>
-                
+
                 <div class="bg-purple-50 p-4 rounded-lg">
                     <div class="flex items-center justify-between">
                         <div>
@@ -322,7 +329,7 @@ HTML_TEMPLATE = r"""
                         <i data-lucide="users" class="w-8 h-8 text-purple-500"></i>
                     </div>
                 </div>
-                
+
                 <div class="bg-orange-50 p-4 rounded-lg">
                     <div class="flex items-center justify-between">
                         <div>
@@ -333,7 +340,7 @@ HTML_TEMPLATE = r"""
                     </div>
                 </div>
             </div>
-            
+
             <!-- Charts -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-gray-50 p-4 rounded-lg">
@@ -459,15 +466,15 @@ HTML_TEMPLATE = r"""
         async function loadChainStats() {
             const response = await fetch(`/api/chain/head?chain_id=${currentChain}`);
             const data = await response.json();
-            
+
             document.getElementById('chain-height').textContent = data.height || '-';
             document.getElementById('latest-hash').textContent = data.hash ? data.hash.substring(0, 16) + '...' : '-';
             document.getElementById('node-status').innerHTML = '<span class="text-green-500">Online</span>';
-            
+
             // Update network display
             const selector = document.getElementById('chain-selector');
             selector.value = currentChain;
-            
+
             currentData.head = data;
         }
 
@@ -475,16 +482,16 @@ HTML_TEMPLATE = r"""
         async function loadLatestBlocks() {
             const tbody = document.getElementById('blocks-table');
             tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500">Loading blocks...</td></tr>';
-            
+
             const head = await fetch('/api/chain/head').then(r => r.json());
             const blocks = [];
-            
+
             // Load last 10 blocks
             for (let i = 0; i < 10 && head.height - i >= 0; i++) {
                 const block = await fetch(`/api/blocks/${head.height - i}`).then(r => r.json());
                 blocks.push(block);
             }
-            
+
             tbody.innerHTML = blocks.map(block => `
                 <tr class="border-t hover:bg-gray-50">
                     <td class="py-3 font-mono">${block.height}</td>
@@ -505,7 +512,7 @@ HTML_TEMPLATE = r"""
             const block = await fetch(`/api/blocks/${height}`).then(r => r.json());
             const modal = document.getElementById('block-modal');
             const details = document.getElementById('block-details');
-            
+
             details.innerHTML = `
                 <div class="space-y-6">
                     <div>
@@ -533,14 +540,14 @@ HTML_TEMPLATE = r"""
                             </div>
                         </div>
                     </div>
-                    
+
                     <div>
                         <h3 class="text-lg font-semibold mb-2">Transactions (${block.tx_count || 0})</h3>
                         <p class="text-gray-500 text-sm">Transaction details can be fetched separately via the transaction lookup endpoint</p>
                     </div>
                 </div>
             `;
-            
+
             modal.classList.remove('hidden');
         }
 
@@ -556,13 +563,13 @@ HTML_TEMPLATE = r"""
         async function performSearch() {
             const query = document.getElementById('search-input').value.trim();
             if (!query) return;
-            
+
             // Try block height first
             if (/^\d+$/.test(query)) {
                 showBlockDetails(parseInt(query));
                 return;
             }
-            
+
             // Try transaction hash search (hex string, 64 chars)
             if (/^[a-fA-F0-9]{64}$/.test(query)) {
                 try {
@@ -576,13 +583,13 @@ HTML_TEMPLATE = r"""
                     console.error('Transaction search failed:', error);
                 }
             }
-            
+
             // Try address search
             if (/^0x[a-fA-F0-9]{40}$/.test(query)) {
                 await performAdvancedSearch('transactions', { address: query });
                 return;
             }
-            
+
             alert('Search by block height, transaction hash (64 char hex), or address (0x...)');
         }
 
@@ -617,16 +624,16 @@ HTML_TEMPLATE = r"""
                 offset: 0,
                 ...customParams
             };
-            
+
             // Remove empty parameters
             Object.keys(params).forEach(key => {
                 if (!params[key]) delete params[key];
             });
-            
+
             try {
                 const response = await fetch(`/api/search/${type}?${new URLSearchParams(params)}`);
                 if (!response.ok) throw new Error('Search failed');
-                
+
                 const results = await response.json();
                 currentSearchResults = results;
                 currentSearchType = type;
@@ -641,10 +648,10 @@ HTML_TEMPLATE = r"""
             const resultsDiv = document.getElementById('search-results');
             const contentDiv = document.getElementById('results-content');
             const countSpan = document.getElementById('result-count');
-            
+
             resultsDiv.classList.remove('hidden');
             countSpan.textContent = `Found ${results.length} results`;
-            
+
             if (type === 'transactions') {
                 contentDiv.innerHTML = `
                     <table class="w-full">
@@ -752,7 +759,7 @@ HTML_TEMPLATE = r"""
             try {
                 const response = await fetch(`/api/analytics/overview?period=${period}`);
                 if (!response.ok) throw new Error('Analytics request failed');
-                
+
                 const data = await response.json();
                 updateAnalyticsDisplay(data);
                 updateCharts(data);
@@ -772,7 +779,7 @@ HTML_TEMPLATE = r"""
             // Update volume chart
             const volumeCtx = document.getElementById('volume-chart').getContext('2d');
             if (volumeChart) volumeChart.destroy();
-            
+
             volumeChart = new Chart(volumeCtx, {
                 type: 'line',
                 data: {
@@ -794,11 +801,11 @@ HTML_TEMPLATE = r"""
                     }
                 }
             });
-            
+
             // Update activity chart
             const activityCtx = document.getElementById('activity-chart').getContext('2d');
             if (activityChart) activityChart.destroy();
-            
+
             activityChart = new Chart(activityCtx, {
                 type: 'bar',
                 data: {
@@ -830,17 +837,17 @@ HTML_TEMPLATE = r"""
                 alert('No search results to export');
                 return;
             }
-            
+
             try {
                 const params = new URLSearchParams({
                     format: format,
                     type: currentSearchType,
                     data: JSON.stringify(currentSearchResults)
                 });
-                
+
                 const response = await fetch(`/api/export/search?${params}`);
                 if (!response.ok) throw new Error('Export failed');
-                
+
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -860,7 +867,7 @@ HTML_TEMPLATE = r"""
             try {
                 const response = await fetch(`/api/export/blocks?format=${format}`);
                 if (!response.ok) throw new Error('Export failed');
-                
+
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -892,14 +899,14 @@ HTML_TEMPLATE = r"""
                     return;
                 }
             }
-            
+
             alert('Search by block height or transaction hash (64 char hex) is supported');
         }
 
         // Format timestamp - robust for both numeric and ISO string timestamps
         function formatTimestamp(timestamp) {
             if (!timestamp) return '-';
-            
+
             // Handle ISO string timestamps
             if (typeof timestamp === 'string') {
                 try {
@@ -908,7 +915,7 @@ HTML_TEMPLATE = r"""
                     return '-';
                 }
             }
-            
+
             // Handle numeric timestamps (Unix seconds)
             if (typeof timestamp === 'number') {
                 try {
@@ -917,7 +924,7 @@ HTML_TEMPLATE = r"""
                     return '-';
                 }
             }
-            
+
             return '-';
         }
 
@@ -998,7 +1005,6 @@ async def api_block(height: int, chain_id: str | None = DEFAULT_CHAIN) -> dict[s
     return await get_block(height, chain_id)  # type: ignore[arg-type]
 
 
-
 @app.get("/api/transactions/{tx_hash}")
 async def api_transaction(tx_hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
     """API endpoint for transaction data, normalized for frontend"""
@@ -1012,7 +1018,7 @@ async def api_transaction(tx_hash: str, chain_id: str | None = DEFAULT_CHAIN) ->
         "type": payload.get("type", "transfer"),
         "amount": payload.get("amount", 0),
         "fee": payload.get("fee", 0),
-        "timestamp": tx.get("created_at")
+        "timestamp": tx.get("created_at"),
     }
 
 
@@ -1027,7 +1033,7 @@ async def search_transactions(
     until: str | None = None,
     limit: int = 50,
     offset: int = 0,
-    chain_id: str | None = DEFAULT_CHAIN
+    chain_id: str | None = DEFAULT_CHAIN,
 ) -> dict[str, Any]:
     """Advanced transaction search"""
     try:
@@ -1036,8 +1042,7 @@ async def search_transactions(
             data_layer = get_data_layer()
             rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id if chain_id else DEFAULT_CHAIN, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
             result = await data_layer.get_transactions(
-                address, amount_min, amount_max, tx_type, since, until,
-                limit, offset, chain_id, rpc_url
+                address, amount_min, amount_max, tx_type, since, until, limit, offset, chain_id, rpc_url
             )
             return result if isinstance(result, dict) else {"transactions": result}
         else:
@@ -1071,12 +1076,13 @@ async def search_transactions(
                 else:
                     raise HTTPException(
                         status_code=response.status_code,
-                        detail=f"Failed to fetch transactions from blockchain RPC: {response.text}"
+                        detail=f"Failed to fetch transactions from blockchain RPC: {response.text}",
                     )
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
 
 @app.get("/api/search/blocks")
 async def search_blocks(
@@ -1086,7 +1092,7 @@ async def search_blocks(
     min_tx: int | None = None,
     limit: int = 50,
     offset: int = 0,
-    chain_id: str | None = DEFAULT_CHAIN
+    chain_id: str | None = DEFAULT_CHAIN,
 ) -> dict[str, Any]:
     """Advanced block search"""
     try:
@@ -1094,9 +1100,7 @@ async def search_blocks(
             # Use data layer with toggle support
             data_layer = get_data_layer()
             rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id if chain_id else DEFAULT_CHAIN, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
-            result = await data_layer.get_blocks(
-                validator, since, until, min_tx, limit, offset, chain_id, rpc_url
-            )
+            result = await data_layer.get_blocks(validator, since, until, min_tx, limit, offset, chain_id, rpc_url)
             return result if isinstance(result, dict) else {"blocks": result}
         else:
             # Original implementation without data layer
@@ -1123,13 +1127,13 @@ async def search_blocks(
                     return {"blocks": []}
                 else:
                     raise HTTPException(
-                        status_code=response.status_code,
-                        detail=f"Failed to fetch blocks from blockchain RPC: {response.text}"
+                        status_code=response.status_code, detail=f"Failed to fetch blocks from blockchain RPC: {response.text}"
                     )
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
 
 @app.get("/api/analytics/overview")
 async def analytics_overview(period: str = "24h") -> dict[str, Any]:
@@ -1154,19 +1158,16 @@ async def analytics_overview(period: str = "24h") -> dict[str, Any]:
                 else:
                     raise HTTPException(
                         status_code=response.status_code,
-                        detail=f"Failed to fetch analytics from blockchain RPC: {response.text}"
+                        detail=f"Failed to fetch analytics from blockchain RPC: {response.text}",
                     )
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analytics failed: {str(e)}")
 
+
 @app.get("/api/export/search")
-async def export_search(
-    format: str = "csv",
-    type: str = "transactions",
-    data: str = ""
-) -> StreamingResponse:
+async def export_search(format: str = "csv", type: str = "transactions", data: str = "") -> StreamingResponse:
     """Export search results"""
     try:
         if not data:
@@ -1180,39 +1181,43 @@ async def export_search(
                 writer = csv.writer(output)
                 writer.writerow(["Hash", "Type", "From", "To", "Amount", "Fee", "Timestamp"])
                 for tx in results:
-                    writer.writerow([
-                        tx.get("hash", ""),
-                        tx.get("type", ""),
-                        tx.get("from", ""),
-                        tx.get("to", ""),
-                        tx.get("amount", ""),
-                        tx.get("fee", ""),
-                        tx.get("timestamp", "")
-                    ])
+                    writer.writerow(
+                        [
+                            tx.get("hash", ""),
+                            tx.get("type", ""),
+                            tx.get("from", ""),
+                            tx.get("to", ""),
+                            tx.get("amount", ""),
+                            tx.get("fee", ""),
+                            tx.get("timestamp", ""),
+                        ]
+                    )
             else:  # blocks
                 writer = csv.writer(output)
                 writer.writerow(["Height", "Hash", "Validator", "Transactions", "Timestamp"])
                 for block in results:
-                    writer.writerow([
-                        block.get("height", ""),
-                        block.get("hash", ""),
-                        block.get("validator", ""),
-                        block.get("tx_count", ""),
-                        block.get("timestamp", "")
-                    ])
+                    writer.writerow(
+                        [
+                            block.get("height", ""),
+                            block.get("hash", ""),
+                            block.get("validator", ""),
+                            block.get("tx_count", ""),
+                            block.get("timestamp", ""),
+                        ]
+                    )
 
             output.seek(0)
             return StreamingResponse(
                 io.BytesIO(output.getvalue().encode()),
                 media_type="text/csv",
-                headers={"Content-Disposition": f"attachment; filename=search_results.{format}"}
+                headers={"Content-Disposition": f"attachment; filename=search_results.{format}"},
             )
 
         elif format == "json":
             return StreamingResponse(
                 io.BytesIO(json.dumps(results, indent=2).encode()),
                 media_type="application/json",
-                headers={"Content-Disposition": f"attachment; filename=search_results.{format}"}
+                headers={"Content-Disposition": f"attachment; filename=search_results.{format}"},
             )
 
         else:
@@ -1220,6 +1225,7 @@ async def export_search(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
 
 @app.get("/api/export/blocks")
 async def export_blocks(format: str = "csv") -> StreamingResponse:
@@ -1233,26 +1239,28 @@ async def export_blocks(format: str = "csv") -> StreamingResponse:
             writer = csv.writer(output)
             writer.writerow(["Height", "Hash", "Validator", "Transactions", "Timestamp"])
             for block in blocks:
-                writer.writerow([
-                    block.get("height", ""),
-                    block.get("hash", ""),
-                    block.get("validator", ""),
-                    block.get("tx_count", ""),
-                    block.get("timestamp", "")
-                ])
+                writer.writerow(
+                    [
+                        block.get("height", ""),
+                        block.get("hash", ""),
+                        block.get("validator", ""),
+                        block.get("tx_count", ""),
+                        block.get("timestamp", ""),
+                    ]
+                )
 
             output.seek(0)
             return StreamingResponse(
                 io.BytesIO(output.getvalue().encode()),
                 media_type="text/csv",
-                headers={"Content-Disposition": f"attachment; filename=latest_blocks.{format}"}
+                headers={"Content-Disposition": f"attachment; filename=latest_blocks.{format}"},
             )
 
         elif format == "json":
             return StreamingResponse(
                 io.BytesIO(json.dumps(blocks, indent=2).encode()),
                 media_type="application/json",
-                headers={"Content-Disposition": f"attachment; filename=latest_blocks.{format}"}
+                headers={"Content-Disposition": f"attachment; filename=latest_blocks.{format}"},
             )
 
         else:
@@ -1260,6 +1268,7 @@ async def export_blocks(format: str = "csv") -> StreamingResponse:
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
 
 # Helper functions
 async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN) -> list[dict[str, Any]]:
@@ -1278,13 +1287,12 @@ async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN) -> l
                         "hash": f"0x{'1234567890abcdef' * 4}",
                         "validator": "0x1234567890abcdef1234567890abcdef12345678",
                         "tx_count": i % 10,
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": datetime.now().isoformat(),
                     }
                     for i in range(limit, 0, -1)
                 ]
     except Exception:
         return []
-
 
 
 @app.get("/health")
@@ -1302,8 +1310,9 @@ async def health() -> dict[str, str]:
         "status": "ok" if node_status == "ok" else "degraded",
         "node_status": node_status,
         "version": "2.0.0",
-        "features": "advanced_search,analytics,export,real_time"
+        "features": "advanced_search,analytics,export,real_time",
     }
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8004)

@@ -24,10 +24,7 @@ async def lifespan(app: FastAPI):
     """Lifespan context manager for FFmpeg service"""
     # Verify FFmpeg with GPU support is available
     try:
-        result = subprocess.run(
-            ['ffmpeg', '-hwaccels'],
-            capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(["ffmpeg", "-hwaccels"], capture_output=True, text=True, timeout=5)
         if _hw_accel not in result.stdout:
             print(f"Warning: {_hw_accel} hardware acceleration not available in FFmpeg")
         else:
@@ -44,10 +41,7 @@ app = FastAPI(title="AITBC FFmpeg Service", version="1.0.0", lifespan=lifespan)
 async def health():
     """Health check endpoint"""
     try:
-        result = subprocess.run(
-            ['ffmpeg', '-version'],
-            capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, timeout=5)
         return {
             "status": "ok",
             "service": "ffmpeg",
@@ -72,13 +66,15 @@ async def capabilities():
         gpu_info = {}
         try:
             result = subprocess.run(
-                ['nvidia-smi', '--query-gpu=name,memory.total', '--format=csv,noheader'],
-                capture_output=True, text=True, timeout=5
+                ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 gpu_info = {
-                    "name": result.stdout.strip().split(',')[0],
-                    "memory": result.stdout.strip().split(',')[1] if ',' in result.stdout else "Unknown"
+                    "name": result.stdout.strip().split(",")[0],
+                    "memory": result.stdout.strip().split(",")[1] if "," in result.stdout else "Unknown",
                 }
         except Exception:
             pass
@@ -86,14 +82,11 @@ async def capabilities():
         # Get supported encoders
         encoders = []
         try:
-            result = subprocess.run(
-                ['ffmpeg', '-encoders'],
-                capture_output=True, text=True, timeout=10
-            )
+            result = subprocess.run(["ffmpeg", "-encoders"], capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
                 # Parse encoders (focus on hardware encoders)
-                for line in result.stdout.split('\n'):
-                    if 'h264' in line.lower() or 'hevc' in line.lower():
+                for line in result.stdout.split("\n"):
+                    if "h264" in line.lower() or "hevc" in line.lower():
                         encoders.append(line.strip())
         except Exception:
             pass
@@ -122,15 +115,9 @@ async def process_video(
 
     # Validate GPU acceleration is available
     try:
-        result = subprocess.run(
-            ['ffmpeg', '-hwaccels'],
-            capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(["ffmpeg", "-hwaccels"], capture_output=True, text=True, timeout=5)
         if _hw_accel not in result.stdout:
-            raise HTTPException(
-                status_code=503,
-                detail=f"Hardware acceleration {_hw_accel} not available"
-            )
+            raise HTTPException(status_code=503, detail=f"Hardware acceleration {_hw_accel} not available")
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"FFmpeg not available: {e}")
 
@@ -149,62 +136,68 @@ async def process_video(
 
         # Build FFmpeg command with GPU acceleration
         cmd = [
-            'ffmpeg',
-            '-hwaccel', _hw_accel,
-            '-i', input_path,
-            '-c:v', f'{_hw_accel}_{codec}',
-            '-preset', 'p6',  # Slow preset for quality
-            '-b:v', bitrate,
-            '-maxrate', bitrate,
-            '-bufsize', f'{bitrate}M',
+            "ffmpeg",
+            "-hwaccel",
+            _hw_accel,
+            "-i",
+            input_path,
+            "-c:v",
+            f"{_hw_accel}_{codec}",
+            "-preset",
+            "p6",  # Slow preset for quality
+            "-b:v",
+            bitrate,
+            "-maxrate",
+            bitrate,
+            "-bufsize",
+            f"{bitrate}M",
         ]
 
         # Add resolution scaling if specified
-        if resolution == '1080p':
-            cmd.extend(['-vf', 'scale=1920:1080'])
-        elif resolution == '720p':
-            cmd.extend(['-vf', 'scale=1280:720'])
-        elif resolution == '480p':
-            cmd.extend(['-vf', 'scale=854:480'])
+        if resolution == "1080p":
+            cmd.extend(["-vf", "scale=1920:1080"])
+        elif resolution == "720p":
+            cmd.extend(["-vf", "scale=1280:720"])
+        elif resolution == "480p":
+            cmd.extend(["-vf", "scale=854:480"])
 
-        cmd.extend(['-y', output_path])
+        cmd.extend(["-y", output_path])
 
         # Run FFmpeg
         process = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=3600  # 1 hour timeout
+            timeout=3600,  # 1 hour timeout
         )
 
         elapsed = round(time.time() - t_start, 2)
 
         if process.returncode != 0:
-            raise HTTPException(
-                status_code=500,
-                detail=f"FFmpeg processing failed: {process.stderr}"
-            )
+            raise HTTPException(status_code=500, detail=f"FFmpeg processing failed: {process.stderr}")
 
         # Calculate result hash
-        with open(output_path, 'rb') as f:
+        with open(output_path, "rb") as f:
             file_hash = hashlib.sha256(f.read()).hexdigest()
 
         # Get file size
         file_size = os.path.getsize(output_path)
 
-        return JSONResponse({
-            "status": "completed",
-            "output_path": output_path,
-            "file_size_bytes": file_size,
-            "processing_time_seconds": elapsed,
-            "processing_time_hours": round(elapsed / 3600, 4),
-            "codec": codec,
-            "resolution": resolution,
-            "bitrate": bitrate,
-            "result_hash": file_hash,
-            "gpu_device": _device,
-            "hw_accel": _hw_accel,
-        })
+        return JSONResponse(
+            {
+                "status": "completed",
+                "output_path": output_path,
+                "file_size_bytes": file_size,
+                "processing_time_seconds": elapsed,
+                "processing_time_hours": round(elapsed / 3600, 4),
+                "codec": codec,
+                "resolution": resolution,
+                "bitrate": bitrate,
+                "result_hash": file_hash,
+                "gpu_device": _device,
+                "hw_accel": _hw_accel,
+            }
+        )
 
     finally:
         # Cleanup input file

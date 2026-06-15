@@ -71,7 +71,7 @@ def test_register_plugin():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     response = client.post("/api/v1/plugins/register", json=plugin.model_dump())
     assert response.status_code == 200
@@ -96,7 +96,7 @@ def test_register_duplicate_plugin():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
 
     # First registration
@@ -124,7 +124,7 @@ def test_add_plugin_version():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
 
@@ -135,9 +135,9 @@ def test_add_plugin_version():
         download_url="https://github.com/test/plugin/archive/v1.1.0.tar.gz",
         checksum="def456",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(UTC)
+        release_date=datetime.now(UTC),
     )
-    response = client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
+    response = client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode="json"))
     assert response.status_code == 200
     data = response.json()
     assert data["version"] == "1.1.0"
@@ -161,7 +161,7 @@ def test_add_duplicate_version():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
 
@@ -172,12 +172,12 @@ def test_add_duplicate_version():
         download_url="https://github.com/test/plugin/archive/v1.1.0.tar.gz",
         checksum="def456",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(UTC)
+        release_date=datetime.now(UTC),
     )
-    client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
+    client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode="json"))
 
     # Add same version again should fail
-    response = client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
+    response = client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode="json"))
     assert response.status_code == 400
 
 
@@ -209,7 +209,7 @@ def test_get_plugin():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
 
@@ -246,7 +246,7 @@ def test_get_plugin_versions():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
 
@@ -275,7 +275,7 @@ def test_download_plugin():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
 
@@ -286,9 +286,9 @@ def test_download_plugin():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(UTC)
+        release_date=datetime.now(UTC),
     )
-    client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
+    client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode="json"))
 
     # Download plugin
     response = client.get("/api/v1/plugins/test_plugin/download/1.0.0")
@@ -315,7 +315,7 @@ def test_create_security_scan():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
 
@@ -326,9 +326,9 @@ def test_create_security_scan():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.now(UTC)
+        release_date=datetime.now(UTC),
     )
-    client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
+    client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode="json"))
 
     # Create security scan
     scan = SecurityScan(
@@ -338,9 +338,9 @@ def test_create_security_scan():
         scan_date=datetime.now(UTC),
         vulnerabilities=[],
         risk_score="low",
-        passed=True
+        passed=True,
     )
-    response = client.post("/api/v1/plugins/test_plugin/security-scan", json=scan.model_dump(mode='json'))
+    response = client.post("/api/v1/plugins/test_plugin/security-scan", json=scan.model_dump(mode="json"))
     assert response.status_code == 200
     data = response.json()
     assert data["scan_id"] == "scan_123"
@@ -364,7 +364,7 @@ def test_get_plugin_security():
         license="MIT",
         dependencies=[],
         aitbc_version="1.0.0",
-        plugin_type="cli"
+        plugin_type="cli",
     )
     client.post("/api/v1/plugins/register", json=plugin.model_dump())
 

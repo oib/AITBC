@@ -12,10 +12,12 @@ from aitbc import AITBCHTTPClient
 BASE_URL = "https://hub.aitbc.bubuit.net/rpc"
 CHAIN_ID = "ait-mainnet"
 
+
 def compute_block_hash(height, parent_hash, timestamp):
     """Compute block hash using the same algorithm as PoA proposer"""
     payload = f"{CHAIN_ID}|{height}|{parent_hash}|{timestamp}".encode()
     return "0x" + hashlib.sha256(payload).hexdigest()
+
 
 def test_simple_block_import():
     """Test importing a simple block without transactions"""
@@ -49,8 +51,8 @@ def test_simple_block_import():
             "proposer": "test-proposer",
             "timestamp": timestamp,
             "tx_count": 0,
-            "chain_id": CHAIN_ID
-        }
+            "chain_id": CHAIN_ID,
+        },
     )
 
     print("\nImport response:")
@@ -72,6 +74,7 @@ def test_simple_block_import():
             print(f"\n❌ Could not retrieve imported block: {response.status_code}")
     else:
         print(f"\n❌ Import failed: {response.status_code}")
+
 
 if __name__ == "__main__":
     test_simple_block_import()

@@ -88,7 +88,7 @@ async def verify_group_membership(
     if not DEMO_MODE_ENABLED:
         raise HTTPException(
             status_code=503,
-            detail="Group membership verification is not enabled. This is a demo-only endpoint. Enable DEMO_MODE_ENABLED for development."
+            detail="Group membership verification is not enabled. This is a demo-only endpoint. Enable DEMO_MODE_ENABLED for development.",
         )
 
     # In a real implementation, this would:
@@ -131,7 +131,7 @@ async def submit_private_bid(request: PrivateBidRequest, session: Annotated[Sess
     if not DEMO_MODE_ENABLED:
         raise HTTPException(
             status_code=503,
-            detail="Private bidding is not enabled. This is a demo-only endpoint. Enable DEMO_MODE_ENABLED for development."
+            detail="Private bidding is not enabled. This is a demo-only endpoint. Enable DEMO_MODE_ENABLED for development.",
         )
 
     # In production, would verify:
@@ -160,7 +160,7 @@ async def verify_computation_proof(
     if not DEMO_MODE_ENABLED:
         raise HTTPException(
             status_code=503,
-            detail="Computation verification is not enabled. This is a demo-only endpoint. Enable DEMO_MODE_ENABLED for development."
+            detail="Computation verification is not enabled. This is a demo-only endpoint. Enable DEMO_MODE_ENABLED for development.",
         )
 
     # In production, would verify actual ZK-SNARK proof using Groth16 verification
@@ -231,7 +231,7 @@ async def generate_stealth_address(recipient_public_key: str, sender_random: str
     if not DEMO_MODE_ENABLED:
         raise HTTPException(
             status_code=503,
-            detail="Stealth address generation is not enabled. This is a demo-only endpoint. Enable DEMO_MODE_ENABLED for development."
+            detail="Stealth address generation is not enabled. This is a demo-only endpoint. Enable DEMO_MODE_ENABLED for development.",
         )
 
     if not sender_random:

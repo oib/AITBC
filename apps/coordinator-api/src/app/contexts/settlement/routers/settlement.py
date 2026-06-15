@@ -42,7 +42,9 @@ class CrossChainSettlementResponse(BaseModel):
 @rate_limit(rate=20, per=60)
 async def initiate_cross_chain_settlement(
     request: Request,
-    settlement_request: CrossChainSettlementRequest, background_tasks: BackgroundTasks, api_key: str = Depends(get_api_key)
+    settlement_request: CrossChainSettlementRequest,
+    background_tasks: BackgroundTasks,
+    api_key: str = Depends(get_api_key),
 ) -> CrossChainSettlementResponse:
     """Initiate a cross-chain settlement"""
     try:
@@ -102,7 +104,9 @@ async def get_settlement_status(request: Request, settlement_id: str, api_key: s
 
 @router.get("/cross-chain")
 @rate_limit(rate=200, per=60)
-async def list_settlements(request: Request, api_key: str = Depends(get_api_key), limit: int = 50, offset: int = 0) -> dict[str, Any]:
+async def list_settlements(
+    request: Request, api_key: str = Depends(get_api_key), limit: int = 50, offset: int = 0
+) -> dict[str, Any]:
     """List settlements with pagination"""
     try:
         manager = BridgeManager()

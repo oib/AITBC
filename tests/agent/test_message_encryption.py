@@ -93,11 +93,7 @@ class TestEncryptedMessage:
         signature = b"signature"
 
         encrypted_msg = EncryptedMessage(
-            ciphertext=ciphertext,
-            session_key=session_key,
-            nonce=nonce,
-            signature=signature,
-            sender_id=sender_id
+            ciphertext=ciphertext, session_key=session_key, nonce=nonce, signature=signature, sender_id=sender_id
         )
 
         assert encrypted_msg.ciphertext == ciphertext
@@ -115,7 +111,7 @@ class TestEncryptedMessage:
             session_key=b"session_key",
             nonce=b"nonce",
             signature=b"signature",
-            sender_id=sender_id
+            sender_id=sender_id,
         )
 
         # Convert to dict
@@ -148,14 +144,10 @@ class TestMessageEncryption:
         message_content = {
             "content": "Hello, this is a test message",
             "message_type": "direct",
-            "timestamp": datetime.now(UTC).isoformat()
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
-        encrypted_msg = encryptor.encrypt_message(
-            message=message_content,
-            sender_id=sender_id,
-            recipient_id=recipient_id
-        )
+        encrypted_msg = encryptor.encrypt_message(message=message_content, sender_id=sender_id, recipient_id=recipient_id)
 
         assert encrypted_msg is not None
         assert encrypted_msg.sender_id == sender_id
@@ -172,23 +164,13 @@ class TestMessageEncryption:
         encryptor.generate_key_pair(sender_id)
         encryptor.generate_key_pair(recipient_id)
 
-        message_content = {
-            "content": "Decryption test message",
-            "message_type": "direct"
-        }
+        message_content = {"content": "Decryption test message", "message_type": "direct"}
 
         # Encrypt message
-        encrypted_msg = encryptor.encrypt_message(
-            message=message_content,
-            sender_id=sender_id,
-            recipient_id=recipient_id
-        )
+        encrypted_msg = encryptor.encrypt_message(message=message_content, sender_id=sender_id, recipient_id=recipient_id)
 
         # Decrypt message
-        decrypted_message = encryptor.decrypt_message(
-            encrypted_msg=encrypted_msg,
-            recipient_id=recipient_id
-        )
+        decrypted_message = encryptor.decrypt_message(encrypted_msg=encrypted_msg, recipient_id=recipient_id)
 
         assert decrypted_message is not None
         assert decrypted_message["content"] == message_content["content"]
@@ -205,17 +187,10 @@ class TestMessageEncryption:
 
         message_content = {"content": "Signature test"}
 
-        encrypted_msg = encryptor.encrypt_message(
-            message=message_content,
-            sender_id=sender_id,
-            recipient_id=recipient_id
-        )
+        encrypted_msg = encryptor.encrypt_message(message=message_content, sender_id=sender_id, recipient_id=recipient_id)
 
         # Verify signature
-        is_valid = encryptor.verify_signature(
-            encrypted_msg=encrypted_msg,
-            sender_id=sender_id
-        )
+        is_valid = encryptor.verify_signature(encrypted_msg=encrypted_msg, sender_id=sender_id)
 
         assert is_valid is True
 
@@ -246,11 +221,7 @@ class TestMessageEncryption:
 
         message_content = {"content": "Test"}
 
-        encrypted_msg = encryptor.encrypt_message(
-            message=message_content,
-            sender_id=sender_id,
-            recipient_id=recipient_id
-        )
+        encrypted_msg = encryptor.encrypt_message(message=message_content, sender_id=sender_id, recipient_id=recipient_id)
 
         assert encrypted_msg is None
 
@@ -266,18 +237,12 @@ class TestMessageEncryption:
 
         # Manually create encrypted message (simulating external sender)
         from app.encryption.message_encryption import EncryptedMessage
+
         encrypted_msg = EncryptedMessage(
-            ciphertext=b"test",
-            session_key=b"test",
-            nonce=b"test",
-            signature=b"test",
-            sender_id=sender_id
+            ciphertext=b"test", session_key=b"test", nonce=b"test", signature=b"test", sender_id=sender_id
         )
 
-        decrypted = encryptor.decrypt_message(
-            encrypted_msg=encrypted_msg,
-            recipient_id=recipient_id
-        )
+        decrypted = encryptor.decrypt_message(encrypted_msg=encrypted_msg, recipient_id=recipient_id)
 
         assert decrypted is None
 
@@ -293,16 +258,9 @@ class TestMessageEncryption:
         # Large message
         large_message = {"content": "A" * 10000}
 
-        encrypted_msg = encryptor.encrypt_message(
-            message=large_message,
-            sender_id=sender_id,
-            recipient_id=recipient_id
-        )
+        encrypted_msg = encryptor.encrypt_message(message=large_message, sender_id=sender_id, recipient_id=recipient_id)
 
-        decrypted = encryptor.decrypt_message(
-            encrypted_msg=encrypted_msg,
-            recipient_id=recipient_id
-        )
+        decrypted = encryptor.decrypt_message(encrypted_msg=encrypted_msg, recipient_id=recipient_id)
 
         assert decrypted == large_message
 
@@ -318,16 +276,9 @@ class TestMessageEncryption:
         # Message with special characters
         special_message = {"content": "Test @#$%^&*()_+-=[]{}|;':,.<>?/~"}
 
-        encrypted_msg = encryptor.encrypt_message(
-            message=special_message,
-            sender_id=sender_id,
-            recipient_id=recipient_id
-        )
+        encrypted_msg = encryptor.encrypt_message(message=special_message, sender_id=sender_id, recipient_id=recipient_id)
 
-        decrypted = encryptor.decrypt_message(
-            encrypted_msg=encrypted_msg,
-            recipient_id=recipient_id
-        )
+        decrypted = encryptor.decrypt_message(encrypted_msg=encrypted_msg, recipient_id=recipient_id)
 
         assert decrypted == special_message
 
@@ -345,15 +296,8 @@ class TestMessageEncryption:
 
         # Encrypt for each recipient
         for recipient in recipients:
-            encrypted_msg = encryptor.encrypt_message(
-                message=message,
-                sender_id=sender_id,
-                recipient_id=recipient
-            )
-            decrypted = encryptor.decrypt_message(
-                encrypted_msg=encrypted_msg,
-                recipient_id=recipient
-            )
+            encrypted_msg = encryptor.encrypt_message(message=message, sender_id=sender_id, recipient_id=recipient)
+            decrypted = encryptor.decrypt_message(encrypted_msg=encrypted_msg, recipient_id=recipient)
             assert decrypted == message
 
 

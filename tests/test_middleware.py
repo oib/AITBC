@@ -56,7 +56,7 @@ class TestPerformanceLoggingMiddleware:
 
         call_next = AsyncMock(return_value=response)
 
-        with patch('aitbc.middleware.performance.logger') as mock_logger:
+        with patch("aitbc.middleware.performance.logger") as mock_logger:
             await middleware.dispatch(request, call_next)
             mock_logger.info.assert_called_once()
             assert "Request performance" in mock_logger.info.call_args[0][0]
@@ -162,7 +162,7 @@ class TestRequestIDMiddleware:
 
         call_next = AsyncMock(return_value=response)
 
-        with patch('aitbc.middleware.request_id.logger') as mock_logger:
+        with patch("aitbc.middleware.request_id.logger") as mock_logger:
             await middleware.dispatch(request, call_next)
             assert mock_logger.info.call_count >= 2  # Logs start and completion
 
@@ -208,8 +208,8 @@ class TestErrorHandlerMiddleware:
 
         assert isinstance(result, JSONResponse)
         assert result.status_code == 404
-        content = result.body.decode() if hasattr(result, 'body') else {}
-        assert "error" in result.body.decode() if hasattr(result, 'body') else True
+        result.body.decode() if hasattr(result, "body") else {}
+        assert "error" in result.body.decode() if hasattr(result, "body") else True
 
     @pytest.mark.asyncio
     async def test_dispatch_handles_generic_exception(self):
@@ -244,7 +244,7 @@ class TestErrorHandlerMiddleware:
         exception = HTTPException(status_code=400, detail="Bad request")
         call_next = AsyncMock(side_effect=exception)
 
-        with patch('aitbc.middleware.error_handler.logger') as mock_logger:
+        with patch("aitbc.middleware.error_handler.logger") as mock_logger:
             await middleware.dispatch(request, call_next)
             mock_logger.warning.assert_called_once()
 
@@ -262,6 +262,6 @@ class TestErrorHandlerMiddleware:
         exception = RuntimeError("Runtime error")
         call_next = AsyncMock(side_effect=exception)
 
-        with patch('aitbc.middleware.error_handler.logger') as mock_logger:
+        with patch("aitbc.middleware.error_handler.logger") as mock_logger:
             await middleware.dispatch(request, call_next)
             mock_logger.error.assert_called_once()

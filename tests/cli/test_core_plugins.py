@@ -20,7 +20,7 @@ import pytest
 class TestGetPluginDir:
     """Test get_plugin_dir function"""
 
-    @patch('aitbc_cli.core.plugins.PLUGIN_DIR')
+    @patch("aitbc_cli.core.plugins.PLUGIN_DIR")
     def test_get_plugin_dir(self, mock_plugin_dir):
         """Test getting plugin directory"""
         from aitbc_cli.core.plugins import get_plugin_dir
@@ -37,7 +37,7 @@ class TestGetPluginDir:
 class TestLoadPlugins:
     """Test load_plugins function"""
 
-    @patch('aitbc_cli.core.plugins.get_plugin_dir')
+    @patch("aitbc_cli.core.plugins.get_plugin_dir")
     def test_load_plugins_no_manifest(self, mock_get_plugin_dir):
         """Test loading plugins when no manifest exists"""
         from aitbc_cli.core.plugins import load_plugins
@@ -52,7 +52,7 @@ class TestLoadPlugins:
         # Should return early without adding commands
         cli_group.add_command.assert_not_called()
 
-    @patch('aitbc_cli.core.plugins.get_plugin_dir')
+    @patch("aitbc_cli.core.plugins.get_plugin_dir")
     def test_load_plugins_with_manifest(self, mock_get_plugin_dir):
         """Test loading plugins with manifest"""
         from aitbc_cli.core.plugins import load_plugins
@@ -62,12 +62,8 @@ class TestLoadPlugins:
             manifest_file = plugin_dir / "plugins.json"
 
             # Create manifest
-            manifest_data = {
-                "plugins": [
-                    {"name": "test_plugin", "file": "test.py", "enabled": False}
-                ]
-            }
-            with open(manifest_file, 'w') as f:
+            manifest_data = {"plugins": [{"name": "test_plugin", "file": "test.py", "enabled": False}]}
+            with open(manifest_file, "w") as f:
                 json.dump(manifest_data, f)
 
             mock_get_plugin_dir.return_value = plugin_dir

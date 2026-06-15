@@ -66,7 +66,7 @@ async def test_record_sla_metric(sla_collector: SLACollector, sample_miner: Mine
     assert metric.miner_id == sample_miner.miner_id
     assert metric.metric_type == "uptime_pct"
     assert metric.metric_value == 98.5
-    assert metric.is_violation == False
+    assert not metric.is_violation
 
 
 @pytest.mark.asyncio
@@ -79,12 +79,10 @@ async def test_record_sla_metric_violation(sla_collector: SLACollector, sample_m
         metadata={"test": "true"},
     )
 
-    assert metric.is_violation == True
+    assert metric.is_violation
 
     # Check violation was recorded
-    violations = await sla_collector.get_sla_violations(
-        miner_id=sample_miner.miner_id, resolved=False
-    )
+    violations = await sla_collector.get_sla_violations(miner_id=sample_miner.miner_id, resolved=False)
     assert len(violations) > 0
     assert violations[0].violation_type == "uptime_pct"
 
@@ -134,9 +132,7 @@ async def test_get_sla_metrics(sla_collector: SLACollector, sample_miner: Miner)
         metric_value=98.5,
     )
 
-    metrics = await sla_collector.get_sla_metrics(
-        miner_id=sample_miner.miner_id, hours=24
-    )
+    metrics = await sla_collector.get_sla_metrics(miner_id=sample_miner.miner_id, hours=24)
 
     assert len(metrics) > 0
     assert metrics[0].miner_id == sample_miner.miner_id
@@ -152,9 +148,7 @@ async def test_get_sla_violations(sla_collector: SLACollector, sample_miner: Min
         metric_value=80.0,  # Below threshold
     )
 
-    violations = await sla_collector.get_sla_violations(
-        miner_id=sample_miner.miner_id, resolved=False
-    )
+    violations = await sla_collector.get_sla_violations(miner_id=sample_miner.miner_id, resolved=False)
 
     assert len(violations) > 0
 
@@ -162,24 +156,24 @@ async def test_get_sla_violations(sla_collector: SLACollector, sample_miner: Min
 def test_check_violation_uptime_below_threshold(sla_collector: SLACollector):
     """Test violation check for uptime below threshold"""
     is_violation = sla_collector._check_violation("uptime_pct", 90.0, 95.0)
-    assert is_violation == True
+    assert is_violation
 
 
 def test_check_violation_uptime_above_threshold(sla_collector: SLACollector):
     """Test violation check for uptime above threshold"""
     is_violation = sla_collector._check_violation("uptime_pct", 98.0, 95.0)
-    assert is_violation == False
+    assert not is_violation
 
 
 @pytest.mark.asyncio
 async def test_check_violation_response_time_above_threshold(sla_collector: SLACollector):
     """Test violation check for response time above threshold"""
     is_violation = sla_collector._check_violation("response_time_ms", 2000.0, 1000.0)
-    assert is_violation == True
+    assert is_violation
 
 
 @pytest.mark.asyncio
 async def test_check_violation_response_time_below_threshold(sla_collector: SLACollector):
     """Test violation check for response time below threshold"""
     is_violation = sla_collector._check_violation("response_time_ms", 500.0, 1000.0)
-    assert is_violation == False
+    assert not is_violation

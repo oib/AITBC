@@ -18,12 +18,7 @@ class MarketplaceWorkflow:
     def log_step(self, step: str, status: str, details: str = ""):
         """Log workflow step"""
         timestamp = time.strftime("%H:%M:%S")
-        self.workflow_steps.append({
-            "timestamp": timestamp,
-            "step": step,
-            "status": status,
-            "details": details
-        })
+        self.workflow_steps.append({"timestamp": timestamp, "step": step, "status": status, "details": details})
         status_icon = "✅" if status == "success" else "❌" if status == "error" else "🔄"
         print(f"{timestamp} {status_icon} {step}")
         if details:
@@ -52,10 +47,7 @@ class MarketplaceWorkflow:
             print(f"🔍 DEBUG: Attempting to book GPU {gpu_id} for {duration_hours} hours")
             booking_data = {"duration_hours": duration_hours}
             print(f"🔍 DEBUG: Booking data: {booking_data}")
-            response = requests.post(
-                f"{self.coordinator_url}/v1/marketplace/gpu/{gpu_id}/book",
-                json=booking_data
-            )
+            response = requests.post(f"{self.coordinator_url}/v1/marketplace/gpu/{gpu_id}/book", json=booking_data)
             print(f"🔍 DEBUG: Booking response status: {response.status_code}")
             print(f"🔍 DEBUG: Booking response: {response.text}")
             response.raise_for_status()
@@ -78,7 +70,7 @@ class MarketplaceWorkflow:
                 "gpu_id": gpu_id,
                 "model": task_data.get("model", "llama2"),
                 "prompt": task_data.get("prompt", "Hello, world!"),
-                "parameters": task_data.get("parameters", {})
+                "parameters": task_data.get("parameters", {}),
             }
             print(f"🔍 DEBUG: Task payload: {task_payload}")
 
@@ -89,12 +81,7 @@ class MarketplaceWorkflow:
 
             self.log_step("Submit Ollama Task", "success", f"Task {task_id} submitted to GPU {gpu_id}")
 
-            return {
-                "task_id": task_id,
-                "gpu_id": gpu_id,
-                "status": "submitted",
-                "model": task_payload["model"]
-            }
+            return {"task_id": task_id, "gpu_id": gpu_id, "status": "submitted", "model": task_payload["model"]}
         except Exception as e:
             print(f"🔍 DEBUG: Error in submit_ollama_task: {str(e)}")
             self.log_step("Submit Ollama Task", "error", str(e))
@@ -118,7 +105,7 @@ class MarketplaceWorkflow:
                 "currency": "AITBC",
                 "booking_id": booking.get("booking_id"),
                 "task_id": task_result.get("task_id"),
-                "gpu_id": booking.get("gpu_id")
+                "gpu_id": booking.get("gpu_id"),
             }
             print(f"🔍 DEBUG: Payment data: {payment_data}")
 
@@ -127,14 +114,15 @@ class MarketplaceWorkflow:
             transaction_id = f"tx_{int(time.time())}"
             print(f"🔍 DEBUG: Generated transaction ID: {transaction_id}")
 
-            self.log_step("Process Blockchain Payment", "success",
-                         f"Payment {payment_amount} AITBC processed (TX: {transaction_id})")
+            self.log_step(
+                "Process Blockchain Payment", "success", f"Payment {payment_amount} AITBC processed (TX: {transaction_id})"
+            )
 
             return {
                 "transaction_id": transaction_id,
                 "amount": payment_amount,
                 "status": "confirmed",
-                "payment_data": payment_data
+                "payment_data": payment_data,
             }
         except Exception as e:
             print(f"🔍 DEBUG: Error in process_blockchain_payment: {str(e)}")
@@ -168,7 +156,7 @@ class MarketplaceWorkflow:
             task_data = {
                 "model": "llama2",
                 "prompt": "Analyze this data and provide insights",
-                "parameters": {"temperature": 0.7, "max_tokens": 100}
+                "parameters": {"temperature": 0.7, "max_tokens": 100},
             }
 
         # Step 1: Get available GPUs
@@ -183,8 +171,7 @@ class MarketplaceWorkflow:
         selected_gpu = min(available_gpus, key=lambda x: x["price_per_hour"])
         gpu_id = selected_gpu["id"]
 
-        self.log_step("Select GPU", "success",
-                     f"Selected {selected_gpu['model']} @ ${selected_gpu['price_per_hour']}/hour")
+        self.log_step("Select GPU", "success", f"Selected {selected_gpu['model']} @ ${selected_gpu['price_per_hour']}/hour")
 
         # Step 2: Book GPU
         booking = self.book_gpu(gpu_id, duration_hours=2)
@@ -223,7 +210,7 @@ class MarketplaceWorkflow:
         total_steps = len(self.workflow_steps)
 
         print(f"✅ Successful Steps: {successful_steps}/{total_steps}")
-        print(f"📈 Success Rate: {successful_steps/total_steps*100:.1f}%")
+        print(f"📈 Success Rate: {successful_steps / total_steps * 100:.1f}%")
 
         print("\n📋 Step-by-Step Details:")
         for step in self.workflow_steps:
@@ -234,6 +221,7 @@ class MarketplaceWorkflow:
 
         print(f"\n🎉 Workflow Status: {'✅ COMPLETED' if successful_steps == total_steps else '❌ FAILED'}")
 
+
 def main():
     """Main execution function"""
     workflow = MarketplaceWorkflow()
@@ -242,11 +230,7 @@ def main():
     task_data = {
         "model": "llama2",
         "prompt": "Analyze the following GPU marketplace data and provide investment insights",
-        "parameters": {
-            "temperature": 0.7,
-            "max_tokens": 150,
-            "top_p": 0.9
-        }
+        "parameters": {"temperature": 0.7, "max_tokens": 150, "top_p": 0.9},
     }
 
     # Run the complete workflow
@@ -258,6 +242,7 @@ def main():
     else:
         print("\n❌ Workflow failed. Check the logs above for details.")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

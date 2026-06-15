@@ -142,30 +142,32 @@ class TestTrainingEnvWithMockSubprocess:
             mock_result.stderr = ""
             return mock_result
 
-        with patch('subprocess.run', side_effect=mock_run):
+        with patch("subprocess.run", side_effect=mock_run):
             yield env
 
     def test_funding_with_subprocess_error(self, mock_env):
         """Test funding when subprocess fails"""
+
         def mock_run_fail(*args, **kwargs):
             mock_result = MagicMock()
             mock_result.returncode = 1
             mock_result.stderr = "Funding failed"
             return mock_result
 
-        with patch('subprocess.run', side_effect=mock_run_fail):
+        with patch("subprocess.run", side_effect=mock_run_fail):
             with pytest.raises(FundingError):
                 mock_env.fund_training_wallet("test-wallet")
 
     def test_messaging_with_subprocess_error(self, mock_env):
         """Test messaging configuration when subprocess fails"""
+
         def mock_run_fail(*args, **kwargs):
             mock_result = MagicMock()
             mock_result.returncode = 1
             mock_result.stderr = "Messaging failed"
             return mock_result
 
-        with patch('subprocess.run', side_effect=mock_run_fail):
+        with patch("subprocess.run", side_effect=mock_run_fail):
             with pytest.raises(MessagingError):
                 mock_env.configure_messaging_auth("test-wallet")
 

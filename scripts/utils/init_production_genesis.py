@@ -34,6 +34,7 @@ def load_allocations() -> dict[str, int]:
     yaml_path = Path("/opt/aitbc/genesis_prod.yaml")
     if yaml_path.exists():
         import yaml
+
         with yaml_path.open() as f:
             data = yaml.safe_load(f)
         allocations = {}
@@ -59,6 +60,7 @@ def load_allocations() -> dict[str, int]:
             "aitbc1developer2": 300_000,
             "aitbc1tester": 200_000,
         }
+
 
 ALLOCATIONS = load_allocations()
 
@@ -126,6 +128,7 @@ def main() -> None:
         os.environ["DB_PATH"] = str(args.db_path)
 
     from aitbc_chain.config import ChainSettings
+
     settings = ChainSettings()
 
     print(f"[*] Initializing database at {settings.db_path}")

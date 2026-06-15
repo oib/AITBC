@@ -4,12 +4,7 @@ Test the Transaction model directly
 """
 
 # Test creating a transaction model instance
-tx_data = {
-    "tx_hash": "0xtest123",
-    "sender": "0xsender",
-    "recipient": "0xrecipient",
-    "payload": {"test": "data"}
-}
+tx_data = {"tx_hash": "0xtest123", "sender": "0xsender", "recipient": "0xrecipient", "payload": {"test": "data"}}
 
 print("Transaction data:")
 print(tx_data)

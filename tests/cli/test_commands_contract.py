@@ -22,8 +22,9 @@ class TestContractCommands:
         """Test that contract command group exists"""
         try:
             from aitbc_cli.commands.contract import contract
+
             assert contract is not None
-            assert hasattr(contract, 'name')
+            assert hasattr(contract, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import contract commands: {e}")
 
@@ -31,12 +32,13 @@ class TestContractCommands:
         """Test contract group name"""
         try:
             from aitbc_cli.commands.contract import contract
+
             assert contract.name == "contract"
         except ImportError as e:
             pytest.skip(f"Cannot import contract commands: {e}")
 
-    @patch('aitbc_cli.commands.contract.output')
-    @patch('aitbc_cli.commands.contract.error')
+    @patch("aitbc_cli.commands.contract.output")
+    @patch("aitbc_cli.commands.contract.error")
     def test_contract_deploy_command(self, mock_error, mock_output):
         """Test contract deploy command - skip due to Click context issues"""
         pytest.skip("Click context mocking requires complex setup")

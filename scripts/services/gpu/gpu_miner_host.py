@@ -26,18 +26,17 @@ INFERENCE_BACKEND = os.getenv("INFERENCE_BACKEND", "auto")  # auto, ollama, vllm
 LOG_PATH = "/home/oib/windsurf/aitbc/logs/host_gpu_miner.log"
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 
+
 class FlushHandler(logging.StreamHandler):
     def emit(self, record):
         super().emit(record)
         self.flush()
 
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        FlushHandler(sys.stdout),
-        logging.FileHandler(LOG_PATH)
-    ]
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[FlushHandler(sys.stdout), logging.FileHandler(LOG_PATH)],
 )
 logger = logging.getLogger(__name__)
 
@@ -53,35 +52,35 @@ GPU_CAPABILITIES = {
         "cuda_version": "12.4",
         "platform": "CUDA",
         "supported_tasks": ["inference", "training", "stable-diffusion", "llama"],
-        "max_concurrent_jobs": 1
+        "max_concurrent_jobs": 1,
     }
 }
+
 
 def get_gpu_info():
     """Get real GPU information"""
     try:
-        result = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.total,memory.used,utilization.gpu',
-                               '--format=csv,noheader,nounits'],
-                              capture_output=True, text=True, timeout=5)
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total,memory.used,utilization.gpu", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
         if result.returncode == 0:
-            info = result.stdout.strip().split(', ')
-            return {
-                "name": info[0],
-                "memory_total": int(info[1]),
-                "memory_used": int(info[2]),
-                "utilization": int(info[3])
-            }
+            info = result.stdout.strip().split(", ")
+            return {"name": info[0], "memory_total": int(info[1]), "memory_used": int(info[2]), "utilization": int(info[3])}
     except Exception as e:
         logger.error("Failed to get GPU info: %s", e)
     return None
+
 
 def check_ollama():
     """Check if Ollama is running and has models"""
     try:
         response = httpx.get("http://localhost:11434/api/tags", timeout=5)
         if response.status_code == 200:
-            models = response.json().get('models', [])
-            model_names = [m['name'] for m in models]
+            models = response.json().get("models", [])
+            model_names = [m["name"] for m in models]
             logger.info("Ollama running with models: %s", model_names)
             return True, model_names
         else:
@@ -91,10 +90,12 @@ def check_ollama():
         logger.error("Ollama check failed: %s", e)
         return False, []
 
+
 def check_vllm():
     """Check if vLLM is available and can load models"""
     try:
         from vllm import LLM
+
         # Test basic vLLM functionality
         logger.info("vLLM is available")
         return True, ["vllm"]
@@ -104,6 +105,7 @@ def check_vllm():
     except Exception as e:
         logger.error("vLLM check failed: %s", e)
         return False, []
+
 
 def detect_inference_backend():
     """Detect available inference backend"""
@@ -127,6 +129,7 @@ def detect_inference_backend():
         logger.error("No inference backend available")
         return None, []
 
+
 def wait_for_coordinator():
     """Wait for coordinator to be available"""
     for i in range(MAX_RETRIES):
@@ -138,31 +141,22 @@ def wait_for_coordinator():
         except httpx.RequestException:
             pass
 
-        logger.info("Waiting for coordinator... (%s/%s)", i+1, MAX_RETRIES)
+        logger.info("Waiting for coordinator... (%s/%s)", i + 1, MAX_RETRIES)
         time.sleep(RETRY_DELAY)
 
     logger.error("Coordinator not available after max retries")
     return False
 
+
 def register_miner():
     """Register the miner with the coordinator"""
-    register_data = {
-        "capabilities": GPU_CAPABILITIES,
-        "concurrency": 1,
-        "region": "localhost"
-    }
+    register_data = {"capabilities": GPU_CAPABILITIES, "concurrency": 1, "region": "localhost"}
 
-    headers = {
-        "X-Api-Key": AUTH_TOKEN,
-        "Content-Type": "application/json"
-    }
+    headers = {"X-Api-Key": AUTH_TOKEN, "Content-Type": "application/json"}
 
     try:
         response = httpx.post(
-            f"{COORDINATOR_URL}/v1/miners/register?miner_id={MINER_ID}",
-            json=register_data,
-            headers=headers,
-            timeout=10
+            f"{COORDINATOR_URL}/v1/miners/register?miner_id={MINER_ID}", json=register_data, headers=headers, timeout=10
         )
 
         if response.status_code == 200:
@@ -177,6 +171,7 @@ def register_miner():
         logger.error("Registration error: %s", e)
         return None
 
+
 def send_heartbeat():
     """Send heartbeat to coordinator with real GPU stats"""
     gpu_info = get_gpu_info()
@@ -188,7 +183,7 @@ def send_heartbeat():
             "last_seen": datetime.now(UTC).isoformat(),
             "gpu_utilization": gpu_info["utilization"],
             "memory_used": gpu_info["memory_used"],
-            "memory_total": gpu_info["memory_total"]
+            "memory_total": gpu_info["memory_total"],
         }
     else:
         heartbeat_data = {
@@ -199,26 +194,21 @@ def send_heartbeat():
             "memory_used": 0,
         }
 
-    headers = {
-        "X-Api-Key": AUTH_TOKEN,
-        "Content-Type": "application/json"
-    }
+    headers = {"X-Api-Key": AUTH_TOKEN, "Content-Type": "application/json"}
 
     try:
         response = httpx.post(
-            f"{COORDINATOR_URL}/v1/miners/heartbeat?miner_id={MINER_ID}",
-            json=heartbeat_data,
-            headers=headers,
-            timeout=5
+            f"{COORDINATOR_URL}/v1/miners/heartbeat?miner_id={MINER_ID}", json=heartbeat_data, headers=headers, timeout=5
         )
 
         if response.status_code == 200:
-            logger.info("Heartbeat sent (GPU: %s%%)", gpu_info['utilization'] if gpu_info else 'N/A')
+            logger.info("Heartbeat sent (GPU: %s%%)", gpu_info["utilization"] if gpu_info else "N/A")
         else:
             logger.error("Heartbeat failed: %s - %s", response.status_code, response.text)
 
     except Exception as e:
         logger.error("Heartbeat error: %s", e)
+
 
 def execute_job_with_ollama(job_id, prompt, model):
     """Execute job using Ollama"""
@@ -226,27 +216,22 @@ def execute_job_with_ollama(job_id, prompt, model):
     start_time = time.time()
 
     ollama_response = httpx.post(
-        "http://localhost:11434/api/generate",
-        json={
-            "model": model,
-            "prompt": prompt,
-            "stream": False
-        },
-        timeout=60
+        "http://localhost:11434/api/generate", json={"model": model, "prompt": prompt, "stream": False}, timeout=60
     )
 
     if ollama_response.status_code == 200:
         result = ollama_response.json()
-        output = result.get('response', '')
+        output = result.get("response", "")
         execution_time = time.time() - start_time
         return {
             "output": output,
             "model": model,
-            "tokens_processed": result.get('eval_count', 0),
-            "execution_time": execution_time
+            "tokens_processed": result.get("eval_count", 0),
+            "execution_time": execution_time,
         }
     else:
         raise Exception("Ollama error: %s" % ollama_response.status_code)
+
 
 def execute_job_with_vllm(job_id, prompt, model):
     """Execute job using vLLM"""
@@ -270,23 +255,24 @@ def execute_job_with_vllm(job_id, prompt, model):
             "output": output,
             "model": model,
             "tokens_processed": len(outputs[0].outputs[0].token_ids),
-            "execution_time": execution_time
+            "execution_time": execution_time,
         }
     except Exception as e:
         raise Exception("vLLM error: %s" % e)
 
+
 def execute_job(job, available_models, backend):
     """Execute a job using real GPU resources"""
-    job_id = job.get('job_id')
-    payload = job.get('payload', {})
+    job_id = job.get("job_id")
+    payload = job.get("payload", {})
 
     logger.info("Executing job %s with backend: %s", job_id, backend)
 
     try:
-        if payload.get('type') == 'inference':
+        if payload.get("type") == "inference":
             # Get the prompt and model
-            prompt = payload.get('prompt', '')
-            model = payload.get('model', 'llama3.2:latest')
+            prompt = payload.get("prompt", "")
+            model = payload.get("model", "llama3.2:latest")
 
             # Convert Ollama model name to vLLM format if needed
             if backend == "vllm":
@@ -312,60 +298,46 @@ def execute_job(job, available_models, backend):
             gpu_after = get_gpu_info()
 
             # Submit result back to coordinator
-            submit_result(job_id, {
-                "result": {
-                    "status": "completed",
-                    "output": result["output"],
-                    "model": result["model"],
-                    "tokens_processed": result["tokens_processed"],
-                    "execution_time": result["execution_time"],
-                    "gpu_used": True,
-                    "backend": backend
+            submit_result(
+                job_id,
+                {
+                    "result": {
+                        "status": "completed",
+                        "output": result["output"],
+                        "model": result["model"],
+                        "tokens_processed": result["tokens_processed"],
+                        "execution_time": result["execution_time"],
+                        "gpu_used": True,
+                        "backend": backend,
+                    },
+                    "metrics": {
+                        "gpu_utilization": gpu_after["utilization"] if gpu_after else 0,
+                        "memory_used": gpu_after["memory_used"] if gpu_after else 0,
+                        "memory_peak": max(gpu_after["memory_used"] if gpu_after else 0, 2048),
+                    },
                 },
-                "metrics": {
-                    "gpu_utilization": gpu_after["utilization"] if gpu_after else 0,
-                    "memory_used": gpu_after["memory_used"] if gpu_after else 0,
-                    "memory_peak": max(gpu_after["memory_used"] if gpu_after else 0, 2048)
-                }
-            })
+            )
 
-            logger.info("Job %s completed in %.2fs", job_id, result['execution_time'])
+            logger.info("Job %s completed in %.2fs", job_id, result["execution_time"])
             return True
         else:
             # Unsupported job type
-            logger.error("Unsupported job type: %s", payload.get('type'))
-            submit_result(job_id, {
-                "result": {
-                    "status": "failed",
-                    "error": "Unsupported job type: %s" % payload.get('type')
-                }
-            })
+            logger.error("Unsupported job type: %s", payload.get("type"))
+            submit_result(job_id, {"result": {"status": "failed", "error": "Unsupported job type: %s" % payload.get("type")}})
             return False
 
     except Exception as e:
         logger.error("Job execution error: %s", e)
-        submit_result(job_id, {
-            "result": {
-                "status": "failed",
-                "error": str(e)
-            }
-        })
+        submit_result(job_id, {"result": {"status": "failed", "error": str(e)}})
         return False
+
 
 def submit_result(job_id, result):
     """Submit job result to coordinator"""
-    headers = {
-        "X-Api-Key": AUTH_TOKEN,
-        "Content-Type": "application/json"
-    }
+    headers = {"X-Api-Key": AUTH_TOKEN, "Content-Type": "application/json"}
 
     try:
-        response = httpx.post(
-            f"{COORDINATOR_URL}/v1/miners/{job_id}/result",
-            json=result,
-            headers=headers,
-            timeout=10
-        )
+        response = httpx.post(f"{COORDINATOR_URL}/v1/miners/{job_id}/result", json=result, headers=headers, timeout=10)
 
         if response.status_code == 200:
             logger.info("Result submitted for job %s", job_id)
@@ -375,24 +347,15 @@ def submit_result(job_id, result):
     except Exception as e:
         logger.error("Result submission error: %s", e)
 
+
 def poll_for_jobs():
     """Poll for available jobs"""
-    poll_data = {
-        "max_wait_seconds": 5
-    }
+    poll_data = {"max_wait_seconds": 5}
 
-    headers = {
-        "X-Api-Key": AUTH_TOKEN,
-        "Content-Type": "application/json"
-    }
+    headers = {"X-Api-Key": AUTH_TOKEN, "Content-Type": "application/json"}
 
     try:
-        response = httpx.post(
-            f"{COORDINATOR_URL}/v1/miners/poll",
-            json=poll_data,
-            headers=headers,
-            timeout=10
-        )
+        response = httpx.post(f"{COORDINATOR_URL}/v1/miners/poll", json=poll_data, headers=headers, timeout=10)
 
         if response.status_code == 200:
             job = response.json()
@@ -408,6 +371,7 @@ def poll_for_jobs():
         logger.error("Error polling for jobs: %s", e)
         return None
 
+
 def main():
     """Main miner loop"""
     logger.info("Starting Real GPU Miner Client on Host...")
@@ -418,7 +382,7 @@ def main():
         logger.error("GPU not available, exiting")
         sys.exit(1)
 
-    logger.info("GPU detected: %s (%sMB)", gpu_info['name'], gpu_info['memory_total'])
+    logger.info("GPU detected: %s (%sMB)", gpu_info["name"], gpu_info["memory_total"])
 
     # Detect inference backend
     backend, models = detect_inference_backend()
@@ -427,7 +391,7 @@ def main():
         sys.exit(1)
 
     logger.info("Using inference backend: %s", backend)
-    logger.info("Available models: %s", ', '.join(models))
+    logger.info("Available models: %s", ", ".join(models))
 
     # Wait for coordinator
     if not wait_for_coordinator():
@@ -469,6 +433,7 @@ def main():
     except Exception as e:
         logger.error("Error in main loop: %s", e)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

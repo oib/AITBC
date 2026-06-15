@@ -17,12 +17,7 @@ class TestDependencySecurity:
     def test_safety_check_command(self):
         """Test that safety command can be executed"""
         try:
-            result = subprocess.run(
-                ["safety", "--version"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
+            result = subprocess.run(["safety", "--version"], capture_output=True, text=True, timeout=10)
             # If safety is installed, it should return version info
             assert result.returncode == 0 or "command not found" not in result.stderr
         except FileNotFoundError:
@@ -31,12 +26,7 @@ class TestDependencySecurity:
     def test_pip_audit_command(self):
         """Test that pip-audit command can be executed"""
         try:
-            result = subprocess.run(
-                ["pip-audit", "--version"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
+            result = subprocess.run(["pip-audit", "--version"], capture_output=True, text=True, timeout=10)
             # If pip-audit is installed, it should return version info
             assert result.returncode == 0 or "command not found" not in result.stderr
         except FileNotFoundError:
@@ -134,7 +124,7 @@ class TestSecurityReportGeneration:
                 "affected_versions": "<2.25.0",
                 "installed_version": "2.24.0",
                 "vulnerability": "CVE-2021-12345",
-                "advisory": "Security vulnerability in requests"
+                "advisory": "Security vulnerability in requests",
             }
         ]
 
@@ -155,12 +145,8 @@ class TestSecurityReportGeneration:
                     "name": "requests",
                     "version": "2.24.0",
                     "vulnerabilities": [
-                        {
-                            "id": "CVE-2021-12345",
-                            "fix_versions": ["2.25.0"],
-                            "advisory": "Security vulnerability"
-                        }
-                    ]
+                        {"id": "CVE-2021-12345", "fix_versions": ["2.25.0"], "advisory": "Security vulnerability"}
+                    ],
                 }
             ]
         }
@@ -185,39 +171,23 @@ class TestSecurityReportGeneration:
 class TestSecurityIntegration:
     """Test security tool integration"""
 
-    @pytest.mark.skipif(
-        not os.path.exists("venv"),
-        reason="Virtual environment not found"
-    )
+    @pytest.mark.skipif(not os.path.exists("venv"), reason="Virtual environment not found")
     def test_safety_in_venv(self):
         """Test that safety is available in the virtual environment"""
         if not os.path.exists("./venv/bin/safety"):
             pytest.skip("safety not installed in venv")
 
-        result = subprocess.run(
-            ["./venv/bin/safety", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
+        subprocess.run(["./venv/bin/safety", "--version"], capture_output=True, text=True, timeout=10)
         # Should either succeed or fail gracefully
         assert True  # If we get here, safety is at least available to try
 
-    @pytest.mark.skipif(
-        not os.path.exists("venv"),
-        reason="Virtual environment not found"
-    )
+    @pytest.mark.skipif(not os.path.exists("venv"), reason="Virtual environment not found")
     def test_pip_audit_in_venv(self):
         """Test that pip-audit is available in the virtual environment"""
         if not os.path.exists("./venv/bin/pip-audit"):
             pytest.skip("pip-audit not installed in venv")
 
-        result = subprocess.run(
-            ["./venv/bin/pip-audit", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
+        subprocess.run(["./venv/bin/pip-audit", "--version"], capture_output=True, text=True, timeout=10)
         # Should either succeed or fail gracefully
         assert True  # If we get here, pip-audit is at least available to try
 
@@ -227,12 +197,7 @@ class TestVulnerabilityScenarios:
 
     def test_critical_vulnerability_response(self):
         """Test response to critical vulnerabilities"""
-        mock_vuln = {
-            "severity": "critical",
-            "cvss_score": 9.5,
-            "package": "requests",
-            "version": "2.24.0"
-        }
+        mock_vuln = {"severity": "critical", "cvss_score": 9.5, "package": "requests", "version": "2.24.0"}
 
         # Critical vulnerabilities should trigger immediate action
         assert mock_vuln["cvss_score"] >= 9.0
@@ -240,12 +205,7 @@ class TestVulnerabilityScenarios:
 
     def test_high_vulnerability_response(self):
         """Test response to high vulnerabilities"""
-        mock_vuln = {
-            "severity": "high",
-            "cvss_score": 7.5,
-            "package": "flask",
-            "version": "1.0.0"
-        }
+        mock_vuln = {"severity": "high", "cvss_score": 7.5, "package": "flask", "version": "1.0.0"}
 
         # High vulnerabilities should trigger action within 72 hours
         assert 7.0 <= mock_vuln["cvss_score"] < 9.0
@@ -253,12 +213,7 @@ class TestVulnerabilityScenarios:
 
     def test_medium_vulnerability_response(self):
         """Test response to medium vulnerabilities"""
-        mock_vuln = {
-            "severity": "medium",
-            "cvss_score": 5.5,
-            "package": "jinja2",
-            "version": "2.0.0"
-        }
+        mock_vuln = {"severity": "medium", "cvss_score": 5.5, "package": "jinja2", "version": "2.0.0"}
 
         # Medium vulnerabilities can be scheduled
         assert 4.0 <= mock_vuln["cvss_score"] < 7.0

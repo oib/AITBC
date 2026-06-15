@@ -39,10 +39,7 @@ class TestEvent:
 
     def test_event_creation(self):
         """Test Event creation"""
-        event = Event(
-            event_type="test_event",
-            data={"key": "value"}
-        )
+        event = Event(event_type="test_event", data={"key": "value"})
         assert event.event_type == "test_event"
         assert event.data == {"key": "value"}
         assert event.timestamp is not None
@@ -51,29 +48,17 @@ class TestEvent:
     def test_event_with_timestamp(self):
         """Test Event with custom timestamp"""
         timestamp = datetime.now(UTC)
-        event = Event(
-            event_type="test_event",
-            data={},
-            timestamp=timestamp
-        )
+        event = Event(event_type="test_event", data={}, timestamp=timestamp)
         assert event.timestamp == timestamp
 
     def test_event_with_priority(self):
         """Test Event with custom priority"""
-        event = Event(
-            event_type="test_event",
-            data={},
-            priority=EventPriority.HIGH
-        )
+        event = Event(event_type="test_event", data={}, priority=EventPriority.HIGH)
         assert event.priority == EventPriority.HIGH
 
     def test_event_with_source(self):
         """Test Event with source"""
-        event = Event(
-            event_type="test_event",
-            data={},
-            source="test_source"
-        )
+        event = Event(event_type="test_event", data={}, source="test_source")
         assert event.source == "test_source"
 
 
@@ -300,6 +285,7 @@ class TestEventHandlerDecorator:
 
     def test_event_handler_global_bus(self):
         """Test event_handler with global bus"""
+
         @event_handler("test_event")
         def handler(event):
             pass
@@ -459,6 +445,7 @@ class TestEventAggregator:
 
         # Wait for expiration
         import time
+
         time.sleep(0.1)
 
         result = agg.get_aggregated_events()

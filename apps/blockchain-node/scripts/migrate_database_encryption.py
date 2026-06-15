@@ -29,7 +29,7 @@ def encrypt_database(
     dry_run: bool = False,
 ) -> None:
     """Encrypt a database file.
-    
+
     Args:
         db_path: Path to the database file.
         key_path: Path to the encryption key file.
@@ -48,7 +48,7 @@ def encrypt_database(
         sys.exit(1)
 
     if backup:
-        backup_path = db_path.with_suffix('.db.backup')
+        backup_path = db_path.with_suffix(".db.backup")
         if dry_run:
             print(f"[DRY RUN] Would create backup: {backup_path}")
         else:
@@ -63,7 +63,7 @@ def encrypt_database(
         print(f"[DRY RUN] Key file exists: {key_path.exists()}")
     else:
         encryptor = DatabaseEncryptor(key)
-        encrypted_path = db_path.with_suffix('.db.encrypted')
+        encrypted_path = db_path.with_suffix(".db.encrypted")
         encryptor.encrypt_file(db_path, encrypted_path)
 
         # Replace original with encrypted
@@ -80,7 +80,7 @@ def decrypt_database(
     dry_run: bool = False,
 ) -> None:
     """Decrypt an encrypted database file.
-    
+
     Args:
         db_path: Path to the encrypted database file.
         key_path: Path to the encryption key file.
@@ -104,7 +104,7 @@ def decrypt_database(
         sys.exit(1)
 
     if backup:
-        backup_path = db_path.with_suffix('.db.encrypted.backup')
+        backup_path = db_path.with_suffix(".db.encrypted.backup")
         if dry_run:
             print(f"[DRY RUN] Would create backup: {backup_path}")
         else:
@@ -119,7 +119,7 @@ def decrypt_database(
         sys.exit(1)
 
     if output_path is None:
-        output_path = db_path.with_suffix('').with_suffix('.db')
+        output_path = db_path.with_suffix("").with_suffix(".db")
 
     if dry_run:
         print(f"[DRY RUN] Would decrypt {db_path} to {output_path}")
@@ -128,7 +128,7 @@ def decrypt_database(
         encryptor.decrypt_file(db_path, output_path)
 
         # Replace original with decrypted if output_path is derived from db_path
-        if str(output_path) == str(db_path.with_suffix('').with_suffix('.db')):
+        if str(output_path) == str(db_path.with_suffix("").with_suffix(".db")):
             output_path.replace(db_path)
             print(f"Database decrypted successfully: {db_path}")
         else:
@@ -138,7 +138,7 @@ def decrypt_database(
 
 def generate_key(key_path: Path, dry_run: bool = False) -> None:
     """Generate a new encryption key.
-    
+
     Args:
         key_path: Path where the key should be saved.
         dry_run: If True, only print what would be done without executing.
@@ -156,7 +156,7 @@ def generate_key(key_path: Path, dry_run: bool = False) -> None:
 
 def check_encryption(db_path: Path) -> None:
     """Check if a database is encrypted.
-    
+
     Args:
         db_path: Path to the database file.
     """
@@ -173,66 +173,36 @@ def check_encryption(db_path: Path) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Database encryption migration tool for AITBC blockchain node"
-    )
+    parser = argparse.ArgumentParser(description="Database encryption migration tool for AITBC blockchain node")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Encrypt command
     encrypt_parser = subparsers.add_parser("encrypt", help="Encrypt a database file")
-    encrypt_parser.add_argument(
-        "--db-path",
-        type=Path,
-        required=True,
-        help="Path to the database file"
-    )
+    encrypt_parser.add_argument("--db-path", type=Path, required=True, help="Path to the database file")
     encrypt_parser.add_argument(
         "--key-path",
         type=Path,
         default=Path("/etc/aitbc/secrets/db_encryption.key"),
-        help="Path to the encryption key file (default: /etc/aitbc/secrets/db_encryption.key)"
+        help="Path to the encryption key file (default: /etc/aitbc/secrets/db_encryption.key)",
     )
-    encrypt_parser.add_argument(
-        "--no-backup",
-        action="store_true",
-        help="Skip creating a backup before encryption"
-    )
-    encrypt_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print what would be done without executing"
-    )
+    encrypt_parser.add_argument("--no-backup", action="store_true", help="Skip creating a backup before encryption")
+    encrypt_parser.add_argument("--dry-run", action="store_true", help="Print what would be done without executing")
 
     # Decrypt command
     decrypt_parser = subparsers.add_parser("decrypt", help="Decrypt an encrypted database file")
-    decrypt_parser.add_argument(
-        "--db-path",
-        type=Path,
-        required=True,
-        help="Path to the encrypted database file"
-    )
+    decrypt_parser.add_argument("--db-path", type=Path, required=True, help="Path to the encrypted database file")
     decrypt_parser.add_argument(
         "--key-path",
         type=Path,
         default=Path("/etc/aitbc/secrets/db_encryption.key"),
-        help="Path to the encryption key file (default: /etc/aitbc/secrets/db_encryption.key)"
+        help="Path to the encryption key file (default: /etc/aitbc/secrets/db_encryption.key)",
     )
     decrypt_parser.add_argument(
-        "--output-path",
-        type=Path,
-        help="Output path for decrypted database (default: replaces original)"
+        "--output-path", type=Path, help="Output path for decrypted database (default: replaces original)"
     )
-    decrypt_parser.add_argument(
-        "--no-backup",
-        action="store_true",
-        help="Skip creating a backup before decryption"
-    )
-    decrypt_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print what would be done without executing"
-    )
+    decrypt_parser.add_argument("--no-backup", action="store_true", help="Skip creating a backup before decryption")
+    decrypt_parser.add_argument("--dry-run", action="store_true", help="Print what would be done without executing")
 
     # Generate key command
     generate_parser = subparsers.add_parser("generate-key", help="Generate a new encryption key")
@@ -240,22 +210,13 @@ def main():
         "--key-path",
         type=Path,
         default=Path("/etc/aitbc/secrets/db_encryption.key"),
-        help="Path where the key should be saved (default: /etc/aitbc/secrets/db_encryption.key)"
+        help="Path where the key should be saved (default: /etc/aitbc/secrets/db_encryption.key)",
     )
-    generate_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print what would be done without executing"
-    )
+    generate_parser.add_argument("--dry-run", action="store_true", help="Print what would be done without executing")
 
     # Check command
     check_parser = subparsers.add_parser("check", help="Check if a database is encrypted")
-    check_parser.add_argument(
-        "--db-path",
-        type=Path,
-        required=True,
-        help="Path to the database file"
-    )
+    check_parser.add_argument("--db-path", type=Path, required=True, help="Path to the database file")
 
     args = parser.parse_args()
 

@@ -1,6 +1,5 @@
 """Extended Agent SDK operations using CLI commands"""
 
-
 from aitbc.aitbc_logging import get_logger
 
 from .command_executor import CommandExecutor
@@ -22,7 +21,7 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("job_id", "")
             else:
-                logger.error("AI submit failed: %s", result.get('error'))
+                logger.error("AI submit failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("submit_ai_test failed: %s", e)
@@ -39,7 +38,7 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("listings", [])
             else:
-                logger.error("GPU list failed: %s", result.get('error'))
+                logger.error("GPU list failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("list_gpu failed: %s", e)
@@ -53,7 +52,7 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("swarm_id", "")
             else:
-                logger.error("Swarm create failed: %s", result.get('error'))
+                logger.error("Swarm create failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("create_swarm failed: %s", e)
@@ -69,7 +68,7 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("stake_id", "")
             else:
-                logger.error("Staking add failed: %s", result.get('error'))
+                logger.error("Staking add failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("add_stake failed: %s", e)
@@ -83,7 +82,7 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("bridge_id", "")
             else:
-                logger.error("Island bridge create failed: %s", result.get('error'))
+                logger.error("Island bridge create failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("create_island_bridge failed: %s", e)
@@ -97,7 +96,7 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("transfer_id", "")
             else:
-                logger.error("Bridge transfer failed: %s", result.get('error'))
+                logger.error("Bridge transfer failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("execute_bridge_transfer failed: %s", e)
@@ -113,7 +112,7 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("database_id", "")
             else:
-                logger.error("Database create failed: %s", result.get('error'))
+                logger.error("Database create failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("create_database failed: %s", e)
@@ -127,7 +126,7 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("results", [])
             else:
-                logger.error("Database query failed: %s", result.get('error'))
+                logger.error("Database query failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("query_database failed: %s", e)
@@ -141,7 +140,7 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"].get("job_id", "")
             else:
-                logger.error("Training submit failed: %s", result.get('error'))
+                logger.error("Training submit failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("submit_training_job failed: %s", e)
@@ -155,7 +154,7 @@ class ExtendedOperations:
             if result["success"]:
                 return result["data"]
             else:
-                logger.error("Analytics query failed: %s", result.get('error'))
+                logger.error("Analytics query failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("query_analytics failed: %s", e)

@@ -101,7 +101,7 @@ class TestService:
             average_rating=4.5,
             rating_count=8,
             listed_at=now,
-            last_updated=now
+            last_updated=now,
         )
 
         assert service.id == "service_123"
@@ -150,7 +150,7 @@ class TestService:
             requirements=["dataset", "clear_objectives"],
             pricing_model="hourly",
             estimated_duration=5,
-            availability={"monday": True, "tuesday": True}
+            availability={"monday": True, "tuesday": True},
         )
 
         assert service.guild_id == "guild_123"

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 @dataclass
 class ChainConfig:
     """Configuration for a blockchain network"""
+
     chain_id: str
     name: str
     rpc_url: str
@@ -35,7 +36,7 @@ class ChainRegistry:
             rpc_url="http://localhost:8025",
             explorer_url="http://localhost:8026",
             is_testnet=True,
-            native_currency="AITBC"
+            native_currency="AITBC",
         )
 
         # AITBC Testnet
@@ -45,7 +46,7 @@ class ChainRegistry:
             rpc_url="http://localhost:8027",
             explorer_url="http://localhost:8028",
             is_testnet=True,
-            native_currency="AITBC"
+            native_currency="AITBC",
         )
 
     def get_chain(self, chain_id: str) -> ChainConfig | None:
@@ -62,19 +63,11 @@ class ChainRegistry:
 
     def get_testnet_chains(self) -> dict[str, ChainConfig]:
         """Get all testnet chains"""
-        return {
-            chain_id: config
-            for chain_id, config in self.chains.items()
-            if config.is_testnet
-        }
+        return {chain_id: config for chain_id, config in self.chains.items() if config.is_testnet}
 
     def get_mainnet_chains(self) -> dict[str, ChainConfig]:
         """Get all mainnet chains"""
-        return {
-            chain_id: config
-            for chain_id, config in self.chains.items()
-            if not config.is_testnet
-        }
+        return {chain_id: config for chain_id, config in self.chains.items() if not config.is_testnet}
 
     def register_chain(self, chain_id: str, config: ChainConfig) -> None:
         """Register a new chain configuration"""
@@ -107,8 +100,8 @@ class ChainRegistry:
                         rpc_url=value,
                         explorer_url=explorer_url,
                         is_testnet=is_testnet,
-                        native_currency=native_currency
-                    )
+                        native_currency=native_currency,
+                    ),
                 )
 
 

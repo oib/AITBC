@@ -197,11 +197,13 @@ class TestHelpers:
     def test_wait_for_condition_true(self):
         """Test wait_for_condition when condition becomes true"""
         condition_met = [False]
+
         def set_condition():
             condition_met[0] = True
             return True
 
         import threading
+
         t = threading.Timer(0.1, set_condition)
         t.start()
 
@@ -215,6 +217,7 @@ class TestHelpers:
 
     def test_measure_execution_time(self):
         """Test measure_execution_time"""
+
         def test_func():
             return 42
 
@@ -232,9 +235,9 @@ class TestHelpers:
     def test_cleanup_test_files(self):
         """Test cleanup_test_files"""
         # Create some test files
-        for i in range(3):
+        for _i in range(3):
             path = AITBCTestHelpers.generate_test_file_path(".tmp")
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 f.write("test")
 
         count = AITBCTestHelpers.cleanup_test_files("test_")
@@ -467,6 +470,7 @@ class TestMockCache:
         cache.set("key1", "value1")
 
         import time
+
         time.sleep(1.1)
 
         assert cache.get("key1") is None
@@ -478,6 +482,7 @@ class TestMockAsyncCall:
     @pytest.mark.asyncio
     async def test_mock_async_call_no_delay(self):
         """Test mock_async_call without delay"""
+
         @mock_async_call(return_value=42, delay=0)
         async def test_func():
             return 0
@@ -488,11 +493,13 @@ class TestMockAsyncCall:
     @pytest.mark.asyncio
     async def test_mock_async_call_with_delay(self):
         """Test mock_async_call with delay"""
+
         @mock_async_call(return_value=42, delay=0.1)
         async def test_func():
             return 0
 
         import time
+
         start = time.time()
         result = await test_func()
         elapsed = time.time() - start
@@ -524,6 +531,7 @@ class TestCreateTestScenario:
 
     def test_create_test_scenario_success(self):
         """Test create_test_scenario with successful steps"""
+
         def step1():
             return "result1"
 
@@ -539,6 +547,7 @@ class TestCreateTestScenario:
 
     def test_create_test_scenario_failure(self):
         """Test create_test_scenario with failing step"""
+
         def step1():
             return "result1"
 

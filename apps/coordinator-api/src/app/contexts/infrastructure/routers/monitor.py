@@ -1,6 +1,5 @@
 """Monitor router for AITBC Coordinator API."""
 
-
 from fastapi import APIRouter, Request
 
 from aitbc.rate_limiting import rate_limit
@@ -14,17 +13,9 @@ async def get_dashboard(request: Request) -> None:
     """Get monitoring dashboard data."""
     return {  # type: ignore[return-value]
         "overall_status": "operational",
-        "services": {
-            "coordinator": "online",
-            "exchange": "online",
-            "blockchain": "online"
-        },
-        "metrics": {
-            "active_agents": 0,
-            "active_jobs": 0,
-            "total_jobs": 0
-        },
-        "alerts": []
+        "services": {"coordinator": "online", "exchange": "online", "blockchain": "online"},
+        "metrics": {"active_agents": 0, "active_jobs": 0, "total_jobs": 0},
+        "alerts": [],
     }
 
 
@@ -36,7 +27,7 @@ async def get_status(request: Request) -> None:
         "status": "online",
         "version": "1.0.0",
         "uptime": 3600,
-        "timestamp": "2026-05-08T12:00:00Z"
+        "timestamp": "2026-05-08T12:00:00Z",
     }
 
 

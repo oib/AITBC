@@ -14,27 +14,34 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 # Mock missing dependencies
-sys.modules['aitbc_crypto'] = Mock()
-sys.modules['slowapi'] = Mock()
-sys.modules['slowapi.util'] = Mock()
-sys.modules['slowapi.limiter'] = Mock()
+sys.modules["aitbc_crypto"] = Mock()
+sys.modules["slowapi"] = Mock()
+sys.modules["slowapi.util"] = Mock()
+sys.modules["slowapi.limiter"] = Mock()
+
 
 # Mock aitbc_crypto functions
 def mock_encrypt_data(data, key):
     return f"encrypted_{data}"
+
+
 def mock_decrypt_data(data, key):
     return data.replace("encrypted_", "")
+
+
 def mock_generate_viewing_key():
     return "test_viewing_key"
 
-sys.modules['aitbc_crypto'].encrypt_data = mock_encrypt_data
-sys.modules['aitbc_crypto'].decrypt_data = mock_decrypt_data
-sys.modules['aitbc_crypto'].generate_viewing_key = mock_generate_viewing_key
+
+sys.modules["aitbc_crypto"].encrypt_data = mock_encrypt_data
+sys.modules["aitbc_crypto"].decrypt_data = mock_decrypt_data
+sys.modules["aitbc_crypto"].generate_viewing_key = mock_generate_viewing_key
 
 try:
     from aitbc_crypto import decrypt_data, encrypt_data, generate_viewing_key
     from app.models.confidential import ConfidentialTransaction, ViewingKey
     from app.services.confidential_service import ConfidentialTransactionService
+
     CONFIDENTIAL_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Confidential transaction modules not available: {e}")
@@ -149,15 +156,11 @@ class TestConfidentialTransactionSecurity:
         )
 
         # Test permission enforcement
-        with patch.object(
-            confidential_service, "decrypt_with_viewing_key"
-        ) as mock_decrypt:
+        with patch.object(confidential_service, "decrypt_with_viewing_key") as mock_decrypt:
             mock_decrypt.return_value = {"amount": 1000}
 
             # Should succeed with valid permission
-            result = confidential_service.view_transaction(
-                tx.id, viewing_key.id, fields=["amount"]
-            )
+            result = confidential_service.view_transaction(tx.id, viewing_key.id, fields=["amount"])
             assert "amount" in result
 
             # Should fail with invalid permission
@@ -175,9 +178,7 @@ class TestConfidentialTransactionSecurity:
         new_key = x25519.X25519PrivateKey.generate()
 
         # Test key rotation process
-        rotation_result = confidential_service.rotate_keys(
-            transaction_id="tx-123", old_key=old_key, new_key=new_key
-        )
+        rotation_result = confidential_service.rotate_keys(transaction_id="tx-123", old_key=old_key, new_key=new_key)
 
         assert rotation_result["success"] is True
         assert "new_ciphertext" in rotation_result
@@ -215,9 +216,7 @@ class TestConfidentialTransactionSecurity:
 
         # Try to replay with same nonce
         with pytest.raises(ValueError, match="nonce already used"):
-            confidential_service.validate_transaction_nonce(
-                transaction["nonce"], transaction["sender"]
-            )
+            confidential_service.validate_transaction_nonce(transaction["nonce"], transaction["sender"])
 
     def test_side_channel_resistance(self, confidential_service):
         """Test resistance to timing attacks"""
@@ -287,9 +286,7 @@ class TestConfidentialTransactionSecurity:
         with patch("apps.zk_circuits.verify_proof") as mock_verify:
             mock_verify.return_value = True
 
-            is_valid = mock_verify(
-                proof=proof_data["proof"], inputs=proof_data["inputs"]
-            )
+            is_valid = mock_verify(proof=proof_data["proof"], inputs=proof_data["inputs"])
 
             assert is_valid is True
 
@@ -335,23 +332,17 @@ class TestConfidentialTransactionSecurity:
         mock_hsm.sign_data.return_value = {"signature": "hsm-signature"}
         mock_hsm.encrypt.return_value = {"ciphertext": "hsm-encrypted"}
 
-        with patch(
-            "apps.coordinator_api.src.app.services.hsm_service.HSMClient"
-        ) as mock_client:
+        with patch("apps.coordinator_api.src.app.services.hsm_service.HSMClient") as mock_client:
             mock_client.return_value = mock_hsm
 
             hsm_service = HSMService()
 
             # Test key generation
-            key_result = hsm_service.generate_key(
-                key_type="encryption", purpose="confidential_tx"
-            )
+            key_result = hsm_service.generate_key(key_type="encryption", purpose="confidential_tx")
             assert key_result["key_id"] == "hsm-key-123"
 
             # Test signing
-            sign_result = hsm_service.sign_data(
-                key_id="hsm-key-123", data="transaction_data"
-            )
+            sign_result = hsm_service.sign_data(key_id="hsm-key-123", data="transaction_data")
             assert "signature" in sign_result
 
             # Verify HSM was called
@@ -393,7 +384,7 @@ class TestConfidentialTransactionSecurity:
         """Test forward secrecy of confidential transactions"""
         # Generate ephemeral keys
         ephemeral_private = x25519.X25519PrivateKey.generate()
-        ephemeral_public = ephemeral_private.public_key()
+        ephemeral_private.public_key()
 
         receiver_private = x25519.X25519PrivateKey.generate()
         receiver_public = receiver_private.public_key()
@@ -447,14 +438,10 @@ class TestConfidentialTransactionSecurity:
         assert "fake_key" in result
 
         # Can reveal either message depending on key provided
-        real_decrypted = deniable.decrypt(
-            ciphertext=result["ciphertext"], key=result["real_key"]
-        )
+        real_decrypted = deniable.decrypt(ciphertext=result["ciphertext"], key=result["real_key"])
         assert json.loads(real_decrypted) == real_message
 
-        fake_decrypted = deniable.decrypt(
-            ciphertext=result["ciphertext"], key=result["fake_key"]
-        )
+        fake_decrypted = deniable.decrypt(ciphertext=result["ciphertext"], key=result["fake_key"])
         assert json.loads(fake_decrypted) == fake_message
 
 
@@ -478,7 +465,7 @@ class TestConfidentialTransactionVulnerabilities:
 
             # Measure encryption time
             start = time.perf_counter_ns()
-            ciphertext = encrypt_data(
+            encrypt_data(
                 json.dumps(transaction),
                 x25519.X25519PrivateKey.generate(),
                 x25519.X25519PrivateKey.generate().public_key(),
@@ -581,9 +568,7 @@ class TestConfidentialTransactionVulnerabilities:
 
         # Resource usage should be consistent
         assert cpu_increase < 50, f"Excessive CPU usage: {cpu_increase}%"
-        assert memory_increase < 100 * 1024 * 1024, (
-            f"Excessive memory usage: {memory_increase} bytes"
-        )
+        assert memory_increase < 100 * 1024 * 1024, f"Excessive memory usage: {memory_increase} bytes"
 
     def test_quantum_resistance_preparation(self):
         """Test preparation for quantum-resistant cryptography"""
@@ -602,9 +587,7 @@ class TestConfidentialTransactionVulnerabilities:
 
         # Test quantum-resistant signature
         message = "confidential_transaction_hash"
-        signature = pqc.sign(
-            message=message, private_key=key_pair["private_key"], algorithm="dilithium3"
-        )
+        signature = pqc.sign(message=message, private_key=key_pair["private_key"], algorithm="dilithium3")
 
         assert "signature" in signature
         assert "algorithm" in signature
@@ -661,9 +644,7 @@ class TestConfidentialTransactionCompliance:
         }
 
         # Perform KYC/AML check
-        with patch(
-            "apps.coordinator_api.src.app.services.aml_service.check_parties"
-        ) as mock_aml:
+        with patch("apps.coordinator_api.src.app.services.aml_service.check_parties") as mock_aml:
             mock_aml.return_value = {
                 "sender_status": "cleared",
                 "receiver_status": "cleared",
@@ -713,14 +694,10 @@ class TestConfidentialTransactionCompliance:
         )
 
         # Test retention policy enforcement
-        with patch(
-            "apps.coordinator_api.src.app.services.retention_service.check_retention"
-        ) as mock_check:
+        with patch("apps.coordinator_api.src.app.services.retention_service.check_retention") as mock_check:
             mock_check.return_value = {"should_delete": True, "reason": "expired"}
 
-            deletion_result = confidential_service.enforce_retention_policy(
-                transaction_id=old_tx.id, policy_duration_days=365
-            )
+            deletion_result = confidential_service.enforce_retention_policy(transaction_id=old_tx.id, policy_duration_days=365)
 
         assert deletion_result["deleted"] is True
         assert "deletion_timestamp" in deletion_result

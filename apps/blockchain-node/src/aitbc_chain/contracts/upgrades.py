@@ -11,14 +11,19 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 def log_info(msg: str) -> None:
     logger.info(msg)
+
 
 def log_error(msg: str) -> None:
     logger.error(msg)
 
+
 def log_warn(msg: str) -> None:
     logger.warning(msg)
+
+
 from decimal import Decimal
 from enum import Enum
 
@@ -31,12 +36,14 @@ class UpgradeStatus(Enum):
     FAILED = "failed"
     ROLLED_BACK = "rolled_back"
 
+
 class UpgradeType(Enum):
     PARAMETER_CHANGE = "parameter_change"
     LOGIC_UPDATE = "logic_update"
     SECURITY_PATCH = "security_patch"
     FEATURE_ADDITION = "feature_addition"
     EMERGENCY_FIX = "emergency_fix"
+
 
 @dataclass
 class ContractVersion:
@@ -47,6 +54,7 @@ class ContractVersion:
     total_value: Decimal
     is_active: bool
     metadata: dict[str, Any]
+
 
 @dataclass
 class UpgradeProposal:
@@ -69,6 +77,7 @@ class UpgradeProposal:
     proposer: str
     executed_at: float | None
     rollback_data: dict[str, Any] | None
+
 
 class ContractUpgradeManager:
     """Manages contract upgrades and versioning"""
@@ -101,16 +110,24 @@ class ContractUpgradeManager:
         governance_addresses = [
             "0xgovernance1111111111111111111111111111111111111",
             "0xgovernance2222222222222222222222222222222222222",
-            "0xgovernance3333333333333333333333333333333333333"
+            "0xgovernance3333333333333333333333333333333333333",
         ]
 
         for address in governance_addresses:
             self.governance_addresses.add(address)
-            self.stake_weights[address] = Decimal('1000')  # Equal stake weights initially
+            self.stake_weights[address] = Decimal("1000")  # Equal stake weights initially
 
-    async def propose_upgrade(self, contract_type: str, current_version: str, new_version: str,
-                            upgrade_type: UpgradeType, description: str, changes: dict[str, Any],
-                            proposer: str, emergency: bool = False) -> tuple[bool, str, str | None]:
+    async def propose_upgrade(
+        self,
+        contract_type: str,
+        current_version: str,
+        new_version: str,
+        upgrade_type: UpgradeType,
+        description: str,
+        changes: dict[str, Any],
+        proposer: str,
+        emergency: bool = False,
+    ) -> tuple[bool, str, str | None]:
         """Propose contract upgrade"""
         try:
             # Validate inputs
@@ -132,9 +149,11 @@ class ContractUpgradeManager:
 
             # Check for existing proposal
             for proposal in self.upgrade_proposals.values():
-                if (proposal.contract_type == contract_type and
-                    proposal.new_version == new_version and
-                    proposal.status in [UpgradeStatus.PROPOSED, UpgradeStatus.APPROVED]):
+                if (
+                    proposal.contract_type == contract_type
+                    and proposal.new_version == new_version
+                    and proposal.status in [UpgradeStatus.PROPOSED, UpgradeStatus.APPROVED]
+                ):
                     return False, "Proposal for this version already exists", None
 
             # Generate proposal ID
@@ -169,7 +188,7 @@ class ContractUpgradeManager:
                 created_at=current_time,
                 proposer=proposer,
                 executed_at=None,
-                rollback_data=None
+                rollback_data=None,
             )
 
             self.upgrade_proposals[proposal_id] = proposal
@@ -186,7 +205,7 @@ class ContractUpgradeManager:
     def _validate_version_format(self, version: str) -> bool:
         """Validate semantic version format"""
         try:
-            parts = version.split('.')
+            parts = version.split(".")
             if len(parts) != 3:
                 return False
 
@@ -199,6 +218,7 @@ class ContractUpgradeManager:
     def _generate_proposal_id(self, contract_type: str, new_version: str) -> str:
         """Generate unique proposal ID"""
         import hashlib
+
         content = f"{contract_type}:{new_version}:{time.time()}"
         return hashlib.sha256(content.encode()).hexdigest()[:12]
 
@@ -224,8 +244,8 @@ class ContractUpgradeManager:
         proposal = self.upgrade_proposals[proposal_id]
 
         # Calculate voting results
-        total_stake = sum(self.stake_weights.get(voter, Decimal('0')) for voter in proposal.votes.keys())
-        yes_stake = sum(self.stake_weights.get(voter, Decimal('0')) for voter, vote in proposal.votes.items() if vote)
+        total_stake = sum(self.stake_weights.get(voter, Decimal("0")) for voter in proposal.votes.keys())
+        yes_stake = sum(self.stake_weights.get(voter, Decimal("0")) for voter, vote in proposal.votes.items() if vote)
 
         # Check minimum participation
         total_governance_stake = sum(self.stake_weights.values())
@@ -306,16 +326,20 @@ class ContractUpgradeManager:
                 self.active_versions[proposal.contract_type] = proposal.new_version
 
                 # Record in history
-                self.upgrade_history.append({
-                    'proposal_id': proposal_id,
-                    'contract_type': proposal.contract_type,
-                    'from_version': proposal.current_version,
-                    'to_version': proposal.new_version,
-                    'executed_at': proposal.executed_at,
-                    'upgrade_type': proposal.upgrade_type.value
-                })
+                self.upgrade_history.append(
+                    {
+                        "proposal_id": proposal_id,
+                        "contract_type": proposal.contract_type,
+                        "from_version": proposal.current_version,
+                        "to_version": proposal.new_version,
+                        "executed_at": proposal.executed_at,
+                        "upgrade_type": proposal.upgrade_type.value,
+                    }
+                )
 
-                log_info(f"Upgrade executed: {proposal_id} - {proposal.contract_type} {proposal.current_version} -> {proposal.new_version}")
+                log_info(
+                    f"Upgrade executed: {proposal_id} - {proposal.contract_type} {proposal.current_version} -> {proposal.new_version}"
+                )
 
                 # Start rollback window
                 asyncio.create_task(self._manage_rollback_window(proposal_id))
@@ -330,10 +354,10 @@ class ContractUpgradeManager:
     async def _prepare_rollback_data(self, proposal: UpgradeProposal) -> dict[str, Any]:
         """Prepare data for potential rollback"""
         return {
-            'previous_version': proposal.current_version,
-            'contract_state': {},  # Would capture current contract state
-            'migration_data': {},  # Would store migration data
-            'timestamp': time.time()
+            "previous_version": proposal.current_version,
+            "contract_state": {},  # Would capture current contract state
+            "migration_data": {},  # Would store migration data
+            "timestamp": time.time(),
         }
 
     async def _perform_upgrade(self, proposal: UpgradeProposal) -> bool:
@@ -354,13 +378,13 @@ class ContractUpgradeManager:
                 address=f"0x{proposal.contract_type}_{proposal.new_version}",  # New address
                 deployed_at=time.time(),
                 total_contracts=0,
-                total_value=Decimal('0'),
+                total_value=Decimal("0"),
                 is_active=True,
                 metadata={
-                    'upgrade_type': proposal.upgrade_type.value,
-                    'proposal_id': proposal.proposal_id,
-                    'changes': proposal.changes
-                }
+                    "upgrade_type": proposal.upgrade_type.value,
+                    "proposal_id": proposal.proposal_id,
+                    "changes": proposal.changes,
+                },
             )
 
             # Add to version history
@@ -472,10 +496,7 @@ class ContractUpgradeManager:
 
     async def get_proposals_by_status(self, status: UpgradeStatus) -> list[UpgradeProposal]:
         """Get proposals by status"""
-        return [
-            proposal for proposal in self.upgrade_proposals.values()
-            if proposal.status == status
-        ]
+        return [proposal for proposal in self.upgrade_proposals.values() if proposal.status == status]
 
     async def get_contract_versions(self, contract_type: str) -> list[ContractVersion]:
         """Get all versions for a contract type"""
@@ -491,11 +512,11 @@ class ContractUpgradeManager:
 
         if total_proposals == 0:
             return {
-                'total_proposals': 0,
-                'status_distribution': {},
-                'upgrade_types': {},
-                'average_execution_time': 0,
-                'success_rate': 0
+                "total_proposals": 0,
+                "status_distribution": {},
+                "upgrade_types": {},
+                "average_execution_time": 0,
+                "success_rate": 0,
             }
 
         # Status distribution
@@ -512,15 +533,12 @@ class ContractUpgradeManager:
 
         # Execution statistics
         executed_proposals = [
-            proposal for proposal in self.upgrade_proposals.values()
-            if proposal.status == UpgradeStatus.EXECUTED
+            proposal for proposal in self.upgrade_proposals.values() if proposal.status == UpgradeStatus.EXECUTED
         ]
 
         if executed_proposals:
             execution_times = [
-                proposal.executed_at - proposal.created_at
-                for proposal in executed_proposals
-                if proposal.executed_at
+                proposal.executed_at - proposal.created_at for proposal in executed_proposals if proposal.executed_at
             ]
             avg_execution_time = sum(execution_times) / len(execution_times) if execution_times else 0
         else:
@@ -531,21 +549,24 @@ class ContractUpgradeManager:
         success_rate = successful_upgrades / total_proposals if total_proposals > 0 else 0
 
         return {
-            'total_proposals': total_proposals,
-            'status_distribution': status_counts,
-            'upgrade_types': type_counts,
-            'average_execution_time': avg_execution_time,
-            'success_rate': success_rate,
-            'total_governance_addresses': len(self.governance_addresses),
-            'contract_types': len(self.contract_versions)
+            "total_proposals": total_proposals,
+            "status_distribution": status_counts,
+            "upgrade_types": type_counts,
+            "average_execution_time": avg_execution_time,
+            "success_rate": success_rate,
+            "total_governance_addresses": len(self.governance_addresses),
+            "contract_types": len(self.contract_versions),
         }
+
 
 # Global upgrade manager
 upgrade_manager: ContractUpgradeManager | None = None
 
+
 def get_upgrade_manager() -> ContractUpgradeManager | None:
     """Get global upgrade manager"""
     return upgrade_manager
+
 
 def create_upgrade_manager() -> ContractUpgradeManager:
     """Create and set global upgrade manager"""

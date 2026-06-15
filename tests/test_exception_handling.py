@@ -89,7 +89,7 @@ class TestExceptionChaining:
             base_url="http://10.255.255.1",  # Non-routable IP
             timeout=0.1,
             max_retries=0,
-            enable_logging=False
+            enable_logging=False,
         )
 
         try:
@@ -112,7 +112,7 @@ class TestExceptionChaining:
             base_url="http://10.255.255.1",  # Non-routable IP
             timeout=0.1,
             max_retries=1,
-            enable_logging=False
+            enable_logging=False,
         )
 
         try:
@@ -205,7 +205,7 @@ class TestErrorRecovery:
         with pytest.raises(ValueError) as exc_info:
             config = BaseAITBCConfig(
                 environment="production",
-                secret_key=None  # Missing required secret
+                secret_key=None,  # Missing required secret
             )
             config.validate_secrets()
 

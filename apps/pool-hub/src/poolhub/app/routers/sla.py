@@ -2,6 +2,7 @@
 SLA and Billing API Endpoints for Pool-Hub
 Provides endpoints for SLA metrics, capacity planning, and billing integration.
 """
+
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -18,7 +19,8 @@ from ..services.billing_integration import BillingIntegration  # type: ignore
 from ..services.sla_collector import SLACollector  # type: ignore
 
 logger = get_logger(__name__)
-router = APIRouter(prefix='/sla', tags=['SLA'])
+router = APIRouter(prefix="/sla", tags=["SLA"])
+
 
 class SLAMetricResponse(BaseModel):
     id: str
@@ -33,6 +35,7 @@ class SLAMetricResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class SLAViolationResponse(BaseModel):
     id: str
     miner_id: str
@@ -45,6 +48,7 @@ class SLAViolationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class CapacitySnapshotResponse(BaseModel):
     id: str
@@ -61,9 +65,11 @@ class CapacitySnapshotResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class UsageSyncRequest(BaseModel):
     miner_id: str | None = None
     hours_back: int = Field(default=24, ge=1, le=168)
+
 
 class UsageRecordRequest(BaseModel):
     tenant_id: str
@@ -73,156 +79,231 @@ class UsageRecordRequest(BaseModel):
     job_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+
 class InvoiceGenerationRequest(BaseModel):
     tenant_id: str
     period_start: datetime
     period_end: datetime
 
-def get_sla_collector(db: Session=Depends(get_db)) -> SLACollector:
+
+def get_sla_collector(db: Session = Depends(get_db)) -> SLACollector:
     return SLACollector(db)
 
-def get_billing_integration(db: Session=Depends(get_db)) -> BillingIntegration:
+
+def get_billing_integration(db: Session = Depends(get_db)) -> BillingIntegration:
     return BillingIntegration(db)
 
-@router.get('/metrics/{miner_id}', response_model=list[SLAMetricResponse])
-async def get_miner_sla_metrics(miner_id: str, hours: int=Query(default=24, ge=1, le=168), sla_collector: SLACollector=Depends(get_sla_collector)) -> list[SLAMetricResponse]:
+
+@router.get("/metrics/{miner_id}", response_model=list[SLAMetricResponse])
+async def get_miner_sla_metrics(
+    miner_id: str, hours: int = Query(default=24, ge=1, le=168), sla_collector: SLACollector = Depends(get_sla_collector)
+) -> list[SLAMetricResponse]:
     """Get SLA metrics for a specific miner"""
     try:
         metrics = await sla_collector.get_sla_metrics(miner_id=miner_id, hours=hours)
         return metrics  # type: ignore[no-any-return]
     except Exception as e:
-        logger.error('Error getting SLA metrics for miner %s: %s', miner_id, e)
+        logger.error("Error getting SLA metrics for miner %s: %s", miner_id, e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get('/metrics', response_model=list[SLAMetricResponse])
-async def get_all_sla_metrics(hours: int=Query(default=24, ge=1, le=168), sla_collector: SLACollector=Depends(get_sla_collector)) -> list[SLAMetricResponse]:
+
+@router.get("/metrics", response_model=list[SLAMetricResponse])
+async def get_all_sla_metrics(
+    hours: int = Query(default=24, ge=1, le=168), sla_collector: SLACollector = Depends(get_sla_collector)
+) -> list[SLAMetricResponse]:
     """Get SLA metrics across all miners"""
     try:
         metrics = await sla_collector.get_sla_metrics(miner_id=None, hours=hours)
         return metrics  # type: ignore[no-any-return]
     except Exception as e:
-        logger.error('Error getting SLA metrics: %s', e)
+        logger.error("Error getting SLA metrics: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get('/violations', response_model=list[SLAViolationResponse])
-async def get_sla_violations(miner_id: str | None=Query(default=None), resolved: bool=Query(default=False), db: Session=Depends(get_db)) -> list[SLAViolationResponse]:
+
+@router.get("/violations", response_model=list[SLAViolationResponse])
+async def get_sla_violations(
+    miner_id: str | None = Query(default=None), resolved: bool = Query(default=False), db: Session = Depends(get_db)
+) -> list[SLAViolationResponse]:
     """Get SLA violations"""
     try:
         sla_collector = SLACollector(db)
         violations = await sla_collector.get_sla_violations(miner_id=miner_id, resolved=resolved)
         return violations  # type: ignore[no-any-return]
     except Exception as e:
-        logger.error('Error getting SLA violations: %s', e)
+        logger.error("Error getting SLA violations: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post('/metrics/collect')
-async def collect_sla_metrics(sla_collector: SLACollector=Depends(get_sla_collector)) -> dict[str, Any]:
+
+@router.post("/metrics/collect")
+async def collect_sla_metrics(sla_collector: SLACollector = Depends(get_sla_collector)) -> dict[str, Any]:
     """Trigger SLA metrics collection for all miners"""
     try:
         results = await sla_collector.collect_all_miner_metrics()
         return results  # type: ignore[no-any-return]
     except Exception as e:
-        logger.error('Error collecting SLA metrics: %s', e)
+        logger.error("Error collecting SLA metrics: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get('/capacity/snapshots', response_model=list[CapacitySnapshotResponse])
-async def get_capacity_snapshots(hours: int=Query(default=24, ge=1, le=168), db: Session=Depends(get_db)) -> list[CapacitySnapshotResponse]:
+
+@router.get("/capacity/snapshots", response_model=list[CapacitySnapshotResponse])
+async def get_capacity_snapshots(
+    hours: int = Query(default=24, ge=1, le=168), db: Session = Depends(get_db)
+) -> list[CapacitySnapshotResponse]:
     """Get capacity planning snapshots"""
     try:
         cutoff = datetime.now(UTC) - timedelta(hours=hours)
-        stmt = db.query(CapacitySnapshot).filter(CapacitySnapshot.timestamp >= cutoff).order_by(CapacitySnapshot.timestamp.desc())
+        stmt = (
+            db.query(CapacitySnapshot).filter(CapacitySnapshot.timestamp >= cutoff).order_by(CapacitySnapshot.timestamp.desc())
+        )
         snapshots = stmt.all()
         return snapshots  # type: ignore[no-any-return]
     except Exception as e:
-        logger.error('Error getting capacity snapshots: %s', e)
+        logger.error("Error getting capacity snapshots: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get('/capacity/forecast')
-async def get_capacity_forecast(hours_ahead: int=Query(default=168, ge=1, le=8760), billing_integration: BillingIntegration=Depends(get_billing_integration)) -> dict[str, Any]:
+
+@router.get("/capacity/forecast")
+async def get_capacity_forecast(
+    hours_ahead: int = Query(default=168, ge=1, le=8760),
+    billing_integration: BillingIntegration = Depends(get_billing_integration),
+) -> dict[str, Any]:
     """Get capacity forecast from coordinator-api"""
     try:
-        return {'forecast_horizon_hours': hours_ahead, 'current_capacity': 1000, 'projected_capacity': 1500, 'recommended_scaling': '+50%', 'confidence': 0.85, 'source': 'coordinator_api'}
+        return {
+            "forecast_horizon_hours": hours_ahead,
+            "current_capacity": 1000,
+            "projected_capacity": 1500,
+            "recommended_scaling": "+50%",
+            "confidence": 0.85,
+            "source": "coordinator_api",
+        }
     except Exception as e:
-        logger.error('Error getting capacity forecast: %s', e)
+        logger.error("Error getting capacity forecast: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get('/capacity/recommendations')
-async def get_scaling_recommendations(billing_integration: BillingIntegration=Depends(get_billing_integration)) -> dict[str, Any]:
+
+@router.get("/capacity/recommendations")
+async def get_scaling_recommendations(
+    billing_integration: BillingIntegration = Depends(get_billing_integration),
+) -> dict[str, Any]:
     """Get auto-scaling recommendations from coordinator-api"""
     try:
-        return {'current_state': 'healthy', 'recommendations': [{'action': 'add_miners', 'quantity': 2, 'reason': 'Projected capacity shortage in 2 weeks', 'priority': 'medium'}], 'source': 'coordinator_api'}
+        return {
+            "current_state": "healthy",
+            "recommendations": [
+                {
+                    "action": "add_miners",
+                    "quantity": 2,
+                    "reason": "Projected capacity shortage in 2 weeks",
+                    "priority": "medium",
+                }
+            ],
+            "source": "coordinator_api",
+        }
     except Exception as e:
-        logger.error('Error getting scaling recommendations: %s', e)
+        logger.error("Error getting scaling recommendations: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post('/capacity/alerts/configure')
-async def configure_capacity_alerts(alert_config: dict[str, Any], db: Session=Depends(get_db)) -> dict[str, Any]:
+
+@router.post("/capacity/alerts/configure")
+async def configure_capacity_alerts(alert_config: dict[str, Any], db: Session = Depends(get_db)) -> dict[str, Any]:
     """Configure capacity alerts"""
     try:
-        return {'status': 'configured', 'alert_config': alert_config, 'timestamp': datetime.now(UTC).isoformat()}
+        return {"status": "configured", "alert_config": alert_config, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
-        logger.error('Error configuring capacity alerts: %s', e)
+        logger.error("Error configuring capacity alerts: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get('/billing/usage')
-async def get_billing_usage(tenant_id: str | None=Query(default=None), hours: int=Query(default=24, ge=1, le=168), billing_integration: BillingIntegration=Depends(get_billing_integration)) -> dict[str, Any]:
+
+@router.get("/billing/usage")
+async def get_billing_usage(
+    tenant_id: str | None = Query(default=None),
+    hours: int = Query(default=24, ge=1, le=168),
+    billing_integration: BillingIntegration = Depends(get_billing_integration),
+) -> dict[str, Any]:
     """Get billing usage data from coordinator-api"""
     try:
         metrics = await billing_integration.get_billing_metrics(tenant_id=tenant_id, hours=hours)
         return metrics  # type: ignore[no-any-return]
     except Exception as e:
-        logger.error('Error getting billing usage: %s', e)
+        logger.error("Error getting billing usage: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post('/billing/sync')
-async def sync_billing_usage(request: UsageSyncRequest, billing_integration: BillingIntegration=Depends(get_billing_integration)) -> dict[str, Any]:
+
+@router.post("/billing/sync")
+async def sync_billing_usage(
+    request: UsageSyncRequest, billing_integration: BillingIntegration = Depends(get_billing_integration)
+) -> dict[str, Any]:
     """Trigger billing sync with coordinator-api"""
     try:
         if request.miner_id:
             end_date = datetime.now(UTC)
             start_date = end_date - timedelta(hours=request.hours_back)
-            result = await billing_integration.sync_miner_usage(miner_id=request.miner_id, start_date=start_date, end_date=end_date)
+            result = await billing_integration.sync_miner_usage(
+                miner_id=request.miner_id, start_date=start_date, end_date=end_date
+            )
         else:
             result = await billing_integration.sync_all_miners_usage(hours_back=request.hours_back)
         return result  # type: ignore[no-any-return]
     except Exception as e:
-        logger.error('Error syncing billing usage: %s', e)
+        logger.error("Error syncing billing usage: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post('/billing/usage/record')
-async def record_usage(request: UsageRecordRequest, billing_integration: BillingIntegration=Depends(get_billing_integration)) -> dict[str, Any]:
+
+@router.post("/billing/usage/record")
+async def record_usage(
+    request: UsageRecordRequest, billing_integration: BillingIntegration = Depends(get_billing_integration)
+) -> dict[str, Any]:
     """Record a single usage event to coordinator-api billing"""
     try:
-        result = await billing_integration.record_usage(tenant_id=request.tenant_id, resource_type=request.resource_type, quantity=request.quantity, unit_price=request.unit_price, job_id=request.job_id, metadata=request.metadata)
+        result = await billing_integration.record_usage(
+            tenant_id=request.tenant_id,
+            resource_type=request.resource_type,
+            quantity=request.quantity,
+            unit_price=request.unit_price,
+            job_id=request.job_id,
+            metadata=request.metadata,
+        )
         return result  # type: ignore[no-any-return]
     except Exception as e:
-        logger.error('Error recording usage: %s', e)
+        logger.error("Error recording usage: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post('/billing/invoice/generate')
-async def generate_invoice(request: InvoiceGenerationRequest, billing_integration: BillingIntegration=Depends(get_billing_integration)) -> dict[str, Any]:
+
+@router.post("/billing/invoice/generate")
+async def generate_invoice(
+    request: InvoiceGenerationRequest, billing_integration: BillingIntegration = Depends(get_billing_integration)
+) -> dict[str, Any]:
     """Trigger invoice generation in coordinator-api"""
     try:
-        result = await billing_integration.trigger_invoice_generation(tenant_id=request.tenant_id, period_start=request.period_start, period_end=request.period_end)
+        result = await billing_integration.trigger_invoice_generation(
+            tenant_id=request.tenant_id, period_start=request.period_start, period_end=request.period_end
+        )
         return result  # type: ignore[no-any-return]
     except Exception as e:
-        logger.error('Error generating invoice: %s', e)
+        logger.error("Error generating invoice: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get('/status')
-async def get_sla_status(db: Session=Depends(get_db)) -> dict[str, Any]:
+
+@router.get("/status")
+async def get_sla_status(db: Session = Depends(get_db)) -> dict[str, Any]:
     """Get overall SLA status"""
     try:
         sla_collector = SLACollector(db)
         active_violations = await sla_collector.get_sla_violations(resolved=False)
         recent_metrics = await sla_collector.get_sla_metrics(hours=1)
-        if any(v.severity == 'critical' for v in active_violations):
-            status = 'critical'
-        elif any(v.severity == 'high' for v in active_violations):
-            status = 'degraded'
+        if any(v.severity == "critical" for v in active_violations):
+            status = "critical"
+        elif any(v.severity == "high" for v in active_violations):
+            status = "degraded"
         else:
-            status = 'healthy'
-        return {'status': status, 'active_violations': len(active_violations), 'recent_metrics_count': len(recent_metrics), 'timestamp': datetime.now(UTC).isoformat()}
+            status = "healthy"
+        return {
+            "status": status,
+            "active_violations": len(active_violations),
+            "recent_metrics_count": len(recent_metrics),
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
     except Exception as e:
-        logger.error('Error getting SLA status: %s', e)
+        logger.error("Error getting SLA status: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

@@ -20,6 +20,7 @@ _logger = get_logger(__name__)
 
 class TransactionRequest(BaseModel):
     """Transaction request model"""
+
     sender: str = Field(..., alias="from")
     recipient: str = Field(..., alias="to")
     amount: int
@@ -53,13 +54,14 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
 
     chain_id = tx_data["chain_id"]
     from .utils import get_supported_chains
+
     supported_chains = get_supported_chains()
     if not chain_id:
         raise ValueError("transaction.chain_id is required")
     if supported_chains and chain_id not in supported_chains:
         raise ValueError(f"unsupported chain_id '{chain_id}'. Supported chains: {supported_chains}")
 
-    tx_hash = compute_tx_hash(tx_data)
+    compute_tx_hash(tx_data)
 
     with session_scope() as session:
         sender_account = session.get(Account, (chain_id, tx_data["from"]))
@@ -79,9 +81,7 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
 
 
 @rate_limit(rate=50, per=60)
-async def submit_transaction(
-    request: Request, tx_data: TransactionRequest
-) -> dict[str, Any]:
+async def submit_transaction(request: Request, tx_data: TransactionRequest) -> dict[str, Any]:
     """Submit a new transaction to the mempool"""
     from ..mempool import get_mempool
 
@@ -99,7 +99,7 @@ async def submit_transaction(
             "nonce": tx_data.nonce,
             "payload": tx_data.payload,
             "type": tx_data.type,
-            "signature": tx_data.sig
+            "signature": tx_data.sig,
         }
 
         tx_data_dict = normalize_transaction_data(tx_data_dict, chain_id)
@@ -107,20 +107,14 @@ async def submit_transaction(
 
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
 
-        return {
-            "success": True,
-            "transaction_hash": tx_hash,
-            "message": "Transaction submitted to mempool"
-        }
+        return {"success": True, "transaction_hash": tx_hash, "message": "Transaction submitted to mempool"}
     except Exception as e:
         _logger.error("Failed to submit transaction", extra={"error": str(e)})
         raise HTTPException(status_code=400, detail=f"Failed to submit transaction: {str(e)}")
 
 
 @rate_limit(rate=200, per=60)
-async def get_mempool(
-    request: Request, chain_id: str | None = None, limit: int = 100
-) -> dict[str, Any]:
+async def get_mempool(request: Request, chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
     """Get pending transactions from mempool"""
     from ..mempool import get_mempool
 
@@ -129,20 +123,14 @@ async def get_mempool(
         chain_id_arg = chain_id if chain_id else ""
         pending_txs = mempool.get_pending_transactions(chain_id=chain_id_arg, limit=limit)
 
-        return {
-            "success": True,
-            "transactions": pending_txs,
-            "count": len(pending_txs)
-        }
+        return {"success": True, "transactions": pending_txs, "count": len(pending_txs)}
     except Exception as e:
         _logger.error("Failed to get mempool", extra={"error": str(e)})
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get mempool: {str(e)}")
 
 
 @rate_limit(rate=50, per=60)
-async def submit_marketplace_transaction(
-    request: Request, tx_data: dict[str, Any]
-) -> dict[str, Any]:
+async def submit_marketplace_transaction(request: Request, tx_data: dict[str, Any]) -> dict[str, Any]:
     """Submit a marketplace transaction"""
     from ..mempool import get_mempool
 
@@ -164,11 +152,7 @@ async def submit_marketplace_transaction(
 
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
 
-        return {
-            "success": True,
-            "transaction_hash": tx_hash,
-            "message": "Marketplace transaction submitted to mempool"
-        }
+        return {"success": True, "transaction_hash": tx_hash, "message": "Marketplace transaction submitted to mempool"}
     except Exception as e:
         _logger.error("Failed to submit marketplace transaction", extra={"error": str(e)})
         raise HTTPException(status_code=400, detail=f"Failed to submit marketplace transaction: {str(e)}")
@@ -183,7 +167,7 @@ async def query_transactions(
     status: str | None = None,
     order_id: str | None = None,
     limit: int | None = 100,
-    chain_id: str | None = None
+    chain_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
     chain_id_arg = chain_id if chain_id else ""
@@ -198,38 +182,45 @@ async def query_transactions(
         results = []
         for tx in transactions:
             # Filter by transaction type in payload
-            if transaction_type and tx.payload.get('type') != transaction_type:
+            if transaction_type and tx.payload.get("type") != transaction_type:
                 continue
 
             # Filter by island_id in payload
-            if island_id and tx.payload.get('island_id') != island_id:
+            if island_id and tx.payload.get("island_id") != island_id:
                 continue
 
             # Filter by pair in payload
-            if pair and tx.payload.get('pair') != pair:
+            if pair and tx.payload.get("pair") != pair:
                 continue
 
             # Filter by status in payload
-            if status and tx.payload.get('status') != status:
+            if status and tx.payload.get("status") != status:
                 continue
 
             # Filter by order_id in payload
-            if order_id and tx.payload.get('order_id') != order_id and tx.payload.get('offer_id') != order_id and tx.payload.get('bid_id') != order_id:
+            if (
+                order_id
+                and tx.payload.get("order_id") != order_id
+                and tx.payload.get("offer_id") != order_id
+                and tx.payload.get("bid_id") != order_id
+            ):
                 continue
 
-            results.append({
-                "transaction_id": tx.id,
-                "tx_hash": tx.tx_hash,
-                "sender": tx.sender,
-                "recipient": tx.recipient,
-                "payload": tx.payload,
-                "status": tx.status,
-                "created_at": tx.created_at.isoformat(),
-                "timestamp": tx.timestamp,
-                "nonce": tx.nonce,
-                "value": tx.value,
-                "fee": tx.fee
-            })
+            results.append(
+                {
+                    "transaction_id": tx.id,
+                    "tx_hash": tx.tx_hash,
+                    "sender": tx.sender,
+                    "recipient": tx.recipient,
+                    "payload": tx.payload,
+                    "status": tx.status,
+                    "created_at": tx.created_at.isoformat(),
+                    "timestamp": tx.timestamp,
+                    "nonce": tx.nonce,
+                    "value": tx.value,
+                    "fee": tx.fee,
+                }
+            )
 
         # Apply limit
         if limit:

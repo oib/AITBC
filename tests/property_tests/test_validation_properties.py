@@ -85,7 +85,7 @@ class TestValidationProperties:
         """Test that valid email addresses pass validation"""
         assert validate_email(email_addr)
 
-    @given(st.text(min_size=1, max_size=50).filter(lambda x: '@' not in x))
+    @given(st.text(min_size=1, max_size=50).filter(lambda x: "@" not in x))
     @settings(max_examples=50)
     def test_validate_invalid_emails(self, text):
         """Test that invalid email addresses fail validation"""
@@ -98,7 +98,7 @@ class TestValidationProperties:
         """Test that valid AITBC addresses pass validation"""
         assert validate_address(address)
 
-    @given(st.text(min_size=1, max_size=50).filter(lambda x: not x.startswith('ait')))
+    @given(st.text(min_size=1, max_size=50).filter(lambda x: not x.startswith("ait")))
     @settings(max_examples=50)
     def test_validate_invalid_address_format(self, text):
         """Test that invalid address formats fail validation"""
@@ -124,7 +124,7 @@ class TestValidationProperties:
         """Test that valid chain IDs pass validation"""
         assert validate_chain_id(chain_id)
 
-    @given(st.text(min_size=1, max_size=50).filter(lambda x: not x.replace('-', '').isalnum() and x.replace('-', '') != ''))
+    @given(st.text(min_size=1, max_size=50).filter(lambda x: not x.replace("-", "").isalnum() and x.replace("-", "") != ""))
     @settings(max_examples=50)
     def test_validate_invalid_chain_id(self, text):
         """Test that invalid chain IDs fail validation"""
@@ -137,7 +137,7 @@ class TestValidationProperties:
         """Test that valid UUIDs pass validation"""
         assert validate_uuid(str(uuid_obj))
 
-    @given(st.text(min_size=1, max_size=50).filter(lambda x: '-' not in x))
+    @given(st.text(min_size=1, max_size=50).filter(lambda x: "-" not in x))
     @settings(max_examples=50)
     def test_validate_invalid_uuid(self, text):
         """Test that invalid UUIDs fail validation"""
@@ -150,7 +150,7 @@ class TestValidationProperties:
         """Test that valid URLs pass validation"""
         assert validate_url(url)
 
-    @given(st.text(min_size=1, max_size=50).filter(lambda x: 'http' not in x and 'https' not in x))
+    @given(st.text(min_size=1, max_size=50).filter(lambda x: "http" not in x and "https" not in x))
     @settings(max_examples=50)
     def test_validate_invalid_url(self, text):
         """Test that invalid URLs fail validation"""

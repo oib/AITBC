@@ -22,8 +22,9 @@ class TestWalletCommands:
         """Test that wallet command group exists"""
         try:
             from aitbc_cli.commands.wallet import wallet
+
             assert wallet is not None
-            assert hasattr(wallet, 'name')
+            assert hasattr(wallet, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import wallet commands: {e}")
 
@@ -31,12 +32,13 @@ class TestWalletCommands:
         """Test wallet group name"""
         try:
             from aitbc_cli.commands.wallet import wallet
+
             assert wallet.name == "wallet"
         except ImportError as e:
             pytest.skip(f"Cannot import wallet commands: {e}")
 
-    @patch('aitbc_cli.commands.wallet.output')
-    @patch('aitbc_cli.commands.wallet.error')
+    @patch("aitbc_cli.commands.wallet.output")
+    @patch("aitbc_cli.commands.wallet.error")
     def test_wallet_list_command(self, mock_error, mock_output):
         """Test wallet list command - skip due to complex config dependencies"""
         pytest.skip("Wallet commands have complex config and keystore dependencies")

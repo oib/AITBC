@@ -15,14 +15,14 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 def derive_secure_key(password: str, salt: bytes = None) -> tuple[bytes, bytes]:
     """
     Derive secure encryption key using PBKDF2 with SHA-256
-    
+
     Args:
         password: User password (required - no defaults)
         salt: Optional salt (generated if not provided)
-        
+
     Returns:
         Tuple of (fernet_key, salt)
-        
+
     Raises:
         ValueError: If password is empty or too weak
     """
@@ -48,14 +48,14 @@ def derive_secure_key(password: str, salt: bytes = None) -> tuple[bytes, bytes]:
 def encrypt_value(value: str, password: str) -> dict[str, str]:
     """
     Encrypt a value using PBKDF2 + Fernet (no more hardcoded keys)
-    
+
     Args:
         value: Value to encrypt
         password: Strong password (required)
-        
+
     Returns:
         Dict with encrypted data and metadata
-        
+
     Raises:
         ValueError: If password is too weak
     """
@@ -75,21 +75,21 @@ def encrypt_value(value: str, password: str) -> dict[str, str]:
         "salt": base64.b64encode(salt).decode(),
         "algorithm": "PBKDF2-SHA256-Fernet",
         "iterations": 600_000,
-        "version": "1.0"
+        "version": "1.0",
     }
 
 
 def decrypt_value(encrypted_data: dict[str, str] | str, password: str) -> str:
     """
     Decrypt a PBKDF2 + Fernet encrypted value
-    
+
     Args:
         encrypted_data: Dict with encrypted data or legacy string
         password: Password used for encryption
-        
+
     Returns:
         Decrypted value
-        
+
     Raises:
         ValueError: If decryption fails or password is wrong
         InvalidToken: If the encrypted data is corrupted
@@ -125,10 +125,10 @@ def decrypt_value(encrypted_data: dict[str, str] | str, password: str) -> str:
 def validate_password_strength(password: str) -> dict[str, Any]:
     """
     Validate password strength
-    
+
     Args:
         password: Password to validate
-        
+
     Returns:
         Dict with validation results
     """
@@ -170,46 +170,28 @@ def validate_password_strength(password: str) -> dict[str, Any]:
         issues.append("Avoid common passwords")
         score = 0
 
-    strength_levels = {
-        0: "Very Weak",
-        1: "Weak",
-        2: "Fair",
-        3: "Good",
-        4: "Strong",
-        5: "Very Strong",
-        6: "Excellent"
-    }
+    strength_levels = {0: "Very Weak", 1: "Weak", 2: "Fair", 3: "Good", 4: "Strong", 5: "Very Strong", 6: "Excellent"}
 
-    return {
-        "score": score,
-        "strength": strength_levels.get(score, "Unknown"),
-        "issues": issues,
-        "is_acceptable": score >= 3
-    }
+    return {"score": score, "strength": strength_levels.get(score, "Unknown"), "issues": issues, "is_acceptable": score >= 3}
 
 
 def generate_secure_password(length: int = 16) -> str:
     """
     Generate a secure random password
-    
+
     Args:
         length: Password length
-        
+
     Returns:
         Secure random password
     """
-    alphabet = (
-        "abcdefghijklmnopqrstuvwxyz"
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        "0123456789"
-        "!@#$%^&*()_+-=[]{}|;:,.<>?"
-    )
+    alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?"
 
-    password = ''.join(secrets.choice(alphabet) for _ in range(length))
+    password = "".join(secrets.choice(alphabet) for _ in range(length))
 
     # Ensure it meets minimum requirements
     while not validate_password_strength(password)["is_acceptable"]:
-        password = ''.join(secrets.choice(alphabet) for _ in range(length))
+        password = "".join(secrets.choice(alphabet) for _ in range(length))
 
     return password
 
@@ -218,14 +200,14 @@ def generate_secure_password(length: int = 16) -> str:
 def migrate_legacy_wallet(legacy_data: dict[str, Any], new_password: str) -> dict[str, Any]:
     """
     Migrate a wallet from broken encryption to secure encryption
-    
+
     Args:
         legacy_data: Legacy wallet data with broken encryption
         new_password: New strong password
-        
+
     Returns:
         Migrated wallet data
-        
+
     Raises:
         ValueError: If migration cannot be performed safely
     """
@@ -242,10 +224,7 @@ def migrate_legacy_wallet(legacy_data: dict[str, Any], new_password: str) -> dic
 
     if private_key.startswith("[ENCRYPTED_MOCK]") or private_key.startswith("["):
         # This was never actually encrypted - it's a mock
-        raise ValueError(
-            "Cannot migrate mock wallet. "
-            "Please create a new wallet with proper key generation."
-        )
+        raise ValueError("Cannot migrate mock wallet. Please create a new wallet with proper key generation.")
 
     # If we get here, we have a plaintext private key (security issue!)
     # Re-encrypt it properly
@@ -256,7 +235,7 @@ def migrate_legacy_wallet(legacy_data: dict[str, Any], new_password: str) -> dic
             **legacy_data,
             "private_key": encrypted_data,
             "encryption_version": "1.0",
-            "migration_timestamp": secrets.token_hex(16)
+            "migration_timestamp": secrets.token_hex(16),
         }
     except Exception as e:
         raise ValueError(f"Migration failed: {str(e)}")

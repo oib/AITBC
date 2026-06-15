@@ -24,7 +24,7 @@ class TestEscrowManager:
                 job_id="job_001",
                 client_address="0x1234567890123456789012345678901234567890",
                 agent_address="0x2345678901234567890123456789012345678901",
-                amount=Decimal('100.0')
+                amount=Decimal("100.0"),
             )
         )
 
@@ -37,7 +37,7 @@ class TestEscrowManager:
         assert contract.job_id == "job_001"
         assert contract.client_address == "0x1234567890123456789012345678901234567890"
         assert contract.agent_address == "0x2345678901234567890123456789012345678901"
-        assert contract.amount > Decimal('100.0')  # Includes platform fee
+        assert contract.amount > Decimal("100.0")  # Includes platform fee
         assert contract.state == EscrowState.CREATED
 
     def test_create_contract_invalid_inputs(self):
@@ -47,7 +47,7 @@ class TestEscrowManager:
                 job_id="",  # Empty job ID
                 client_address="0x1234567890123456789012345678901234567890",
                 agent_address="0x2345678901234567890123456789012345678901",
-                amount=Decimal('100.0')
+                amount=Decimal("100.0"),
             )
         )
 
@@ -58,21 +58,9 @@ class TestEscrowManager:
     def test_create_contract_with_milestones(self):
         """Test contract creation with milestones"""
         milestones = [
-            {
-                'milestone_id': 'milestone_1',
-                'description': 'Initial setup',
-                'amount': Decimal('30.0')
-            },
-            {
-                'milestone_id': 'milestone_2',
-                'description': 'Main work',
-                'amount': Decimal('50.0')
-            },
-            {
-                'milestone_id': 'milestone_3',
-                'description': 'Final delivery',
-                'amount': Decimal('20.0')
-            }
+            {"milestone_id": "milestone_1", "description": "Initial setup", "amount": Decimal("30.0")},
+            {"milestone_id": "milestone_2", "description": "Main work", "amount": Decimal("50.0")},
+            {"milestone_id": "milestone_3", "description": "Final delivery", "amount": Decimal("20.0")},
         ]
 
         success, message, contract_id = asyncio.run(
@@ -80,8 +68,8 @@ class TestEscrowManager:
                 job_id="job_002",
                 client_address="0x1234567890123456789012345678901234567890",
                 agent_address="0x2345678901234567890123456789012345678901",
-                amount=Decimal('100.0'),
-                milestones=milestones
+                amount=Decimal("100.0"),
+                milestones=milestones,
             )
         )
 
@@ -91,23 +79,19 @@ class TestEscrowManager:
         # Check milestones
         contract = asyncio.run(self.escrow_manager.get_contract_info(contract_id))
         assert len(contract.milestones) == 3
-        assert contract.milestones[0]['amount'] == Decimal('30.0')
-        assert contract.milestones[1]['amount'] == Decimal('50.0')
-        assert contract.milestones[2]['amount'] == Decimal('20.0')
+        assert contract.milestones[0]["amount"] == Decimal("30.0")
+        assert contract.milestones[1]["amount"] == Decimal("50.0")
+        assert contract.milestones[2]["amount"] == Decimal("20.0")
 
     def test_create_contract_invalid_milestones(self):
         """Test contract creation with invalid milestones"""
         milestones = [
+            {"milestone_id": "milestone_1", "description": "Setup", "amount": Decimal("30.0")},
             {
-                'milestone_id': 'milestone_1',
-                'description': 'Setup',
-                'amount': Decimal('30.0')
+                "milestone_id": "milestone_2",
+                "description": "Main work",
+                "amount": Decimal("80.0"),  # Total exceeds contract amount
             },
-            {
-                'milestone_id': 'milestone_2',
-                'description': 'Main work',
-                'amount': Decimal('80.0')  # Total exceeds contract amount
-            }
         ]
 
         success, message, contract_id = asyncio.run(
@@ -115,8 +99,8 @@ class TestEscrowManager:
                 job_id="job_003",
                 client_address="0x1234567890123456789012345678901234567890",
                 agent_address="0x2345678901234567890123456789012345678901",
-                amount=Decimal('100.0'),
-                milestones=milestones
+                amount=Decimal("100.0"),
+                milestones=milestones,
             )
         )
 
@@ -131,16 +115,14 @@ class TestEscrowManager:
                 job_id="job_004",
                 client_address="0x1234567890123456789012345678901234567890",
                 agent_address="0x2345678901234567890123456789012345678901",
-                amount=Decimal('100.0')
+                amount=Decimal("100.0"),
             )
         )
 
         assert success
 
         # Fund contract
-        success, message = asyncio.run(
-            self.escrow_manager.fund_contract(contract_id, "tx_hash_001")
-        )
+        success, message = asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
 
         assert success, f"Contract funding failed: {message}"
 
@@ -156,16 +138,14 @@ class TestEscrowManager:
                 job_id="job_005",
                 client_address="0x1234567890123456789012345678901234567890",
                 agent_address="0x2345678901234567890123456789012345678901",
-                amount=Decimal('100.0')
+                amount=Decimal("100.0"),
             )
         )
 
         asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
 
         # Try to fund again
-        success, message = asyncio.run(
-            self.escrow_manager.fund_contract(contract_id, "tx_hash_002")
-        )
+        success, message = asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_002"))
 
         assert not success
         assert "state" in message.lower()
@@ -178,7 +158,7 @@ class TestEscrowManager:
                 job_id="job_006",
                 client_address="0x1234567890123456789012345678901234567890",
                 agent_address="0x2345678901234567890123456789012345678901",
-                amount=Decimal('100.0')
+                amount=Decimal("100.0"),
             )
         )
 
@@ -196,16 +176,8 @@ class TestEscrowManager:
     def test_complete_milestone(self):
         """Test completing milestone"""
         milestones = [
-            {
-                'milestone_id': 'milestone_1',
-                'description': 'Setup',
-                'amount': Decimal('50.0')
-            },
-            {
-                'milestone_id': 'milestone_2',
-                'description': 'Delivery',
-                'amount': Decimal('50.0')
-            }
+            {"milestone_id": "milestone_1", "description": "Setup", "amount": Decimal("50.0")},
+            {"milestone_id": "milestone_2", "description": "Delivery", "amount": Decimal("50.0")},
         ]
 
         # Create contract with milestones
@@ -214,8 +186,8 @@ class TestEscrowManager:
                 job_id="job_007",
                 client_address="0x1234567890123456789012345678901234567890",
                 agent_address="0x2345678901234567890123456789012345678901",
-                amount=Decimal('100.0'),
-                milestones=milestones
+                amount=Decimal("100.0"),
+                milestones=milestones,
             )
         )
 
@@ -223,27 +195,19 @@ class TestEscrowManager:
         asyncio.run(self.escrow_manager.start_job(contract_id))
 
         # Complete milestone
-        success, message = asyncio.run(
-            self.escrow_manager.complete_milestone(contract_id, "milestone_1")
-        )
+        success, message = asyncio.run(self.escrow_manager.complete_milestone(contract_id, "milestone_1"))
 
         assert success, f"Milestone completion failed: {message}"
 
         # Check milestone status
         contract = asyncio.run(self.escrow_manager.get_contract_info(contract_id))
         milestone = contract.milestones[0]
-        assert milestone['completed']
-        assert milestone['completed_at'] is not None
+        assert milestone["completed"]
+        assert milestone["completed_at"] is not None
 
     def test_verify_milestone(self):
         """Test verifying milestone"""
-        milestones = [
-            {
-                'milestone_id': 'milestone_1',
-                'description': 'Setup',
-                'amount': Decimal('50.0')
-            }
-        ]
+        milestones = [{"milestone_id": "milestone_1", "description": "Setup", "amount": Decimal("50.0")}]
 
         # Create contract with milestone
         success, _, contract_id = asyncio.run(
@@ -251,8 +215,8 @@ class TestEscrowManager:
                 job_id="job_008",
                 client_address="0x1234567890123456789012345678901234567890",
                 agent_address="0x2345678901234567890123456789012345678901",
-                amount=Decimal('100.0'),
-                milestones=milestones
+                amount=Decimal("100.0"),
+                milestones=milestones,
             )
         )
 
@@ -270,8 +234,8 @@ class TestEscrowManager:
         # Check verification status
         contract = asyncio.run(self.escrow_manager.get_contract_info(contract_id))
         milestone = contract.milestones[0]
-        assert milestone['verified']
-        assert milestone['verification_feedback'] == "Work completed successfully"
+        assert milestone["verified"]
+        assert milestone["verification_feedback"] == "Work completed successfully"
 
     def test_create_dispute(self):
         """Test creating dispute"""
@@ -281,7 +245,7 @@ class TestEscrowManager:
                 job_id="job_009",
                 client_address="0x1234567890123456789012345678901234567890",
                 agent_address="0x2345678901234567890123456789012345678901",
-                amount=Decimal('100.0')
+                amount=Decimal("100.0"),
             )
         )
 
@@ -289,18 +253,10 @@ class TestEscrowManager:
         asyncio.run(self.escrow_manager.start_job(contract_id))
 
         # Create dispute
-        evidence = [
-            {
-                'type': 'screenshot',
-                'description': 'Poor quality work',
-                'timestamp': time.time()
-            }
-        ]
+        evidence = [{"type": "screenshot", "description": "Poor quality work", "timestamp": time.time()}]
 
         success, message = asyncio.run(
-            self.escrow_manager.create_dispute(
-                contract_id, DisputeReason.QUALITY_ISSUES, "Work quality is poor", evidence
-            )
+            self.escrow_manager.create_dispute(contract_id, DisputeReason.QUALITY_ISSUES, "Work quality is poor", evidence)
         )
 
         assert success, f"Dispute creation failed: {message}"
@@ -318,7 +274,7 @@ class TestEscrowManager:
                 job_id="job_010",
                 client_address="0x1234567890123456789012345678901234567890",
                 agent_address="0x2345678901234567890123456789012345678901",
-                amount=Decimal('100.0')
+                amount=Decimal("100.0"),
             )
         )
 
@@ -326,22 +282,16 @@ class TestEscrowManager:
         asyncio.run(self.escrow_manager.start_job(contract_id))
 
         # Create dispute
-        asyncio.run(
-            self.escrow_manager.create_dispute(
-                contract_id, DisputeReason.QUALITY_ISSUES, "Quality issues"
-            )
-        )
+        asyncio.run(self.escrow_manager.create_dispute(contract_id, DisputeReason.QUALITY_ISSUES, "Quality issues"))
 
         # Resolve dispute
         resolution = {
-            'winner': 'client',
-            'client_refund': 0.8,  # 80% refund
-            'agent_payment': 0.2   # 20% payment
+            "winner": "client",
+            "client_refund": 0.8,  # 80% refund
+            "agent_payment": 0.2,  # 20% payment
         }
 
-        success, message = asyncio.run(
-            self.escrow_manager.resolve_dispute(contract_id, resolution)
-        )
+        success, message = asyncio.run(self.escrow_manager.resolve_dispute(contract_id, resolution))
 
         assert success, f"Dispute resolution failed: {message}"
 
@@ -358,16 +308,14 @@ class TestEscrowManager:
                 job_id="job_011",
                 client_address="0x1234567890123456789012345678901234567890",
                 agent_address="0x2345678901234567890123456789012345678901",
-                amount=Decimal('100.0')
+                amount=Decimal("100.0"),
             )
         )
 
         asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
 
         # Refund contract
-        success, message = asyncio.run(
-            self.escrow_manager.refund_contract(contract_id, "Client requested refund")
-        )
+        success, message = asyncio.run(self.escrow_manager.refund_contract(contract_id, "Client requested refund"))
 
         assert success, f"Refund failed: {message}"
 
@@ -385,18 +333,19 @@ class TestEscrowManager:
                     job_id=f"job_{i:03d}",
                     client_address=f"0x123456789012345678901234567890123456789{i}",
                     agent_address=f"0x234567890123456789012345678901234567890{i}",
-                    amount=Decimal('100.0')
+                    amount=Decimal("100.0"),
                 )
             )
 
         stats = asyncio.run(self.escrow_manager.get_escrow_statistics())
 
-        assert 'total_contracts' in stats
-        assert 'active_contracts' in stats
-        assert 'disputed_contracts' in stats
-        assert 'state_distribution' in stats
-        assert 'total_amount' in stats
-        assert stats['total_contracts'] >= 5
+        assert "total_contracts" in stats
+        assert "active_contracts" in stats
+        assert "disputed_contracts" in stats
+        assert "state_distribution" in stats
+        assert "total_amount" in stats
+        assert stats["total_contracts"] >= 5
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

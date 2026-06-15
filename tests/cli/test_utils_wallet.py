@@ -37,13 +37,7 @@ class TestDecryptPrivateKey:
 
             # Create a valid AES-256-GCM keystore
             salt = os.urandom(32)
-            kdf = PBKDF2HMAC(
-                algorithm=hashes.SHA256(),
-                length=32,
-                salt=salt,
-                iterations=100000,
-                backend=default_backend()
-            )
+            kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000, backend=default_backend())
             key = kdf.derive(password.encode())
             aesgcm = AESGCM(key)
             nonce = os.urandom(12)
@@ -54,17 +48,12 @@ class TestDecryptPrivateKey:
                 "crypto": {
                     "cipher": "aes-256-gcm",
                     "ciphertext": ciphertext.hex(),
-                    "cipherparams": {
-                        "nonce": nonce.hex()
-                    },
-                    "kdfparams": {
-                        "salt": salt.hex(),
-                        "c": 100000
-                    }
+                    "cipherparams": {"nonce": nonce.hex()},
+                    "kdfparams": {"salt": salt.hex(), "c": 100000},
                 }
             }
 
-            with open(keystore_path, 'w') as f:
+            with open(keystore_path, "w") as f:
                 json.dump(keystore_data, f)
 
             result = decrypt_private_key(keystore_path, password)
@@ -84,7 +73,7 @@ class TestDecryptPrivateKey:
 
             # Create a valid Fernet keystore
             salt = os.urandom(16)
-            dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000, dklen=32)
+            dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000, dklen=32)
             fernet_key = base64.urlsafe_b64encode(dk)
             f = Fernet(fernet_key)
             private_key = "0x1234567890abcdef"
@@ -94,13 +83,11 @@ class TestDecryptPrivateKey:
                 "crypto": {
                     "cipher": "fernet",
                     "ciphertext": base64.b64encode(ciphertext).decode(),
-                    "kdfparams": {
-                        "salt": base64.b64encode(salt).decode()
-                    }
+                    "kdfparams": {"salt": base64.b64encode(salt).decode()},
                 }
             }
 
-            with open(keystore_path, 'w') as f:
+            with open(keystore_path, "w") as f:
                 json.dump(keystore_data, f)
 
             result = decrypt_private_key(keystore_path, password)
@@ -114,14 +101,9 @@ class TestDecryptPrivateKey:
         with tempfile.TemporaryDirectory() as tmpdir:
             keystore_path = Path(tmpdir) / "keystore.json"
 
-            keystore_data = {
-                "crypto": {
-                    "cipher": "unsupported-cipher",
-                    "ciphertext": "abc123"
-                }
-            }
+            keystore_data = {"crypto": {"cipher": "unsupported-cipher", "ciphertext": "abc123"}}
 
-            with open(keystore_path, 'w') as f:
+            with open(keystore_path, "w") as f:
                 json.dump(keystore_data, f)
 
             with pytest.raises(ValueError, match="Unsupported cipher"):
@@ -134,12 +116,9 @@ class TestDecryptPrivateKey:
         with tempfile.TemporaryDirectory() as tmpdir:
             keystore_path = Path(tmpdir) / "keystore.json"
 
-            keystore_data = {
-                "cipher": "unsupported-cipher",
-                "ciphertext": "abc123"
-            }
+            keystore_data = {"cipher": "unsupported-cipher", "ciphertext": "abc123"}
 
-            with open(keystore_path, 'w') as f:
+            with open(keystore_path, "w") as f:
                 json.dump(keystore_data, f)
 
             # Should handle flat structure and raise error for unsupported cipher

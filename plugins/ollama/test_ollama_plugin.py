@@ -15,20 +15,18 @@ def test_ollama_service():
     print("🔍 Testing Ollama Service...")
 
     # Test Ollama is running
-    result = subprocess.run(
-        ["curl", "-s", "http://localhost:11434/api/tags"],
-        capture_output=True,
-        text=True
-    )
+    result = subprocess.run(["curl", "-s", "http://localhost:11434/api/tags"], capture_output=True, text=True)
 
     if result.returncode == 0:
         import json
+
         data = json.loads(result.stdout)
         print(f"✅ Ollama is running with {len(data['models'])} models")
         return True
     else:
         print("❌ Ollama is not running")
         return False
+
 
 def test_plugin_service():
     """Test the plugin service"""
@@ -46,12 +44,9 @@ def test_plugin_service():
             return False
 
         # Test generation
-        result = await handle_request({
-            "action": "generate",
-            "model": "llama3.2:latest",
-            "prompt": "What is AITBC in one sentence?",
-            "max_tokens": 50
-        })
+        result = await handle_request(
+            {"action": "generate", "model": "llama3.2:latest", "prompt": "What is AITBC in one sentence?", "max_tokens": 50}
+        )
 
         if result["success"]:
             print("✅ Generated text:")
@@ -65,6 +60,7 @@ def test_plugin_service():
 
     return asyncio.run(test())
 
+
 def test_client_miner_flow():
     """Test client submits job, miner processes it"""
     print("\n🔄 Testing Client-Miner Flow...")
@@ -74,11 +70,7 @@ def test_client_miner_flow():
 
     # Submit a job
     print("1. Submitting inference job...")
-    job_id = client.submit_generation(
-        model="llama3.2:latest",
-        prompt="Explain blockchain in simple terms",
-        max_tokens=100
-    )
+    job_id = client.submit_generation(model="llama3.2:latest", prompt="Explain blockchain in simple terms", max_tokens=100)
 
     if not job_id:
         print("❌ Failed to submit job")
@@ -88,18 +80,10 @@ def test_client_miner_flow():
 
     # Start miner in background (simplified)
     print("\n2. Starting Ollama miner...")
-    miner_cmd = [
-        "python3", "miner_plugin.py",
-        "http://localhost:8001",
-        "${MINER_API_KEY}",
-        "ollama-miner-test"
-    ]
+    miner_cmd = ["python3", "miner_plugin.py", "http://localhost:8001", "${MINER_API_KEY}", "ollama-miner-test"]
 
     miner_process = subprocess.Popen(
-        miner_cmd,
-        cwd="/home/oib/windsurf/aitbc/plugins/ollama",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        miner_cmd, cwd="/home/oib/windsurf/aitbc/plugins/ollama", stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
 
     # Wait a bit for miner to process
@@ -113,9 +97,9 @@ def test_client_miner_flow():
         print(f"   State: {status['state']}")
         print(f"   Miner: {status.get('assigned_miner_id', 'None')}")
 
-        if status['state'] == 'completed':
+        if status["state"] == "completed":
             print("✅ Job completed!")
-            result = status.get('result', {})
+            result = status.get("result", {})
             print(f"   Output: {result.get('output', '')[:200]}...")
             print(f"   Cost: {result.get('cost', 0)} AITBC")
 
@@ -124,6 +108,7 @@ def test_client_miner_flow():
     miner_process.wait()
 
     return True
+
 
 def main():
     print("🚀 AITBC Ollama Plugin Test Suite")
@@ -149,6 +134,7 @@ def main():
     print("   1. Start mining: python3 plugins/ollama/miner_plugin.py")
     print("   2. Submit jobs: python3 plugins/ollama/client_plugin.py generate llama3.2:latest 'Your prompt'")
     print("   3. Check earnings: cd home/miner && python3 wallet.py balance")
+
 
 if __name__ == "__main__":
     main()

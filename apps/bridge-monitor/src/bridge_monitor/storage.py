@@ -3,14 +3,14 @@
 import os
 import sqlite3
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 DATA_DIR = os.getenv("DATA_DIR", "/var/lib/aitbc")
 DB_PATH = os.path.join(DATA_DIR, "bridge_deposits.db")
 
 
-class BridgeDepositStatus(str, Enum):
+class BridgeDepositStatus(StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -61,12 +61,7 @@ def get_db_connection() -> sqlite3.Connection:
     return conn
 
 
-def create_deposit(
-    eth_tx_hash: str,
-    eth_from_address: str,
-    eth_amount: str,
-    ait_recipient: str
-) -> int | None:
+def create_deposit(eth_tx_hash: str, eth_from_address: str, eth_amount: str, ait_recipient: str) -> int | None:
     """Create a new bridge deposit record."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -74,11 +69,18 @@ def create_deposit(
     try:
         cursor.execute(
             """
-            INSERT INTO bridge_deposits 
+            INSERT INTO bridge_deposits
             (eth_tx_hash, eth_from_address, eth_amount, ait_recipient, status, created_at)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (eth_tx_hash, eth_from_address, eth_amount, ait_recipient, BridgeDepositStatus.PENDING, datetime.utcnow().isoformat())
+            (
+                eth_tx_hash,
+                eth_from_address,
+                eth_amount,
+                ait_recipient,
+                BridgeDepositStatus.PENDING,
+                datetime.utcnow().isoformat(),
+            ),
         )
         conn.commit()
         return cursor.lastrowid
@@ -96,7 +98,7 @@ def update_deposit(
     ait_usd_price: str | None = None,
     ait_tx_hash: str | None = None,
     status: BridgeDepositStatus | None = None,
-    error_message: str | None = None
+    error_message: str | None = None,
 ) -> bool:
     """Update bridge deposit record."""
     conn = get_db_connection()
@@ -155,11 +157,7 @@ def get_deposit(eth_tx_hash: str) -> dict[str, Any] | None:
     return None
 
 
-def get_deposits(
-    status: BridgeDepositStatus | None = None,
-    limit: int = 50,
-    offset: int = 0
-) -> list[dict[str, Any]]:
+def get_deposits(status: BridgeDepositStatus | None = None, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
     """Get deposits with optional status filter."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -167,13 +165,10 @@ def get_deposits(
     if status:
         cursor.execute(
             "SELECT * FROM bridge_deposits WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
-            (status.value, limit, offset)
+            (status.value, limit, offset),
         )
     else:
-        cursor.execute(
-            "SELECT * FROM bridge_deposits ORDER BY created_at DESC LIMIT ? OFFSET ?",
-            (limit, offset)
-        )
+        cursor.execute("SELECT * FROM bridge_deposits ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset))
 
     rows = cursor.fetchall()
     conn.close()

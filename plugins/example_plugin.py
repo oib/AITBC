@@ -4,72 +4,88 @@ AITBC Plugin Development Starter Kit
 This template provides a complete starting point for developing AITBC plugins.
 Follow the PLUGIN_SPEC.md for detailed interface requirements.
 """
+
 import asyncio
 import logging
 from typing import Any
 from aitbc.plugins import BasePlugin, PluginContext, PluginMetadata
+
 
 class ExamplePlugin(BasePlugin):
     """Example plugin demonstrating the AITBC plugin interface."""
 
     def get_metadata(self) -> PluginMetadata:
         """Return plugin metadata."""
-        return PluginMetadata(name='example-plugin', version='1.0.0', description='Example plugin for AITBC platform', author='Your Name', license='MIT', homepage='https://github.com/yourusername/example-plugin', repository='https://github.com/yourusername/example-plugin', keywords=['example', 'aitbc', 'plugin'], dependencies=[], min_aitbc_version='1.0.0', max_aitbc_version='2.0.0', supported_platforms=['linux', 'macos', 'windows'])
+        return PluginMetadata(
+            name="example-plugin",
+            version="1.0.0",
+            description="Example plugin for AITBC platform",
+            author="Your Name",
+            license="MIT",
+            homepage="https://github.com/yourusername/example-plugin",
+            repository="https://github.com/yourusername/example-plugin",
+            keywords=["example", "aitbc", "plugin"],
+            dependencies=[],
+            min_aitbc_version="1.0.0",
+            max_aitbc_version="2.0.0",
+            supported_platforms=["linux", "macos", "windows"],
+        )
 
     async def initialize(self) -> bool:
         """Initialize the plugin."""
         try:
-            self.context.logger.info('Initializing example plugin')
-            self.config = self.context.config.get('example-plugin', {})
+            self.context.logger.info("Initializing example plugin")
+            self.config = self.context.config.get("example-plugin", {})
             self._start_time = None
             self._error_count = 0
             self._memory_usage = 0
             await self._setup_resources()
-            self.context.logger.info('Example plugin initialized successfully')
+            self.context.logger.info("Example plugin initialized successfully")
             return True
         except Exception as e:
-            self.context.logger.error('Failed to initialize example plugin: %s', e)
+            self.context.logger.error("Failed to initialize example plugin: %s", e)
             self._error_count += 1
             return False
 
     async def start(self) -> bool:
         """Start the plugin."""
         try:
-            self.context.logger.info('Starting example plugin')
+            self.context.logger.info("Starting example plugin")
             await self._start_services()
             import time
+
             self._start_time = time.time()
             self.status = PluginStatus.ACTIVE
-            self.context.logger.info('Example plugin started successfully')
+            self.context.logger.info("Example plugin started successfully")
             return True
         except Exception as e:
-            self.context.logger.error('Failed to start example plugin: %s', e)
+            self.context.logger.error("Failed to start example plugin: %s", e)
             self._error_count += 1
             return False
 
     async def stop(self) -> bool:
         """Stop the plugin."""
         try:
-            self.context.logger.info('Stopping example plugin')
+            self.context.logger.info("Stopping example plugin")
             await self._stop_services()
             self.status = PluginStatus.INACTIVE
-            self.context.logger.info('Example plugin stopped successfully')
+            self.context.logger.info("Example plugin stopped successfully")
             return True
         except Exception as e:
-            self.context.logger.error('Failed to stop example plugin: %s', e)
+            self.context.logger.error("Failed to stop example plugin: %s", e)
             self._error_count += 1
             return False
 
     async def cleanup(self) -> bool:
         """Cleanup plugin resources."""
         try:
-            self.context.logger.info('Cleaning up example plugin')
+            self.context.logger.info("Cleaning up example plugin")
             await self._cleanup_resources()
             self.status = PluginStatus.UNLOADED
-            self.context.logger.info('Example plugin cleaned up successfully')
+            self.context.logger.info("Example plugin cleaned up successfully")
             return True
         except Exception as e:
-            self.context.logger.error('Failed to cleanup example plugin: %s', e)
+            self.context.logger.error("Failed to cleanup example plugin: %s", e)
             self._error_count += 1
             return False
 
@@ -78,6 +94,7 @@ class ExamplePlugin(BasePlugin):
         import os
         import time
         import psutil
+
         try:
             process = psutil.Process(os.getpid())
             self._memory_usage = process.memory_info().rss
@@ -86,21 +103,48 @@ class ExamplePlugin(BasePlugin):
         uptime = None
         if self._start_time:
             uptime = time.time() - self._start_time
-        return {'status': self.status.value, 'uptime': uptime, 'memory_usage': self._memory_usage, 'error_count': self._error_count, 'version': self.get_metadata().version, 'last_check': time.time()}
+        return {
+            "status": self.status.value,
+            "uptime": uptime,
+            "memory_usage": self._memory_usage,
+            "error_count": self._error_count,
+            "version": self.get_metadata().version,
+            "last_check": time.time(),
+        }
 
     async def handle_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Handle system events."""
-        self.context.logger.debug('Handling event: %s', event_type)
-        if event_type == 'user_login':
+        self.context.logger.debug("Handling event: %s", event_type)
+        if event_type == "user_login":
             await self._handle_user_login(data)
-        elif event_type == 'transaction_completed':
+        elif event_type == "transaction_completed":
             await self._handle_transaction_completed(data)
-        elif event_type == 'system_shutdown':
+        elif event_type == "system_shutdown":
             await self._handle_system_shutdown(data)
 
     def get_config_schema(self) -> dict[str, Any]:
         """Return configuration schema."""
-        return {'type': 'object', 'properties': {'enabled': {'type': 'boolean', 'default': True, 'description': 'Enable the plugin'}, 'log_level': {'type': 'string', 'enum': ['DEBUG', 'INFO', 'WARNING', 'ERROR'], 'default': 'INFO', 'description': 'Log level for the plugin'}, 'max_connections': {'type': 'integer', 'minimum': 1, 'maximum': 100, 'default': 10, 'description': 'Maximum number of connections'}, 'api_endpoint': {'type': 'string', 'format': 'uri', 'description': 'API endpoint URL'}}, 'required': ['enabled']}
+        return {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean", "default": True, "description": "Enable the plugin"},
+                "log_level": {
+                    "type": "string",
+                    "enum": ["DEBUG", "INFO", "WARNING", "ERROR"],
+                    "default": "INFO",
+                    "description": "Log level for the plugin",
+                },
+                "max_connections": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 10,
+                    "description": "Maximum number of connections",
+                },
+                "api_endpoint": {"type": "string", "format": "uri", "description": "API endpoint URL"},
+            },
+            "required": ["enabled"],
+        }
 
     async def _setup_resources(self) -> None:
         """Setup plugin resources."""
@@ -120,27 +164,54 @@ class ExamplePlugin(BasePlugin):
 
     async def _handle_user_login(self, data: dict[str, Any]) -> None:
         """Handle user login events."""
-        user_id = data.get('user_id')
-        self.context.logger.info('User %s logged in', user_id)
+        user_id = data.get("user_id")
+        self.context.logger.info("User %s logged in", user_id)
 
     async def _handle_transaction_completed(self, data: dict[str, Any]) -> None:
         """Handle transaction completed events."""
-        tx_hash = data.get('transaction_hash')
-        amount = data.get('amount')
-        self.context.logger.info('Transaction %s completed with amount %s', tx_hash, amount)
+        tx_hash = data.get("transaction_hash")
+        amount = data.get("amount")
+        self.context.logger.info("Transaction %s completed with amount %s", tx_hash, amount)
 
     async def _handle_system_shutdown(self, data: dict[str, Any]) -> None:
         """Handle system shutdown events."""
-        self.context.logger.info('System shutting down, preparing plugin for shutdown')
+        self.context.logger.info("System shutting down, preparing plugin for shutdown")
         await self.stop()
+
 
 def create_plugin(context: PluginContext) -> BasePlugin:
     """Create and return plugin instance."""
     return ExamplePlugin(context)
 
+
 def get_plugin_info() -> dict[str, Any]:
     """Return plugin information for registry."""
-    return {'name': 'example-plugin', 'version': '1.0.0', 'description': 'Example plugin for AITBC platform', 'author': 'Your Name', 'license': 'MIT', 'homepage': 'https://github.com/yourusername/example-plugin', 'repository': 'https://github.com/yourusername/example-plugin', 'keywords': ['example', 'aitbc', 'plugin'], 'dependencies': [], 'min_aitbc_version': '1.0.0', 'max_aitbc_version': '2.0.0', 'supported_platforms': ['linux', 'macos', 'windows'], 'entry_point': 'create_plugin', 'config_schema': {'type': 'object', 'properties': {'enabled': {'type': 'boolean', 'default': True}, 'log_level': {'type': 'string', 'enum': ['DEBUG', 'INFO', 'WARNING', 'ERROR'], 'default': 'INFO'}, 'max_connections': {'type': 'integer', 'minimum': 1, 'maximum': 100, 'default': 10}}, 'required': ['enabled']}}
+    return {
+        "name": "example-plugin",
+        "version": "1.0.0",
+        "description": "Example plugin for AITBC platform",
+        "author": "Your Name",
+        "license": "MIT",
+        "homepage": "https://github.com/yourusername/example-plugin",
+        "repository": "https://github.com/yourusername/example-plugin",
+        "keywords": ["example", "aitbc", "plugin"],
+        "dependencies": [],
+        "min_aitbc_version": "1.0.0",
+        "max_aitbc_version": "2.0.0",
+        "supported_platforms": ["linux", "macos", "windows"],
+        "entry_point": "create_plugin",
+        "config_schema": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean", "default": True},
+                "log_level": {"type": "string", "enum": ["DEBUG", "INFO", "WARNING", "ERROR"], "default": "INFO"},
+                "max_connections": {"type": "integer", "minimum": 1, "maximum": 100, "default": 10},
+            },
+            "required": ["enabled"],
+        },
+    }
+
+
 try:
     from aitbc.plugins import CLIPlugin
     from click import Group
@@ -157,22 +228,23 @@ try:
                 pass
 
             @example.command()
-            @click.option('--count', default=1, help='Number of greetings')
-            @click.argument('name')
+            @click.option("--count", default=1, help="Number of greetings")
+            @click.argument("name")
             def greet(count, name):
                 """Greet someone multiple times"""
                 for _ in range(count):
-                    click.echo(f'Hello {name}!')
+                    click.echo(f"Hello {name}!")
 
             @example.command()
             def status():
                 """Get plugin status"""
-                click.echo('Example plugin is running')
+                click.echo("Example plugin is running")
+
             return [example]
 
         def get_command_help(self) -> str:
             """Return help text for commands."""
-            return '\nExample Plugin Commands:\n  greet    Greet someone multiple times\n  status   Get plugin status\n            '
+            return "\nExample Plugin Commands:\n  greet    Greet someone multiple times\n  status   Get plugin status\n            "
 
     def create_cli_plugin(context: PluginContext) -> CLIPlugin:
         """Create and return CLI plugin instance."""
@@ -187,18 +259,20 @@ try:
 
         async def connect(self, config: dict[str, Any]) -> bool:
             """Connect to blockchain network."""
-            self.context.logger.info('Connecting to blockchain network')
+            self.context.logger.info("Connecting to blockchain network")
             return True
 
         async def get_balance(self, address: str) -> dict[str, Any]:
             """Get account balance."""
-            return {'address': address, 'balance': '0', 'currency': 'ETH'}
+            return {"address": address, "balance": "0", "currency": "ETH"}
 
         async def send_transaction(self, tx_data: dict[str, Any]) -> str:
             """Send transaction and return hash."""
-            return '0x1234567890abcdef'
+            return "0x1234567890abcdef"
 
-        async def get_contract_events(self, contract_address: str, event_name: str, from_block: int=None) -> list[dict[str, Any]]:
+        async def get_contract_events(
+            self, contract_address: str, event_name: str, from_block: int = None
+        ) -> list[dict[str, Any]]:
             """Get contract events."""
             return []
 
@@ -215,7 +289,7 @@ try:
 
         async def predict(self, input_data: dict[str, Any]) -> dict[str, Any]:
             """Make prediction using AI model."""
-            return {'prediction': 'example', 'confidence': 0.95}
+            return {"prediction": "example", "confidence": 0.95}
 
         async def train(self, training_data: list[dict[str, Any]]) -> bool:
             """Train AI model."""
@@ -223,27 +297,36 @@ try:
 
         def get_model_info(self) -> dict[str, Any]:
             """Get model information."""
-            return {'model_type': 'example', 'version': '1.0.0', 'accuracy': 0.95, 'trained_on': '2024-01-01'}
+            return {"model_type": "example", "version": "1.0.0", "accuracy": 0.95, "trained_on": "2024-01-01"}
 
     def create_ai_plugin(context: PluginContext) -> AIPlugin:
         """Create and return AI plugin instance."""
         return ExampleAIPlugin(context)
 except ImportError:
     pass
-if __name__ == '__main__':
+if __name__ == "__main__":
     import asyncio
 
     async def test_plugin():
         """Test the plugin."""
         from aitbc.plugins import PluginContext
-        context = PluginContext(config={'example-plugin': {'enabled': True}}, data_dir='/tmp/aitbc', temp_dir='/tmp/aitbc/tmp', logger=logging.getLogger('example-plugin'), event_bus=None, api_client=None)
+
+        context = PluginContext(
+            config={"example-plugin": {"enabled": True}},
+            data_dir="/tmp/aitbc",
+            temp_dir="/tmp/aitbc/tmp",
+            logger=logging.getLogger("example-plugin"),
+            event_bus=None,
+            api_client=None,
+        )
         plugin = create_plugin(context)
         assert await plugin.initialize() is True
         assert await plugin.start() is True
         health = await plugin.health_check()
-        assert health['status'] == 'active'
-        await plugin.handle_event('test_event', {'data': 'test'})
+        assert health["status"] == "active"
+        await plugin.handle_event("test_event", {"data": "test"})
         assert await plugin.stop() is True
         assert await plugin.cleanup() is True
-        print('Plugin test completed successfully!')
+        print("Plugin test completed successfully!")
+
     asyncio.run(test_plugin())

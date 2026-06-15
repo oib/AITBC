@@ -13,12 +13,7 @@ from datetime import UTC, datetime
 from aitbc import AITBCHTTPClient, NetworkError
 
 # Test configuration
-NODES = {
-    "aitbc": {
-        "rpc_url": "https://hub.aitbc.bubuit.net/rpc",
-        "name": "hub (remote)"
-    }
-}
+NODES = {"aitbc": {"rpc_url": "https://hub.aitbc.bubuit.net/rpc", "name": "hub (remote)"}}
 
 CHAIN_ID = "ait-mainnet"
 
@@ -35,10 +30,12 @@ def _get_local_chain_id() -> str:
                 return line.strip().split("=", 1)[1]
     return env_chain_id
 
+
 def compute_block_hash(height, parent_hash, timestamp):
     """Compute block hash using the same algorithm as PoA proposer"""
     payload = f"{CHAIN_ID}|{height}|{parent_hash}|{timestamp}".encode()
     return "0x" + hashlib.sha256(payload).hexdigest()
+
 
 def get_node_head(node_key):
     """Get the current head block from a node"""
@@ -50,12 +47,14 @@ def get_node_head(node_key):
         print(f"Error getting head from {node_key}: {e}")
         return None
 
+
 def get_node_chain_id(node_key):
     """Get the chain_id from a node (from head endpoint)"""
     head = get_node_head(node_key)
     if head:
         return head.get("chain_id")
     return None
+
 
 def test_cross_node_chain_id_consistency():
     """Test that both nodes are using the same chain_id"""
@@ -75,10 +74,18 @@ def test_cross_node_chain_id_consistency():
         else:
             # Check remote .env file via SSH
             result = subprocess.run(
-                ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes", node_key, "cat /etc/aitbc/.env | grep CHAIN_ID"],
+                [
+                    "ssh",
+                    "-o",
+                    "StrictHostKeyChecking=no",
+                    "-o",
+                    "BatchMode=yes",
+                    node_key,
+                    "cat /etc/aitbc/.env | grep CHAIN_ID",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0:
                 chain_id = result.stdout.strip().split("=")[1]
@@ -91,11 +98,13 @@ def test_cross_node_chain_id_consistency():
 
     # Verify chain_id is "ait-mainnet"
     expected_chain_id = CHAIN_ID
-    assert list(unique_chain_ids)[0] == expected_chain_id, \
+    assert list(unique_chain_ids)[0] == expected_chain_id, (
         f"Expected chain_id '{expected_chain_id}', got '{list(unique_chain_ids)[0]}'"
+    )
 
     print(f"✅ All nodes are using chain_id: {expected_chain_id}")
     return True
+
 
 def test_cross_node_block_sync():
     """Test that blocks sync between nodes"""
@@ -133,8 +142,8 @@ def test_cross_node_block_sync():
                 "proposer": "cross-node-test",
                 "timestamp": timestamp,
                 "tx_count": 0,
-                "chain_id": CHAIN_ID
-            }
+                "chain_id": CHAIN_ID,
+            },
         )
         if result.get("success"):
             print(f"✅ Block imported on aitbc: height={height}, hash={valid_hash}")
@@ -170,6 +179,7 @@ def test_cross_node_block_sync():
         print("❌ Failed to get head from aitbc1")
         return False
 
+
 def test_cross_node_block_range():
     """Test that both nodes can return block ranges"""
     print("\n" + "=" * 60)
@@ -182,14 +192,14 @@ def test_cross_node_block_range():
             response = AITBCHTTPClient(timeout=10).get(url, params={"start": 0, "end": 5})
             blocks = response.get("blocks", []) if response else []
             print(f"{NODES[node_key]['name']}: returned {len(blocks)} blocks in range 0-5")
-            assert len(blocks) >= 1, \
-                f"Node {node_key} returned no blocks"
+            assert len(blocks) >= 1, f"Node {node_key} returned no blocks"
         except NetworkError as e:
             print(f"❌ Error getting block range from {node_key}: {e}")
             return False
 
     print("✅ All nodes can query block ranges")
     return True
+
 
 def test_cross_node_connectivity():
     """Test that both nodes are reachable via RPC"""
@@ -202,14 +212,14 @@ def test_cross_node_connectivity():
         try:
             head = client.get(f"{NODES[node_key]['rpc_url']}/head")
             print(f"{NODES[node_key]['name']}: reachable, height={head.get('height')}")
-            assert head.get("height") is not None, \
-                f"Node {node_key} did not return valid head"
+            assert head.get("height") is not None, f"Node {node_key} did not return valid head"
         except NetworkError as e:
             print(f"❌ Error connecting to {node_key}: {e}")
             return False
 
     print("✅ All nodes are reachable via RPC")
     return True
+
 
 def run_cross_node_tests():
     """Run all cross-node blockchain feature tests"""
@@ -251,6 +261,7 @@ def run_cross_node_tests():
     print(f"\nTotal: {passed}/{total} tests passed")
 
     return all(result for _, result in results)
+
 
 if __name__ == "__main__":
     success = run_cross_node_tests()

@@ -11,6 +11,7 @@ from typing import Any
 
 class AgentStatus(str, Enum):
     """Agent execution status enumeration"""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -20,6 +21,7 @@ class AgentStatus(str, Enum):
 
 class VerificationLevel(str, Enum):
     """Verification level for agent execution"""
+
     BASIC = "basic"
     FULL = "full"
     ZERO_KNOWLEDGE = "zero-knowledge"
@@ -27,6 +29,7 @@ class VerificationLevel(str, Enum):
 
 class StepType(str, Enum):
     """Agent step type enumeration"""
+
     INFERENCE = "inference"
     TRAINING = "training"
     DATA_PROCESSING = "data_processing"

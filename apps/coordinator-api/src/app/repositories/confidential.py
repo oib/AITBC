@@ -66,7 +66,7 @@ class ConfidentialTransactionRepository:
         )
 
         result = await session.execute(stmt)
-        return result.scalars().all() # type: ignore[return-value]
+        return result.scalars().all()  # type: ignore[return-value]
 
     async def update_status(self, session: AsyncSession, transaction_id: str, status: str) -> bool:
         """Update transaction status"""
@@ -124,9 +124,7 @@ class ParticipantKeyRepository:
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def update_active(
-        self, session: AsyncSession, participant_id: str, active: bool, reason: str | None = None
-    ) -> bool:
+    async def update_active(self, session: AsyncSession, participant_id: str, active: bool, reason: str | None = None) -> bool:
         """Update key active status"""
         stmt = (
             update(ParticipantKeyDB)
@@ -152,7 +150,7 @@ class ParticipantKeyRepository:
         stmt = select(ParticipantKeyDB).where(ParticipantKeyDB.active).offset(offset).limit(limit)  # type: ignore[arg-type]
 
         result = await session.execute(stmt)
-        return result.scalars().all() # type: ignore[return-value]
+        return result.scalars().all()  # type: ignore[return-value]
 
 
 class AccessLogRepository:
@@ -172,7 +170,7 @@ class AccessLogRepository:
             ip_address=log.ip_address,
             user_agent=log.user_agent,
             authorization_id=log.authorized_by,
-            signature=log.signature  # type: ignore[attr-defined]
+            signature=log.signature,  # type: ignore[attr-defined]
         )
 
         session.add(db_log)
@@ -216,7 +214,7 @@ class AccessLogRepository:
         stmt = stmt.offset(offset).limit(limit)
 
         result = await session.execute(stmt)
-        return result.scalars().all() # type: ignore[return-value]
+        return result.scalars().all()  # type: ignore[return-value]
 
     async def count(
         self,
@@ -279,7 +277,7 @@ class KeyRotationRepository:
         )
 
         result = await session.execute(stmt)
-        return result.scalars().all() # type: ignore[return-value]
+        return result.scalars().all()  # type: ignore[return-value]
 
 
 class AuditAuthorizationRepository:

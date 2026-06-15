@@ -1,10 +1,12 @@
 """Batch processing for aggregated operations."""
+
 import asyncio
 from typing import Any
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
+
 
 class BatchProcessor:
     """Processes events in batches for efficiency."""
@@ -18,19 +20,19 @@ class BatchProcessor:
     async def run(self) -> None:
         """Run the batch processor."""
         if not self.settings.enable_polling:
-            logger.info('Batch processing disabled')
+            logger.info("Batch processing disabled")
             return
         self._running = True
-        logger.info('Starting batch processor...')
+        logger.info("Starting batch processor...")
         while self._running:
             try:
                 await self._process_batch()
                 await asyncio.sleep(self.settings.polling_interval_seconds)
             except asyncio.CancelledError:
-                logger.info('Batch processor cancelled')
+                logger.info("Batch processor cancelled")
                 break
             except Exception as e:
-                logger.error('Error in batch processor: %s', e, exc_info=True)
+                logger.error("Error in batch processor: %s", e, exc_info=True)
                 await asyncio.sleep(5)
 
     async def add_to_batch(self, event: dict[str, Any]) -> None:
@@ -45,11 +47,11 @@ class BatchProcessor:
             return
         batch = self._batch_queue.copy()
         self._batch_queue.clear()
-        logger.info('Processing batch of %s events', len(batch))
+        logger.info("Processing batch of %s events", len(batch))
 
     async def stop(self) -> None:
         """Stop the batch processor."""
         self._running = False
         if self._batch_queue:
             await self._process_batch()
-        logger.info('Batch processor stopped')
+        logger.info("Batch processor stopped")

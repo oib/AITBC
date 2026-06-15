@@ -11,6 +11,7 @@ def system_architect():
     """System architecture analysis and FHS compliance management"""
     pass
 
+
 @system_architect.command()
 def audit():
     """Audit system architecture compliance"""
@@ -19,6 +20,7 @@ def audit():
     click.echo("✅ Config: /etc/aitbc")
     click.echo("✅ Logs: /var/log/aitbc")
     click.echo("✅ Repository: Clean")
+
 
 @system_architect.command()
 def paths():
@@ -29,8 +31,9 @@ def paths():
     click.echo("Logs:     /var/log/aitbc")
     click.echo("Repository: /opt/aitbc (code only)")
 
+
 @system_architect.command()
-@click.option('--service', help='Check specific service')
+@click.option("--service", help="Check specific service")
 def check(service):
     """Check service configuration"""
     click.echo(f"=== Service Check: {service or 'All Services'} ===")
@@ -39,5 +42,6 @@ def check(service):
     else:
         click.echo("Checking all services")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     system_architect()

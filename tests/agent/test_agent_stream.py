@@ -1,4 +1,5 @@
 """Tests for WebSocket agent streaming module"""
+
 import sys
 from pathlib import Path
 
@@ -29,21 +30,21 @@ class TestConnectionManager:
         """Test disconnecting a non-existent agent"""
         manager = ConnectionManager()
         # Should not raise an error
-        manager.disconnect('non-existent-agent')
+        manager.disconnect("non-existent-agent")
         assert manager.active_connections == {}
 
     def test_get_agent_inbox(self):
         """Test getting agent inbox"""
         manager = ConnectionManager()
-        manager.agent_inboxes['agent-123'] = [{'message': 'test'}]
-        inbox = manager.agent_inboxes.get('agent-123', [])
-        assert inbox == [{'message': 'test'}]
+        manager.agent_inboxes["agent-123"] = [{"message": "test"}]
+        inbox = manager.agent_inboxes.get("agent-123", [])
+        assert inbox == [{"message": "test"}]
 
     def test_get_agent_inbox_empty(self):
         """Test getting inbox for agent with no messages"""
         manager = ConnectionManager()
-        manager.agent_inboxes['agent-123'] = []
-        inbox = manager.agent_inboxes.get('agent-123', [])
+        manager.agent_inboxes["agent-123"] = []
+        inbox = manager.agent_inboxes.get("agent-123", [])
         assert inbox == []
 
     def test_topic_subscriptions_initialization(self):

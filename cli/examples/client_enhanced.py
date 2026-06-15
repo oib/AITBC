@@ -60,27 +60,18 @@ class AITBCClient:
 
     def submit_job(self, job_type: str, task_data: dict, ttl: int = 900) -> str | None:
         """Submit a job to the coordinator"""
-        job_payload = {
-            "payload": {
-                "type": job_type,
-                **task_data
-            },
-            "ttl_seconds": ttl
-        }
+        job_payload = {"payload": {"type": job_type, **task_data}, "ttl_seconds": ttl}
 
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/jobs",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Api-Key": self.api_key
-                },
-                json=job_payload
+                headers={"Content-Type": "application/json", "X-Api-Key": self.api_key},
+                json=job_payload,
             )
 
             if response.status_code == 201:
                 job = response.json()
-                return job['job_id']
+                return job["job_id"]
             else:
                 print(f"❌ Error submitting job: {response.status_code}")
                 print(f"   Response: {response.text}")
@@ -93,10 +84,7 @@ class AITBCClient:
     def get_job_status(self, job_id: str) -> dict | None:
         """Get job status"""
         try:
-            response = self.client.get(
-                f"{self.coordinator_url}/v1/jobs/{job_id}",
-                headers={"X-Api-Key": self.api_key}
-            )
+            response = self.client.get(f"{self.coordinator_url}/v1/jobs/{job_id}", headers={"X-Api-Key": self.api_key})
 
             if response.status_code == 200:
                 return response.json()
@@ -112,9 +100,7 @@ class AITBCClient:
         """List recent blocks"""
         try:
             response = self.client.get(
-                f"{self.coordinator_url}/v1/explorer/blocks",
-                params={"limit": limit},
-                headers={"X-Api-Key": self.api_key}
+                f"{self.coordinator_url}/v1/explorer/blocks", params={"limit": limit}, headers={"X-Api-Key": self.api_key}
             )
 
             if response.status_code == 200:
@@ -133,7 +119,7 @@ class AITBCClient:
             response = self.client.get(
                 f"{self.coordinator_url}/v1/explorer/transactions",
                 params={"limit": limit},
-                headers={"X-Api-Key": self.api_key}
+                headers={"X-Api-Key": self.api_key},
             )
 
             if response.status_code == 200:
@@ -154,9 +140,7 @@ class AITBCClient:
                 params["job_id"] = job_id
 
             response = self.client.get(
-                f"{self.coordinator_url}/v1/explorer/receipts",
-                params=params,
-                headers={"X-Api-Key": self.api_key}
+                f"{self.coordinator_url}/v1/explorer/receipts", params=params, headers={"X-Api-Key": self.api_key}
             )
 
             if response.status_code == 200:
@@ -172,10 +156,7 @@ class AITBCClient:
     def cancel_job(self, job_id: str) -> bool:
         """Cancel a job"""
         try:
-            response = self.client.post(
-                f"{self.coordinator_url}/v1/jobs/{job_id}/cancel",
-                headers={"X-Api-Key": self.api_key}
-            )
+            response = self.client.post(f"{self.coordinator_url}/v1/jobs/{job_id}/cancel", headers={"X-Api-Key": self.api_key})
 
             if response.status_code == 200:
                 return True
@@ -192,8 +173,7 @@ def main():
     parser = argparse.ArgumentParser(description="AITBC Client CLI Tool")
     parser.add_argument("--url", default=DEFAULT_COORDINATOR, help="Coordinator URL")
     parser.add_argument("--api-key", default=DEFAULT_API_KEY, help="API key")
-    parser.add_argument("--output", choices=["table", "json", "yaml"],
-                       default="table", help="Output format")
+    parser.add_argument("--output", choices=["table", "json", "yaml"], default="table", help="Output format")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -203,8 +183,7 @@ def main():
     submit_parser.add_argument("--prompt", help="Prompt for inference jobs")
     submit_parser.add_argument("--model", help="Model name")
     submit_parser.add_argument("--ttl", type=int, default=900, help="Time to live (seconds)")
-    submit_parser.add_argument("--file", type=argparse.FileType('r'),
-                              help="Submit job from JSON file")
+    submit_parser.add_argument("--file", type=argparse.FileType("r"), help="Submit job from JSON file")
 
     # Status command
     status_parser = subparsers.add_parser("status", help="Check job status")
@@ -263,7 +242,7 @@ def main():
                 "status": "success",
                 "job_id": job_id,
                 "message": "Job submitted successfully",
-                "track_command": f"python3 cli/client_enhanced.py status {job_id}"
+                "track_command": f"python3 cli/client_enhanced.py status {job_id}",
             }
             print(OutputFormatter.format(result, args.output))
             sys.exit(0)
@@ -296,7 +275,7 @@ def main():
         result = {
             "latest_block": blocks[0] if blocks else None,
             "recent_transactions": transactions,
-            "recent_receipts": receipts
+            "recent_receipts": receipts,
         }
 
         print(OutputFormatter.format(result, args.output))
@@ -304,11 +283,7 @@ def main():
 
     elif args.command == "cancel":
         if client.cancel_job(args.job_id):
-            result = {
-                "status": "success",
-                "job_id": args.job_id,
-                "message": "Job cancelled successfully"
-            }
+            result = {"status": "success", "job_id": args.job_id, "message": "Job cancelled successfully"}
             print(OutputFormatter.format(result, args.output))
             sys.exit(0)
         else:
