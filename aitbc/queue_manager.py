@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, TypeVar
+
 from .aitbc_logging import get_logger
 
 logger = get_logger(__name__)

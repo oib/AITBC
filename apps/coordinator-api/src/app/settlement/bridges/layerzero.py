@@ -170,7 +170,7 @@ class LayerZeroAdapter(BridgeAdapter):
             return {"layerZeroFee": native_fee, "zroFee": zro_fee, "total": native_fee + zro_fee}
 
         except Exception as e:
-            raise BridgeError(f"Failed to estimate fees: {str(e)}")
+            raise BridgeError(f"Failed to estimate fees: {str(e)}") from e
 
     async def refund_failed_message(self, message_id: str) -> SettlementResult:
         """LayerZero doesn't support direct refunds"""

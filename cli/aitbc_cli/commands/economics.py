@@ -21,7 +21,7 @@ def distributed(ctx, cost_optimize):
         output(result, ctx.obj.get("output_format", "table"), title="Distributed Economics")
     except Exception as e:
         error(f"Error in distributed economics: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @economics.command()
@@ -34,7 +34,7 @@ def model(ctx, type):
         output(result, ctx.obj.get("output_format", "table"), title="Economic Model")
     except Exception as e:
         error(f"Error in economic modeling: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @economics.command()
@@ -46,4 +46,4 @@ def market(ctx):
         output(result, ctx.obj.get("output_format", "table"), title="Market Economics")
     except Exception as e:
         error(f"Error in market analysis: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

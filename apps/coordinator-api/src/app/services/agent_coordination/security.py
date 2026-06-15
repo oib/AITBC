@@ -9,14 +9,14 @@ import json
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import UTC, datetime
-from enum import StrEnum
-from typing import Any, cast
-from uuid import uuid4
+from datetime import UTC, datetime  # noqa: E402
+from enum import StrEnum  # noqa: E402
+from typing import Any, cast  # noqa: E402
+from uuid import uuid4  # noqa: E402
 
-from sqlmodel import JSON, Column, Field, Session, SQLModel, select
+from sqlmodel import JSON, Column, Field, Session, SQLModel, select  # noqa: E402
 
-from ...domain.agent import AIAgentWorkflow, VerificationLevel
+from ...domain.agent import AIAgentWorkflow, VerificationLevel  # noqa: E402
 
 
 class SecurityLevel(StrEnum):

@@ -253,4 +253,4 @@ class TestMetricsApp:
     def test_metrics_app_exists(self):
         """Test metrics_app is created"""
         assert metrics_app is not None
-        assert hasattr(metrics_app, "__call__")
+        assert callable(metrics_app)

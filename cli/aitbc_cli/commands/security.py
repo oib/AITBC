@@ -20,7 +20,7 @@ def audit(ctx):
         output(result, ctx.obj.get("output_format", "table"), title="Security Audit")
     except Exception as e:
         error(f"Error running security audit: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @security.command()
@@ -32,7 +32,7 @@ def scan(ctx):
         output(result, ctx.obj.get("output_format", "table"), title="Security Scan")
     except Exception as e:
         error(f"Error running security scan: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @security.command()
@@ -44,4 +44,4 @@ def patch(ctx):
         output(result, ctx.obj.get("output_format", "table"), title="Security Patch")
     except Exception as e:
         error(f"Error applying security patches: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

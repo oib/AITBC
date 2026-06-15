@@ -1,15 +1,14 @@
 """Tests for aitbc.access_control"""
 
 import os
-from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
 
 from aitbc.access_control import (
-    APIKeyAuth,
-    AccessController,
     AccessControlError,
+    AccessController,
+    APIKeyAuth,
     AuthenticationError,
     AuthorizationError,
     SecureHeaders,

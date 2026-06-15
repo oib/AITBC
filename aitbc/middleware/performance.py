@@ -4,8 +4,10 @@ Performance logging middleware for tracking request timing
 
 import time
 from collections.abc import Callable
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+
 from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)

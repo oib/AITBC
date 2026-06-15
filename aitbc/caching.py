@@ -11,6 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
+
 from .aitbc_logging import get_logger
 
 logger = get_logger(__name__)
@@ -624,7 +625,7 @@ def generate_cache_key(prefix: str, *args: Any, **kwargs: Any) -> str:
     legacy ``aitbc.cache.utils.generate_cache_key`` API.
     """
     key_parts = [prefix]
-    key_parts.extend((str(arg) for arg in args))
+    key_parts.extend(str(arg) for arg in args)
     for k in sorted(kwargs.keys()):
         key_parts.append(f"{k}={kwargs[k]}")
     key_string = ":".join(key_parts)

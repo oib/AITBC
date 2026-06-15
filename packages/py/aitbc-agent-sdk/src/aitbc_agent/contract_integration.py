@@ -227,7 +227,7 @@ class AgentContractIntegration:
                 logger.info("Agent registered on marketplace: %s", tx_hash)
                 return tx_hash
             else:
-                raise Exception("Transaction failed: %s" % receipt)
+                raise Exception(f"Transaction failed: {receipt}")
 
         except Exception as e:
             logger.error("Failed to register on marketplace: %s", e)
@@ -255,7 +255,7 @@ class AgentContractIntegration:
                 logger.info("Tokens staked: %s", stake_tx)
                 return stake_tx
             else:
-                raise Exception("Transaction failed: %s" % receipt)
+                raise Exception(f"Transaction failed: {receipt}")
 
         except Exception as e:
             logger.error("Failed to stake tokens: %s", e)
@@ -275,7 +275,7 @@ class AgentContractIntegration:
                 logger.info("Tokens unstaked: %s", tx_hash)
                 return tx_hash
             else:
-                raise Exception("Transaction failed: %s" % receipt)
+                raise Exception(f"Transaction failed: {receipt}")
 
         except Exception as e:
             logger.error("Failed to unstake tokens: %s", e)
@@ -314,7 +314,7 @@ class AgentContractIntegration:
                 logger.info("Job completion submitted: %s", tx_hash)
                 return tx_hash
             else:
-                raise Exception("Transaction failed: %s" % receipt)
+                raise Exception(f"Transaction failed: {receipt}")
 
         except Exception as e:
             logger.error("Failed to submit job completion: %s", e)
@@ -334,7 +334,7 @@ class AgentContractIntegration:
                 logger.info("Rewards claimed: %s", tx_hash)
                 return tx_hash
             else:
-                raise Exception("Transaction failed: %s" % receipt)
+                raise Exception(f"Transaction failed: {receipt}")
 
         except Exception as e:
             logger.error("Failed to claim rewards: %s", e)
@@ -394,7 +394,7 @@ class AgentContractIntegration:
                     "block_number": receipt.get("block_number", 0),
                 }
             else:
-                raise Exception("Transaction failed: %s" % receipt)
+                raise Exception(f"Transaction failed: {receipt}")
 
         except Exception as e:
             logger.error("Failed to initiate atomic swap: %s", e)
@@ -421,7 +421,7 @@ class AgentContractIntegration:
                     "block_number": receipt.get("block_number", 0),
                 }
             else:
-                raise Exception("Transaction failed: %s" % receipt)
+                raise Exception(f"Transaction failed: {receipt}")
 
         except Exception as e:
             logger.error("Failed to complete atomic swap: %s", e)
@@ -460,7 +460,7 @@ class AgentContractIntegration:
                 logger.info("Atomic swap refunded: %s", swap_id)
                 return {"swap_id": swap_id, "tx_hash": tx_hash, "status": "REFUNDED"}
             else:
-                raise Exception("Transaction failed: %s" % receipt)
+                raise Exception(f"Transaction failed: {receipt}")
 
         except Exception as e:
             logger.error("Failed to refund atomic swap: %s", e)

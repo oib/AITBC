@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class KYCProvider(str, Enum):
+class KYCProvider(str, Enum):  # noqa: UP042
     """KYC service providers"""
 
     CHAINALYSIS = "chainalysis"
@@ -26,7 +26,7 @@ class KYCProvider(str, Enum):
     VERIFF = "veriff"
 
 
-class KYCStatus(str, Enum):
+class KYCStatus(str, Enum):  # noqa: UP042
     """KYC verification status"""
 
     PENDING = "pending"
@@ -36,7 +36,7 @@ class KYCStatus(str, Enum):
     EXPIRED = "expired"
 
 
-class AMLRiskLevel(str, Enum):
+class AMLRiskLevel(str, Enum):  # noqa: UP042
     """AML risk levels"""
 
     LOW = "low"

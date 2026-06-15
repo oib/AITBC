@@ -293,7 +293,7 @@ class CPUComputeProvider(ComputeProvider):
             result.fill(0)
 
             # Simple accumulation (not cryptographically correct)
-            for scalar, point in zip(scalars, points):
+            for scalar, point in zip(scalars, points, strict=True):
                 # Multiply scalar by point and add to result
                 temp = np.multiply(scalar, point, dtype=result.dtype)
                 np.add(result, temp, out=result, dtype=result.dtype)
@@ -397,6 +397,6 @@ class CPUComputeProvider(ComputeProvider):
 
 
 # Register the CPU provider
-from .compute_provider import ComputeProviderFactory
+from .compute_provider import ComputeProviderFactory  # noqa: E402
 
 ComputeProviderFactory.register_provider(ComputeBackend.CPU, CPUComputeProvider)

@@ -212,7 +212,7 @@ def unlock_wallet(
     except (KeyError, ValueError):
         ip_address = request.client.host if request.client else "unknown"
         ledger.record_event(wallet_id, "unlocked", {"success": False, "ip_address": ip_address})
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials") from None
     finally:
         if "secret" in locals():
             wipe_buffer(secret)
@@ -250,7 +250,7 @@ def sign_payload(
     except (KeyError, ValueError):
         ip_address = request.client.host if request.client else "unknown"
         ledger.record_event(wallet_id, "sign", {"success": False, "ip_address": ip_address})
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials") from None
 
     signature_b64 = base64.b64encode(signature).decode()
     chain_id = "ait-mainnet"
@@ -319,7 +319,7 @@ def send_transaction(
         raise
     except Exception as exc:
         logger.error("Unexpected error in transaction submission", extra={"wallet_id": wallet_id, "error": str(exc)})
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
 @router.post("/wallets/{wallet_id}/faucet", response_model=WalletTransactionResponse, summary="Request faucet funds")
@@ -375,7 +375,7 @@ async def faucet_request(
         raise
     except Exception as exc:
         logger.error("Faucet request failed", extra={"wallet_id": wallet_id, "error": str(exc)})
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
 # Multi-Chain Endpoints - Temporarily disabled due to missing chain manager dependencies

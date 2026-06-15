@@ -11,9 +11,9 @@ from sqlmodel import Session, select
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from uuid import uuid4
+from uuid import uuid4  # noqa: E402
 
-from ..domain.community import (
+from ..domain.community import (  # noqa: E402
     AgentSolution,
     CommunityPost,
     DeveloperProfile,

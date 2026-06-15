@@ -28,7 +28,7 @@ def safe_loads(data: bytes, max_size: int = 10 * 1024 * 1024) -> Any:
     try:
         return json.loads(data)
     except json.JSONDecodeError as e:
-        raise ValueError(f"Failed to deserialize JSON data: {e}")
+        raise ValueError(f"Failed to deserialize JSON data: {e}") from e
 
 
 def safe_dumps(obj: Any) -> bytes:

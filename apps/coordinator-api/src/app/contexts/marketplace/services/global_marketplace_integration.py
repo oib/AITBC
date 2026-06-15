@@ -11,14 +11,18 @@ from typing import Any
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from sqlmodel import Session, select
+from sqlmodel import Session, select  # noqa: E402
 
-from ....agent_identity.wallet_adapter_enhanced import WalletAdapterFactory
-from ....reputation.engine import CrossChainReputationEngine
-from ....services.multi_chain_transaction_manager import MultiChainTransactionManager, TransactionPriority
-from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol, BridgeSecurityLevel, CrossChainBridgeService
-from ..domain.global_marketplace import GlobalMarketplaceOffer
-from ..services.global_marketplace import GlobalMarketplaceService, RegionManager
+from ....agent_identity.wallet_adapter_enhanced import WalletAdapterFactory  # noqa: E402
+from ....reputation.engine import CrossChainReputationEngine  # noqa: E402
+from ....services.multi_chain_transaction_manager import MultiChainTransactionManager, TransactionPriority  # noqa: E402
+from ...cross_chain.services.cross_chain.bridge_enhanced import (  # noqa: E402
+    BridgeProtocol,
+    BridgeSecurityLevel,
+    CrossChainBridgeService,
+)
+from ..domain.global_marketplace import GlobalMarketplaceOffer  # noqa: E402
+from ..services.global_marketplace import GlobalMarketplaceService, RegionManager  # noqa: E402
 
 
 class IntegrationStatus(StrEnum):

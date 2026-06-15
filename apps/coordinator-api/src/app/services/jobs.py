@@ -7,9 +7,9 @@ from typing import Any
 from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
-from ..contexts.payments.services.payments import PaymentService
-from ..domain import Job, JobReceipt, Miner
-from ..schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
+from ..contexts.payments.services.payments import PaymentService  # noqa: E402
+from ..domain import Job, JobReceipt, Miner  # noqa: E402
+from ..schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView  # noqa: E402
 
 
 class JobService:

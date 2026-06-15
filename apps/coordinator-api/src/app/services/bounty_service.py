@@ -9,10 +9,10 @@ from typing import Any
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from sqlalchemy import and_, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, func, or_, select  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
-from ..domain.bounty import Bounty, BountyStats, BountyStatus, BountySubmission, BountyTier, SubmissionStatus
+from ..domain.bounty import Bounty, BountyStats, BountyStatus, BountySubmission, BountyTier, SubmissionStatus  # noqa: E402
 
 
 class BountyService:

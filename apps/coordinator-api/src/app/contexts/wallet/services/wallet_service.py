@@ -35,7 +35,7 @@ class WalletService:
         if existing:
             raise ValueError(f"Agent {request.agent_id} already has an active {request.wallet_type} wallet")
         try:
-            import base64
+            import base64  # noqa: F401
             import secrets
 
             from cryptography.fernet import Fernet

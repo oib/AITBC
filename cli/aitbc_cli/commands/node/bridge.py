@@ -17,7 +17,7 @@ def request_bridge_command(ctx, target_island_id):
 
     except Exception as e:
         error(f"Error requesting bridge: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 def approve_bridge_command(ctx, request_id, approving_node_id):
@@ -27,7 +27,7 @@ def approve_bridge_command(ctx, request_id, approving_node_id):
 
     except Exception as e:
         error(f"Error approving bridge request: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 def reject_bridge_command(ctx, request_id, reason):
@@ -37,7 +37,7 @@ def reject_bridge_command(ctx, request_id, reason):
 
     except Exception as e:
         error(f"Error rejecting bridge request: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 def list_bridges_command(ctx):
@@ -49,4 +49,4 @@ def list_bridges_command(ctx):
 
     except Exception as e:
         error(f"Error listing bridges: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e

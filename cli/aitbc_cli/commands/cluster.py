@@ -20,7 +20,7 @@ def status(ctx):
         output(result, ctx.obj.get("output_format", "table"), title="Cluster Status")
     except Exception as e:
         error(f"Error getting cluster status: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @cluster.command()
@@ -32,7 +32,7 @@ def sync(ctx):
         output(result, ctx.obj.get("output_format", "table"), title="Cluster Sync")
     except Exception as e:
         error(f"Error in cluster sync: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @cluster.command()
@@ -44,4 +44,4 @@ def balance(ctx):
         output(result, ctx.obj.get("output_format", "table"), title="Cluster Balance")
     except Exception as e:
         error(f"Error in cluster balance: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

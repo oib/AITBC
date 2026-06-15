@@ -75,7 +75,7 @@ async def register_miner(
         )
         return miner  # type: ignore[no-any-return]
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{miner_id}/heartbeat")

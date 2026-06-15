@@ -7,6 +7,7 @@ from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
 from functools import wraps
+
 from .aitbc_logging import get_logger
 
 logger = get_logger(__name__)

@@ -4,21 +4,21 @@ from sqlalchemy.orm import Session
 from ....domain.reputation import ReputationEvent
 
 "\nReputation Management API Endpoints\nREST API for agent reputation, trust scores, and economic profiles\n"
-from datetime import UTC, datetime, timedelta
-from typing import Any
+from datetime import UTC, datetime, timedelta  # noqa: E402
+from typing import Any  # noqa: E402
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
-from aitbc import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger  # noqa: E402
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
 logger = get_logger(__name__)
-from sqlmodel import func, select
+from sqlmodel import func, select  # noqa: E402
 
-from ....domain.reputation import AgentReputation, CommunityFeedback, ReputationLevel
-from ....storage import get_session
-from ..services.reputation_service import ReputationService
+from ....domain.reputation import AgentReputation, CommunityFeedback, ReputationLevel  # noqa: E402
+from ....storage import get_session  # noqa: E402
+from ..services.reputation_service import ReputationService  # noqa: E402
 
 router = APIRouter(prefix="/reputation", tags=["reputation"])
 
@@ -141,7 +141,7 @@ async def get_reputation_profile(
         return ReputationProfileResponse(**profile_data)
     except Exception as e:
         logger.error("Error getting reputation profile for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/profile/{agent_id}")
@@ -162,7 +162,7 @@ async def create_reputation_profile(
         }
     except Exception as e:
         logger.error("Error creating reputation profile for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/feedback/{agent_id}", response_model=FeedbackResponse)
@@ -196,7 +196,7 @@ async def add_community_feedback(
         )
     except Exception as e:
         logger.error("Error adding feedback for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/job-completion")
@@ -225,7 +225,7 @@ async def record_job_completion(
         }
     except Exception as e:
         logger.error("Error recording job completion: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/trust-score/{agent_id}", response_model=TrustScoreResponse)
@@ -257,7 +257,7 @@ async def get_trust_score_breakdown(
         )
     except Exception as e:
         logger.error("Error getting trust score breakdown for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/leaderboard", response_model=list[LeaderboardEntry])
@@ -276,7 +276,7 @@ async def get_reputation_leaderboard(
         return [LeaderboardEntry(**entry) for entry in leaderboard_data]
     except Exception as e:
         logger.error("Error getting leaderboard: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/metrics", response_model=ReputationMetricsResponse)
@@ -320,7 +320,7 @@ async def get_reputation_metrics(request: Request, session: Session = Depends(ge
         )
     except Exception as e:
         logger.error("Error getting reputation metrics: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/feedback/{agent_id}")
@@ -355,7 +355,7 @@ async def get_agent_feedback(
         ]
     except Exception as e:
         logger.error("Error getting feedback for agent %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/events/{agent_id}")
@@ -388,7 +388,7 @@ async def get_reputation_events(
         ]
     except Exception as e:
         logger.error("Error getting reputation events for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.put("/profile/{agent_id}/specialization")
@@ -415,7 +415,7 @@ async def update_specialization(
         raise
     except Exception as e:
         logger.error("Error updating specialization for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.put("/profile/{agent_id}/region")
@@ -442,7 +442,7 @@ async def update_region(
         raise
     except Exception as e:
         logger.error("Error updating region for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/{agent_id}/cross-chain")
@@ -483,7 +483,7 @@ async def get_cross_chain_reputation(
         raise
     except Exception as e:
         logger.error("Error getting cross-chain reputation for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{agent_id}/cross-chain/sync")
@@ -511,7 +511,7 @@ async def sync_cross_chain_reputation(
         raise
     except Exception as e:
         logger.error("Error syncing cross-chain reputation for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/cross-chain/leaderboard")
@@ -557,7 +557,7 @@ async def get_cross_chain_leaderboard(
         }
     except Exception as e:
         logger.error("Error getting cross-chain leaderboard: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/cross-chain/events")
@@ -608,7 +608,7 @@ async def submit_cross_chain_event(
         raise
     except Exception as e:
         logger.error("Error submitting cross-chain event: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/cross-chain/analytics")
@@ -655,4 +655,4 @@ async def get_cross_chain_analytics(
         }  # type: ignore[operator]
     except Exception as e:
         logger.error("Error getting cross-chain analytics: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e

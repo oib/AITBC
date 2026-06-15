@@ -205,7 +205,7 @@ class TestCreateBasicHealthCheck:
     def test_basic_health_check_has_checks(self):
         """Test basic health check has registered checks when psutil available"""
         try:
-            import psutil
+            import psutil  # noqa: F401
 
             checker = create_basic_health_check("test-service")
             # Should have memory and disk checks if psutil is available

@@ -34,7 +34,7 @@ def on_startup() -> None:
     logger.info("Agent Management service started")
 
 
-from collections.abc import Generator
+from collections.abc import Generator  # noqa: E402
 
 
 # Dependency
@@ -47,7 +47,7 @@ def get_db() -> Generator[Session]:
 
 
 # Include routers
-from .routers import (
+from .routers import (  # noqa: E402
     agent_creativity_router,
     agent_integration_router,
     agent_performance_router,

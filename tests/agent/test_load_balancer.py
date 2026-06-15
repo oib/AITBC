@@ -8,17 +8,17 @@ coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
-import pytest
-from datetime import UTC, datetime
+from datetime import UTC, datetime  # noqa: E402
 
-from app.routing.load_balancer import (
+import pytest  # noqa: E402
+from app.routing.agent_discovery import AgentRegistry  # noqa: E402
+from app.routing.load_balancer import (  # noqa: E402
+    AgentWeight,
+    LoadBalancer,
     LoadBalancingStrategy,
     LoadMetrics,
     TaskAssignment,
-    AgentWeight,
-    LoadBalancer,
 )
-from app.routing.agent_discovery import AgentRegistry
 
 
 class TestLoadMetrics:

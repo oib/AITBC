@@ -1,11 +1,9 @@
 """Tests for aitbc.oracles.price_oracle"""
 
 import os
-from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from aitbc.oracles.price_oracle import (
-    CHAINLINK_FEEDS_MAINNET,
     ChainlinkOracle,
     CoinGeckoOracle,
     PriceOracle,

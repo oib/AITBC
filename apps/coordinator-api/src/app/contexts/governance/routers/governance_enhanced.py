@@ -53,7 +53,7 @@ async def create_regional_council(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating regional council: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating regional council: {str(e)}") from e
 
 
 @router.get("/regional-councils", response_model=list[dict[str, Any]])
@@ -71,7 +71,7 @@ async def get_regional_councils(
         return councils
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting regional councils: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting regional councils: {str(e)}") from e
 
 
 @router.post("/regional-proposals", response_model=dict[str, Any])
@@ -97,7 +97,7 @@ async def create_regional_proposal(
         return {"success": True, "proposal": proposal, "message": f"Regional proposal '{title}' created successfully"}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating regional proposal: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating regional proposal: {str(e)}") from e
 
 
 @router.post("/regional-proposals/{proposal_id}/vote", response_model=dict[str, Any])
@@ -119,7 +119,7 @@ async def vote_on_regional_proposal(
         return {"success": True, "vote": vote, "message": f"Vote cast successfully on proposal {proposal_id}"}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error voting on proposal: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error voting on proposal: {str(e)}") from e
 
 
 # Treasury Management Endpoints
@@ -138,7 +138,7 @@ async def get_treasury_balance(
         return balance
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting treasury balance: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting treasury balance: {str(e)}") from e
 
 
 @router.post("/treasury/allocate", response_model=dict[str, Any])
@@ -163,7 +163,7 @@ async def allocate_treasury_funds(
         return {"success": True, "allocation": allocation, "message": f"Treasury funds allocated successfully: {amount} AITBC"}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error allocating treasury funds: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error allocating treasury funds: {str(e)}") from e
 
 
 @router.get("/treasury/transactions", response_model=list[dict[str, Any]])
@@ -183,7 +183,7 @@ async def get_treasury_transactions(
         return transactions
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting treasury transactions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting treasury transactions: {str(e)}") from e
 
 
 # Staking & Rewards Endpoints
@@ -206,7 +206,7 @@ async def create_staking_pool(
         return {"success": True, "pool": pool, "message": f"Staking pool '{pool_name}' created successfully"}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating staking pool: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating staking pool: {str(e)}") from e
 
 
 @router.get("/staking/pools", response_model=list[dict[str, Any]])
@@ -224,7 +224,7 @@ async def get_developer_staking_pools(
         return pools
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting staking pools: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting staking pools: {str(e)}") from e
 
 
 @router.get("/staking/calculate-rewards", response_model=dict[str, Any])
@@ -245,7 +245,7 @@ async def calculate_staking_rewards(
         return rewards
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error calculating staking rewards: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error calculating staking rewards: {str(e)}") from e
 
 
 @router.post("/staking/distribute-rewards/{pool_id}", response_model=dict[str, Any])
@@ -268,7 +268,7 @@ async def distribute_staking_rewards(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error distributing staking rewards: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error distributing staking rewards: {str(e)}") from e
 
 
 # Analytics and Monitoring Endpoints
@@ -287,7 +287,7 @@ async def get_governance_analytics(
         return analytics
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting governance analytics: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting governance analytics: {str(e)}") from e
 
 
 @router.get("/analytics/regional-health/{region}", response_model=dict[str, Any])
@@ -305,7 +305,7 @@ async def get_regional_governance_health(
         return health
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting regional governance health: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting regional governance health: {str(e)}") from e
 
 
 # Enhanced Profile Management
@@ -336,7 +336,7 @@ async def create_governance_profile(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating governance profile: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating governance profile: {str(e)}") from e
 
 
 @router.post("/profiles/delegate", response_model=dict[str, Any])
@@ -363,7 +363,7 @@ async def delegate_votes(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error delegating votes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error delegating votes: {str(e)}") from e
 
 
 @router.get("/profiles/{user_id}", response_model=dict[str, Any])
@@ -394,7 +394,7 @@ async def get_governance_profile(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting governance profile: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting governance profile: {str(e)}") from e
 
 
 # Multi-Jurisdictional Compliance
@@ -449,7 +449,7 @@ async def get_supported_jurisdictions(request: Request) -> list[dict[str, Any]]:
         return jurisdictions
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting jurisdictions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting jurisdictions: {str(e)}") from e
 
 
 @router.get("/compliance/check/{user_address}", response_model=dict[str, Any])
@@ -484,7 +484,7 @@ async def check_compliance_status(
         return compliance_status
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error checking compliance status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error checking compliance status: {str(e)}") from e
 
 
 # System Health and Status
@@ -536,7 +536,7 @@ async def get_governance_system_health(
         return health_data
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting system health: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting system health: {str(e)}") from e
 
 
 @router.get("/status", response_model=dict[str, Any])
@@ -588,4 +588,4 @@ async def get_governance_platform_status(
         return status_data
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting platform status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting platform status: {str(e)}") from e

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from typing import Union
 
 from ..models import Account
 
@@ -32,7 +31,7 @@ class BranchNode:
     value: bytes | None = None
 
 
-TrieNode = Union[LeafNode, ExtensionNode, BranchNode]
+TrieNode = LeafNode | ExtensionNode | BranchNode
 
 
 class MerklePatriciaTrie:

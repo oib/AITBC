@@ -2184,7 +2184,7 @@ class TestMonitoringComprehensive:
         sla_ids = ["sla-001", "sla-002", "sla-003"]
         values = [0.95, 0.85, 0.75]
 
-        for sla_id, value in zip(sla_ids, values):
+        for sla_id, value in zip(sla_ids, values, strict=True):
             coordinator_client.post(f"/sla/{sla_id}/record?value={value}")
 
         # Get SLA status
@@ -2584,7 +2584,7 @@ class TestAgentDiscoveryComprehensive:
         capabilities = ["data-processing", "gpu-compute", "storage", "networking"]
         services = ["task-execution", "monitoring", "storage-service", "network-service"]
 
-        for i, (agent_type, cap, service) in enumerate(zip(agent_types, capabilities, services)):
+        for i, (agent_type, cap, service) in enumerate(zip(agent_types, capabilities, services, strict=False)):
             agent_data = {
                 "agent_id": f"discovery-agent-{i}",
                 "agent_type": agent_type,

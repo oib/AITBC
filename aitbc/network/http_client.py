@@ -7,7 +7,9 @@ import asyncio
 import time
 from datetime import datetime
 from typing import Any
+
 import requests
+
 from ..aitbc_logging import get_logger
 from ..exceptions import CircuitBreakerOpenError, NetworkError, RateLimitError, RetryError
 

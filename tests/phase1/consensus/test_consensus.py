@@ -9,7 +9,11 @@ import pytest
 try:
     from aitbc_chain.consensus.keys import KeyManager
     from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA, ValidatorRole
-    from aitbc_chain.consensus.pbft import PBFTConsensus, PBFTMessageType, PBFTPhase
+    from aitbc_chain.consensus.pbft import (  # noqa: F401
+        PBFTConsensus,
+        PBFTMessageType,
+        PBFTPhase,
+    )
     from aitbc_chain.consensus.rotation import RotationConfig, RotationStrategy, ValidatorRotation
     from aitbc_chain.consensus.slashing import SlashingCondition, SlashingManager
 

@@ -203,7 +203,7 @@ class EthereumBridge(BridgeAdapter):
             # Test connection
             self._web3_client.get_eth_balance("0x0000000000000000000000000000000000000000")
         except Exception as e:
-            raise BridgeError(f"Failed to initialize Ethereum bridge: {e}")
+            raise BridgeError(f"Failed to initialize Ethereum bridge: {e}") from e
 
     async def send_message(self, message: SettlementMessage) -> SettlementResult:
         """Send message to Ethereum chain"""
@@ -287,7 +287,7 @@ class EthereumBridge(BridgeAdapter):
             return json.dumps(tx_dict).encode("utf-8")
 
         except Exception as e:
-            raise BridgeError(f"Failed to encode Ethereum payload: {e}")
+            raise BridgeError(f"Failed to encode Ethereum payload: {e}") from e
 
     def _encode_proof_data(self, proof_data: dict[str, Any]) -> str:
         """Encode proof data for Ethereum transaction data field"""

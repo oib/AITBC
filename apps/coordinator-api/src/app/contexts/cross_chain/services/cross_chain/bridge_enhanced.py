@@ -15,11 +15,15 @@ from uuid import uuid4
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from sqlmodel import Session, func, select, update
+from sqlmodel import Session, func, select, update  # noqa: E402
 
-from .....agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory
-from .....domain.cross_chain_bridge import BridgeRequest, BridgeRequestStatus
-from .....reputation.engine import CrossChainReputationEngine
+from .....agent_identity.wallet_adapter_enhanced import (  # noqa: E402
+    EnhancedWalletAdapter,
+    SecurityLevel,
+    WalletAdapterFactory,
+)
+from .....domain.cross_chain_bridge import BridgeRequest, BridgeRequestStatus  # noqa: E402
+from .....reputation.engine import CrossChainReputationEngine  # noqa: E402
 
 
 class BridgeProtocol(StrEnum):

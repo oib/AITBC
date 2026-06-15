@@ -131,7 +131,7 @@ class ComputingAgentExample:
             elif task.type == "encryption_services":
                 result = await self.process_encryption_task(task)
             else:
-                raise ValueError("Unknown task type: %s" % task.type)
+                raise ValueError(f"Unknown task type: {task.type}")
 
             # Submit result to blockchain
             await self.blockchain_client.submit_task_result(task.id, result)
@@ -195,7 +195,7 @@ class ComputingAgentExample:
         elif processing_type == "machine_learning":
             result = await self.computing_engine.machine_learning_analysis(data)
         else:
-            raise ValueError("Unknown processing type: %s" % processing_type)
+            raise ValueError(f"Unknown processing type: {processing_type}")
 
         # Add metadata
         result["metadata"] = {
@@ -221,7 +221,7 @@ class ComputingAgentExample:
         elif operation == "hash":
             result = self.computing_engine.hash_data(data, task.parameters)
         else:
-            raise ValueError("Unknown operation: %s" % operation)
+            raise ValueError(f"Unknown operation: {operation}")
 
         # Add metadata
         result["metadata"] = {"operation": operation, "data_size": len(data), "agent_address": self.agent.address}

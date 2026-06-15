@@ -81,7 +81,7 @@ async def execute_task(task: TaskMessage):
 
     except Exception as e:
         print(f"[{datetime.utcnow()}] Error executing task: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 if __name__ == "__main__":

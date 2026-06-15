@@ -4,9 +4,7 @@ import sys
 
 sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
 
-from unittest.mock import MagicMock, patch
 
-import pytest
 
 from app.routers.users import create_session_token, verify_session_token
 
