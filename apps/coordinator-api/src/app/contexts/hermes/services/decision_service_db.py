@@ -11,13 +11,13 @@ from ....schemas.hermes_decision import DecisionProposal, DecisionProposalRespon
 class DecisionService:
     """Service for managing distributed agent decisions with database storage."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     def propose_decision(self, proposal: DecisionProposal, session: Session) -> DecisionProposalResponse:
         """Create a new decision proposal for agent voting."""
         decision_id = str(uuid.uuid4())
-        decision = DecisionModel(id=decision_id, decision_type=proposal.decision_type, title=proposal.title, description=proposal.description, proposed_by=proposal.proposed_by, voting_deadline=proposal.voting_deadline, min_participation=proposal.min_participation, required_approval=proposal.required_approval, status=DecisionStatus.PENDING, meta_data=json.dumps(proposal.metadata or {}), created_at=datetime.utcnow())
+        decision = DecisionModel(id=decision_id, decision_type=proposal.decision_type, title=proposal.title, description=proposal.description, proposed_by=proposal.proposed_by, voting_deadline=proposal.voting_deadline, min_participation=proposal.min_participation, required_approval=proposal.required_approval, status=DecisionStatus.PENDING, meta_data=json.dumps(proposal.metadata or {}), created_at=datetime.utcnow())  # type: ignore[arg-type]
         session.add(decision)
         session.commit()
         logger.info('Decision proposed: %s - %s', decision_id, proposal.title)
@@ -30,15 +30,15 @@ class DecisionService:
             return VoteResponse(vote_id='', decision_id=vote.decision_id, status='error', message='Decision not found')
         now = datetime.utcnow()
         deadline = decision.voting_deadline
-        if deadline.tzinfo is not None:
-            now = datetime.now(deadline.tzinfo)
-        if now > deadline:
+        if deadline.tzinfo is not None:  # type: ignore[union-attr]
+            now = datetime.now(deadline.tzinfo)  # type: ignore[union-attr]
+        if now > deadline: # type: ignore[operator]
             return VoteResponse(vote_id='', decision_id=vote.decision_id, status='error', message='Voting deadline has passed')
         existing_vote = session.query(VoteModel).filter_by(decision_id=vote.decision_id, agent_id=vote.agent_id).first()
         if existing_vote:
             return VoteResponse(vote_id='', decision_id=vote.decision_id, status='error', message='Agent has already voted')
         vote_id = str(uuid.uuid4())
-        vote_record = VoteModel(id=vote_id, decision_id=vote.decision_id, agent_id=vote.agent_id, vote=vote.vote, weight=vote.weight, reason=vote.reason, created_at=datetime.utcnow())
+        vote_record = VoteModel(id=vote_id, decision_id=vote.decision_id, agent_id=vote.agent_id, vote=vote.vote, weight=vote.weight, reason=vote.reason, created_at=datetime.utcnow())  # type: ignore[arg-type]
         session.add(vote_record)
         decision.status = DecisionStatus.IN_PROGRESS
         session.commit()
@@ -55,9 +55,10 @@ class DecisionService:
         approve_votes = sum((1 for v in votes if v.vote == VoteOption.APPROVE))
         reject_votes = sum((1 for v in votes if v.vote == VoteOption.REJECT))
         abstain_votes = sum((1 for v in votes if v.vote == VoteOption.ABSTAIN))
-        weighted_approve = sum((v.weight for v in votes if v.vote == VoteOption.APPROVE))
-        weighted_reject = sum((v.weight for v in votes if v.vote == VoteOption.REJECT))
-        weighted_abstain = sum((v.weight for v in votes if v.vote == VoteOption.ABSTAIN))
+        weighted_approve = sum((v.weight for v in votes if v.vote == VoteOption.APPROVE))  # type: ignore[misc]
+        weighted_reject = sum((v.weight for v in votes if v.vote == VoteOption.REJECT))  # type: ignore[misc]
+        weighted_abstain = sum((v.weight for v in votes if v.vote == VoteOption.ABSTAIN))  # type: ignore[misc]
+        total_weight = weighted_approve + weighted_reject + weighted_abstain
         total_weight = weighted_approve + weighted_reject + weighted_abstain
         participation_rate = total_weight / max(total_weight, 1.0)
         approval_rate = weighted_approve / max(weighted_approve + weighted_reject, 1.0)
@@ -65,11 +66,11 @@ class DecisionService:
         concluded_at = None
         now = datetime.utcnow()
         deadline = decision.voting_deadline
-        if deadline.tzinfo is not None:
-            now = datetime.now(deadline.tzinfo)
-        if now > deadline:
-            if participation_rate >= decision.min_participation:
-                if approval_rate >= decision.required_approval:
+        if deadline.tzinfo is not None:  # type: ignore[union-attr]
+            now = datetime.now(deadline.tzinfo)  # type: ignore[union-attr]
+        if now > deadline: # type: ignore[operator]
+            if participation_rate >= decision.min_participation: # type: ignore[operator]
+                if approval_rate >= decision.required_approval: # type: ignore[operator]
                     final_decision = VoteOption.APPROVE
                     decision.status = DecisionStatus.APPROVED
                 else:

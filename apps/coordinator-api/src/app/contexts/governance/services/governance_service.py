@@ -21,11 +21,11 @@ class GovernanceService:
         """Get an existing governance profile or create a new one"""
         profile = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.user_id == user_id)).first()
         if not profile:
-            profile = GovernanceProfile(user_id=user_id, voting_power=initial_voting_power)
+            profile = GovernanceProfile(user_id=user_id, voting_power=initial_voting_power)  # type: ignore[assignment]
             self.session.add(profile)
             self.session.commit()
             self.session.refresh(profile)
-        return profile
+        return profile # type: ignore[return-value]
 
     async def delegate_votes(self, delegator_id: str, delegatee_id: str) -> GovernanceProfile:
         """Delegate voting power from one profile to another"""
@@ -43,7 +43,7 @@ class GovernanceService:
         self.session.refresh(delegator)
         self.session.refresh(delegatee)
         logger.info('Votes delegated from %s to %s', delegator_id, delegatee_id)
-        return delegator
+        return delegator # type: ignore[return-value]
 
     async def create_proposal(self, proposer_id: str, data: dict[str, Any]) -> Proposal:
         """Create a new governance proposal"""
@@ -70,7 +70,7 @@ class GovernanceService:
         self.session.refresh(proposal)
         return proposal
 
-    async def cast_vote(self, proposal_id: str, voter_id: str, vote_type: VoteType, reason: str=None) -> Vote:
+    async def cast_vote(self, proposal_id: str, voter_id: str, vote_type: VoteType, reason: str | None=None) -> Vote:
         """Cast a vote on an active proposal"""
         proposal = self.session.execute(select(Proposal).where(Proposal.proposal_id == proposal_id)).first()
         voter = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.profile_id == voter_id)).first()
@@ -130,7 +130,7 @@ class GovernanceService:
         self.session.add(proposal)
         self.session.commit()
         self.session.refresh(proposal)
-        return proposal
+        return proposal # type: ignore[return-value]
 
     async def execute_proposal(self, proposal_id: str, executor_id: str) -> Proposal:
         """Execute a successful proposal's payload"""
@@ -157,7 +157,7 @@ class GovernanceService:
         self.session.add(proposal)
         self.session.commit()
         self.session.refresh(proposal)
-        return proposal
+        return proposal # type: ignore[return-value]
 
     async def generate_transparency_report(self, period: str) -> TransparencyReport:
         """Generate automated governance analytics report"""

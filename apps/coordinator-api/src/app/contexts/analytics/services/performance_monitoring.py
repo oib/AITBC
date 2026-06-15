@@ -86,7 +86,7 @@ class PerformanceMonitor:
         self.system_resources.append({'timestamp': datetime.now(UTC), 'data': system_resource})
         return system_resource
 
-    async def record_model_performance(self, model_id: str, model_type: str, inference_time_ms: float, throughput: float, accuracy: float | None=None, memory_usage_mb: float=0.0, gpu_utilization: float | None=None):
+    async def record_model_performance(self, model_id: str, model_type: str, inference_time_ms: float, throughput: float, accuracy: float | None=None, memory_usage_mb: float=0.0, gpu_utilization: float | None=None) -> None:
         """Record AI model performance metrics"""
         performance = AIModelPerformance(model_id=model_id, model_type=model_type, inference_time_ms=inference_time_ms, throughput_requests_per_second=throughput, accuracy=accuracy, memory_usage_mb=memory_usage_mb, gpu_utilization=gpu_utilization)
         self.model_performance[model_id].append({'timestamp': datetime.now(UTC), 'data': performance})
@@ -162,7 +162,7 @@ class PerformanceMonitor:
         inference_times = [p.inference_time_ms for p in performances]
         throughputs = [p.throughput_requests_per_second for p in performances]
 
-        def calculate_trend(values):
+        def calculate_trend(values: list[float]) -> float:
             if len(values) < 2:
                 return 0.0
             n = len(values)
@@ -208,7 +208,7 @@ class AutoOptimizer:
 
     def __init__(self, performance_monitor: PerformanceMonitor):
         self.monitor = performance_monitor
-        self.optimization_history = []
+        self.optimization_history: list[dict[str, Any]] = []
         self.optimization_enabled = True
 
     async def run_optimization_cycle(self) -> None:

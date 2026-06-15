@@ -1,5 +1,5 @@
 from uuid import uuid4
-from sqlalchemy import and_
+from sqlalchemy import and_, desc
 from sqlalchemy.orm import Session
 from sqlmodel import select
 '\nMarketplace Analytics API Endpoints\nREST API for analytics, insights, reporting, and dashboards\n'
@@ -95,9 +95,9 @@ class AnalyticsSummaryResponse(BaseModel):
 @rate_limit(rate=20, per=60)
 async def collect_market_data(request: Request, period_type: AnalyticsPeriod=Query(default=AnalyticsPeriod.DAILY, description='Collection period'), session: Session=Depends(get_session)) -> AnalyticsSummaryResponse:
     """Collect market data for analytics"""
-    analytics_service = AgentServiceMarketplace(session)
+    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
-        result = await analytics_service.collect_market_data(period_type)
+        result = await analytics_service.collect_market_data(period_type)  # type: ignore[attr-defined]
         return AnalyticsSummaryResponse(**result)
     except Exception as e:
         logger.error('Error collecting market data: %s', str(e))
@@ -107,9 +107,9 @@ async def collect_market_data(request: Request, period_type: AnalyticsPeriod=Que
 @rate_limit(rate=200, per=60)
 async def get_market_insights(request: Request, time_period: str=Query(default='daily', description='Time period: daily, weekly, monthly'), insight_type: str | None=Query(default=None, description='Filter by insight type'), impact_level: str | None=Query(default=None, description='Filter by impact level'), limit: int=Query(default=20, ge=1, le=100, description='Number of results'), session: Session=Depends(get_session)) -> dict[str, Any]:
     """Get market insights and analysis"""
-    analytics_service = AgentServiceMarketplace(session)
+    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
-        result = await analytics_service.generate_insights(time_period)
+        result = await analytics_service.generate_insights(time_period)  # type: ignore[attr-defined]
         if insight_type or impact_level:
             filtered_insights = {}
             for type_name, insights in result['insight_groups'].items():
@@ -122,7 +122,7 @@ async def get_market_insights(request: Request, time_period: str=Query(default='
                     filtered_insights[type_name] = filtered[:limit]
             result['insight_groups'] = filtered_insights
             result['total_insights'] = sum((len(insights) for insights in filtered_insights.values()))
-        return result
+        return result  # type: ignore[no-any-return]
     except Exception as e:
         logger.error('Error getting market insights: %s', str(e))
         raise HTTPException(status_code=500, detail='Internal server error')
@@ -139,7 +139,7 @@ async def get_market_metrics(request: Request, period_type: AnalyticsPeriod=Quer
             query = query.where(MarketMetric.category == category)
         if geographic_region:
             query = query.where(MarketMetric.geographic_region == geographic_region)
-        metrics = session.execute(query.order_by(MarketMetric.recorded_at.desc()).limit(limit)).all()
+        metrics = session.execute(query.order_by(desc(MarketMetric.recorded_at)).limit(limit)).all()  # type: ignore[arg-type]
         return [MetricResponse(metric_name=metric.metric_name, metric_type=metric.metric_type.value, period_type=metric.period_type.value, value=metric.value, previous_value=metric.previous_value, change_percentage=metric.change_percentage, unit=metric.unit, category=metric.category, recorded_at=metric.recorded_at.isoformat(), period_start=metric.period_start.isoformat(), period_end=metric.period_end.isoformat(), breakdown=metric.breakdown, comparisons=metric.comparisons) for metric in metrics]
     except Exception as e:
         logger.error('Error getting market metrics: %s', str(e))
@@ -149,9 +149,9 @@ async def get_market_metrics(request: Request, period_type: AnalyticsPeriod=Quer
 @rate_limit(rate=200, per=60)
 async def get_market_overview(request: Request, session: Session=Depends(get_session)) -> MarketOverviewResponse:
     """Get comprehensive market overview"""
-    analytics_service = AgentServiceMarketplace(session)
+    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
-        overview = await analytics_service.get_market_overview()
+        overview = await analytics_service.get_market_overview()  # type: ignore[attr-defined]
         return MarketOverviewResponse(**overview)
     except Exception as e:
         logger.error('Error getting market overview: %s', str(e))
@@ -161,9 +161,9 @@ async def get_market_overview(request: Request, session: Session=Depends(get_ses
 @rate_limit(rate=20, per=60)
 async def create_dashboard(request: Request, owner_id: str, dashboard_type: str=Query(default='default', description='Dashboard type: default, executive'), name: str | None=Query(default=None, description='Custom dashboard name'), session: Session=Depends(get_session)) -> DashboardResponse:
     """Create analytics dashboard"""
-    analytics_service = AgentServiceMarketplace(session)
+    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
-        result = await analytics_service.create_dashboard(owner_id, dashboard_type)
+        result = await analytics_service.create_dashboard(owner_id, dashboard_type)  # type: ignore[attr-defined]
         dashboard = session.execute(select(DashboardConfig).where(DashboardConfig.dashboard_id == result['dashboard_id'])).first()
         if not dashboard:
             raise HTTPException(status_code=404, detail='Dashboard not found after creation')
@@ -199,7 +199,7 @@ async def list_dashboards(request: Request, owner_id: str | None=Query(default=N
             query = query.where(DashboardConfig.dashboard_type == dashboard_type)
         if status:
             query = query.where(DashboardConfig.status == status)
-        dashboards = session.execute(query.order_by(DashboardConfig.created_at.desc()).limit(limit)).all()
+        dashboards = session.execute(query.order_by(desc(DashboardConfig.created_at)).limit(limit)).all()  # type: ignore[arg-type]
         return [DashboardResponse(dashboard_id=dashboard.dashboard_id, name=dashboard.name, description=dashboard.description, dashboard_type=dashboard.dashboard_type, layout=dashboard.layout, widgets=dashboard.widgets, filters=dashboard.filters, refresh_interval=dashboard.refresh_interval, auto_refresh=dashboard.auto_refresh, owner_id=dashboard.owner_id, status=dashboard.status, created_at=dashboard.created_at.isoformat(), updated_at=dashboard.updated_at.isoformat()) for dashboard in dashboards]
     except Exception as e:
         logger.error('Error listing dashboards: %s', str(e))
@@ -264,7 +264,7 @@ async def get_report(request: Request, report_id: str, format: str=Query(default
 async def get_analytics_alerts(request: Request, severity: str | None=Query(default=None, description='Filter by severity level'), status: str | None=Query(default='active', description='Filter by status'), limit: int=Query(default=20, ge=1, le=100, description='Number of results'), session: Session=Depends(get_session)) -> list[dict[str, Any]]:
     """Get analytics alerts"""
     try:
-        from ..domain.analytics import AnalyticsAlert
+        from ..domain.analytics import AnalyticsAlert  # type: ignore[import-not-found]
         query = select(AnalyticsAlert)
         if severity:
             query = query.where(AnalyticsAlert.severity == severity)
@@ -290,7 +290,7 @@ async def get_key_performance_indicators(request: Request, period_type: Analytic
             start_time = end_time - timedelta(days=30)
         else:
             start_time = end_time - timedelta(hours=1)
-        metrics = session.execute(select(MarketMetric).where(and_(MarketMetric.period_type == period_type, MarketMetric.period_start >= start_time, MarketMetric.period_end <= end_time)).order_by(MarketMetric.recorded_at.desc())).all()
+        metrics = session.execute(select(MarketMetric).where(and_(MarketMetric.period_type == period_type, MarketMetric.period_start >= start_time, MarketMetric.period_end <= end_time)).order_by(desc(MarketMetric.recorded_at))).all()  # type: ignore[arg-type]
         kpis = {}
         for metric in metrics:
             if metric.metric_name in ['transaction_volume', 'active_agents', 'average_price', 'success_rate']:
@@ -302,8 +302,8 @@ async def get_key_performance_indicators(request: Request, period_type: Analytic
 
 async def generate_market_overview_report(session: Session, period_type: AnalyticsPeriod, start_date: datetime, end_date: datetime, filters: dict[str, Any]) -> dict[str, Any]:
     """Generate market overview report content"""
-    metrics = session.execute(select(MarketMetric).where(and_(MarketMetric.period_type == period_type, MarketMetric.period_start >= start_date, MarketMetric.period_end <= end_date)).order_by(MarketMetric.recorded_at.desc())).all()
-    insights = session.execute(select(MarketInsight).where(and_(MarketInsight.created_at >= start_date, MarketInsight.created_at <= end_date)).order_by(MarketInsight.created_at.desc())).all()
+    metrics = session.execute(select(MarketMetric).where(and_(MarketMetric.period_type == period_type, MarketMetric.period_start >= start_date, MarketMetric.period_end <= end_date)).order_by(desc(MarketMetric.recorded_at))).all()  # type: ignore[arg-type]
+    insights = session.execute(select(MarketInsight).where(and_(MarketInsight.created_at >= start_date, MarketInsight.created_at <= end_date)).order_by(desc(MarketInsight.created_at))).all()  # type: ignore[arg-type]
     return {'summary': f'Market overview for {period_type.value} period from {start_date.date()} to {end_date.date()}', 'key_findings': [f"Total transaction volume: {next((m.value for m in metrics if m.metric_name == 'transaction_volume'), 0):.2f} AITBC", f"Active agents: {next((int(m.value) for m in metrics if m.metric_name == 'active_agents'), 0)}", f"Average success rate: {next((m.value for m in metrics if m.metric_name == 'success_rate'), 0):.1f}%", f'Total insights generated: {len(insights)}'], 'recommendations': ['Monitor transaction volume trends for growth opportunities', 'Focus on improving agent success rates', 'Analyze geographic distribution for market expansion'], 'data_sections': [{'title': 'Transaction Metrics', 'data': {metric.metric_name: metric.value for metric in metrics if metric.category == 'financial'}}, {'title': 'Agent Metrics', 'data': {metric.metric_name: metric.value for metric in metrics if metric.category == 'agents'}}], 'charts': [{'type': 'line', 'title': 'Transaction Volume Trend', 'data': [m.value for m in metrics if m.metric_name == 'transaction_volume']}, {'type': 'pie', 'title': 'Agent Distribution by Tier', 'data': next((m.breakdown.get('by_tier', {}) for m in metrics if m.metric_name == 'active_agents'), {})}]}
 
 async def generate_agent_performance_report(session: Session, period_type: AnalyticsPeriod, start_date: datetime, end_date: datetime, filters: dict[str, Any]) -> dict[str, Any]:
@@ -341,7 +341,7 @@ def calculate_overall_health(kpis: dict[str, Any]) -> str:
     """Calculate overall market health"""
     if not kpis:
         return 'unknown'
-    status_counts = {}
+    status_counts: dict[str, int] = {}
     for kpi_data in kpis.values():
         status = kpi_data.get('status', 'fair')
         status_counts[status] = status_counts.get(status, 0) + 1

@@ -118,7 +118,7 @@ class MultiModalAgentService:
                 logger.error('Parallel processing failed for %s: %s', modality, result)
                 results[modality.value] = {'error': str(result)}
             else:
-                results[modality.value] = result
+                results[modality.value] = result  # type: ignore[assignment]
         return results
 
     async def _process_fusion(self, context: dict[str, Any], inputs: dict[str, Any]) -> dict[str, Any]:
@@ -363,7 +363,7 @@ class MultiModalAgentService:
     async def _update_agent_execution(self, agent_id: str, results: dict[str, Any], performance_metrics: dict[str, Any]) -> None:
         """Update agent execution record"""
         try:
-            execution = self.session.query(AgentExecution).filter(AgentExecution.agent_id == agent_id, AgentExecution.status == AgentStatus.RUNNING).first()
+            execution = self.session.query(AgentExecution).filter(AgentExecution.agent_id == agent_id, AgentExecution.status == AgentStatus.RUNNING).first()  # type: ignore[arg-type, attr-defined]
             if execution:
                 execution.results = results
                 execution.performance_metrics = performance_metrics
@@ -392,7 +392,7 @@ class CrossModalAttentionProcessor:
             if 'error' not in modality_results[modality]:
                 features = [weight * 0.2 * i % 1.0 for i in range(512)]
                 attended_features.extend(features)
-        final_output = {'representation': attended_features, 'attention_summary': attention_weights, 'dominant_modality': max(attention_weights, key=attention_weights.get)}
+        final_output = {'representation': attended_features, 'attention_summary': attention_weights, 'dominant_modality': max(attention_weights, key=attention_weights.get)}  # type: ignore[arg-type]
         return {'attention_weights': attention_weights, 'attended_features': attended_features, 'final_output': final_output}
 
 class MultiModalPerformanceTracker:

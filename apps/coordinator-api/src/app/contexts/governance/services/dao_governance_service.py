@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 from ....domain.dao_governance import DAOMember, DAOProposal, ProposalState, ProposalType, TreasuryAllocation, Vote
 from ....schemas.dao_governance import AllocationCreate, MemberCreate, ProposalCreate, VoteCreate
-from ...blockchain.contract_interactions import ContractInteractionService
+from ...blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
 logger = logging.getLogger(__name__)
 
 class DAOGovernanceService:
@@ -26,7 +26,7 @@ class DAOGovernanceService:
             existing.voting_power = existing.staked_amount
             self.session.commit()
             self.session.refresh(existing)
-            return existing
+            return existing # type: ignore[return-value]
         member = DAOMember(wallet_address=request.wallet_address, staked_amount=request.staked_amount, voting_power=request.staked_amount)
         self.session.add(member)
         self.session.commit()

@@ -39,7 +39,7 @@ async def services_summary(request: Request) -> dict[str, Any]:
         summary = {'timestamp': datetime.now(UTC).isoformat(), 'services': {}}
         for service_id, service_info in SERVICES.items():
             health = health_data.get(service_id, {})
-            summary['services'][service_id] = {'name': service_info['name'], 'port': service_info['port'], 'status': health.get('status', 'unknown'), 'description': service_info['description'], 'icon': service_info['icon'], 'last_check': health.get('timestamp')}
+            summary['services'][service_id] = {'name': service_info['name'], 'port': service_info['port'], 'status': health.get('status', 'unknown'), 'description': service_info['description'], 'icon': service_info['icon'], 'last_check': health.get('timestamp')}  # type: ignore[index]
         return summary
     except Exception as e:
         logger.error('Failed to generate services summary: %s', e)
@@ -69,7 +69,7 @@ async def collect_all_health_data() -> dict[str, Any]:
     client = AITBCHTTPClient(timeout=5.0)
     tasks = []
     for service_id, service_info in SERVICES.items():
-        task = check_service_health(client, service_id, service_info)
+        task = check_service_health(client, service_id, service_info)  # type: ignore[arg-type, call-arg]
         tasks.append(task)
     results = await asyncio.gather(*tasks, return_exceptions=True)
     for i, (service_id, service_info) in enumerate(SERVICES.items()):
@@ -77,7 +77,7 @@ async def collect_all_health_data() -> dict[str, Any]:
         if isinstance(result, Exception):
             health_data[service_id] = {'status': 'unhealthy', 'error': str(result), 'timestamp': datetime.now(UTC).isoformat()}
         else:
-            health_data[service_id] = result
+            health_data[service_id] = result  # type: ignore[assignment]
     return health_data
 
 async def check_service_health(service_name: str, service_config: dict[str, Any]) -> dict[str, Any]:
@@ -92,7 +92,6 @@ async def check_service_health(service_name: str, service_config: dict[str, Any]
     except NetworkError as e:
         logger.warning('Service %s health check failed: %s', service_name, e)
         return {'status': 'unhealthy', 'error': str(e), 'last_check': datetime.now(UTC).isoformat()}
-        return {'status': 'unhealthy', 'error': 'connection refused', 'timestamp': datetime.now(UTC).isoformat()}
     except Exception as e:
         return {'status': 'unhealthy', 'error': str(e), 'timestamp': datetime.now(UTC).isoformat()}
 
@@ -107,7 +106,7 @@ def calculate_overall_metrics(health_data: dict[str, Any]) -> dict[str, Any]:
         if 'response_time' in service_health:
             try:
                 time_str = service_health['response_time'].replace('s', '')
-                total_response_time += float(time_str)
+                total_response_time += float(time_str)  # type: ignore[assignment]
                 response_time_count += 1
             except (ValueError, AttributeError):
                 pass

@@ -11,7 +11,7 @@ from typing import Any
 import redis.asyncio as redis
 from redis.asyncio import Redis
 from aitbc import get_logger
-from ...services.secure_pickle import safe_loads
+from ...services.secure_pickle import safe_loads  # type: ignore[import-not-found]
 from .translation_engine import TranslationProvider, TranslationResponse
 logger = get_logger(__name__)
 
@@ -97,7 +97,7 @@ class TranslationCache:
             pipe = self.redis.pipeline()
             pipe.setex(cache_key, ttl, serialized_entry)
             stats_key = f'{cache_key}:stats'
-            pipe.hset(stats_key, {'access_count': 1, 'last_accessed': cache_entry.last_accessed, 'created_at': cache_entry.created_at, 'confidence': response.confidence, 'provider': response.provider.value})
+            pipe.hset(stats_key, {'access_count': 1, 'last_accessed': cache_entry.last_accessed, 'created_at': cache_entry.created_at, 'confidence': response.confidence, 'provider': response.provider.value})  # type: ignore[arg-type]
             pipe.expire(stats_key, ttl)
             await pipe.execute()
             self.stats['sets'] += 1
@@ -129,7 +129,7 @@ class TranslationCache:
         try:
             keys = await self.redis.keys(pattern)
             if keys:
-                stats_keys = [f'{key.decode()}:stats' for key in keys]
+                stats_keys = [f'{key.decode()}:stats' for key in keys]  # type: ignore[union-attr]
                 all_keys = keys + stats_keys
                 await self.redis.delete(*all_keys)
                 return len(keys)
@@ -237,7 +237,7 @@ class TranslationCache:
         for unit in ['B', 'KB', 'MB', 'GB']:
             if bytes_value < 1024.0:
                 return f'{bytes_value:.2f} {unit}'
-            bytes_value /= 1024.0
+            bytes_value /= 1024.0  # type: ignore[assignment]
         return f'{bytes_value:.2f} TB'
 
     async def health_check(self) -> dict[str, Any]:
