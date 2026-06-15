@@ -17,19 +17,11 @@ class MetricsService:
         async with get_session() as session:
             metric_id = f"metric_{uuid4().hex[:8]}"
 
-            metric = EdgeMetrics(
-                metric_id=metric_id,
-                gpu_id=gpu_id,
-                metrics_data=metrics
-            )
+            metric = EdgeMetrics(metric_id=metric_id, gpu_id=gpu_id, metrics_data=metrics)
             session.add(metric)
             await session.commit()
 
-            return {
-                "success": True,
-                "metric_id": metric_id,
-                "message": f"Metrics {metric_id} recorded"
-            }
+            return {"success": True, "metric_id": metric_id, "message": f"Metrics {metric_id} recorded"}
 
     async def get_metrics(self, metric_id: str) -> dict[str, Any] | None:
         """Get metric details"""
@@ -43,7 +35,7 @@ class MetricsService:
                     "gpu_id": metric.gpu_id,
                     "metrics_data": metric.metrics_data,
                     "created_at": metric.created_at.isoformat() if metric.created_at else None,
-                    "extra_data": metric.extra_data
+                    "extra_data": metric.extra_data,
                 }
             return None
 
@@ -65,7 +57,7 @@ class MetricsService:
                     "metric_id": metric.metric_id,
                     "gpu_id": metric.gpu_id,
                     "metrics_data": metric.metrics_data,
-                    "created_at": metric.created_at.isoformat() if metric.created_at else None
+                    "created_at": metric.created_at.isoformat() if metric.created_at else None,
                 }
                 for metric in metrics
             ]

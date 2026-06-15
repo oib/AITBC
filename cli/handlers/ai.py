@@ -9,13 +9,13 @@ import requests
 
 def handle_ai_submit(args, default_rpc_url, default_coordinator_url, first, read_password, render_mapping):
     """Handle AI job submission."""
-    rpc_url = args.rpc_url or default_rpc_url
-    chain_id = getattr(args, "chain_id", None)
+    _ = args.rpc_url or default_rpc_url
+    _ = getattr(args, "chain_id", None)
 
     wallet = first(getattr(args, "wallet_name", None), getattr(args, "wallet", None))
     model = first(getattr(args, "job_type_arg", None), getattr(args, "job_type", None))
     prompt = first(getattr(args, "prompt_arg", None), getattr(args, "prompt", None))
-    payment = first(getattr(args, "payment_arg", None), getattr(args, "payment", None))
+    _ = first(getattr(args, "payment_arg", None), getattr(args, "payment", None))
 
     if not wallet or not model or not prompt:
         click.echo("Error: --wallet, --type, and --prompt are required")
@@ -26,16 +26,16 @@ def handle_ai_submit(args, default_rpc_url, default_coordinator_url, first, read
 
     # Get sender address
     keystore_dir = Path("/var/lib/aitbc/keystore")
-    sender_keystore = keystore_dir / f"{wallet}.json"
+    _ = keystore_dir / f"{wallet}.json"
 
-    coordinator_url = getattr(args, 'coordinator_url', default_coordinator_url) or default_coordinator_url
+    coordinator_url = getattr(args, "coordinator_url", default_coordinator_url) or default_coordinator_url
 
     # Build AI job request
     job_data = {
         "task_data": {
-            "model": model or getattr(args, 'model', 'llama2'),
-            "prompt": prompt or getattr(args, 'prompt', ''),
-            "parameters": getattr(args, 'parameters', {})
+            "model": model or getattr(args, "model", "llama2"),
+            "prompt": prompt or getattr(args, "prompt", ""),
+            "parameters": getattr(args, "parameters", {}),
         }
     }
 
@@ -77,7 +77,9 @@ def handle_ai_jobs(args, default_rpc_url, default_coordinator_url, output_format
                 click.echo("AI jobs:")
                 if isinstance(jobs, list):
                     for job in jobs:
-                        click.echo(f"  Job ID: {job.get('job_id', 'N/A')}, Model: {job.get('model', 'N/A')}, Status: {job.get('status', 'N/A')}")
+                        click.echo(
+                            f"  Job ID: {job.get('job_id', 'N/A')}, Model: {job.get('model', 'N/A')}, Status: {job.get('status', 'N/A')}"
+                        )
                 else:
                     click.echo(f"  {jobs}")
         else:
@@ -87,7 +89,7 @@ def handle_ai_jobs(args, default_rpc_url, default_coordinator_url, output_format
             stub_jobs = {
                 "jobs": [
                     {"job_id": "job_1", "model": "llama2", "status": "completed"},
-                    {"job_id": "job_2", "model": "llama2", "status": "running"}
+                    {"job_id": "job_2", "model": "llama2", "status": "running"},
                 ]
             }
             render_mapping("AI Jobs (stub):", stub_jobs)
@@ -97,7 +99,7 @@ def handle_ai_jobs(args, default_rpc_url, default_coordinator_url, output_format
         stub_jobs = {
             "jobs": [
                 {"job_id": "job_1", "model": "llama2", "status": "completed"},
-                {"job_id": "job_2", "model": "llama2", "status": "running"}
+                {"job_id": "job_2", "model": "llama2", "status": "running"},
             ]
         }
         render_mapping("AI Jobs (stub):", stub_jobs)
@@ -151,6 +153,7 @@ def handle_ai_cancel(args, default_rpc_url, read_password, render_mapping, first
     # Get auth headers
     password = read_password(args)
     from keystore_auth import get_auth_headers
+
     headers = get_auth_headers(wallet, password, args.password_file)
 
     cancel_data = {
@@ -205,7 +208,7 @@ def handle_ai_stats(args, default_rpc_url, output_format, render_mapping):
 
 def handle_ai_distribution_stats(args, default_coordinator_url, output_format, render_mapping):
     """Handle task distribution statistics query from agent coordinator."""
-    coordinator_url = getattr(args, 'coordinator_url', None) or default_coordinator_url
+    coordinator_url = getattr(args, "coordinator_url", None) or default_coordinator_url
 
     click.echo(f"Getting task distribution statistics from {coordinator_url}...")
     try:
@@ -260,13 +263,13 @@ def handle_ai_service_test(args, ai_operations, render_mapping):
 
 def handle_ai_status(args, default_coordinator_url, default_rpc_url, output_format, render_mapping):
     """Handle AI service status check (combined Agent Coordinator and Blockchain AI)."""
-    coordinator_url = getattr(args, 'coordinator_url', None) or default_coordinator_url
+    coordinator_url = getattr(args, "coordinator_url", None) or default_coordinator_url
     rpc_url = args.rpc_url or default_rpc_url
 
     combined_status = {
         "agent_coordinator": {"status": "unavailable"},
         "blockchain_ai": {"status": "unavailable"},
-        "overall": "unavailable"
+        "overall": "unavailable",
     }
 
     # Check Agent Coordinator health
@@ -276,7 +279,9 @@ def handle_ai_status(args, default_coordinator_url, default_rpc_url, output_form
         if response.status_code == 200:
             coordinator_data = response.json()
             combined_status["agent_coordinator"] = coordinator_data
-            click.echo(f"  Agent Coordinator: {coordinator_data.get('status', 'unknown')} (v{coordinator_data.get('version', 'N/A')})")
+            click.echo(
+                f"  Agent Coordinator: {coordinator_data.get('status', 'unknown')} (v{coordinator_data.get('version', 'N/A')})"
+            )
         else:
             click.echo(f"  Agent Coordinator: Failed (HTTP {response.status_code})")
     except Exception as e:
@@ -299,9 +304,15 @@ def handle_ai_status(args, default_coordinator_url, default_rpc_url, output_form
         click.echo(f"  Blockchain AI Stats: Error - {e}")
 
     # Calculate overall status
-    if combined_status["agent_coordinator"].get("status") == "healthy" and combined_status["blockchain_ai"].get("status") != "unavailable":
+    if (
+        combined_status["agent_coordinator"].get("status") == "healthy"
+        and combined_status["blockchain_ai"].get("status") != "unavailable"
+    ):
         combined_status["overall"] = "operational"
-    elif combined_status["agent_coordinator"].get("status") == "healthy" or combined_status["blockchain_ai"].get("status") != "unavailable":
+    elif (
+        combined_status["agent_coordinator"].get("status") == "healthy"
+        or combined_status["blockchain_ai"].get("status") != "unavailable"
+    ):
         combined_status["overall"] = "partially_operational"
 
     # Render output

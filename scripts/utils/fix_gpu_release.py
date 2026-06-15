@@ -5,7 +5,7 @@ Fix GPU release issue by creating proper booking records
 
 import sys
 
-sys.path.insert(0, '/home/oib/windsurf/aitbc/apps/coordinator-api/src')
+sys.path.insert(0, "/home/oib/windsurf/aitbc/apps/coordinator-api/src")
 
 from datetime import UTC, datetime, timedelta
 
@@ -33,10 +33,7 @@ def fix_gpu_release():
         print(f"🎮 Found GPU: {gpu_id} - {gpu.model} - Status: {gpu.status}")
 
         # Check if there's an active booking
-        booking = session.exec(
-            select(GPUBooking)
-            .where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")
-        ).first()
+        booking = session.exec(select(GPUBooking).where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")).first()
 
         if not booking:
             print("❌ No active booking found, creating one...")
@@ -51,7 +48,7 @@ def fix_gpu_release():
                 total_cost=0.5,
                 status="active",
                 start_time=now,
-                end_time=now + timedelta(hours=1)
+                end_time=now + timedelta(hours=1),
             )
 
             session.add(booking)
@@ -64,6 +61,7 @@ def fix_gpu_release():
 
         return True
 
+
 def test_gpu_release():
     """Test the GPU release functionality"""
     print("\n=== TESTING GPU RELEASE ===")
@@ -72,10 +70,7 @@ def test_gpu_release():
 
     with Session(engine) as session:
         # Check booking before release
-        booking = session.exec(
-            select(GPUBooking)
-            .where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")
-        ).first()
+        booking = session.exec(select(GPUBooking).where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")).first()
 
         if booking:
             print(f"📋 Booking before release: {booking.id} - Status: {booking.status}")
@@ -95,6 +90,7 @@ def test_gpu_release():
         else:
             print("❌ No booking to release")
             return False
+
 
 if __name__ == "__main__":
     if fix_gpu_release():

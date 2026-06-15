@@ -27,7 +27,7 @@ class DataOracleOperations:
             if result["success"]:
                 return result["data"].get("announcement_id", cid)
             else:
-                logger.error("Data oracle announce failed: %s", result.get('error'))
+                logger.error("Data oracle announce failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
         except Exception as e:
             logger.error("announce_data_availability failed: %s", e)
@@ -38,6 +38,7 @@ class DataOracleOperations:
         try:
             # For now, use IPFS retrieve
             from .ipfs import IPFSOperations
+
             ipfs = IPFSOperations(self.executor.cli_path)
             return ipfs.retrieve_ipfs(cid)
         except Exception as e:
@@ -71,5 +72,5 @@ class DataOracleOperations:
         if result["success"]:
             return result["data"].get("announcement_id", cid)
         else:
-            logger.error("Data oracle announce async failed: %s", result.get('error'))
+            logger.error("Data oracle announce async failed: %s", result.get("error"))
             raise Exception(result.get("error"))

@@ -51,4 +51,3 @@ async def close_engine() -> None:
     if _engine is not None:
         await _engine.dispose()
         _engine = None
-

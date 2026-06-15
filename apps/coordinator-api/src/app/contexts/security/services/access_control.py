@@ -1,6 +1,7 @@
 """
 Access control service for confidential transactions
 """
+
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
@@ -13,41 +14,73 @@ from ....schemas import ConfidentialAccessRequest
 
 class AccessPurpose(StrEnum):
     """Standard access purposes"""
-    SETTLEMENT = 'settlement'
-    AUDIT = 'audit'
-    COMPLIANCE = 'compliance'
-    DISPUTE = 'dispute'
-    SUPPORT = 'support'
-    REPORTING = 'reporting'
+
+    SETTLEMENT = "settlement"
+    AUDIT = "audit"
+    COMPLIANCE = "compliance"
+    DISPUTE = "dispute"
+    SUPPORT = "support"
+    REPORTING = "reporting"
+
 
 class AccessLevel(StrEnum):
     """Access levels for confidential data"""
-    READ = 'read'
-    WRITE = 'write'
-    ADMIN = 'admin'
+
+    READ = "read"
+    WRITE = "write"
+    ADMIN = "admin"
+
 
 class ParticipantRole(StrEnum):
     """Roles for transaction participants"""
-    CLIENT = 'client'
-    MINER = 'miner'
-    COORDINATOR = 'coordinator'
-    AUDITOR = 'auditor'
-    REGULATOR = 'regulator'
+
+    CLIENT = "client"
+    MINER = "miner"
+    COORDINATOR = "coordinator"
+    AUDITOR = "auditor"
+    REGULATOR = "regulator"
+
 
 class PolicyStore:
     """Storage for access control policies"""
 
     def __init__(self) -> None:
         self._policies: dict[str, dict] = {}
-        self._role_permissions: dict[ParticipantRole, set[str]] = {ParticipantRole.CLIENT: {'read_own', 'settlement_own'}, ParticipantRole.MINER: {'read_assigned', 'settlement_assigned'}, ParticipantRole.COORDINATOR: {'read_all', 'admin_all'}, ParticipantRole.AUDITOR: {'read_all', 'audit_all', 'compliance_all'}, ParticipantRole.REGULATOR: {'read_all', 'compliance_all', 'audit_all'}}
+        self._role_permissions: dict[ParticipantRole, set[str]] = {
+            ParticipantRole.CLIENT: {"read_own", "settlement_own"},
+            ParticipantRole.MINER: {"read_assigned", "settlement_assigned"},
+            ParticipantRole.COORDINATOR: {"read_all", "admin_all"},
+            ParticipantRole.AUDITOR: {"read_all", "audit_all", "compliance_all"},
+            ParticipantRole.REGULATOR: {"read_all", "compliance_all", "audit_all"},
+        }
         self._load_default_policies()
 
     def _load_default_policies(self) -> None:
         """Load default access policies"""
-        self._policies['client_own_data'] = {'participants': ['client'], 'conditions': {'transaction_client_id': '{requester}', 'purpose': ['settlement', 'dispute', 'support']}, 'access_level': AccessLevel.READ, 'time_restrictions': None}
-        self._policies['miner_assigned_data'] = {'participants': ['miner'], 'conditions': {'transaction_miner_id': '{requester}', 'purpose': ['settlement']}, 'access_level': AccessLevel.READ, 'time_restrictions': None}
-        self._policies['coordinator_full'] = {'participants': ['coordinator'], 'conditions': {}, 'access_level': AccessLevel.ADMIN, 'time_restrictions': None}
-        self._policies['auditor_compliance'] = {'participants': ['auditor', 'regulator'], 'conditions': {'purpose': ['audit', 'compliance']}, 'access_level': AccessLevel.READ, 'time_restrictions': {'business_hours_only': True, 'retention_days': 2555}}
+        self._policies["client_own_data"] = {
+            "participants": ["client"],
+            "conditions": {"transaction_client_id": "{requester}", "purpose": ["settlement", "dispute", "support"]},
+            "access_level": AccessLevel.READ,
+            "time_restrictions": None,
+        }
+        self._policies["miner_assigned_data"] = {
+            "participants": ["miner"],
+            "conditions": {"transaction_miner_id": "{requester}", "purpose": ["settlement"]},
+            "access_level": AccessLevel.READ,
+            "time_restrictions": None,
+        }
+        self._policies["coordinator_full"] = {
+            "participants": ["coordinator"],
+            "conditions": {},
+            "access_level": AccessLevel.ADMIN,
+            "time_restrictions": None,
+        }
+        self._policies["auditor_compliance"] = {
+            "participants": ["auditor", "regulator"],
+            "conditions": {"purpose": ["audit", "compliance"]},
+            "access_level": AccessLevel.READ,
+            "time_restrictions": {"business_hours_only": True, "retention_days": 2555},
+        }
 
     def get_policy(self, policy_id: str) -> dict | None:
         """Get access policy by ID"""
@@ -65,6 +98,7 @@ class PolicyStore:
         """Get permissions for a role"""
         return self._role_permissions.get(role, set())
 
+
 class AccessController:
     """Controls access to confidential transaction data"""
 
@@ -79,23 +113,23 @@ class AccessController:
             cache_key = self._get_cache_key(request)
             cached_result = self._get_cached_result(cache_key)
             if cached_result is not None:
-                return cached_result['allowed']  # type: ignore[no-any-return]
+                return cached_result["allowed"]  # type: ignore[no-any-return]
             participant_info = self._get_participant_info(request.requester)
             if not participant_info:
-                logger.warning('Unknown participant: %s', request.requester)
+                logger.warning("Unknown participant: %s", request.requester)
                 return False
-            role = participant_info.get('role')
+            role = participant_info.get("role")
             if not self._check_role_permissions(role, request):  # type: ignore[arg-type]
                 return False
             transaction = self._get_transaction(request.transaction_id)
             if not transaction:
-                logger.warning('Transaction not found: %s', request.transaction_id)
+                logger.warning("Transaction not found: %s", request.transaction_id)
                 return False
             allowed = self._apply_policies(request, participant_info, transaction)
             self._cache_result(cache_key, allowed)
             return allowed
         except Exception as e:
-            logger.error('Access verification failed: %s', e)
+            logger.error("Access verification failed: %s", e)
             return False
 
     def _check_role_permissions(self, role: str, request: ConfidentialAccessRequest) -> bool:
@@ -103,45 +137,45 @@ class AccessController:
         try:
             participant_role = ParticipantRole(role.lower())
             permissions = self.policy_store.get_role_permissions(participant_role)
-            if request.purpose == 'settlement':
-                return 'settlement' in permissions or 'settlement_own' in permissions or 'settlement_assigned' in permissions
-            elif request.purpose == 'audit':
-                return 'audit' in permissions or 'audit_all' in permissions
-            elif request.purpose == 'compliance':
-                return 'compliance' in permissions or 'compliance_all' in permissions
-            elif request.purpose == 'dispute':
-                return 'dispute' in permissions or 'read_own' in permissions
-            elif request.purpose == 'support':
-                return 'support' in permissions or 'read_all' in permissions
+            if request.purpose == "settlement":
+                return "settlement" in permissions or "settlement_own" in permissions or "settlement_assigned" in permissions
+            elif request.purpose == "audit":
+                return "audit" in permissions or "audit_all" in permissions
+            elif request.purpose == "compliance":
+                return "compliance" in permissions or "compliance_all" in permissions
+            elif request.purpose == "dispute":
+                return "dispute" in permissions or "read_own" in permissions
+            elif request.purpose == "support":
+                return "support" in permissions or "read_all" in permissions
             else:
-                return 'read' in permissions or 'read_all' in permissions
+                return "read" in permissions or "read_all" in permissions
         except ValueError:
-            logger.warning('Invalid role: %s', role)
+            logger.warning("Invalid role: %s", role)
             return False
 
     def _apply_policies(self, request: ConfidentialAccessRequest, participant_info: dict, transaction: dict) -> bool:
         """Apply access policies to request"""
-        if participant_info.get('role', '').lower() == 'miner' and request.purpose == 'settlement':
-            miner_id = transaction.get('transaction_miner_id') or transaction.get('miner_id')
-            if miner_id == request.requester or request.requester in transaction.get('participants', []):
+        if participant_info.get("role", "").lower() == "miner" and request.purpose == "settlement":
+            miner_id = transaction.get("transaction_miner_id") or transaction.get("miner_id")
+            if miner_id == request.requester or request.requester in transaction.get("participants", []):
                 return True
-        if participant_info.get('role', '').lower() in ('auditor', 'regulator') and request.purpose in ('audit', 'compliance'):
+        if participant_info.get("role", "").lower() in ("auditor", "regulator") and request.purpose in ("audit", "compliance"):
             return True
-        if request.requester not in transaction.get('participants', []):
-            role = participant_info.get('role', '').lower()
-            if role not in ('coordinator', 'auditor', 'regulator'):
+        if request.requester not in transaction.get("participants", []):
+            role = participant_info.get("role", "").lower()
+            if role not in ("coordinator", "auditor", "regulator"):
                 return False
-        if request.purpose in ('audit', 'compliance'):
+        if request.purpose in ("audit", "compliance"):
             return True
-        if not self._check_retention_period(transaction, participant_info.get('role')):
+        if not self._check_retention_period(transaction, participant_info.get("role")):
             return False
         return True
 
     def _check_time_restrictions(self, purpose: str, role: str | None) -> bool:
         """Check time-based access restrictions"""
-        if purpose in ['settlement', 'dispute']:
+        if purpose in ["settlement", "dispute"]:
             return True
-        if purpose in ['audit', 'compliance'] and role not in ['coordinator']:
+        if purpose in ["audit", "compliance"] and role not in ["coordinator"]:
             return self._is_business_hours()
         return True
 
@@ -156,12 +190,12 @@ class AccessController:
 
     def _check_retention_period(self, transaction: dict, role: str | None) -> bool:
         """Check if data is within retention period for role"""
-        transaction_date = transaction.get('timestamp', datetime.now(UTC))
-        if role == 'regulator':
+        transaction_date = transaction.get("timestamp", datetime.now(UTC))
+        if role == "regulator":
             retention_days = 2555
-        elif role == 'auditor':
+        elif role == "auditor":
             retention_days = 1825
-        elif role == 'coordinator':
+        elif role == "coordinator":
             retention_days = 3650
         else:
             retention_days = 365
@@ -170,37 +204,57 @@ class AccessController:
 
     def _get_participant_info(self, participant_id: str) -> dict | None:
         """Get participant information"""
-        if participant_id.startswith('client-'):
-            return {'id': participant_id, 'role': 'client', 'active': True}
-        elif participant_id.startswith('miner-'):
-            return {'id': participant_id, 'role': 'miner', 'active': True}
-        elif participant_id.startswith('coordinator-'):
-            return {'id': participant_id, 'role': 'coordinator', 'active': True}
-        elif participant_id.startswith('auditor-'):
-            return {'id': participant_id, 'role': 'auditor', 'active': True}
-        elif participant_id.startswith('regulator-'):
-            return {'id': participant_id, 'role': 'regulator', 'active': True}
+        if participant_id.startswith("client-"):
+            return {"id": participant_id, "role": "client", "active": True}
+        elif participant_id.startswith("miner-"):
+            return {"id": participant_id, "role": "miner", "active": True}
+        elif participant_id.startswith("coordinator-"):
+            return {"id": participant_id, "role": "coordinator", "active": True}
+        elif participant_id.startswith("auditor-"):
+            return {"id": participant_id, "role": "auditor", "active": True}
+        elif participant_id.startswith("regulator-"):
+            return {"id": participant_id, "role": "regulator", "active": True}
         else:
             return None
 
     def _get_transaction(self, transaction_id: str) -> dict | None:
         """Get transaction information"""
-        if transaction_id.startswith('tx-'):
-            return {'transaction_id': transaction_id, 'participants': ['client-456', 'miner-789', 'coordinator-001'], 'transaction_client_id': 'client-456', 'transaction_miner_id': 'miner-789', 'miner_id': 'miner-789', 'purpose': 'settlement', 'created_at': datetime.now(UTC).isoformat(), 'expires_at': (datetime.now(UTC) + timedelta(hours=1)).isoformat(), 'metadata': {'job_id': 'job-123', 'amount': '1000', 'currency': 'AITBC'}}
-        if transaction_id.startswith('ctx-'):
-            return {'transaction_id': transaction_id, 'participants': ['client-123', 'miner-456', 'coordinator-001', 'auditor-001'], 'transaction_client_id': 'client-123', 'transaction_miner_id': 'miner-456', 'miner_id': 'miner-456', 'purpose': 'settlement', 'created_at': datetime.now(UTC).isoformat(), 'expires_at': (datetime.now(UTC) + timedelta(hours=1)).isoformat(), 'metadata': {'job_id': 'job-456', 'amount': '1000', 'currency': 'AITBC'}}
+        if transaction_id.startswith("tx-"):
+            return {
+                "transaction_id": transaction_id,
+                "participants": ["client-456", "miner-789", "coordinator-001"],
+                "transaction_client_id": "client-456",
+                "transaction_miner_id": "miner-789",
+                "miner_id": "miner-789",
+                "purpose": "settlement",
+                "created_at": datetime.now(UTC).isoformat(),
+                "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+                "metadata": {"job_id": "job-123", "amount": "1000", "currency": "AITBC"},
+            }
+        if transaction_id.startswith("ctx-"):
+            return {
+                "transaction_id": transaction_id,
+                "participants": ["client-123", "miner-456", "coordinator-001", "auditor-001"],
+                "transaction_client_id": "client-123",
+                "transaction_miner_id": "miner-456",
+                "miner_id": "miner-456",
+                "purpose": "settlement",
+                "created_at": datetime.now(UTC).isoformat(),
+                "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+                "metadata": {"job_id": "job-456", "amount": "1000", "currency": "AITBC"},
+            }
         else:
             return None
 
     def _get_cache_key(self, request: ConfidentialAccessRequest) -> str:
         """Generate cache key for access request"""
-        return f'{request.requester}:{request.transaction_id}:{request.purpose}'
+        return f"{request.requester}:{request.transaction_id}:{request.purpose}"
 
     def _get_cached_result(self, cache_key: str) -> dict | None:
         """Get cached access result"""
         if cache_key in self._access_cache:
             cached = self._access_cache[cache_key]
-            if datetime.now(UTC) - cached['timestamp'] < self._cache_ttl:
+            if datetime.now(UTC) - cached["timestamp"] < self._cache_ttl:
                 return cached
             else:
                 del self._access_cache[cache_key]
@@ -208,32 +262,45 @@ class AccessController:
 
     def _cache_result(self, cache_key: str, allowed: bool) -> None:
         """Cache access result"""
-        self._access_cache[cache_key] = {'allowed': allowed, 'timestamp': datetime.now(UTC)}
+        self._access_cache[cache_key] = {"allowed": allowed, "timestamp": datetime.now(UTC)}
 
-    def create_access_policy(self, name: str, participants: list[str], conditions: dict[str, Any], access_level: AccessLevel) -> str:
+    def create_access_policy(
+        self, name: str, participants: list[str], conditions: dict[str, Any], access_level: AccessLevel
+    ) -> str:
         """Create a new access policy"""
-        policy_id = f'policy_{datetime.now(UTC).timestamp()}'
-        policy = {'participants': participants, 'conditions': conditions, 'access_level': access_level, 'time_restrictions': conditions.get('time_restrictions'), 'created_at': datetime.now(UTC).isoformat()}
+        policy_id = f"policy_{datetime.now(UTC).timestamp()}"
+        policy = {
+            "participants": participants,
+            "conditions": conditions,
+            "access_level": access_level,
+            "time_restrictions": conditions.get("time_restrictions"),
+            "created_at": datetime.now(UTC).isoformat(),
+        }
         self.policy_store.add_policy(policy_id, policy)
-        logger.info('Created access policy: %s', policy_id)
+        logger.info("Created access policy: %s", policy_id)
         return policy_id
 
-    def revoke_access(self, participant_id: str, transaction_id: str | None=None) -> None:
+    def revoke_access(self, participant_id: str, transaction_id: str | None = None) -> None:
         """Revoke access for participant"""
         keys_to_remove = []
         for key in self._access_cache:
-            if key.startswith(f'{participant_id}:'):
-                if transaction_id is None or key.split(':')[1] == transaction_id:
+            if key.startswith(f"{participant_id}:"):
+                if transaction_id is None or key.split(":")[1] == transaction_id:
                     keys_to_remove.append(key)
         for key in keys_to_remove:
             del self._access_cache[key]
-        logger.info('Revoked access for participant: %s', participant_id)
+        logger.info("Revoked access for participant: %s", participant_id)
 
     def get_access_summary(self, participant_id: str) -> dict:
         """Get summary of participant's access rights"""
         participant_info = self._get_participant_info(participant_id)
         if not participant_info:
-            return {'error': 'Participant not found'}
-        role = participant_info.get('role')
+            return {"error": "Participant not found"}
+        role = participant_info.get("role")
         permissions = self.policy_store.get_role_permissions(ParticipantRole(role))  # type: ignore[arg-type]
-        return {'participant_id': participant_id, 'role': role, 'permissions': list(permissions), 'active': participant_info.get('active', False)}
+        return {
+            "participant_id": participant_id,
+            "role": role,
+            "permissions": list(permissions),
+            "active": participant_info.get("active", False),
+        }

@@ -41,11 +41,7 @@ class TestStateTransition:
 
     def test_state_transition_creation(self):
         """Test StateTransition creation"""
-        transition = StateTransition(
-            from_state="state1",
-            to_state="state2",
-            data={"key": "value"}
-        )
+        transition = StateTransition(from_state="state1", to_state="state2", data={"key": "value"})
         assert transition.from_state == "state1"
         assert transition.to_state == "state2"
         assert transition.data == {"key": "value"}
@@ -53,10 +49,7 @@ class TestStateTransition:
 
     def test_state_transition_defaults(self):
         """Test StateTransition with defaults"""
-        transition = StateTransition(
-            from_state="state1",
-            to_state="state2"
-        )
+        transition = StateTransition(from_state="state1", to_state="state2")
         assert transition.data == {}
         assert transition.timestamp is not None
 
@@ -177,10 +170,7 @@ class TestConfigurableStateMachine:
 
     def test_initialization(self):
         """Test ConfigurableStateMachine initialization"""
-        transitions = {
-            "state1": ["state2", "state3"],
-            "state2": ["state3"]
-        }
+        transitions = {"state1": ["state2", "state3"], "state2": ["state3"]}
         machine = ConfigurableStateMachine("state1", transitions)
 
         assert machine.current_state == "state1"
@@ -304,6 +294,7 @@ class TestStatePersistence:
             # Don't create the parent directory - this will cause an error
             # Manually clear the directory that was auto-created
             import shutil
+
             if os.path.exists(os.path.dirname(storage_path)):
                 shutil.rmtree(os.path.dirname(storage_path))
 
@@ -434,7 +425,7 @@ class TestStateMonitor:
         observer1.assert_called_once_with(transition)
         observer2.assert_called_once_with(transition)
 
-    @patch('aitbc.state.logger')
+    @patch("aitbc.state.logger")
     def test_notify_observers_error(self, mock_logger):
         """Test notify_observers handles observer errors"""
         machine = TestableStateMachine("state1")
@@ -468,20 +459,14 @@ class TestStateValidator:
 
     def test_validate_transitions_valid(self):
         """Test validate_transitions with valid config"""
-        transitions = {
-            "state1": ["state2", "state3"],
-            "state2": ["state3"],
-            "state3": []
-        }
+        transitions = {"state1": ["state2", "state3"], "state2": ["state3"], "state3": []}
 
         result = StateValidator.validate_transitions(transitions)
         assert result is True
 
     def test_validate_transitions_invalid(self):
         """Test validate_transitions with invalid target state"""
-        transitions = {
-            "state1": ["state2", "nonexistent"]
-        }
+        transitions = {"state1": ["state2", "nonexistent"]}
 
         result = StateValidator.validate_transitions(transitions)
         # "nonexistent" is not a valid state since it's not in transitions.keys()
@@ -491,7 +476,7 @@ class TestStateValidator:
         """Test check_for_deadlocks"""
         transitions = {
             "state1": ["state2"],
-            "state2": []  # No outgoing transitions
+            "state2": [],  # No outgoing transitions
         }
 
         deadlocks = StateValidator.check_for_deadlocks(transitions)
@@ -499,10 +484,7 @@ class TestStateValidator:
 
     def test_check_for_deadlocks_none(self):
         """Test check_for_deadlocks with no deadlocks"""
-        transitions = {
-            "state1": ["state2"],
-            "state2": ["state1"]
-        }
+        transitions = {"state1": ["state2"], "state2": ["state1"]}
 
         deadlocks = StateValidator.check_for_deadlocks(transitions)
         assert deadlocks == []
@@ -512,14 +494,14 @@ class TestStateValidator:
         transitions = {
             "state1": ["state2"],
             "state2": ["state3"],
-            "state3": []  # state3 is an orphan (no incoming transitions from defined states)
+            "state3": [],  # state3 is an orphan (no incoming transitions from defined states)
         }
 
         # Actually state3 has incoming from state2, so let's create a real orphan
         transitions = {
             "state1": ["state2"],
             "state2": [],
-            "orphan": []  # No incoming transitions
+            "orphan": [],  # No incoming transitions
         }
 
         orphans = StateValidator.check_for_orphans(transitions)
@@ -527,10 +509,7 @@ class TestStateValidator:
 
     def test_check_for_orphans_none(self):
         """Test check_for_orphans with no orphans"""
-        transitions = {
-            "state1": ["state2"],
-            "state2": ["state1"]
-        }
+        transitions = {"state1": ["state2"], "state2": ["state1"]}
 
         orphans = StateValidator.check_for_orphans(transitions)
         assert orphans == []

@@ -46,16 +46,10 @@ def monitor_command(ctx, node_id, realtime, interval):
                     node_info = asyncio.run(get_node_stats())
 
                     layout = Layout()
-                    layout.split_column(
-                        Layout(name="header", size=3),
-                        Layout(name="metrics"),
-                        Layout(name="chains", size=10)
-                    )
+                    layout.split_column(Layout(name="header", size=3), Layout(name="metrics"), Layout(name="chains", size=10))
 
                     # Header
-                    layout["header"].update(
-                        f"Node Monitor: {node_id} - {node_info['status'].upper()}"
-                    )
+                    layout["header"].update(f"Node Monitor: {node_id} - {node_info['status'].upper()}")
 
                     # Metrics table
                     metrics_data = [
@@ -64,7 +58,7 @@ def monitor_command(ctx, node_id, realtime, interval):
                         ["Disk Usage", f"{node_info['disk_usage_mb']:.1f}MB"],
                         ["Network In", f"{node_info['network_in_mb']:.1f}MB/s"],
                         ["Network Out", f"{node_info['network_out_mb']:.1f}MB/s"],
-                        ["Uptime", f"{node_info['uptime_days']}d {node_info['uptime_hours']}h"]
+                        ["Uptime", f"{node_info['uptime_days']}d {node_info['uptime_hours']}h"],
                     ]
 
                     layout["metrics"].update(str(metrics_data))
@@ -94,33 +88,15 @@ def monitor_command(ctx, node_id, realtime, interval):
             node_info = asyncio.run(get_node_stats())
 
             stats_data = [
-                {
-                    "Metric": "CPU Usage",
-                    "Value": f"{node_info['cpu_usage']}%"
-                },
-                {
-                    "Metric": "Memory Usage",
-                    "Value": f"{node_info['memory_usage_mb']:.1f}MB"
-                },
-                {
-                    "Metric": "Disk Usage",
-                    "Value": f"{node_info['disk_usage_mb']:.1f}MB"
-                },
-                {
-                    "Metric": "Network In",
-                    "Value": f"{node_info['network_in_mb']:.1f}MB/s"
-                },
-                {
-                    "Metric": "Network Out",
-                    "Value": f"{node_info['network_out_mb']:.1f}MB/s"
-                },
-                {
-                    "Metric": "Uptime",
-                    "Value": f"{node_info['uptime_days']}d {node_info['uptime_hours']}h"
-                }
+                {"Metric": "CPU Usage", "Value": f"{node_info['cpu_usage']}%"},
+                {"Metric": "Memory Usage", "Value": f"{node_info['memory_usage_mb']:.1f}MB"},
+                {"Metric": "Disk Usage", "Value": f"{node_info['disk_usage_mb']:.1f}MB"},
+                {"Metric": "Network In", "Value": f"{node_info['network_in_mb']:.1f}MB/s"},
+                {"Metric": "Network Out", "Value": f"{node_info['network_out_mb']:.1f}MB/s"},
+                {"Metric": "Uptime", "Value": f"{node_info['uptime_days']}d {node_info['uptime_hours']}h"},
             ]
 
-            output(stats_data, ctx.obj.get('output_format', 'table'), title=f"Node Statistics: {node_id}")
+            output(stats_data, ctx.obj.get("output_format", "table"), title=f"Node Statistics: {node_id}")
 
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
@@ -148,37 +124,35 @@ def test_command(ctx, node_id):
         node_info, latency = asyncio.run(test_connection())
 
         test_results = [
-            {
-                "Test": "Connection",
-                "Status": "PASS" if node_info else "FAIL",
-                "Latency": f"{latency:.2f}ms"
-            },
+            {"Test": "Connection", "Status": "PASS" if node_info else "FAIL", "Latency": f"{latency:.2f}ms"},
             {
                 "Test": "Node ID",
                 "Status": "PASS" if node_info.get("node_id") == node_id else "FAIL",
-                "Details": node_info.get("node_id", "N/A")
+                "Details": node_info.get("node_id", "N/A"),
             },
             {
                 "Test": "Node Status",
                 "Status": "PASS" if node_info.get("status") else "FAIL",
-                "Details": node_info.get("status", "N/A")
+                "Details": node_info.get("status", "N/A"),
             },
             {
                 "Test": "Version",
                 "Status": "PASS" if node_info.get("version") else "FAIL",
-                "Details": node_info.get("version", "N/A")
-            }
+                "Details": node_info.get("version", "N/A"),
+            },
         ]
 
-        output(test_results, ctx.obj.get('output_format', 'table'), title=f"Node Test Results: {node_id}")
+        output(test_results, ctx.obj.get("output_format", "table"), title=f"Node Test Results: {node_id}")
 
         # Overall result
         all_passed = all(result["Status"] == "PASS" for result in test_results)
         if all_passed:
             from ..utils.output import success
+
             success("All tests passed!")
         else:
             from ..utils.output import warning
+
             warning("Some tests failed")
 
     except Exception as e:

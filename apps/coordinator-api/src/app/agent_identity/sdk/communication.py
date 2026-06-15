@@ -4,6 +4,7 @@ AITBC Agent Communication SDK Extension
 This module extends the Agent Identity SDK with communication methods
 for forum-like agent interactions using the blockchain messaging contract.
 """
+
 import hashlib
 from dataclasses import dataclass
 from datetime import datetime
@@ -15,9 +16,11 @@ from .client import AgentIdentityClient
 
 logger = get_logger(__name__)
 
+
 @dataclass
 class ForumTopic:
     """Forum topic data structure"""
+
     topic_id: str
     title: str
     description: str
@@ -29,9 +32,11 @@ class ForumTopic:
     is_pinned: bool
     is_locked: bool
 
+
 @dataclass
 class ForumMessage:
     """Forum message data structure"""
+
     message_id: str
     agent_id: str
     agent_address: str
@@ -46,9 +51,11 @@ class ForumMessage:
     status: str
     metadata: dict[str, Any]
 
+
 @dataclass
 class AgentReputation:
     """Agent reputation data structure"""
+
     agent_id: str
     message_count: int
     upvotes_received: int
@@ -60,13 +67,14 @@ class AgentReputation:
     ban_reason: str | None
     ban_expires: datetime | None
 
+
 class AgentCommunicationClient:
     """Extended client for agent communication functionality"""
 
-    def __init__(self, base_url: str, agent_id: str, private_key: str | None=None):
+    def __init__(self, base_url: str, agent_id: str, private_key: str | None = None):
         """
         Initialize the communication client
-        
+
         Args:
             base_url: Base URL for the coordinator API
             agent_id: Agent identifier
@@ -77,341 +85,439 @@ class AgentCommunicationClient:
         self.private_key = private_key
         self.identity_client = AgentIdentityClient(base_url, agent_id, private_key)  # type: ignore[arg-type]
 
-    async def create_forum_topic(self, title: str, description: str, tags: list[str] | None=None) -> dict[str, Any]:
+    async def create_forum_topic(self, title: str, description: str, tags: list[str] | None = None) -> dict[str, Any]:
         """
         Create a new forum topic
-        
+
         Args:
             title: Topic title
             description: Topic description
             tags: Optional list of tags
-            
+
         Returns:
             Topic creation result
         """
         try:
             identity = await self.identity_client.get_identity()  # type: ignore[call-arg]
             if not identity:
-                return {'success': False, 'error': 'Agent identity not found', 'error_code': 'IDENTITY_NOT_FOUND'}
+                return {"success": False, "error": "Agent identity not found", "error_code": "IDENTITY_NOT_FOUND"}
             agent_address = identity.wallets[0].address if identity.wallets else None  # type: ignore[attr-defined]
             if not agent_address:
-                return {'success': False, 'error': 'No wallet found for agent', 'error_code': 'NO_WALLET_FOUND'}
-            topic_data = {'agent_id': self.agent_id, 'agent_address': agent_address, 'title': title, 'description': description, 'tags': tags or []}
-            result = await self._call_messaging_contract('create_topic', topic_data)
+                return {"success": False, "error": "No wallet found for agent", "error_code": "NO_WALLET_FOUND"}
+            topic_data = {
+                "agent_id": self.agent_id,
+                "agent_address": agent_address,
+                "title": title,
+                "description": description,
+                "tags": tags or [],
+            }
+            result = await self._call_messaging_contract("create_topic", topic_data)
             return result
         except Exception as e:
-            logger.error('Error creating forum topic: %s', e)
-            return {'success': False, 'error': str(e), 'error_code': 'TOPIC_CREATION_FAILED'}
+            logger.error("Error creating forum topic: %s", e)
+            return {"success": False, "error": str(e), "error_code": "TOPIC_CREATION_FAILED"}
 
-    async def post_message(self, topic_id: str, content: str, message_type: str='post', parent_message_id: str | None=None) -> dict[str, Any]:
+    async def post_message(
+        self, topic_id: str, content: str, message_type: str = "post", parent_message_id: str | None = None
+    ) -> dict[str, Any]:
         """
         Post a message to a forum topic
-        
+
         Args:
             topic_id: Target topic ID
             content: Message content
             message_type: Type of message (post, reply, question, etc.)
             parent_message_id: Parent message ID for replies
-            
+
         Returns:
             Message posting result
         """
         try:
             identity = await self.identity_client.get_identity()  # type: ignore[call-arg]
             if not identity:
-                return {'success': False, 'error': 'Agent identity not found', 'error_code': 'IDENTITY_NOT_FOUND'}
+                return {"success": False, "error": "Agent identity not found", "error_code": "IDENTITY_NOT_FOUND"}
             agent_address = identity.wallets[0].address if identity.wallets else None  # type: ignore[attr-defined]
             if not agent_address:
-                return {'success': False, 'error': 'No wallet found for agent', 'error_code': 'NO_WALLET_FOUND'}
-            message_data = {'agent_id': self.agent_id, 'agent_address': agent_address, 'topic_id': topic_id, 'content': content, 'message_type': message_type, 'parent_message_id': parent_message_id}
-            result = await self._call_messaging_contract('post_message', message_data)
+                return {"success": False, "error": "No wallet found for agent", "error_code": "NO_WALLET_FOUND"}
+            message_data = {
+                "agent_id": self.agent_id,
+                "agent_address": agent_address,
+                "topic_id": topic_id,
+                "content": content,
+                "message_type": message_type,
+                "parent_message_id": parent_message_id,
+            }
+            result = await self._call_messaging_contract("post_message", message_data)
             return result
         except Exception as e:
-            logger.error('Error posting message: %s', e)
-            return {'success': False, 'error': str(e), 'error_code': 'MESSAGE_POSTING_FAILED'}
+            logger.error("Error posting message: %s", e)
+            return {"success": False, "error": str(e), "error_code": "MESSAGE_POSTING_FAILED"}
 
-    async def get_topic_messages(self, topic_id: str, limit: int=50, offset: int=0, sort_by: str='timestamp') -> dict[str, Any]:
+    async def get_topic_messages(
+        self, topic_id: str, limit: int = 50, offset: int = 0, sort_by: str = "timestamp"
+    ) -> dict[str, Any]:
         """
         Get messages from a forum topic
-        
+
         Args:
             topic_id: Topic ID
             limit: Maximum number of messages to return
             offset: Offset for pagination
             sort_by: Sort method (timestamp, upvotes, replies)
-            
+
         Returns:
             Messages and topic information
         """
         try:
-            params = {'topic_id': topic_id, 'limit': limit, 'offset': offset, 'sort_by': sort_by}
-            result = await self._call_messaging_contract('get_messages', params)
+            params = {"topic_id": topic_id, "limit": limit, "offset": offset, "sort_by": sort_by}
+            result = await self._call_messaging_contract("get_messages", params)
             return result
         except Exception as e:
-            logger.error('Error getting topic messages: %s', e)
-            return {'success': False, 'error': str(e), 'error_code': 'GET_MESSAGES_FAILED'}
+            logger.error("Error getting topic messages: %s", e)
+            return {"success": False, "error": str(e), "error_code": "GET_MESSAGES_FAILED"}
 
-    async def get_forum_topics(self, limit: int=50, offset: int=0, sort_by: str='last_activity') -> dict[str, Any]:
+    async def get_forum_topics(self, limit: int = 50, offset: int = 0, sort_by: str = "last_activity") -> dict[str, Any]:
         """
         Get list of forum topics
-        
+
         Args:
             limit: Maximum number of topics to return
             offset: Offset for pagination
             sort_by: Sort method (last_activity, created_at, message_count)
-            
+
         Returns:
             List of topics
         """
         try:
-            params = {'limit': limit, 'offset': offset, 'sort_by': sort_by}
-            result = await self._call_messaging_contract('get_topics', params)
+            params = {"limit": limit, "offset": offset, "sort_by": sort_by}
+            result = await self._call_messaging_contract("get_topics", params)
             return result
         except Exception as e:
-            logger.error('Error getting forum topics: %s', e)
-            return {'success': False, 'error': str(e), 'error_code': 'GET_TOPICS_FAILED'}
+            logger.error("Error getting forum topics: %s", e)
+            return {"success": False, "error": str(e), "error_code": "GET_TOPICS_FAILED"}
 
     async def vote_message(self, message_id: str, vote_type: str) -> dict[str, Any]:
         """
         Vote on a message (upvote/downvote)
-        
+
         Args:
             message_id: Message ID to vote on
             vote_type: Type of vote ("upvote" or "downvote")
-            
+
         Returns:
             Vote result
         """
         try:
             identity = await self.identity_client.get_identity()  # type: ignore[call-arg]
             if not identity:
-                return {'success': False, 'error': 'Agent identity not found', 'error_code': 'IDENTITY_NOT_FOUND'}
+                return {"success": False, "error": "Agent identity not found", "error_code": "IDENTITY_NOT_FOUND"}
             agent_address = identity.wallets[0].address if identity.wallets else None  # type: ignore[attr-defined]
             if not agent_address:
-                return {'success': False, 'error': 'No wallet found for agent', 'error_code': 'NO_WALLET_FOUND'}
-            vote_data = {'agent_id': self.agent_id, 'agent_address': agent_address, 'message_id': message_id, 'vote_type': vote_type}
-            result = await self._call_messaging_contract('vote_message', vote_data)
+                return {"success": False, "error": "No wallet found for agent", "error_code": "NO_WALLET_FOUND"}
+            vote_data = {
+                "agent_id": self.agent_id,
+                "agent_address": agent_address,
+                "message_id": message_id,
+                "vote_type": vote_type,
+            }
+            result = await self._call_messaging_contract("vote_message", vote_data)
             return result
         except Exception as e:
-            logger.error('Error voting on message: %s', e)
-            return {'success': False, 'error': str(e), 'error_code': 'VOTE_FAILED'}
+            logger.error("Error voting on message: %s", e)
+            return {"success": False, "error": str(e), "error_code": "VOTE_FAILED"}
 
     async def reply_to_message(self, message_id: str, content: str) -> dict[str, Any]:
         """
         Reply to a message
-        
+
         Args:
             message_id: Parent message ID
             content: Reply content
-            
+
         Returns:
             Reply posting result
         """
         try:
             original_message = await self._get_message_details(message_id)
-            if not original_message.get('success'):
+            if not original_message.get("success"):
                 return original_message
-            topic_id = original_message['message']['topic']
-            return await self.post_message(topic_id=topic_id, content=content, message_type='reply', parent_message_id=message_id)
+            topic_id = original_message["message"]["topic"]
+            return await self.post_message(
+                topic_id=topic_id, content=content, message_type="reply", parent_message_id=message_id
+            )
         except Exception as e:
-            logger.error('Error replying to message: %s', e)
-            return {'success': False, 'error': str(e), 'error_code': 'REPLY_FAILED'}
+            logger.error("Error replying to message: %s", e)
+            return {"success": False, "error": str(e), "error_code": "REPLY_FAILED"}
 
-    async def search_messages(self, query: str, limit: int=50) -> dict[str, Any]:
+    async def search_messages(self, query: str, limit: int = 50) -> dict[str, Any]:
         """
         Search messages by content
-        
+
         Args:
             query: Search query
             limit: Maximum number of results
-            
+
         Returns:
             Search results
         """
         try:
-            params = {'query': query, 'limit': limit}
-            result = await self._call_messaging_contract('search_messages', params)
+            params = {"query": query, "limit": limit}
+            result = await self._call_messaging_contract("search_messages", params)
             return result
         except Exception as e:
-            logger.error('Error searching messages: %s', e)
-            return {'success': False, 'error': str(e), 'error_code': 'SEARCH_FAILED'}
+            logger.error("Error searching messages: %s", e)
+            return {"success": False, "error": str(e), "error_code": "SEARCH_FAILED"}
 
-    async def get_agent_reputation(self, agent_id: str | None=None) -> dict[str, Any]:
+    async def get_agent_reputation(self, agent_id: str | None = None) -> dict[str, Any]:
         """
         Get agent reputation information
-        
+
         Args:
             agent_id: Agent ID (defaults to current agent)
-            
+
         Returns:
             Reputation information
         """
         try:
             target_agent_id = agent_id or self.agent_id
-            result = await self._call_messaging_contract('get_agent_reputation', {'agent_id': target_agent_id})
+            result = await self._call_messaging_contract("get_agent_reputation", {"agent_id": target_agent_id})
             return result
         except Exception as e:
-            logger.error('Error getting agent reputation: %s', e)
-            return {'success': False, 'error': str(e), 'error_code': 'GET_REPUTATION_FAILED'}
+            logger.error("Error getting agent reputation: %s", e)
+            return {"success": False, "error": str(e), "error_code": "GET_REPUTATION_FAILED"}
 
-    async def moderate_message(self, message_id: str, action: str, reason: str='') -> dict[str, Any]:
+    async def moderate_message(self, message_id: str, action: str, reason: str = "") -> dict[str, Any]:
         """
         Moderate a message (moderator only)
-        
+
         Args:
             message_id: Message ID to moderate
             action: Action to take (hide, delete, pin, unpin)
             reason: Reason for moderation
-            
+
         Returns:
             Moderation result
         """
         try:
             reputation = await self.get_agent_reputation()
-            if not reputation.get('success'):
+            if not reputation.get("success"):
                 return reputation
-            if not reputation['reputation'].get('is_moderator', False):
-                return {'success': False, 'error': 'Insufficient permissions', 'error_code': 'INSUFFICIENT_PERMISSIONS'}
+            if not reputation["reputation"].get("is_moderator", False):
+                return {"success": False, "error": "Insufficient permissions", "error_code": "INSUFFICIENT_PERMISSIONS"}
             identity = await self.identity_client.get_identity()  # type: ignore[call-arg]
             agent_address = identity.wallets[0].address if identity.wallets else None  # type: ignore[attr-defined]
-            moderation_data = {'moderator_agent_id': self.agent_id, 'moderator_address': agent_address, 'message_id': message_id, 'action': action, 'reason': reason}
-            result = await self._call_messaging_contract('moderate_message', moderation_data)
+            moderation_data = {
+                "moderator_agent_id": self.agent_id,
+                "moderator_address": agent_address,
+                "message_id": message_id,
+                "action": action,
+                "reason": reason,
+            }
+            result = await self._call_messaging_contract("moderate_message", moderation_data)
             return result
         except Exception as e:
-            logger.error('Error moderating message: %s', e)
-            return {'success': False, 'error': str(e), 'error_code': 'MODERATION_FAILED'}
+            logger.error("Error moderating message: %s", e)
+            return {"success": False, "error": str(e), "error_code": "MODERATION_FAILED"}
 
-    async def create_announcement(self, content: str, topic_id: str | None=None) -> dict[str, Any]:
+    async def create_announcement(self, content: str, topic_id: str | None = None) -> dict[str, Any]:
         """
         Create an announcement message
-        
+
         Args:
             content: Announcement content
             topic_id: Optional topic ID (creates new topic if not provided)
-            
+
         Returns:
             Announcement creation result
         """
         try:
             if topic_id:
-                return await self.post_message(topic_id, content, 'announcement')
+                return await self.post_message(topic_id, content, "announcement")
             else:
-                title = f'Announcement from {self.agent_id}'
-                description = 'Official announcement'
-                topic_result = await self.create_forum_topic(title, description, ['announcement'])
-                if not topic_result.get('success'):
+                title = f"Announcement from {self.agent_id}"
+                description = "Official announcement"
+                topic_result = await self.create_forum_topic(title, description, ["announcement"])
+                if not topic_result.get("success"):
                     return topic_result
-                return await self.post_message(topic_result['topic_id'], content, 'announcement')
+                return await self.post_message(topic_result["topic_id"], content, "announcement")
         except Exception as e:
-            logger.error('Error creating announcement: %s', e)
-            return {'success': False, 'error': str(e), 'error_code': 'ANNOUNCEMENT_FAILED'}
+            logger.error("Error creating announcement: %s", e)
+            return {"success": False, "error": str(e), "error_code": "ANNOUNCEMENT_FAILED"}
 
     async def ask_question(self, topic_id: str, question: str) -> dict[str, Any]:
         """
         Ask a question in a forum topic
-        
+
         Args:
             topic_id: Topic ID
             question: Question content
-            
+
         Returns:
             Question posting result
         """
-        return await self.post_message(topic_id, question, 'question')
+        return await self.post_message(topic_id, question, "question")
 
     async def answer_question(self, message_id: str, answer: str) -> dict[str, Any]:
         """
         Answer a question
-        
+
         Args:
             message_id: Question message ID
             answer: Answer content
-            
+
         Returns:
             Answer posting result
         """
         try:
             original_message = await self._get_message_details(message_id)
-            if not original_message.get('success'):
+            if not original_message.get("success"):
                 return original_message
-            topic_id = original_message['message']['topic']
-            return await self.post_message(topic_id=topic_id, content=answer, message_type='answer', parent_message_id=message_id)
+            topic_id = original_message["message"]["topic"]
+            return await self.post_message(
+                topic_id=topic_id, content=answer, message_type="answer", parent_message_id=message_id
+            )
         except Exception as e:
-            logger.error('Error answering question: %s', e)
-            return {'success': False, 'error': str(e), 'error_code': 'ANSWER_FAILED'}
+            logger.error("Error answering question: %s", e)
+            return {"success": False, "error": str(e), "error_code": "ANSWER_FAILED"}
 
     async def _call_messaging_contract(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         """
         Call the messaging contract method
-        
+
         Args:
             method: Contract method name
             params: Method parameters
-            
+
         Returns:
             Contract call result
         """
         try:
-            if method == 'create_topic':
+            if method == "create_topic":
                 topic_seed = f"{params.get('agent_id')}_{params.get('title')}_{datetime.now()}"
-                topic_id = f'topic_{hashlib.sha256(topic_seed.encode()).hexdigest()[:16]}'
-                return {'success': True, 'topic_id': topic_id, 'topic': {'topic_id': topic_id, 'title': params['title'], 'description': params['description'], 'creator_agent_id': params['agent_id'], 'created_at': datetime.now().isoformat(), 'message_count': 0, 'last_activity': datetime.now().isoformat(), 'tags': params.get('tags', []), 'is_pinned': False, 'is_locked': False}}
-            elif method == 'post_message':
+                topic_id = f"topic_{hashlib.sha256(topic_seed.encode()).hexdigest()[:16]}"
+                return {
+                    "success": True,
+                    "topic_id": topic_id,
+                    "topic": {
+                        "topic_id": topic_id,
+                        "title": params["title"],
+                        "description": params["description"],
+                        "creator_agent_id": params["agent_id"],
+                        "created_at": datetime.now().isoformat(),
+                        "message_count": 0,
+                        "last_activity": datetime.now().isoformat(),
+                        "tags": params.get("tags", []),
+                        "is_pinned": False,
+                        "is_locked": False,
+                    },
+                }
+            elif method == "post_message":
                 message_seed = f"{params.get('agent_id')}_{params.get('topic_id')}_{params.get('content')}_{datetime.now()}"
-                message_id = f'msg_{hashlib.sha256(message_seed.encode()).hexdigest()[:16]}'
-                return {'success': True, 'message_id': message_id, 'message': {'message_id': message_id, 'agent_id': params['agent_id'], 'agent_address': params['agent_address'], 'topic': params['topic_id'], 'content': params['content'], 'message_type': params['message_type'], 'timestamp': datetime.now().isoformat(), 'parent_message_id': params.get('parent_message_id'), 'reply_count': 0, 'upvotes': 0, 'downvotes': 0, 'status': 'active', 'metadata': {}}}
-            elif method == 'get_messages':
-                return {'success': True, 'messages': [], 'total_messages': 0, 'topic': {'topic_id': params['topic_id'], 'title': 'Sample Topic', 'description': 'Sample description'}}
-            elif method == 'get_topics':
-                return {'success': True, 'topics': [], 'total_topics': 0}
-            elif method == 'vote_message':
-                return {'success': True, 'message_id': params['message_id'], 'upvotes': 1, 'downvotes': 0}
-            elif method == 'search_messages':
-                return {'success': True, 'query': params['query'], 'messages': [], 'total_matches': 0}
-            elif method == 'get_agent_reputation':
-                return {'success': True, 'agent_id': params['agent_id'], 'reputation': {'agent_id': params['agent_id'], 'message_count': 0, 'upvotes_received': 0, 'downvotes_received': 0, 'reputation_score': 0.0, 'trust_level': 1, 'is_moderator': False, 'is_banned': False, 'ban_reason': None, 'ban_expires': None}}
-            elif method == 'moderate_message':
-                return {'success': True, 'message_id': params['message_id'], 'status': params['action']}
+                message_id = f"msg_{hashlib.sha256(message_seed.encode()).hexdigest()[:16]}"
+                return {
+                    "success": True,
+                    "message_id": message_id,
+                    "message": {
+                        "message_id": message_id,
+                        "agent_id": params["agent_id"],
+                        "agent_address": params["agent_address"],
+                        "topic": params["topic_id"],
+                        "content": params["content"],
+                        "message_type": params["message_type"],
+                        "timestamp": datetime.now().isoformat(),
+                        "parent_message_id": params.get("parent_message_id"),
+                        "reply_count": 0,
+                        "upvotes": 0,
+                        "downvotes": 0,
+                        "status": "active",
+                        "metadata": {},
+                    },
+                }
+            elif method == "get_messages":
+                return {
+                    "success": True,
+                    "messages": [],
+                    "total_messages": 0,
+                    "topic": {"topic_id": params["topic_id"], "title": "Sample Topic", "description": "Sample description"},
+                }
+            elif method == "get_topics":
+                return {"success": True, "topics": [], "total_topics": 0}
+            elif method == "vote_message":
+                return {"success": True, "message_id": params["message_id"], "upvotes": 1, "downvotes": 0}
+            elif method == "search_messages":
+                return {"success": True, "query": params["query"], "messages": [], "total_matches": 0}
+            elif method == "get_agent_reputation":
+                return {
+                    "success": True,
+                    "agent_id": params["agent_id"],
+                    "reputation": {
+                        "agent_id": params["agent_id"],
+                        "message_count": 0,
+                        "upvotes_received": 0,
+                        "downvotes_received": 0,
+                        "reputation_score": 0.0,
+                        "trust_level": 1,
+                        "is_moderator": False,
+                        "is_banned": False,
+                        "ban_reason": None,
+                        "ban_expires": None,
+                    },
+                }
+            elif method == "moderate_message":
+                return {"success": True, "message_id": params["message_id"], "status": params["action"]}
             else:
-                return {'success': False, 'error': f'Unknown method: {method}', 'error_code': 'UNKNOWN_METHOD'}
+                return {"success": False, "error": f"Unknown method: {method}", "error_code": "UNKNOWN_METHOD"}
         except Exception as e:
-            logger.error('Error calling messaging contract: %s', e)
-            return {'success': False, 'error': str(e), 'error_code': 'CONTRACT_CALL_FAILED'}
+            logger.error("Error calling messaging contract: %s", e)
+            return {"success": False, "error": str(e), "error_code": "CONTRACT_CALL_FAILED"}
 
     async def _get_message_details(self, message_id: str) -> dict[str, Any]:
         """
         Get details of a specific message
-        
+
         Args:
             message_id: Message ID
-            
+
         Returns:
             Message details
         """
         try:
-            return {'success': True, 'message': {'message_id': message_id, 'topic': 'sample_topic_id', 'agent_id': 'sample_agent_id', 'content': 'Sample message content', 'timestamp': datetime.now().isoformat()}}
+            return {
+                "success": True,
+                "message": {
+                    "message_id": message_id,
+                    "topic": "sample_topic_id",
+                    "agent_id": "sample_agent_id",
+                    "content": "Sample message content",
+                    "timestamp": datetime.now().isoformat(),
+                },
+            }
         except Exception as e:
-            logger.error('Error getting message details: %s', e)
-            return {'success': False, 'error': str(e), 'error_code': 'GET_MESSAGE_FAILED'}
+            logger.error("Error getting message details: %s", e)
+            return {"success": False, "error": str(e), "error_code": "GET_MESSAGE_FAILED"}
+
 
 async def create_agent_forum_client(base_url: str, agent_id: str, private_key: str) -> AgentCommunicationClient:
     """
     Create an agent forum client
-    
+
     Args:
         base_url: Base URL for the coordinator API
         agent_id: Agent identifier
         private_key: Agent's private key
-        
+
     Returns:
         Configured communication client
     """
     return AgentCommunicationClient(base_url, agent_id, private_key)
 
-async def start_forum_discussion(base_url: str, agent_id: str, private_key: str, title: str, description: str, initial_message: str) -> dict[str, Any]:
+
+async def start_forum_discussion(
+    base_url: str, agent_id: str, private_key: str, title: str, description: str, initial_message: str
+) -> dict[str, Any]:
     """
     Start a new forum discussion
-    
+
     Args:
         base_url: Base URL for the coordinator API
         agent_id: Agent identifier
@@ -419,13 +525,19 @@ async def start_forum_discussion(base_url: str, agent_id: str, private_key: str,
         title: Discussion title
         description: Discussion description
         initial_message: Initial message content
-        
+
     Returns:
         Discussion creation result
     """
     client = await create_agent_forum_client(base_url, agent_id, private_key)
     topic_result = await client.create_forum_topic(title, description)
-    if not topic_result.get('success'):
+    if not topic_result.get("success"):
         return topic_result
-    message_result = await client.post_message(topic_result['topic_id'], initial_message, 'post')
-    return {'success': message_result.get('success', False), 'topic_id': topic_result['topic_id'], 'message_id': message_result.get('message_id'), 'topic': topic_result.get('topic'), 'message': message_result.get('message')}
+    message_result = await client.post_message(topic_result["topic_id"], initial_message, "post")
+    return {
+        "success": message_result.get("success", False),
+        "topic_id": topic_result["topic_id"],
+        "message_id": message_result.get("message_id"),
+        "topic": topic_result.get("topic"),
+        "message": message_result.get("message"),
+    }

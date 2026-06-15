@@ -9,6 +9,7 @@ import pytest
 def reset_db():
     """Reset database before each test"""
     import app
+
     # Delete the database file if it exists
     db_path = Path("agent_registry.db")
     if db_path.exists():
@@ -26,13 +27,14 @@ def reset_db():
 def test_agent_empty_name():
     """Test Agent with empty name"""
     from app import Agent
+
     agent = Agent(
         id="agent_123",
         name="",
         type="trading",
         capabilities=["trading"],
         chain_id="ait-devnet",
-        endpoint="http://localhost:8000"
+        endpoint="http://localhost:8000",
     )
     assert agent.name == ""
 
@@ -41,13 +43,14 @@ def test_agent_empty_name():
 def test_agent_empty_chain_id():
     """Test Agent with empty chain_id"""
     from app import Agent
+
     agent = Agent(
         id="agent_123",
         name="Test Agent",
         type="trading",
         capabilities=["trading"],
         chain_id="",
-        endpoint="http://localhost:8000"
+        endpoint="http://localhost:8000",
     )
     assert agent.chain_id == ""
 
@@ -56,13 +59,9 @@ def test_agent_empty_chain_id():
 def test_agent_empty_endpoint():
     """Test Agent with empty endpoint"""
     from app import Agent
+
     agent = Agent(
-        id="agent_123",
-        name="Test Agent",
-        type="trading",
-        capabilities=["trading"],
-        chain_id="ait-devnet",
-        endpoint=""
+        id="agent_123", name="Test Agent", type="trading", capabilities=["trading"], chain_id="ait-devnet", endpoint=""
     )
     assert agent.endpoint == ""
 
@@ -71,12 +70,9 @@ def test_agent_empty_endpoint():
 def test_agent_registration_empty_name():
     """Test AgentRegistration with empty name"""
     from app import AgentRegistration
+
     registration = AgentRegistration(
-        name="",
-        type="trading",
-        capabilities=["trading"],
-        chain_id="ait-devnet",
-        endpoint="http://localhost:8000"
+        name="", type="trading", capabilities=["trading"], chain_id="ait-devnet", endpoint="http://localhost:8000"
     )
     assert registration.name == ""
 
@@ -85,12 +81,9 @@ def test_agent_registration_empty_name():
 def test_agent_registration_empty_chain_id():
     """Test AgentRegistration with empty chain_id"""
     from app import AgentRegistration
+
     registration = AgentRegistration(
-        name="Test Agent",
-        type="trading",
-        capabilities=["trading"],
-        chain_id="",
-        endpoint="http://localhost:8000"
+        name="Test Agent", type="trading", capabilities=["trading"], chain_id="", endpoint="http://localhost:8000"
     )
     assert registration.chain_id == ""
 
@@ -100,15 +93,12 @@ def test_list_agents_no_match_filter():
     """Test listing agents with filter that matches nothing"""
     import app
     from fastapi.testclient import TestClient
+
     client = TestClient(app.app)
 
     # Register an agent
     registration = app.AgentRegistration(
-        name="Test Agent",
-        type="trading",
-        capabilities=["trading"],
-        chain_id="ait-devnet",
-        endpoint="http://localhost:8000"
+        name="Test Agent", type="trading", capabilities=["trading"], chain_id="ait-devnet", endpoint="http://localhost:8000"
     )
     client.post("/api/agents/register", json=registration.model_dump())
 
@@ -124,6 +114,7 @@ def test_list_agents_multiple_filters():
     """Test listing agents with multiple filters"""
     import app
     from fastapi.testclient import TestClient
+
     client = TestClient(app.app)
 
     # Register agents
@@ -132,14 +123,14 @@ def test_list_agents_multiple_filters():
         type="trading",
         capabilities=["trading", "analysis"],
         chain_id="ait-devnet",
-        endpoint="http://localhost:8000"
+        endpoint="http://localhost:8000",
     )
     registration2 = app.AgentRegistration(
         name="Compliance Agent",
         type="compliance",
         capabilities=["compliance"],
         chain_id="ait-testnet",
-        endpoint="http://localhost:8001"
+        endpoint="http://localhost:8001",
     )
     client.post("/api/agents/register", json=registration1.model_dump())
     client.post("/api/agents/register", json=registration2.model_dump())

@@ -9,7 +9,6 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-
 def handle_messaging_deploy(args, default_rpc_url, render_mapping):
     """Handle messaging contract deployment."""
     rpc_url = args.rpc_url or default_rpc_url
@@ -82,7 +81,7 @@ def handle_messaging_topics(args, default_rpc_url, output_format, render_mapping
                 logger.info("Forum topics:")
                 if isinstance(topics, list):
                     for topic in topics:
-                        logger.info("  ID: %s, Title: %s", topic.get('topic_id', 'N/A'), topic.get('title', 'N/A'))
+                        logger.info("  ID: %s, Title: %s", topic.get("topic_id", "N/A"), topic.get("title", "N/A"))
                 else:
                     render_mapping("Topics:", topics)
         else:
@@ -108,6 +107,7 @@ def handle_messaging_create_topic(args, default_rpc_url, read_password, render_m
     if args.wallet:
         password = read_password(args)
         from keystore_auth import get_auth_headers
+
         headers = get_auth_headers(args.wallet, password, args.password_file)
 
     topic_data = {
@@ -157,7 +157,7 @@ def handle_messaging_messages(args, default_rpc_url, output_format, render_mappi
                 logger.info("Messages for topic %s:", args.topic_id)
                 if isinstance(messages, list):
                     for msg in messages:
-                        logger.info("  Message ID: %s, Author: %s", msg.get('message_id', 'N/A'), msg.get('author', 'N/A'))
+                        logger.info("  Message ID: %s, Author: %s", msg.get("message_id", "N/A"), msg.get("author", "N/A"))
                 else:
                     render_mapping("Messages:", messages)
         else:
@@ -183,6 +183,7 @@ def handle_messaging_post(args, default_rpc_url, read_password, render_mapping):
     if args.wallet:
         password = read_password(args)
         from keystore_auth import get_auth_headers
+
         headers = get_auth_headers(args.wallet, password, args.password_file)
 
     message_data = {
@@ -222,6 +223,7 @@ def handle_messaging_vote(args, default_rpc_url, read_password, render_mapping):
     if args.wallet:
         password = read_password(args)
         from keystore_auth import get_auth_headers
+
         headers = get_auth_headers(args.wallet, password, args.password_file)
 
     vote_data = {
@@ -233,7 +235,9 @@ def handle_messaging_vote(args, default_rpc_url, read_password, render_mapping):
 
     logger.info("Voting on message %s on %s...", args.message_id, rpc_url)
     try:
-        response = requests.post(f"{rpc_url}/rpc/messaging/messages/{args.message_id}/vote", json=vote_data, headers=headers, timeout=30)
+        response = requests.post(
+            f"{rpc_url}/rpc/messaging/messages/{args.message_id}/vote", json=vote_data, headers=headers, timeout=30
+        )
         if response.status_code == 200:
             result = response.json()
             logger.info("Vote recorded successfully")
@@ -271,7 +275,7 @@ def handle_messaging_search(args, default_rpc_url, output_format, render_mapping
                 logger.info("Search results for '%s':", args.query)
                 if isinstance(results, list):
                     for msg in results:
-                        logger.info("  Message ID: %s, Topic: %s", msg.get('message_id', 'N/A'), msg.get('topic_id', 'N/A'))
+                        logger.info("  Message ID: %s, Topic: %s", msg.get("message_id", "N/A"), msg.get("topic_id", "N/A"))
                 else:
                     render_mapping("Search results:", results)
         else:
@@ -328,6 +332,7 @@ def handle_messaging_moderate(args, default_rpc_url, read_password, render_mappi
     if args.wallet:
         password = read_password(args)
         from keystore_auth import get_auth_headers
+
         headers = get_auth_headers(args.wallet, password, args.password_file)
 
     moderation_data = {
@@ -339,7 +344,9 @@ def handle_messaging_moderate(args, default_rpc_url, read_password, render_mappi
 
     logger.info("Moderating message %s on %s...", args.message_id, rpc_url)
     try:
-        response = requests.post(f"{rpc_url}/rpc/messaging/messages/{args.message_id}/moderate", json=moderation_data, headers=headers, timeout=30)
+        response = requests.post(
+            f"{rpc_url}/rpc/messaging/messages/{args.message_id}/moderate", json=moderation_data, headers=headers, timeout=30
+        )
         if response.status_code == 200:
             result = response.json()
             logger.info("Moderation action completed successfully")

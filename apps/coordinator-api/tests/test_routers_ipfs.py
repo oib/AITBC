@@ -2,7 +2,6 @@
 Tests for IPFS router (decentralized storage)
 """
 
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -20,10 +19,7 @@ class TestIPFSRouter:
 
     def test_upload_text(self, client: TestClient):
         """Test uploading text to IPFS"""
-        response = client.post(
-            "/ipfs/upload/text",
-            data={"content": "Hello IPFS!", "filename": "test.txt"}
-        )
+        response = client.post("/ipfs/upload/text", data={"content": "Hello IPFS!", "filename": "test.txt"})
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
@@ -33,18 +29,14 @@ class TestIPFSRouter:
 
     def test_upload_text_empty(self, client: TestClient):
         """Test uploading empty text fails"""
-        response = client.post(
-            "/ipfs/upload/text",
-            data={"content": "", "filename": "empty.txt"}
-        )
+        response = client.post("/ipfs/upload/text", data={"content": "", "filename": "empty.txt"})
         assert response.status_code == 400
 
     def test_get_content(self, client: TestClient):
         """Test retrieving content by CID"""
         # First upload content
         upload_response = client.post(
-            "/ipfs/upload/text",
-            data={"content": "Test content for retrieval", "filename": "retrieve.txt"}
+            "/ipfs/upload/text", data={"content": "Test content for retrieval", "filename": "retrieve.txt"}
         )
         cid = upload_response.json()["cid"]
 
@@ -64,10 +56,7 @@ class TestIPFSRouter:
     def test_pin_content(self, client: TestClient):
         """Test pinning content"""
         # Upload first
-        upload_response = client.post(
-            "/ipfs/upload/text",
-            data={"content": "Content to pin", "filename": "pin.txt"}
-        )
+        upload_response = client.post("/ipfs/upload/text", data={"content": "Content to pin", "filename": "pin.txt"})
         cid = upload_response.json()["cid"]
 
         # Pin it
@@ -81,10 +70,7 @@ class TestIPFSRouter:
     def test_unpin_content(self, client: TestClient):
         """Test unpinning content"""
         # Upload and pin first
-        upload_response = client.post(
-            "/ipfs/upload/text",
-            data={"content": "Content to unpin", "filename": "unpin.txt"}
-        )
+        upload_response = client.post("/ipfs/upload/text", data={"content": "Content to unpin", "filename": "unpin.txt"})
         cid = upload_response.json()["cid"]
         client.post(f"/ipfs/pin/{cid}")
 
@@ -122,8 +108,7 @@ class TestIPFSIntegration:
         """Test complete upload-pin-retrieve workflow"""
         # 1. Upload content
         upload_response = client.post(
-            "/ipfs/upload/text",
-            data={"content": "Integration test content", "filename": "integration.txt"}
+            "/ipfs/upload/text", data={"content": "Integration test content", "filename": "integration.txt"}
         )
         assert upload_response.status_code == 200
         cid = upload_response.json()["cid"]

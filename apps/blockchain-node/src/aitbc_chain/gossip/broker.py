@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import Any
 
-warnings.filterwarnings('ignore', message='coroutine.* was never awaited', category=RuntimeWarning)
+warnings.filterwarnings("ignore", message="coroutine.* was never awaited", category=RuntimeWarning)
 try:
     from broadcaster import Broadcast  # type: ignore[import-not-found]
 except ImportError:
@@ -18,21 +18,25 @@ from ..metrics import metrics_registry
 
 
 def _increment_publication(metric_prefix: str, topic: str) -> None:
-    metrics_registry.increment(f'{metric_prefix}_total')
-    metrics_registry.increment(f'{metric_prefix}_topic_{topic}')
+    metrics_registry.increment(f"{metric_prefix}_total")
+    metrics_registry.increment(f"{metric_prefix}_topic_{topic}")
+
 
 def _set_queue_gauge(topic: str, size: int) -> None:
-    metrics_registry.set_gauge(f'gossip_queue_size_{topic}', float(size))
+    metrics_registry.set_gauge(f"gossip_queue_size_{topic}", float(size))
+
 
 def _update_subscriber_metrics(topics: dict[str, list[asyncio.Queue[Any]]]) -> None:
     for topic, queues in topics.items():
-        metrics_registry.set_gauge(f'gossip_subscribers_topic_{topic}', float(len(queues)))
+        metrics_registry.set_gauge(f"gossip_subscribers_topic_{topic}", float(len(queues)))
     total = sum(len(queues) for queues in topics.values())
-    metrics_registry.set_gauge('gossip_subscribers_total', float(total))
+    metrics_registry.set_gauge("gossip_subscribers_total", float(total))
+
 
 def _clear_topic_metrics(topic: str) -> None:
-    metrics_registry.set_gauge(f'gossip_subscribers_topic_{topic}', 0.0)
+    metrics_registry.set_gauge(f"gossip_subscribers_topic_{topic}", 0.0)
     _set_queue_gauge(topic, 0)
+
 
 @dataclass
 class TopicSubscription:
@@ -53,9 +57,10 @@ class TopicSubscription:
         finally:
             self.close()
 
+
 class GossipBackend:
     """Abstract base class for gossip protocol backends.
-    
+
     Concrete implementations must override publish() and subscribe().
     Examples: InMemoryGossipBackend, BroadcastGossipBackend.
     """
@@ -65,17 +70,17 @@ class GossipBackend:
 
     async def publish(self, topic: str, message: Any) -> None:
         """Publish message to topic - must be overridden by concrete implementation"""
-        raise NotImplementedError('GossipBackend.publish() must be overridden by concrete backend')
+        raise NotImplementedError("GossipBackend.publish() must be overridden by concrete backend")
 
-    async def subscribe(self, topic: str, max_queue_size: int=100) -> TopicSubscription:
+    async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         """Subscribe to topic - must be overridden by concrete implementation"""
-        raise NotImplementedError('GossipBackend.subscribe() must be overridden by concrete backend')
+        raise NotImplementedError("GossipBackend.subscribe() must be overridden by concrete backend")
 
     async def shutdown(self) -> None:
         return None
 
-class InMemoryGossipBackend(GossipBackend):
 
+class InMemoryGossipBackend(GossipBackend):
     def __init__(self) -> None:
         self._topics: dict[str, list[asyncio.Queue[Any]]] = defaultdict(list)
         self._lock = asyncio.Lock()
@@ -86,9 +91,9 @@ class InMemoryGossipBackend(GossipBackend):
         for queue in queues:
             await queue.put(message)
             _set_queue_gauge(topic, queue.qsize())
-        _increment_publication('gossip_publications', topic)
+        _increment_publication("gossip_publications", topic)
 
-    async def subscribe(self, topic: str, max_queue_size: int=100) -> TopicSubscription:
+    async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=max_queue_size)
         async with self._lock:
             self._topics[topic].append(queue)
@@ -108,7 +113,9 @@ class InMemoryGossipBackend(GossipBackend):
                             self._topics.pop(topic, None)
                             _clear_topic_metrics(topic)
                         _update_subscriber_metrics(self._topics)
+
             asyncio.create_task(_remove())
+
         return TopicSubscription(topic=topic, queue=queue, _unsubscribe=_unsubscribe)
 
     async def shutdown(self) -> None:
@@ -119,8 +126,8 @@ class InMemoryGossipBackend(GossipBackend):
             _clear_topic_metrics(topic)
         _update_subscriber_metrics(self._topics)
 
-class BroadcastGossipBackend(GossipBackend):
 
+class BroadcastGossipBackend(GossipBackend):
     def __init__(self, url: str) -> None:
         if Broadcast is None:
             self._broadcast = _InProcessBroadcast()
@@ -137,46 +144,49 @@ class BroadcastGossipBackend(GossipBackend):
 
     async def publish(self, topic: str, message: Any) -> None:
         if not self._running:
-            raise RuntimeError('Broadcast backend not started')
+            raise RuntimeError("Broadcast backend not started")
         payload = _encode_message(message)
         await self._broadcast.publish(topic, payload)
-        _increment_publication('gossip_broadcast_publications', topic)
+        _increment_publication("gossip_broadcast_publications", topic)
 
-    async def subscribe(self, topic: str, max_queue_size: int=100) -> TopicSubscription:
+    async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         import logging
+
         logger = logging.getLogger(__name__)
-        logger.info('BroadcastGossipBackend.subscribe called for topic: %s, running=%s', topic, self._running)
+        logger.info("BroadcastGossipBackend.subscribe called for topic: %s, running=%s", topic, self._running)
         if not self._running:
-            raise RuntimeError('Broadcast backend not started')
+            raise RuntimeError("Broadcast backend not started")
         queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=max_queue_size)
         stop_event = asyncio.Event()
 
         async def _run_subscription() -> None:
             import logging
+
             logger = logging.getLogger(__name__)
-            logger.info('[BROKER SUB] Starting broadcast subscription for topic: %s', topic)
+            logger.info("[BROKER SUB] Starting broadcast subscription for topic: %s", topic)
             try:
                 async with self._broadcast.subscribe(topic) as subscriber:
-                    logger.info('[BROKER SUB] Successfully subscribed to broadcast topic: %s', topic)
+                    logger.info("[BROKER SUB] Successfully subscribed to broadcast topic: %s", topic)
                     async for event in subscriber:
                         if stop_event.is_set():
-                            logger.info('[BROKER SUB] Stop event set for topic: %s', topic)
+                            logger.info("[BROKER SUB] Stop event set for topic: %s", topic)
                             break
-                        data = _decode_message(getattr(event, 'message', event))
-                        logger.info('[BROKER SUB] Received message from broadcast for topic %s', topic)
+                        data = _decode_message(getattr(event, "message", event))
+                        logger.info("[BROKER SUB] Received message from broadcast for topic %s", topic)
                         try:
                             await queue.put(data)
                             _set_queue_gauge(topic, queue.qsize())
                         except asyncio.CancelledError:
-                            logger.warning('[BROKER SUB] Subscription cancelled for topic: %s', topic)
+                            logger.warning("[BROKER SUB] Subscription cancelled for topic: %s", topic)
                             break
             except Exception as e:
-                logger.error('[BROKER SUB ERROR] Broadcast subscription error for topic %s: %s', topic, e)
-            logger.info('[BROKER SUB] Broadcast subscription ended for topic: %s', topic)
-        task = asyncio.create_task(_run_subscription(), name=f'broadcast-sub:{topic}')
+                logger.error("[BROKER SUB ERROR] Broadcast subscription error for topic %s: %s", topic, e)
+            logger.info("[BROKER SUB] Broadcast subscription ended for topic: %s", topic)
+
+        task = asyncio.create_task(_run_subscription(), name=f"broadcast-sub:{topic}")
         async with self._lock:
             self._tasks.add(task)
-            metrics_registry.set_gauge('gossip_broadcast_subscribers_total', float(len(self._tasks)))
+            metrics_registry.set_gauge("gossip_broadcast_subscribers_total", float(len(self._tasks)))
 
         def _unsubscribe() -> None:
 
@@ -187,15 +197,17 @@ class BroadcastGossipBackend(GossipBackend):
                     await task
                 async with self._lock:
                     self._tasks.discard(task)
-                    metrics_registry.set_gauge('gossip_broadcast_subscribers_total', float(len(self._tasks)))
+                    metrics_registry.set_gauge("gossip_broadcast_subscribers_total", float(len(self._tasks)))
+
             asyncio.create_task(_stop())
+
         return TopicSubscription(topic=topic, queue=queue, _unsubscribe=_unsubscribe)
 
     async def shutdown(self) -> None:
         async with self._lock:
             tasks = list(self._tasks)
             self._tasks.clear()
-            metrics_registry.set_gauge('gossip_broadcast_subscribers_total', 0.0)
+            metrics_registry.set_gauge("gossip_broadcast_subscribers_total", 0.0)
         for task in tasks:
             task.cancel()
             with suppress(asyncio.CancelledError):
@@ -204,8 +216,8 @@ class BroadcastGossipBackend(GossipBackend):
             await self._broadcast.disconnect()
             self._running = False
 
-class GossipBroker:
 
+class GossipBroker:
     def __init__(self, backend: GossipBackend) -> None:
         self._backend = backend
         self._lock = asyncio.Lock()
@@ -217,7 +229,7 @@ class GossipBroker:
             self._started = True
         await self._backend.publish(topic, message)
 
-    async def subscribe(self, topic: str, max_queue_size: int=100) -> TopicSubscription:
+    async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         if not self._started:
             await self._backend.start()
             self._started = True
@@ -234,8 +246,8 @@ class GossipBroker:
     async def shutdown(self) -> None:
         await self._backend.shutdown()
 
-class _InProcessSubscriber:
 
+class _InProcessSubscriber:
     def __init__(self, queue: asyncio.Queue[Any]):
         self._queue = queue
 
@@ -245,6 +257,7 @@ class _InProcessSubscriber:
     async def _iterator(self) -> Any:
         while True:
             yield (await self._queue.get())
+
 
 class _InProcessBroadcast:
     """Minimal in-memory broadcast substitute for tests when Starlette Broadcast is absent."""
@@ -277,34 +290,39 @@ class _InProcessBroadcast:
 
     async def publish(self, topic: str, message: Any) -> None:
         if not self._running:
-            raise RuntimeError('Broadcast backend not started')
+            raise RuntimeError("Broadcast backend not started")
         async with self._lock:
             queues = list(self._topics.get(topic, []))
         for queue in queues:
             await queue.put(message)
 
-def create_backend(backend_type: str, *, broadcast_url: str | None=None) -> GossipBackend:
+
+def create_backend(backend_type: str, *, broadcast_url: str | None = None) -> GossipBackend:
     backend = backend_type.lower()
-    if backend in {'memory', 'inmemory', 'local'}:
+    if backend in {"memory", "inmemory", "local"}:
         return InMemoryGossipBackend()
-    if backend in {'broadcast', 'starlette', 'redis'}:
+    if backend in {"broadcast", "starlette", "redis"}:
         if not broadcast_url:
-            raise ValueError('Broadcast backend requires a gossip_broadcast_url setting')
+            raise ValueError("Broadcast backend requires a gossip_broadcast_url setting")
         return BroadcastGossipBackend(broadcast_url)
     raise ValueError(f"Unsupported gossip backend '{backend_type}'")
+
 
 def _encode_message(message: Any) -> Any:
     if isinstance(message, (str, bytes, bytearray)):
         return message
-    return json.dumps(message, separators=(',', ':'))
+    return json.dumps(message, separators=(",", ":"))
+
 
 def _decode_message(message: Any) -> Any:
     if isinstance(message, (bytes, bytearray)):
-        message = message.decode('utf-8')
+        message = message.decode("utf-8")
     if isinstance(message, str):
         try:
             return json.loads(message)
         except json.JSONDecodeError:
             return message
     return message
+
+
 gossip_broker = GossipBroker(InMemoryGossipBackend())

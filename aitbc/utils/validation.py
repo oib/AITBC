@@ -26,7 +26,7 @@ def validate_address(address: str) -> bool:
         raise ValidationError("Address cannot be empty")
 
     # AITBC addresses typically start with 'ait' and are alphanumeric (variable length)
-    pattern = r'^ait[a-z0-9]+$'
+    pattern = r"^ait[a-z0-9]+$"
     if not re.match(pattern, address):
         raise ValidationError(f"Invalid address format: {address}")
 
@@ -50,7 +50,7 @@ def validate_hash(hash_str: str) -> bool:
         raise ValidationError("Hash cannot be empty")
 
     # Hashes are typically 64-character hex strings
-    pattern = r'^[a-f0-9]{64}$'
+    pattern = r"^[a-f0-9]{64}$"
     if not re.match(pattern, hash_str):
         raise ValidationError(f"Invalid hash format: {hash_str}")
 
@@ -73,7 +73,7 @@ def validate_url(url: str) -> bool:
     if not url:
         raise ValidationError("URL cannot be empty")
 
-    pattern = r'^https?://[^\s/$.?#].[^\s]*$'
+    pattern = r"^https?://[^\s/$.?#].[^\s]*$"
     if not re.match(pattern, url):
         raise ValidationError(f"Invalid URL format: {url}")
 
@@ -118,7 +118,7 @@ def validate_email(email: str) -> bool:
     if not email:
         raise ValidationError("Email cannot be empty")
 
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     if not re.match(pattern, email):
         raise ValidationError(f"Invalid email format: {email}")
 
@@ -216,7 +216,7 @@ def validate_chain_id(chain_id: str) -> bool:
         raise ValidationError("Chain ID cannot be empty")
 
     # Chain IDs are typically alphanumeric with hyphens
-    pattern = r'^[a-z0-9\-]+$'
+    pattern = r"^[a-z0-9\-]+$"
     if not re.match(pattern, chain_id):
         raise ValidationError(f"Invalid chain ID format: {chain_id}")
 
@@ -239,7 +239,7 @@ def validate_uuid(uuid_str: str) -> bool:
     if not uuid_str:
         raise ValidationError("UUID cannot be empty")
 
-    pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    pattern = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     if not re.match(pattern, uuid_str.lower()):
         raise ValidationError(f"Invalid UUID format: {uuid_str}")
 

@@ -1,10 +1,12 @@
 """Condition-based polling for batch operations."""
+
 import asyncio
 from typing import Any
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
+
 
 class ConditionPoller:
     """Polls for specific conditions that should trigger hermes actions."""
@@ -16,19 +18,19 @@ class ConditionPoller:
     async def run(self) -> None:
         """Run the condition poller."""
         if not self.settings.enable_polling:
-            logger.info('Condition polling disabled')
+            logger.info("Condition polling disabled")
             return
         self._running = True
-        logger.info('Starting condition poller...')
+        logger.info("Starting condition poller...")
         while self._running:
             try:
                 await self._check_conditions()
                 await asyncio.sleep(self.settings.polling_interval_seconds)
             except asyncio.CancelledError:
-                logger.info('Condition poller cancelled')
+                logger.info("Condition poller cancelled")
                 break
             except Exception as e:
-                logger.error('Error in condition poller: %s', e, exc_info=True)
+                logger.error("Error in condition poller: %s", e, exc_info=True)
                 await asyncio.sleep(5)
 
     async def _check_conditions(self) -> None:
@@ -38,4 +40,4 @@ class ConditionPoller:
     async def stop(self) -> None:
         """Stop the condition poller."""
         self._running = False
-        logger.info('Condition poller stopped')
+        logger.info("Condition poller stopped")

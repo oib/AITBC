@@ -53,15 +53,15 @@ class TestMetaLearningEngine:
 
         engine = MetaLearningEngine()
 
-        with patch.object(engine, 'generate_meta_features', return_value={"feature1": "value1"}):
-            with patch.object(engine, 'setup_task_distributions', return_value={"dist1": "value1"}):
-                with patch('asyncio.create_task'):
+        with patch.object(engine, "generate_meta_features", return_value={"feature1": "value1"}):
+            with patch.object(engine, "setup_task_distributions", return_value={"dist1": "value1"}):
+                with patch("asyncio.create_task"):
                     model = await engine.create_meta_learning_model(
                         session=mock_session,
                         model_name="test_model",
                         base_algorithms=["algorithm1"],
                         meta_strategy="fast_adaptation",
-                        adaptation_targets=["target1"]
+                        adaptation_targets=["target1"],
                     )
 
         assert model.model_name == "test_model"

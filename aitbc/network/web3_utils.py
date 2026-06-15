@@ -8,6 +8,7 @@ from typing import Any
 try:
     from web3 import Web3
     from web3.middleware import geth_poa_middleware
+
     WEB3_AVAILABLE = True
 except ImportError:
     WEB3_AVAILABLE = False
@@ -22,7 +23,7 @@ class Web3Client:
             raise ImportError("web3 is required for blockchain operations. Install with: pip install web3")
 
         try:
-            self.w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={'timeout': timeout}))
+            self.w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={"timeout": timeout}))
 
             # Add POA middleware for chains like Polygon, BSC, etc.
             self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -44,43 +45,30 @@ class Web3Client:
         """Get ERC-20 token balance"""
         try:
             # ERC-20 balanceOf function signature: 0x70a08231
-            balance_of_signature = '0x70a08231'
+            balance_of_signature = "0x70a08231"
             # Pad address to 32 bytes
             padded_address = address[2:].lower().zfill(64)
             call_data = balance_of_signature + padded_address
 
-            result = self.w3.eth.call({
-                'to': token_address,
-                'data': f'0x{call_data}'
-            })
+            result = self.w3.eth.call({"to": token_address, "data": f"0x{call_data}"})
 
             balance = int(result.hex(), 16)
 
             # Get token decimals
-            decimals_signature = '0x313ce567'
-            decimals_result = self.w3.eth.call({
-                'to': token_address,
-                'data': decimals_signature
-            })
+            decimals_signature = "0x313ce567"
+            decimals_result = self.w3.eth.call({"to": token_address, "data": decimals_signature})
             decimals = int(decimals_result.hex(), 16)
 
             # Get token symbol (optional, may fail for some tokens)
             try:
-                symbol_signature = '0x95d89b41'
-                symbol_result = self.w3.eth.call({
-                    'to': token_address,
-                    'data': symbol_signature
-                })
+                symbol_signature = "0x95d89b41"
+                symbol_result = self.w3.eth.call({"to": token_address, "data": symbol_signature})
                 symbol_bytes = bytes.fromhex(symbol_result.hex()[2:])
-                symbol = symbol_bytes.rstrip(b'\x00').decode('utf-8')
+                symbol = symbol_bytes.rstrip(b"\x00").decode("utf-8")
             except (UnicodeDecodeError, ValueError):
                 symbol = "TOKEN"
 
-            return {
-                "balance": str(balance),
-                "decimals": decimals,
-                "symbol": symbol
-            }
+            return {"balance": str(balance), "decimals": decimals, "symbol": symbol}
         except Exception as e:
             raise ValueError(f"Failed to get token balance: {e}") from e
 
@@ -124,12 +112,12 @@ class Web3Client:
                 return None
 
             return {
-                "status": receipt['status'],
-                "blockNumber": hex(receipt['blockNumber']),
-                "blockHash": receipt['blockHash'].hex(),
-                "gasUsed": hex(receipt['gasUsed']),
-                "effectiveGasPrice": hex(receipt['effectiveGasPrice']),
-                "logs": receipt['logs'],
+                "status": receipt["status"],
+                "blockNumber": hex(receipt["blockNumber"]),
+                "blockHash": receipt["blockHash"].hex(),
+                "gasUsed": hex(receipt["gasUsed"]),
+                "effectiveGasPrice": hex(receipt["effectiveGasPrice"]),
+                "logs": receipt["logs"],
             }
         except Exception as e:
             raise ValueError(f"Failed to get transaction receipt: {e}") from e
@@ -139,14 +127,14 @@ class Web3Client:
         try:
             tx = self.w3.eth.get_transaction(tx_hash)
             return {
-                "from": tx['from'],
-                "to": tx['to'],
-                "value": hex(tx['value']),
-                "data": tx['input'].hex() if hasattr(tx['input'], 'hex') else tx['input'],
-                "nonce": tx['nonce'],
-                "gas": tx['gas'],
-                "gasPrice": hex(tx['gasPrice']),
-                "blockNumber": hex(tx['blockNumber']) if tx['blockNumber'] else None,
+                "from": tx["from"],
+                "to": tx["to"],
+                "value": hex(tx["value"]),
+                "data": tx["input"].hex() if hasattr(tx["input"], "hex") else tx["input"],
+                "nonce": tx["nonce"],
+                "gas": tx["gas"],
+                "gasPrice": hex(tx["gasPrice"]),
+                "blockNumber": hex(tx["blockNumber"]) if tx["blockNumber"] else None,
             }
         except Exception as e:
             raise ValueError(f"Failed to get transaction by hash: {e}") from e
@@ -183,18 +171,19 @@ class Web3Client:
 
                 try:
                     block = self.w3.eth.get_block(block_num, full_transactions=True)
-                    for tx in block['transactions']:
-                        if tx['from'].lower() == address.lower() or \
-                           (tx['to'] and tx['to'].lower() == address.lower()):
-                            transactions.append({
-                                "hash": tx['hash'].hex(),
-                                "from": tx['from'],
-                                "to": tx['to'].hex() if tx['to'] else None,
-                                "value": hex(tx['value']),
-                                "blockNumber": hex(tx['blockNumber']),
-                                "timestamp": block['timestamp'],
-                                "gasUsed": hex(tx['gas']),
-                            })
+                    for tx in block["transactions"]:
+                        if tx["from"].lower() == address.lower() or (tx["to"] and tx["to"].lower() == address.lower()):
+                            transactions.append(
+                                {
+                                    "hash": tx["hash"].hex(),
+                                    "from": tx["from"],
+                                    "to": tx["to"].hex() if tx["to"] else None,
+                                    "value": hex(tx["value"]),
+                                    "blockNumber": hex(tx["blockNumber"]),
+                                    "timestamp": block["timestamp"],
+                                    "gasUsed": hex(tx["gas"]),
+                                }
+                            )
                             if len(transactions) >= limit:
                                 break
                 except (KeyError, ValueError, AttributeError):

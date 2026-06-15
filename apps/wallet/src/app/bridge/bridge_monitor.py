@@ -30,12 +30,7 @@ def get_eth_transactions(address: str) -> list[dict[str, Any]]:
         # For MVP, we'll use a simple RPC call to get latest block and filter
         # In production, use proper block explorer API or indexer
 
-        payload = {
-            "jsonrpc": "2.0",
-            "method": "eth_getBlockByNumber",
-            "params": ["latest", False],
-            "id": 1
-        }
+        payload = {"jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["latest", False], "id": 1}
 
         response = requests.post(ETH_RPC_URL, json=payload, timeout=10)
         response.raise_for_status()

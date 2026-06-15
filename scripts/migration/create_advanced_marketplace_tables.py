@@ -366,7 +366,7 @@ Examples:
   python scripts/migration/create_advanced_marketplace_tables.py              # Create tables (idempotent)
   python scripts/migration/create_advanced_marketplace_tables.py --verify    # Verify tables exist
   python scripts/migration/create_advanced_marketplace_tables.py --reset     # Drop and recreate (WARNING: data loss)
-        """
+        """,
     )
     parser.add_argument("--verify", action="store_true", help="Verify tables exist without creating")
     parser.add_argument("--reset", action="store_true", help="Drop and recreate tables (WARNING: data loss)")

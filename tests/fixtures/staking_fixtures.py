@@ -65,7 +65,7 @@ def agent_metrics(agent_wallet):
         total_staked=0.0,
         staker_count=0,
         total_rewards_distributed=0.0,
-        last_update_time=datetime.now(UTC)
+        last_update_time=datetime.now(UTC),
     )
 
 
@@ -82,7 +82,7 @@ def agent_metrics_bronze(agent_wallet):
         total_staked=0.0,
         staker_count=0,
         total_rewards_distributed=0.0,
-        last_update_time=datetime.now(UTC)
+        last_update_time=datetime.now(UTC),
     )
 
 
@@ -99,7 +99,7 @@ def agent_metrics_diamond(agent_wallet):
         total_staked=0.0,
         staker_count=0,
         total_rewards_distributed=0.0,
-        last_update_time=datetime.now(UTC)
+        last_update_time=datetime.now(UTC),
     )
 
 
@@ -114,7 +114,7 @@ def staking_pool(db_session, agent_metrics):
         staker_count=0,
         active_stakers=[],
         last_distribution_time=datetime.now(UTC),
-        distribution_frequency=1
+        distribution_frequency=1,
     )
     db_session.add(pool)
     db_session.commit()
@@ -125,41 +125,25 @@ def staking_pool(db_session, agent_metrics):
 @pytest.fixture
 def stake_data():
     """Default stake creation data"""
-    return {
-        "amount": 1000.0,
-        "lock_period": 30,
-        "auto_compound": False
-    }
+    return {"amount": 1000.0, "lock_period": 30, "auto_compound": False}
 
 
 @pytest.fixture
 def large_stake_data():
     """Large stake creation data"""
-    return {
-        "amount": 50000.0,
-        "lock_period": 90,
-        "auto_compound": True
-    }
+    return {"amount": 50000.0, "lock_period": 90, "auto_compound": True}
 
 
 @pytest.fixture
 def small_stake_data():
     """Small stake creation data"""
-    return {
-        "amount": 100.0,
-        "lock_period": 7,
-        "auto_compound": False
-    }
+    return {"amount": 100.0, "lock_period": 7, "auto_compound": False}
 
 
 @pytest.fixture
 def invalid_stake_data():
     """Invalid stake creation data (below minimum)"""
-    return {
-        "amount": 50.0,
-        "lock_period": 30,
-        "auto_compound": False
-    }
+    return {"amount": 50.0, "lock_period": 30, "auto_compound": False}
 
 
 @pytest.fixture
@@ -170,7 +154,7 @@ def created_stake(staking_service, agent_metrics, staker_address, stake_data):
         agent_wallet=agent_metrics.agent_wallet,
         amount=stake_data["amount"],
         lock_period=stake_data["lock_period"],
-        auto_compound=stake_data["auto_compound"]
+        auto_compound=stake_data["auto_compound"],
     )
 
 
@@ -191,7 +175,7 @@ def active_stake(db_session, agent_wallet, staker_address):
         current_apy=8.25,
         agent_tier=PerformanceTier.GOLD,
         performance_multiplier=1.5,
-        auto_compound=False
+        auto_compound=False,
     )
     db_session.add(stake)
     db_session.commit()
@@ -217,7 +201,7 @@ def unbonding_stake(db_session, agent_wallet, staker_address):
         agent_tier=PerformanceTier.GOLD,
         performance_multiplier=1.5,
         auto_compound=False,
-        unbonding_time=datetime.now(UTC) - timedelta(days=5)
+        unbonding_time=datetime.now(UTC) - timedelta(days=5),
     )
     db_session.add(stake)
     db_session.commit()
@@ -243,7 +227,7 @@ def completed_stake(db_session, agent_wallet, staker_address):
         agent_tier=PerformanceTier.GOLD,
         performance_multiplier=1.5,
         auto_compound=False,
-        unbonding_time=datetime.now(UTC) - timedelta(days=40)
+        unbonding_time=datetime.now(UTC) - timedelta(days=40),
     )
     db_session.add(stake)
     db_session.commit()
@@ -271,7 +255,7 @@ def multiple_stakes(db_session, agent_wallet, staker_address):
         current_apy=8.25,
         agent_tier=PerformanceTier.GOLD,
         performance_multiplier=1.5,
-        auto_compound=False
+        auto_compound=False,
     )
 
     # Stake 2: Active, 90-day lock with auto-compound
@@ -289,7 +273,7 @@ def multiple_stakes(db_session, agent_wallet, staker_address):
         current_apy=10.0,
         agent_tier=PerformanceTier.GOLD,
         performance_multiplier=1.5,
-        auto_compound=True
+        auto_compound=True,
     )
 
     db_session.add_all([stake1, stake2])
@@ -315,7 +299,7 @@ def get_tier_multiplier(tier):
         PerformanceTier.SILVER: 1.25,
         PerformanceTier.GOLD: 1.5,
         PerformanceTier.PLATINUM: 2.0,
-        PerformanceTier.DIAMOND: 3.0
+        PerformanceTier.DIAMOND: 3.0,
     }
     return multipliers.get(tier, 1.0)
 

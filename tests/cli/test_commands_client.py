@@ -21,8 +21,9 @@ class TestClientCommands:
         """Test that client command group exists"""
         try:
             from aitbc_cli.commands.client import client
+
             assert client is not None
-            assert hasattr(client, 'name')
+            assert hasattr(client, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import client commands: {e}")
 
@@ -30,6 +31,7 @@ class TestClientCommands:
         """Test client group name"""
         try:
             from aitbc_cli.commands.client import client
+
             assert client.name == "client"
         except ImportError as e:
             pytest.skip(f"Cannot import client commands: {e}")

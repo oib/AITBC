@@ -28,8 +28,11 @@ from handlers.pool_hub import (
 class TestHandlePoolHubSlaMetrics:
     """Test handle_pool_hub_sla_metrics function"""
 
-    @patch('handlers.pool_hub.logger')
-    @patch.dict(sys.modules, {'commands.legacy.pool_hub': Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))})
+    @patch("handlers.pool_hub.logger")
+    @patch.dict(
+        sys.modules,
+        {"commands.legacy.pool_hub": Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))},
+    )
     def test_handle_pool_hub_sla_metrics_test_mode(self, mock_logger):
         """Test SLA metrics in test mode"""
         args = Mock()
@@ -44,8 +47,11 @@ class TestHandlePoolHubSlaMetrics:
 class TestHandlePoolHubSlaViolations:
     """Test handle_pool_hub_sla_violations function"""
 
-    @patch('handlers.pool_hub.logger')
-    @patch.dict(sys.modules, {'commands.legacy.pool_hub': Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))})
+    @patch("handlers.pool_hub.logger")
+    @patch.dict(
+        sys.modules,
+        {"commands.legacy.pool_hub": Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))},
+    )
     def test_handle_pool_hub_sla_violations_test_mode(self, mock_logger):
         """Test SLA violations in test mode"""
         args = Mock()
@@ -59,8 +65,11 @@ class TestHandlePoolHubSlaViolations:
 class TestHandlePoolHubCapacitySnapshots:
     """Test handle_pool_hub_capacity_snapshots function"""
 
-    @patch('handlers.pool_hub.logger')
-    @patch.dict(sys.modules, {'commands.legacy.pool_hub': Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))})
+    @patch("handlers.pool_hub.logger")
+    @patch.dict(
+        sys.modules,
+        {"commands.legacy.pool_hub": Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))},
+    )
     def test_handle_pool_hub_capacity_snapshots_test_mode(self, mock_logger):
         """Test capacity snapshots in test mode"""
         args = Mock()
@@ -74,8 +83,11 @@ class TestHandlePoolHubCapacitySnapshots:
 class TestHandlePoolHubCapacityForecast:
     """Test handle_pool_hub_capacity_forecast function"""
 
-    @patch('handlers.pool_hub.logger')
-    @patch.dict(sys.modules, {'commands.legacy.pool_hub': Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))})
+    @patch("handlers.pool_hub.logger")
+    @patch.dict(
+        sys.modules,
+        {"commands.legacy.pool_hub": Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))},
+    )
     def test_handle_pool_hub_capacity_forecast_test_mode(self, mock_logger):
         """Test capacity forecast in test mode"""
         args = Mock()
@@ -89,8 +101,11 @@ class TestHandlePoolHubCapacityForecast:
 class TestHandlePoolHubCapacityRecommendations:
     """Test handle_pool_hub_capacity_recommendations function"""
 
-    @patch('handlers.pool_hub.logger')
-    @patch.dict(sys.modules, {'commands.legacy.pool_hub': Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))})
+    @patch("handlers.pool_hub.logger")
+    @patch.dict(
+        sys.modules,
+        {"commands.legacy.pool_hub": Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))},
+    )
     def test_handle_pool_hub_capacity_recommendations_test_mode(self, mock_logger):
         """Test capacity recommendations in test mode"""
         args = Mock()
@@ -104,8 +119,11 @@ class TestHandlePoolHubCapacityRecommendations:
 class TestHandlePoolHubBillingUsage:
     """Test handle_pool_hub_billing_usage function"""
 
-    @patch('handlers.pool_hub.logger')
-    @patch.dict(sys.modules, {'commands.legacy.pool_hub': Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))})
+    @patch("handlers.pool_hub.logger")
+    @patch.dict(
+        sys.modules,
+        {"commands.legacy.pool_hub": Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))},
+    )
     def test_handle_pool_hub_billing_usage_test_mode(self, mock_logger):
         """Test billing usage in test mode"""
         args = Mock()
@@ -119,8 +137,11 @@ class TestHandlePoolHubBillingUsage:
 class TestHandlePoolHubBillingSync:
     """Test handle_pool_hub_billing_sync function"""
 
-    @patch('handlers.pool_hub.logger')
-    @patch.dict(sys.modules, {'commands.legacy.pool_hub': Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))})
+    @patch("handlers.pool_hub.logger")
+    @patch.dict(
+        sys.modules,
+        {"commands.legacy.pool_hub": Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))},
+    )
     def test_handle_pool_hub_billing_sync_test_mode(self, mock_logger):
         """Test billing sync in test mode"""
         args = Mock()
@@ -134,8 +155,11 @@ class TestHandlePoolHubBillingSync:
 class TestHandlePoolHubCollectMetrics:
     """Test handle_pool_hub_collect_metrics function"""
 
-    @patch('handlers.pool_hub.logger')
-    @patch.dict(sys.modules, {'commands.legacy.pool_hub': Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))})
+    @patch("handlers.pool_hub.logger")
+    @patch.dict(
+        sys.modules,
+        {"commands.legacy.pool_hub": Mock(get_config=Mock(return_value=Mock(pool_hub_url="http://localhost:8012")))},
+    )
     def test_handle_pool_hub_collect_metrics_test_mode(self, mock_logger):
         """Test metrics collection in test mode"""
         args = Mock()

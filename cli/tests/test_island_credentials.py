@@ -30,18 +30,19 @@ def mock_credentials_file(tmp_path):
             "genesis_block_hash": "0x1234567890abcdef",
             "genesis_address": "0xabcdef1234567890",
             "rpc_endpoint": "http://localhost:8006",
-            "p2p_port": 8001
+            "p2p_port": 8001,
         },
-        "joined_at": "2024-01-01T00:00:00"
+        "joined_at": "2024-01-01T00:00:00",
     }
 
     # Monkey patch the credentials path
     import aitbc_cli.utils.island_credentials as ic_module
+
     original_path = ic_module.CREDENTIALS_PATH
     ic_module.CREDENTIALS_PATH = str(tmp_path / "island_credentials.json")
 
     # Write credentials to temp file
-    with open(ic_module.CREDENTIALS_PATH, 'w') as f:
+    with open(ic_module.CREDENTIALS_PATH, "w") as f:
         json.dump(credentials, f)
 
     yield credentials
@@ -57,15 +58,16 @@ def test_load_island_credentials(mock_credentials_file):
     credentials = load_island_credentials()
 
     assert credentials is not None
-    assert credentials['island_id'] == "test-island-id-12345"
-    assert credentials['island_name'] == "test-island"
-    assert credentials['island_chain_id'] == "ait-test"
-    assert 'credentials' in credentials
+    assert credentials["island_id"] == "test-island-id-12345"
+    assert credentials["island_name"] == "test-island"
+    assert credentials["island_chain_id"] == "ait-test"
+    assert "credentials" in credentials
 
 
 def test_load_island_credentials_file_not_found():
     """Test loading credentials when file doesn't exist"""
     import aitbc_cli.utils.island_credentials as ic_module
+
     original_path = ic_module.CREDENTIALS_PATH
     ic_module.CREDENTIALS_PATH = "/nonexistent/path/credentials.json"
 
@@ -78,10 +80,11 @@ def test_load_island_credentials_file_not_found():
 def test_load_island_credentials_invalid_json(tmp_path):
     """Test loading credentials with invalid JSON"""
     import aitbc_cli.utils.island_credentials as ic_module
+
     original_path = ic_module.CREDENTIALS_PATH
     ic_module.CREDENTIALS_PATH = str(tmp_path / "invalid.json")
 
-    with open(ic_module.CREDENTIALS_PATH, 'w') as f:
+    with open(ic_module.CREDENTIALS_PATH, "w") as f:
         f.write("invalid json")
 
     with pytest.raises(json.JSONDecodeError):
@@ -93,10 +96,11 @@ def test_load_island_credentials_invalid_json(tmp_path):
 def test_load_island_credentials_missing_fields(tmp_path):
     """Test loading credentials with missing required fields"""
     import aitbc_cli.utils.island_credentials as ic_module
+
     original_path = ic_module.CREDENTIALS_PATH
     ic_module.CREDENTIALS_PATH = str(tmp_path / "incomplete.json")
 
-    with open(ic_module.CREDENTIALS_PATH, 'w') as f:
+    with open(ic_module.CREDENTIALS_PATH, "w") as f:
         json.dump({"island_id": "test"}, f)
 
     with pytest.raises(ValueError):
@@ -164,6 +168,7 @@ def test_validate_credentials_valid(mock_credentials_file):
 def test_validate_credentials_invalid_file(tmp_path):
     """Test validating credentials when file doesn't exist"""
     import aitbc_cli.utils.island_credentials as ic_module
+
     original_path = ic_module.CREDENTIALS_PATH
     ic_module.CREDENTIALS_PATH = "/nonexistent/path/credentials.json"
 
@@ -177,17 +182,18 @@ def test_validate_credentials_invalid_file(tmp_path):
 def test_get_genesis_block_hash_missing(tmp_path):
     """Test getting genesis block hash when not present"""
     import aitbc_cli.utils.island_credentials as ic_module
+
     original_path = ic_module.CREDENTIALS_PATH
 
     credentials = {
         "island_id": "test-island-id",
         "island_name": "test-island",
         "island_chain_id": "ait-test",
-        "credentials": {}
+        "credentials": {},
     }
 
     ic_module.CREDENTIALS_PATH = str(tmp_path / "no_genesis.json")
-    with open(ic_module.CREDENTIALS_PATH, 'w') as f:
+    with open(ic_module.CREDENTIALS_PATH, "w") as f:
         json.dump(credentials, f)
 
     genesis_hash = get_genesis_block_hash()

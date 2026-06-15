@@ -39,7 +39,8 @@ def get_governance_service(session: Session = Depends(get_session)) -> Governanc
 @router.post("/register", response_model=dict[str, Any])
 @rate_limit(rate=10, per=60)
 async def register_developer(
-    request: DeveloperCreate, request_http: Request,
+    request: DeveloperCreate,
+    request_http: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -66,7 +67,8 @@ async def register_developer(
 @router.get("/profile/{wallet_address}", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def get_developer_profile(
-    wallet_address: str, request: Request,
+    wallet_address: str,
+    request: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -159,7 +161,8 @@ async def get_leaderboard(
 @router.get("/stats/{wallet_address}", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def get_developer_stats(
-    wallet_address: str, request: Request,
+    wallet_address: str,
+    request: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -179,7 +182,8 @@ async def get_developer_stats(
 @router.post("/bounties", response_model=dict[str, Any])
 @rate_limit(rate=20, per=60)
 async def create_bounty(
-    request: BountyCreate, request_http: Request,
+    request: BountyCreate,
+    request_http: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -242,7 +246,8 @@ async def list_bounties(
 @router.get("/bounties/{bounty_id}", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def get_bounty_details(
-    bounty_id: str, request: Request,
+    bounty_id: str,
+    request: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -365,7 +370,9 @@ async def review_bounty_submission(
 @router.get("/bounties/stats", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def get_bounty_statistics(
-    request: Request, session: Session = Depends(get_session), dev_service: DeveloperPlatformService = Depends(get_developer_platform_service)
+    request: Request,
+    session: Session = Depends(get_session),
+    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
     """Get comprehensive bounty statistics"""
 
@@ -381,7 +388,8 @@ async def get_bounty_statistics(
 @router.post("/certifications", response_model=dict[str, Any])
 @rate_limit(rate=20, per=60)
 async def grant_certification(
-    request: CertificationGrant, request_http: Request,
+    request: CertificationGrant,
+    request_http: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -411,7 +419,8 @@ async def grant_certification(
 @router.get("/certifications/{wallet_address}", response_model=list[dict[str, Any]])
 @rate_limit(rate=200, per=60)
 async def get_developer_certifications(
-    wallet_address: str, request: Request,
+    wallet_address: str,
+    request: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> list[dict[str, Any]]:
@@ -447,7 +456,9 @@ async def get_developer_certifications(
 
 @router.get("/certifications/verify/{certification_id}", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
-async def verify_certification(request: Request, certification_id: str, session: Session = Depends(get_session)) -> dict[str, Any]:
+async def verify_certification(
+    request: Request, certification_id: str, session: Session = Depends(get_session)
+) -> dict[str, Any]:
     """Verify a certification by ID"""
 
     try:
@@ -547,7 +558,9 @@ async def create_regional_hub(
 @router.get("/hubs", response_model=list[dict[str, Any]])
 @rate_limit(rate=200, per=60)
 async def get_regional_hubs(
-    request: Request, session: Session = Depends(get_session), dev_service: DeveloperPlatformService = Depends(get_developer_platform_service)
+    request: Request,
+    session: Session = Depends(get_session),
+    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> list[dict[str, Any]]:
     """Get all regional developer hubs"""
 
@@ -619,14 +632,15 @@ async def stake_on_developer(
 
     # Validate addresses to prevent SSRF
     import re
-    ADDRESS_PATTERN = re.compile(r'^[a-zA-Z0-9]{20,50}$')
+
+    ADDRESS_PATTERN = re.compile(r"^[a-zA-Z0-9]{20,50}$")
 
     def validate_address(addr: str) -> bool:
         if not addr:
             return False
-        if any(char in addr for char in ['/', '\\', '..', '\n', '\r', '\t']):
+        if any(char in addr for char in ["/", "\\", "..", "\n", "\r", "\t"]):
             return False
-        if addr.startswith(('http://', 'https://', 'ftp://')):
+        if addr.startswith(("http://", "https://", "ftp://")):
             return False
         return bool(ADDRESS_PATTERN.match(addr))
 
@@ -750,7 +764,9 @@ async def get_staking_statistics(request: Request, session: Session = Depends(ge
 @router.get("/analytics/overview", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def get_platform_overview(
-    request: Request, session: Session = Depends(get_session), dev_service: DeveloperPlatformService = Depends(get_developer_platform_service)
+    request: Request,
+    session: Session = Depends(get_session),
+    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
     """Get platform overview analytics"""
 
@@ -759,12 +775,7 @@ async def get_platform_overview(
         try:
             bounty_stats = await dev_service.get_bounty_statistics()
         except Exception:
-            bounty_stats = {
-                "total": 150,
-                "active": 45,
-                "completed": 95,
-                "total_payout": 250000.0
-            }
+            bounty_stats = {"total": 150, "active": 45, "completed": 95, "total_payout": 250000.0}
 
         # Get developer statistics with fallback
         try:
@@ -817,12 +828,7 @@ async def get_platform_overview(
                 "new_this_month": 25,
                 "average_reputation": 45.5,
             },
-            "bounties": {
-                "total": 150,
-                "active": 45,
-                "completed": 95,
-                "total_payout": 250000.0
-            },
+            "bounties": {"total": 150, "active": 45, "completed": 95, "total_payout": 250000.0},
             "certifications": {
                 "total_granted": 320,
                 "new_this_month": 15,
@@ -835,7 +841,7 @@ async def get_platform_overview(
             },
             "staking": {"total_staked": 1000000.0, "active_stakers": 500, "average_apy": 7.5},
             "generated_at": datetime.now(UTC).isoformat(),
-            "note": "Fallback data returned due to service error"
+            "note": "Fallback data returned due to service error",
         }
 
 

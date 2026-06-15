@@ -14,17 +14,19 @@ from aitbc.crypto import crypto
 # Ethereum Address Derivation Tests
 # ============================================================================
 
+
 class TestDeriveEthereumAddress:
     """Test derive_ethereum_address function"""
 
     def test_derive_address_missing_dependency(self):
-        with patch.dict('sys.modules', {'eth_account': None}):
+        with patch.dict("sys.modules", {"eth_account": None}):
             with pytest.raises(ImportError, match="eth-account is required"):
                 crypto.derive_ethereum_address("test_key")
 
     def test_derive_address_with_0x_prefix(self):
-        with patch.dict('sys.modules', {'eth_account': Mock()}):
+        with patch.dict("sys.modules", {"eth_account": Mock()}):
             from eth_account import Account as MockAccount
+
             mock_account_instance = Mock()
             mock_account_instance.address = "0xABC123"
             MockAccount.from_key.return_value = mock_account_instance
@@ -33,8 +35,9 @@ class TestDeriveEthereumAddress:
             assert result == "0xABC123"
 
     def test_derive_address_without_0x_prefix(self):
-        with patch.dict('sys.modules', {'eth_account': Mock()}):
+        with patch.dict("sys.modules", {"eth_account": Mock()}):
             from eth_account import Account as MockAccount
+
             mock_account_instance = Mock()
             mock_account_instance.address = "0xABC123"
             MockAccount.from_key.return_value = mock_account_instance
@@ -43,8 +46,9 @@ class TestDeriveEthereumAddress:
             assert result == "0xABC123"
 
     def test_derive_address_invalid_key(self):
-        with patch.dict('sys.modules', {'eth_account': Mock()}):
+        with patch.dict("sys.modules", {"eth_account": Mock()}):
             from eth_account import Account as MockAccount
+
             MockAccount.from_key.side_effect = Exception("Invalid key")
 
             with pytest.raises(ValueError, match="Failed to derive address"):
@@ -55,17 +59,19 @@ class TestDeriveEthereumAddress:
 # Transaction Signing Tests
 # ============================================================================
 
+
 class TestSignTransactionHash:
     """Test sign_transaction_hash function"""
 
     def test_sign_hash_missing_dependency(self):
-        with patch.dict('sys.modules', {'eth_account': None}):
+        with patch.dict("sys.modules", {"eth_account": None}):
             with pytest.raises(ImportError, match="eth-account is required"):
                 crypto.sign_transaction_hash("hash", "key")
 
     def test_sign_hash_with_0x_prefixes(self):
-        with patch.dict('sys.modules', {'eth_account': Mock()}):
+        with patch.dict("sys.modules", {"eth_account": Mock()}):
             from eth_account import Account as MockAccount
+
             mock_account_instance = Mock()
             mock_signed = Mock()
             mock_signed.signature.hex.return_value = "0xsig123"
@@ -76,8 +82,9 @@ class TestSignTransactionHash:
             assert result == "0xsig123"
 
     def test_sign_hash_without_prefixes(self):
-        with patch.dict('sys.modules', {'eth_account': Mock()}):
+        with patch.dict("sys.modules", {"eth_account": Mock()}):
             from eth_account import Account as MockAccount
+
             mock_account_instance = Mock()
             mock_signed = Mock()
             mock_signed.signature.hex.return_value = "0xsig123"
@@ -88,8 +95,9 @@ class TestSignTransactionHash:
             assert result == "0xsig123"
 
     def test_sign_hash_error(self):
-        with patch.dict('sys.modules', {'eth_account': Mock()}):
+        with patch.dict("sys.modules", {"eth_account": Mock()}):
             from eth_account import Account as MockAccount
+
             MockAccount.from_key.side_effect = Exception("Sign error")
 
             with pytest.raises(ValueError, match="Failed to sign"):
@@ -100,18 +108,20 @@ class TestSignTransactionHash:
 # Signature Verification Tests
 # ============================================================================
 
+
 class TestVerifySignature:
     """Test verify_signature function"""
 
     def test_verify_signature_missing_dependency(self):
-        with patch.dict('sys.modules', {'eth_account': None}):
+        with patch.dict("sys.modules", {"eth_account": None}):
             with pytest.raises(ImportError, match="eth-account and eth-utils are required"):
                 crypto.verify_signature("hash", "sig", "addr")
 
     def test_verify_signature_valid(self):
-        with patch.dict('sys.modules', {'eth_account': Mock(), 'eth_utils': Mock()}):
+        with patch.dict("sys.modules", {"eth_account": Mock(), "eth_utils": Mock()}):
             from eth_account import Account as MockAccount
             from eth_utils import to_bytes
+
             MockAccount.recover_message.return_value = "abc123"  # Return without 0x prefix
             to_bytes.side_effect = lambda hexstr: bytes.fromhex(hexstr) if hexstr else b""
 
@@ -119,9 +129,10 @@ class TestVerifySignature:
             assert result is True
 
     def test_verify_signature_invalid(self):
-        with patch.dict('sys.modules', {'eth_account': Mock(), 'eth_utils': Mock()}):
+        with patch.dict("sys.modules", {"eth_account": Mock(), "eth_utils": Mock()}):
             from eth_account import Account as MockAccount
             from eth_utils import to_bytes
+
             MockAccount.recover_message.return_value = "def456"  # Return without 0x prefix
             to_bytes.side_effect = lambda hexstr: bytes.fromhex(hexstr) if hexstr else b""
 
@@ -129,8 +140,9 @@ class TestVerifySignature:
             assert result is False
 
     def test_verify_signature_error(self):
-        with patch.dict('sys.modules', {'eth_account': Mock(), 'eth_utils': Mock()}):
+        with patch.dict("sys.modules", {"eth_account": Mock(), "eth_utils": Mock()}):
             from eth_account import Account as MockAccount
+
             MockAccount.recover_message.side_effect = Exception("Verify error")
 
             with pytest.raises(ValueError, match="Failed to verify signature"):
@@ -140,6 +152,7 @@ class TestVerifySignature:
 # ============================================================================
 # Private Key Encryption Tests
 # ============================================================================
+
 
 class TestEncryptPrivateKey:
     """Test encrypt_private_key function"""
@@ -163,6 +176,7 @@ class TestEncryptPrivateKey:
 # ============================================================================
 # Private Key Decryption Tests
 # ============================================================================
+
 
 class TestDecryptPrivateKey:
     """Test decrypt_private_key function"""
@@ -192,6 +206,7 @@ class TestDecryptPrivateKey:
 # Secure Random Bytes Tests
 # ============================================================================
 
+
 class TestGenerateSecureRandomBytes:
     """Test generate_secure_random_bytes function"""
 
@@ -214,6 +229,7 @@ class TestGenerateSecureRandomBytes:
 # ============================================================================
 # Keccak-256 Hash Tests
 # ============================================================================
+
 
 class TestKeccak256Hash:
     """Test keccak256_hash function"""
@@ -238,6 +254,7 @@ class TestKeccak256Hash:
 # ============================================================================
 # SHA-256 Hash Tests
 # ============================================================================
+
 
 class TestSha256Hash:
     """Test sha256_hash function"""
@@ -267,17 +284,19 @@ class TestSha256Hash:
 # Ethereum Address Validation Tests
 # ============================================================================
 
+
 class TestValidateEthereumAddress:
     """Test validate_ethereum_address function"""
 
     def test_validate_address_missing_dependency(self):
-        with patch.dict('sys.modules', {'eth_utils': None}):
+        with patch.dict("sys.modules", {"eth_utils": None}):
             with pytest.raises(ImportError, match="eth-utils is required"):
                 crypto.validate_ethereum_address("0xABC")
 
     def test_validate_address_valid(self):
-        with patch.dict('sys.modules', {'eth_utils': Mock()}):
+        with patch.dict("sys.modules", {"eth_utils": Mock()}):
             from eth_utils import is_address, is_checksum_address
+
             is_address.return_value = True
             is_checksum_address.return_value = True
 
@@ -285,8 +304,9 @@ class TestValidateEthereumAddress:
             assert result is True
 
     def test_validate_address_invalid_format(self):
-        with patch.dict('sys.modules', {'eth_utils': Mock()}):
+        with patch.dict("sys.modules", {"eth_utils": Mock()}):
             from eth_utils import is_address, is_checksum_address
+
             is_address.return_value = False
             is_checksum_address.return_value = False
 
@@ -294,8 +314,9 @@ class TestValidateEthereumAddress:
             assert result is False
 
     def test_validate_address_invalid_checksum(self):
-        with patch.dict('sys.modules', {'eth_utils': Mock()}):
+        with patch.dict("sys.modules", {"eth_utils": Mock()}):
             from eth_utils import is_address, is_checksum_address
+
             is_address.return_value = True
             is_checksum_address.return_value = False
 
@@ -303,8 +324,9 @@ class TestValidateEthereumAddress:
             assert result is False
 
     def test_validate_address_exception(self):
-        with patch.dict('sys.modules', {'eth_utils': Mock()}):
+        with patch.dict("sys.modules", {"eth_utils": Mock()}):
             from eth_utils import is_address
+
             is_address.side_effect = Exception("Validation error")
 
             result = crypto.validate_ethereum_address("0xABC")
@@ -315,17 +337,19 @@ class TestValidateEthereumAddress:
 # Ethereum Private Key Generation Tests
 # ============================================================================
 
+
 class TestGenerateEthereumPrivateKey:
     """Test generate_ethereum_private_key function"""
 
     def test_generate_private_key_missing_dependency(self):
-        with patch.dict('sys.modules', {'eth_account': None}):
+        with patch.dict("sys.modules", {"eth_account": None}):
             with pytest.raises(ImportError, match="eth-account is required"):
                 crypto.generate_ethereum_private_key()
 
     def test_generate_private_key_success(self):
-        with patch.dict('sys.modules', {'eth_account': Mock()}):
+        with patch.dict("sys.modules", {"eth_account": Mock()}):
             from eth_account import Account as MockAccount
+
             mock_account_instance = Mock()
             mock_account_instance.key.hex.return_value = "0x1234567890abcdef"
             MockAccount.create.return_value = mock_account_instance
@@ -334,8 +358,9 @@ class TestGenerateEthereumPrivateKey:
             assert result == "0x1234567890abcdef"
 
     def test_generate_private_key_error(self):
-        with patch.dict('sys.modules', {'eth_account': Mock()}):
+        with patch.dict("sys.modules", {"eth_account": Mock()}):
             from eth_account import Account as MockAccount
+
             MockAccount.create.side_effect = Exception("Generation error")
 
             with pytest.raises(ValueError, match="Failed to generate private key"):

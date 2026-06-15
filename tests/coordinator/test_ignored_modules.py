@@ -25,9 +25,7 @@ def _load_module(module_name: str, rel_path: str):
     full_name = f"agent_coordinator_{module_name}"
     if full_name in sys.modules:
         return sys.modules[full_name]
-    spec = importlib.util.spec_from_file_location(
-        full_name, SRC_ROOT / rel_path
-    )
+    spec = importlib.util.spec_from_file_location(full_name, SRC_ROOT / rel_path)
     mod = importlib.util.module_from_spec(spec)
     sys.modules[full_name] = mod
     spec.loader.exec_module(mod)
@@ -70,6 +68,7 @@ PeerStorage = _storage.PeerStorage
 # ---------------------------------------------------------------------------
 # Prometheus Metrics
 # ---------------------------------------------------------------------------
+
 
 class TestCounter:
     def test_counter_basic(self):
@@ -177,6 +176,7 @@ class TestPerformanceMonitor:
 # Message Encryption
 # ---------------------------------------------------------------------------
 
+
 class TestEncryptedMessage:
     def test_to_dict_from_dict(self):
         msg = EncryptedMessage(
@@ -263,6 +263,7 @@ class TestMessageEncryptor:
 
     def test_rotate_key_pair(self, tmp_path):
         import time
+
         encryptor = MessageEncryptor(keys_dir=str(tmp_path))
         old = encryptor.generate_key_pair("agent-1")
         time.sleep(1.1)
@@ -285,9 +286,11 @@ class TestMessageEncryptor:
 # Alerting
 # ---------------------------------------------------------------------------
 
+
 class TestAlert:
     def test_to_dict(self):
         from datetime import UTC, datetime
+
         alert = Alert(
             alert_id="a1",
             name="Test Alert",
@@ -306,6 +309,7 @@ class TestAlert:
 class TestAlertRule:
     def test_to_dict(self):
         from datetime import timedelta
+
         rule = AlertRule(
             rule_id="r1",
             name="High CPU",
@@ -325,6 +329,7 @@ class TestAlertRule:
 class TestSLAMonitor:
     def test_add_rule_and_record(self):
         from datetime import timedelta
+
         sla = SLAMonitor()
         sla.add_sla_rule("sla1", "Availability", 99.9, timedelta(hours=1), "availability")
         sla.record_metric("sla1", 99.95)
@@ -339,6 +344,7 @@ class TestSLAMonitor:
 
     def test_get_all_sla_status(self):
         from datetime import timedelta
+
         sla = SLAMonitor()
         sla.add_sla_rule("sla1", "Availability", 99.9, timedelta(hours=1), "availability")
         result = sla.get_all_sla_status()
@@ -348,6 +354,7 @@ class TestSLAMonitor:
 
     def test_record_metric_no_timestamp(self):
         from datetime import timedelta
+
         sla = SLAMonitor()
         sla.add_sla_rule("sla1", "Availability", 99.9, timedelta(hours=1), "availability")
         sla.record_metric("sla1", 99.0)
@@ -356,6 +363,7 @@ class TestSLAMonitor:
 
     def test_cleanup_old_metrics(self):
         from datetime import UTC, datetime, timedelta
+
         sla = SLAMonitor()
         window = timedelta(seconds=1)
         sla.add_sla_rule("sla1", "Latency", 100.0, window, "latency")
@@ -380,45 +388,65 @@ class TestNotificationManager:
     @pytest.mark.asyncio
     async def test_send_log_notification(self):
         from datetime import UTC, datetime
+
         nm = NotificationManager()
         alert = Alert(
-            alert_id="a1", name="Test", description="Desc",
-            severity=AlertSeverity.INFO, status=AlertStatus.ACTIVE,
-            created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
+            alert_id="a1",
+            name="Test",
+            description="Desc",
+            severity=AlertSeverity.INFO,
+            status=AlertStatus.ACTIVE,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
         nm._send_log(alert, "message")
 
     @pytest.mark.asyncio
     async def test_send_email_not_configured(self):
         from datetime import UTC, datetime
+
         nm = NotificationManager()
         alert = Alert(
-            alert_id="a1", name="Test", description="Desc",
-            severity=AlertSeverity.INFO, status=AlertStatus.ACTIVE,
-            created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
+            alert_id="a1",
+            name="Test",
+            description="Desc",
+            severity=AlertSeverity.INFO,
+            status=AlertStatus.ACTIVE,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
         await nm._send_email(alert, "msg")
 
     @pytest.mark.asyncio
     async def test_send_slack_not_configured(self):
         from datetime import UTC, datetime
+
         nm = NotificationManager()
         alert = Alert(
-            alert_id="a1", name="Test", description="Desc",
-            severity=AlertSeverity.INFO, status=AlertStatus.ACTIVE,
-            created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
+            alert_id="a1",
+            name="Test",
+            description="Desc",
+            severity=AlertSeverity.INFO,
+            status=AlertStatus.ACTIVE,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
         await nm._send_slack(alert, "msg")
 
     @pytest.mark.asyncio
     async def test_send_slack_success(self):
         from datetime import UTC, datetime
+
         nm = NotificationManager()
         nm.configure_slack("https://hooks.slack.com/test", "#alerts")
         alert = Alert(
-            alert_id="a1", name="Test", description="Desc",
-            severity=AlertSeverity.CRITICAL, status=AlertStatus.ACTIVE,
-            created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
+            alert_id="a1",
+            name="Test",
+            description="Desc",
+            severity=AlertSeverity.CRITICAL,
+            status=AlertStatus.ACTIVE,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
         with patch("requests.post") as mock_post:
             mock_post.return_value.raise_for_status = lambda: None
@@ -428,12 +456,17 @@ class TestNotificationManager:
     @pytest.mark.asyncio
     async def test_send_webhook(self):
         from datetime import UTC, datetime
+
         nm = NotificationManager()
         nm.add_webhook("primary", "https://webhook.example.com")
         alert = Alert(
-            alert_id="a1", name="Test", description="Desc",
-            severity=AlertSeverity.INFO, status=AlertStatus.ACTIVE,
-            created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
+            alert_id="a1",
+            name="Test",
+            description="Desc",
+            severity=AlertSeverity.INFO,
+            status=AlertStatus.ACTIVE,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
         with patch("requests.post") as mock_post:
             mock_post.return_value.raise_for_status = lambda: None
@@ -449,10 +482,15 @@ class TestAlertManager:
 
     def test_add_remove_rule(self):
         from datetime import timedelta
+
         am = AlertManager()
         rule = AlertRule(
-            rule_id="custom", name="Custom", description="Desc",
-            severity=AlertSeverity.WARNING, condition="test", threshold=1.0,
+            rule_id="custom",
+            name="Custom",
+            description="Desc",
+            severity=AlertSeverity.WARNING,
+            condition="test",
+            threshold=1.0,
             duration=timedelta(minutes=1),
         )
         am.add_rule(rule)
@@ -472,6 +510,7 @@ class TestAlertManager:
 
     def test_trigger_and_resolve(self):
         from datetime import UTC, datetime, timedelta
+
         am = AlertManager()
         am.active_conditions["high_error_rate"] = datetime.now(UTC) - timedelta(minutes=10)
         am.evaluate_rules({"error_rate": 0.1})
@@ -487,6 +526,7 @@ class TestAlertManager:
 
     def test_get_alert_history(self):
         from datetime import UTC, datetime, timedelta
+
         am = AlertManager()
         am.active_conditions["high_error_rate"] = datetime.now(UTC) - timedelta(minutes=10)
         am.evaluate_rules({"error_rate": 0.1})
@@ -501,6 +541,7 @@ class TestAlertManager:
 
     def test_alert_stats_with_active(self):
         from datetime import UTC, datetime, timedelta
+
         am = AlertManager()
         am.active_conditions["high_error_rate"] = datetime.now(UTC) - timedelta(minutes=10)
         am.evaluate_rules({"error_rate": 0.1})
@@ -509,6 +550,7 @@ class TestAlertManager:
 
     def test_no_duplicate_active_alerts(self):
         from datetime import UTC, datetime, timedelta
+
         am = AlertManager()
         am.active_conditions["high_error_rate"] = datetime.now(UTC) - timedelta(minutes=10)
         am.evaluate_rules({"error_rate": 0.1})
@@ -523,6 +565,7 @@ class TestAlertManager:
 
     def test_evaluate_all_conditions(self):
         from datetime import UTC, datetime, timedelta
+
         am = AlertManager()
         past = datetime.now(UTC) - timedelta(minutes=10)
         metrics = {
@@ -541,6 +584,7 @@ class TestAlertManager:
 # ---------------------------------------------------------------------------
 # Message Storage
 # ---------------------------------------------------------------------------
+
 
 class TestMessageStorage:
     @pytest.fixture
@@ -572,9 +616,10 @@ class TestMessageStorage:
         storage = MessageStorage("redis://localhost:6379/0")
         storage.redis = mock_redis
         from datetime import UTC, datetime
-        result = await storage.store_message("msg1", {
-            "sender": "a1", "recipient": "a2", "timestamp": datetime.now(UTC).isoformat()
-        })
+
+        result = await storage.store_message(
+            "msg1", {"sender": "a1", "recipient": "a2", "timestamp": datetime.now(UTC).isoformat()}
+        )
         assert result is True
 
     @pytest.mark.asyncio

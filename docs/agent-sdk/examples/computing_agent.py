@@ -17,6 +17,7 @@ from aitbc_agent_sdk.computing import ComputingEngine
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class ComputingAgentExample:
     """Example computing agent implementation"""
 
@@ -29,7 +30,7 @@ class ComputingAgentExample:
             ai_model="gpt-3.5-turbo",
             max_cpu_cores=4,
             max_memory_gb=8,
-            max_gpu_count=1
+            max_gpu_count=1,
         )
 
         # Initialize components
@@ -73,25 +74,25 @@ class ComputingAgentExample:
                 "type": "neural_network_inference",
                 "description": "Neural network inference with GPU acceleration",
                 "price_per_hour": 0.1,
-                "requirements": {"gpu": True, "memory_gb": 4}
+                "requirements": {"gpu": True, "memory_gb": 4},
             },
             {
                 "type": "data_processing",
                 "description": "Large-scale data processing and analysis",
                 "price_per_hour": 0.05,
-                "requirements": {"cpu_cores": 2, "memory_gb": 8}
+                "requirements": {"cpu_cores": 2, "memory_gb": 8},
             },
             {
                 "type": "encryption_services",
                 "description": "Cryptographic operations and data encryption",
                 "price_per_hour": 0.02,
-                "requirements": {"cpu_cores": 1}
-            }
+                "requirements": {"cpu_cores": 1},
+            },
         ]
 
         for service in services:
             service_id = await self.blockchain_client.register_service(service)
-            logger.info("Registered service: %s (ID: %s)", service['type'], service_id)
+            logger.info("Registered service: %s (ID: %s)", service["type"], service_id)
 
     async def task_processing_loop(self):
         """Main loop for processing incoming tasks"""
@@ -120,11 +121,7 @@ class ComputingAgentExample:
 
         try:
             # Add to active tasks
-            self.active_tasks[task.id] = {
-                "status": "processing",
-                "start_time": asyncio.get_event_loop().time(),
-                "task": task
-            }
+            self.active_tasks[task.id] = {"status": "processing", "start_time": asyncio.get_event_loop().time(), "task": task}
 
             # Execute task based on type
             if task.type == "neural_network_inference":
@@ -149,10 +146,7 @@ class ComputingAgentExample:
             logger.error("Error processing task %s: %s", task.id, e)
 
             # Submit error result
-            await self.blockchain_client.submit_task_result(
-                task.id,
-                {"error": str(e), "status": "failed"}
-            )
+            await self.blockchain_client.submit_task_result(task.id, {"error": str(e), "status": "failed"})
 
             # Update task status
             self.active_tasks[task.id]["status"] = "failed"
@@ -178,14 +172,8 @@ class ComputingAgentExample:
         result = {
             "predictions": predictions.tolist(),
             "execution_time": execution_time,
-            "model_info": {
-                "type": model.model_type,
-                "parameters": model.parameter_count
-            },
-            "agent_info": {
-                "name": self.config.name,
-                "address": self.agent.address
-            }
+            "model_info": {"type": model.model_type, "parameters": model.parameter_count},
+            "agent_info": {"name": self.config.name, "address": self.agent.address},
         }
 
         return result
@@ -213,7 +201,7 @@ class ComputingAgentExample:
         result["metadata"] = {
             "data_size": len(data),
             "processing_time": result.get("execution_time", 0),
-            "agent_address": self.agent.address
+            "agent_address": self.agent.address,
         }
 
         return result
@@ -236,11 +224,7 @@ class ComputingAgentExample:
             raise ValueError("Unknown operation: %s" % operation)
 
         # Add metadata
-        result["metadata"] = {
-            "operation": operation,
-            "data_size": len(data),
-            "agent_address": self.agent.address
-        }
+        result["metadata"] = {"operation": operation, "data_size": len(data), "agent_address": self.agent.address}
 
         return result
 
@@ -252,10 +236,7 @@ class ComputingAgentExample:
             # Check for timeout (30 minutes)
             if current_time - task_info["start_time"] > 1800:
                 logger.warning("Task %s timed out", task_id)
-                await self.blockchain_client.submit_task_result(
-                    task_id,
-                    {"error": "Task timeout", "status": "failed"}
-                )
+                await self.blockchain_client.submit_task_result(task_id, {"error": "Task timeout", "status": "failed"})
                 del self.active_tasks[task_id]
 
     async def get_agent_status(self) -> dict[str, Any]:
@@ -268,15 +249,10 @@ class ComputingAgentExample:
             "is_running": self.is_running,
             "balance": balance,
             "active_tasks": len(self.active_tasks),
-            "completed_tasks": len([
-                t for t in self.active_tasks.values()
-                if t["status"] == "completed"
-            ]),
-            "failed_tasks": len([
-                t for t in self.active_tasks.values()
-                if t["status"] == "failed"
-            ])
+            "completed_tasks": len([t for t in self.active_tasks.values() if t["status"] == "completed"]),
+            "failed_tasks": len([t for t in self.active_tasks.values() if t["status"] == "failed"]),
         }
+
 
 async def main():
     """Main function to run the computing agent example"""
@@ -300,6 +276,7 @@ async def main():
     except Exception as e:
         logger.error("Agent error: %s", e)
         await agent.stop()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

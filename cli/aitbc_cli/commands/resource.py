@@ -21,10 +21,10 @@ def resource():
 
 
 @resource.command()
-@click.option('--resource-type', required=True, help='Type of resource (gpu, cpu, storage)')
-@click.option('--quantity', type=int, required=True, help='Quantity of resources')
-@click.option('--priority', type=click.Choice(['low', 'medium', 'high']), default='medium', help='Allocation priority')
-@click.option('--mock', is_flag=True, help='Use mock data for experimental command')
+@click.option("--resource-type", required=True, help="Type of resource (gpu, cpu, storage)")
+@click.option("--quantity", type=int, required=True, help="Quantity of resources")
+@click.option("--priority", type=click.Choice(["low", "medium", "high"]), default="medium", help="Allocation priority")
+@click.option("--mock", is_flag=True, help="Use mock data for experimental command")
 def allocate(resource_type: str, quantity: int, priority: str, mock: bool):
     """Allocate resources (EXPERIMENTAL)"""
     if not mock:
@@ -33,17 +33,13 @@ def allocate(resource_type: str, quantity: int, priority: str, mock: bool):
         raise click.Abort()
 
     success(f"Allocate {quantity} {resource_type} with {priority} priority")
-    click.echo(json.dumps({
-        "allocation_id": f"alloc_{int(time.time())}",
-        "status": "Allocated (mock)",
-        "cost_per_hour": 25
-    }))
+    click.echo(json.dumps({"allocation_id": f"alloc_{int(time.time())}", "status": "Allocated (mock)", "cost_per_hour": 25}))
 
 
 @resource.command()
-@click.option('--resource-id', help='Specific resource ID')
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
-@click.option('--mock', is_flag=True, help='Use mock data for experimental command')
+@click.option("--resource-id", help="Specific resource ID")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--mock", is_flag=True, help="Use mock data for experimental command")
 def list(resource_id: str | None, format: str, mock: bool):
     """List allocated resources (EXPERIMENTAL)"""
     if not mock:
@@ -55,20 +51,22 @@ def list(resource_id: str | None, format: str, mock: bool):
     resources = [
         {"type": "gpu", "allocated": 4, "available": 8, "efficiency": "78.5%"},
         {"type": "cpu", "allocated": "45.2%", "available": "54.8%", "efficiency": "82.1%"},
-        {"type": "storage", "allocated": "45GB", "available": "55GB", "efficiency": "90.0%"}
+        {"type": "storage", "allocated": "45GB", "available": "55GB", "efficiency": "90.0%"},
     ]
 
-    if format == 'json':
+    if format == "json":
         click.echo(json.dumps(resources, indent=2))
     else:
         for res in resources:
-            click.echo(f"  - {res['type'].upper()}: {res['allocated']} allocated, {res['available']} available ({res['efficiency']})")
+            click.echo(
+                f"  - {res['type'].upper()}: {res['allocated']} allocated, {res['available']} available ({res['efficiency']})"
+            )
     return 0
 
 
 @resource.command()
-@click.argument('resource_id')
-@click.option('--mock', is_flag=True, help='Use mock data for experimental command')
+@click.argument("resource_id")
+@click.option("--mock", is_flag=True, help="Use mock data for experimental command")
 def release(resource_id: str, mock: bool):
     """Release allocated resources (EXPERIMENTAL)"""
     if not mock:
@@ -81,8 +79,8 @@ def release(resource_id: str, mock: bool):
 
 
 @resource.command()
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
-@click.option('--mock', is_flag=True, help='Use mock data for experimental command')
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--mock", is_flag=True, help="Use mock data for experimental command")
 def utilization(format: str, mock: bool):
     """Get resource utilization metrics (EXPERIMENTAL)"""
     if not mock:
@@ -97,10 +95,10 @@ def utilization(format: str, mock: bool):
         "storage_available": "45GB / 100GB",
         "network_bandwidth": "120Mbps / 1Gbps",
         "active_agents": 3,
-        "resource_efficiency": "78.5%"
+        "resource_efficiency": "78.5%",
     }
 
-    if format == 'json':
+    if format == "json":
         click.echo(json.dumps(metrics, indent=2))
     else:
         for key, value in metrics.items():
@@ -109,9 +107,9 @@ def utilization(format: str, mock: bool):
 
 
 @resource.command()
-@click.option('--target', default='all', help='Optimization target (all, cpu, gpu, memory)')
-@click.option('--agent-id', help='Specific agent ID')
-@click.option('--mock', is_flag=True, help='Use mock data for experimental command')
+@click.option("--target", default="all", help="Optimization target (all, cpu, gpu, memory)")
+@click.option("--agent-id", help="Specific agent ID")
+@click.option("--mock", is_flag=True, help="Use mock data for experimental command")
 def optimize(target: str, agent_id: str | None, mock: bool):
     """Optimize resource allocation (EXPERIMENTAL)"""
     if not mock:
@@ -130,7 +128,7 @@ def optimize(target: str, agent_id: str | None, mock: bool):
 
 
 @resource.command()
-@click.option('--resource-id', help='Specific resource ID to check')
+@click.option("--resource-id", help="Specific resource ID to check")
 @click.pass_context
 def status(ctx, resource_id: str | None):
     """Get resource allocation status from coordinator-api"""
@@ -155,8 +153,8 @@ def status(ctx, resource_id: str | None):
 
 
 @resource.command()
-@click.argument('resource_id')
-@click.option('--force', is_flag=True, help='Force deallocation without confirmation')
+@click.argument("resource_id")
+@click.option("--force", is_flag=True, help="Force deallocation without confirmation")
 @click.pass_context
 def deallocate(ctx, resource_id: str, force: bool):
     """Deallocate resources via coordinator-api"""
@@ -177,4 +175,3 @@ def deallocate(ctx, resource_id: str, force: bool):
     except Exception as e:
         error(f"Error deallocating resource: {e}")
         ctx.exit(1)
-

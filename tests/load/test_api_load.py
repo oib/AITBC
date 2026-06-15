@@ -24,13 +24,13 @@ sys.path.insert(0, str(repo_root))
 
 # Import base user classes from existing load test files
 try:
-
     from locust import HttpUser, between, task
 except Exception:
     # Skip this module if locust is not installed or fails (e.g., during pytest collection)
     HttpUser = object  # type: ignore[misc,assignment]
     between = lambda a, b: None  # type: ignore[assignment]
-    task = lambda weight: (lambda f: f)  # type: ignore[assignment]
+    task = lambda weight: lambda f: f  # type: ignore[assignment]
+
 
 # Inline blockchain load test (from tests/load_test.py)
 class BlockchainLoadUser(HttpUser):  # type: ignore[misc,valid-type]
@@ -89,8 +89,8 @@ class SimpleMarketplaceUser(HttpUser):
 BlockchainLoadUser.host = "http://localhost:8006"
 
 # Allow hosts to be overridden via environment variables
-if os.getenv('MARKETPLACE_HOST'):
-    SimpleMarketplaceUser.host = os.getenv('MARKETPLACE_HOST')
+if os.getenv("MARKETPLACE_HOST"):
+    SimpleMarketplaceUser.host = os.getenv("MARKETPLACE_HOST")
 
-if os.getenv('BLOCKCHAIN_HOST'):
-    BlockchainLoadUser.host = os.getenv('BLOCKCHAIN_HOST')
+if os.getenv("BLOCKCHAIN_HOST"):
+    BlockchainLoadUser.host = os.getenv("BLOCKCHAIN_HOST")

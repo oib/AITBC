@@ -2,6 +2,7 @@
 Performance Monitoring and Analytics Service - Phase 5.2
 Real-time performance tracking and optimization recommendations
 """
+
 import json
 from collections import defaultdict, deque
 from dataclasses import dataclass
@@ -15,9 +16,11 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+
 @dataclass
 class PerformanceMetric:
     """Performance metric data structure"""
+
     timestamp: datetime
     metric_name: str
     value: float
@@ -25,9 +28,11 @@ class PerformanceMetric:
     tags: dict[str, str]
     threshold: float | None = None
 
+
 @dataclass
 class SystemResource:
     """System resource utilization"""
+
     cpu_percent: float
     memory_percent: float
     gpu_utilization: float | None = None
@@ -37,9 +42,11 @@ class SystemResource:
     network_io_recv_mb_s: float = 0.0
     network_io_sent_mb_s: float = 0.0
 
+
 @dataclass
 class AIModelPerformance:
     """AI model performance metrics"""
+
     model_id: str
     model_type: str
     inference_time_ms: float
@@ -48,10 +55,11 @@ class AIModelPerformance:
     memory_usage_mb: float = 0.0
     gpu_utilization: float | None = None
 
+
 class PerformanceMonitor:
     """Real-time performance monitoring system"""
 
-    def __init__(self, max_history_hours: int=24):
+    def __init__(self, max_history_hours: int = 24):
         self.max_history_hours = max_history_hours
         self.metrics_history: dict[str, Any] = defaultdict(lambda: deque(maxlen=3600))
         self.system_resources: deque = deque(maxlen=60)
@@ -62,7 +70,11 @@ class PerformanceMonitor:
 
     def _initialize_thresholds(self) -> dict[str, dict[str, float]]:
         """Initialize performance alert thresholds"""
-        return {'system': {'cpu_percent': 80.0, 'memory_percent': 85.0, 'gpu_utilization': 90.0, 'gpu_memory_percent': 85.0}, 'ai_models': {'inference_time_ms': 100.0, 'throughput_requests_per_second': 10.0, 'accuracy': 0.8}, 'services': {'response_time_ms': 200.0, 'error_rate_percent': 5.0, 'availability_percent': 99.0}}
+        return {
+            "system": {"cpu_percent": 80.0, "memory_percent": 85.0, "gpu_utilization": 90.0, "gpu_memory_percent": 85.0},
+            "ai_models": {"inference_time_ms": 100.0, "throughput_requests_per_second": 10.0, "accuracy": 0.8},
+            "services": {"response_time_ms": 200.0, "error_rate_percent": 5.0, "availability_percent": 99.0},
+        }
 
     async def collect_system_metrics(self) -> SystemResource:
         """Collect system resource metrics"""
@@ -78,47 +90,121 @@ class PerformanceMonitor:
                 gpu_memory_percent = gpu_memory_allocated / gpu_memory_total * 100
                 gpu_utilization = min(95.0, gpu_memory_percent * 1.2)
             except Exception as e:
-                logger.warning('Failed to collect GPU metrics: %s', e)
+                logger.warning("Failed to collect GPU metrics: %s", e)
         disk_io = psutil.disk_io_counters()
         disk_io_read_mb_s = disk_io.read_bytes / (1024 * 1024) if disk_io else 0.0
         disk_io_write_mb_s = disk_io.write_bytes / (1024 * 1024) if disk_io else 0.0
         network_io = psutil.net_io_counters()
         network_io_recv_mb_s = network_io.bytes_recv / (1024 * 1024) if network_io else 0.0
         network_io_sent_mb_s = network_io.bytes_sent / (1024 * 1024) if network_io else 0.0
-        system_resource = SystemResource(cpu_percent=cpu_percent, memory_percent=memory_percent, gpu_utilization=gpu_utilization, gpu_memory_percent=gpu_memory_percent, disk_io_read_mb_s=disk_io_read_mb_s, disk_io_write_mb_s=disk_io_write_mb_s, network_io_recv_mb_s=network_io_recv_mb_s, network_io_sent_mb_s=network_io_sent_mb_s)
-        self.system_resources.append({'timestamp': datetime.now(UTC), 'data': system_resource})
+        system_resource = SystemResource(
+            cpu_percent=cpu_percent,
+            memory_percent=memory_percent,
+            gpu_utilization=gpu_utilization,
+            gpu_memory_percent=gpu_memory_percent,
+            disk_io_read_mb_s=disk_io_read_mb_s,
+            disk_io_write_mb_s=disk_io_write_mb_s,
+            network_io_recv_mb_s=network_io_recv_mb_s,
+            network_io_sent_mb_s=network_io_sent_mb_s,
+        )
+        self.system_resources.append({"timestamp": datetime.now(UTC), "data": system_resource})
         return system_resource
 
-    async def record_model_performance(self, model_id: str, model_type: str, inference_time_ms: float, throughput: float, accuracy: float | None=None, memory_usage_mb: float=0.0, gpu_utilization: float | None=None) -> None:
+    async def record_model_performance(
+        self,
+        model_id: str,
+        model_type: str,
+        inference_time_ms: float,
+        throughput: float,
+        accuracy: float | None = None,
+        memory_usage_mb: float = 0.0,
+        gpu_utilization: float | None = None,
+    ) -> None:
         """Record AI model performance metrics"""
-        performance = AIModelPerformance(model_id=model_id, model_type=model_type, inference_time_ms=inference_time_ms, throughput_requests_per_second=throughput, accuracy=accuracy, memory_usage_mb=memory_usage_mb, gpu_utilization=gpu_utilization)
-        self.model_performance[model_id].append({'timestamp': datetime.now(UTC), 'data': performance})
+        performance = AIModelPerformance(
+            model_id=model_id,
+            model_type=model_type,
+            inference_time_ms=inference_time_ms,
+            throughput_requests_per_second=throughput,
+            accuracy=accuracy,
+            memory_usage_mb=memory_usage_mb,
+            gpu_utilization=gpu_utilization,
+        )
+        self.model_performance[model_id].append({"timestamp": datetime.now(UTC), "data": performance})
         await self._check_model_alerts(model_id, performance)
 
     async def _check_model_alerts(self, model_id: str, performance: AIModelPerformance) -> None:
         """Check for performance alerts and generate recommendations"""
         alerts = []
         recommendations = []
-        if performance.inference_time_ms > self.alert_thresholds['ai_models']['inference_time_ms']:
-            alerts.append({'type': 'performance_degradation', 'model_id': model_id, 'metric': 'inference_time_ms', 'value': performance.inference_time_ms, 'threshold': self.alert_thresholds['ai_models']['inference_time_ms'], 'severity': 'warning'})
-            recommendations.append({'model_id': model_id, 'type': 'optimization', 'action': 'consider_model_optimization', 'description': 'Model inference time exceeds threshold, consider quantization or pruning'})
-        if performance.throughput_requests_per_second < self.alert_thresholds['ai_models']['throughput_requests_per_second']:
-            alerts.append({'type': 'low_throughput', 'model_id': model_id, 'metric': 'throughput_requests_per_second', 'value': performance.throughput_requests_per_second, 'threshold': self.alert_thresholds['ai_models']['throughput_requests_per_second'], 'severity': 'warning'})
-            recommendations.append({'model_id': model_id, 'type': 'scaling', 'action': 'increase_model_replicas', 'description': 'Model throughput below threshold, consider scaling or load balancing'})
-        if performance.accuracy and performance.accuracy < self.alert_thresholds['ai_models']['accuracy']:
-            alerts.append({'type': 'accuracy_degradation', 'model_id': model_id, 'metric': 'accuracy', 'value': performance.accuracy, 'threshold': self.alert_thresholds['ai_models']['accuracy'], 'severity': 'critical'})
-            recommendations.append({'model_id': model_id, 'type': 'retraining', 'action': 'retrain_model', 'description': 'Model accuracy degraded significantly, consider retraining with fresh data'})
+        if performance.inference_time_ms > self.alert_thresholds["ai_models"]["inference_time_ms"]:
+            alerts.append(
+                {
+                    "type": "performance_degradation",
+                    "model_id": model_id,
+                    "metric": "inference_time_ms",
+                    "value": performance.inference_time_ms,
+                    "threshold": self.alert_thresholds["ai_models"]["inference_time_ms"],
+                    "severity": "warning",
+                }
+            )
+            recommendations.append(
+                {
+                    "model_id": model_id,
+                    "type": "optimization",
+                    "action": "consider_model_optimization",
+                    "description": "Model inference time exceeds threshold, consider quantization or pruning",
+                }
+            )
+        if performance.throughput_requests_per_second < self.alert_thresholds["ai_models"]["throughput_requests_per_second"]:
+            alerts.append(
+                {
+                    "type": "low_throughput",
+                    "model_id": model_id,
+                    "metric": "throughput_requests_per_second",
+                    "value": performance.throughput_requests_per_second,
+                    "threshold": self.alert_thresholds["ai_models"]["throughput_requests_per_second"],
+                    "severity": "warning",
+                }
+            )
+            recommendations.append(
+                {
+                    "model_id": model_id,
+                    "type": "scaling",
+                    "action": "increase_model_replicas",
+                    "description": "Model throughput below threshold, consider scaling or load balancing",
+                }
+            )
+        if performance.accuracy and performance.accuracy < self.alert_thresholds["ai_models"]["accuracy"]:
+            alerts.append(
+                {
+                    "type": "accuracy_degradation",
+                    "model_id": model_id,
+                    "metric": "accuracy",
+                    "value": performance.accuracy,
+                    "threshold": self.alert_thresholds["ai_models"]["accuracy"],
+                    "severity": "critical",
+                }
+            )
+            recommendations.append(
+                {
+                    "model_id": model_id,
+                    "type": "retraining",
+                    "action": "retrain_model",
+                    "description": "Model accuracy degraded significantly, consider retraining with fresh data",
+                }
+            )
         if alerts:
-            logger.warning('Performance alerts for model %s: %s', model_id, alerts)
+            logger.warning("Performance alerts for model %s: %s", model_id, alerts)
             self.optimization_recommendations.extend(recommendations)
 
-    async def get_performance_summary(self, hours: int=1) -> dict[str, Any]:
+    async def get_performance_summary(self, hours: int = 1) -> dict[str, Any]:
         """Get performance summary for specified time period"""
         cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
         system_metrics = []
         for entry in self.system_resources:
-            if entry['timestamp'] > cutoff_time:
-                system_metrics.append(entry['data'])
+            if entry["timestamp"] > cutoff_time:
+                system_metrics.append(entry["data"])
         if system_metrics:
             avg_cpu = sum(m.cpu_percent for m in system_metrics) / len(system_metrics)
             avg_memory = sum(m.memory_percent for m in system_metrics) / len(system_metrics)
@@ -134,9 +220,9 @@ class PerformanceMonitor:
             avg_cpu = avg_memory = avg_gpu_util = avg_gpu_mem = 0.0
         model_summary = {}
         for model_id, entries in self.model_performance.items():
-            recent_entries = [e for e in entries if e['timestamp'] > cutoff_time]
+            recent_entries = [e for e in entries if e["timestamp"] > cutoff_time]
             if recent_entries:
-                performances = [e['data'] for e in recent_entries]
+                performances = [e["data"] for e in recent_entries]
                 avg_inference_time = sum(p.inference_time_ms for p in performances) / len(performances)
                 avg_throughput = sum(p.throughput_requests_per_second for p in performances) / len(performances)
                 avg_accuracy = None
@@ -144,24 +230,45 @@ class PerformanceMonitor:
                 accuracies = [p.accuracy for p in performances if p.accuracy is not None]
                 if accuracies:
                     avg_accuracy = sum(accuracies) / len(accuracies)
-                model_summary[model_id] = {'avg_inference_time_ms': avg_inference_time, 'avg_throughput_rps': avg_throughput, 'avg_accuracy': avg_accuracy, 'avg_memory_usage_mb': avg_memory, 'request_count': len(recent_entries)}
-        return {'time_period_hours': hours, 'timestamp': datetime.now(UTC).isoformat(), 'system_metrics': {'avg_cpu_percent': avg_cpu, 'avg_memory_percent': avg_memory, 'avg_gpu_utilization': avg_gpu_util, 'avg_gpu_memory_percent': avg_gpu_mem}, 'model_performance': model_summary, 'total_requests': sum(len([e for e in entries if e['timestamp'] > cutoff_time]) for entries in self.model_performance.values())}
+                model_summary[model_id] = {
+                    "avg_inference_time_ms": avg_inference_time,
+                    "avg_throughput_rps": avg_throughput,
+                    "avg_accuracy": avg_accuracy,
+                    "avg_memory_usage_mb": avg_memory,
+                    "request_count": len(recent_entries),
+                }
+        return {
+            "time_period_hours": hours,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "system_metrics": {
+                "avg_cpu_percent": avg_cpu,
+                "avg_memory_percent": avg_memory,
+                "avg_gpu_utilization": avg_gpu_util,
+                "avg_gpu_memory_percent": avg_gpu_mem,
+            },
+            "model_performance": model_summary,
+            "total_requests": sum(
+                len([e for e in entries if e["timestamp"] > cutoff_time]) for entries in self.model_performance.values()
+            ),
+        }
 
     async def get_optimization_recommendations(self) -> list[dict[str, Any]]:
         """Get current optimization recommendations"""
         cutoff_time = datetime.now(UTC) - timedelta(hours=1)
-        recent_recommendations = [rec for rec in self.optimization_recommendations if rec.get('timestamp', datetime.now(UTC)) > cutoff_time]
+        recent_recommendations = [
+            rec for rec in self.optimization_recommendations if rec.get("timestamp", datetime.now(UTC)) > cutoff_time
+        ]
         return recent_recommendations
 
-    async def analyze_performance_trends(self, model_id: str, hours: int=24) -> dict[str, Any]:
+    async def analyze_performance_trends(self, model_id: str, hours: int = 24) -> dict[str, Any]:
         """Analyze performance trends for a specific model"""
         if model_id not in self.model_performance:
-            return {'error': f'Model {model_id} not found'}
+            return {"error": f"Model {model_id} not found"}
         cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
-        entries = [e for e in self.model_performance[model_id] if e['timestamp'] > cutoff_time]
+        entries = [e for e in self.model_performance[model_id] if e["timestamp"] > cutoff_time]
         if not entries:
-            return {'error': f'No data available for model {model_id} in the last {hours} hours'}
-        performances = [e['data'] for e in entries]
+            return {"error": f"No data available for model {model_id} in the last {hours} hours"}
+        performances = [e["data"] for e in entries]
         inference_times = [p.inference_time_ms for p in performances]
         throughputs = [p.throughput_requests_per_second for p in performances]
 
@@ -176,35 +283,47 @@ class PerformanceMonitor:
             sum_x2 = sum(x[i] * x[i] for i in range(n))
             slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x)
             return slope
+
         inference_trend = calculate_trend(inference_times)
         throughput_trend = calculate_trend(throughputs)
         avg_inference = sum(inference_times) / len(inference_times)
         avg_throughput = sum(throughputs) / len(throughputs)
-        performance_rating = 'excellent'
+        performance_rating = "excellent"
         if avg_inference > 100 or avg_throughput < 10:
-            performance_rating = 'poor'
+            performance_rating = "poor"
         elif avg_inference > 50 or avg_throughput < 20:
-            performance_rating = 'fair'
+            performance_rating = "fair"
         elif avg_inference > 25 or avg_throughput < 50:
-            performance_rating = 'good'
-        return {'model_id': model_id, 'analysis_period_hours': hours, 'performance_rating': performance_rating, 'trends': {'inference_time_trend': inference_trend, 'throughput_trend': throughput_trend}, 'averages': {'avg_inference_time_ms': avg_inference, 'avg_throughput_rps': avg_throughput}, 'sample_count': len(performances), 'timestamp': datetime.now(UTC).isoformat()}
+            performance_rating = "good"
+        return {
+            "model_id": model_id,
+            "analysis_period_hours": hours,
+            "performance_rating": performance_rating,
+            "trends": {"inference_time_trend": inference_trend, "throughput_trend": throughput_trend},
+            "averages": {"avg_inference_time_ms": avg_inference, "avg_throughput_rps": avg_throughput},
+            "sample_count": len(performances),
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
 
-    async def export_metrics(self, format: str='json', hours: int=24) -> str | dict[str, Any]:
+    async def export_metrics(self, format: str = "json", hours: int = 24) -> str | dict[str, Any]:
         """Export metrics in specified format"""
         summary = await self.get_performance_summary(hours)
-        if format.lower() == 'json':
+        if format.lower() == "json":
             return json.dumps(summary, indent=2, default=str)
-        elif format.lower() == 'csv':
-            csv_lines = ['timestamp,model_id,inference_time_ms,throughput_rps,accuracy,memory_usage_mb']
+        elif format.lower() == "csv":
+            csv_lines = ["timestamp,model_id,inference_time_ms,throughput_rps,accuracy,memory_usage_mb"]
             for model_id, entries in self.model_performance.items():
                 cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
-                recent_entries = [e for e in entries if e['timestamp'] > cutoff_time]
+                recent_entries = [e for e in entries if e["timestamp"] > cutoff_time]
                 for entry in recent_entries:
-                    perf = entry['data']
-                    csv_lines.append(f"{entry['timestamp'].isoformat()},{model_id},{perf.inference_time_ms},{perf.throughput_requests_per_second},{perf.accuracy or ''},{perf.memory_usage_mb}")
-            return '\n'.join(csv_lines)
+                    perf = entry["data"]
+                    csv_lines.append(
+                        f"{entry['timestamp'].isoformat()},{model_id},{perf.inference_time_ms},{perf.throughput_requests_per_second},{perf.accuracy or ''},{perf.memory_usage_mb}"
+                    )
+            return "\n".join(csv_lines)
         else:
             return summary
+
 
 class AutoOptimizer:
     """Automatic performance optimization system"""
@@ -223,45 +342,60 @@ class AutoOptimizer:
             optimizations = await self._identify_optimizations(summary)
             for optimization in optimizations:
                 success = await self._apply_optimization(optimization)
-                self.optimization_history.append({'timestamp': datetime.now(UTC), 'optimization': optimization, 'success': success, 'impact': 'pending'})
+                self.optimization_history.append(
+                    {"timestamp": datetime.now(UTC), "optimization": optimization, "success": success, "impact": "pending"}
+                )
         except Exception as e:
-            logger.error('Auto-optimization cycle failed: %s', e)
+            logger.error("Auto-optimization cycle failed: %s", e)
 
     async def _identify_optimizations(self, summary: dict[str, Any]) -> list[dict[str, Any]]:
         """Identify optimization opportunities"""
         optimizations = []
-        if summary['system_metrics']['avg_cpu_percent'] > 80:
-            optimizations.append({'type': 'system', 'action': 'scale_horizontal', 'target': 'cpu', 'reason': 'High CPU utilization detected'})
-        if summary['system_metrics']['avg_memory_percent'] > 85:
-            optimizations.append({'type': 'system', 'action': 'optimize_memory', 'target': 'memory', 'reason': 'High memory utilization detected'})
-        for model_id, metrics in summary['model_performance'].items():
-            if metrics['avg_inference_time_ms'] > 100:
-                optimizations.append({'type': 'model', 'action': 'quantize_model', 'target': model_id, 'reason': 'High inference latency'})
-            if metrics['avg_throughput_rps'] < 10:
-                optimizations.append({'type': 'model', 'action': 'scale_model', 'target': model_id, 'reason': 'Low throughput'})
+        if summary["system_metrics"]["avg_cpu_percent"] > 80:
+            optimizations.append(
+                {"type": "system", "action": "scale_horizontal", "target": "cpu", "reason": "High CPU utilization detected"}
+            )
+        if summary["system_metrics"]["avg_memory_percent"] > 85:
+            optimizations.append(
+                {
+                    "type": "system",
+                    "action": "optimize_memory",
+                    "target": "memory",
+                    "reason": "High memory utilization detected",
+                }
+            )
+        for model_id, metrics in summary["model_performance"].items():
+            if metrics["avg_inference_time_ms"] > 100:
+                optimizations.append(
+                    {"type": "model", "action": "quantize_model", "target": model_id, "reason": "High inference latency"}
+                )
+            if metrics["avg_throughput_rps"] < 10:
+                optimizations.append(
+                    {"type": "model", "action": "scale_model", "target": model_id, "reason": "Low throughput"}
+                )
         return optimizations
 
     async def _apply_optimization(self, optimization: dict[str, Any]) -> bool:
         """Apply optimization (simulated)"""
         try:
-            optimization_type = optimization['type']
-            action = optimization['action']
-            if optimization_type == 'system':
-                if action == 'scale_horizontal':
-                    logger.info('Scaling horizontally due to high %s', optimization['target'])
+            optimization_type = optimization["type"]
+            action = optimization["action"]
+            if optimization_type == "system":
+                if action == "scale_horizontal":
+                    logger.info("Scaling horizontally due to high %s", optimization["target"])
                     return True
-                elif action == 'optimize_memory':
-                    logger.info('Optimizing memory usage')
+                elif action == "optimize_memory":
+                    logger.info("Optimizing memory usage")
                     return True
-            elif optimization_type == 'model':
-                target = optimization['target']
-                if action == 'quantize_model':
-                    logger.info('Quantizing model %s', target)
+            elif optimization_type == "model":
+                target = optimization["target"]
+                if action == "quantize_model":
+                    logger.info("Quantizing model %s", target)
                     return True
-                elif action == 'scale_model':
-                    logger.info('Scaling model %s', target)
+                elif action == "scale_model":
+                    logger.info("Scaling model %s", target)
                     return True
             return False
         except Exception as e:
-            logger.error('Failed to apply optimization %s: %s', optimization, e)
+            logger.error("Failed to apply optimization %s: %s", optimization, e)
             return False

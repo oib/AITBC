@@ -16,10 +16,11 @@ import pytest
 
 pytestmark = pytest.mark.skip("auth module does not exist")
 
+
 class TestAuthManager:
     """Test AuthManager class"""
 
-    @patch('auth.keyring.get_keyring')
+    @patch("auth.keyring.get_keyring")
     def test_auth_manager_initialization(self, mock_get_keyring):
         """Test AuthManager initialization"""
         from auth import AuthManager
@@ -31,7 +32,7 @@ class TestAuthManager:
 
         assert manager.keyring == mock_keyring
 
-    @patch('auth.keyring.get_keyring')
+    @patch("auth.keyring.get_keyring")
     def test_store_credential_success(self, mock_get_keyring):
         """Test successful credential storage"""
         from auth import AuthManager
@@ -44,7 +45,7 @@ class TestAuthManager:
 
         mock_keyring.set_password.assert_called_once_with("aitbc-cli", "dev_test", "api_key_123")
 
-    @patch('auth.keyring.get_keyring')
+    @patch("auth.keyring.get_keyring")
     def test_store_credential_error(self, mock_get_keyring):
         """Test credential storage with error"""
         from auth import AuthManager
@@ -58,7 +59,7 @@ class TestAuthManager:
 
         # Should not raise, just log error
 
-    @patch('auth.keyring.get_keyring')
+    @patch("auth.keyring.get_keyring")
     def test_get_credential_success(self, mock_get_keyring):
         """Test successful credential retrieval"""
         from auth import AuthManager
@@ -73,7 +74,7 @@ class TestAuthManager:
         assert result == "api_key_123"
         mock_keyring.get_password.assert_called_once_with("aitbc-cli", "dev_test")
 
-    @patch('auth.keyring.get_keyring')
+    @patch("auth.keyring.get_keyring")
     def test_get_credential_not_found(self, mock_get_keyring):
         """Test credential retrieval when not found"""
         from auth import AuthManager
@@ -87,7 +88,7 @@ class TestAuthManager:
 
         assert result is None
 
-    @patch('auth.keyring.get_keyring')
+    @patch("auth.keyring.get_keyring")
     def test_get_credential_error(self, mock_get_keyring):
         """Test credential retrieval with error"""
         from auth import AuthManager
@@ -101,7 +102,7 @@ class TestAuthManager:
 
         assert result is None
 
-    @patch('auth.keyring.get_keyring')
+    @patch("auth.keyring.get_keyring")
     def test_delete_credential_success(self, mock_get_keyring):
         """Test successful credential deletion"""
         from auth import AuthManager
@@ -114,7 +115,7 @@ class TestAuthManager:
 
         mock_keyring.delete_password.assert_called_once_with("aitbc-cli", "dev_test")
 
-    @patch('auth.keyring.get_keyring')
+    @patch("auth.keyring.get_keyring")
     def test_delete_credential_error(self, mock_get_keyring):
         """Test credential deletion with error"""
         from auth import AuthManager
@@ -128,7 +129,7 @@ class TestAuthManager:
 
         # Should not raise, just log error
 
-    @patch('auth.keyring.get_keyring')
+    @patch("auth.keyring.get_keyring")
     def test_list_credentials(self, mock_get_keyring):
         """Test listing credentials"""
         from auth import AuthManager
@@ -142,8 +143,8 @@ class TestAuthManager:
 
         assert isinstance(credentials, list)
 
-    @patch('auth.keyring.get_keyring')
-    @patch.dict('os.environ', {'CLIENT_API_KEY': 'env_key_123'})
+    @patch("auth.keyring.get_keyring")
+    @patch.dict("os.environ", {"CLIENT_API_KEY": "env_key_123"})
     def test_store_env_credential_success(self, mock_get_keyring):
         """Test storing credential from environment variable"""
         from auth import AuthManager
@@ -157,8 +158,8 @@ class TestAuthManager:
         assert result is True
         mock_keyring.set_password.assert_called_once()
 
-    @patch('auth.keyring.get_keyring')
-    @patch.dict('os.environ', {}, clear=True)
+    @patch("auth.keyring.get_keyring")
+    @patch.dict("os.environ", {}, clear=True)
     def test_store_env_credential_not_set(self, mock_get_keyring):
         """Test storing credential when env var not set"""
         from auth import AuthManager

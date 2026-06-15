@@ -2,12 +2,14 @@
 Distributed tracing utilities for AITBC
 Provides OpenTelemetry integration for distributed tracing
 """
+
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import wraps
 from typing import Any
 from .aitbc_logging import get_logger
+
 logger = get_logger(__name__)
 try:
     from opentelemetry import trace
@@ -17,17 +19,21 @@ try:
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
     OPENTELEMETRY_AVAILABLE = True
 except ImportError:
     OPENTELEMETRY_AVAILABLE = False
-    logger.warning('OpenTelemetry not available, tracing will be disabled')
+    logger.warning("OpenTelemetry not available, tracing will be disabled")
+
 
 @dataclass
 class SpanContext:
     """Span context for distributed tracing"""
+
     trace_id: str
     span_id: str
     parent_span_id: str | None = None
+
 
 class TracingManager:
     """
@@ -35,7 +41,7 @@ class TracingManager:
     Provides distributed tracing capabilities across services.
     """
 
-    def __init__(self, service_name: str, jaeger_host: str='localhost', jaeger_port: int=6831, enabled: bool=True):
+    def __init__(self, service_name: str, jaeger_host: str = "localhost", jaeger_port: int = 6831, enabled: bool = True):
         """
         Initialize tracing manager
 
@@ -57,7 +63,9 @@ class TracingManager:
     def _initialize_tracing(self) -> None:
         """Initialize OpenTelemetry tracing"""
         try:
-            resource = Resource.create({'service.name': self.service_name, 'service.version': '1.0.0', 'deployment.environment': 'production'})
+            resource = Resource.create(
+                {"service.name": self.service_name, "service.version": "1.0.0", "deployment.environment": "production"}
+            )
             self._provider = TracerProvider(resource=resource)
             jaeger_exporter = JaegerExporter(agent_host_name=self.jaeger_host, agent_port=self.jaeger_port)
             self._provider.add_span_processor(BatchSpanProcessor(jaeger_exporter))
@@ -65,17 +73,17 @@ class TracingManager:
             self._tracer = trace.get_tracer(__name__)
             try:
                 HTTPXClientInstrumentor().instrument()
-                logger.info('Instrumented HTTPX client for tracing')
+                logger.info("Instrumented HTTPX client for tracing")
             except Exception as e:
-                logger.warning('Failed to instrument HTTPX: %s', e)
+                logger.warning("Failed to instrument HTTPX: %s", e)
             try:
                 SQLAlchemyInstrumentor().instrument()
-                logger.info('Instrumented SQLAlchemy for tracing')
+                logger.info("Instrumented SQLAlchemy for tracing")
             except Exception as e:
-                logger.warning('Failed to instrument SQLAlchemy: %s', e)
-            logger.info('OpenTelemetry tracing initialized for %s', self.service_name)
+                logger.warning("Failed to instrument SQLAlchemy: %s", e)
+            logger.info("OpenTelemetry tracing initialized for %s", self.service_name)
         except Exception as e:
-            logger.error('Failed to initialize OpenTelemetry: %s', e)
+            logger.error("Failed to initialize OpenTelemetry: %s", e)
             self.enabled = False
 
     def get_tracer(self):
@@ -87,7 +95,7 @@ class TracingManager:
         """
         return self._tracer if self.enabled else None
 
-    def start_span(self, name: str, attributes: dict[str, Any] | None=None):
+    def start_span(self, name: str, attributes: dict[str, Any] | None = None):
         """
         Start a new span
 
@@ -114,7 +122,7 @@ class TracingManager:
             span.end()
 
     @contextmanager
-    def trace(self, name: str, attributes: dict[str, Any] | None=None):
+    def trace(self, name: str, attributes: dict[str, Any] | None = None):
         """
         Context manager for tracing code blocks
 
@@ -135,9 +143,10 @@ class TracingManager:
         """Shutdown tracing provider"""
         if self._provider:
             self._provider.shutdown()
-            logger.info('OpenTelemetry tracing shutdown')
+            logger.info("OpenTelemetry tracing shutdown")
 
-def traced(name: str | None=None, attributes: dict[str, Any] | None=None):
+
+def traced(name: str | None = None, attributes: dict[str, Any] | None = None):
     """
     Decorator to trace function execution
 
@@ -156,7 +165,7 @@ def traced(name: str | None=None, attributes: dict[str, Any] | None=None):
             if not OPENTELEMETRY_AVAILABLE:
                 return func(*args, **kwargs)
             tracer = trace.get_tracer(__name__)
-            span_name = name or f'{func.__module__}.{func.__name__}'
+            span_name = name or f"{func.__module__}.{func.__name__}"
             with tracer.start_as_current_span(span_name, attributes=attributes or {}):
                 try:
                     result = func(*args, **kwargs)
@@ -167,8 +176,11 @@ def traced(name: str | None=None, attributes: dict[str, Any] | None=None):
                         current_span.record_exception(e)
                         current_span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                     raise
+
         return wrapper
+
     return decorator
+
 
 class TraceContext:
     """
@@ -189,7 +201,7 @@ class TraceContext:
         return trace.get_current_span()
 
     @staticmethod
-    def add_event(name: str, attributes: dict[str, Any] | None=None) -> None:
+    def add_event(name: str, attributes: dict[str, Any] | None = None) -> None:
         """
         Add event to current span
 
@@ -232,9 +244,14 @@ class TraceContext:
         if span:
             span.record_exception(exception)
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exception)))
+
+
 _global_tracing_manager: TracingManager | None = None
 
-def initialize_tracing(service_name: str, jaeger_host: str='localhost', jaeger_port: int=6831, enabled: bool=True) -> TracingManager:
+
+def initialize_tracing(
+    service_name: str, jaeger_host: str = "localhost", jaeger_port: int = 6831, enabled: bool = True
+) -> TracingManager:
     """
     Initialize global tracing manager
 
@@ -251,6 +268,7 @@ def initialize_tracing(service_name: str, jaeger_host: str='localhost', jaeger_p
     _global_tracing_manager = TracingManager(service_name, jaeger_host, jaeger_port, enabled)
     return _global_tracing_manager
 
+
 def get_tracing_manager() -> TracingManager | None:
     """
     Get global tracing manager instance
@@ -259,6 +277,7 @@ def get_tracing_manager() -> TracingManager | None:
         TracingManager instance or None
     """
     return _global_tracing_manager
+
 
 def shutdown_tracing() -> None:
     """Shutdown global tracing manager"""

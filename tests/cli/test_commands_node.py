@@ -21,8 +21,9 @@ class TestNodeCommands:
         """Test that node command group exists"""
         try:
             from aitbc_cli.commands.node import node
+
             assert node is not None
-            assert hasattr(node, 'name')
+            assert hasattr(node, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import node commands: {e}")
 
@@ -30,6 +31,7 @@ class TestNodeCommands:
         """Test node group name"""
         try:
             from aitbc_cli.commands.node import node
+
             assert node.name == "node"
         except ImportError as e:
             pytest.skip(f"Cannot import node commands: {e}")

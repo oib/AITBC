@@ -20,7 +20,7 @@ def get_engine(config: DatabaseConfig):
             pool_size=config.pool_size,
             max_overflow=config.max_overflow,
             pool_pre_ping=config.pool_pre_ping,
-            echo=config.db_echo if hasattr(config, 'db_echo') else False
+            echo=config.db_echo if hasattr(config, "db_echo") else False,
         )
         return engine
     else:
@@ -29,7 +29,7 @@ def get_engine(config: DatabaseConfig):
             pool_size=config.pool_size,
             max_overflow=config.max_overflow,
             pool_pre_ping=config.pool_pre_ping,
-            echo=config.db_echo if hasattr(config, 'db_echo') else False
+            echo=config.db_echo if hasattr(config, "db_echo") else False,
         )
 
 
@@ -44,10 +44,7 @@ def get_async_engine(config: DatabaseConfig):
     if config.adapter == "sqlite":
         # SQLite async uses aiosqlite
         async_url = config.effective_url.replace("sqlite:///", "sqlite+aiosqlite:///")
-        return create_async_engine(
-            async_url,
-            echo=config.db_echo if hasattr(config, 'db_echo') else False
-        )
+        return create_async_engine(async_url, echo=config.db_echo if hasattr(config, "db_echo") else False)
     else:
         # PostgreSQL async uses asyncpg
         async_url = config.effective_url.replace("postgresql://", "postgresql+asyncpg://")
@@ -55,15 +52,13 @@ def get_async_engine(config: DatabaseConfig):
             async_url,
             pool_size=config.pool_size,
             max_overflow=config.max_overflow,
-            echo=config.db_echo if hasattr(config, 'db_echo') else False
+            echo=config.db_echo if hasattr(config, "db_echo") else False,
         )
 
 
 async def get_async_session(engine) -> AsyncGenerator[AsyncSession]:
     """Dependency for FastAPI async endpoints."""
-    async_session = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with async_session() as session:
         try:
             yield session

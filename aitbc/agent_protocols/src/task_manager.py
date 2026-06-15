@@ -11,18 +11,22 @@ from typing import Any
 
 class TaskStatus(Enum):
     """Task status enumeration"""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
 
+
 class TaskPriority(Enum):
     """Task priority enumeration"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     URGENT = "urgent"
+
 
 class Task:
     """Task representation"""
@@ -34,7 +38,7 @@ class Task:
         description: str,
         assigned_to: str,
         priority: TaskPriority = TaskPriority.MEDIUM,
-        created_by: str | None = None
+        created_by: str | None = None,
     ):
         self.task_id = task_id
         self.title = title
@@ -49,6 +53,7 @@ class Task:
         self.result = None
         self.error = None
 
+
 class TaskManager:
     """Task manager for agent coordination"""
 
@@ -62,7 +67,7 @@ class TaskManager:
         description: str,
         assigned_to: str,
         priority: TaskPriority = TaskPriority.MEDIUM,
-        created_by: str | None = None
+        created_by: str | None = None,
     ) -> Task:
         """Create a new task"""
         task_id = str(uuid.uuid4())
@@ -72,7 +77,7 @@ class TaskManager:
             description=description,
             assigned_to=assigned_to,
             priority=priority,
-            created_by=created_by
+            created_by=created_by,
         )
 
         self.tasks[task_id] = task
@@ -83,11 +88,7 @@ class TaskManager:
         return self.tasks.get(task_id)
 
     def update_task_status(
-        self,
-        task_id: str,
-        status: TaskStatus,
-        result: dict[str, Any] | None = None,
-        error: str | None = None
+        self, task_id: str, status: TaskStatus, result: dict[str, Any] | None = None, error: str | None = None
     ) -> bool:
         """Update task status"""
         task = self.get_task(task_id)
@@ -107,23 +108,17 @@ class TaskManager:
 
     def get_tasks_by_agent(self, agent_id: str) -> list[Task]:
         """Get all tasks assigned to an agent"""
-        return [
-            task for task in self.tasks.values()
-            if task.assigned_to == agent_id
-        ]
+        return [task for task in self.tasks.values() if task.assigned_to == agent_id]
 
     def get_tasks_by_status(self, status: TaskStatus) -> list[Task]:
         """Get all tasks with a specific status"""
-        return [
-            task for task in self.tasks.values()
-            if task.status == status
-        ]
+        return [task for task in self.tasks.values() if task.status == status]
 
     def get_overdue_tasks(self, hours: int = 24) -> list[Task]:
         """Get tasks that are overdue"""
         cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
         return [
-            task for task in self.tasks.values()
-            if task.status in [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] and
-            task.created_at < cutoff_time
+            task
+            for task in self.tasks.values()
+            if task.status in [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] and task.created_at < cutoff_time
         ]

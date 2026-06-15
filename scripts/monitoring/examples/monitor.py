@@ -12,38 +12,39 @@ from aitbc import DATA_DIR, get_logger
 
 
 def main():
-    logger = get_logger('aitbc-monitoring')
+    logger = get_logger("aitbc-monitoring")
 
     while True:
         try:
             # System stats
             cpu_percent = psutil.cpu_percent()
             memory_percent = psutil.virtual_memory().percent
-            logger.info('System: CPU %s%%, Memory %s%%', cpu_percent, memory_percent)
+            logger.info("System: CPU %s%%, Memory %s%%", cpu_percent, memory_percent)
 
             # Blockchain stats
-            blockchain_file = DATA_DIR / 'data/blockchain/aitbc/blockchain.json'
+            blockchain_file = DATA_DIR / "data/blockchain/aitbc/blockchain.json"
             if blockchain_file.exists():
                 with open(blockchain_file) as f:
                     data = json.load(f)
-                    logger.info('Blockchain: %s blocks', len(data.get("blocks", [])))
+                    logger.info("Blockchain: %s blocks", len(data.get("blocks", [])))
 
             # Marketplace stats
-            marketplace_dir = DATA_DIR / 'data/marketplace'
+            marketplace_dir = DATA_DIR / "data/marketplace"
             if marketplace_dir.exists():
-                listings_file = marketplace_dir / 'gpu_listings.json'
+                listings_file = marketplace_dir / "gpu_listings.json"
                 if listings_file.exists():
                     with open(listings_file) as f:
                         listings = json.load(f)
-                        logger.info('Marketplace: %s GPU listings', len(listings))
+                        logger.info("Marketplace: %s GPU listings", len(listings))
 
             time.sleep(30)
         except (OSError, json.JSONDecodeError, FileNotFoundError, PermissionError) as e:
-            logger.error('Monitoring error: %s: %s', type(e).__name__, e)
+            logger.error("Monitoring error: %s: %s", type(e).__name__, e)
             time.sleep(60)
         except psutil.Error as e:
-            logger.error('System monitoring error: %s: %s', type(e).__name__, e)
+            logger.error("System monitoring error: %s: %s", type(e).__name__, e)
             time.sleep(60)
+
 
 if __name__ == "__main__":
     main()

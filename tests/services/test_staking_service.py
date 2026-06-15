@@ -27,7 +27,7 @@ from app.domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeSt
 # Or enable with: AITBC_RUN_STAKING_TESTS=1 pytest tests/services/test_staking_service.py
 pytestmark = pytest.mark.skipif(
     not os.environ.get("AITBC_RUN_STAKING_TESTS"),
-    reason="SQLite index conflict in full suite - set AITBC_RUN_STAKING_TESTS=1 to run"
+    reason="SQLite index conflict in full suite - set AITBC_RUN_STAKING_TESTS=1 to run",
 )
 
 
@@ -72,7 +72,7 @@ def agent_metrics(db_session):
         successful_submissions=9,
         success_rate=90.0,
         current_tier=PerformanceTier.GOLD,
-        tier_score=80.0
+        tier_score=80.0,
     )
     db_session.add(metrics)
     db_session.commit()
@@ -91,7 +91,7 @@ def staking_pool(db_session, agent_metrics):
         staker_count=0,
         active_stakers=[],
         last_distribution_time=datetime.now(UTC),
-        distribution_frequency=1
+        distribution_frequency=1,
     )
     db_session.add(pool)
     db_session.commit()
@@ -116,7 +116,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=amount,
             lock_period=lock_period,
-            auto_compound=auto_compound
+            auto_compound=auto_compound,
         )
 
         # Verify stake created
@@ -155,7 +155,7 @@ class TestStakingService:
                 agent_wallet=unsupported_agent,
                 amount=1000.0,
                 lock_period=30,
-                auto_compound=False
+                auto_compound=False,
             )
 
     async def test_create_stake_invalid_amount(self, staking_service, agent_metrics):
@@ -168,7 +168,7 @@ class TestStakingService:
                 agent_wallet=agent_metrics.agent_wallet,
                 amount=50.0,  # Below minimum
                 lock_period=30,
-                auto_compound=False
+                auto_compound=False,
             )
 
     async def test_get_stake(self, staking_service, agent_metrics):
@@ -180,7 +180,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
             lock_period=30,
-            auto_compound=False
+            auto_compound=False,
         )
 
         # Retrieve the stake
@@ -234,7 +234,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
             lock_period=30,
-            auto_compound=False
+            auto_compound=False,
         )
 
         pool = await staking_service.get_staking_pool(agent_metrics.agent_wallet)
@@ -254,7 +254,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
             lock_period=30,
-            auto_compound=False
+            auto_compound=False,
         )
 
         # Try to unbond immediately (lock period not ended)
@@ -271,7 +271,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
             lock_period=30,
-            auto_compound=False
+            auto_compound=False,
         )
 
         # Simulate lock period ending by updating end_time
@@ -294,7 +294,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
             lock_period=30,
-            auto_compound=False
+            auto_compound=False,
         )
 
         # Unbond the stake
@@ -321,7 +321,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
             lock_period=30,
-            auto_compound=False
+            auto_compound=False,
         )
 
         # Unbond the stake
@@ -351,7 +351,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
             lock_period=30,
-            auto_compound=False
+            auto_compound=False,
         )
 
         # Calculate rewards
@@ -369,7 +369,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
             lock_period=30,
-            auto_compound=False
+            auto_compound=False,
         )
 
         # Unbond the stake
@@ -392,7 +392,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=100.0,  # Minimum amount
             lock_period=30,
-            auto_compound=False
+            auto_compound=False,
         )
 
         assert stake is not None
@@ -408,7 +408,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=100000.0,
             lock_period=30,
-            auto_compound=False
+            auto_compound=False,
         )
 
         assert stake is not None
@@ -423,7 +423,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
             lock_period=30,
-            auto_compound=True
+            auto_compound=True,
         )
 
         assert stake.auto_compound is True
@@ -438,7 +438,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
             lock_period=30,
-            auto_compound=False
+            auto_compound=False,
         )
 
         # Create second stake
@@ -447,7 +447,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=2000.0,
             lock_period=90,
-            auto_compound=True
+            auto_compound=True,
         )
 
         # Verify both stakes created
@@ -470,7 +470,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
             lock_period=30,
-            auto_compound=False
+            auto_compound=False,
         )
 
         await staking_service.create_stake(
@@ -478,7 +478,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=2000.0,
             lock_period=90,
-            auto_compound=True
+            auto_compound=True,
         )
 
         # Get user stakes
@@ -497,7 +497,7 @@ class TestStakingService:
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
             lock_period=30,
-            auto_compound=False
+            auto_compound=False,
         )
 
         # Add some accumulated rewards
@@ -515,9 +515,7 @@ class TestStakingService:
         """Test updating agent performance metrics"""
         # Update performance
         updated_metrics = await staking_service.update_agent_performance(
-            agent_wallet=agent_metrics.agent_wallet,
-            accuracy=98.0,
-            successful=True
+            agent_wallet=agent_metrics.agent_wallet, accuracy=98.0, successful=True
         )
 
         assert updated_metrics is not None
@@ -543,7 +541,7 @@ class TestStakingService:
                 agent_wallet=agent_metrics.agent_wallet,
                 amount=50.0,  # Invalid (below minimum)
                 lock_period=30,
-                auto_compound=False
+                auto_compound=False,
             )
             assert False, "Should have raised ValueError"
         except ValueError:

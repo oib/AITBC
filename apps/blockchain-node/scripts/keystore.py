@@ -50,14 +50,8 @@ def generate_address(public_key_bytes: bytes) -> str:
 def encrypt_private_key(private_key_bytes: bytes, password: str, salt: bytes) -> dict[str, Any]:
     """Encrypt a private key using AES-GCM, wrapped in a JSON keystore."""
     # Derive key from password using PBKDF2
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=100_000,
-        backend=default_backend()
-    )
-    key = kdf.derive(password.encode('utf-8'))
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100_000, backend=default_backend())
+    key = kdf.derive(password.encode("utf-8"))
 
     # Encrypt with AES-GCM
     aesgcm = AESGCM(key)
@@ -75,17 +69,12 @@ def encrypt_private_key(private_key_bytes: bytes, password: str, salt: bytes) ->
             "cipherparams": {"nonce": nonce.hex()},
             "ciphertext": encrypted.hex(),
             "kdf": "pbkdf2",
-            "kdfparams": {
-                "dklen": 32,
-                "salt": salt.hex(),
-                "c": 100_000,
-                "prf": "hmac-sha256"
-            },
-            "mac": mac
+            "kdfparams": {"dklen": 32, "salt": salt.hex(), "c": 100_000, "prf": "hmac-sha256"},
+            "mac": mac,
         },
         "address": None,  # to be filled
         "keytype": "ed25519",
-        "version": 1
+        "version": 1,
     }
 
 
@@ -97,12 +86,9 @@ def generate_keypair(name: str, password: str, keystore_dir: Path) -> dict[str, 
     private_bytes = private_key.private_bytes(
         encoding=serialization.Encoding.Raw,
         format=serialization.PrivateFormat.Raw,
-        encryption_algorithm=serialization.NoEncryption()
+        encryption_algorithm=serialization.NoEncryption(),
     )
-    public_bytes = public_key.public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw
-    )
+    public_bytes = public_key.public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
     address = generate_address(public_bytes)
 
     keystore = encrypt_private_key(private_bytes, password, salt)
@@ -110,7 +96,7 @@ def generate_keypair(name: str, password: str, keystore_dir: Path) -> dict[str, 
 
     keystore_file = keystore_dir / f"{name}.json"
     keystore_dir.mkdir(parents=True, exist_ok=True)
-    with open(keystore_file, 'w') as f:
+    with open(keystore_file, "w") as f:
         json.dump(keystore, f, indent=2)
     os.chmod(keystore_file, 0o600)
 
@@ -129,14 +115,8 @@ def show_keyinfo(keystore_file: Path, password: str) -> None:
     crypto = data["crypto"]
     kdfparams = crypto["kdfparams"]
     salt = bytes.fromhex(kdfparams["salt"])
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=kdfparams["c"],
-        backend=default_backend()
-    )
-    key = kdf.derive(password.encode('utf-8'))
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=kdfparams["c"], backend=default_backend())
+    key = kdf.derive(password.encode("utf-8"))
 
     # Decrypt private key
     nonce = bytes.fromhex(crypto["cipherparams"]["nonce"])
@@ -145,8 +125,7 @@ def show_keyinfo(keystore_file: Path, password: str) -> None:
     private_bytes = aesgcm.decrypt(nonce, ciphertext, None)
     private_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_bytes)
     public_bytes = private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw
+        encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
     )
     address = generate_address(public_bytes)
 
@@ -157,7 +136,6 @@ def show_keyinfo(keystore_file: Path, password: str) -> None:
 
 def main():
     from getpass import getpass
-
 
     parser = argparse.ArgumentParser(description="Production keystore management")
     parser.add_argument("--name", required=True, help="Key name (e.g., treasury, proposer)")

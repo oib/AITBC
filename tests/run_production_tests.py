@@ -11,6 +11,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent / "production"
 
+
 def run_test_suite(test_file: str, description: str) -> bool:
     """Run a single test suite and return success status"""
     print(f"\n🧪 Running {description}")
@@ -21,19 +22,24 @@ def run_test_suite(test_file: str, description: str) -> bool:
         test_path = TESTS_DIR / test_file
 
         # Run the test with monorepo-safe pytest settings
-        result = subprocess.run([
-            sys.executable,
-            "-m",
-            "pytest",
-            "-c",
-            "/dev/null",
-            "--rootdir",
-            str(REPO_ROOT),
-            "--import-mode=importlib",
-            str(test_path),
-            "-v",
-            "--tb=short",
-        ], capture_output=True, text=True, cwd=REPO_ROOT)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-c",
+                "/dev/null",
+                "--rootdir",
+                str(REPO_ROOT),
+                "--import-mode=importlib",
+                str(test_path),
+                "-v",
+                "--tb=short",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+        )
 
         print(result.stdout)
         if result.stderr:
@@ -51,6 +57,7 @@ def run_test_suite(test_file: str, description: str) -> bool:
         print(f"❌ Error running {description}: {e}")
         return False
 
+
 def main():
     """Run all production test suites"""
     print("🎉 AITBC Production Test Runner")
@@ -64,7 +71,7 @@ def main():
         ("test_production_monitoring.py", "Production Monitoring & Alerting"),
         ("test_type_safety.py", "Type Safety & Validation"),
         ("test_advanced_features.py", "Advanced Features & AI/ML"),
-        ("test_complete_system_integration.py", "Complete System Integration")
+        ("test_complete_system_integration.py", "Complete System Integration"),
     ]
 
     results = []
@@ -99,6 +106,7 @@ def main():
         print(f"\n⚠️  {total_tests - passed_tests} test suite(s) failed")
         print("🔧 Please review the failed tests above")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

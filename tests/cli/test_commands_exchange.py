@@ -21,8 +21,9 @@ class TestExchangeCommands:
         """Test that exchange command group exists"""
         try:
             from aitbc_cli.commands.exchange import exchange
+
             assert exchange is not None
-            assert hasattr(exchange, 'name')
+            assert hasattr(exchange, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import exchange commands: {e}")
 
@@ -30,6 +31,7 @@ class TestExchangeCommands:
         """Test exchange group name"""
         try:
             from aitbc_cli.commands.exchange import exchange
+
             assert exchange.name == "exchange"
         except ImportError as e:
             pytest.skip(f"Cannot import exchange commands: {e}")

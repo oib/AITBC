@@ -21,7 +21,7 @@ class TestPartnershipManager:
         assert manager.partnership_types is not None
         assert len(manager.partnership_types) > 0
 
-    @patch('app.services.certification.partnership_manager.Session')
+    @patch("app.services.certification.partnership_manager.Session")
     async def test_check_technical_capability(self, mock_session):
         """Test technical capability check"""
         from app.domain.reputation import AgentReputation
@@ -46,7 +46,7 @@ class TestPartnershipManager:
             certifications=["basic"],
             geographic_region="us-west",
             community_contributions=10,
-            created_at=datetime.now(UTC)
+            created_at=datetime.now(UTC),
         )
 
         mock_session_instance.execute.return_value.first.return_value = mock_reputation
@@ -57,7 +57,7 @@ class TestPartnershipManager:
         assert "score" in result
         assert "details" in result
 
-    @patch('app.services.certification.partnership_manager.Session')
+    @patch("app.services.certification.partnership_manager.Session")
     async def test_check_service_quality(self, mock_session):
         """Test service quality check"""
         from app.domain.reputation import AgentReputation
@@ -82,7 +82,7 @@ class TestPartnershipManager:
             certifications=["basic"],
             geographic_region="us-west",
             community_contributions=10,
-            created_at=datetime.now(UTC)
+            created_at=datetime.now(UTC),
         )
 
         mock_session_instance.execute.return_value.first.return_value = mock_reputation
@@ -92,7 +92,7 @@ class TestPartnershipManager:
         assert "eligible" in result
         assert "score" in result
 
-    @patch('app.services.certification.partnership_manager.Session')
+    @patch("app.services.certification.partnership_manager.Session")
     async def test_create_partnership_program(self, mock_session):
         """Test partnership program creation"""
         from app.domain.certification import PartnershipProgram
@@ -119,7 +119,7 @@ class TestPartnershipManager:
             commission_structure={"type": "revenue_share", "rate": 0.15},
             performance_metrics=["sales_volume", "customer_satisfaction"],
             max_participants=100,
-            launched_at=datetime.now(UTC)
+            launched_at=datetime.now(UTC),
         )
 
         mock_session_instance.add.return_value = None
@@ -131,13 +131,13 @@ class TestPartnershipManager:
             program_name="Test Program",
             program_type="technology",
             description="Test description",
-            created_by="system"
+            created_by="system",
         )
 
         assert result.program_id is not None
         assert result.program_name == "Test Program"
 
-    @patch('app.services.certification.partnership_manager.Session')
+    @patch("app.services.certification.partnership_manager.Session")
     async def test_apply_for_partnership(self, mock_session):
         """Test partnership application"""
         from app.domain.certification import AgentPartnership, PartnershipProgram
@@ -147,7 +147,7 @@ class TestPartnershipManager:
         mock_session_instance = MagicMock()
 
         # Mock program
-        mock_program = PartnershipProgram(
+        PartnershipProgram(
             program_id="prog_abc123",
             program_name="Test Program",
             program_type="technology",
@@ -165,7 +165,7 @@ class TestPartnershipManager:
             commission_structure={},
             performance_metrics=[],
             max_participants=100,
-            launched_at=datetime.now(UTC)
+            launched_at=datetime.now(UTC),
         )
 
         # Mock reputation
@@ -183,7 +183,7 @@ class TestPartnershipManager:
             partnership_type="technology",
             current_tier="basic",
             applied_at=datetime.now(UTC),
-            status="pending_approval"
+            status="pending_approval",
         )
 
         mock_session_instance.add.return_value = None
@@ -194,8 +194,8 @@ class TestPartnershipManager:
             mock_session_instance,
             agent_id="agent123",
             program_id="prog_abc123",
-            application_data={"reason": "Test application"}
+            application_data={"reason": "Test application"},
         )
 
-        assert result[0] == True  # Success
+        assert result[0]  # Success
         assert result[1] is not None  # Partnership object

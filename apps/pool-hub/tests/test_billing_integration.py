@@ -126,9 +126,7 @@ def test_collect_miner_usage(billing_integration: BillingIntegration, sample_min
     start_date = end_date - timedelta(hours=24)
 
     usage_data = billing_integration.db.run_sync(
-        lambda sess: billing_integration._collect_miner_usage(
-            sample_miner.miner_id, start_date, end_date
-        )
+        lambda sess: billing_integration._collect_miner_usage(sample_miner.miner_id, start_date, end_date)
     )
 
     assert "gpu_hours" in usage_data

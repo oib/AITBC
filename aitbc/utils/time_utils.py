@@ -86,13 +86,13 @@ def parse_duration(duration_str: str) -> float:
     """Parse duration string to seconds"""
     duration_str = duration_str.strip().lower()
 
-    if duration_str.endswith('s'):
+    if duration_str.endswith("s"):
         return float(duration_str[:-1])
-    elif duration_str.endswith('m'):
+    elif duration_str.endswith("m"):
         return float(duration_str[:-1]) * 60
-    elif duration_str.endswith('h'):
+    elif duration_str.endswith("h"):
         return float(duration_str[:-1]) * 3600
-    elif duration_str.endswith('d'):
+    elif duration_str.endswith("d"):
         return float(duration_str[:-1]) * 86400
     else:
         return float(duration_str)
@@ -191,6 +191,7 @@ def to_timezone(dt: datetime, tz_name: str) -> datetime:
     """Convert datetime to specific timezone"""
     try:
         import pytz  # type: ignore
+
         tz = pytz.timezone(tz_name)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)
@@ -205,6 +206,7 @@ def get_timezone_offset(tz_name: str) -> timedelta:
     """Get timezone offset from UTC"""
     try:
         import pytz
+
         tz = pytz.timezone(tz_name)
         now = datetime.now(UTC)
         offset = tz.utcoffset(now)
@@ -220,6 +222,7 @@ def is_business_hours(dt: datetime | None = None, start_hour: int = 9, end_hour:
 
     try:
         import pytz
+
         tz = pytz.timezone(timezone)
         dt_local = dt.astimezone(tz)
         return start_hour <= dt_local.hour < end_hour

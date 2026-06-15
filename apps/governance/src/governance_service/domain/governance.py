@@ -73,7 +73,9 @@ class Proposal(SQLModel, table=True):
     category: str = Field(default="general")
 
     # v0.4.12 new fields
-    proposal_type: str = Field(default="general")  # marketplace_rule, fee_structure, service_approval, protocol_upgrade, dispute_resolution, parameter_change
+    proposal_type: str = Field(
+        default="general"
+    )  # marketplace_rule, fee_structure, service_approval, protocol_upgrade, dispute_resolution, parameter_change
     proposal_value: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     quorum_required: float = Field(default=1000000.0)
     yes_votes: float = Field(default=0.0)
@@ -121,9 +123,9 @@ class Vote(SQLModel, table=True):
 
     # v0.4.12 new fields
     voting_power: float = Field(default=0.0)  # Token-weighted power used
-    vote_weight: float = Field(default=0.0)   # Calculated weight
-    delegated_from: str | None = None         # For delegated votes
-    signature: str | None = None            # 130 char ECDSA signature
+    vote_weight: float = Field(default=0.0)  # Calculated weight
+    delegated_from: str | None = None  # For delegated votes
+    signature: str | None = None  # 130 char ECDSA signature
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 

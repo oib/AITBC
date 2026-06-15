@@ -36,7 +36,6 @@ class TestReputationSystem:
     @pytest.mark.asyncio
     async def test_trust_score_calculation(self):
         """Test trust score calculation for an agent"""
-        agent_id = "test_agent_002"
 
         # Mock trust score calculation
         # In real implementation, this would use the TrustScoreCalculator
@@ -55,13 +54,7 @@ class TestReputationSystem:
         agent_id = "test_agent_003"
         reviewer_id = "reviewer_001"
 
-        ratings = {
-            "overall": 5.0,
-            "performance": 5.0,
-            "communication": 5.0,
-            "reliability": 5.0,
-            "value": 5.0
-        }
+        ratings = {"overall": 5.0, "performance": 5.0, "communication": 5.0, "reliability": 5.0, "value": 5.0}
 
         # Mock feedback submission
         assert all(1.0 <= rating <= 5.0 for rating in ratings.values())
@@ -75,7 +68,7 @@ class TestReputationSystem:
         leaderboard = [
             {"rank": 1, "agent_id": "agent_001", "trust_score": 950.0},
             {"rank": 2, "agent_id": "agent_002", "trust_score": 900.0},
-            {"rank": 3, "agent_id": "agent_003", "trust_score": 850.0}
+            {"rank": 3, "agent_id": "agent_003", "trust_score": 850.0},
         ]
 
         assert len(leaderboard) == 3
@@ -89,7 +82,7 @@ class TestReputationSystem:
         decay_factor = 0.9  # 10% decay per month
         months_passed = 2
 
-        decayed_score = initial_score * (decay_factor ** months_passed)
+        decayed_score = initial_score * (decay_factor**months_passed)
 
         assert decayed_score < initial_score
         assert decayed_score >= 0
@@ -98,13 +91,7 @@ class TestReputationSystem:
     async def test_reputation_level_determination(self):
         """Test reputation level determination based on trust score"""
         # Test different score ranges
-        test_cases = [
-            (950, "MASTER"),
-            (800, "EXPERT"),
-            (650, "ADVANCED"),
-            (450, "INTERMEDIATE"),
-            (200, "BEGINNER")
-        ]
+        test_cases = [(950, "MASTER"), (800, "EXPERT"), (650, "ADVANCED"), (450, "INTERMEDIATE"), (200, "BEGINNER")]
 
         for score, expected_level in test_cases:
             if score >= 900:
@@ -123,11 +110,7 @@ class TestReputationSystem:
     @pytest.mark.asyncio
     async def test_weighted_rating_calculation(self):
         """Test weighted average rating calculation"""
-        ratings = [
-            {"rating": 5.0, "weight": 2.0},
-            {"rating": 4.0, "weight": 1.0},
-            {"rating": 5.0, "weight": 1.5}
-        ]
+        ratings = [{"rating": 5.0, "weight": 2.0}, {"rating": 4.0, "weight": 1.0}, {"rating": 5.0, "weight": 1.5}]
 
         total_weight = sum(r["weight"] for r in ratings)
         weighted_sum = sum(r["rating"] * r["weight"] for r in ratings)
@@ -136,7 +119,7 @@ class TestReputationSystem:
 
         assert weighted_average >= 1.0
         assert weighted_average <= 5.0
-        assert weighted_average == (5.0*2.0 + 4.0*1.0 + 5.0*1.5) / (2.0 + 1.0 + 1.5)
+        assert weighted_average == (5.0 * 2.0 + 4.0 * 1.0 + 5.0 * 1.5) / (2.0 + 1.0 + 1.5)
 
     @pytest.mark.asyncio
     async def test_reputation_event_recording(self):
@@ -154,7 +137,7 @@ class TestReputationSystem:
             "impact_score": impact_score,
             "trust_score_before": trust_score_before,
             "trust_score_after": trust_score_after,
-            "occurred_at": datetime.now(UTC).isoformat()
+            "occurred_at": datetime.now(UTC).isoformat(),
         }
 
         assert event["impact_score"] == trust_score_after - trust_score_before
@@ -178,20 +161,13 @@ class TestReputationAPI:
 
     def test_reputation_feedback_endpoint(self):
         """Test POST /reputation/feedback/{agent_id} endpoint"""
-        agent_id = "test_agent_006"
         reviewer_id = "reviewer_002"
 
         payload = {
             "reviewer_id": reviewer_id,
-            "ratings": {
-                "overall": 4.5,
-                "performance": 4.0,
-                "communication": 5.0,
-                "reliability": 4.5,
-                "value": 4.0
-            },
+            "ratings": {"overall": 4.5, "performance": 4.0, "communication": 5.0, "reliability": 4.5, "value": 4.0},
             "feedback_text": "Good service overall",
-            "tags": ["professional", "timely"]
+            "tags": ["professional", "timely"],
         }
 
         # Mock API call
@@ -201,10 +177,7 @@ class TestReputationAPI:
 
     def test_reputation_leaderboard_endpoint(self):
         """Test GET /reputation/leaderboard endpoint"""
-        params = {
-            "category": "trust_score",
-            "limit": 10
-        }
+        params = {"category": "trust_score", "limit": 10}
 
         # Mock API call
         assert params["category"] == "trust_score"
@@ -214,13 +187,7 @@ class TestReputationAPI:
         """Test GET /reputation/metrics endpoint"""
         # Mock API call
         # In real implementation, this would get system-wide metrics
-        expected_metrics = [
-            "total_agents",
-            "average_trust_score",
-            "level_distribution",
-            "top_regions",
-            "recent_activity"
-        ]
+        expected_metrics = ["total_agents", "average_trust_score", "level_distribution", "top_regions", "recent_activity"]
 
         assert len(expected_metrics) == 5
 

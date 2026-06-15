@@ -14,6 +14,7 @@ from aitbc import ethereum_rpc
 # EthereumConfig Tests
 # ============================================================================
 
+
 class TestEthereumConfig:
     """Test EthereumConfig dataclass"""
 
@@ -33,7 +34,7 @@ class TestEthereumConfig:
             infura_key="test_infura",
             alchemy_key="test_alchemy",
             timeout=30,
-            max_retries=5
+            max_retries=5,
         )
         assert config.network == "mainnet"
         assert config.rpc_url == "https://custom.rpc"
@@ -48,26 +49,17 @@ class TestEthereumConfig:
         assert urls[0] == "https://custom.rpc"
 
     def test_get_rpc_urls_with_infura(self):
-        config = ethereum_rpc.EthereumConfig(
-            network="mainnet",
-            infura_key="test_key"
-        )
+        config = ethereum_rpc.EthereumConfig(network="mainnet", infura_key="test_key")
         urls = config.get_rpc_urls()
         assert "https://mainnet.infura.io/v3/test_key" in urls
 
     def test_get_rpc_urls_with_alchemy_mainnet(self):
-        config = ethereum_rpc.EthereumConfig(
-            network="mainnet",
-            alchemy_key="test_key"
-        )
+        config = ethereum_rpc.EthereumConfig(network="mainnet", alchemy_key="test_key")
         urls = config.get_rpc_urls()
         assert "https://eth-mainnet.g.alchemy.com/v2/test_key" in urls
 
     def test_get_rpc_urls_with_alchemy_sepolia(self):
-        config = ethereum_rpc.EthereumConfig(
-            network="sepolia",
-            alchemy_key="test_key"
-        )
+        config = ethereum_rpc.EthereumConfig(network="sepolia", alchemy_key="test_key")
         urls = config.get_rpc_urls()
         assert "https://eth-sepolia.g.alchemy.com/v2/test_key" in urls
 
@@ -84,11 +76,7 @@ class TestEthereumConfig:
         assert "https://1rpc.io/sepolia" in urls
 
     def test_get_rpc_urls_priority_order(self):
-        config = ethereum_rpc.EthereumConfig(
-            rpc_url="https://custom.rpc",
-            infura_key="infura_key",
-            alchemy_key="alchemy_key"
-        )
+        config = ethereum_rpc.EthereumConfig(rpc_url="https://custom.rpc", infura_key="infura_key", alchemy_key="alchemy_key")
         urls = config.get_rpc_urls()
         assert urls[0] == "https://custom.rpc"
         assert "infura" in urls[1]
@@ -98,6 +86,7 @@ class TestEthereumConfig:
 # ============================================================================
 # EthereumRPCClient Tests
 # ============================================================================
+
 
 class TestEthereumRPCClient:
     """Test EthereumRPCClient class"""
@@ -116,7 +105,7 @@ class TestEthereumRPCClient:
 
     def test_get_web3_web3_not_installed(self):
         client = ethereum_rpc.EthereumRPCClient()
-        with patch.dict('sys.modules', {'web3': None}):
+        with patch.dict("sys.modules", {"web3": None}):
             with pytest.raises(RuntimeError, match="web3 package not installed"):
                 client._get_web3()
 
@@ -270,6 +259,7 @@ class TestEthereumRPCClient:
 # ============================================================================
 # Global Functions Tests
 # ============================================================================
+
 
 class TestGlobalFunctions:
     """Test global Ethereum RPC functions"""

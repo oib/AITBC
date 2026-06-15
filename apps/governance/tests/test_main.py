@@ -75,12 +75,7 @@ def test_get_governance_analytics(client):
 def test_stake_tokens(client):
     """Test token staking endpoint"""
     response = client.post(
-        "/v1/governance/stake",
-        json={
-            "staker_address": "0x1234567890abcdef",
-            "amount": 1000,
-            "lock_period_days": 30
-        }
+        "/v1/governance/stake", json={"staker_address": "0x1234567890abcdef", "amount": 1000, "lock_period_days": 30}
     )
     # May fail without database setup, but endpoint should exist
     assert response.status_code in [200, 500]
@@ -97,11 +92,7 @@ def test_delegate_voting_power(client):
     """Test delegation endpoint"""
     response = client.post(
         "/v1/governance/delegate",
-        json={
-            "delegator_address": "0x1234567890abcdef",
-            "delegate_address": "0x0987654321fedcba",
-            "amount": 500
-        }
+        json={"delegator_address": "0x1234567890abcdef", "delegate_address": "0x0987654321fedcba", "amount": 500},
     )
     # May fail without database setup, but endpoint should exist
     assert response.status_code in [200, 500]

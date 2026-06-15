@@ -62,7 +62,9 @@ class TestSecurityValidator:
     def test_validate_tx_hash_invalid(self):
         """Test validate_tx_hash with invalid hash"""
         assert SecurityValidator.validate_tx_hash("0x123") is False
-        assert SecurityValidator.validate_tx_hash("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234") is False
+        assert (
+            SecurityValidator.validate_tx_hash("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234") is False
+        )
 
     def test_sanitize_html(self):
         """Test sanitize_html"""
@@ -129,7 +131,7 @@ class TestSecurityAuditLog:
             user="test_user",
             ip_address="127.0.0.1",
             details={"key": "value"},
-            severity="INFO"
+            severity="INFO",
         )
 
         assert log.action == "test_action"
@@ -137,13 +139,7 @@ class TestSecurityAuditLog:
 
     def test_defaults(self):
         """Test SecurityAuditLog with defaults"""
-        log = SecurityAuditLog(
-            timestamp=datetime.now(),
-            action="test_action",
-            user=None,
-            ip_address=None,
-            details={}
-        )
+        log = SecurityAuditLog(timestamp=datetime.now(), action="test_action", user=None, ip_address=None, details={})
 
         assert log.severity == "INFO"
 
@@ -166,17 +162,12 @@ class TestSecurityAuditor:
 
             assert auditor.log_file == log_file
 
-    @patch('aitbc.security_hardening.logger')
+    @patch("aitbc.security_hardening.logger")
     def test_log_security_event(self, mock_logger):
         """Test log_security_event"""
         auditor = SecurityAuditor()
 
-        auditor.log_security_event(
-            action="test_action",
-            user="test_user",
-            ip_address="127.0.0.1",
-            details={"key": "value"}
-        )
+        auditor.log_security_event(action="test_action", user="test_user", ip_address="127.0.0.1", details={"key": "value"})
 
         assert len(auditor._logs) == 1
         assert auditor._logs[0].action == "test_action"
@@ -296,7 +287,7 @@ class TestRateLimiter:
         # 6th request should be denied
         assert limiter.is_allowed("user1") is False
 
-    @patch('aitbc.security_hardening.logger')
+    @patch("aitbc.security_hardening.logger")
     def test_is_allowed_logs_warning(self, mock_logger):
         """Test is_allowed logs warning when exceeded"""
         limiter = RateLimiter(rate=2, per=60)
@@ -316,6 +307,7 @@ class TestRateLimiter:
 
         # Wait for expiration
         import time
+
         time.sleep(1.1)
 
         # Should be allowed again
@@ -331,7 +323,7 @@ class TestRateLimiter:
         # Should be allowed again after reset
         assert limiter.is_allowed("user1") is True
 
-    @patch('aitbc.security_hardening.logger')
+    @patch("aitbc.security_hardening.logger")
     def test_reset_logs_info(self, mock_logger):
         """Test reset logs info message"""
         limiter = RateLimiter(rate=5, per=60)
@@ -363,7 +355,7 @@ class TestRateLimiter:
 class TestGlobalSecurityAuditor:
     """Tests for global security auditor functions"""
 
-    @patch('aitbc.security_hardening.logger')
+    @patch("aitbc.security_hardening.logger")
     def test_log_security_event_global(self, mock_logger):
         """Test log_security_event using global auditor"""
         log_security_event(action="test_action")

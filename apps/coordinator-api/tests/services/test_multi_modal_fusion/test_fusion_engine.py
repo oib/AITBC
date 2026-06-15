@@ -110,7 +110,7 @@ class TestMultiModalFusionEngine:
             assert model in weights
             assert weights[model] == 1.0 / 3  # Equal weighting
 
-    @patch('app.services.multi_modal_fusion.fusion_engine.Session')
+    @patch("app.services.multi_modal_fusion.fusion_engine.Session")
     async def test_adaptive_fusion_selection(self, mock_session):
         """Test adaptive fusion strategy selection"""
         from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
@@ -150,16 +150,8 @@ class TestMultiModalFusionEngine:
         engine = MultiModalFusionEngine()
 
         results = {
-            "modality1": {
-                "result": {"features": {"feature1": 0.5, "feature2": 0.5}},
-                "weight": 0.6,
-                "confidence": 0.8
-            },
-            "modality2": {
-                "result": {"features": {"feature1": 0.3, "feature2": 0.7}},
-                "weight": 0.4,
-                "confidence": 0.9
-            }
+            "modality1": {"result": {"features": {"feature1": 0.5, "feature2": 0.5}}, "weight": 0.6, "confidence": 0.8},
+            "modality2": {"result": {"features": {"feature1": 0.3, "feature2": 0.7}}, "weight": 0.4, "confidence": 0.9},
         }
 
         combined = engine.weighted_combination(results)
@@ -169,7 +161,7 @@ class TestMultiModalFusionEngine:
         assert "feature1" in combined["features"]
         assert "feature2" in combined["features"]
 
-    @patch('app.services.multi_modal_fusion.fusion_engine.Session')
+    @patch("app.services.multi_modal_fusion.fusion_engine.Session")
     async def test_create_fusion_model(self, mock_session):
         """Test fusion model creation"""
         from app.domain.agent_performance import FusionModel
@@ -189,7 +181,7 @@ class TestMultiModalFusionEngine:
             modality_weights={"text": 0.6, "image": 0.4},
             computational_complexity="medium",
             memory_requirement=4.0,
-            status="training"
+            status="training",
         )
 
         mock_session_instance.add.return_value = None
@@ -202,14 +194,14 @@ class TestMultiModalFusionEngine:
             fusion_type="multi_modal",
             base_models=["model1", "model2"],
             input_modalities=["text", "image"],
-            fusion_strategy="ensemble_fusion"
+            fusion_strategy="ensemble_fusion",
         )
 
         assert result.fusion_id is not None
         assert result.model_name == "Test Fusion Model"
         assert result.status == "training"
 
-    @patch('app.services.multi_modal_fusion.fusion_engine.Session')
+    @patch("app.services.multi_modal_fusion.fusion_engine.Session")
     async def test_simulate_fusion_training(self, mock_session):
         """Test fusion training simulation"""
         from app.domain.agent_performance import FusionModel
@@ -228,7 +220,7 @@ class TestMultiModalFusionEngine:
             modality_weights={"text": 0.6, "image": 0.4},
             computational_complexity="medium",
             memory_requirement=4.0,
-            status="training"
+            status="training",
         )
 
         result = await engine.simulate_fusion_training(mock_fusion_model)

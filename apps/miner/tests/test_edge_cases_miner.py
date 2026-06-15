@@ -22,7 +22,7 @@ def test_classify_architecture_special_characters():
 
 
 @pytest.mark.unit
-@patch('production_miner.subprocess.run')
+@patch("production_miner.subprocess.run")
 def test_detect_cuda_version_timeout(mock_run):
     """Test CUDA version detection with timeout"""
     mock_run.side_effect = subprocess.TimeoutExpired("nvidia-smi", 5)
@@ -31,7 +31,7 @@ def test_detect_cuda_version_timeout(mock_run):
 
 
 @pytest.mark.unit
-@patch('production_miner.subprocess.run')
+@patch("production_miner.subprocess.run")
 def test_get_gpu_info_malformed_output(mock_run):
     """Test GPU info with malformed output"""
     mock_run.return_value = Mock(returncode=0, stdout="malformed,data")
@@ -40,7 +40,7 @@ def test_get_gpu_info_malformed_output(mock_run):
 
 
 @pytest.mark.unit
-@patch('production_miner.subprocess.run')
+@patch("production_miner.subprocess.run")
 def test_get_gpu_info_empty_output(mock_run):
     """Test GPU info with empty output"""
     mock_run.return_value = Mock(returncode=0, stdout="")
@@ -49,12 +49,14 @@ def test_get_gpu_info_empty_output(mock_run):
 
 
 @pytest.mark.unit
-@patch('production_miner.get_gpu_info')
+@patch("production_miner.get_gpu_info")
 def test_build_gpu_capabilities_negative_memory(mock_gpu):
     """Test building GPU capabilities with negative memory"""
     mock_gpu.return_value = {"name": "RTX 4090", "memory_total": -24576}
-    with patch('production_miner.detect_cuda_version') as mock_cuda, \
-         patch('production_miner.classify_architecture') as mock_arch:
+    with (
+        patch("production_miner.detect_cuda_version") as mock_cuda,
+        patch("production_miner.classify_architecture") as mock_arch,
+    ):
         mock_cuda.return_value = "12.0"
         mock_arch.return_value = "ada_lovelace"
 
@@ -63,12 +65,14 @@ def test_build_gpu_capabilities_negative_memory(mock_gpu):
 
 
 @pytest.mark.unit
-@patch('production_miner.get_gpu_info')
+@patch("production_miner.get_gpu_info")
 def test_build_gpu_capabilities_zero_memory(mock_gpu):
     """Test building GPU capabilities with zero memory"""
     mock_gpu.return_value = {"name": "RTX 4090", "memory_total": 0}
-    with patch('production_miner.detect_cuda_version') as mock_cuda, \
-         patch('production_miner.classify_architecture') as mock_arch:
+    with (
+        patch("production_miner.detect_cuda_version") as mock_cuda,
+        patch("production_miner.classify_architecture") as mock_arch,
+    ):
         mock_cuda.return_value = "12.0"
         mock_arch.return_value = "ada_lovelace"
 
@@ -77,7 +81,7 @@ def test_build_gpu_capabilities_zero_memory(mock_gpu):
 
 
 @pytest.mark.integration
-@patch('production_miner.httpx.get')
+@patch("production_miner.httpx.get")
 def test_check_ollama_empty_models(mock_get):
     """Test Ollama check with empty models list"""
     mock_get.return_value = Mock(status_code=200, json=lambda: {"models": []})
@@ -87,7 +91,7 @@ def test_check_ollama_empty_models(mock_get):
 
 
 @pytest.mark.integration
-@patch('production_miner.httpx.get')
+@patch("production_miner.httpx.get")
 def test_check_ollama_malformed_response(mock_get):
     """Test Ollama check with malformed response"""
     mock_get.return_value = Mock(status_code=200, json=lambda: {})
@@ -97,8 +101,8 @@ def test_check_ollama_malformed_response(mock_get):
 
 
 @pytest.mark.integration
-@patch('production_miner.submit_result')
-@patch('production_miner.httpx.post')
+@patch("production_miner.submit_result")
+@patch("production_miner.httpx.post")
 def test_execute_job_empty_payload(mock_post, mock_submit):
     """Test executing job with empty payload"""
     mock_post.return_value = Mock(status_code=200, json=lambda: {"response": "test"})
@@ -109,7 +113,7 @@ def test_execute_job_empty_payload(mock_post, mock_submit):
 
 
 @pytest.mark.integration
-@patch('production_miner.submit_result')
+@patch("production_miner.submit_result")
 def test_execute_job_missing_job_id(mock_submit):
     """Test executing job with missing job_id"""
     job = {"payload": {"type": "inference"}}
@@ -118,8 +122,8 @@ def test_execute_job_missing_job_id(mock_submit):
 
 
 @pytest.mark.integration
-@patch('production_miner.submit_result')
-@patch('production_miner.httpx.post')
+@patch("production_miner.submit_result")
+@patch("production_miner.httpx.post")
 def test_execute_job_model_fallback(mock_post, mock_submit):
     """Test executing job with model fallback to first available"""
     mock_post.return_value = Mock(status_code=200, json=lambda: {"response": "test"})
@@ -130,19 +134,19 @@ def test_execute_job_model_fallback(mock_post, mock_submit):
 
 
 @pytest.mark.integration
-@patch('production_miner.submit_result')
+@patch("production_miner.submit_result")
 def test_execute_job_timeout(mock_submit):
     """Test executing job with timeout"""
     job = {"job_id": "job_123", "payload": {"type": "inference", "prompt": "test", "model": "llama3.2:latest"}}
 
-    with patch('production_miner.httpx.post') as mock_post:
+    with patch("production_miner.httpx.post") as mock_post:
         mock_post.side_effect = Exception("Timeout")
         result = production_miner.execute_job(job, ["llama3.2:latest"])
         assert result is False
 
 
 @pytest.mark.integration
-@patch('production_miner.httpx.post')
+@patch("production_miner.httpx.post")
 def test_poll_for_jobs_malformed_response(mock_post):
     """Test polling for jobs with malformed response"""
     mock_post.return_value = Mock(status_code=200, json=lambda: {})
@@ -151,7 +155,7 @@ def test_poll_for_jobs_malformed_response(mock_post):
 
 
 @pytest.mark.integration
-@patch('production_miner.httpx.post')
+@patch("production_miner.httpx.post")
 def test_submit_result_malformed_response(mock_post):
     """Test submitting result with malformed response"""
     mock_post.return_value = Mock(status_code=500, text="Error")

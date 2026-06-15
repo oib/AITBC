@@ -23,16 +23,16 @@ def config():
 @click.pass_context
 def show(ctx):
     """Show current configuration"""
-    config = ctx.obj['config']
+    config = ctx.obj["config"]
 
     config_dict = {
         "coordinator_url": config.coordinator_url,
         "api_key": "***REDACTED***" if config.api_key else None,
-        "timeout": getattr(config, 'timeout', 30),
-        "config_file": getattr(config, 'config_file', None)
+        "timeout": getattr(config, "timeout", 30),
+        "config_file": getattr(config, "config_file", None),
     }
 
-    output(config_dict, ctx.obj['output'])
+    output(config_dict, ctx.obj["output"])
 
 
 @config.command(name="get")
@@ -49,8 +49,6 @@ def get(ctx):
 @click.pass_context
 def set(ctx, key: str, value: str, global_config: bool):
     """Set configuration value"""
-    config = ctx.obj['config']
-
     # Determine config file path
     if global_config:
         config_dir = Path.home() / ".config" / "aitbc"
@@ -69,16 +67,16 @@ def set(ctx, key: str, value: str, global_config: bool):
     # Set the value
     if key == "api_key":
         config_data["api_key"] = value
-        if ctx.obj['output'] == 'table':
+        if ctx.obj["output"] == "table":
             success("API key set (use --global to set permanently)")
     elif key == "coordinator_url":
         config_data["coordinator_url"] = value
-        if ctx.obj['output'] == 'table':
+        if ctx.obj["output"] == "table":
             success(f"Coordinator URL set to: {value}")
     elif key == "timeout":
         try:
             config_data["timeout"] = int(value)
-            if ctx.obj['output'] == 'table':
+            if ctx.obj["output"] == "table":
                 success(f"Timeout set to: {value}s")
         except ValueError:
             error("Timeout must be an integer")
@@ -88,14 +86,10 @@ def set(ctx, key: str, value: str, global_config: bool):
         ctx.exit(1)
 
     # Save config
-    with open(config_file, 'w') as f:
+    with open(config_file, "w") as f:
         yaml.dump(config_data, f, default_flow_style=False)
 
-    output({
-        "config_file": str(config_file),
-        "key": key,
-        "value": value
-    }, ctx.obj['output'])
+    output({"config_file": str(config_file), "key": key, "value": value}, ctx.obj["output"])
 
 
 @config.command()
@@ -108,10 +102,7 @@ def path(global_config: bool):
     else:
         config_file = Path.cwd() / ".aitbc.yaml"
 
-    output({
-        "config_file": str(config_file),
-        "exists": config_file.exists()
-    })
+    output({"config_file": str(config_file), "exists": config_file.exists()})
 
 
 @config.command()
@@ -129,16 +120,13 @@ def edit(ctx, global_config: bool):
 
     # Create if doesn't exist
     if not config_file.exists():
-        config = ctx.obj['config']
-        config_data = {
-            "coordinator_url": config.coordinator_url,
-            "timeout": getattr(config, 'timeout', 30)
-        }
-        with open(config_file, 'w') as f:
+        config = ctx.obj["config"]
+        config_data = {"coordinator_url": config.coordinator_url, "timeout": getattr(config, "timeout", 30)}
+        with open(config_file, "w") as f:
             yaml.dump(config_data, f, default_flow_style=False)
 
     # Open in editor
-    editor = os.getenv('EDITOR', 'nano').strip() or 'nano'
+    editor = os.getenv("EDITOR", "nano").strip() or "nano"
     editor_cmd = shlex.split(editor)
     subprocess.run([*editor_cmd, str(config_file)], check=False)
 
@@ -168,7 +156,7 @@ def reset(ctx, global_config: bool):
 
 
 @config.command()
-@click.option("--format", "output_format", type=click.Choice(['yaml', 'json']), default='yaml', help="Output format")
+@click.option("--format", "output_format", type=click.Choice(["yaml", "json"]), default="yaml", help="Output format")
 @click.option("--global", "global_config", is_flag=True, help="Export global config")
 @click.pass_context
 def export(ctx, output_format: str, global_config: bool):
@@ -188,10 +176,10 @@ def export(ctx, output_format: str, global_config: bool):
         config_data = yaml.safe_load(f) or {}
 
     # Redact sensitive data
-    if 'api_key' in config_data:
-        config_data['api_key'] = "***REDACTED***"
+    if "api_key" in config_data:
+        config_data["api_key"] = "***REDACTED***"
 
-    if output_format == 'json':
+    if output_format == "json":
         click.echo(json.dumps(config_data, indent=2))
     else:
         click.echo(yaml.dump(config_data, default_flow_style=False))
@@ -213,7 +201,7 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
     # Load import file
     try:
         with open(import_file) as f:
-            if import_file.suffix.lower() == '.json':
+            if import_file.suffix.lower() == ".json":
                 import_data = json.load(f)
             else:
                 import_data = yaml.safe_load(f)
@@ -241,10 +229,10 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
         config_data = import_data
 
     # Save config
-    with open(config_file, 'w') as f:
+    with open(config_file, "w") as f:
         yaml.dump(config_data, f, default_flow_style=False)
 
-    if ctx.obj['output'] == 'table':
+    if ctx.obj["output"] == "table":
         success(f"Configuration imported to {config_file}")
 
 
@@ -252,7 +240,7 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
 @click.pass_context
 def validate(ctx):
     """Validate configuration"""
-    config = ctx.obj['config']
+    config = ctx.obj["config"]
 
     errors = []
     warnings = []
@@ -260,7 +248,7 @@ def validate(ctx):
     # Validate coordinator URL
     if not config.coordinator_url:
         errors.append("Coordinator URL is not set")
-    elif not config.coordinator_url.startswith(('http://', 'https://')):
+    elif not config.coordinator_url.startswith(("http://", "https://")):
         errors.append("Coordinator URL must start with http:// or https://")
 
     # Validate API key
@@ -270,55 +258,48 @@ def validate(ctx):
         errors.append("API key appears to be too short")
 
     # Validate timeout
-    timeout = getattr(config, 'timeout', 30)
+    timeout = getattr(config, "timeout", 30)
     if not isinstance(timeout, (int, float)) or timeout <= 0:
         errors.append("Timeout must be a positive number")
 
     # Output results
-    result = {
-        "valid": len(errors) == 0,
-        "errors": errors,
-        "warnings": warnings
-    }
+    result = {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
 
     if errors:
         error("Configuration validation failed")
         ctx.exit(1)
     elif warnings:
-        if ctx.obj['output'] == 'table':
+        if ctx.obj["output"] == "table":
             success("Configuration valid with warnings")
     else:
-        if ctx.obj['output'] == 'table':
+        if ctx.obj["output"] == "table":
             success("Configuration is valid")
 
-    output(result, ctx.obj['output'])
+    output(result, ctx.obj["output"])
 
 
 @config.command()
 def environments():
     """List available environments"""
     env_vars = [
-        'AITBC_COORDINATOR_URL',
-        'AITBC_API_KEY',
-        'AITBC_TIMEOUT',
-        'AITBC_CONFIG_FILE',
-        'CLIENT_API_KEY',
-        'MINER_API_KEY',
-        'ADMIN_API_KEY'
+        "AITBC_COORDINATOR_URL",
+        "AITBC_API_KEY",
+        "AITBC_TIMEOUT",
+        "AITBC_CONFIG_FILE",
+        "CLIENT_API_KEY",
+        "MINER_API_KEY",
+        "ADMIN_API_KEY",
     ]
 
     env_data = {}
     for var in env_vars:
         value = os.getenv(var)
         if value:
-            if 'API_KEY' in var:
+            if "API_KEY" in var:
                 value = "***REDACTED***"
             env_data[var] = value
 
-    output({
-        "environment_variables": env_data,
-        "note": "Use export VAR=value to set environment variables"
-    })
+    output({"environment_variables": env_data, "note": "Use export VAR=value to set environment variables"})
 
 
 @config.group()
@@ -342,15 +323,12 @@ def save(ctx, name: str):
     profile_file = profiles_dir / f"{name}.yaml"
 
     # Save profile (without API key)
-    profile_data = {
-        "coordinator_url": config.coordinator_url,
-        "timeout": getattr(config, 'timeout', 30)
-    }
+    profile_data = {"coordinator_url": config.coordinator_url, "timeout": getattr(config, "timeout", 30)}
 
-    with open(profile_file, 'w') as f:
+    with open(profile_file, "w") as f:
         yaml.dump(profile_data, f, default_flow_style=False)
 
-    if ctx.obj['output'] == 'table':
+    if ctx.obj["output"] == "table":
         success(f"Profile '{name}' saved")
 
 
@@ -368,11 +346,13 @@ def list():
         with open(profile_file) as f:
             profile_data = yaml.safe_load(f)
 
-        profiles.append({
-            "name": profile_file.stem,
-            "coordinator_url": profile_data.get("coordinator_url"),
-            "timeout": profile_data.get("timeout", 30)
-        })
+        profiles.append(
+            {
+                "name": profile_file.stem,
+                "coordinator_url": profile_data.get("coordinator_url"),
+                "timeout": profile_data.get("timeout", 30),
+            }
+        )
 
     output({"profiles": profiles})
 
@@ -395,10 +375,10 @@ def load(ctx, name: str):
     # Load to current config
     config_file = Path.cwd() / ".aitbc.yaml"
 
-    with open(config_file, 'w') as f:
+    with open(config_file, "w") as f:
         yaml.dump(profile_data, f, default_flow_style=False)
 
-    if ctx.obj['output'] == 'table':
+    if ctx.obj["output"] == "table":
         success(f"Profile '{name}' loaded")
 
 
@@ -418,7 +398,7 @@ def delete(ctx, name: str):
         return
 
     profile_file.unlink()
-    if ctx.obj['output'] == 'table':
+    if ctx.obj["output"] == "table":
         success(f"Profile '{name}' deleted")
 
 
@@ -447,9 +427,9 @@ def set_secret(ctx, key: str, value: str):
     # Restrict file permissions
     secrets_file.chmod(0o600)
 
-    if ctx.obj['output'] == 'table':
+    if ctx.obj["output"] == "table":
         success(f"Secret '{key}' saved (encrypted)")
-    output({"key": key, "status": "encrypted"}, ctx.obj['output'])
+    output({"key": key, "status": "encrypted"}, ctx.obj["output"])
 
 
 @config.command(name="get-secret")
@@ -475,7 +455,7 @@ def get_secret(ctx, key: str):
         return
 
     decrypted = decrypt_value(secrets[key])
-    output({"key": key, "value": decrypted}, ctx.obj['output'])
+    output({"key": key, "value": decrypted}, ctx.obj["output"])
 
 
 # Add profiles group to config

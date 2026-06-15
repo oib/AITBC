@@ -26,7 +26,7 @@ class TestBountyRouter:
             "creator": "0x1234567890123456789012345678901234567890",
             "reward": 5000,
             "requirements": ["Python", "FastAPI"],
-            "tags": ["backend", "api"]
+            "tags": ["backend", "api"],
         }
 
         response = client.post("/bounty/create", json=bounty_data)
@@ -44,7 +44,7 @@ class TestBountyRouter:
             "title": "Test Bounty Get",
             "description": "Test description",
             "creator": "0x1234567890123456789012345678901234567890",
-            "reward": 3000
+            "reward": 3000,
         }
         create_response = client.post("/bounty/create", json=bounty_data)
         bounty_id = create_response.json()["bounty"]["id"]
@@ -68,16 +68,13 @@ class TestBountyRouter:
             "title": "Claimable Bounty",
             "description": "Test",
             "creator": "0x1111111111111111111111111111111111111111",
-            "reward": 1000
+            "reward": 1000,
         }
         create_response = client.post("/bounty/create", json=bounty_data)
         bounty_id = create_response.json()["bounty"]["id"]
 
         # Claim the bounty
-        claim_data = {
-            "bounty_id": bounty_id,
-            "hunter": "0x2222222222222222222222222222222222222222"
-        }
+        claim_data = {"bounty_id": bounty_id, "hunter": "0x2222222222222222222222222222222222222222"}
         response = client.post("/bounty/claim", json=claim_data)
         assert response.status_code == 200
         data = response.json()
@@ -91,22 +88,19 @@ class TestBountyRouter:
             "title": "Solution Bounty",
             "description": "Test",
             "creator": "0x1111111111111111111111111111111111111111",
-            "reward": 1000
+            "reward": 1000,
         }
         create_response = client.post("/bounty/create", json=bounty_data)
         bounty_id = create_response.json()["bounty"]["id"]
 
-        client.post("/bounty/claim", json={
-            "bounty_id": bounty_id,
-            "hunter": "0x2222222222222222222222222222222222222222"
-        })
+        client.post("/bounty/claim", json={"bounty_id": bounty_id, "hunter": "0x2222222222222222222222222222222222222222"})
 
         # Submit solution
         solution_data = {
             "bounty_id": bounty_id,
             "hunter": "0x2222222222222222222222222222222222222222",
             "solution_url": "https://github.com/solution/repo",
-            "notes": "Solution completed"
+            "notes": "Solution completed",
         }
         response = client.post("/bounty/submit", json=solution_data)
         assert response.status_code == 200
@@ -144,7 +138,7 @@ class TestBountyIntegration:
             "creator": "0xCREATOR123",
             "reward": 5000,
             "requirements": ["test"],
-            "tags": ["integration"]
+            "tags": ["integration"],
         }
         create_response = client.post("/bounty/create", json=create_data)
         assert create_response.status_code == 200
@@ -156,26 +150,20 @@ class TestBountyIntegration:
         assert any(b["id"] == bounty_id for b in list_response.json()["bounties"])
 
         # 3. Claim bounty
-        claim_response = client.post("/bounty/claim", json={
-            "bounty_id": bounty_id,
-            "hunter": "0xHUNTER456"
-        })
+        claim_response = client.post("/bounty/claim", json={"bounty_id": bounty_id, "hunter": "0xHUNTER456"})
         assert claim_response.status_code == 200
 
         # 4. Submit solution
-        submit_response = client.post("/bounty/submit", json={
-            "bounty_id": bounty_id,
-            "hunter": "0xHUNTER456",
-            "solution_url": "https://solution.example.com"
-        })
+        submit_response = client.post(
+            "/bounty/submit",
+            json={"bounty_id": bounty_id, "hunter": "0xHUNTER456", "solution_url": "https://solution.example.com"},
+        )
         assert submit_response.status_code == 200
 
         # 5. Verify solution
-        verify_response = client.post("/bounty/verify", json={
-            "bounty_id": bounty_id,
-            "verifier": "0xCREATOR123",
-            "approved": True,
-            "feedback": "Great work!"
-        })
+        verify_response = client.post(
+            "/bounty/verify",
+            json={"bounty_id": bounty_id, "verifier": "0xCREATOR123", "approved": True, "feedback": "Great work!"},
+        )
         assert verify_response.status_code == 200
         assert verify_response.json()["approved"] is True

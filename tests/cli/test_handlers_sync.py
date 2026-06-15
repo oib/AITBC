@@ -21,6 +21,7 @@ class TestSyncHandlers:
         """Test that handle_sync_bulk function exists"""
         try:
             from handlers.sync import handle_sync_bulk
+
             assert handle_sync_bulk is not None
         except ImportError as e:
             pytest.skip(f"Cannot import sync handlers: {e}")

@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 # Mock httpx before importing
-sys.modules['httpx'] = Mock()
+sys.modules["httpx"] = Mock()
 
 from main import app
 
@@ -35,7 +35,7 @@ def test_get_chain_head_success():
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.return_value = mock_response
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/chain/head")
         assert response.status_code == 200
         data = response.json()
@@ -52,7 +52,7 @@ def test_get_chain_head_error():
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.side_effect = Exception("RPC error")
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/chain/head")
         assert response.status_code == 200
         data = response.json()
@@ -67,18 +67,13 @@ def test_get_block_success():
 
     mock_response = Mock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "height": 50,
-        "hash": "0xblock50",
-        "timestamp": 1234567890,
-        "transactions": []
-    }
+    mock_response.json.return_value = {"height": 50, "hash": "0xblock50", "timestamp": 1234567890, "transactions": []}
 
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.return_value = mock_response
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/blocks/50")
         assert response.status_code == 200
         data = response.json()
@@ -95,7 +90,7 @@ def test_get_block_error():
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.side_effect = Exception("RPC error")
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/blocks/50")
         assert response.status_code == 200
         data = response.json()
@@ -114,19 +109,16 @@ def test_get_transaction_success():
         "tx_hash": "0x" + "a" * 64,
         "sender": "0xsender",
         "recipient": "0xrecipient",
-        "payload": {
-            "value": "1000",
-            "fee": "10"
-        },
+        "payload": {"value": "1000", "fee": "10"},
         "created_at": "2026-01-01T00:00:00",
-        "block_height": 100
+        "block_height": 100,
     }
 
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.return_value = mock_response
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/transactions/" + "a" * 64)
         assert response.status_code == 200
         data = response.json()
@@ -149,7 +141,7 @@ def test_get_transaction_not_found():
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.return_value = mock_response
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/transactions/" + "a" * 64)
         assert response.status_code == 404
 
@@ -163,6 +155,6 @@ def test_get_transaction_error():
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.side_effect = Exception("RPC error")
 
-    with patch('main.httpx.AsyncClient', return_value=mock_client):
+    with patch("main.httpx.AsyncClient", return_value=mock_client):
         response = client.get("/api/transactions/" + "a" * 64)
         assert response.status_code == 500

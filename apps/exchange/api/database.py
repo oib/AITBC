@@ -30,7 +30,7 @@ def init_db():
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             amount REAL NOT NULL,
@@ -38,9 +38,9 @@ def init_db():
             total REAL NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    ''')
+    """)
 
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             order_type TEXT NOT NULL CHECK(order_type IN ('BUY', 'SELL')),
@@ -54,9 +54,9 @@ def init_db():
             user_address TEXT,
             tx_hash TEXT
         )
-    ''')
+    """)
 
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS marketplace_offers (
             id TEXT PRIMARY KEY,
             item TEXT NOT NULL,
@@ -67,9 +67,9 @@ def init_db():
             description TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    ''')
+    """)
 
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS marketplace_orders (
             id TEXT PRIMARY KEY,
             order_type TEXT NOT NULL,
@@ -79,15 +79,15 @@ def init_db():
             status TEXT DEFAULT 'open',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    ''')
+    """)
 
     try:
-        cursor.execute('ALTER TABLE orders ADD COLUMN user_address TEXT')
+        cursor.execute("ALTER TABLE orders ADD COLUMN user_address TEXT")
     except Exception:
         pass
 
     try:
-        cursor.execute('ALTER TABLE orders ADD COLUMN tx_hash TEXT')
+        cursor.execute("ALTER TABLE orders ADD COLUMN tx_hash TEXT")
     except Exception:
         pass
 
@@ -102,22 +102,25 @@ def create_mock_trades():
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    cursor.execute('SELECT COUNT(*) FROM trades')
+    cursor.execute("SELECT COUNT(*) FROM trades")
     if cursor.fetchone()[0] > 0:
         conn.close()
         return
 
     now = datetime.now(UTC)
-    for i in range(20):
+    for _i in range(20):
         amount = random.uniform(10, 500)
         price = random.uniform(0.000009, 0.000012)
         total = amount * price
         created_at = now - timedelta(minutes=random.randint(0, 60))
 
-        cursor.execute('''
+        cursor.execute(
+            """
             INSERT INTO trades (amount, price, total, created_at)
             VALUES (?, ?, ?, ?)
-        ''', (amount, price, total, created_at))
+        """,
+            (amount, price, total, created_at),
+        )
 
     conn.commit()
     conn.close()

@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 class APIResponse(BaseModel):
     """Standard API response model"""
+
     success: bool
     message: str
     data: Any | None = None
@@ -19,13 +20,14 @@ class APIResponse(BaseModel):
     timestamp: str = None
 
     def __init__(self, **data):
-        if 'timestamp' not in data:
-            data['timestamp'] = datetime.now(UTC).isoformat()
+        if "timestamp" not in data:
+            data["timestamp"] = datetime.now(UTC).isoformat()
         super().__init__(**data)
 
 
 class PaginatedResponse(BaseModel):
     """Paginated API response model"""
+
     success: bool
     message: str
     data: list[Any]
@@ -33,8 +35,8 @@ class PaginatedResponse(BaseModel):
     timestamp: str = None
 
     def __init__(self, **data):
-        if 'timestamp' not in data:
-            data['timestamp'] = datetime.now(UTC).isoformat()
+        if "timestamp" not in data:
+            data["timestamp"] = datetime.now(UTC).isoformat()
         super().__init__(**data)
 
 
@@ -45,64 +47,37 @@ def success_response(message: str = "Success", data: Any | None = None) -> APIRe
 
 def error_response(message: str, error: str | None = None, status_code: int = 400) -> HTTPException:
     """Create an error response"""
-    return HTTPException(
-        status_code=status_code,
-        detail={"success": False, "message": message, "error": error}
-    )
+    return HTTPException(status_code=status_code, detail={"success": False, "message": message, "error": error})
 
 
 def not_found_response(resource: str = "Resource") -> HTTPException:
     """Create a not found response"""
-    return error_response(
-        message=f"{resource} not found",
-        error="NOT_FOUND",
-        status_code=404
-    )
+    return error_response(message=f"{resource} not found", error="NOT_FOUND", status_code=404)
 
 
 def unauthorized_response(message: str = "Unauthorized") -> HTTPException:
     """Create an unauthorized response"""
-    return error_response(
-        message=message,
-        error="UNAUTHORIZED",
-        status_code=401
-    )
+    return error_response(message=message, error="UNAUTHORIZED", status_code=401)
 
 
 def forbidden_response(message: str = "Forbidden") -> HTTPException:
     """Create a forbidden response"""
-    return error_response(
-        message=message,
-        error="FORBIDDEN",
-        status_code=403
-    )
+    return error_response(message=message, error="FORBIDDEN", status_code=403)
 
 
 def validation_error_response(errors: list[str]) -> HTTPException:
     """Create a validation error response"""
-    return error_response(
-        message="Validation failed",
-        error="VALIDATION_ERROR",
-        status_code=422
-    )
+    return error_response(message="Validation failed", error="VALIDATION_ERROR", status_code=422)
 
 
 def conflict_response(message: str = "Resource conflict") -> HTTPException:
     """Create a conflict response"""
-    return error_response(
-        message=message,
-        error="CONFLICT",
-        status_code=409
-    )
+    return error_response(message=message, error="CONFLICT", status_code=409)
 
 
 def internal_error_response(message: str = "Internal server error") -> HTTPException:
     """Create an internal server error response"""
-    return error_response(
-        message=message,
-        error="INTERNAL_ERROR",
-        status_code=500
-    )
+    return error_response(message=message, error="INTERNAL_ERROR", status_code=500)
 
 
 class PaginationParams:
@@ -128,7 +103,7 @@ def paginate_items(items: list[Any], page: int = 1, page_size: int = 10) -> dict
     total = len(items)
     params = PaginationParams(page, page_size)
 
-    paginated_items = items[params.offset:params.offset + params.page_size]
+    paginated_items = items[params.offset : params.offset + params.page_size]
     total_pages = (total + params.page_size - 1) // params.page_size
 
     return {
@@ -139,25 +114,19 @@ def paginate_items(items: list[Any], page: int = 1, page_size: int = 10) -> dict
             "total": total,
             "total_pages": total_pages,
             "has_next": params.page < total_pages,
-            "has_prev": params.page > 1
-        }
+            "has_prev": params.page > 1,
+        },
     }
 
 
 def build_paginated_response(
-    items: list[Any],
-    page: int = 1,
-    page_size: int = 10,
-    message: str = "Success"
+    items: list[Any], page: int = 1, page_size: int = 10, message: str = "Success"
 ) -> PaginatedResponse:
     """Build a paginated API response"""
     pagination_data = paginate_items(items, page, page_size)
 
     return PaginatedResponse(
-        success=True,
-        message=message,
-        data=pagination_data["items"],
-        pagination=pagination_data["pagination"]
+        success=True, message=message, data=pagination_data["items"], pagination=pagination_data["pagination"]
     )
 
 
@@ -165,18 +134,13 @@ class RateLimitHeaders:
     """Rate limit headers helper"""
 
     @staticmethod
-    def get_headers(
-        limit: int,
-        remaining: int,
-        reset: int,
-        window: int
-    ) -> dict[str, str]:
+    def get_headers(limit: int, remaining: int, reset: int, window: int) -> dict[str, str]:
         """Get rate limit headers"""
         return {
             "X-RateLimit-Limit": str(limit),
             "X-RateLimit-Remaining": str(remaining),
             "X-RateLimit-Reset": str(reset),
-            "X-RateLimit-Window": str(window)
+            "X-RateLimit-Window": str(window),
         }
 
     @staticmethod
@@ -189,7 +153,7 @@ def build_cors_headers(
     allowed_origins: list[str] = None,
     allowed_methods: list[str] = None,
     allowed_headers: list[str] = None,
-    max_age: int = 3600
+    max_age: int = 3600,
 ) -> dict[str, str]:
     """Build CORS headers"""
     if allowed_headers is None:
@@ -202,14 +166,12 @@ def build_cors_headers(
         "Access-Control-Allow-Origin": ", ".join(allowed_origins),
         "Access-Control-Allow-Methods": ", ".join(allowed_methods),
         "Access-Control-Allow-Headers": ", ".join(allowed_headers),
-        "Access-Control-Max-Age": str(max_age)
+        "Access-Control-Max-Age": str(max_age),
     }
 
 
 def build_standard_headers(
-    content_type: str = "application/json",
-    cache_control: str | None = None,
-    x_request_id: str | None = None
+    content_type: str = "application/json", cache_control: str | None = None, x_request_id: str | None = None
 ) -> dict[str, str]:
     """Build standard response headers"""
     headers = {
@@ -241,9 +203,7 @@ def validate_sort_order(order: str) -> str:
 
 
 def build_sort_params(
-    sort_by: str | None = None,
-    sort_order: str = "ASC",
-    allowed_fields: list[str] | None = None
+    sort_by: str | None = None, sort_order: str = "ASC", allowed_fields: list[str] | None = None
 ) -> dict[str, Any]:
     """Build sort parameters"""
     if sort_by and allowed_fields:
@@ -270,7 +230,9 @@ def sanitize_response(data: Any, sensitive_fields: list[str] = None) -> Any:
 
     if isinstance(data, dict):
         return {
-            k: "***" if any(sensitive in k.lower() for sensitive in sensitive_fields) else sanitize_response(v, sensitive_fields)
+            k: "***"
+            if any(sensitive in k.lower() for sensitive in sensitive_fields)
+            else sanitize_response(v, sensitive_fields)
             for k, v in data.items()
         }
     elif isinstance(data, list):
@@ -325,5 +287,5 @@ def build_request_metadata(request) -> dict[str, str]:
         "client_ip": get_client_ip(request),
         "user_agent": get_user_agent(request),
         "request_id": request.headers.get("X-Request-ID", "unknown"),
-        "timestamp": datetime.now(UTC).isoformat()
+        "timestamp": datetime.now(UTC).isoformat(),
     }

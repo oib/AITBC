@@ -17,15 +17,14 @@ def load_module_from_path(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-testing = load_module_from_path(
-    "aitbc.testing",
-    Path("/opt/aitbc/aitbc/testing.py")
-)
+
+testing = load_module_from_path("aitbc.testing", Path("/opt/aitbc/aitbc/testing.py"))
 
 
 # ============================================================================
 # Mock Factory Tests
 # ============================================================================
+
 
 class TestMockFactory:
     """Test MockFactory class"""
@@ -81,6 +80,7 @@ class TestMockFactory:
 # ============================================================================
 # Test Data Generator Tests
 # ============================================================================
+
 
 class TestTestDataGenerator:
     """Test TestDataGenerator class"""
@@ -149,6 +149,7 @@ class TestTestDataGenerator:
 # Test Helpers Tests
 # ============================================================================
 
+
 class TestTestHelpers:
     """Test TestHelpers class"""
 
@@ -196,22 +197,26 @@ class TestTestHelpers:
 
     def test_wait_for_condition_true(self):
         condition_met = False
+
         def condition():
             nonlocal condition_met
             condition_met = True
             return condition_met
+
         result = testing.TestHelpers.wait_for_condition(condition, timeout=1.0, interval=0.01)
         assert result is True
 
     def test_wait_for_condition_timeout(self):
         def condition():
             return False
+
         result = testing.TestHelpers.wait_for_condition(condition, timeout=0.1, interval=0.01)
         assert result is False
 
     def test_measure_execution_time(self):
         def test_func():
             return "result"
+
         result, elapsed = testing.TestHelpers.measure_execution_time(test_func)
         assert result == "result"
         assert elapsed >= 0
@@ -232,6 +237,7 @@ class TestTestHelpers:
 # ============================================================================
 # Mock Response Tests
 # ============================================================================
+
 
 class TestMockResponse:
     """Test MockResponse class"""
@@ -270,10 +276,7 @@ class TestMockResponse:
             response.raise_for_status()
 
     def test_mock_response_headers(self):
-        response = testing.MockResponse(
-            status_code=200,
-            headers={"Content-Type": "application/json"}
-        )
+        response = testing.MockResponse(status_code=200, headers={"Content-Type": "application/json"})
         assert response.headers["Content-Type"] == "application/json"
 
     def test_mock_response_headers_default(self):
@@ -284,6 +287,7 @@ class TestMockResponse:
 # ============================================================================
 # Mock Database Tests
 # ============================================================================
+
 
 class TestMockDatabase:
     """Test MockDatabase class"""
@@ -374,6 +378,7 @@ class TestMockDatabase:
 # Mock Cache Tests
 # ============================================================================
 
+
 class TestMockCache:
     """Test MockCache class"""
 
@@ -406,6 +411,7 @@ class TestMockCache:
         cache = testing.MockCache(ttl=0)
         cache.set("key", "value")
         import time
+
         time.sleep(0.01)
         result = cache.get("key")
         assert result is None
@@ -440,6 +446,7 @@ class TestMockCache:
 # Module Functions Tests
 # ============================================================================
 
+
 class TestModuleFunctions:
     """Test module-level functions"""
 
@@ -472,10 +479,7 @@ class TestModuleFunctions:
         assert config["custom_key"] == "value"
 
     def test_create_test_scenario(self):
-        steps = [
-            lambda: "step1",
-            lambda: "step2"
-        ]
+        steps = [lambda: "step1", lambda: "step2"]
         scenario = testing.create_test_scenario("test_scenario", steps)
         results = scenario()
         assert len(results) == 2
@@ -486,10 +490,7 @@ class TestModuleFunctions:
         def failing_step():
             raise ValueError("test error")
 
-        steps = [
-            lambda: "step1",
-            failing_step
-        ]
+        steps = [lambda: "step1", failing_step]
         scenario = testing.create_test_scenario("test_scenario", steps)
         results = scenario()
         assert len(results) == 2

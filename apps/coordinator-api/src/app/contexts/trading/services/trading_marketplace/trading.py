@@ -2,6 +2,7 @@
 Agent-to-Agent Trading Protocol Service
 Implements P2P trading, matching, negotiation, and settlement systems
 """
+
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -26,21 +27,29 @@ class MatchingEngine:
     """Advanced agent matching and routing algorithms"""
 
     def __init__(self) -> None:
-        self.weights = {'price': 0.25, 'specifications': 0.2, 'timing': 0.15, 'reputation': 0.15, 'geography': 0.1, 'availability': 0.1, 'service_level': 0.05}
+        self.weights = {
+            "price": 0.25,
+            "specifications": 0.2,
+            "timing": 0.15,
+            "reputation": 0.15,
+            "geography": 0.1,
+            "availability": 0.1,
+            "service_level": 0.05,
+        }
         self.min_match_score = 60.0
         self.max_matches_per_request = 10
         self.match_expiry_hours = 24
 
     def calculate_price_compatibility(self, buyer_budget: dict[str, float], seller_price: float) -> float:
         """Calculate price compatibility score (0-100)"""
-        min_budget = buyer_budget.get('min', 0)
-        max_budget = buyer_budget.get('max', float('inf'))
+        min_budget = buyer_budget.get("min", 0)
+        max_budget = buyer_budget.get("max", float("inf"))
         if seller_price < min_budget:
             return 0.0
         elif seller_price > max_budget:
             return 0.0
         else:
-            if max_budget == float('inf'):
+            if max_budget == float("inf"):
                 return 100.0
             budget_range = max_budget - min_budget
             if budget_range == 0:
@@ -85,10 +94,10 @@ class MatchingEngine:
 
     def calculate_timing_compatibility(self, buyer_timing: dict[str, Any], seller_timing: dict[str, Any]) -> float:
         """Calculate timing compatibility score (0-100)"""
-        buyer_start = buyer_timing.get('start_time')
-        buyer_end = buyer_timing.get('end_time')
-        seller_start = seller_timing.get('start_time')
-        seller_end = seller_timing.get('end_time')
+        buyer_start = buyer_timing.get("start_time")
+        buyer_end = buyer_timing.get("end_time")
+        seller_start = seller_timing.get("start_time")
+        seller_end = seller_timing.get("end_time")
         if not buyer_start or not seller_start:
             return 80.0
         if buyer_end and seller_end:
@@ -116,7 +125,13 @@ class MatchingEngine:
         normalized_avg = min(100.0, avg_reputation / 10.0)
         return normalized_avg
 
-    def calculate_geographic_compatibility(self, buyer_regions: list[str], seller_regions: list[str], buyer_excluded: list[str] | None=None, seller_excluded: list[str] | None=None) -> float:
+    def calculate_geographic_compatibility(
+        self,
+        buyer_regions: list[str],
+        seller_regions: list[str],
+        buyer_excluded: list[str] | None = None,
+        seller_excluded: list[str] | None = None,
+    ) -> float:
         """Calculate geographic compatibility score (0-100)"""
         buyer_excluded = buyer_excluded or []
         seller_excluded = seller_excluded or []
@@ -137,51 +152,100 @@ class MatchingEngine:
         else:
             return 80.0
 
-    def calculate_overall_match_score(self, buyer_request: TradeRequest, seller_offer: dict[str, Any], seller_reputation: float) -> dict[str, Any]:
+    def calculate_overall_match_score(
+        self, buyer_request: TradeRequest, seller_offer: dict[str, Any], seller_reputation: float
+    ) -> dict[str, Any]:
         """Calculate overall match score with detailed breakdown"""
-        seller_price = seller_offer.get('price', 0)
-        seller_specs = seller_offer.get('specifications', {})
-        seller_timing = seller_offer.get('timing', {})
-        seller_regions = seller_offer.get('regions', [])
+        seller_price = seller_offer.get("price", 0)
+        seller_specs = seller_offer.get("specifications", {})
+        seller_timing = seller_offer.get("timing", {})
+        seller_regions = seller_offer.get("regions", [])
         price_score = self.calculate_price_compatibility(buyer_request.budget_range, seller_price)
         spec_score = self.calculate_specification_compatibility(buyer_request.specifications, seller_specs)
-        timing_score = self.calculate_timing_compatibility(buyer_request.requirements.get('timing', {}), seller_timing)
+        timing_score = self.calculate_timing_compatibility(buyer_request.requirements.get("timing", {}), seller_timing)
         buyer_reputation = 500.0
         reputation_score = self.calculate_reputation_compatibility(buyer_reputation, seller_reputation)
-        geography_score = self.calculate_geographic_compatibility(buyer_request.preferred_regions, seller_regions, buyer_request.excluded_regions)
-        overall_score = (price_score * self.weights['price'] + spec_score * self.weights['specifications'] + timing_score * self.weights['timing'] + reputation_score * self.weights['reputation'] + geography_score * self.weights['geography']) * 100
-        return {'overall_score': min(100.0, max(0.0, overall_score)), 'price_compatibility': price_score, 'specification_compatibility': spec_score, 'timing_compatibility': timing_score, 'reputation_compatibility': reputation_score, 'geographic_compatibility': geography_score, 'confidence_level': min(1.0, overall_score / 100.0)}
+        geography_score = self.calculate_geographic_compatibility(
+            buyer_request.preferred_regions, seller_regions, buyer_request.excluded_regions
+        )
+        overall_score = (
+            price_score * self.weights["price"]
+            + spec_score * self.weights["specifications"]
+            + timing_score * self.weights["timing"]
+            + reputation_score * self.weights["reputation"]
+            + geography_score * self.weights["geography"]
+        ) * 100
+        return {
+            "overall_score": min(100.0, max(0.0, overall_score)),
+            "price_compatibility": price_score,
+            "specification_compatibility": spec_score,
+            "timing_compatibility": timing_score,
+            "reputation_compatibility": reputation_score,
+            "geographic_compatibility": geography_score,
+            "confidence_level": min(1.0, overall_score / 100.0),
+        }
 
-    def find_matches(self, trade_request: TradeRequest, seller_offers: list[dict[str, Any]], seller_reputations: dict[str, float]) -> list[dict[str, Any]]:
+    def find_matches(
+        self, trade_request: TradeRequest, seller_offers: list[dict[str, Any]], seller_reputations: dict[str, float]
+    ) -> list[dict[str, Any]]:
         """Find best matching sellers for a trade request"""
         matches = []
         for seller_offer in seller_offers:
-            seller_id = seller_offer.get('agent_id')
+            seller_id = seller_offer.get("agent_id")
             seller_reputation = seller_reputations.get(seller_id, 500.0)  # type: ignore[arg-type]
             match_result = self.calculate_overall_match_score(trade_request, seller_offer, seller_reputation)
-            if match_result['overall_score'] >= self.min_match_score:
-                matches.append({'seller_agent_id': seller_id, 'seller_offer': seller_offer, 'match_score': match_result['overall_score'], 'confidence_level': match_result['confidence_level'], 'compatibility_breakdown': match_result})
-        matches.sort(key=lambda x: x['match_score'], reverse=True)
-        return matches[:self.max_matches_per_request]
+            if match_result["overall_score"] >= self.min_match_score:
+                matches.append(
+                    {
+                        "seller_agent_id": seller_id,
+                        "seller_offer": seller_offer,
+                        "match_score": match_result["overall_score"],
+                        "confidence_level": match_result["confidence_level"],
+                        "compatibility_breakdown": match_result,
+                    }
+                )
+        matches.sort(key=lambda x: x["match_score"], reverse=True)
+        return matches[: self.max_matches_per_request]
+
 
 class NegotiationSystem:
     """Automated negotiation system for trade agreements"""
 
     def __init__(self) -> None:
-        self.strategies = {'aggressive': {'price_tolerance': 0.05, 'concession_rate': 0.02, 'max_rounds': 3}, 'balanced': {'price_tolerance': 0.1, 'concession_rate': 0.05, 'max_rounds': 5}, 'cooperative': {'price_tolerance': 0.15, 'concession_rate': 0.08, 'max_rounds': 7}}
+        self.strategies = {
+            "aggressive": {"price_tolerance": 0.05, "concession_rate": 0.02, "max_rounds": 3},
+            "balanced": {"price_tolerance": 0.1, "concession_rate": 0.05, "max_rounds": 5},
+            "cooperative": {"price_tolerance": 0.15, "concession_rate": 0.08, "max_rounds": 7},
+        }
         self.response_timeout_minutes = 60
         self.max_negotiation_hours = 24
 
     def generate_initial_offer(self, buyer_request: TradeRequest, seller_offer: dict[str, Any]) -> dict[str, Any]:
         """Generate initial negotiation offer"""
-        buyer_min = buyer_request.budget_range.get('min', 0)
-        buyer_max = buyer_request.budget_range.get('max', float('inf'))
-        seller_price = seller_offer.get('price', 0)
-        if buyer_max == float('inf'):
+        buyer_min = buyer_request.budget_range.get("min", 0)
+        buyer_max = buyer_request.budget_range.get("max", float("inf"))
+        seller_price = seller_offer.get("price", 0)
+        if buyer_max == float("inf"):
             initial_price = (buyer_min + seller_price) / 2
         else:
             initial_price = (buyer_min + buyer_max + seller_price) / 3
-        initial_offer = {'price': initial_price, 'specifications': self.merge_specifications(buyer_request.specifications, seller_offer.get('specifications', {})), 'timing': self.negotiate_timing(buyer_request.requirements.get('timing', {}), seller_offer.get('timing', {})), 'service_level': self.determine_service_level(buyer_request.service_level_required, seller_offer.get('service_level', 'standard')), 'payment_terms': {'settlement_type': 'escrow', 'payment_schedule': 'milestone', 'advance_payment': 0.2}, 'delivery_terms': {'start_time': self.negotiate_start_time(buyer_request.start_time, seller_offer.get('timing', {}).get('start_time')), 'duration': self.negotiate_duration(buyer_request.duration_hours, seller_offer.get('timing', {}).get('duration_hours'))}}
+        initial_offer = {
+            "price": initial_price,
+            "specifications": self.merge_specifications(buyer_request.specifications, seller_offer.get("specifications", {})),
+            "timing": self.negotiate_timing(buyer_request.requirements.get("timing", {}), seller_offer.get("timing", {})),
+            "service_level": self.determine_service_level(
+                buyer_request.service_level_required, seller_offer.get("service_level", "standard")
+            ),
+            "payment_terms": {"settlement_type": "escrow", "payment_schedule": "milestone", "advance_payment": 0.2},
+            "delivery_terms": {
+                "start_time": self.negotiate_start_time(
+                    buyer_request.start_time, seller_offer.get("timing", {}).get("start_time")
+                ),
+                "duration": self.negotiate_duration(
+                    buyer_request.duration_hours, seller_offer.get("timing", {}).get("duration_hours")
+                ),
+            },
+        }
         return initial_offer
 
     def merge_specifications(self, buyer_specs: dict[str, Any], seller_specs: dict[str, Any]) -> dict[str, Any]:
@@ -199,27 +263,27 @@ class NegotiationSystem:
     def negotiate_timing(self, buyer_timing: dict[str, Any], seller_timing: dict[str, Any]) -> dict[str, Any]:
         """Negotiate timing requirements"""
         negotiated = {}
-        buyer_start = buyer_timing.get('start_time')
-        seller_start = seller_timing.get('start_time')
+        buyer_start = buyer_timing.get("start_time")
+        seller_start = seller_timing.get("start_time")
         if buyer_start and seller_start:
-            negotiated['start_time'] = max(buyer_start, seller_start)
+            negotiated["start_time"] = max(buyer_start, seller_start)
         elif buyer_start:
-            negotiated['start_time'] = buyer_start
+            negotiated["start_time"] = buyer_start
         elif seller_start:
-            negotiated['start_time'] = seller_start
-        buyer_duration = buyer_timing.get('duration_hours')
-        seller_duration = seller_timing.get('duration_hours')
+            negotiated["start_time"] = seller_start
+        buyer_duration = buyer_timing.get("duration_hours")
+        seller_duration = seller_timing.get("duration_hours")
         if buyer_duration and seller_duration:
-            negotiated['duration_hours'] = min(buyer_duration, seller_duration)
+            negotiated["duration_hours"] = min(buyer_duration, seller_duration)
         elif buyer_duration:
-            negotiated['duration_hours'] = buyer_duration
+            negotiated["duration_hours"] = buyer_duration
         elif seller_duration:
-            negotiated['duration_hours'] = seller_duration
+            negotiated["duration_hours"] = seller_duration
         return negotiated
 
     def determine_service_level(self, buyer_required: str, seller_offered: str) -> str:
         """Determine appropriate service level"""
-        levels = ['basic', 'standard', 'premium']
+        levels = ["basic", "standard", "premium"]
         if levels.index(buyer_required) > levels.index(seller_offered):
             return buyer_required
         else:
@@ -247,38 +311,40 @@ class NegotiationSystem:
         else:
             return None
 
-    def calculate_concession(self, current_offer: dict[str, Any], previous_offer: dict[str, Any], strategy: str, round_number: int) -> dict[str, Any]:
+    def calculate_concession(
+        self, current_offer: dict[str, Any], previous_offer: dict[str, Any], strategy: str, round_number: int
+    ) -> dict[str, Any]:
         """Calculate concession based on negotiation strategy"""
-        strategy_config = self.strategies.get(strategy, self.strategies['balanced'])
-        concession_rate = strategy_config['concession_rate']
-        if 'price' in current_offer and 'price' in previous_offer:
-            price_diff = previous_offer['price'] - current_offer['price']
+        strategy_config = self.strategies.get(strategy, self.strategies["balanced"])
+        concession_rate = strategy_config["concession_rate"]
+        if "price" in current_offer and "price" in previous_offer:
+            price_diff = previous_offer["price"] - current_offer["price"]
             concession = price_diff * concession_rate
             new_offer = current_offer.copy()
-            new_offer['price'] = current_offer['price'] + concession
+            new_offer["price"] = current_offer["price"] + concession
             return new_offer
         return current_offer
 
     def evaluate_offer(self, offer: dict[str, Any], requirements: dict[str, Any], strategy: str) -> dict[str, Any]:
         """Evaluate if an offer should be accepted"""
-        strategy_config = self.strategies.get(strategy, self.strategies['balanced'])
-        price_tolerance = strategy_config['price_tolerance']
-        if 'price' in offer and 'budget_range' in requirements:
-            budget_min = requirements['budget_range'].get('min', 0)
-            budget_max = requirements['budget_range'].get('max', float('inf'))
-            if offer['price'] < budget_min:
-                return {'should_accept': False, 'reason': 'price_below_minimum'}
-            elif budget_max != float('inf') and offer['price'] > budget_max:
-                return {'should_accept': False, 'reason': 'price_above_maximum'}
-            if budget_max != float('inf'):
-                price_position = (offer['price'] - budget_min) / (budget_max - budget_min)
+        strategy_config = self.strategies.get(strategy, self.strategies["balanced"])
+        price_tolerance = strategy_config["price_tolerance"]
+        if "price" in offer and "budget_range" in requirements:
+            budget_min = requirements["budget_range"].get("min", 0)
+            budget_max = requirements["budget_range"].get("max", float("inf"))
+            if offer["price"] < budget_min:
+                return {"should_accept": False, "reason": "price_below_minimum"}
+            elif budget_max != float("inf") and offer["price"] > budget_max:
+                return {"should_accept": False, "reason": "price_above_maximum"}
+            if budget_max != float("inf"):
+                price_position = (offer["price"] - budget_min) / (budget_max - budget_min)
                 if price_position <= 1.0 - price_tolerance:
-                    return {'should_accept': True, 'reason': 'price_within_tolerance'}
-        if 'specifications' in offer and 'specifications' in requirements:
-            spec_compatibility = self.calculate_spec_compatibility(requirements['specifications'], offer['specifications'])
+                    return {"should_accept": True, "reason": "price_within_tolerance"}
+        if "specifications" in offer and "specifications" in requirements:
+            spec_compatibility = self.calculate_spec_compatibility(requirements["specifications"], offer["specifications"])
             if spec_compatibility < 70.0:
-                return {'should_accept': False, 'reason': 'specifications_incompatible'}
-        return {'should_accept': True, 'reason': 'acceptable_offer'}
+                return {"should_accept": False, "reason": "specifications_incompatible"}
+        return {"should_accept": True, "reason": "acceptable_offer"}
 
     def calculate_spec_compatibility(self, required_specs: dict[str, Any], offered_specs: dict[str, Any]) -> float:
         """Calculate specification compatibility (reused from matching engine)"""
@@ -299,58 +365,131 @@ class NegotiationSystem:
             compatibility_scores.append(score)
         return sum(compatibility_scores) / len(compatibility_scores) if compatibility_scores else 50.0
 
+
 class SettlementLayer:
     """Secure settlement and escrow system"""
 
     def __init__(self) -> None:
-        self.settlement_types = {'immediate': {'requires_escrow': False, 'processing_time': 0, 'fee_rate': 0.01}, 'escrow': {'requires_escrow': True, 'processing_time': 5, 'fee_rate': 0.02}, 'milestone': {'requires_escrow': True, 'processing_time': 10, 'fee_rate': 0.025}, 'subscription': {'requires_escrow': False, 'processing_time': 2, 'fee_rate': 0.015}}
-        self.escrow_release_conditions = {'delivery_confirmed': {'requires_buyer_confirmation': True, 'requires_seller_confirmation': False, 'auto_release_delay_hours': 24}, 'milestone_completed': {'requires_buyer_confirmation': True, 'requires_seller_confirmation': True, 'auto_release_delay_hours': 2}, 'time_based': {'requires_buyer_confirmation': False, 'requires_seller_confirmation': False, 'auto_release_delay_hours': 168}}
+        self.settlement_types = {
+            "immediate": {"requires_escrow": False, "processing_time": 0, "fee_rate": 0.01},
+            "escrow": {"requires_escrow": True, "processing_time": 5, "fee_rate": 0.02},
+            "milestone": {"requires_escrow": True, "processing_time": 10, "fee_rate": 0.025},
+            "subscription": {"requires_escrow": False, "processing_time": 2, "fee_rate": 0.015},
+        }
+        self.escrow_release_conditions = {
+            "delivery_confirmed": {
+                "requires_buyer_confirmation": True,
+                "requires_seller_confirmation": False,
+                "auto_release_delay_hours": 24,
+            },
+            "milestone_completed": {
+                "requires_buyer_confirmation": True,
+                "requires_seller_confirmation": True,
+                "auto_release_delay_hours": 2,
+            },
+            "time_based": {
+                "requires_buyer_confirmation": False,
+                "requires_seller_confirmation": False,
+                "auto_release_delay_hours": 168,
+            },
+        }
 
     def create_settlement(self, agreement: TradeAgreement, settlement_type: SettlementType) -> dict[str, Any]:
         """Create settlement configuration"""
-        config = self.settlement_types.get(settlement_type, self.settlement_types['escrow'])
-        settlement = {'settlement_id': f'settle_{uuid4().hex[:8]}', 'agreement_id': agreement.agreement_id, 'settlement_type': settlement_type, 'total_amount': agreement.total_price, 'currency': agreement.currency, 'requires_escrow': config['requires_escrow'], 'processing_time_minutes': config['processing_time'], 'fee_rate': config['fee_rate'], 'platform_fee': agreement.total_price * config['fee_rate'], 'net_amount_seller': agreement.total_price * (1 - config['fee_rate'])}
-        if config['requires_escrow']:
-            settlement['escrow_config'] = {'escrow_address': self.generate_escrow_address(), 'release_conditions': agreement.service_level_agreement.get('escrow_conditions', {}), 'auto_release': True, 'dispute_resolution_enabled': True}
+        config = self.settlement_types.get(settlement_type, self.settlement_types["escrow"])
+        settlement = {
+            "settlement_id": f"settle_{uuid4().hex[:8]}",
+            "agreement_id": agreement.agreement_id,
+            "settlement_type": settlement_type,
+            "total_amount": agreement.total_price,
+            "currency": agreement.currency,
+            "requires_escrow": config["requires_escrow"],
+            "processing_time_minutes": config["processing_time"],
+            "fee_rate": config["fee_rate"],
+            "platform_fee": agreement.total_price * config["fee_rate"],
+            "net_amount_seller": agreement.total_price * (1 - config["fee_rate"]),
+        }
+        if config["requires_escrow"]:
+            settlement["escrow_config"] = {
+                "escrow_address": self.generate_escrow_address(),
+                "release_conditions": agreement.service_level_agreement.get("escrow_conditions", {}),
+                "auto_release": True,
+                "dispute_resolution_enabled": True,
+            }
         if settlement_type == SettlementType.MILESTONE:
-            settlement['milestone_config'] = {'milestones': agreement.payment_schedule.get('milestones', []), 'release_triggers': agreement.delivery_timeline.get('milestone_triggers', {})}
+            settlement["milestone_config"] = {
+                "milestones": agreement.payment_schedule.get("milestones", []),
+                "release_triggers": agreement.delivery_timeline.get("milestone_triggers", {}),
+            }
         if settlement_type == SettlementType.SUBSCRIPTION:
-            settlement['subscription_config'] = {'billing_cycle': agreement.payment_schedule.get('billing_cycle', 'monthly'), 'auto_renewal': agreement.payment_schedule.get('auto_renewal', True), 'cancellation_policy': agreement.terms_and_conditions.get('cancellation_policy', {})}
+            settlement["subscription_config"] = {
+                "billing_cycle": agreement.payment_schedule.get("billing_cycle", "monthly"),
+                "auto_renewal": agreement.payment_schedule.get("auto_renewal", True),
+                "cancellation_policy": agreement.terms_and_conditions.get("cancellation_policy", {}),
+            }
         return settlement
 
     def generate_escrow_address(self) -> str:
         """Generate unique escrow address"""
-        return f'0x{uuid4().hex}'
+        return f"0x{uuid4().hex}"
 
-    def process_payment(self, settlement: dict[str, Any], payment_method: str='blockchain') -> dict[str, Any]:
+    def process_payment(self, settlement: dict[str, Any], payment_method: str = "blockchain") -> dict[str, Any]:
         """Process payment through settlement layer"""
-        transaction_id = f'tx_{uuid4().hex[:8]}'
-        transaction_hash = f'0x{uuid4().hex}'
-        payment_result = {'transaction_id': transaction_id, 'transaction_hash': transaction_hash, 'status': 'processing', 'payment_method': payment_method, 'amount': settlement['total_amount'], 'currency': settlement['currency'], 'fee': settlement['platform_fee'], 'net_amount': settlement['net_amount_seller'], 'processed_at': datetime.now(UTC).isoformat()}
-        if settlement['requires_escrow']:
-            payment_result['escrow_address'] = settlement['escrow_config']['escrow_address']
-            payment_result['escrow_status'] = 'locked'
+        transaction_id = f"tx_{uuid4().hex[:8]}"
+        transaction_hash = f"0x{uuid4().hex}"
+        payment_result = {
+            "transaction_id": transaction_id,
+            "transaction_hash": transaction_hash,
+            "status": "processing",
+            "payment_method": payment_method,
+            "amount": settlement["total_amount"],
+            "currency": settlement["currency"],
+            "fee": settlement["platform_fee"],
+            "net_amount": settlement["net_amount_seller"],
+            "processed_at": datetime.now(UTC).isoformat(),
+        }
+        if settlement["requires_escrow"]:
+            payment_result["escrow_address"] = settlement["escrow_config"]["escrow_address"]
+            payment_result["escrow_status"] = "locked"
         return payment_result
 
-    def release_escrow(self, settlement: dict[str, Any], release_reason: str, release_conditions_met: bool=True) -> dict[str, Any]:
+    def release_escrow(
+        self, settlement: dict[str, Any], release_reason: str, release_conditions_met: bool = True
+    ) -> dict[str, Any]:
         """Release funds from escrow"""
-        if not settlement['requires_escrow']:
-            return {'error': 'Settlement does not require escrow'}
-        release_result = {'settlement_id': settlement['settlement_id'], 'escrow_address': settlement['escrow_config']['escrow_address'], 'release_reason': release_reason, 'conditions_met': release_conditions_met, 'released_at': datetime.now(UTC).isoformat(), 'status': 'released' if release_conditions_met else 'held'}
+        if not settlement["requires_escrow"]:
+            return {"error": "Settlement does not require escrow"}
+        release_result = {
+            "settlement_id": settlement["settlement_id"],
+            "escrow_address": settlement["escrow_config"]["escrow_address"],
+            "release_reason": release_reason,
+            "conditions_met": release_conditions_met,
+            "released_at": datetime.now(UTC).isoformat(),
+            "status": "released" if release_conditions_met else "held",
+        }
         if release_conditions_met:
-            release_result['transaction_id'] = f'release_{uuid4().hex[:8]}'
-            release_result['amount_released'] = settlement['net_amount_seller']
+            release_result["transaction_id"] = f"release_{uuid4().hex[:8]}"
+            release_result["amount_released"] = settlement["net_amount_seller"]
         else:
-            release_result['hold_reason'] = 'Release conditions not met'
+            release_result["hold_reason"] = "Release conditions not met"
         return release_result
 
     def handle_dispute(self, settlement: dict[str, Any], dispute_details: dict[str, Any]) -> dict[str, Any]:
         """Handle dispute resolution for settlement"""
-        dispute_result = {'settlement_id': settlement['settlement_id'], 'dispute_id': f'dispute_{uuid4().hex[:8]}', 'dispute_type': dispute_details.get('type', 'general'), 'dispute_reason': dispute_details.get('reason', ''), 'initiated_by': dispute_details.get('initiated_by', ''), 'initiated_at': datetime.now(UTC).isoformat(), 'status': 'under_review'}
-        if settlement['requires_escrow']:
-            dispute_result['escrow_status'] = 'held_pending_resolution'
-            dispute_result['escrow_release_blocked'] = True
+        dispute_result = {
+            "settlement_id": settlement["settlement_id"],
+            "dispute_id": f"dispute_{uuid4().hex[:8]}",
+            "dispute_type": dispute_details.get("type", "general"),
+            "dispute_reason": dispute_details.get("reason", ""),
+            "initiated_by": dispute_details.get("initiated_by", ""),
+            "initiated_at": datetime.now(UTC).isoformat(),
+            "status": "under_review",
+        }
+        if settlement["requires_escrow"]:
+            dispute_result["escrow_status"] = "held_pending_resolution"
+            dispute_result["escrow_release_blocked"] = True
         return dispute_result
+
 
 class P2PTradingProtocol:
     """Main P2P trading protocol service"""
@@ -361,45 +500,104 @@ class P2PTradingProtocol:
         self.negotiation_system = NegotiationSystem()
         self.settlement_layer = SettlementLayer()
 
-    async def create_trade_request(self, buyer_agent_id: str, trade_type: TradeType, title: str, description: str, requirements: dict[str, Any], budget_range: dict[str, float], **kwargs: Any) -> TradeRequest:
+    async def create_trade_request(
+        self,
+        buyer_agent_id: str,
+        trade_type: TradeType,
+        title: str,
+        description: str,
+        requirements: dict[str, Any],
+        budget_range: dict[str, float],
+        **kwargs: Any,
+    ) -> TradeRequest:
         """Create a new trade request"""
-        trade_request = TradeRequest(request_id=f'req_{uuid4().hex[:8]}', buyer_agent_id=buyer_agent_id, trade_type=trade_type, title=title, description=description, requirements=requirements, specifications=requirements.get('specifications', {}), constraints=requirements.get('constraints', {}), budget_range=budget_range, preferred_terms=requirements.get('preferred_terms', {}), start_time=kwargs.get('start_time'), end_time=kwargs.get('end_time'), duration_hours=kwargs.get('duration_hours'), urgency_level=kwargs.get('urgency_level', 'normal'), preferred_regions=kwargs.get('preferred_regions', []), excluded_regions=kwargs.get('excluded_regions', []), service_level_required=kwargs.get('service_level_required', 'standard'), tags=kwargs.get('tags', []), metadata=kwargs.get('metadata', {}), expires_at=kwargs.get('expires_at', datetime.now(UTC) + timedelta(days=7)))
+        trade_request = TradeRequest(
+            request_id=f"req_{uuid4().hex[:8]}",
+            buyer_agent_id=buyer_agent_id,
+            trade_type=trade_type,
+            title=title,
+            description=description,
+            requirements=requirements,
+            specifications=requirements.get("specifications", {}),
+            constraints=requirements.get("constraints", {}),
+            budget_range=budget_range,
+            preferred_terms=requirements.get("preferred_terms", {}),
+            start_time=kwargs.get("start_time"),
+            end_time=kwargs.get("end_time"),
+            duration_hours=kwargs.get("duration_hours"),
+            urgency_level=kwargs.get("urgency_level", "normal"),
+            preferred_regions=kwargs.get("preferred_regions", []),
+            excluded_regions=kwargs.get("excluded_regions", []),
+            service_level_required=kwargs.get("service_level_required", "standard"),
+            tags=kwargs.get("tags", []),
+            metadata=kwargs.get("metadata", {}),
+            expires_at=kwargs.get("expires_at", datetime.now(UTC) + timedelta(days=7)),
+        )
         self.session.add(trade_request)
         self.session.commit()
         self.session.refresh(trade_request)
-        logger.info('Created trade request %s for agent %s', trade_request.request_id, buyer_agent_id)
+        logger.info("Created trade request %s for agent %s", trade_request.request_id, buyer_agent_id)
         return trade_request
 
     async def find_matches(self, request_id: str) -> list[dict[str, Any]]:
         """Find matching sellers for a trade request"""
         trade_request = self.session.execute(select(TradeRequest).where(TradeRequest.request_id == request_id)).first()
         if not trade_request:
-            raise ValueError(f'Trade request {request_id} not found')
+            raise ValueError(f"Trade request {request_id} not found")
         seller_offers = await self.get_available_sellers(trade_request)
-        seller_ids = [offer['agent_id'] for offer in seller_offers]
+        seller_ids = [offer["agent_id"] for offer in seller_offers]
         seller_reputations = await self.get_seller_reputations(seller_ids)
         matches = self.matching_engine.find_matches(trade_request, seller_offers, seller_reputations)
         trade_matches = []
         for match in matches:
-            trade_match = TradeMatch(match_id=f'match_{uuid4().hex[:8]}', request_id=request_id, buyer_agent_id=trade_request.buyer_agent_id, seller_agent_id=match['seller_agent_id'], match_score=match['match_score'], confidence_level=match['confidence_level'], price_compatibility=match['compatibility_breakdown']['price_compatibility'], timing_compatibility=match['compatibility_breakdown']['timing_compatibility'], specification_compatibility=match['compatibility_breakdown']['specification_compatibility'], reputation_compatibility=match['compatibility_breakdown']['reputation_compatibility'], geographic_compatibility=match['compatibility_breakdown']['geographic_compatibility'], seller_offer=match['seller_offer'], proposed_terms=match['seller_offer'].get('terms', {}), expires_at=datetime.now(UTC) + timedelta(hours=self.matching_engine.match_expiry_hours))
+            trade_match = TradeMatch(
+                match_id=f"match_{uuid4().hex[:8]}",
+                request_id=request_id,
+                buyer_agent_id=trade_request.buyer_agent_id,
+                seller_agent_id=match["seller_agent_id"],
+                match_score=match["match_score"],
+                confidence_level=match["confidence_level"],
+                price_compatibility=match["compatibility_breakdown"]["price_compatibility"],
+                timing_compatibility=match["compatibility_breakdown"]["timing_compatibility"],
+                specification_compatibility=match["compatibility_breakdown"]["specification_compatibility"],
+                reputation_compatibility=match["compatibility_breakdown"]["reputation_compatibility"],
+                geographic_compatibility=match["compatibility_breakdown"]["geographic_compatibility"],
+                seller_offer=match["seller_offer"],
+                proposed_terms=match["seller_offer"].get("terms", {}),
+                expires_at=datetime.now(UTC) + timedelta(hours=self.matching_engine.match_expiry_hours),
+            )
             self.session.add(trade_match)
             trade_matches.append(trade_match)
         self.session.commit()
         trade_request.match_count = len(trade_matches)
-        trade_request.best_match_score = matches[0]['match_score'] if matches else 0.0
+        trade_request.best_match_score = matches[0]["match_score"] if matches else 0.0
         trade_request.updated_at = datetime.now(UTC)
         self.session.commit()
-        logger.info('Found %s matches for request %s', len(trade_matches), request_id)
-        return [match['seller_agent_id'] for match in matches]
+        logger.info("Found %s matches for request %s", len(trade_matches), request_id)
+        return [match["seller_agent_id"] for match in matches]
 
-    async def initiate_negotiation(self, match_id: str, initiator: str, strategy: str='balanced') -> TradeNegotiation:
+    async def initiate_negotiation(self, match_id: str, initiator: str, strategy: str = "balanced") -> TradeNegotiation:
         """Initiate negotiation between buyer and seller"""
         trade_match = self.session.execute(select(TradeMatch).where(TradeMatch.match_id == match_id)).first()
         if not trade_match:
-            raise ValueError(f'Trade match {match_id} not found')
-        trade_request = self.session.execute(select(TradeRequest).where(TradeRequest.request_id == trade_match.request_id)).first()
+            raise ValueError(f"Trade match {match_id} not found")
+        trade_request = self.session.execute(
+            select(TradeRequest).where(TradeRequest.request_id == trade_match.request_id)
+        ).first()
         initial_offer = self.negotiation_system.generate_initial_offer(trade_request, trade_match.seller_offer)
-        negotiation = TradeNegotiation(negotiation_id=f'neg_{uuid4().hex[:8]}', match_id=match_id, buyer_agent_id=trade_match.buyer_agent_id, seller_agent_id=trade_match.seller_agent_id, status=NegotiationStatus.PENDING, negotiation_strategy=strategy, current_terms=initial_offer, initial_terms=initial_offer, auto_accept_threshold=85.0, started_at=datetime.now(UTC), expires_at=datetime.now(UTC) + timedelta(hours=self.negotiation_system.max_negotiation_hours))
+        negotiation = TradeNegotiation(
+            negotiation_id=f"neg_{uuid4().hex[:8]}",
+            match_id=match_id,
+            buyer_agent_id=trade_match.buyer_agent_id,
+            seller_agent_id=trade_match.seller_agent_id,
+            status=NegotiationStatus.PENDING,
+            negotiation_strategy=strategy,
+            current_terms=initial_offer,
+            initial_terms=initial_offer,
+            auto_accept_threshold=85.0,
+            started_at=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + timedelta(hours=self.negotiation_system.max_negotiation_hours),
+        )
         self.session.add(negotiation)
         self.session.commit()
         self.session.refresh(negotiation)
@@ -409,23 +607,66 @@ class P2PTradingProtocol:
         trade_match.initial_terms = initial_offer
         trade_match.last_interaction = datetime.now(UTC)
         self.session.commit()
-        logger.info('Initiated negotiation %s for match %s', negotiation.negotiation_id, match_id)
+        logger.info("Initiated negotiation %s for match %s", negotiation.negotiation_id, match_id)
         return negotiation
 
     async def get_available_sellers(self, trade_request: TradeRequest) -> list[dict[str, Any]]:
         """Get available sellers for a trade request (mock implementation)"""
-        mock_sellers = [{'agent_id': 'seller_001', 'price': 0.05, 'specifications': {'cpu_cores': 4, 'memory_gb': 16, 'gpu_count': 1}, 'timing': {'start_time': datetime.now(UTC), 'duration_hours': 8}, 'regions': ['us-east', 'us-west'], 'service_level': 'premium', 'terms': {'settlement_type': 'escrow', 'delivery_guarantee': True}}, {'agent_id': 'seller_002', 'price': 0.045, 'specifications': {'cpu_cores': 2, 'memory_gb': 8, 'gpu_count': 1}, 'timing': {'start_time': datetime.now(UTC), 'duration_hours': 6}, 'regions': ['us-east'], 'service_level': 'standard', 'terms': {'settlement_type': 'immediate', 'delivery_guarantee': False}}]
+        mock_sellers = [
+            {
+                "agent_id": "seller_001",
+                "price": 0.05,
+                "specifications": {"cpu_cores": 4, "memory_gb": 16, "gpu_count": 1},
+                "timing": {"start_time": datetime.now(UTC), "duration_hours": 8},
+                "regions": ["us-east", "us-west"],
+                "service_level": "premium",
+                "terms": {"settlement_type": "escrow", "delivery_guarantee": True},
+            },
+            {
+                "agent_id": "seller_002",
+                "price": 0.045,
+                "specifications": {"cpu_cores": 2, "memory_gb": 8, "gpu_count": 1},
+                "timing": {"start_time": datetime.now(UTC), "duration_hours": 6},
+                "regions": ["us-east"],
+                "service_level": "standard",
+                "terms": {"settlement_type": "immediate", "delivery_guarantee": False},
+            },
+        ]
         return mock_sellers
 
     async def get_seller_reputations(self, seller_ids: list[str]) -> dict[str, float]:
         """Get seller reputations (mock implementation)"""
-        mock_reputations = {'seller_001': 750.0, 'seller_002': 650.0}
+        mock_reputations = {"seller_001": 750.0, "seller_002": 650.0}
         return {seller_id: mock_reputations.get(seller_id, 500.0) for seller_id in seller_ids}
 
     async def get_trading_summary(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive trading summary for an agent"""
         requests = self.session.execute(select(TradeRequest).where(TradeRequest.buyer_agent_id == agent_id)).all()
-        matches = self.session.execute(select(TradeMatch).where(or_(TradeMatch.buyer_agent_id == agent_id, TradeMatch.seller_agent_id == agent_id))).all()
-        negotiations = self.session.execute(select(TradeNegotiation).where(or_(TradeNegotiation.buyer_agent_id == agent_id, TradeNegotiation.seller_agent_id == agent_id))).all()
-        agreements = self.session.execute(select(TradeAgreement).where(or_(TradeAgreement.buyer_agent_id == agent_id, TradeAgreement.seller_agent_id == agent_id))).all()
-        return {'agent_id': agent_id, 'trade_requests': len(requests), 'trade_matches': len(matches), 'negotiations': len(negotiations), 'agreements': len(agreements), 'success_rate': len(agreements) / len(matches) if matches else 0.0, 'average_match_score': sum(m.match_score for m in matches) / len(matches) if matches else 0.0, 'total_trade_volume': sum(a.total_price for a in agreements), 'recent_activity': {'requests_last_30d': len([r for r in requests if r.created_at >= datetime.now(UTC) - timedelta(days=30)]), 'matches_last_30d': len([m for m in matches if m.created_at >= datetime.now(UTC) - timedelta(days=30)]), 'agreements_last_30d': len([a for a in agreements if a.created_at >= datetime.now(UTC) - timedelta(days=30)])}}
+        matches = self.session.execute(
+            select(TradeMatch).where(or_(TradeMatch.buyer_agent_id == agent_id, TradeMatch.seller_agent_id == agent_id))
+        ).all()
+        negotiations = self.session.execute(
+            select(TradeNegotiation).where(
+                or_(TradeNegotiation.buyer_agent_id == agent_id, TradeNegotiation.seller_agent_id == agent_id)
+            )
+        ).all()
+        agreements = self.session.execute(
+            select(TradeAgreement).where(
+                or_(TradeAgreement.buyer_agent_id == agent_id, TradeAgreement.seller_agent_id == agent_id)
+            )
+        ).all()
+        return {
+            "agent_id": agent_id,
+            "trade_requests": len(requests),
+            "trade_matches": len(matches),
+            "negotiations": len(negotiations),
+            "agreements": len(agreements),
+            "success_rate": len(agreements) / len(matches) if matches else 0.0,
+            "average_match_score": sum(m.match_score for m in matches) / len(matches) if matches else 0.0,
+            "total_trade_volume": sum(a.total_price for a in agreements),
+            "recent_activity": {
+                "requests_last_30d": len([r for r in requests if r.created_at >= datetime.now(UTC) - timedelta(days=30)]),
+                "matches_last_30d": len([m for m in matches if m.created_at >= datetime.now(UTC) - timedelta(days=30)]),
+                "agreements_last_30d": len([a for a in agreements if a.created_at >= datetime.now(UTC) - timedelta(days=30)]),
+            },
+        }

@@ -2,6 +2,7 @@
 Island Manager
 Manages island membership, multi-island support, and island operations for federated mesh
 """
+
 import asyncio
 import time
 import uuid
@@ -12,15 +13,19 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+
 class IslandStatus(Enum):
     """Island membership status"""
-    ACTIVE = 'active'
-    INACTIVE = 'inactive'
-    BRIDGING = 'bridging'
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    BRIDGING = "bridging"
+
 
 @dataclass
 class IslandMembership:
     """Represents a node's membership in an island"""
+
     island_id: str
     island_name: str
     chain_id: str
@@ -29,15 +34,18 @@ class IslandMembership:
     is_hub: bool = False
     peer_count: int = 0
 
+
 @dataclass
 class BridgeRequest:
     """Represents a bridge request to another island"""
+
     request_id: str
     source_island_id: str
     target_island_id: str
     source_node_id: str
     timestamp: float
-    status: str = 'pending'
+    status: str = "pending"
+
 
 class IslandManager:
     """Manages island membership and operations for federated mesh"""
@@ -55,84 +63,110 @@ class IslandManager:
 
     def _initialize_default_island(self) -> None:
         """Initialize with default island membership"""
-        self.islands[self.default_island_id] = IslandMembership(island_id=self.default_island_id, island_name='default', chain_id=self.default_chain_id, status=IslandStatus.ACTIVE, joined_at=time.time(), is_hub=False)
+        self.islands[self.default_island_id] = IslandMembership(
+            island_id=self.default_island_id,
+            island_name="default",
+            chain_id=self.default_chain_id,
+            status=IslandStatus.ACTIVE,
+            joined_at=time.time(),
+            is_hub=False,
+        )
         self.island_peers[self.default_island_id] = set()
-        logger.info('Initialized with default island: %s', self.default_island_id)
+        logger.info("Initialized with default island: %s", self.default_island_id)
 
     async def start(self) -> None:
         """Start island manager"""
         self.running = True
-        logger.info('Starting island manager for node %s', self.local_node_id)
+        logger.info("Starting island manager for node %s", self.local_node_id)
         tasks = [asyncio.create_task(self._bridge_request_monitor()), asyncio.create_task(self._island_health_check())]
         try:
             await asyncio.gather(*tasks)
         except Exception as e:
-            logger.error('Island manager error: %s', e)
+            logger.error("Island manager error: %s", e)
         finally:
             self.running = False
 
     async def stop(self) -> None:
         """Stop island manager"""
         self.running = False
-        logger.info('Stopping island manager')
+        logger.info("Stopping island manager")
 
-    def join_island(self, island_id: str, island_name: str, chain_id: str, is_hub: bool=False) -> bool:
+    def join_island(self, island_id: str, island_name: str, chain_id: str, is_hub: bool = False) -> bool:
         """Join an island"""
         if island_id in self.islands:
-            logger.warning('Already member of island %s', island_id)
+            logger.warning("Already member of island %s", island_id)
             return False
-        self.islands[island_id] = IslandMembership(island_id=island_id, island_name=island_name, chain_id=chain_id, status=IslandStatus.ACTIVE, joined_at=time.time(), is_hub=is_hub)
+        self.islands[island_id] = IslandMembership(
+            island_id=island_id,
+            island_name=island_name,
+            chain_id=chain_id,
+            status=IslandStatus.ACTIVE,
+            joined_at=time.time(),
+            is_hub=is_hub,
+        )
         self.island_peers[island_id] = set()
-        logger.info('Joined island %s (name: %s, chain: %s)', island_id, island_name, chain_id)
+        logger.info("Joined island %s (name: %s, chain: %s)", island_id, island_name, chain_id)
         return True
 
     def leave_island(self, island_id: str) -> bool:
         """Leave an island"""
         if island_id == self.default_island_id:
-            logger.warning('Cannot leave default island')
+            logger.warning("Cannot leave default island")
             return False
         if island_id not in self.islands:
-            logger.warning('Not member of island %s', island_id)
+            logger.warning("Not member of island %s", island_id)
             return False
         if island_id in self.active_bridges:
             self.active_bridges.remove(island_id)
         del self.islands[island_id]
         if island_id in self.island_peers:
             del self.island_peers[island_id]
-        logger.info('Left island %s', island_id)
+        logger.info("Left island %s", island_id)
         return True
 
     def request_bridge(self, target_island_id: str) -> str:
         """Request bridge to another island"""
         if target_island_id in self.islands:
-            logger.warning('Already member of island %s', target_island_id)
-            return ''
+            logger.warning("Already member of island %s", target_island_id)
+            return ""
         request_id = str(uuid.uuid4())
-        request = BridgeRequest(request_id=request_id, source_island_id=self.default_island_id, target_island_id=target_island_id, source_node_id=self.local_node_id, timestamp=time.time(), status='pending')
+        request = BridgeRequest(
+            request_id=request_id,
+            source_island_id=self.default_island_id,
+            target_island_id=target_island_id,
+            source_node_id=self.local_node_id,
+            timestamp=time.time(),
+            status="pending",
+        )
         self.bridge_requests[request_id] = request
-        logger.info('Requested bridge to island %s (request_id: %s)', target_island_id, request_id)
+        logger.info("Requested bridge to island %s (request_id: %s)", target_island_id, request_id)
         return request_id
 
     def approve_bridge_request(self, request_id: str) -> bool:
         """Approve a bridge request"""
         if request_id not in self.bridge_requests:
-            logger.warning('Unknown bridge request %s', request_id)
+            logger.warning("Unknown bridge request %s", request_id)
             return False
         request = self.bridge_requests[request_id]
-        request.status = 'approved'
-        self.join_island(request.target_island_id, f'bridge-{request.target_island_id[:8]}', f'bridge-{request.target_island_id[:8]}', is_hub=False)
+        request.status = "approved"
+        self.join_island(
+            request.target_island_id,
+            f"bridge-{request.target_island_id[:8]}",
+            f"bridge-{request.target_island_id[:8]}",
+            is_hub=False,
+        )
         self.active_bridges.add(request.target_island_id)
-        logger.info('Approved bridge request %s to island %s', request_id, request.target_island_id)
+        logger.info("Approved bridge request %s to island %s", request_id, request.target_island_id)
         return True
 
     def reject_bridge_request(self, request_id: str) -> bool:
         """Reject a bridge request"""
         if request_id not in self.bridge_requests:
-            logger.warning('Unknown bridge request %s', request_id)
+            logger.warning("Unknown bridge request %s", request_id)
             return False
         request = self.bridge_requests[request_id]
-        request.status = 'rejected'
-        logger.info('Rejected bridge request %s from island %s', request_id, request.source_island_id)
+        request.status = "rejected"
+        logger.info("Rejected bridge request %s from island %s", request_id, request.source_island_id)
         return True
 
     def get_island_peers(self, island_id: str) -> set[str]:
@@ -183,13 +217,17 @@ class IslandManager:
         while self.running:
             try:
                 current_time = time.time()
-                expired_requests = [req_id for req_id, req in self.bridge_requests.items() if current_time - req.timestamp > 3600 and req.status == 'pending']
+                expired_requests = [
+                    req_id
+                    for req_id, req in self.bridge_requests.items()
+                    if current_time - req.timestamp > 3600 and req.status == "pending"
+                ]
                 for req_id in expired_requests:
                     del self.bridge_requests[req_id]
-                    logger.info('Removed expired bridge request %s', req_id)
+                    logger.info("Removed expired bridge request %s", req_id)
                 await asyncio.sleep(60)
             except Exception as e:
-                logger.error('Bridge request monitor error: %s', e)
+                logger.error("Bridge request monitor error: %s", e)
                 await asyncio.sleep(10)
 
     async def _island_health_check(self) -> None:
@@ -204,16 +242,20 @@ class IslandManager:
                     if peer_count == 0 and membership.status == IslandStatus.ACTIVE:
                         if current_time - membership.joined_at > 600:
                             membership.status = IslandStatus.INACTIVE
-                            logger.warning('Island %s marked as inactive (no peers)', island_id)
+                            logger.warning("Island %s marked as inactive (no peers)", island_id)
                 await asyncio.sleep(30)
             except Exception as e:
-                logger.error('Island health check error: %s', e)
+                logger.error("Island health check error: %s", e)
                 await asyncio.sleep(10)
+
+
 island_manager_instance: IslandManager | None = None
+
 
 def get_island_manager() -> IslandManager | None:
     """Get global island manager instance"""
     return island_manager_instance
+
 
 def create_island_manager(node_id: str, default_island_id: str, default_chain_id: str) -> IslandManager:
     """Create and set global island manager instance"""

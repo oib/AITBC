@@ -29,10 +29,7 @@ def setup_logging(settings: "ServiceSettings | None" = None, level: str | None =
     log_dir.mkdir(parents=True, exist_ok=True)
 
     # Create formatter
-    formatter = logging.Formatter(
-        fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
+    formatter = logging.Formatter(fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
     # Configure root logger
     root_logger = logging.getLogger()
@@ -48,9 +45,7 @@ def setup_logging(settings: "ServiceSettings | None" = None, level: str | None =
 
     # File handler
     if settings and settings.service_name:
-        file_handler = logging.FileHandler(
-            log_dir / f"{settings.service_name}.log"
-        )
+        file_handler = logging.FileHandler(log_dir / f"{settings.service_name}.log")
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
 

@@ -21,7 +21,7 @@ class DatabaseService:
                 return {
                     "success": False,
                     "message": f"Database {database_id} already exists",
-                    "database": existing_db.database_id
+                    "database": existing_db.database_id,
                 }
 
             # Create new database record
@@ -32,17 +32,12 @@ class DatabaseService:
                 used_gb=0,
                 status="initialized",
                 sync_status="idle",
-                records_synced=0
+                records_synced=0,
             )
             session.add(db)
             await session.commit()
 
-            return {
-                "success": True,
-                "message": f"Database {database_id} initialized",
-                "database": database_id,
-                "id": db.id
-            }
+            return {"success": True, "message": f"Database {database_id} initialized", "database": database_id, "id": db.id}
 
     async def get_database(self, database_id: str) -> dict[str, Any] | None:
         """Get database details"""
@@ -63,7 +58,7 @@ class DatabaseService:
                     "last_sync_at": db.last_sync_at.isoformat() if db.last_sync_at else None,
                     "sync_status": db.sync_status,
                     "records_synced": db.records_synced,
-                    "extra_data": db.extra_data
+                    "extra_data": db.extra_data,
                 }
             return None
 
@@ -82,10 +77,7 @@ class DatabaseService:
             db = result.scalar_one_or_none()
 
             if not db:
-                return {
-                    "success": False,
-                    "message": f"Database {database_id} not found"
-                }
+                return {"success": False, "message": f"Database {database_id} not found"}
 
             # Update sync status in single transaction
             db.sync_status = "syncing"
@@ -99,11 +91,7 @@ class DatabaseService:
 
             await session.commit()
 
-            return {
-                "success": True,
-                "message": f"Database {database_id} synced",
-                "records_synced": db.records_synced
-            }
+            return {"success": True, "message": f"Database {database_id} synced", "records_synced": db.records_synced}
 
     async def list_databases(self, island_id: str | None = None) -> list[dict[str, Any]]:
         """List databases, optionally filtered by island_id"""
@@ -124,7 +112,7 @@ class DatabaseService:
                     "status": db.status,
                     "sync_status": db.sync_status,
                     "records_synced": db.records_synced,
-                    "created_at": db.created_at.isoformat() if db.created_at else None
+                    "created_at": db.created_at.isoformat() if db.created_at else None,
                 }
                 for db in databases
             ]

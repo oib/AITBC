@@ -9,7 +9,7 @@ from sqlmodel import Session
 def _insert_block(session: Session, height: int = 0) -> Block:
     block = Block(
         height=height,
-        hash=f"0x{'0'*63}{height}",
+        hash=f"0x{'0' * 63}{height}",
         parent_hash="0x" + "0" * 64,
         proposer="validator",
         tx_count=0,
@@ -71,13 +71,15 @@ def test_hash_validation_rejects_non_hex(session: Session) -> None:
     NOTE: This test is skipped because SQLModel with table=True does not run
     Pydantic field validators. Validation should be performed at the API/service
     layer before creating model instances.
-    
+
     See: https://github.com/tiangolo/sqlmodel/issues/52
     """
     with pytest.raises(ValueError):
-        Block.model_validate({
-            "height": 20,
-            "hash": "not-hex",
-            "parent_hash": "0x" + "c" * 64,
-            "proposer": "validator",
-        })
+        Block.model_validate(
+            {
+                "height": 20,
+                "hash": "not-hex",
+                "parent_hash": "0x" + "c" * 64,
+                "proposer": "validator",
+            }
+        )

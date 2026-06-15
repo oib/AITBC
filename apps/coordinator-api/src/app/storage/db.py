@@ -3,6 +3,7 @@ Unified database configuration for AITBC Coordinator API
 
 Provides SQLite and PostgreSQL support with connection pooling.
 """
+
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Generator
@@ -23,41 +24,61 @@ from ..config import settings
 _engine = None
 _async_engine = None
 
+
 def get_engine() -> Engine:
     """Get or create the database engine with connection pooling."""
     global _engine
     if _engine is None:
-        db_override = getattr(settings, 'database_url', None)
+        db_override = getattr(settings, "database_url", None)
         db_config = settings.database
         effective_url = db_override or db_config.effective_url
-        if 'sqlite' in effective_url:
-            _engine = create_engine(effective_url, echo=settings.db_echo, connect_args={'check_same_thread': False}, poolclass=QueuePool, pool_size=5, max_overflow=10, pool_pre_ping=settings.db_pool_pre_ping)
+        if "sqlite" in effective_url:
+            _engine = create_engine(
+                effective_url,
+                echo=settings.db_echo,
+                connect_args={"check_same_thread": False},
+                poolclass=QueuePool,
+                pool_size=5,
+                max_overflow=10,
+                pool_pre_ping=settings.db_pool_pre_ping,
+            )
         else:
-            _engine = create_engine(effective_url, echo=settings.db_echo, poolclass=QueuePool, pool_size=settings.db_pool_size, max_overflow=settings.db_max_overflow, pool_recycle=settings.db_pool_recycle, pool_pre_ping=settings.db_pool_pre_ping)
+            _engine = create_engine(
+                effective_url,
+                echo=settings.db_echo,
+                poolclass=QueuePool,
+                pool_size=settings.db_pool_size,
+                max_overflow=settings.db_max_overflow,
+                pool_recycle=settings.db_pool_recycle,
+                pool_pre_ping=settings.db_pool_pre_ping,
+            )
     return _engine
+
 
 def init_db() -> Engine:
     """Initialize database tables and ensure data directory exists."""
     engine = get_engine()
-    if 'sqlite' in str(engine.url):
+    if "sqlite" in str(engine.url):
         db_path = engine.url.database
         if db_path:
             from pathlib import Path
-            if db_path.startswith('./'):
+
+            if db_path.startswith("./"):
                 db_path = db_path[2:]
             data_dir = Path(db_path).parent
             data_dir.mkdir(parents=True, exist_ok=True)
     try:
         SQLModel.metadata.create_all(engine)
     except OperationalError as e:
-        if 'already exists' in str(e):
-            logger.warning('Index already exists during create_all (non-fatal): %s', e)
+        if "already exists" in str(e):
+            logger.warning("Index already exists during create_all (non-fatal): %s", e)
         else:
             raise
     except Exception as e:
-        logger.error('Unexpected error during create_all: %s', e)
+        logger.error("Unexpected error during create_all: %s", e)
         raise
     return engine
+
 
 @contextmanager
 def session_scope() -> Generator[Session]:
@@ -66,11 +87,13 @@ def session_scope() -> Generator[Session]:
     with Session(engine) as session:
         yield session
 
+
 def get_session() -> Generator[Session]:
     """Get a database session."""
     engine = get_engine()
     with Session(engine) as session:
         yield session
+
 
 async def get_async_engine() -> AsyncEngine:
     """Get or create async database engine."""
@@ -78,12 +101,21 @@ async def get_async_engine() -> AsyncEngine:
     if _async_engine is None:
         db_config = settings.database
         effective_url = db_config.effective_url
-        if 'sqlite' in effective_url:
-            async_url = effective_url.replace('sqlite:///', 'sqlite+aiosqlite:///')
+        if "sqlite" in effective_url:
+            async_url = effective_url.replace("sqlite:///", "sqlite+aiosqlite:///")
         else:
-            async_url = effective_url.replace('postgresql://', 'postgresql+asyncpg://')
-        _async_engine = create_async_engine(async_url, echo=settings.db_echo, poolclass=QueuePool, pool_size=settings.db_pool_size, max_overflow=settings.db_max_overflow, pool_recycle=settings.db_pool_recycle, pool_pre_ping=settings.db_pool_pre_ping)
+            async_url = effective_url.replace("postgresql://", "postgresql+asyncpg://")
+        _async_engine = create_async_engine(
+            async_url,
+            echo=settings.db_echo,
+            poolclass=QueuePool,
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+            pool_recycle=settings.db_pool_recycle,
+            pool_pre_ping=settings.db_pool_pre_ping,
+        )
     return _async_engine
+
 
 @asynccontextmanager
 async def async_session_scope() -> AsyncGenerator[AsyncSession]:
@@ -91,6 +123,7 @@ async def async_session_scope() -> AsyncGenerator[AsyncSession]:
     engine = await get_async_engine()
     async with AsyncSession(engine) as session:
         yield session
+
 
 async def get_async_session() -> AsyncSession:
     """Get an async database session."""

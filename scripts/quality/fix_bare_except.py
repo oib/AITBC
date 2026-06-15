@@ -20,7 +20,7 @@ def fix_bare_except(file_path):
             return False
 
         # Split into lines
-        lines = content.split('\n')
+        lines = content.split("\n")
         modified = False
         new_lines = []
 
@@ -30,11 +30,11 @@ def fix_bare_except(file_path):
             stripped = line.strip()
 
             # Check if this is a bare except statement
-            if stripped == 'except:':
+            if stripped == "except:":
                 # Check if the previous line is a try block
-                if i > 0 and 'try:' in lines[i-1]:
+                if i > 0 and "try:" in lines[i - 1]:
                     # Replace with except Exception:
-                    new_lines.append(line.replace('except:', 'except Exception:'))
+                    new_lines.append(line.replace("except:", "except Exception:"))
                     modified = True
                 else:
                     new_lines.append(line)
@@ -44,8 +44,8 @@ def fix_bare_except(file_path):
             i += 1
 
         if modified:
-            with open(file_path, 'w') as f:
-                f.write('\n'.join(new_lines))
+            with open(file_path, "w") as f:
+                f.write("\n".join(new_lines))
             print(f"Fixed {file_path}")
             return True
         return False
@@ -59,10 +59,10 @@ def main():
     if len(sys.argv) > 1:
         root = Path(sys.argv[1])
     else:
-        root = Path('.')
+        root = Path(".")
 
     # Find all Python files
-    py_files = list(root.rglob('*.py'))
+    py_files = list(root.rglob("*.py"))
 
     fixed_count = 0
     for py_file in py_files:
@@ -72,5 +72,5 @@ def main():
     print(f"\nFixed {fixed_count} files")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

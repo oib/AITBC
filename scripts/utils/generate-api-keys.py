@@ -14,6 +14,7 @@ def generate_api_key(length=32):
     """Generate a cryptographically secure API key"""
     return secrets.token_urlsafe(length)
 
+
 def create_api_key_entry(name, permissions="client", environment="default"):
     """Create an API key entry with metadata"""
     api_key = generate_api_key()
@@ -25,10 +26,11 @@ def create_api_key_entry(name, permissions="client", environment="default"):
         "environment": environment,
         "created_at": datetime.now(UTC).isoformat(),
         "expires_at": (datetime.now(UTC) + timedelta(days=365)).isoformat(),
-        "status": "active"
+        "status": "active",
     }
 
     return entry
+
 
 def main():
     """Main function to generate API keys"""
@@ -39,35 +41,19 @@ def main():
     keys = []
 
     # Client API key (for job submission, agent operations)
-    client_key = create_api_key_entry(
-        name="client-test-key",
-        permissions="client",
-        environment="default"
-    )
+    client_key = create_api_key_entry(name="client-test-key", permissions="client", environment="default")
     keys.append(client_key)
 
     # Admin API key (for system administration)
-    admin_key = create_api_key_entry(
-        name="admin-test-key",
-        permissions="client,admin",
-        environment="default"
-    )
+    admin_key = create_api_key_entry(name="admin-test-key", permissions="client,admin", environment="default")
     keys.append(admin_key)
 
     # Miner API key (for mining operations)
-    miner_key = create_api_key_entry(
-        name="miner-test-key",
-        permissions="client,miner",
-        environment="default"
-    )
+    miner_key = create_api_key_entry(name="miner-test-key", permissions="client,miner", environment="default")
     keys.append(miner_key)
 
     # Full access API key (for testing)
-    full_key = create_api_key_entry(
-        name="full-test-key",
-        permissions="client,admin,miner",
-        environment="default"
-    )
+    full_key = create_api_key_entry(name="full-test-key", permissions="client,admin,miner", environment="default")
     keys.append(full_key)
 
     # Display generated keys
@@ -83,7 +69,7 @@ def main():
 
     # Save to file
     output_file = "/tmp/aitbc-api-keys.json"
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(keys, f, indent=2)
 
     print(f"💾 API keys saved to: {output_file}")
@@ -93,7 +79,7 @@ def main():
     print("=" * 50)
 
     for key in keys:
-        if 'client' in key['permissions']:
+        if "client" in key["permissions"]:
             print(f"# For {key['name']}:")
             print(f"aitbc auth login {'*' * 32} --environment {key['environment']}")  # Mask API key
             print()
@@ -104,6 +90,7 @@ def main():
     print("aitbc marketplace gpu list")
 
     print("\n✅ API keys generated successfully!")
+
 
 if __name__ == "__main__":
     main()

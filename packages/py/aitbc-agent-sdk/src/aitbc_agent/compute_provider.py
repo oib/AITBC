@@ -64,9 +64,7 @@ class ComputeProvider(Agent):
         self.dynamic_pricing: dict[str, Any] = {}
 
     @classmethod
-    def create_provider(
-        cls, name: str, capabilities: dict[str, Any], pricing_model: dict[str, Any]
-    ) -> "ComputeProvider":
+    def create_provider(cls, name: str, capabilities: dict[str, Any], pricing_model: dict[str, Any]) -> "ComputeProvider":
         """Create and register a compute provider"""
         # Generate cryptographic keys
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -182,20 +180,13 @@ class ComputeProvider(Agent):
         while getattr(self, "dynamic_pricing", {}).get("enabled", False):
             try:
                 # Get current utilization
-                current_utilization = (
-                    len(self.active_jobs) / self.capabilities.max_concurrent_jobs
-                )
+                current_utilization = len(self.active_jobs) / self.capabilities.max_concurrent_jobs
 
                 # Adjust pricing based on demand
                 if current_utilization > self.dynamic_pricing["demand_threshold"]:
                     # High demand - increase price
                     multiplier = min(
-                        1.0
-                        + (
-                            current_utilization
-                            - self.dynamic_pricing["demand_threshold"]
-                        )
-                        * 2,
+                        1.0 + (current_utilization - self.dynamic_pricing["demand_threshold"]) * 2,
                         self.dynamic_pricing["max_multiplier"],
                     )
                 else:
@@ -212,10 +203,7 @@ class ComputeProvider(Agent):
                     offer.price_per_hour = new_price
                     await self._update_marketplace_offer(offer)
 
-                logger.debug(
-                    "Dynamic pricing: utilization=%.2f, price=%.3f AITBC/h",
-                    current_utilization, new_price
-                )
+                logger.debug("Dynamic pricing: utilization=%.2f, price=%.3f AITBC/h", current_utilization, new_price)
 
             except Exception as e:
                 logger.error("Dynamic pricing error: %s", e)
@@ -251,9 +239,7 @@ class ComputeProvider(Agent):
             logger.error("Failed to accept job: %s", e)
             return False
 
-    async def _execute_job(
-        self, job: JobExecution, job_request: dict[str, Any]
-    ) -> None:
+    async def _execute_job(self, job: JobExecution, job_request: dict[str, Any]) -> None:
         """Execute a computational job"""
         try:
             # Simulate job execution
@@ -288,11 +274,7 @@ class ComputeProvider(Agent):
             "job_id": job.job_id,
             "status": job.status,
             "completion_time": datetime.now(UTC).isoformat(),
-            "duration_hours": (
-                job.actual_duration.total_seconds() / 3600
-                if job.actual_duration
-                else None
-            ),
+            "duration_hours": (job.actual_duration.total_seconds() / 3600 if job.actual_duration else None),
             "quality_score": job.quality_score,
             "cost": earnings,
         }
@@ -301,9 +283,7 @@ class ComputeProvider(Agent):
 
     def _update_utilization(self) -> None:
         """Update current utilization rate"""
-        self.utilization_rate = (
-            len(self.active_jobs) / self.capabilities.max_concurrent_jobs
-        )
+        self.utilization_rate = len(self.active_jobs) / self.capabilities.max_concurrent_jobs
 
     async def get_performance_metrics(self) -> dict[str, Any]:
         """Get provider performance metrics"""
@@ -314,22 +294,12 @@ class ComputeProvider(Agent):
             "active_jobs": len(self.active_jobs),
             "total_earnings": self.earnings,
             "average_job_duration": (
-                sum(
-                    j.actual_duration.total_seconds()
-                    for j in completed_jobs
-                    if j.actual_duration
-                )
-                / len(completed_jobs)
+                sum(j.actual_duration.total_seconds() for j in completed_jobs if j.actual_duration) / len(completed_jobs)
                 if completed_jobs
                 else 0
             ),
             "quality_score": (
-                sum(
-                    j.quality_score
-                    for j in completed_jobs
-                    if j.quality_score is not None
-                )
-                / len(completed_jobs)
+                sum(j.quality_score for j in completed_jobs if j.quality_score is not None) / len(completed_jobs)
                 if completed_jobs
                 else 0
             ),
@@ -350,10 +320,7 @@ class ComputeProvider(Agent):
                 "quality_guarantee": offer.quality_guarantee,
             }
 
-            response = await self.http_client.post(
-                "/v1/marketplace/offers",
-                json=offer_data
-            )
+            response = await self.http_client.post("/v1/marketplace/offers", json=offer_data)
 
             if response.status_code == 201:
                 result = response.json()
@@ -383,10 +350,7 @@ class ComputeProvider(Agent):
                 "quality_guarantee": offer.quality_guarantee,
             }
 
-            response = await self.http_client.put(
-                f"/v1/marketplace/offers/{offer.provider_id}",
-                json=offer_data
-            )
+            response = await self.http_client.put(f"/v1/marketplace/offers/{offer.provider_id}", json=offer_data)
 
             if response.status_code == 200:
                 logger.info("Offer updated successfully: %s", offer.provider_id)
@@ -420,7 +384,7 @@ class ComputeProvider(Agent):
                 ["nvidia-smi", "--query-gpu=memory.total,name,compute_cap", "--format=csv,noheader"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
             )
 
             if result.returncode == 0:
@@ -433,7 +397,7 @@ class ComputeProvider(Agent):
                     if len(parts) >= 3:
                         # Parse memory (e.g., "8192 MiB")
                         memory_str = parts[0].strip()
-                        memory_match = re.search(r'(\d+)', memory_str)
+                        memory_match = re.search(r"(\d+)", memory_str)
                         if memory_match:
                             total_memory += int(memory_match.group(1))
 
@@ -485,7 +449,7 @@ class ComputeProvider(Agent):
 
     async def __aenter__(self) -> "ComputeProvider":
         """Async context manager entry - register provider and start services"""
-        await super().__aenter__() if hasattr(super(), '__aenter__') else self.register()
+        await super().__aenter__() if hasattr(super(), "__aenter__") else self.register()
         # Start dynamic pricing if enabled
         if self.dynamic_pricing.get("enabled", False):
             asyncio.create_task(self._dynamic_pricing_loop())
@@ -494,7 +458,7 @@ class ComputeProvider(Agent):
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit - cleanup provider resources"""
         # Stop dynamic pricing
-        if hasattr(self, 'dynamic_pricing'):
+        if hasattr(self, "dynamic_pricing"):
             self.dynamic_pricing["enabled"] = False
 
         # Complete any remaining jobs
@@ -504,7 +468,7 @@ class ComputeProvider(Agent):
                 logger.warning("Job %s marked as failed due to provider shutdown", job.job_id)
 
         # Call parent cleanup
-        if hasattr(super(), '__aexit__'):
+        if hasattr(super(), "__aexit__"):
             await super().__aexit__(exc_type, exc_val, exc_tb)
 
         if exc_type is not None:

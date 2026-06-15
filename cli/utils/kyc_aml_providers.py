@@ -15,41 +15,51 @@ from typing import Any
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class KYCProvider(str, Enum):
     """KYC service providers"""
+
     CHAINALYSIS = "chainalysis"
     SUMSUB = "sumsub"
     ONFIDO = "onfido"
     JUMIO = "jumio"
     VERIFF = "veriff"
 
+
 class KYCStatus(str, Enum):
     """KYC verification status"""
+
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
     FAILED = "failed"
     EXPIRED = "expired"
 
+
 class AMLRiskLevel(str, Enum):
     """AML risk levels"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
 
+
 @dataclass
 class KYCRequest:
     """KYC verification request"""
+
     user_id: str
     provider: KYCProvider
     customer_data: dict[str, Any]
     documents: list[dict[str, Any]] = None
     verification_level: str = "standard"
 
+
 @dataclass
 class KYCResponse:
     """KYC verification response"""
+
     request_id: str
     user_id: str
     provider: KYCProvider
@@ -60,9 +70,11 @@ class KYCResponse:
     expires_at: datetime | None = None
     rejection_reason: str | None = None
 
+
 @dataclass
 class AMLCheck:
     """AML screening check"""
+
     check_id: str
     user_id: str
     provider: str
@@ -72,6 +84,7 @@ class AMLCheck:
     pep_hits: list[dict[str, Any]]
     adverse_media: list[dict[str, Any]]
     checked_at: datetime
+
 
 class SimpleKYCProvider:
     """Simplified KYC provider with basic HTTP calls"""
@@ -83,7 +96,7 @@ class SimpleKYCProvider:
             KYCProvider.SUMSUB: "https://api.sumsub.com",
             KYCProvider.ONFIDO: "https://api.onfido.com",
             KYCProvider.JUMIO: "https://api.jumio.com",
-            KYCProvider.VERIFF: "https://api.veriff.com"
+            KYCProvider.VERIFF: "https://api.veriff.com",
         }
 
     def set_api_key(self, provider: KYCProvider, api_key: str):
@@ -98,15 +111,12 @@ class SimpleKYCProvider:
                 raise ValueError(f"No API key configured for {request.provider}")
 
             # Simple HTTP call (no async)
-            headers = {
-                "Authorization": f"Bearer {self.api_keys[request.provider]}",
-                "Content-Type": "application/json"
-            }
+            _ = {"Authorization": f"Bearer {self.api_keys[request.provider]}", "Content-Type": "application/json"}
 
-            payload = {
+            _ = {
                 "userId": request.user_id,
                 "customerData": request.customer_data,
-                "verificationLevel": request.verification_level
+                "verificationLevel": request.verification_level,
             }
 
             # Mock API response (in production would be real HTTP call)
@@ -147,7 +157,7 @@ class SimpleKYCProvider:
                 risk_score=risk_score,
                 verification_data={"provider": provider.value, "checked": True},
                 created_at=datetime.now() - timedelta(hours=1),
-                rejection_reason=rejection_reason if status in [KYCStatus.REJECTED, KYCStatus.FAILED] else None
+                rejection_reason=rejection_reason if status in [KYCStatus.REJECTED, KYCStatus.FAILED] else None,
             )
 
         except Exception as e:
@@ -164,8 +174,9 @@ class SimpleKYCProvider:
             risk_score=0.15,
             verification_data={"provider": request.provider.value, "submitted": True},
             created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(days=30)
+            expires_at=datetime.now() + timedelta(days=30),
         )
+
 
 class SimpleAMLProvider:
     """Simplified AML provider with basic HTTP calls"""
@@ -210,27 +221,25 @@ class SimpleAMLProvider:
                 sanctions_hits=sanctions_hits,
                 pep_hits=[],  # Politically Exposed Persons
                 adverse_media=[],
-                checked_at=datetime.now()
+                checked_at=datetime.now(),
             )
 
         except Exception as e:
             logger.error("❌ AML screening failed: %s", e)
             raise
 
+
 # Global instances
 kyc_provider = SimpleKYCProvider()
 aml_provider = SimpleAMLProvider()
+
 
 # CLI Interface Functions
 def submit_kyc_verification(user_id: str, provider: str, customer_data: dict[str, Any]) -> dict[str, Any]:
     """Submit KYC verification"""
     kyc_provider.set_api_key(KYCProvider(provider), "demo_api_key")
 
-    request = KYCRequest(
-        user_id=user_id,
-        provider=KYCProvider(provider),
-        customer_data=customer_data
-    )
+    request = KYCRequest(user_id=user_id, provider=KYCProvider(provider), customer_data=customer_data)
 
     response = kyc_provider.submit_kyc_verification(request)
 
@@ -240,8 +249,9 @@ def submit_kyc_verification(user_id: str, provider: str, customer_data: dict[str
         "provider": response.provider.value,
         "status": response.status.value,
         "risk_score": response.risk_score,
-        "created_at": response.created_at.isoformat()
+        "created_at": response.created_at.isoformat(),
     }
+
 
 def check_kyc_status(request_id: str, provider: str) -> dict[str, Any]:
     """Check KYC verification status"""
@@ -254,8 +264,9 @@ def check_kyc_status(request_id: str, provider: str) -> dict[str, Any]:
         "status": response.status.value,
         "risk_score": response.risk_score,
         "rejection_reason": response.rejection_reason,
-        "created_at": response.created_at.isoformat()
+        "created_at": response.created_at.isoformat(),
     }
+
 
 def perform_aml_screening(user_id: str, user_data: dict[str, Any]) -> dict[str, Any]:
     """Perform AML screening"""
@@ -270,20 +281,16 @@ def perform_aml_screening(user_id: str, user_data: dict[str, Any]) -> dict[str, 
         "risk_level": check.risk_level.value,
         "risk_score": check.risk_score,
         "sanctions_hits": check.sanctions_hits,
-        "checked_at": check.checked_at.isoformat()
+        "checked_at": check.checked_at.isoformat(),
     }
+
 
 # Test function
 def test_kyc_aml_integration():
     """Test KYC/AML integration"""
     logger.info("🧪 Testing KYC/AML Integration...")
     # Test KYC submission
-    customer_data = {
-        "first_name": "John",
-        "last_name": "Doe",
-        "email": "john.doe@example.com",
-        "date_of_birth": "1990-01-01"
-    }
+    customer_data = {"first_name": "John", "last_name": "Doe", "email": "john.doe@example.com", "date_of_birth": "1990-01-01"}
 
     kyc_result = submit_kyc_verification("user123", "chainalysis", customer_data)
     logger.info("✅ KYC Submitted: %s", kyc_result)
@@ -294,5 +301,7 @@ def test_kyc_aml_integration():
     aml_result = perform_aml_screening("user123", customer_data)
     logger.info("🔍 AML Screening: %s", aml_result)
     logger.info("🎉 KYC/AML integration test complete!")
+
+
 if __name__ == "__main__":
     test_kyc_aml_integration()

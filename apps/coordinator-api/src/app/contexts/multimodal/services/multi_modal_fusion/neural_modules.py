@@ -123,7 +123,7 @@ class MultiModalTransformer(nn.Module):
             # Apply attention between all modality pairs
             new_features = []
 
-            for j, modality in enumerate(modality_names):
+            for j, _modality in enumerate(modality_names):
                 # Query from current modality, keys/values from all modalities
                 query = fused_features[j]
 

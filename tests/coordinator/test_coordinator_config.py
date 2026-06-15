@@ -181,7 +181,7 @@ class TestEnvironmentConfig:
 class TestConfigUtils:
     """Test ConfigUtils class"""
 
-    @patch('app.config.settings')
+    @patch("app.config.settings")
     def test_get_agent_config_coordinator(self, mock_settings):
         """Test getting coordinator agent config"""
         mock_settings.heartbeat_interval = 30
@@ -193,7 +193,7 @@ class TestConfigUtils:
         assert config["heartbeat_interval"] == 15
         assert config["enable_coordination"] is True
 
-    @patch('app.config.settings')
+    @patch("app.config.settings")
     def test_get_agent_config_worker(self, mock_settings):
         """Test getting worker agent config"""
         mock_settings.heartbeat_interval = 30
@@ -204,7 +204,7 @@ class TestConfigUtils:
         assert config["max_connections"] == 50
         assert config["enable_coordination"] is False
 
-    @patch('app.config.settings')
+    @patch("app.config.settings")
     def test_get_agent_config_unknown(self, mock_settings):
         """Test getting config for unknown agent type"""
         mock_settings.heartbeat_interval = 30
@@ -216,7 +216,7 @@ class TestConfigUtils:
         assert "heartbeat_interval" in config
         assert "max_connections" in config
 
-    @patch('app.config.settings')
+    @patch("app.config.settings")
     def test_get_service_config_agent_coordinator(self, mock_settings):
         """Test getting agent_coordinator service config"""
         mock_settings.host = "0.0.0.0"
@@ -230,7 +230,7 @@ class TestConfigUtils:
         assert config["port"] == 9001
         assert config["enable_metrics"] is True
 
-    @patch('app.config.settings')
+    @patch("app.config.settings")
     def test_get_service_config_unknown(self, mock_settings):
         """Test getting config for unknown service"""
         mock_settings.host = "0.0.0.0"
@@ -248,7 +248,7 @@ class TestConfigUtils:
 class TestConfigLoader:
     """Test ConfigLoader class"""
 
-    @patch('app.config.settings')
+    @patch("app.config.settings")
     def test_validate_config_success(self, mock_settings):
         """Test successful configuration validation"""
         mock_settings.secret_key = "test_secret"
@@ -264,27 +264,27 @@ class TestConfigLoader:
         # Should not raise
         ConfigLoader.validate_config()
 
-    @patch('app.config.settings')
+    @patch("app.config.settings")
     def test_validate_config_invalid_port(self, mock_settings):
         """Test validation with invalid port"""
         pytest.skip("Config validation test skipped - uses global settings instance")
 
-    @patch('app.config.settings')
+    @patch("app.config.settings")
     def test_validate_config_missing_redis_url(self, mock_settings):
         """Test validation with missing Redis URL"""
         pytest.skip("Config validation test skipped - uses global settings instance")
 
-    @patch('app.config.settings')
+    @patch("app.config.settings")
     def test_validate_config_invalid_heartbeat(self, mock_settings):
         """Test validation with invalid heartbeat interval"""
         pytest.skip("Config validation test skipped - uses global settings instance")
 
-    @patch('app.config.settings')
+    @patch("app.config.settings")
     def test_validate_config_invalid_strategy(self, mock_settings):
         """Test validation with invalid load balancing strategy"""
         pytest.skip("Config validation test skipped - uses global settings instance")
 
-    @patch('app.config.settings')
+    @patch("app.config.settings")
     def test_get_redis_config(self, mock_settings):
         """Test getting Redis configuration"""
         mock_settings.redis_url = "redis://localhost:6379/1"
@@ -298,7 +298,7 @@ class TestConfigLoader:
         assert config["timeout"] == 5
         assert config["decode_responses"] is True
 
-    @patch('app.config.settings')
+    @patch("app.config.settings")
     def test_get_logging_config(self, mock_settings):
         """Test getting logging configuration"""
         mock_settings.log_level = LogLevel.INFO

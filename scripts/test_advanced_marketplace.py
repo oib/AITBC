@@ -50,12 +50,7 @@ def test_advanced_pricing():
     print("\n=== Testing Advanced Pricing Strategies ===")
 
     # Initialize pricing engine
-    engine = DynamicPricingEngine({
-        "min_price": 0.001,
-        "max_price": 1000.0,
-        "update_interval": 300,
-        "forecast_horizon": 72
-    })
+    _ = DynamicPricingEngine({"min_price": 0.001, "max_price": 1000.0, "update_interval": 300, "forecast_horizon": 72})
 
     # Test setting strategies
     strategies = [
@@ -146,11 +141,7 @@ def test_plugin_manager():
 
     # Test plugin registration
     plugin = plugin_manager.register_plugin(
-        plugin_name="test-plugin",
-        plugin_version="1.0.0",
-        plugin_type="extension",
-        description="Test plugin",
-        author="Test"
+        plugin_name="test-plugin", plugin_version="1.0.0", plugin_type="extension", description="Test plugin", author="Test"
     )
 
     print(f"  ✓ Plugin registered: {plugin.plugin_name}")
@@ -192,28 +183,28 @@ def test_service_instantiation():
     with Session(engine) as session:
         # Test MarketplaceService
         try:
-            marketplace_service = MarketplaceService(session)
+            _ = MarketplaceService(session)
             print("  ✓ MarketplaceService instantiated with session injection")
         except Exception as e:
             print(f"  ✗ MarketplaceService failed: {e}")
 
         # Test MarketAnalytics
         try:
-            analytics_service = MarketAnalytics(session)
+            _ = MarketAnalytics(session)
             print("  ✓ MarketAnalytics instantiated with session injection")
         except Exception as e:
             print(f"  ✗ MarketAnalytics failed: {e}")
 
         # Test ResourceMatcher
         try:
-            matcher_service = ResourceMatcher(session)
+            _ = ResourceMatcher(session)
             print("  ✓ ResourceMatcher instantiated with session injection")
         except Exception as e:
             print(f"  ✗ ResourceMatcher failed: {e}")
 
         # Test ExternalProviderService
         try:
-            provider_service = ExternalProviderService(session)
+            _ = ExternalProviderService(session)
             print("  ✓ ExternalProviderService instantiated with session injection")
         except Exception as e:
             print(f"  ✗ ExternalProviderService failed: {e}")
@@ -231,6 +222,7 @@ def test_database_tables():
 
     # Check if tables exist
     from sqlalchemy import inspect
+
     inspector = inspect(engine)
     tables = inspector.get_table_names()
 
@@ -282,6 +274,7 @@ def main():
     except Exception as e:
         print(f"\n✗ Test failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

@@ -70,11 +70,7 @@ async def test_process_staking_event():
 
     subscriber.set_bridge(bridge)
 
-    event_log = {
-        "topics": ["StakeCreated"],
-        "data": "{}",
-        "address": "0x123"
-    }
+    event_log = {"topics": ["StakeCreated"], "data": "{}", "address": "0x123"}
 
     await subscriber._handle_staking_event(event_log)
     bridge.handle_staking_event.assert_called_once_with(event_log)
@@ -93,11 +89,7 @@ async def test_process_performance_event():
 
     subscriber.set_bridge(bridge)
 
-    event_log = {
-        "topics": ["PerformanceVerified"],
-        "data": "{}",
-        "address": "0x123"
-    }
+    event_log = {"topics": ["PerformanceVerified"], "data": "{}", "address": "0x123"}
 
     await subscriber._handle_performance_event(event_log)
     bridge.handle_performance_event.assert_called_once_with(event_log)

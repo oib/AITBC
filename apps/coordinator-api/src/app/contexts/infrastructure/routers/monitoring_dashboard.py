@@ -2,6 +2,7 @@
 Enhanced Services Monitoring Dashboard
 Provides a unified dashboard for all 6 enhanced services
 """
+
 import asyncio
 from datetime import UTC, datetime
 from typing import Any
@@ -12,10 +13,54 @@ from aitbc import AITBCHTTPClient, NetworkError, get_logger
 from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
-router = APIRouter(prefix='/monitoring', tags=['monitoring'])
-SERVICES = {'multimodal': {'name': 'Multi-Modal Agent Service', 'port': 8002, 'url': 'http://localhost:8002', 'description': 'Text, image, audio, video processing', 'icon': '🤖'}, 'gpu_multimodal': {'name': 'GPU Multi-Modal Service', 'port': 8003, 'url': 'http://localhost:8003', 'description': 'CUDA-optimized processing', 'icon': '🚀'}, 'modality_optimization': {'name': 'Modality Optimization Service', 'port': 8004, 'url': 'http://localhost:8004', 'description': 'Specialized optimization strategies', 'icon': '⚡'}, 'adaptive_learning': {'name': 'Adaptive Learning Service', 'port': 8005, 'url': 'http://localhost:8005', 'description': 'Reinforcement learning frameworks', 'icon': '🧠'}, 'marketplace_enhanced': {'name': 'Enhanced Marketplace Service', 'port': 8006, 'url': 'http://localhost:8006', 'description': 'NFT 2.0, royalties, analytics', 'icon': '🏪'}, 'hermes_enhanced': {'name': 'hermes Enhanced Service', 'port': 8007, 'url': 'http://localhost:8007', 'description': 'Agent orchestration, edge computing', 'icon': '🌐'}}
+router = APIRouter(prefix="/monitoring", tags=["monitoring"])
+SERVICES = {
+    "multimodal": {
+        "name": "Multi-Modal Agent Service",
+        "port": 8002,
+        "url": "http://localhost:8002",
+        "description": "Text, image, audio, video processing",
+        "icon": "🤖",
+    },
+    "gpu_multimodal": {
+        "name": "GPU Multi-Modal Service",
+        "port": 8003,
+        "url": "http://localhost:8003",
+        "description": "CUDA-optimized processing",
+        "icon": "🚀",
+    },
+    "modality_optimization": {
+        "name": "Modality Optimization Service",
+        "port": 8004,
+        "url": "http://localhost:8004",
+        "description": "Specialized optimization strategies",
+        "icon": "⚡",
+    },
+    "adaptive_learning": {
+        "name": "Adaptive Learning Service",
+        "port": 8005,
+        "url": "http://localhost:8005",
+        "description": "Reinforcement learning frameworks",
+        "icon": "🧠",
+    },
+    "marketplace_enhanced": {
+        "name": "Enhanced Marketplace Service",
+        "port": 8006,
+        "url": "http://localhost:8006",
+        "description": "NFT 2.0, royalties, analytics",
+        "icon": "🏪",
+    },
+    "hermes_enhanced": {
+        "name": "hermes Enhanced Service",
+        "port": 8007,
+        "url": "http://localhost:8007",
+        "description": "Agent orchestration, edge computing",
+        "icon": "🌐",
+    },
+}
 
-@router.get('/dashboard', tags=['monitoring'], summary='Enhanced Services Dashboard')
+
+@router.get("/dashboard", tags=["monitoring"], summary="Enhanced Services Dashboard")
 @rate_limit(rate=200, per=60)
 async def monitoring_dashboard(request: Request) -> dict[str, Any]:
     """
@@ -24,14 +69,39 @@ async def monitoring_dashboard(request: Request) -> dict[str, Any]:
     try:
         health_data = await collect_all_health_data()
         overall_metrics = calculate_overall_metrics(health_data)
-        dashboard_data = {'timestamp': datetime.now(UTC).isoformat(), 'overall_status': overall_metrics['overall_status'], 'services': health_data, 'metrics': overall_metrics, 'summary': {'total_services': len(SERVICES), 'healthy_services': len([s for s in health_data.values() if s.get('status') == 'healthy']), 'degraded_services': len([s for s in health_data.values() if s.get('status') == 'degraded']), 'unhealthy_services': len([s for s in health_data.values() if s.get('status') == 'unhealthy']), 'last_updated': datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}}
-        logger.info('Monitoring dashboard data collected successfully')
+        dashboard_data = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "overall_status": overall_metrics["overall_status"],
+            "services": health_data,
+            "metrics": overall_metrics,
+            "summary": {
+                "total_services": len(SERVICES),
+                "healthy_services": len([s for s in health_data.values() if s.get("status") == "healthy"]),
+                "degraded_services": len([s for s in health_data.values() if s.get("status") == "degraded"]),
+                "unhealthy_services": len([s for s in health_data.values() if s.get("status") == "unhealthy"]),
+                "last_updated": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
+            },
+        }
+        logger.info("Monitoring dashboard data collected successfully")
         return dashboard_data
     except Exception as e:
-        logger.error('Failed to generate monitoring dashboard: %s', e)
-        return {'error': 'Failed to generate dashboard', 'timestamp': datetime.now(UTC).isoformat(), 'services': SERVICES, 'overall_status': 'error', 'summary': {'total_services': len(SERVICES), 'healthy_services': 0, 'degraded_services': 0, 'unhealthy_services': len(SERVICES), 'last_updated': datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}}
+        logger.error("Failed to generate monitoring dashboard: %s", e)
+        return {
+            "error": "Failed to generate dashboard",
+            "timestamp": datetime.now(UTC).isoformat(),
+            "services": SERVICES,
+            "overall_status": "error",
+            "summary": {
+                "total_services": len(SERVICES),
+                "healthy_services": 0,
+                "degraded_services": 0,
+                "unhealthy_services": len(SERVICES),
+                "last_updated": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
+            },
+        }
 
-@router.get('/dashboard/summary', tags=['monitoring'], summary='Services Summary')
+
+@router.get("/dashboard/summary", tags=["monitoring"], summary="Services Summary")
 @rate_limit(rate=200, per=60)
 async def services_summary(request: Request) -> dict[str, Any]:
     """
@@ -39,16 +109,24 @@ async def services_summary(request: Request) -> dict[str, Any]:
     """
     try:
         health_data = await collect_all_health_data()
-        summary = {'timestamp': datetime.now(UTC).isoformat(), 'services': {}}
+        summary = {"timestamp": datetime.now(UTC).isoformat(), "services": {}}
         for service_id, service_info in SERVICES.items():
             health = health_data.get(service_id, {})
-            summary['services'][service_id] = {'name': service_info['name'], 'port': service_info['port'], 'status': health.get('status', 'unknown'), 'description': service_info['description'], 'icon': service_info['icon'], 'last_check': health.get('timestamp')}  # type: ignore[index]
+            summary["services"][service_id] = {
+                "name": service_info["name"],
+                "port": service_info["port"],
+                "status": health.get("status", "unknown"),
+                "description": service_info["description"],
+                "icon": service_info["icon"],
+                "last_check": health.get("timestamp"),
+            }  # type: ignore[index]
         return summary
     except Exception as e:
-        logger.error('Failed to generate services summary: %s', e)
-        return {'error': 'Failed to generate summary', 'timestamp': datetime.now(UTC).isoformat()}
+        logger.error("Failed to generate services summary: %s", e)
+        return {"error": "Failed to generate summary", "timestamp": datetime.now(UTC).isoformat()}
 
-@router.get('/dashboard/metrics', tags=['monitoring'], summary='System Metrics')
+
+@router.get("/dashboard/metrics", tags=["monitoring"], summary="System Metrics")
 @rate_limit(rate=200, per=60)
 async def system_metrics(request: Request) -> dict[str, Any]:
     """
@@ -56,15 +134,40 @@ async def system_metrics(request: Request) -> dict[str, Any]:
     """
     try:
         import psutil
+
         cpu_percent = psutil.cpu_percent(interval=1)
         memory = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
+        disk = psutil.disk_usage("/")
         network = psutil.net_io_counters()
-        metrics = {'timestamp': datetime.now(UTC).isoformat(), 'system': {'cpu_percent': cpu_percent, 'cpu_count': psutil.cpu_count(), 'memory_percent': memory.percent, 'memory_total_gb': round(memory.total / 1024 ** 3, 2), 'memory_available_gb': round(memory.available / 1024 ** 3, 2), 'disk_percent': disk.percent, 'disk_total_gb': round(disk.total / 1024 ** 3, 2), 'disk_free_gb': round(disk.free / 1024 ** 3, 2)}, 'network': {'bytes_sent': network.bytes_sent, 'bytes_recv': network.bytes_recv, 'packets_sent': network.packets_sent, 'packets_recv': network.packets_recv}, 'services': {'total_ports': list(SERVICES.values()), 'expected_services': len(SERVICES), 'port_range': '8002-8007'}}
+        metrics = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "system": {
+                "cpu_percent": cpu_percent,
+                "cpu_count": psutil.cpu_count(),
+                "memory_percent": memory.percent,
+                "memory_total_gb": round(memory.total / 1024**3, 2),
+                "memory_available_gb": round(memory.available / 1024**3, 2),
+                "disk_percent": disk.percent,
+                "disk_total_gb": round(disk.total / 1024**3, 2),
+                "disk_free_gb": round(disk.free / 1024**3, 2),
+            },
+            "network": {
+                "bytes_sent": network.bytes_sent,
+                "bytes_recv": network.bytes_recv,
+                "packets_sent": network.packets_sent,
+                "packets_recv": network.packets_recv,
+            },
+            "services": {
+                "total_ports": list(SERVICES.values()),
+                "expected_services": len(SERVICES),
+                "port_range": "8002-8007",
+            },
+        }
         return metrics
     except Exception as e:
-        logger.error('Failed to collect system metrics: %s', e)
-        return {'error': 'Failed to collect metrics', 'timestamp': datetime.now(UTC).isoformat()}
+        logger.error("Failed to collect system metrics: %s", e)
+        return {"error": "Failed to collect metrics", "timestamp": datetime.now(UTC).isoformat()}
+
 
 async def collect_all_health_data() -> dict[str, Any]:
     """Collect health data from all enhanced services"""
@@ -75,13 +178,14 @@ async def collect_all_health_data() -> dict[str, Any]:
         task = check_service_health(client, service_id, service_info)  # type: ignore[arg-type, call-arg]
         tasks.append(task)
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    for i, (service_id, service_info) in enumerate(SERVICES.items()):
+    for i, (service_id, _service_info) in enumerate(SERVICES.items()):
         result = results[i]
         if isinstance(result, Exception):
-            health_data[service_id] = {'status': 'unhealthy', 'error': str(result), 'timestamp': datetime.now(UTC).isoformat()}
+            health_data[service_id] = {"status": "unhealthy", "error": str(result), "timestamp": datetime.now(UTC).isoformat()}
         else:
             health_data[service_id] = result  # type: ignore[assignment]
     return health_data
+
 
 async def check_service_health(service_name: str, service_config: dict[str, Any]) -> dict[str, Any]:
     """
@@ -91,33 +195,40 @@ async def check_service_health(service_name: str, service_config: dict[str, Any]
         client = AITBCHTTPClient(timeout=5.0)
         health_url = f"{service_config['url']}/health"
         response = client.get(health_url)
-        return {'status': 'healthy', 'response_time': 0.1, 'last_check': datetime.now(UTC).isoformat(), 'details': response}
+        return {"status": "healthy", "response_time": 0.1, "last_check": datetime.now(UTC).isoformat(), "details": response}
     except NetworkError as e:
-        logger.warning('Service %s health check failed: %s', service_name, e)
-        return {'status': 'unhealthy', 'error': str(e), 'last_check': datetime.now(UTC).isoformat()}
+        logger.warning("Service %s health check failed: %s", service_name, e)
+        return {"status": "unhealthy", "error": str(e), "last_check": datetime.now(UTC).isoformat()}
     except Exception as e:
-        return {'status': 'unhealthy', 'error': str(e), 'timestamp': datetime.now(UTC).isoformat()}
+        return {"status": "unhealthy", "error": str(e), "timestamp": datetime.now(UTC).isoformat()}
+
 
 def calculate_overall_metrics(health_data: dict[str, Any]) -> dict[str, Any]:
     """Calculate overall system metrics from health data"""
-    status_counts = {'healthy': 0, 'degraded': 0, 'unhealthy': 0, 'unknown': 0}
+    status_counts = {"healthy": 0, "degraded": 0, "unhealthy": 0, "unknown": 0}
     total_response_time = 0
     response_time_count = 0
     for service_health in health_data.values():
-        status = service_health.get('status', 'unknown')
+        status = service_health.get("status", "unknown")
         status_counts[status] = status_counts.get(status, 0) + 1
-        if 'response_time' in service_health:
+        if "response_time" in service_health:
             try:
-                time_str = service_health['response_time'].replace('s', '')
+                time_str = service_health["response_time"].replace("s", "")
                 total_response_time += float(time_str)  # type: ignore[assignment]
                 response_time_count += 1
             except (ValueError, AttributeError):
                 pass
-    if status_counts['unhealthy'] > 0:
-        overall_status = 'unhealthy'
-    elif status_counts['degraded'] > 0:
-        overall_status = 'degraded'
+    if status_counts["unhealthy"] > 0:
+        overall_status = "unhealthy"
+    elif status_counts["degraded"] > 0:
+        overall_status = "degraded"
     else:
-        overall_status = 'healthy'
+        overall_status = "healthy"
     avg_response_time = total_response_time / response_time_count if response_time_count > 0 else 0
-    return {'overall_status': overall_status, 'status_counts': status_counts, 'average_response_time': f'{avg_response_time:.3f}s', 'health_percentage': status_counts['healthy'] / len(health_data) * 100 if health_data else 0, 'uptime_estimate': '99.9%'}
+    return {
+        "overall_status": overall_status,
+        "status_counts": status_counts,
+        "average_response_time": f"{avg_response_time:.3f}s",
+        "health_percentage": status_counts["healthy"] / len(health_data) * 100 if health_data else 0,
+        "uptime_estimate": "99.9%",
+    }

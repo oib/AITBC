@@ -50,7 +50,9 @@ class TestAccessController:
         ac = AccessController()
         assert ac.check_permission(["user", "operator"], "write") is True
 
-    @pytest.mark.skipif(not hasattr(AccessController, 'jwt_available') or not AccessController().jwt_available, reason="JWT not available")
+    @pytest.mark.skipif(
+        not hasattr(AccessController, "jwt_available") or not AccessController().jwt_available, reason="JWT not available"
+    )
     def test_create_and_verify_token(self):
         ac = AccessController(secret_key="test-secret")
         token = ac.create_token("user1", ["user"])

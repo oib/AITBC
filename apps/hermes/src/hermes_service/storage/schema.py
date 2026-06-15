@@ -1,7 +1,7 @@
 """Database schema for coin requests."""
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import Column, DateTime, Integer, String, Text
@@ -11,8 +11,9 @@ from sqlalchemy.ext.declarative import declarative_base
 Base: Any = declarative_base()
 
 
-class CoinRequestStatus(str, Enum):
+class CoinRequestStatus(StrEnum):
     """Status of a coin request."""
+
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -21,6 +22,7 @@ class CoinRequestStatus(str, Enum):
 
 class CoinRequest(Base):
     """Coin request model for database storage."""
+
     __tablename__ = "coin_requests"
 
     id = Column(String, primary_key=True)

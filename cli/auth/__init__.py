@@ -1,7 +1,6 @@
 """Authentication and credential management for AITBC CLI"""
 
 import os
-from typing import Dict, Optional
 
 import keyring
 from utils import error, success, warning
@@ -52,7 +51,7 @@ class AuthManager:
 
         for env in envs:
             for name in names:
-                key = f"{env}_{name}"
+                _ = f"{env}_{name}"
                 if self.get_credential(name, env):
                     credentials.append(f"{name}@{env}")
 

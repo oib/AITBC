@@ -3,7 +3,6 @@
 Verify that the explorer is using live data instead of mock
 """
 
-
 import requests
 
 
@@ -20,8 +19,8 @@ def main():
             print(f"✅ API is working - Found {len(data['items'])} blocks")
 
             # Show latest block
-            if data['items']:
-                latest = data['items'][0]
+            if data["items"]:
+                latest = data["items"][0]
                 print("\n   Latest Block:")
                 print(f"   Height: {latest['height']}")
                 print(f"   Hash: {latest['hash']}")
@@ -60,7 +59,7 @@ def main():
     endpoints = [
         ("/api/explorer/transactions", "Transactions"),
         ("/api/explorer/addresses", "Addresses"),
-        ("/api/explorer/receipts", "Receipts")
+        ("/api/explorer/receipts", "Receipts"),
     ]
 
     for endpoint, name in endpoints:
@@ -87,6 +86,7 @@ def main():
     print("   • Actual transactions")
     print("   • Live network activity")
     print("   • No mock/sample data")
+
 
 if __name__ == "__main__":
     main()

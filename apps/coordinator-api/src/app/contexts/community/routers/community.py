@@ -2,7 +2,7 @@ from typing import Annotated
 
 from sqlalchemy.orm import Session
 
-'\nCommunity and Developer Ecosystem API Endpoints\nREST API for managing hermes developer profiles, SDKs, solutions, and hackathons\n'
+"\nCommunity and Developer Ecosystem API Endpoints\nREST API for managing hermes developer profiles, SDKs, solutions, and hackathons\n"
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
@@ -21,7 +21,8 @@ from ....services.community_service import (
 )
 from ....storage import get_session
 
-router = APIRouter(prefix='/community', tags=['community'])
+router = APIRouter(prefix="/community", tags=["community"])
+
 
 class DeveloperProfileCreate(BaseModel):
     user_id: str
@@ -29,16 +30,18 @@ class DeveloperProfileCreate(BaseModel):
     bio: str | None = None
     skills: list[str] = Field(default_factory=list)
 
+
 class SolutionPublishRequest(BaseModel):
     developer_id: str
     title: str
     description: str
-    version: str = '1.0.0'
+    version: str = "1.0.0"
     capabilities: list[str] = Field(default_factory=list)
     frameworks: list[str] = Field(default_factory=list)
-    price_model: str = 'free'
+    price_model: str = "free"
     price_amount: float = 0.0
     metadata: dict[str, Any] = Field(default_factory=dict)
+
 
 class LabProposalRequest(BaseModel):
     title: str
@@ -47,75 +50,95 @@ class LabProposalRequest(BaseModel):
     funding_goal: float = 0.0
     milestones: list[dict[str, Any]] = Field(default_factory=list)
 
+
 class PostCreateRequest(BaseModel):
     title: str
     content: str
-    category: str = 'discussion'
+    category: str = "discussion"
     tags: list[str] = Field(default_factory=list)
     parent_post_id: str | None = None
+
 
 class HackathonCreateRequest(BaseModel):
     title: str
     description: str
     theme: str
-    sponsor: str = 'AITBC Foundation'
+    sponsor: str = "AITBC Foundation"
     prize_pool: float = 0.0
     registration_start: str
     registration_end: str
     event_start: str
     event_end: str
 
-@router.post('/developers', response_model=DeveloperProfile)
+
+@router.post("/developers", response_model=DeveloperProfile)
 @rate_limit(rate=10, per=60)
-async def create_developer_profile(request: DeveloperProfileCreate, request_http: Request, session: Annotated[Session, Depends(get_session)]) -> DeveloperProfile:
+async def create_developer_profile(
+    request: DeveloperProfileCreate, request_http: Request, session: Annotated[Session, Depends(get_session)]
+) -> DeveloperProfile:
     """Register a new developer in the hermes ecosystem"""
     service = DeveloperEcosystemService(session)  # type: ignore[arg-type]
     try:
-        profile = await service.create_developer_profile(user_id=request.user_id, username=request.username, bio=request.bio, skills=request.skills)  # type: ignore[arg-type]
+        profile = await service.create_developer_profile(
+            user_id=request.user_id, username=request.username, bio=request.bio, skills=request.skills
+        )  # type: ignore[arg-type]
         return profile
     except Exception as e:
-        logger.error('Error creating developer profile: %s', e)
+        logger.error("Error creating developer profile: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get('/developers/{developer_id}', response_model=DeveloperProfile)
+
+@router.get("/developers/{developer_id}", response_model=DeveloperProfile)
 @rate_limit(rate=100, per=60)
-async def get_developer_profile(developer_id: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> DeveloperProfile:
+async def get_developer_profile(
+    developer_id: str, request: Request, session: Annotated[Session, Depends(get_session)]
+) -> DeveloperProfile:
     """Get a developer's profile and reputation"""
     service = DeveloperEcosystemService(session)  # type: ignore[arg-type]
     profile = await service.get_developer_profile(developer_id)
     if not profile:
-        raise HTTPException(status_code=404, detail='Developer not found')
+        raise HTTPException(status_code=404, detail="Developer not found")
     return profile
 
-@router.get('/sdk/latest')
+
+@router.get("/sdk/latest")
 @rate_limit(rate=100, per=60)
 async def get_latest_sdk(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get information about the latest hermes SDK releases"""
     service = DeveloperEcosystemService(session)  # type: ignore[arg-type]
     return await service.get_sdk_release_info()
 
-@router.post('/solutions/publish', response_model=AgentSolution)
+
+@router.post("/solutions/publish", response_model=AgentSolution)
 @rate_limit(rate=10, per=60)
-async def publish_solution(request: SolutionPublishRequest, request_http: Request, session: Annotated[Session, Depends(get_session)]) -> AgentSolution:
+async def publish_solution(
+    request: SolutionPublishRequest, request_http: Request, session: Annotated[Session, Depends(get_session)]
+) -> AgentSolution:
     """Publish a new third-party agent solution to the marketplace"""
     service = ThirdPartySolutionService(session)  # type: ignore[arg-type]
     try:
-        solution = await service.publish_solution(request.developer_id, request.dict(exclude={'developer_id'}))
+        solution = await service.publish_solution(request.developer_id, request.dict(exclude={"developer_id"}))
         return solution
     except Exception as e:
-        logger.error('Error publishing solution: %s', e)
+        logger.error("Error publishing solution: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get('/solutions', response_model=list[AgentSolution])
+
+@router.get("/solutions", response_model=list[AgentSolution])
 @rate_limit(rate=100, per=60)
-async def list_solutions(request: Request, session: Annotated[Session, Depends(get_session)], category: str | None=None, limit: int=50) -> list[AgentSolution]:
+async def list_solutions(
+    request: Request, session: Annotated[Session, Depends(get_session)], category: str | None = None, limit: int = 50
+) -> list[AgentSolution]:
     """List available third-party agent solutions"""
     service = ThirdPartySolutionService(session)  # type: ignore[arg-type]
     return await service.list_published_solutions(category, limit)  # type: ignore[arg-type]
 
-@router.post('/solutions/{solution_id}/purchase')
+
+@router.post("/solutions/{solution_id}/purchase")
 @rate_limit(rate=20, per=60)
-async def purchase_solution(solution_id: str, request: Request, session: Annotated[Session, Depends(get_session)], buyer_id: str=Body(embed=True)) -> dict[str, Any]:
+async def purchase_solution(
+    solution_id: str, request: Request, session: Annotated[Session, Depends(get_session)], buyer_id: str = Body(embed=True)
+) -> dict[str, Any]:
     """Purchase or install a third-party solution"""
     service = ThirdPartySolutionService(session)  # type: ignore[arg-type]
     try:
@@ -126,9 +149,15 @@ async def purchase_solution(solution_id: str, request: Request, session: Annotat
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post('/labs/propose', response_model=InnovationLab)
+
+@router.post("/labs/propose", response_model=InnovationLab)
 @rate_limit(rate=10, per=60)
-async def propose_innovation_lab(request_http: Request, session: Annotated[Session, Depends(get_session)], researcher_id: str=Query(...), request: LabProposalRequest=Body(...)) -> InnovationLab:
+async def propose_innovation_lab(
+    request_http: Request,
+    session: Annotated[Session, Depends(get_session)],
+    researcher_id: str = Query(...),
+    request: LabProposalRequest = Body(...),
+) -> InnovationLab:
     """Propose a new agent innovation lab or research program"""
     service = InnovationLabService(session)  # type: ignore[arg-type]
     try:
@@ -137,9 +166,12 @@ async def propose_innovation_lab(request_http: Request, session: Annotated[Sessi
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post('/labs/{lab_id}/join')
+
+@router.post("/labs/{lab_id}/join")
 @rate_limit(rate=20, per=60)
-async def join_innovation_lab(lab_id: str, request: Request, session: Annotated[Session, Depends(get_session)], developer_id: str=Body(embed=True)) -> InnovationLab:
+async def join_innovation_lab(
+    lab_id: str, request: Request, session: Annotated[Session, Depends(get_session)], developer_id: str = Body(embed=True)
+) -> InnovationLab:
     """Join an active innovation lab"""
     service = InnovationLabService(session)  # type: ignore[arg-type]
     try:
@@ -148,9 +180,12 @@ async def join_innovation_lab(lab_id: str, request: Request, session: Annotated[
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-@router.post('/labs/{lab_id}/fund')
+
+@router.post("/labs/{lab_id}/fund")
 @rate_limit(rate=20, per=60)
-async def fund_innovation_lab(lab_id: str, request: Request, session: Annotated[Session, Depends(get_session)], amount: float=Body(embed=True)) -> InnovationLab:
+async def fund_innovation_lab(
+    lab_id: str, request: Request, session: Annotated[Session, Depends(get_session)], amount: float = Body(embed=True)
+) -> InnovationLab:
     """Provide funding to a proposed innovation lab"""
     service = InnovationLabService(session)  # type: ignore[arg-type]
     try:
@@ -159,9 +194,15 @@ async def fund_innovation_lab(lab_id: str, request: Request, session: Annotated[
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-@router.post('/platform/posts', response_model=CommunityPost)
+
+@router.post("/platform/posts", response_model=CommunityPost)
 @rate_limit(rate=20, per=60)
-async def create_community_post(request_http: Request, session: Annotated[Session, Depends(get_session)], author_id: str=Query(...), request: PostCreateRequest=Body(...)) -> CommunityPost:
+async def create_community_post(
+    request_http: Request,
+    session: Annotated[Session, Depends(get_session)],
+    author_id: str = Query(...),
+    request: PostCreateRequest = Body(...),
+) -> CommunityPost:
     """Create a new post in the community forum"""
     service = CommunityPlatformService(session)  # type: ignore[arg-type]
     try:
@@ -170,16 +211,22 @@ async def create_community_post(request_http: Request, session: Annotated[Sessio
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get('/platform/feed', response_model=list[CommunityPost])
+
+@router.get("/platform/feed", response_model=list[CommunityPost])
 @rate_limit(rate=100, per=60)
-async def get_community_feed(request: Request, session: Annotated[Session, Depends(get_session)], category: str | None=None, limit: int=20) -> list[CommunityPost]:
+async def get_community_feed(
+    request: Request, session: Annotated[Session, Depends(get_session)], category: str | None = None, limit: int = 20
+) -> list[CommunityPost]:
     """Get the latest community posts and discussions"""
     service = CommunityPlatformService(session)  # type: ignore[arg-type]
     return await service.get_feed(category, limit)  # type: ignore[arg-type]
 
-@router.post('/platform/posts/{post_id}/upvote')
+
+@router.post("/platform/posts/{post_id}/upvote")
 @rate_limit(rate=50, per=60)
-async def upvote_community_post(post_id: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> CommunityPost:
+async def upvote_community_post(
+    post_id: str, request: Request, session: Annotated[Session, Depends(get_session)]
+) -> CommunityPost:
     """Upvote a community post (rewards author reputation)"""
     service = CommunityPlatformService(session)  # type: ignore[arg-type]
     try:
@@ -188,9 +235,15 @@ async def upvote_community_post(post_id: str, request: Request, session: Annotat
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-@router.post('/hackathons/create', response_model=Hackathon)
+
+@router.post("/hackathons/create", response_model=Hackathon)
 @rate_limit(rate=10, per=60)
-async def create_hackathon(request_http: Request, session: Annotated[Session, Depends(get_session)], organizer_id: str=Query(...), request: HackathonCreateRequest=Body(...)) -> Hackathon:
+async def create_hackathon(
+    request_http: Request,
+    session: Annotated[Session, Depends(get_session)],
+    organizer_id: str = Query(...),
+    request: HackathonCreateRequest = Body(...),
+) -> Hackathon:
     """Create a new agent innovation hackathon (requires high reputation)"""
     service = CommunityPlatformService(session)  # type: ignore[arg-type]
     try:
@@ -201,9 +254,15 @@ async def create_hackathon(request_http: Request, session: Annotated[Session, De
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post('/hackathons/{hackathon_id}/register')
+
+@router.post("/hackathons/{hackathon_id}/register")
 @rate_limit(rate=20, per=60)
-async def register_for_hackathon(hackathon_id: str, request: Request, session: Annotated[Session, Depends(get_session)], developer_id: str=Body(embed=True)) -> Hackathon:
+async def register_for_hackathon(
+    hackathon_id: str,
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    developer_id: str = Body(embed=True),
+) -> Hackathon:
     """Register for an upcoming or ongoing hackathon"""
     service = CommunityPlatformService(session)  # type: ignore[arg-type]
     try:

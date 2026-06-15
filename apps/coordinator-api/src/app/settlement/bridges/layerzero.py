@@ -160,7 +160,11 @@ class LayerZeroAdapter(BridgeAdapter):
 
             # Estimate fee using LayerZero endpoint
             native_fee, zro_fee = await self.endpoint.functions.estimateFees(  # type: ignore[union-attr]
-                dst_chain_id, target_address, payload, False, [0, 0, 0]  # payInZRO  # adapterParams
+                dst_chain_id,
+                target_address,
+                payload,
+                False,
+                [0, 0, 0],  # payInZRO  # adapterParams
             ).call()
 
             return {"layerZeroFee": native_fee, "zroFee": zro_fee, "total": native_fee + zro_fee}

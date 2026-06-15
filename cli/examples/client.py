@@ -11,6 +11,7 @@ import httpx
 DEFAULT_COORDINATOR = "http://localhost:8000"
 DEFAULT_API_KEY = "${CLIENT_API_KEY}"
 
+
 class AITBCClient:
     def __init__(self, coordinator_url: str, api_key: str):
         self.coordinator_url = coordinator_url
@@ -19,27 +20,18 @@ class AITBCClient:
 
     def submit_job(self, job_type: str, task_data: dict, ttl: int = 900) -> str | None:
         """Submit a job to the coordinator"""
-        job_payload = {
-            "payload": {
-                "type": job_type,
-                **task_data
-            },
-            "ttl_seconds": ttl
-        }
+        job_payload = {"payload": {"type": job_type, **task_data}, "ttl_seconds": ttl}
 
         try:
             response = self.client.post(
                 f"{self.coordinator_url}/v1/jobs",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Api-Key": self.api_key
-                },
-                json=job_payload
+                headers={"Content-Type": "application/json", "X-Api-Key": self.api_key},
+                json=job_payload,
             )
 
             if response.status_code == 201:
                 job = response.json()
-                return job['job_id']
+                return job["job_id"]
             else:
                 print(f"❌ Error submitting job: {response.status_code}")
                 print(f"   Response: {response.text}")
@@ -52,14 +44,11 @@ class AITBCClient:
     def list_transactions(self, limit: int = 10) -> list | None:
         """List recent transactions"""
         try:
-            response = self.client.get(
-                f"{self.coordinator_url}/v1/explorer/transactions",
-                params={"limit": limit}
-            )
+            response = self.client.get(f"{self.coordinator_url}/v1/explorer/transactions", params={"limit": limit})
 
             if response.status_code == 200:
                 transactions = response.json()
-                return transactions.get('items', [])[:limit]
+                return transactions.get("items", [])[:limit]
             else:
                 print(f"❌ Error listing transactions: {response.status_code}")
                 return None
@@ -73,14 +62,11 @@ class AITBCClient:
         if job_id:
             params["job_id"] = job_id
         try:
-            response = self.client.get(
-                f"{self.coordinator_url}/v1/explorer/receipts",
-                params=params
-            )
+            response = self.client.get(f"{self.coordinator_url}/v1/explorer/receipts", params=params)
 
             if response.status_code == 200:
                 receipts = response.json()
-                return receipts.get('items', [])[:limit]
+                return receipts.get("items", [])[:limit]
             else:
                 print(f"❌ Error listing receipts: {response.status_code}")
                 return None
@@ -91,10 +77,7 @@ class AITBCClient:
     def get_job_status(self, job_id: str) -> dict | None:
         """Get job status"""
         try:
-            response = self.client.get(
-                f"{self.coordinator_url}/v1/jobs/{job_id}",
-                headers={"X-Api-Key": self.api_key}
-            )
+            response = self.client.get(f"{self.coordinator_url}/v1/jobs/{job_id}", headers={"X-Api-Key": self.api_key})
 
             if response.status_code == 200:
                 return response.json()
@@ -113,7 +96,7 @@ class AITBCClient:
 
             if response.status_code == 200:
                 blocks = response.json()
-                return blocks['items'][:limit]
+                return blocks["items"][:limit]
             else:
                 print(f"❌ Error listing blocks: {response.status_code}")
                 return None
@@ -121,6 +104,7 @@ class AITBCClient:
         except Exception as e:
             print(f"❌ Error: {e}")
             return None
+
 
 def main():
     parser = argparse.ArgumentParser(description="AITBC Client CLI")
@@ -153,7 +137,7 @@ def main():
     browser_parser.add_argument("--job-id", help="Filter receipts by job ID")
 
     # Quick demo command
-    demo_parser = subparsers.add_parser("demo", help="Submit a demo job")
+    _ = subparsers.add_parser("demo", help="Submit a demo job")
 
     args = parser.parse_args()
 
@@ -191,7 +175,7 @@ def main():
             print(f"   State: {status['state']}")
             print(f"   Miner: {status.get('assigned_miner_id', 'None')}")
             print(f"   Created: {status['requested_at']}")
-            if status.get('expires_at'):
+            if status.get("expires_at"):
                 print(f"   Expires: {status['expires_at']}")
 
     elif args.command == "blocks":
@@ -262,12 +246,10 @@ def main():
 
     elif args.command == "demo":
         print("🎭 Submitting demo inference job...")
-        job_id = client.submit_job("inference", {
-            "task": "text-generation",
-            "model": "llama-2-7b",
-            "prompt": "What is AITBC?",
-            "parameters": {"max_tokens": 100}
-        })
+        job_id = client.submit_job(
+            "inference",
+            {"task": "text-generation", "model": "llama-2-7b", "prompt": "What is AITBC?", "parameters": {"max_tokens": 100}},
+        )
 
         if job_id:
             print("✅ Demo job submitted!")
@@ -275,11 +257,13 @@ def main():
 
             # Check status after a moment
             import time
+
             time.sleep(2)
             status = client.get_job_status(job_id)
             if status:
                 print(f"\n📊 Status: {status['state']}")
                 print(f"   Miner: {status.get('assigned_miner_id', 'unassigned')}")
+
 
 if __name__ == "__main__":
     main()

@@ -9,7 +9,6 @@ from aitbc import AITBCHTTPClient, NetworkError
 logger = logging.getLogger(__name__)
 
 
-
 def render_mapping(title, mapping):
     """Render a mapping dictionary to console."""
     print(f"{title}")

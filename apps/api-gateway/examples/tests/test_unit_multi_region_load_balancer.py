@@ -25,7 +25,7 @@ def test_load_balancing_rule_model():
         weights={"us-east-1": 0.5, "eu-west-1": 0.5},
         health_check_path="/health",
         failover_enabled=True,
-        session_affinity=False
+        session_affinity=False,
     )
     assert rule.rule_id == "rule_123"
     assert rule.name == "Test Rule"
@@ -43,7 +43,7 @@ def test_region_health_model():
         response_time_ms=45.5,
         success_rate=0.99,
         active_connections=100,
-        last_check=datetime.now(UTC)
+        last_check=datetime.now(UTC),
     )
     assert health.region_id == "us-east-1"
     assert health.status == "healthy"
@@ -62,7 +62,7 @@ def test_load_balancing_metrics_model():
         requests_per_region={"us-east-1": 500, "eu-west-1": 500},
         average_response_time=50.5,
         error_rate=0.001,
-        throughput=100.0
+        throughput=100.0,
     )
     assert metrics.balancer_id == "lb_123"
     assert metrics.total_requests == 1000
@@ -78,7 +78,7 @@ def test_geographic_rule_model():
         source_regions=["us-east", "us-west"],
         target_regions=["us-east-1", "us-west-1"],
         priority=1,
-        latency_threshold_ms=50.0
+        latency_threshold_ms=50.0,
     )
     assert rule.rule_id == "geo_123"
     assert rule.source_regions == ["us-east", "us-west"]
@@ -97,7 +97,7 @@ def test_load_balancing_rule_empty_weights():
         weights={},
         health_check_path="/health",
         failover_enabled=False,
-        session_affinity=False
+        session_affinity=False,
     )
     assert rule.weights == {}
 
@@ -111,6 +111,6 @@ def test_region_health_negative_response_time():
         response_time_ms=-45.5,
         success_rate=0.99,
         active_connections=100,
-        last_check=datetime.now(UTC)
+        last_check=datetime.now(UTC),
     )
     assert health.response_time_ms == -45.5
