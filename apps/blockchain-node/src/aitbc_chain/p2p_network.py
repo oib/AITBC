@@ -5,8 +5,6 @@ Handles decentralized peer-to-peer mesh communication between blockchain nodes
 
 import asyncio
 import json
-import logging
-import os
 from typing import Any
 
 from aitbc import get_logger
@@ -18,9 +16,6 @@ from .network.island_manager import IslandManager
 from .network.nat_traversal import NATTraversalService
 
 logger = get_logger("aitbc_chain.p2p_network")
-if os.getenv("INVOCATION_ID"):
-    for handler in logging.getLogger().handlers:
-        handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s - %(message)s"))
 _p2p_service_instance = None
 
 
@@ -650,7 +645,6 @@ def main() -> None:
     parser.add_argument("--node-id", default="", help="Node identifier (defaults to settings.p2p_node_id)")
     parser.add_argument("--peers", default="", help="Comma separated list of initial peers to dial (ip:port)")
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     try:
         from .mempool import init_mempool
 

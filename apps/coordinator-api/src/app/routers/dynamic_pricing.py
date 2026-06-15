@@ -3,13 +3,13 @@ Dynamic Pricing API Router
 Provides RESTful endpoints for dynamic pricing management
 """
 
-import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
 
+from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ..contexts.trading.services.trading_marketplace.dynamic_pricing import (
@@ -32,7 +32,7 @@ from ..schemas.pricing import (
 )
 from ..services.market_data_collector import MarketDataCollector
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/v1/pricing", tags=["dynamic-pricing"])
 pricing_engine = None

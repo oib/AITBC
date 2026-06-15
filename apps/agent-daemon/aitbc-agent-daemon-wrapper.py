@@ -5,14 +5,12 @@ Supports multichain by spawning daemon instances for each configured chain
 Also supports Hermes API polling for agent messaging
 """
 
-import logging
 import os
 import subprocess
 
-from aitbc import DATA_DIR, ENV_FILE, KEYSTORE_DIR, LOG_DIR, NODE_ENV_FILE, REPO_DIR
+from aitbc import DATA_DIR, ENV_FILE, KEYSTORE_DIR, LOG_DIR, NODE_ENV_FILE, REPO_DIR, get_logger
 
-logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Set up environment using aitbc constants
 os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)

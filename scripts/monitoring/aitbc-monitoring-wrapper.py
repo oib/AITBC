@@ -21,6 +21,9 @@ os.environ["PYTHONPATH"] = f"{REPO_DIR}/scripts/monitoring/examples/monitoring-s
 os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
+log_level = os.getenv("LOG_LEVEL", "info").lower()
+access_log = os.getenv("ACCESS_LOG", "true").lower() in ("1", "true", "yes")
+
 # Execute the actual service
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
@@ -31,5 +34,9 @@ exec_cmd = [
     "0.0.0.0",
     "--port",
     "8002",
+    "--log-level",
+    log_level,
 ]
+if access_log:
+    exec_cmd.append("--access-log")
 os.execvp(exec_cmd[0], exec_cmd)

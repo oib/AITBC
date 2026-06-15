@@ -2,7 +2,6 @@
 Node client for multi-chain operations
 """
 
-import logging
 import os
 from typing import Any
 
@@ -10,7 +9,9 @@ import httpx
 from aitbc_cli.core.config import NodeConfig
 from aitbc_cli.models.chain import ChainInfo, ChainStatus, ChainType, ConsensusAlgorithm
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class NodeClient:

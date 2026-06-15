@@ -3,16 +3,17 @@ Ecosystem Analytics Service
 Business logic for developer ecosystem metrics and analytics
 """
 
-import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
+from aitbc import get_logger
+
 from ..domain.bounty import AgentMetrics, AgentStake, Bounty, BountyStatus, BountySubmission, EcosystemMetrics
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class EcosystemService:

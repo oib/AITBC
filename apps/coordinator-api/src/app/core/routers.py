@@ -2,10 +2,11 @@
 Router registration for Coordinator API.
 """
 
-import logging
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 def register_routers(app: Any) -> None:

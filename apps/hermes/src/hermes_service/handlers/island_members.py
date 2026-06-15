@@ -1,8 +1,9 @@
 """Island members detection via journalctl parsing."""
 
-import logging
 import re
 import subprocess
+
+from aitbc import get_logger
 
 
 def get_island_members() -> set[str]:
@@ -12,7 +13,7 @@ def get_island_members() -> set[str]:
     Returns:
         Set of member IDs/names that are syncing with the blockchain.
     """
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     members: set[str] = set()
     try:
         cmd = ["journalctl", "-u", "aitbc-blockchain-node", "--since", "24 hours ago", "-o", "cat", "--no-pager"]

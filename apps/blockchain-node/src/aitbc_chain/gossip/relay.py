@@ -4,7 +4,6 @@ Uses Starlette Broadcast to share messages between nodes
 """
 
 import argparse
-import logging
 from typing import Any
 
 import uvicorn
@@ -15,9 +14,8 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket
 
-from aitbc.logging import get_logger  # type: ignore[import-not-found]
+from aitbc import get_logger
 
-logging.basicConfig(level=logging.INFO)
 logger = get_logger(__name__)
 broadcast = Broadcast("memory://")
 

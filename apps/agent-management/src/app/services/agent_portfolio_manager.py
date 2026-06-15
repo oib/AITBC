@@ -7,7 +7,6 @@ Provides portfolio creation, rebalancing, risk assessment, and trading strategy 
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -15,6 +14,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlmodel import Session
 
+from aitbc import get_logger
 from app.domain.agent_portfolio import (  # type: ignore[import-not-found]
     AgentPortfolio,
     PortfolioAsset,
@@ -40,7 +40,7 @@ from ..schemas.portfolio import (  # type: ignore[import-not-found]
     TradeResponse,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AgentPortfolioManager:

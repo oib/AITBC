@@ -2,7 +2,6 @@
 
 import hashlib
 import hmac
-import logging
 import os
 import re
 from datetime import datetime
@@ -10,7 +9,9 @@ from datetime import datetime
 from fastapi import HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 security = HTTPBearer(auto_error=False)
 
 

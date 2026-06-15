@@ -1,9 +1,10 @@
 """Handler registry for managing message handlers."""
 
 import importlib
-import logging
 import pkgutil
 from typing import Any
+
+from aitbc import get_logger
 
 from .base_handler import BaseHandler
 
@@ -15,7 +16,7 @@ class HandlerRegistry:
         self.coordinator_url = coordinator_url
         self.agent_id = agent_id
         self.handlers: list[BaseHandler] = []
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
 
     def register_handler(self, handler: BaseHandler) -> None:
         """Register a handler instance."""

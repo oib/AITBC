@@ -6,14 +6,15 @@ Bitcoin Wallet Integration for AITBC Trade Exchange
 import hashlib
 import hmac
 import json
-import logging
 import os
 import time
 from dataclasses import dataclass
 
 import requests
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass

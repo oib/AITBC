@@ -1,14 +1,14 @@
 """Wallet command handlers."""
 
 import json
-import logging
 import sys
 
 import requests
 
+from aitbc import get_logger
 from aitbc.utils.paths import get_data_path
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def handle_wallet_create(args, create_wallet, read_password, first):

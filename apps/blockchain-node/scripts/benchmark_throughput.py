@@ -14,7 +14,6 @@ Usage:
 import argparse
 import asyncio
 import json
-import logging
 import statistics
 import time
 from dataclasses import dataclass
@@ -23,9 +22,8 @@ from typing import Any
 import aiohttp
 import psutil
 
-from aitbc.logging import get_logger
+from aitbc import get_logger
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = get_logger(__name__)
 
 

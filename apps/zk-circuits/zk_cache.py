@@ -7,13 +7,14 @@ Tracks file dependencies and invalidates cache when source files change.
 
 import hashlib
 import json
-import logging
 import time
 from pathlib import Path
 
 import click
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class ZKCircuitCache:
