@@ -4,13 +4,14 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
-import logging
 import sqlite3
 from decimal import Decimal
 
 import psycopg2
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 SQLITE_DB = "exchange.db"
 PG_CONFIG = {
     "host": "localhost",

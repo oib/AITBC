@@ -150,9 +150,9 @@ class BroadcastGossipBackend(GossipBackend):
         _increment_publication("gossip_broadcast_publications", topic)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
-        import logging
+        from aitbc import get_logger
 
-        logger = logging.getLogger(__name__)
+        logger = get_logger(__name__)
         logger.info("BroadcastGossipBackend.subscribe called for topic: %s, running=%s", topic, self._running)
         if not self._running:
             raise RuntimeError("Broadcast backend not started")
@@ -160,9 +160,9 @@ class BroadcastGossipBackend(GossipBackend):
         stop_event = asyncio.Event()
 
         async def _run_subscription() -> None:
-            import logging
+            from aitbc import get_logger
 
-            logger = logging.getLogger(__name__)
+            logger = get_logger(__name__)
             logger.info("[BROKER SUB] Starting broadcast subscription for topic: %s", topic)
             try:
                 async with self._broadcast.subscribe(topic) as subscriber:

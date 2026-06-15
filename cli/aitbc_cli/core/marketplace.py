@@ -2,7 +2,6 @@
 Global chain marketplace system
 """
 
-import logging
 import uuid
 from collections import defaultdict
 from dataclasses import asdict, dataclass
@@ -13,7 +12,9 @@ from typing import Any
 
 from aitbc_cli.core.config import MultiChainConfig
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class ChainType(Enum):

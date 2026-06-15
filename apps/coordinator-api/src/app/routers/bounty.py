@@ -11,16 +11,17 @@ Provides endpoints for:
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from aitbc import get_logger
+
 from ..services.bounty_service import BountyService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 router = APIRouter(prefix="/bounty", tags=["bounty"])
 
 
