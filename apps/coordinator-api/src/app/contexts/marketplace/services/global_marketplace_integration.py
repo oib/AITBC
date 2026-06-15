@@ -11,10 +11,11 @@ from typing import Any
 from sqlmodel import Session, select
 
 from aitbc import get_logger
+from aitbc.domain.multi_chain_transaction import TransactionPriority  # type: ignore[import-not-found]
 
 from ....agent_identity.wallet_adapter_enhanced import WalletAdapterFactory
 from ....reputation.engine import CrossChainReputationEngine
-from ....services.multi_chain_transaction_manager import MultiChainTransactionManager, TransactionPriority
+from ....services.multi_chain_transaction_manager import MultiChainTransactionManager
 from ...cross_chain.services.cross_chain.bridge_enhanced import (
     BridgeProtocol,
     BridgeSecurityLevel,
@@ -177,7 +178,7 @@ class GlobalMarketplaceIntegrationService:
         """Execute a cross-chain marketplace transaction"""
         try:
             stmt = select(GlobalMarketplaceOffer).where(GlobalMarketplaceOffer.id == offer_id)
-            offer = self.session.execute(stmt).first()
+            offer = self.session.execute(stmt).scalars().first()
             if not offer:
                 raise ValueError("Offer not found")
             if offer.available_capacity < quantity:
@@ -188,7 +189,7 @@ class GlobalMarketplaceIntegrationService:
             if not source_chain or not target_chain:
                 source_chain, target_chain = await self._determine_optimal_chains(
                     buyer_id, offer, source_region, target_region
-                )  # type: ignore[arg-type]
+                )
             unit_price = offer.base_price
             if source_chain in offer.cross_chain_pricing:
                 unit_price = offer.cross_chain_pricing[source_chain]
@@ -341,11 +342,11 @@ class GlobalMarketplaceIntegrationService:
         """Optimize pricing for a global marketplace offer"""
         try:
             stmt = select(GlobalMarketplaceOffer).where(GlobalMarketplaceOffer.id == offer_id)
-            offer = self.session.execute(stmt).first()
+            offer = self.session.execute(stmt).scalars().first()
             if not offer:
                 raise ValueError("Offer not found")
             market_conditions = await self._analyze_market_conditions(offer.service_type, target_regions, target_chains)
-            optimized_pricing = await self._calculate_optimized_pricing(offer, market_conditions, optimization_strategy)  # type: ignore[arg-type]
+            optimized_pricing = await self._calculate_optimized_pricing(offer, market_conditions, optimization_strategy)
             offer.price_per_region = optimized_pricing["regional_pricing"]
             offer.cross_chain_pricing = optimized_pricing["cross_chain_pricing"]
             offer.updated_at = datetime.now(UTC)
@@ -445,6 +446,9 @@ class GlobalMarketplaceIntegrationService:
         """Execute cross-chain bridge for transaction"""
         try:
             user_address = f"0x{hashlib.sha256(user_id.encode()).hexdigest()[:40]}"
+            if self.bridge_service is None:
+                logger.warning("Bridge service not available, skipping cross-chain bridge")
+                return {"status": "skipped", "reason": "bridge_service unavailable"}
             bridge_request = await self.bridge_service.create_bridge_request(
                 user_address=user_address,
                 source_chain_id=source_chain,
@@ -453,7 +457,7 @@ class GlobalMarketplaceIntegrationService:
                 protocol=protocol,
                 security_level=BridgeSecurityLevel.MEDIUM,
                 deadline_minutes=30,
-            )  # type: ignore[union-attr]
+            )
             return bridge_request
         except Exception as e:
             logger.error("Error executing cross-chain bridge: %s", e)
@@ -462,7 +466,7 @@ class GlobalMarketplaceIntegrationService:
     async def _get_cross_chain_availability(self, offer: GlobalMarketplaceOffer) -> dict[str, Any]:
         """Get cross-chain availability for an offer"""
         try:
-            availability = {
+            availability: dict[str, Any] = {
                 "total_chains": len(offer.supported_chains),
                 "available_chains": offer.supported_chains,
                 "pricing_available": bool(offer.cross_chain_pricing),
@@ -475,7 +479,7 @@ class GlobalMarketplaceIntegrationService:
                     "chains_available": offer.supported_chains,
                     "pricing": offer.price_per_region.get(region, offer.base_price),
                 }
-                availability["regional_availability"][region] = region_availability  # type: ignore[index]
+                availability["regional_availability"][region] = region_availability
             return availability
         except Exception as e:
             logger.error("Error getting cross-chain availability: %s", e)
@@ -486,7 +490,7 @@ class GlobalMarketplaceIntegrationService:
     ) -> dict[str, Any]:
         """Calculate cross-chain specific metrics"""
         try:
-            metrics = {
+            metrics: dict[str, Any] = {
                 "cross_chain_volume": 0.0,
                 "cross_chain_transactions": 0,
                 "average_cross_chain_time": 0.0,
@@ -495,7 +499,7 @@ class GlobalMarketplaceIntegrationService:
                 "regional_distribution": {},
             }
             for chain_id in WalletAdapterFactory.get_supported_chains():
-                metrics["chain_utilization"][str(chain_id)] = {"volume": 0.0, "transactions": 0, "success_rate": 0.0}  # type: ignore[index]
+                metrics["chain_utilization"][str(chain_id)] = {"volume": 0.0, "transactions": 0, "success_rate": 0.0}
             return metrics
         except Exception as e:
             logger.error("Error calculating cross-chain metrics: %s", e)
@@ -506,7 +510,7 @@ class GlobalMarketplaceIntegrationService:
     ) -> dict[str, Any]:
         """Analyze current market conditions"""
         try:
-            conditions = {
+            conditions: dict[str, Any] = {
                 "demand_level": "medium",
                 "competition_level": "medium",
                 "price_trend": "stable",
@@ -519,7 +523,7 @@ class GlobalMarketplaceIntegrationService:
                         "demand": "medium",
                         "supply": "medium",
                         "price_pressure": "stable",
-                    }  # type: ignore[index]
+                    }
             if target_chains:
                 for chain_id in target_chains:
                     chain_info = WalletAdapterFactory.get_chain_info(chain_id)
@@ -527,7 +531,7 @@ class GlobalMarketplaceIntegrationService:
                         "gas_price": chain_info.get("gas_price", 20),
                         "network_activity": "medium",
                         "congestion": "low",
-                    }  # type: ignore[index]  # type: ignore[index]
+                    }
             return conditions
         except Exception as e:
             logger.error("Error analyzing market conditions: %s", e)
