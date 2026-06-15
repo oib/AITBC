@@ -36,5 +36,6 @@ exec_cmd = [
     "256",
     "--log-level",
     "critical",
+    "--no-access-log",
 ]
 os.execvp(exec_cmd[0], exec_cmd)

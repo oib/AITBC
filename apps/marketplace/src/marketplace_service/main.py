@@ -699,4 +699,4 @@ if __name__ == "__main__":
     host = os.getenv("MARKETPLACE_BIND_HOST", "0.0.0.0")
     port = int(os.getenv("MARKETPLACE_BIND_PORT", "8102"))
 
-    uvicorn.run(app, host=host, port=port, log_level="critical")
+    uvicorn.run(app, host=host, port=port, log_level="critical", no_access_log=True)
