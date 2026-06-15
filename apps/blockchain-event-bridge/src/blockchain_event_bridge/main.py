@@ -1,5 +1,6 @@
 """Main FastAPI application for blockchain event bridge."""
 from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 from prometheus_client import make_asgi_app
@@ -13,7 +14,7 @@ logger = get_logger(__name__)
 bridge_instance: BlockchainEventBridge | None = None
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifespan context manager for startup/shutdown."""
     global bridge_instance
     logger.info('Starting %s...', settings.app_name)
@@ -30,11 +31,11 @@ metrics_app = make_asgi_app()
 app.mount('/metrics', metrics_app)
 
 @app.get('/health')
-async def health_check():
+async def health_check() -> dict[str, object]:
     """Health check endpoint."""
     return {'status': 'healthy', 'bridge_running': bridge_instance is not None and bridge_instance.is_running}
 
 @app.get('/')
-async def root():
+async def root() -> dict[str, object]:
     """Root endpoint."""
     return {'service': settings.app_name, 'version': '0.1.0', 'status': 'running'}
