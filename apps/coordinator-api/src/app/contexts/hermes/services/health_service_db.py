@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from ....models.hermes import ErrorReportModel, HealthCheckModel, RecoveryResultModel
-from ....schemas.hermes_health import ErrorReport, HealthCheck, HealthStatus, RecoveryResult
+from ....models.hermes import ErrorReportModel, HealthCheckModel, RecoveryResultModel  # noqa: E402
+from ....schemas.hermes_health import ErrorReport, HealthCheck, HealthStatus, RecoveryResult  # noqa: E402
 
 
 class HealthService:

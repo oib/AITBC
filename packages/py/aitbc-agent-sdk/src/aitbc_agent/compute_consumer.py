@@ -148,7 +148,7 @@ class ComputeConsumer(Agent):
                 if response.status_code == 200:
                     return response.json()
                 else:
-                    return {"job_id": job_id, "status": "error", "error": "HTTP %s" % response.status_code}
+                    return {"job_id": job_id, "status": "error", "error": f"HTTP {response.status_code}"}
         except Exception as e:
             logger.error("Error querying job status: %s", e)
             return {"job_id": job_id, "status": "error", "error": str(e)}

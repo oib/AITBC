@@ -96,7 +96,7 @@ async def submit_job(
         )
     except Exception as e:
         logger.error("Submit job error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/jobs/{job_id}", response_model=JobView)
@@ -123,7 +123,7 @@ async def get_job(session: Annotated[AsyncSession, Depends(get_session_dep)], jo
         raise
     except Exception as e:
         logger.error("Get job error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/jobs/{job_id}/result", response_model=JobResult)
@@ -143,7 +143,7 @@ async def get_job_result(
         raise
     except Exception as e:
         logger.error("Get job result error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/jobs/{job_id}/cancel", response_model=JobView)
@@ -178,7 +178,7 @@ async def cancel_job(
         raise
     except Exception as e:
         logger.error("Cancel job error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/jobs")
@@ -217,7 +217,7 @@ async def list_jobs(
         }
     except Exception as e:
         logger.error("List jobs error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/multimodal/process")

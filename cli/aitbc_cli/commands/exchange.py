@@ -29,8 +29,8 @@ def exchange():
 @click.option("--sandbox", is_flag=True, help="Use sandbox/testnet environment")
 @click.option("--description", help="Exchange description")
 @click.pass_context
-def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool, description: str | None):
-    """Register a new exchange integration"""
+def register_local(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool, description: str | None):
+    """Register a new exchange integration (local storage)"""
     # Create exchange configuration
     exchange_config = {
         "name": name,
@@ -73,10 +73,10 @@ def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool
 @click.option("--price-precision", type=int, default=8, help="Price precision")
 @click.option("--quantity-precision", type=int, default=8, help="Quantity precision")
 @click.pass_context
-def create_pair(
+def create_pair_local(
     ctx, base_asset: str, quote_asset: str, exchange: str, min_order_size: float, price_precision: int, quantity_precision: int
 ):
-    """Create a new trading pair"""
+    """Create a new trading pair (local storage)"""
     pair_symbol = f"{base_asset}/{quote_asset}"
 
     # Load exchanges
@@ -132,8 +132,8 @@ def create_pair(
 @click.option("--quote-liquidity", type=float, default=10000, help="Quote asset liquidity amount")
 @click.option("--exchange", help="Exchange name (if not specified, uses first available)")
 @click.pass_context
-def start_trading(ctx, pair: str, price: float | None, base_liquidity: float, quote_liquidity: float, exchange: str | None):
-    """Start trading for a specific pair"""
+def start_trading_local(ctx, pair: str, price: float | None, base_liquidity: float, quote_liquidity: float, exchange: str | None):
+    """Start trading for a specific pair (local storage)"""
 
     # Load exchanges
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
@@ -350,8 +350,8 @@ def list(ctx):
 @exchange.command()
 @click.argument("exchange_name")
 @click.pass_context
-def status(ctx, exchange_name: str):
-    """Get detailed status of a specific exchange"""
+def status_local(ctx, exchange_name: str):
+    """Get detailed status of a specific exchange (local storage)"""
 
     # Load exchanges
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
@@ -499,7 +499,7 @@ def wallet():
 
 @wallet.command()
 @click.pass_context
-def balance(ctx):
+def wallet_balance(ctx):
     """Get Bitcoin wallet balance"""
     config = ctx.obj["config"]
 
@@ -537,8 +537,8 @@ def info(ctx):
 @click.option("--api-secret", help="API secret for exchange integration")
 @click.option("--sandbox", is_flag=True, default=False, help="Use sandbox/testnet environment")
 @click.pass_context
-def register(ctx, name: str, api_key: str, api_secret: str | None, sandbox: bool):
-    """Register a new exchange integration"""
+def register_remote(ctx, name: str, api_key: str, api_secret: str | None, sandbox: bool):
+    """Register a new exchange integration (remote service)"""
     config = ctx.obj["config"]
 
     exchange_data = {"name": name, "api_key": api_key, "sandbox": sandbox}
@@ -567,7 +567,7 @@ def register(ctx, name: str, api_key: str, api_secret: str | None, sandbox: bool
 @click.option("--price-precision", type=int, default=8, help="Price decimal precision")
 @click.option("--size-precision", type=int, default=8, help="Size decimal precision")
 @click.pass_context
-def create_pair(
+def create_pair_remote(
     ctx,
     pair: str,
     base_asset: str,
@@ -612,8 +612,8 @@ def create_pair(
     "--order-type", multiple=True, default=["limit", "market"], help="Order types to enable (limit, market, stop_limit)"
 )
 @click.pass_context
-def start_trading(ctx, pair: str, exchange: str | None, order_type: tuple):
-    """Start trading for a specific pair"""
+def start_trading_remote(ctx, pair: str, exchange: str | None, order_type: tuple):
+    """Start trading for a specific pair (remote service)"""
     config = ctx.obj["config"]
 
     trading_data = {"pair": pair, "order_types": list(order_type)}
@@ -699,8 +699,8 @@ def connect(ctx, exchange: str, api_key: str, secret: str, sandbox: bool, passph
 @exchange.command()
 @click.option("--exchange", help="Check specific exchange (default: all)")
 @click.pass_context
-def status(ctx, exchange: str | None):
-    """Check exchange connection status"""
+def status_remote(ctx, exchange: str | None):
+    """Check exchange connection status (remote service)"""
     try:
         # Import the real exchange integration
         import sys
@@ -819,7 +819,7 @@ def orderbook(ctx, exchange: str, symbol: str, limit: int):
 @exchange.command()
 @click.option("--exchange", required=True, help="Exchange name")
 @click.pass_context
-def balance(ctx, exchange: str):
+def exchange_balance(ctx, exchange: str):
     """Get account balance from exchange"""
     try:
         # Import the real exchange integration
@@ -1162,7 +1162,7 @@ def swap(ctx, from_token: str, to_token: str, amount: float, slippage: float):
 @exchange.command("bridge-status")
 @click.option("--tx-id", help="Bridge transaction ID to check")
 @click.pass_context
-def bridge_status(ctx, tx_id: str | None):
+def bridge_status_check(ctx, tx_id: str | None):
     """Check bridge status or list recent bridge transactions"""
     try:
         import json

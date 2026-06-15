@@ -70,7 +70,7 @@ def status(ctx, rpc_url):
         output(status, ctx.obj.get("output_format", "table"), title="Network Status (Simulated)")
     except Exception as e:
         error(f"Error getting network status: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @network.command()
@@ -88,7 +88,7 @@ def peers(ctx, rpc_url):
         output(peers, ctx.obj.get("output_format", "table"), title="Connected Peers (Simulated)")
     except Exception as e:
         error(f"Error listing peers: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @network.command()
@@ -103,10 +103,10 @@ def test(ctx, peer, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title=f"Connectivity Test: {peer}")
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error testing connectivity: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @network.command()
@@ -120,10 +120,10 @@ def force_sync(ctx, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Force Sync")
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error forcing sync: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @network.command()
@@ -159,10 +159,10 @@ def subscribe(ctx, node_id, transport, chain_id, duration, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Subscription Registered")
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error registering subscription: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @network.command()
@@ -185,10 +185,10 @@ def heartbeat(ctx, node_id, duration, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Lease Extended")
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error extending lease: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @network.command()
@@ -209,10 +209,10 @@ def lease_status(ctx, node_id, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Lease Status")
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error checking lease status: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @network.command()
@@ -228,7 +228,7 @@ def subscribers(ctx, chain_id, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Active Subscribers")
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error listing subscribers: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

@@ -25,9 +25,9 @@ def log_debug(msg: str) -> None:
     logger.debug(msg)
 
 
-import ping3  # type: ignore
+import ping3  # type: ignore  # noqa: E402
 
-from .discovery import NodeStatus, PeerNode
+from .discovery import NodeStatus, PeerNode  # noqa: E402
 
 
 class HealthMetric(Enum):

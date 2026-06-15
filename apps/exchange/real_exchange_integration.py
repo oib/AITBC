@@ -134,7 +134,7 @@ class RealExchangeManager:
             latency = (time.time() - start_time) * 1000
             logger.info("🔗 %s connection test successful (%sms)", exchange_name, latency)
         except Exception as e:
-            raise Exception(f"Connection test failed: {str(e)}")
+            raise Exception(f"Connection test failed: {str(e)}") from e
 
     async def disconnect_exchange(self, exchange_name: str) -> bool:
         """Disconnect from an exchange"""

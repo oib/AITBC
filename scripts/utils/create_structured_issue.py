@@ -26,6 +26,9 @@ REPO = "oib/aitbc"
 
 
 def create_issue(title, context, expected, files, implementation, difficulty, priority, labels, assignee=None):
+    difficulty_levels = ["easy", "medium", "hard"]
+    priority_levels = ["low", "medium", "high", "critical"]
+
     body = f"""## Task
 {title}
 
@@ -42,14 +45,13 @@ def create_issue(title, context, expected, files, implementation, difficulty, pr
 {implementation}
 
 ## Difficulty
-- [{"x" if difficulty == d else " "}] {d}
-{"" if difficulty != "medium" else ""}
+{chr(10).join([f'- [{"x" if difficulty == d else " "}] {d}' for d in difficulty_levels])}
 
 ## Priority
-- [{"x" if priority == p else " "}] {p}
+{chr(10).join([f'- [{"x" if priority == p else " "}] {p}' for p in priority_levels])}
 
 ## Labels
-{", ".join([f"[{l}]" for l in labels])}
+{", ".join([f"[{label}]" for label in labels])}
 """
     data = {"title": title, "body": body, "labels": labels}
     if assignee:

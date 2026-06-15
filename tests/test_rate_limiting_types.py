@@ -50,7 +50,7 @@ def test_rate_limit_with_key_func() -> None:
 
 def test_rate_limit_middleware_init() -> None:
     """Test RateLimitMiddleware initialization types"""
-    app: ASGIApp = lambda scope, receive, send: None  # type: ignore
+    app: ASGIApp = lambda scope, receive, send: None  # type: ignore  # noqa: E731
 
     middleware = RateLimitMiddleware(
         app, rate=100, per=60, key_func=lambda r: r.client.host if r.client else "unknown", error_message="Custom message"
@@ -121,9 +121,8 @@ def test_rate_limit_parameters_are_optional() -> None:
 
 def test_middleware_dispatch_signature() -> None:
     """Test middleware dispatch has correct signature"""
-    from collections.abc import Awaitable
 
-    app: ASGIApp = lambda scope, receive, send: None  # type: ignore
+    app: ASGIApp = lambda scope, receive, send: None  # type: ignore  # noqa: E731
     RateLimitMiddleware(app, rate=100, per=60)
 
     async def call_next(request: Request) -> Response:

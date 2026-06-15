@@ -81,7 +81,7 @@ async def marketplace_listings() -> dict[str, Any]:
         return {"listings": listings, "total": len(listings), "timestamp": datetime.now().isoformat()}
     except Exception as e:
         metrics_registry.increment("rpc_marketplace_listings_errors_total")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/marketplace/create", summary="Create marketplace listing", tags=["marketplace"])
@@ -132,7 +132,7 @@ async def marketplace_create(request: MarketplaceCreateRequest) -> dict[str, Any
 
     except Exception as e:
         metrics_registry.increment("rpc_marketplace_create_errors_total")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/marketplace/listing/{listing_id}", summary="Get marketplace listing by ID", tags=["marketplace"])
@@ -152,7 +152,7 @@ async def marketplace_get_listing(listing_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         metrics_registry.increment("rpc_marketplace_get_errors_total")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/marketplace/listing/{listing_id}", summary="Delete marketplace listing", tags=["marketplace"])
@@ -173,4 +173,4 @@ async def marketplace_delete_listing(listing_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         metrics_registry.increment("rpc_marketplace_delete_errors_total")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

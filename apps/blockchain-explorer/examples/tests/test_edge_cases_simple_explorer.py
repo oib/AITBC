@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 # Mock httpx before importing
 sys.modules["httpx"] = Mock()
 
-from main import app
+from main import app  # noqa: E402
 
 
 @pytest.mark.unit

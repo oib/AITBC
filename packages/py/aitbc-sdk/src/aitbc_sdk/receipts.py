@@ -109,8 +109,7 @@ class CoordinatorReceiptClient:
         cursor: str | None = None
         while True:
             page = self.fetch_receipts_page(job_id=job_id, cursor=cursor, limit=page_size)
-            for item in page.items:
-                yield item
+            yield from page.items
 
             if not page.next_cursor:
                 break

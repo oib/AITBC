@@ -35,7 +35,7 @@ def send(ctx, recipient, message, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Message Sent (Simulated)")
     except Exception as e:
         error(f"Error sending message: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @messaging.command()
@@ -53,7 +53,7 @@ def list(ctx, rpc_url):
         output(messages, ctx.obj.get("output_format", "table"), title="Messages (Simulated)")
     except Exception as e:
         error(f"Error listing messages: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @messaging.command()
@@ -69,7 +69,7 @@ def topic(ctx, title, description, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Topic Created")
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error creating topic: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

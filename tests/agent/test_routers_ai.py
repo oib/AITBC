@@ -8,10 +8,10 @@ coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
-import pytest
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock  # noqa: E402
 
-from app.routers.ai import router
+import pytest  # noqa: E402
+from app.routers.ai import router  # noqa: E402
 
 
 class TestAIRouter:
@@ -48,7 +48,7 @@ class TestAIRouter:
         # Find the endpoint function
         for route in router.routes:
             if hasattr(route, "path") and route.path == "/ai/learning/experience":
-                with pytest.raises(Exception):
+                with pytest.raises(Exception):  # noqa: B017
                     await route.endpoint(request, experience_data)
                 break
 

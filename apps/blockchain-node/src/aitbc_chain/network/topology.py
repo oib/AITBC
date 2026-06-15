@@ -21,10 +21,10 @@ def log_error(msg: str) -> None:
     logger.error(msg)
 
 
-import networkx as nx  # type: ignore
+import networkx as nx  # type: ignore  # noqa: E402
 
-from .discovery import P2PDiscovery, PeerNode
-from .health import PeerHealthMonitor
+from .discovery import P2PDiscovery, PeerNode  # noqa: E402
+from .health import PeerHealthMonitor  # noqa: E402
 
 
 class TopologyStrategy(Enum):

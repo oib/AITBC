@@ -56,7 +56,7 @@ def test_block_import():
     print(f"Status: {response.status_code}")
     print(f"Response: {response.json()}")
     assert response.status_code == 200, "Should accept valid block"
-    assert response.json()["success"] == True, "Should return success=True"
+    assert response.json()["success"] is True, "Should return success=True"
     print("✓ Successfully imported valid block")
 
     # Test 2: Try to import same block again (should return conflict)

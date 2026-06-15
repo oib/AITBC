@@ -12,8 +12,8 @@ cli_path = Path("/opt/aitbc/cli")
 if str(cli_path) not in sys.path:
     sys.path.insert(0, str(cli_path))
 
-import pytest
-from handlers.wallet import (
+import pytest  # noqa: E402
+from handlers.wallet import (  # noqa: E402
     handle_wallet_backup,
     handle_wallet_balance,
     handle_wallet_create,

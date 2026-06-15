@@ -8,7 +8,7 @@ import pytest
 # Mock numpy before importing
 sys.modules["numpy"] = MagicMock()
 
-from ai_service import AnalysisRequest, SimpleAITradingEngine, TradingRequest
+from ai_service import AnalysisRequest, SimpleAITradingEngine, TradingRequest  # noqa: E402
 
 
 @pytest.mark.unit

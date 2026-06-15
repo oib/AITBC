@@ -73,7 +73,7 @@ async def initiate_cross_chain_settlement(
         )
 
     except (ValueError, KeyError, AttributeError) as e:
-        raise HTTPException(status_code=500, detail=f"Settlement failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Settlement failed: {str(e)}") from e
 
 
 @router.get("/cross-chain/{settlement_id}")
@@ -99,7 +99,7 @@ async def get_settlement_status(request: Request, settlement_id: str, api_key: s
     except HTTPException:
         raise
     except (ValueError, KeyError, AttributeError) as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get settlement: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get settlement: {str(e)}") from e
 
 
 @router.get("/cross-chain")
@@ -115,7 +115,7 @@ async def list_settlements(
         return {"settlements": settlements, "total": len(settlements), "limit": limit, "offset": offset}
 
     except (ValueError, KeyError, AttributeError) as e:
-        raise HTTPException(status_code=500, detail=f"Failed to list settlements: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list settlements: {str(e)}") from e
 
 
 @router.delete("/cross-chain/{settlement_id}")
@@ -134,4 +134,4 @@ async def cancel_settlement(request: Request, settlement_id: str, api_key: str =
     except HTTPException:
         raise
     except (ValueError, KeyError, AttributeError) as e:
-        raise HTTPException(status_code=500, detail=f"Failed to cancel settlement: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to cancel settlement: {str(e)}") from e

@@ -13,7 +13,7 @@ cli_path = Path("/opt/aitbc/cli")
 if str(cli_path) not in sys.path:
     sys.path.insert(0, str(cli_path))
 
-import pytest
+import pytest  # noqa: E402
 
 
 class TestSecureAuditLogger:
@@ -207,7 +207,7 @@ class TestConvenienceFunctions:
     def test_log_action(self):
         """Test log_action convenience function"""
         try:
-            from utils.secure_audit import log_action, secure_audit_logger
+            from utils.secure_audit import log_action, secure_audit_logger  # noqa: F401
         except ImportError:
             pytest.skip("eth_utils import failed")
 
@@ -227,7 +227,10 @@ class TestConvenienceFunctions:
     def test_verify_audit_integrity(self):
         """Test verify_audit_integrity convenience function"""
         try:
-            from utils.secure_audit import secure_audit_logger, verify_audit_integrity
+            from utils.secure_audit import (
+                secure_audit_logger,  # noqa: F401
+                verify_audit_integrity,
+            )
         except ImportError:
             pytest.skip("eth_utils import failed")
 
@@ -244,7 +247,7 @@ class TestConvenienceFunctions:
     def test_get_audit_logs(self):
         """Test get_audit_logs convenience function"""
         try:
-            from utils.secure_audit import get_audit_logs, secure_audit_logger
+            from utils.secure_audit import get_audit_logs, secure_audit_logger  # noqa: F401
         except ImportError:
             pytest.skip("eth_utils import failed")
 

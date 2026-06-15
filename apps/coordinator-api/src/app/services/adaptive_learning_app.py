@@ -6,12 +6,15 @@ from sqlalchemy.orm import Session
 Adaptive Learning Service - FastAPI Entry Point
 """
 
-from fastapi import Depends, FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Depends, FastAPI  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
-from ..contexts.advanced_ai.routers.adaptive_learning_health import router as health_router
-from ..contexts.ai_analytics.services.ai_analytics.adaptive_learning import AdaptiveLearningService, LearningAlgorithm
-from ..storage import get_session
+from ..contexts.advanced_ai.routers.adaptive_learning_health import router as health_router  # noqa: E402
+from ..contexts.ai_analytics.services.ai_analytics.adaptive_learning import (  # noqa: E402
+    AdaptiveLearningService,
+    LearningAlgorithm,
+)
+from ..storage import get_session  # noqa: E402
 
 app = FastAPI(
     title="AITBC Adaptive Learning Service",

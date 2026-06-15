@@ -8,19 +8,19 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi import status as http_status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
+from fastapi import status as http_status  # noqa: E402
 
-from aitbc.rate_limiting import rate_limit
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
-from ..contexts.trading.services.trading_marketplace.dynamic_pricing import (
+from ..contexts.trading.services.trading_marketplace.dynamic_pricing import (  # noqa: E402
     DynamicPricingEngine,
     PriceConstraints,
     PricingStrategy,
     ResourceType,
 )
-from ..domain.pricing_strategies import StrategyLibrary
-from ..schemas.pricing import (
+from ..domain.pricing_strategies import StrategyLibrary  # noqa: E402
+from ..schemas.pricing import (  # noqa: E402
     BulkPricingUpdateRequest,
     BulkPricingUpdateResponse,
     DynamicPriceResponse,
@@ -31,7 +31,7 @@ from ..schemas.pricing import (
     PricingStrategyRequest,
     PricingStrategyResponse,
 )
-from ..services.market_data_collector import MarketDataCollector
+from ..services.market_data_collector import MarketDataCollector  # noqa: E402
 
 router = APIRouter(prefix="/v1/pricing", tags=["dynamic-pricing"])
 pricing_engine = None
@@ -73,14 +73,14 @@ async def get_dynamic_price(
         try:
             resource_enum = ResourceType(resource_type.lower())
         except ValueError:
-            raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f"Invalid resource type: {resource_type}")
+            raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f"Invalid resource type: {resource_type}") from None
         base_price = 0.05
         strategy_enum = None
         if strategy:
             try:
                 strategy_enum = PricingStrategy(strategy.lower())
             except ValueError:
-                raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f"Invalid strategy: {strategy}")
+                raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f"Invalid strategy: {strategy}") from None
         result = await engine.calculate_dynamic_price(
             resource_id=resource_id, resource_type=resource_enum, base_price=base_price, strategy=strategy_enum, region=region
         )
@@ -99,7 +99,7 @@ async def get_dynamic_price(
     except Exception as e:
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to calculate dynamic price: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/forecast/{resource_type}/{resource_id}", response_model=PriceForecast)
@@ -116,7 +116,7 @@ async def get_price_forecast(
         try:
             ResourceType(resource_type.lower())
         except ValueError:
-            raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f"Invalid resource type: {resource_type}")
+            raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f"Invalid resource type: {resource_type}") from None
         forecast_points = await engine.get_price_forecast(resource_id, hours)
         return PriceForecast(
             resource_id=resource_id,
@@ -141,7 +141,7 @@ async def get_price_forecast(
     except Exception as e:
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate price forecast: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/strategy/{provider_id}", response_model=PricingStrategyResponse)
@@ -159,7 +159,7 @@ async def set_pricing_strategy(
         except ValueError:
             raise HTTPException(
                 status_code=http_status.HTTP_400_BAD_REQUEST, detail=f"Invalid strategy: {request_data.strategy}"
-            )
+            ) from None
         constraints = None
         if request_data.constraints:
             constraints = PriceConstraints(
@@ -186,7 +186,7 @@ async def set_pricing_strategy(
     except Exception as e:
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to set pricing strategy: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/strategy/{provider_id}", response_model=PricingStrategyResponse)
@@ -223,7 +223,7 @@ async def get_pricing_strategy(
     except Exception as e:
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get pricing strategy: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/strategies/available", response_model=list[dict[str, Any]])
@@ -252,7 +252,7 @@ async def get_available_strategies(request: Request) -> list[dict[str, Any]]:
     except Exception as e:
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get available strategies: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/market-analysis", response_model=MarketAnalysisResponse)
@@ -268,7 +268,7 @@ async def get_market_analysis(
         try:
             ResourceType(resource_type.lower())
         except ValueError:
-            raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f"Invalid resource type: {resource_type}")
+            raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f"Invalid resource type: {resource_type}") from None
         market_data = await collector.get_aggregated_data(resource_type, region)
         if not market_data:
             raise HTTPException(
@@ -329,7 +329,7 @@ async def get_market_analysis(
     except Exception as e:
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get market analysis: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/recommendations/{provider_id}", response_model=list[PricingRecommendation])
@@ -347,7 +347,7 @@ async def get_pricing_recommendations(
         try:
             ResourceType(resource_type.lower())
         except ValueError:
-            raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f"Invalid resource type: {resource_type}")
+            raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f"Invalid resource type: {resource_type}") from None
         recommendations = []
         market_data = await collector.get_aggregated_data(resource_type, region)
         if not market_data:
@@ -426,7 +426,7 @@ async def get_pricing_recommendations(
     except Exception as e:
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get pricing recommendations: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/history/{resource_id}", response_model=PriceHistoryResponse)
@@ -488,7 +488,7 @@ async def get_price_history(
     except Exception as e:
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get price history: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/bulk-update", response_model=BulkPricingUpdateResponse)
@@ -537,7 +537,7 @@ async def bulk_pricing_update(
     except Exception as e:
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to process bulk update: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/health")

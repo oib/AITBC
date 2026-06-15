@@ -17,10 +17,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from .advanced_learning import AdvancedLearningService  # type: ignore[import-not-found]
-from .advanced_rl import AdvancedReinforcementLearningEngine  # type: ignore[import-not-found]
-from .gpu_multimodal import GPUAcceleratedMultiModal
-from .multi_modal_fusion import MultiModalFusionEngine  # type: ignore[import-not-found]
+from .advanced_learning import AdvancedLearningService  # type: ignore[import-not-found]  # noqa: E402
+from .advanced_rl import AdvancedReinforcementLearningEngine  # type: ignore[import-not-found]  # noqa: E402
+from .gpu_multimodal import GPUAcceleratedMultiModal  # noqa: E402
+from .multi_modal_fusion import MultiModalFusionEngine  # type: ignore[import-not-found]  # noqa: E402
 
 
 class RLTrainingRequest(BaseModel):
@@ -148,7 +148,7 @@ async def train_rl_agent(request: RLTrainingRequest, background_tasks: Backgroun
         }
     except Exception as e:
         logger.error("RL training failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def _train_rl_agent_background(
@@ -205,7 +205,7 @@ async def process_multi_modal_fusion(request: MultiModalFusionRequest) -> Any:
         }
     except Exception as e:
         logger.error("Multi-modal fusion failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/gpu/optimize")
@@ -222,7 +222,7 @@ async def optimize_gpu_processing(request: GPUOptimizationRequest) -> Any:
         return {"optimization_result": result, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error("GPU optimization failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/process")
@@ -242,7 +242,7 @@ async def advanced_ai_processing(request: AdvancedAIRequest) -> Any:
             raise HTTPException(status_code=400, detail=f"Unsupported request type: {request.request_type}")
     except Exception as e:
         logger.error("Advanced AI processing failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def _handle_rl_training(input_data: dict[str, Any], config: dict[str, Any] | None) -> Any:
@@ -295,7 +295,7 @@ async def get_performance_metrics() -> Any:
         }
     except Exception as e:
         logger.error("Failed to get metrics: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/models")
@@ -307,7 +307,7 @@ async def list_available_models() -> Any:
         return {"rl_models": rl_models, "fusion_models": fusion_models, "total_models": len(rl_models) + len(fusion_models)}
     except Exception as e:
         logger.error("Failed to list models: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.delete("/models/{model_id}")
@@ -323,7 +323,7 @@ async def delete_model(model_id: str) -> Any:
         raise HTTPException(status_code=404, detail=f"Model not found: {model_id}")
     except Exception as e:
         logger.error("Failed to delete model: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 if __name__ == "__main__":

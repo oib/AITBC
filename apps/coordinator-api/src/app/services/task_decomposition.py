@@ -6,10 +6,10 @@ Implements intelligent task splitting and sub-task management
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from enum import StrEnum
-from typing import Any
+from dataclasses import dataclass, field  # noqa: E402
+from datetime import UTC, datetime  # noqa: E402
+from enum import StrEnum  # noqa: E402
+from typing import Any  # noqa: E402
 
 
 class TaskType(StrEnum):

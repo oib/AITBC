@@ -4,7 +4,7 @@ Load tests for AITBC Marketplace using Locust
 
 import random
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import gevent
 from locust import HttpUser, between, events, task

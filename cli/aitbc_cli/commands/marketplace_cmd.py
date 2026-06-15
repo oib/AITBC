@@ -54,14 +54,14 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
         except ValueError:
             error(f"Invalid chain type: {chain_type}")
             error(f"Valid types: {[t.value for t in ChainType]}")
-            raise click.Abort()
+            raise click.Abort() from None
 
         # Parse price
         try:
             _ = Decimal(price)
         except (ValueError, TypeError):
             error("Invalid price format")
-            raise click.Abort()
+            raise click.Abort() from None
 
         # Parse specifications
         chain_specs = {}
@@ -70,7 +70,7 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
                 chain_specs = json.loads(specs)
             except json.JSONDecodeError:
                 error("Invalid JSON specifications")
-                raise click.Abort()
+                raise click.Abort() from None
 
         # Parse metadata
         metadata_dict = {}
@@ -79,7 +79,7 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
                 metadata_dict = json.loads(metadata)
             except json.JSONDecodeError:
                 error("Invalid JSON metadata")
-                raise click.Abort()
+                raise click.Abort() from None
 
         # Create listing transaction
         listing_id = f"chain_listing_{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -120,11 +120,11 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
             output(listing_info, ctx.obj.get("output_format", "table"))
         except Exception as e:
             error(f"Error submitting transaction: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     except Exception as e:
         error(f"Error creating listing: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @marketplace.command()
@@ -160,7 +160,7 @@ def buy(ctx, listing_id, buyer_id, payment):
 
     except Exception as e:
         error(f"Error purchasing chain: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @marketplace.command()
@@ -193,7 +193,7 @@ def complete(ctx, transaction_id, transaction_hash):
 
     except Exception as e:
         error(f"Error completing transaction: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @marketplace.command()
@@ -217,7 +217,7 @@ def search(ctx, type, min_price, max_price, seller, status, format):
                 chain_type = ChainType(type)
             except ValueError:
                 error(f"Invalid chain type: {type}")
-                raise click.Abort()
+                raise click.Abort() from None
 
         min_price_dec = None
         if min_price:
@@ -225,7 +225,7 @@ def search(ctx, type, min_price, max_price, seller, status, format):
                 min_price_dec = Decimal(min_price)
             except (ValueError, TypeError):
                 error("Invalid minimum price format")
-                raise click.Abort()
+                raise click.Abort() from None
 
         max_price_dec = None
         if max_price:
@@ -233,7 +233,7 @@ def search(ctx, type, min_price, max_price, seller, status, format):
                 max_price_dec = Decimal(max_price)
             except (ValueError, TypeError):
                 error("Invalid maximum price format")
-                raise click.Abort()
+                raise click.Abort() from None
 
         listing_status = None
         if status:
@@ -241,7 +241,7 @@ def search(ctx, type, min_price, max_price, seller, status, format):
                 listing_status = MarketplaceStatus(status)
             except ValueError:
                 error(f"Invalid status: {status}")
-                raise click.Abort()
+                raise click.Abort() from None
 
         # Search listings
         listings = asyncio.run(marketplace.search_listings(chain_type, min_price_dec, max_price_dec, seller, listing_status))
@@ -270,7 +270,7 @@ def search(ctx, type, min_price, max_price, seller, status, format):
 
     except Exception as e:
         error(f"Error searching listings: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @marketplace.command()
@@ -308,7 +308,7 @@ def economy(ctx, chain_id, format):
 
     except Exception as e:
         error(f"Error getting chain economy: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @marketplace.command()
@@ -349,7 +349,7 @@ def transactions(ctx, user_id, role, format):
 
     except Exception as e:
         error(f"Error getting user transactions: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @marketplace.command()
@@ -433,7 +433,7 @@ def overview(ctx, format):
 
     except Exception as e:
         error(f"Error getting marketplace overview: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @marketplace.command()
@@ -521,7 +521,7 @@ def monitor(ctx, realtime, interval):
 
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @marketplace.command()

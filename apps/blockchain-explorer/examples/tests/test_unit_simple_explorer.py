@@ -8,7 +8,7 @@ import pytest
 # Mock httpx before importing
 sys.modules["httpx"] = Mock()
 
-from main import BLOCKCHAIN_RPC_URL, HTML_TEMPLATE, app
+from main import BLOCKCHAIN_RPC_URL, HTML_TEMPLATE, app  # noqa: E402
 
 
 @pytest.mark.unit

@@ -5,19 +5,26 @@ from sqlalchemy.orm import Session
 from sqlmodel import select
 
 "\nMarketplace Analytics API Endpoints\nREST API for analytics, insights, reporting, and dashboards\n"
-from datetime import UTC, datetime, timedelta
-from typing import Any
+from datetime import UTC, datetime, timedelta  # noqa: E402
+from typing import Any  # noqa: E402
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
-from aitbc import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger  # noqa: E402
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
 logger = get_logger(__name__)
-from ....domain.analytics import AnalyticsPeriod, AnalyticsReport, DashboardConfig, MarketInsight, MarketMetric, ReportType
-from ....services.agent_coordination.marketplace import AgentServiceMarketplace
-from ....storage import get_session
+from ....domain.analytics import (  # noqa: E402
+    AnalyticsPeriod,
+    AnalyticsReport,
+    DashboardConfig,
+    MarketInsight,
+    MarketMetric,
+    ReportType,
+)
+from ....services.agent_coordination.marketplace import AgentServiceMarketplace  # noqa: E402
+from ....storage import get_session  # noqa: E402
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -124,7 +131,7 @@ async def collect_market_data(
         return AnalyticsSummaryResponse(**result)
     except Exception as e:
         logger.error("Error collecting market data: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/insights", response_model=dict[str, Any])
@@ -156,7 +163,7 @@ async def get_market_insights(
         return result  # type: ignore[no-any-return]
     except Exception as e:
         logger.error("Error getting market insights: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/metrics", response_model=list[MetricResponse])
@@ -200,7 +207,7 @@ async def get_market_metrics(
         ]
     except Exception as e:
         logger.error("Error getting market metrics: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/overview", response_model=MarketOverviewResponse)
@@ -213,7 +220,7 @@ async def get_market_overview(request: Request, session: Session = Depends(get_s
         return MarketOverviewResponse(**overview)
     except Exception as e:
         logger.error("Error getting market overview: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/dashboards", response_model=DashboardResponse)
@@ -251,7 +258,7 @@ async def create_dashboard(
         )
     except Exception as e:
         logger.error("Error creating dashboard: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/dashboards/{dashboard_id}", response_model=DashboardResponse)
@@ -281,7 +288,7 @@ async def get_dashboard(request: Request, dashboard_id: str, session: Session = 
         raise
     except Exception as e:
         logger.error("Error getting dashboard %s: %s", dashboard_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/dashboards")
@@ -324,7 +331,7 @@ async def list_dashboards(
         ]
     except Exception as e:
         logger.error("Error listing dashboards: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/reports", response_model=dict[str, Any])
@@ -385,7 +392,7 @@ async def generate_report(
         }
     except Exception as e:
         logger.error("Error generating report: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/reports/{report_id}")
@@ -430,7 +437,7 @@ async def get_report(
         raise
     except Exception as e:
         logger.error("Error getting report %s: %s", report_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/alerts")
@@ -472,7 +479,7 @@ async def get_analytics_alerts(
         ]
     except Exception as e:
         logger.error("Error getting analytics alerts: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/kpi")
@@ -523,7 +530,7 @@ async def get_key_performance_indicators(
         }
     except Exception as e:
         logger.error("Error getting KPIs: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 async def generate_market_overview_report(

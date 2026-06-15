@@ -7,8 +7,18 @@ Follow the PLUGIN_SPEC.md for detailed interface requirements.
 
 import asyncio
 import logging
+from enum import Enum
 from typing import Any
+
+import click
 from aitbc.plugins import BasePlugin, PluginContext, PluginMetadata
+
+
+class PluginStatus(Enum):
+    """Plugin status enumeration."""
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    UNLOADED = "unloaded"
 
 
 class ExamplePlugin(BasePlugin):
@@ -93,6 +103,7 @@ class ExamplePlugin(BasePlugin):
         """Return plugin health status."""
         import os
         import time
+
         import psutil
 
         try:

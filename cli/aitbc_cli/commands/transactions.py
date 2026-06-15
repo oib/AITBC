@@ -11,6 +11,7 @@ import click
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from aitbc import ValidationError
+from aitbc.utils.validation import validate_address
 
 from ..utils import error, success
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
@@ -202,7 +203,7 @@ def send(
                         password = getpass.getpass("Enter wallet password: ")
                     except Exception as e:
                         error(f"Password prompt failed: {e}")
-                        raise click.Abort()
+                        raise click.Abort() from e
         else:
             # Wallet file doesn't exist, will fail later in _send_transaction_impl
             if not sys.stdin.isatty():
@@ -217,7 +218,7 @@ def send(
                     password = getpass.getpass("Enter wallet password: ")
                 except Exception as e:
                     error(f"Password prompt failed: {e}")
-                    raise click.Abort()
+                    raise click.Abort() from e
 
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
@@ -278,7 +279,7 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
                             password = getpass.getpass("Enter wallet password: ")
                         except Exception as e:
                             error(f"Password prompt failed: {e}")
-                            raise click.Abort()
+                            raise click.Abort() from e
             else:
                 # Wallet file doesn't exist
                 if not sys.stdin.isatty():
@@ -293,7 +294,7 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
                         password = getpass.getpass("Enter wallet password: ")
                     except Exception as e:
                         error(f"Password prompt failed: {e}")
-                        raise click.Abort()
+                        raise click.Abort() from e
         else:
             # Empty transactions file
             if not sys.stdin.isatty():
@@ -308,7 +309,7 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
                     password = getpass.getpass("Enter wallet password: ")
                 except Exception as e:
                     error(f"Password prompt failed: {e}")
-                    raise click.Abort()
+                    raise click.Abort() from e
 
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL

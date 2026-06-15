@@ -30,9 +30,9 @@ sys.path.insert(0, "/opt/aitbc")
 sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
 
 try:
-    from aitbc_chain.config import BlockchainConfig
-    from aitbc_chain.models import Account, Block
-    from sqlmodel import Session, create_engine, select
+    from aitbc_chain.config import BlockchainConfig  # noqa: F401
+    from aitbc_chain.models import Account, Block  # noqa: F401
+    from sqlmodel import Session, create_engine, select  # noqa: F401
 except ImportError:
     print("Warning: Could not import blockchain modules, running in wallet-only mode")
 

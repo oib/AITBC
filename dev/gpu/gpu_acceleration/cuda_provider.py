@@ -17,7 +17,7 @@ from .compute_provider import ComputeBackend, ComputeDevice, ComputeProvider
 
 # Try to import CUDA libraries
 try:
-    import pycuda.autoinit
+    import pycuda.autoinit  # noqa: F401
     import pycuda.driver as cuda
     from pycuda.compiler import SourceModule
 
@@ -272,7 +272,7 @@ class CUDAComputeProvider(ComputeProvider):
 
         if device_id is not None and device_id != self.current_device_id:
             if not self.set_device(device_id):
-                raise RuntimeError("Failed to set device %s" % device_id)
+                raise RuntimeError(f"Failed to set device {device_id}")
 
         return cuda.mem_alloc(size)
 
@@ -505,10 +505,10 @@ class CUDAComputeProvider(ComputeProvider):
                 cuda.memcpy_dtoh(result, result_dev)
 
             # Clean up
-            for _scalar_dev in [ptr for ptr in scalar_ptrs]:
-                cuda.mem_free(ptr)
-            for _point_dev in [ptr for ptr in point_ptrs]:
-                cuda.mem_free(ptr)
+            for _scalar_dev in scalar_ptrs:
+                cuda.mem_free(_scalar_dev)
+            for _point_dev in point_ptrs:
+                cuda.mem_free(_point_dev)
             result_dev.free()
 
             return success
@@ -607,6 +607,6 @@ class CUDAComputeProvider(ComputeProvider):
 
 
 # Register the CUDA provider
-from .compute_provider import ComputeProviderFactory
+from .compute_provider import ComputeProviderFactory  # noqa: E402
 
 ComputeProviderFactory.register_provider(ComputeBackend.CUDA, CUDAComputeProvider)

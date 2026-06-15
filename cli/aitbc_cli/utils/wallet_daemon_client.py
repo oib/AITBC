@@ -336,27 +336,6 @@ class WalletDaemonClient:
             error(f"Error creating chain: {str(e)}")
             raise
 
-    def create_wallet(self, wallet_id: str, password: str, metadata: dict[str, Any] | None = None) -> WalletInfo:
-        """Create a new wallet in the daemon"""
-        try:
-            client = self._get_http_client()
-            payload = {"wallet_id": wallet_id, "password": password, "metadata": metadata or {}}
-
-            data = client.post("/v1/wallets", json=payload)
-            return WalletInfo(
-                wallet_id=data["wallet_id"],
-                public_key=data["public_key"],
-                address=data.get("address"),
-                created_at=data.get("created_at"),
-                metadata=data.get("metadata"),
-            )
-        except NetworkError as e:
-            error(f"Failed to create wallet: {e}")
-            raise
-        except Exception as e:
-            error(f"Error creating wallet: {str(e)}")
-            raise
-
     def create_wallet_in_chain(
         self, chain_id: str, wallet_id: str, password: str, metadata: dict[str, Any] | None = None
     ) -> WalletInfo:

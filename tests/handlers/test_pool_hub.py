@@ -12,8 +12,8 @@ cli_path = Path("/opt/aitbc/cli")
 if str(cli_path) not in sys.path:
     sys.path.insert(0, str(cli_path))
 
-import pytest
-from handlers.pool_hub import (
+import pytest  # noqa: E402
+from handlers.pool_hub import (  # noqa: E402
     handle_pool_hub_billing_sync,
     handle_pool_hub_billing_usage,
     handle_pool_hub_capacity_forecast,

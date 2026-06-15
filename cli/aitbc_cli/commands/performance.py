@@ -33,7 +33,7 @@ def benchmark(ctx, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Performance Benchmark (Simulated)")
     except Exception as e:
         error(f"Error running benchmark: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @performance.command()
@@ -57,7 +57,7 @@ def optimize(ctx, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Performance Optimization (Simulated)")
     except Exception as e:
         error(f"Error optimizing performance: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @performance.command()
@@ -81,4 +81,4 @@ def tune(ctx, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="System Tuning (Simulated)")
     except Exception as e:
         error(f"Error tuning system: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

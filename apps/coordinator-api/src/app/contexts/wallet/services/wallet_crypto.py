@@ -128,7 +128,7 @@ def decrypt_private_key(encrypted_data: dict[str, str], password: str) -> str:
 
         return decrypted.decode()
     except Exception as e:
-        raise ValueError(f"Failed to decrypt private key: {str(e)}")
+        raise ValueError(f"Failed to decrypt private key: {str(e)}") from e
 
 
 def validate_private_key_format(private_key: str) -> bool:

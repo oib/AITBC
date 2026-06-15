@@ -62,7 +62,7 @@ def list(ctx, chain_type, show_private, sort):
 
     except Exception as e:
         error(f"Error listing chains: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @chain.command()
@@ -127,10 +127,10 @@ def status(ctx, chain_id, detailed):
 
     except ChainNotFoundError:
         error(f"Chain {chain_id} not found")
-        raise click.Abort()
+        raise click.Abort() from None
     except Exception as e:
         error(f"Error getting chain status: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @chain.command()
@@ -196,10 +196,10 @@ def info(ctx, chain_id, detailed, metrics):
 
     except ChainNotFoundError:
         error(f"Chain {chain_id} not found")
-        raise click.Abort()
+        raise click.Abort() from None
     except Exception as e:
         error(f"Error getting chain info: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @chain.command()
@@ -256,7 +256,7 @@ def create(ctx, config_file, node, dry_run):
 
     except Exception as e:
         error(f"Error creating chain: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @chain.command()
@@ -306,10 +306,10 @@ def delete(ctx, chain_id, force, confirm):
 
     except ChainNotFoundError:
         error(f"Chain {chain_id} not found")
-        raise click.Abort()
+        raise click.Abort() from None
     except Exception as e:
         error(f"Error deleting chain: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @chain.command()
@@ -334,7 +334,7 @@ def add(ctx, chain_id, node_id):
 
     except Exception as e:
         error(f"Error adding chain to node: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @chain.command()
@@ -358,7 +358,7 @@ def remove(ctx, chain_id, node_id, migrate):
 
     except Exception as e:
         error(f"Error removing chain from node: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @chain.command()
@@ -407,7 +407,7 @@ def migrate(ctx, chain_id, from_node, to_node, dry_run, verify):
 
     except Exception as e:
         error(f"Error during migration: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @chain.command()
@@ -441,7 +441,7 @@ def backup(ctx, chain_id, path, compress, verify):
 
     except Exception as e:
         error(f"Error during backup: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @chain.command()
@@ -471,7 +471,7 @@ def restore(ctx, backup_file, node, verify):
 
     except Exception as e:
         error(f"Error during restoration: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @chain.command()
@@ -560,7 +560,7 @@ def monitor(ctx, chain_id, realtime, export, interval):
 
     except ChainNotFoundError:
         error(f"Chain {chain_id} not found")
-        raise click.Abort()
+        raise click.Abort() from None
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e

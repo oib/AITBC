@@ -1,6 +1,5 @@
 """Comprehensive tests for aitbc.caching"""
 
-import time
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
@@ -15,7 +14,6 @@ from aitbc.caching import (
     _generate_blockchain_cache_key,
     _generate_cache_key,
     cached,
-    cached_blockchain,
     cached_lru,
     clear_global_caches,
     generate_cache_key,

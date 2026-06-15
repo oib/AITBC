@@ -12,7 +12,7 @@ sys.path.insert(
 
 try:
     from aitbc_agent import Agent, AITBCAgent, ComputeConsumer, ComputeProvider
-    from aitbc_agent.agent import AgentCapabilities
+    from aitbc_agent.agent import AgentCapabilities  # noqa: F401
 except ImportError:
     # Fallback if Agent SDK is not installed
     Agent = None
@@ -364,7 +364,7 @@ try:
 
         except Exception as e:
             error(f"Error creating agent: {str(e)}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.argument("agent_id")
@@ -393,7 +393,7 @@ try:
 
         except Exception as e:
             error(f"Error registering agent: {str(e)}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.argument("agent_id")
@@ -463,7 +463,7 @@ try:
 
         except Exception as e:
             error(f"Error registering identity: {str(e)}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.argument("agent_id")
@@ -496,7 +496,7 @@ try:
 
         except Exception as e:
             error(f"Error getting identity: {str(e)}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.argument("agent_id")
@@ -532,7 +532,7 @@ try:
 
         except Exception as e:
             error(f"Error verifying identity: {str(e)}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.option("--agent-dir", type=click.Path(), help="Agent directory path")
@@ -561,7 +561,7 @@ try:
 
         except Exception as e:
             error(f"Error listing agents: {str(e)}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.argument("agent_id")
@@ -585,7 +585,7 @@ try:
 
         except Exception as e:
             error(f"Error getting agent status: {str(e)}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
@@ -612,7 +612,7 @@ try:
 
         except Exception as e:
             error(f"Error detecting capabilities: {str(e)}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.argument("name")
@@ -632,7 +632,7 @@ try:
 
         except Exception as e:
             error(f"Error setting configuration: {str(e)}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.argument("name")
@@ -660,7 +660,7 @@ try:
 
         except Exception as e:
             error(f"Error getting configuration: {str(e)}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.argument("name")
@@ -678,7 +678,7 @@ try:
 
         except Exception as e:
             error(f"Error validating configuration: {str(e)}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.argument("file_path")
@@ -697,7 +697,7 @@ try:
 
         except Exception as e:
             error(f"Error importing configuration: {str(e)}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.argument("name")
@@ -716,7 +716,7 @@ try:
 
         except Exception as e:
             error(f"Error exporting configuration: {str(e)}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.argument("job_id")
@@ -833,10 +833,10 @@ try:
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             error("Make sure the agent-coordinator service is running")
-            raise click.Abort()
+            raise click.Abort() from e
         except Exception as e:
             error(f"Error discovering agents: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.option("--agent-id", required=True, help="Agent ID")
@@ -858,10 +858,10 @@ try:
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             error("Make sure the agent-coordinator service is running")
-            raise click.Abort()
+            raise click.Abort() from e
         except Exception as e:
             error(f"Error getting inbox: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.command()
     @click.option("--agent-id", required=True, help="Agent ID")
@@ -883,14 +883,14 @@ try:
             success(f"Agent {agent_id} subscribed to topic {topic}")
         except json.JSONDecodeError as e:
             error(f"Invalid JSON in filter: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             error("Make sure the agent-coordinator service is running")
-            raise click.Abort()
+            raise click.Abort() from e
         except Exception as e:
             error(f"Error subscribing to topic: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @agent.group()
     def workflow():
@@ -920,17 +920,17 @@ try:
             success(f"Workflow '{name}' created successfully")
         except FileNotFoundError as e:
             error(f"File not found: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
         except json.JSONDecodeError as e:
             error(f"Invalid JSON in steps file: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             error("Make sure the agent-coordinator service is running")
-            raise click.Abort()
+            raise click.Abort() from e
         except Exception as e:
             error(f"Error creating workflow: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @workflow.command()
     @click.option("--workflow-id", required=True, help="Workflow ID")
@@ -956,17 +956,17 @@ try:
             success(f"Workflow {workflow_id} execution started")
         except FileNotFoundError as e:
             error(f"File not found: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
         except json.JSONDecodeError as e:
             error(f"Invalid JSON in input file: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             error("Make sure the agent-coordinator service is running")
-            raise click.Abort()
+            raise click.Abort() from e
         except Exception as e:
             error(f"Error executing workflow: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @workflow.command()
     @click.option("--workflow-id", required=True, help="Workflow ID")
@@ -985,10 +985,10 @@ try:
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             error("Make sure the agent-coordinator service is running")
-            raise click.Abort()
+            raise click.Abort() from e
         except Exception as e:
             error(f"Error getting workflow status: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
     @workflow.command()
     @click.option("--coordinator-url", default="http://localhost:9001", help="Agent coordinator URL")
@@ -1006,10 +1006,10 @@ try:
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             error("Make sure the agent-coordinator service is running")
-            raise click.Abort()
+            raise click.Abort() from e
         except Exception as e:
             error(f"Error listing workflows: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
 
 except ImportError:
     # Click not available, commands will be added programmatically

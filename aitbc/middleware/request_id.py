@@ -4,9 +4,11 @@ Request ID correlation middleware for structured logging
 
 import uuid
 from collections.abc import Callable
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
+
 from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)

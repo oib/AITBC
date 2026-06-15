@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 # Mock aiohttp before importing
 sys.modules["aiohttp"] = Mock()
 
-from main import ExchangeRegistration, OrderRequest, TradingPair, app, exchanges, orders, trading_pairs
+from main import ExchangeRegistration, OrderRequest, TradingPair, app, exchanges, orders, trading_pairs  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

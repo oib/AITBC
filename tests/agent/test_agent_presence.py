@@ -11,16 +11,16 @@ coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta  # noqa: E402
 
-import pytest
-from app.routing.agent_discovery import AgentInfo, AgentStatus, AgentType
+import pytest  # noqa: E402
+from app.routing.agent_discovery import AgentInfo, AgentStatus, AgentType  # noqa: E402
 
 
 class TestAgentPresence:
     """Test agent presence tracking"""
 
-    def test_agent_info_creation(self):
+    def test_agent_info_creation(self):  # noqa: F811
         """Test creating agent info"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -40,7 +40,7 @@ class TestAgentPresence:
         assert len(agent.capabilities) == 2
         assert agent.status == AgentStatus.INACTIVE
 
-    def test_agent_status_transitions(self):
+    def test_agent_status_transitions(self):  # noqa: F811
         """Test agent status transitions"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -66,7 +66,7 @@ class TestAgentPresence:
         agent.status = AgentStatus.BUSY
         assert agent.status == AgentStatus.BUSY
 
-    def test_agent_heartbeat_tracking(self):
+    def test_agent_heartbeat_tracking(self):  # noqa: F811
         """Test agent heartbeat timestamp updates"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -89,7 +89,7 @@ class TestAgentPresence:
         agent.last_heartbeat = datetime.now(UTC)
         assert agent.last_heartbeat > now
 
-    def test_agent_health_score_calculation(self):
+    def test_agent_health_score_calculation(self):  # noqa: F811
         """Test agent health score based on activity"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -109,7 +109,7 @@ class TestAgentPresence:
         assert agent.health_score == 1.0
         assert agent.status == AgentStatus.ACTIVE
 
-    def test_agent_capabilities_filtering(self):
+    def test_agent_capabilities_filtering(self):  # noqa: F811
         """Test filtering agents by capabilities"""
         now = datetime.now(UTC)
         agents = [
@@ -156,7 +156,7 @@ class TestAgentPresence:
         storage_agents = [a for a in agents if "storage" in a.capabilities]
         assert len(storage_agents) == 1
 
-    def test_agent_services_registration(self):
+    def test_agent_services_registration(self):  # noqa: F811
         """Test agent service registration"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -176,7 +176,7 @@ class TestAgentPresence:
         assert "training" in agent.services
         assert "serving" in agent.services
 
-    def test_agent_endpoint_management(self):
+    def test_agent_endpoint_management(self):  # noqa: F811
         """Test agent endpoint configuration"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -195,7 +195,7 @@ class TestAgentPresence:
         assert agent.endpoints["http"] == "http://localhost:8080"
         assert agent.endpoints["grpc"] == "localhost:9090"
 
-    def test_agent_metadata_storage(self):
+    def test_agent_metadata_storage(self):  # noqa: F811
         """Test agent metadata for additional information"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -214,14 +214,14 @@ class TestAgentPresence:
         assert agent.metadata["gpu_model"] == "NVIDIA A100"
         assert agent.metadata["memory_gb"] == 80
 
-    def test_agent_status_values(self):
+    def test_agent_status_values(self):  # noqa: F811
         """Test all agent status enum values"""
         statuses = [AgentStatus.ACTIVE, AgentStatus.INACTIVE, AgentStatus.BUSY, AgentStatus.MAINTENANCE, AgentStatus.ERROR]
 
         for status in statuses:
             assert isinstance(status.value, str)
 
-    def test_agent_type_values(self):
+    def test_agent_type_values(self):  # noqa: F811
         """Test all agent type enum values"""
         types = [
             AgentType.COORDINATOR,
@@ -235,7 +235,7 @@ class TestAgentPresence:
         for agent_type in types:
             assert isinstance(agent_type.value, str)
 
-    def test_agent_load_metrics(self):
+    def test_agent_load_metrics(self):  # noqa: F811
         """Test agent load metrics tracking"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -255,7 +255,7 @@ class TestAgentPresence:
         assert agent.load_metrics["cpu"] == 0.5
         assert agent.load_metrics["gpu"] == 0.8
 
-    def test_agent_tags_management(self):
+    def test_agent_tags_management(self):  # noqa: F811
         """Test agent tags for categorization"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -276,7 +276,7 @@ class TestAgentPresence:
         assert "inference" in agent.tags
         assert "production" in agent.tags
 
-    def test_agent_tags_add_remove(self):
+    def test_agent_tags_add_remove(self):  # noqa: F811
         """Test adding and removing tags"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -302,7 +302,7 @@ class TestAgentPresence:
         assert "gpu" not in agent.tags
         assert len(agent.tags) == 1
 
-    def test_agent_info_with_all_fields(self):
+    def test_agent_info_with_all_fields(self):  # noqa: F811
         """Test agent info with all fields populated"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -334,7 +334,7 @@ class TestAgentPresence:
         assert len(agent.load_metrics) == 7
         assert len(agent.tags) == 3
 
-    def test_agent_info_status_changes(self):
+    def test_agent_info_status_changes(self):  # noqa: F811
         """Test agent info status changes"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -357,7 +357,7 @@ class TestAgentPresence:
         agent.status = AgentStatus.INACTIVE
         assert agent.status == AgentStatus.INACTIVE
 
-    def test_agent_info_timestamp_comparison(self):
+    def test_agent_info_timestamp_comparison(self):  # noqa: F811
         """Test agent info timestamp comparison"""
         now = datetime.now(UTC)
         later = now + timedelta(hours=1)
@@ -388,7 +388,7 @@ class TestAgentPresence:
 
         assert agent2.last_heartbeat > agent1.last_heartbeat
 
-    def test_agent_info_endpoint_manipulation(self):
+    def test_agent_info_endpoint_manipulation(self):  # noqa: F811
         """Test agent info endpoint manipulation"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -412,7 +412,7 @@ class TestAgentPresence:
         assert "http" not in agent.endpoints
         assert len(agent.endpoints) == 1
 
-    def test_agent_info_with_inactive_status(self):
+    def test_agent_info_with_inactive_status(self):  # noqa: F811
         """Test agent info with inactive status"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -429,7 +429,7 @@ class TestAgentPresence:
 
         assert agent.status == AgentStatus.INACTIVE
 
-    def test_agent_info_with_maintenance_status(self):
+    def test_agent_info_with_maintenance_status(self):  # noqa: F811
         """Test agent info with maintenance status"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -446,7 +446,7 @@ class TestAgentPresence:
 
         assert agent.status == AgentStatus.MAINTENANCE
 
-    def test_agent_info_with_busy_status(self):
+    def test_agent_info_with_busy_status(self):  # noqa: F811
         """Test agent info with busy status"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -463,7 +463,7 @@ class TestAgentPresence:
 
         assert agent.status == AgentStatus.BUSY
 
-    def test_agent_info_with_error_status(self):
+    def test_agent_info_with_error_status(self):  # noqa: F811
         """Test agent info with error status"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -480,7 +480,7 @@ class TestAgentPresence:
 
         assert agent.status == AgentStatus.ERROR
 
-    def test_agent_info_with_coordinator_type(self):
+    def test_agent_info_with_coordinator_type(self):  # noqa: F811
         """Test agent info with coordinator agent type"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -497,7 +497,7 @@ class TestAgentPresence:
 
         assert agent.agent_type == AgentType.COORDINATOR
 
-    def test_agent_info_with_specialist_type(self):
+    def test_agent_info_with_specialist_type(self):  # noqa: F811
         """Test agent info with specialist agent type"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -514,7 +514,7 @@ class TestAgentPresence:
 
         assert agent.agent_type == AgentType.SPECIALIST
 
-    def test_agent_info_with_numeric_agent_id(self):
+    def test_agent_info_with_numeric_agent_id(self):  # noqa: F811
         """Test agent info with numeric characters in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -531,7 +531,7 @@ class TestAgentPresence:
 
         assert "12345" in agent.agent_id
 
-    def test_agent_info_with_special_characters_in_agent_id(self):
+    def test_agent_info_with_special_characters_in_agent_id(self):  # noqa: F811
         """Test agent info with special characters in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -550,7 +550,7 @@ class TestAgentPresence:
         assert "_" in agent.agent_id
         assert "@" in agent.agent_id
 
-    def test_agent_info_with_empty_services(self):
+    def test_agent_info_with_empty_services(self):  # noqa: F811
         """Test agent info with empty services"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -567,7 +567,7 @@ class TestAgentPresence:
 
         assert len(agent.services) == 0
 
-    def test_agent_info_with_single_service(self):
+    def test_agent_info_with_single_service(self):  # noqa: F811
         """Test agent info with single service"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -584,7 +584,7 @@ class TestAgentPresence:
 
         assert len(agent.services) == 1
 
-    def test_agent_info_with_multiple_capabilities(self):
+    def test_agent_info_with_multiple_capabilities(self):  # noqa: F811
         """Test agent info with multiple capabilities"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -601,7 +601,7 @@ class TestAgentPresence:
 
         assert len(agent.capabilities) == 3
 
-    def test_agent_info_with_empty_capabilities(self):
+    def test_agent_info_with_empty_capabilities(self):  # noqa: F811
         """Test agent info with empty capabilities"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -618,7 +618,7 @@ class TestAgentPresence:
 
         assert len(agent.capabilities) == 0
 
-    def test_agent_info_with_multiple_endpoints(self):
+    def test_agent_info_with_multiple_endpoints(self):  # noqa: F811
         """Test agent info with multiple endpoints"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -635,7 +635,7 @@ class TestAgentPresence:
 
         assert len(agent.endpoints) == 2
 
-    def test_agent_info_with_numeric_agent_id(self):
+    def test_agent_info_with_numeric_agent_id(self):  # noqa: F811
         """Test agent info with numeric characters in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -652,7 +652,7 @@ class TestAgentPresence:
 
         assert "12345" in agent.agent_id
 
-    def test_agent_info_with_very_long_agent_id(self):
+    def test_agent_info_with_very_long_agent_id(self):  # noqa: F811
         """Test agent info with very long agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -669,7 +669,7 @@ class TestAgentPresence:
 
         assert len(agent.agent_id) == 100
 
-    def test_agent_info_with_very_short_agent_id(self):
+    def test_agent_info_with_very_short_agent_id(self):  # noqa: F811
         """Test agent info with very short agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -686,7 +686,7 @@ class TestAgentPresence:
 
         assert len(agent.agent_id) == 1
 
-    def test_agent_info_with_single_capability(self):
+    def test_agent_info_with_single_capability(self):  # noqa: F811
         """Test agent info with single capability"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -703,7 +703,7 @@ class TestAgentPresence:
 
         assert len(agent.capabilities) == 1
 
-    def test_agent_info_with_empty_services(self):
+    def test_agent_info_with_empty_services(self):  # noqa: F811
         """Test agent info with empty services"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -720,7 +720,7 @@ class TestAgentPresence:
 
         assert len(agent.services) == 0
 
-    def test_agent_info_with_empty_capabilities(self):
+    def test_agent_info_with_empty_capabilities(self):  # noqa: F811
         """Test agent info with empty capabilities"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -737,7 +737,7 @@ class TestAgentPresence:
 
         assert len(agent.capabilities) == 0
 
-    def test_agent_info_with_empty_metadata(self):
+    def test_agent_info_with_empty_metadata(self):  # noqa: F811
         """Test agent info with empty metadata"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -754,7 +754,7 @@ class TestAgentPresence:
 
         assert len(agent.metadata) == 0
 
-    def test_agent_info_with_multiple_endpoints(self):
+    def test_agent_info_with_multiple_endpoints(self):  # noqa: F811
         """Test agent info with multiple endpoints"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -771,7 +771,7 @@ class TestAgentPresence:
 
         assert len(agent.endpoints) == 2
 
-    def test_agent_info_with_empty_endpoints(self):
+    def test_agent_info_with_empty_endpoints(self):  # noqa: F811
         """Test agent info with empty endpoints"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -788,7 +788,7 @@ class TestAgentPresence:
 
         assert len(agent.endpoints) == 0
 
-    def test_agent_info_with_single_capability(self):
+    def test_agent_info_with_single_capability(self):  # noqa: F811
         """Test agent info with single capability"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -805,7 +805,7 @@ class TestAgentPresence:
 
         assert len(agent.capabilities) == 1
 
-    def test_agent_info_with_single_service(self):
+    def test_agent_info_with_single_service(self):  # noqa: F811
         """Test agent info with single service"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -822,7 +822,7 @@ class TestAgentPresence:
 
         assert len(agent.services) == 1
 
-    def test_agent_info_with_numeric_agent_id(self):
+    def test_agent_info_with_numeric_agent_id(self):  # noqa: F811
         """Test agent info with numeric characters in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -839,7 +839,7 @@ class TestAgentPresence:
 
         assert "123" in agent.agent_id
 
-    def test_agent_info_with_hyphen_in_agent_id(self):
+    def test_agent_info_with_hyphen_in_agent_id(self):  # noqa: F811
         """Test agent info with hyphen in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -856,7 +856,7 @@ class TestAgentPresence:
 
         assert "-" in agent.agent_id
 
-    def test_agent_info_with_special_characters_in_agent_id(self):
+    def test_agent_info_with_special_characters_in_agent_id(self):  # noqa: F811
         """Test agent info with special characters in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -875,7 +875,7 @@ class TestAgentPresence:
         assert "#" in agent.agent_id
         assert "$" in agent.agent_id
 
-    def test_agent_info_with_underscore_in_agent_id(self):
+    def test_agent_info_with_underscore_in_agent_id(self):  # noqa: F811
         """Test agent info with underscore in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -892,7 +892,7 @@ class TestAgentPresence:
 
         assert "_" in agent.agent_id
 
-    def test_agent_info_with_empty_agent_id(self):
+    def test_agent_info_with_empty_agent_id(self):  # noqa: F811
         """Test agent info with empty agent_id (edge case)"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -909,7 +909,7 @@ class TestAgentPresence:
 
         assert agent.agent_id == ""
 
-    def test_agent_info_with_single_character_agent_id(self):
+    def test_agent_info_with_single_character_agent_id(self):  # noqa: F811
         """Test agent info with single character agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -926,7 +926,7 @@ class TestAgentPresence:
 
         assert len(agent.agent_id) == 1
 
-    def test_agent_info_with_mixed_case_agent_id(self):
+    def test_agent_info_with_mixed_case_agent_id(self):  # noqa: F811
         """Test agent info with mixed case agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -944,7 +944,7 @@ class TestAgentPresence:
         assert "Agent" in agent.agent_id
         assert "ID" in agent.agent_id
 
-    def test_agent_info_with_numeric_agent_id(self):
+    def test_agent_info_with_numeric_agent_id(self):  # noqa: F811
         """Test agent info with numeric agent_id (edge case)"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -961,7 +961,7 @@ class TestAgentPresence:
 
         assert agent.agent_id == "123"
 
-    def test_agent_info_with_hyphen_in_agent_id(self):
+    def test_agent_info_with_hyphen_in_agent_id(self):  # noqa: F811
         """Test agent info with hyphen in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -978,7 +978,7 @@ class TestAgentPresence:
 
         assert "-" in agent.agent_id
 
-    def test_agent_info_with_dot_in_agent_id(self):
+    def test_agent_info_with_dot_in_agent_id(self):  # noqa: F811
         """Test agent info with dot in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -995,7 +995,7 @@ class TestAgentPresence:
 
         assert "." in agent.agent_id
 
-    def test_agent_info_with_special_characters_in_agent_id(self):
+    def test_agent_info_with_special_characters_in_agent_id(self):  # noqa: F811
         """Test agent info with various special characters in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1014,7 +1014,7 @@ class TestAgentPresence:
         assert "#" in agent.agent_id
         assert "$" in agent.agent_id
 
-    def test_agent_info_with_spaces_in_agent_id(self):
+    def test_agent_info_with_spaces_in_agent_id(self):  # noqa: F811
         """Test agent info with spaces in agent_id (edge case)"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1031,7 +1031,7 @@ class TestAgentPresence:
 
         assert " " in agent.agent_id
 
-    def test_agent_info_with_underscore_in_agent_id(self):
+    def test_agent_info_with_underscore_in_agent_id(self):  # noqa: F811
         """Test agent info with underscore in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1048,7 +1048,7 @@ class TestAgentPresence:
 
         assert "_" in agent.agent_id
 
-    def test_agent_info_with_pipe_in_agent_id(self):
+    def test_agent_info_with_pipe_in_agent_id(self):  # noqa: F811
         """Test agent info with pipe in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1065,7 +1065,7 @@ class TestAgentPresence:
 
         assert "|" in agent.agent_id
 
-    def test_agent_info_with_colon_in_agent_id(self):
+    def test_agent_info_with_colon_in_agent_id(self):  # noqa: F811
         """Test agent info with colon in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1082,7 +1082,7 @@ class TestAgentPresence:
 
         assert ":" in agent.agent_id
 
-    def test_agent_info_with_semicolon_in_agent_id(self):
+    def test_agent_info_with_semicolon_in_agent_id(self):  # noqa: F811
         """Test agent info with semicolon in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1099,7 +1099,7 @@ class TestAgentPresence:
 
         assert ";" in agent.agent_id
 
-    def test_agent_info_with_equals_in_agent_id(self):
+    def test_agent_info_with_equals_in_agent_id(self):  # noqa: F811
         """Test agent info with equals in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1116,7 +1116,7 @@ class TestAgentPresence:
 
         assert "=" in agent.agent_id
 
-    def test_agent_info_with_plus_in_agent_id(self):
+    def test_agent_info_with_plus_in_agent_id(self):  # noqa: F811
         """Test agent info with plus in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1133,7 +1133,7 @@ class TestAgentPresence:
 
         assert "+" in agent.agent_id
 
-    def test_agent_info_with_slash_in_agent_id(self):
+    def test_agent_info_with_slash_in_agent_id(self):  # noqa: F811
         """Test agent info with slash in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1150,7 +1150,7 @@ class TestAgentPresence:
 
         assert "/" in agent.agent_id
 
-    def test_agent_info_with_backslash_in_agent_id(self):
+    def test_agent_info_with_backslash_in_agent_id(self):  # noqa: F811
         """Test agent info with backslash in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1167,7 +1167,7 @@ class TestAgentPresence:
 
         assert "\\" in agent.agent_id
 
-    def test_agent_info_with_bracket_in_agent_id(self):
+    def test_agent_info_with_bracket_in_agent_id(self):  # noqa: F811
         """Test agent info with bracket in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1185,7 +1185,7 @@ class TestAgentPresence:
         assert "[" in agent.agent_id
         assert "]" in agent.agent_id
 
-    def test_agent_info_with_parenthesis_in_agent_id(self):
+    def test_agent_info_with_parenthesis_in_agent_id(self):  # noqa: F811
         """Test agent info with parenthesis in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1203,7 +1203,7 @@ class TestAgentPresence:
         assert "(" in agent.agent_id
         assert ")" in agent.agent_id
 
-    def test_agent_info_with_curly_bracket_in_agent_id(self):
+    def test_agent_info_with_curly_bracket_in_agent_id(self):  # noqa: F811
         """Test agent info with curly bracket in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1221,7 +1221,7 @@ class TestAgentPresence:
         assert "{" in agent.agent_id
         assert "}" in agent.agent_id
 
-    def test_agent_info_with_angle_bracket_in_agent_id(self):
+    def test_agent_info_with_angle_bracket_in_agent_id(self):  # noqa: F811
         """Test agent info with angle bracket in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1239,7 +1239,7 @@ class TestAgentPresence:
         assert "<" in agent.agent_id
         assert ">" in agent.agent_id
 
-    def test_agent_info_with_dollar_in_agent_id(self):
+    def test_agent_info_with_dollar_in_agent_id(self):  # noqa: F811
         """Test agent info with dollar in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1256,7 +1256,7 @@ class TestAgentPresence:
 
         assert "$" in agent.agent_id
 
-    def test_agent_info_with_at_in_agent_id(self):
+    def test_agent_info_with_at_in_agent_id(self):  # noqa: F811
         """Test agent info with at in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1273,7 +1273,7 @@ class TestAgentPresence:
 
         assert "@" in agent.agent_id
 
-    def test_agent_info_with_percent_in_agent_id(self):
+    def test_agent_info_with_percent_in_agent_id(self):  # noqa: F811
         """Test agent info with percent in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1290,7 +1290,7 @@ class TestAgentPresence:
 
         assert "%" in agent.agent_id
 
-    def test_agent_info_with_ampersand_in_agent_id(self):
+    def test_agent_info_with_ampersand_in_agent_id(self):  # noqa: F811
         """Test agent info with ampersand in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1307,7 +1307,7 @@ class TestAgentPresence:
 
         assert "&" in agent.agent_id
 
-    def test_agent_info_with_hash_in_agent_id(self):
+    def test_agent_info_with_hash_in_agent_id(self):  # noqa: F811
         """Test agent info with hash in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1324,7 +1324,7 @@ class TestAgentPresence:
 
         assert "#" in agent.agent_id
 
-    def test_agent_info_with_exclamation_in_agent_id(self):
+    def test_agent_info_with_exclamation_in_agent_id(self):  # noqa: F811
         """Test agent info with exclamation in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1341,7 +1341,7 @@ class TestAgentPresence:
 
         assert "!" in agent.agent_id
 
-    def test_agent_info_with_asterisk_in_agent_id(self):
+    def test_agent_info_with_asterisk_in_agent_id(self):  # noqa: F811
         """Test agent info with asterisk in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1358,7 +1358,7 @@ class TestAgentPresence:
 
         assert "*" in agent.agent_id
 
-    def test_agent_info_with_plus_in_agent_id(self):
+    def test_agent_info_with_plus_in_agent_id(self):  # noqa: F811
         """Test agent info with plus in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1375,7 +1375,7 @@ class TestAgentPresence:
 
         assert "+" in agent.agent_id
 
-    def test_agent_info_with_equals_in_agent_id(self):
+    def test_agent_info_with_equals_in_agent_id(self):  # noqa: F811
         """Test agent info with equals in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1392,7 +1392,7 @@ class TestAgentPresence:
 
         assert "=" in agent.agent_id
 
-    def test_agent_info_with_bracket_in_agent_id(self):
+    def test_agent_info_with_bracket_in_agent_id(self):  # noqa: F811
         """Test agent info with bracket in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1409,7 +1409,7 @@ class TestAgentPresence:
 
         assert "[" in agent.agent_id
 
-    def test_agent_info_with_curly_brace_in_agent_id(self):
+    def test_agent_info_with_curly_brace_in_agent_id(self):  # noqa: F811
         """Test agent info with curly brace in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1426,7 +1426,7 @@ class TestAgentPresence:
 
         assert "{" in agent.agent_id
 
-    def test_agent_info_with_pipe_in_agent_id(self):
+    def test_agent_info_with_pipe_in_agent_id(self):  # noqa: F811
         """Test agent info with pipe in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1443,7 +1443,7 @@ class TestAgentPresence:
 
         assert "|" in agent.agent_id
 
-    def test_agent_info_with_colon_in_agent_id(self):
+    def test_agent_info_with_colon_in_agent_id(self):  # noqa: F811
         """Test agent info with colon in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(
@@ -1460,7 +1460,7 @@ class TestAgentPresence:
 
         assert ":" in agent.agent_id
 
-    def test_agent_info_with_semicolon_in_agent_id(self):
+    def test_agent_info_with_semicolon_in_agent_id(self):  # noqa: F811
         """Test agent info with semicolon in agent_id"""
         now = datetime.now(UTC)
         agent = AgentInfo(

@@ -4,20 +4,20 @@ from typing import Annotated
 User Management Router for AITBC
 """
 
-import hashlib
-import time
-import uuid
-from datetime import UTC, datetime
-from typing import Any
+import hashlib  # noqa: E402
+import time  # noqa: E402
+import uuid  # noqa: E402
+from datetime import UTC, datetime  # noqa: E402
+from typing import Any  # noqa: E402
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends, HTTPException, Request, status  # noqa: E402
+from sqlmodel import Session, select  # noqa: E402
 
-from aitbc.rate_limiting import rate_limit
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
-from ..domain import User, Wallet
-from ..schemas import UserBalance, UserCreate, UserLogin, UserProfile
-from ..storage import get_session
+from ..domain import User, Wallet  # noqa: E402
+from ..schemas import UserBalance, UserCreate, UserLogin, UserProfile  # noqa: E402
+from ..storage import get_session  # noqa: E402
 
 router = APIRouter(tags=["users"])
 

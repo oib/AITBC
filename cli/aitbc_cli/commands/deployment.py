@@ -97,7 +97,7 @@ def create(
 
     except Exception as e:
         error(f"Error creating deployment: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @deploy.command()
@@ -127,7 +127,7 @@ def start(ctx, deployment_id):
 
     except Exception as e:
         error(f"Error starting deployment: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @deploy.command()
@@ -161,7 +161,7 @@ def scale(ctx, deployment_id, target_instances, reason):
 
     except Exception as e:
         error(f"Error scaling deployment: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @deploy.command()
@@ -233,7 +233,7 @@ def status(ctx, deployment_id):
 
     except Exception as e:
         error(f"Error getting deployment status: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @deploy.command()
@@ -279,7 +279,7 @@ def overview(ctx, format):
 
     except Exception as e:
         error(f"Error getting cluster overview: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @deploy.command()
@@ -343,7 +343,7 @@ def monitor(ctx, deployment_id, interval):
                 console.click.echo("\n[yellow]Monitoring stopped by user[/yellow]")
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @deploy.command()
@@ -365,7 +365,7 @@ def auto_scale(ctx, deployment_id):
 
     except Exception as e:
         error(f"Error in auto-scaling: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @deploy.command()
@@ -402,4 +402,4 @@ def list_deployments(ctx, format):
 
     except Exception as e:
         error(f"Error listing deployments: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e

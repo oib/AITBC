@@ -8,13 +8,12 @@ coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
-import pytest
-from datetime import UTC, datetime
+from datetime import UTC, datetime  # noqa: E402
 
-from app.ai.advanced_ai import (
+from app.ai.advanced_ai import (  # noqa: E402
+    AdvancedAIIntegration,
     MLModel,
     NeuralNetwork,
-    AdvancedAIIntegration,
 )
 
 

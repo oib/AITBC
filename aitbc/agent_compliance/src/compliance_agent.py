@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 # Add parent directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 
-from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceBridge
+from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceBridge  # noqa: E402
 
-from aitbc import get_logger
+from aitbc import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
 

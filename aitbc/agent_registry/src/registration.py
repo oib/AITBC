@@ -18,9 +18,9 @@ def log_error(msg: str):
     logger.error(msg)
 
 
-from dataclasses import dataclass
-from decimal import Decimal
-from enum import Enum
+from dataclasses import dataclass  # noqa: E402
+from decimal import Decimal  # noqa: E402
+from enum import Enum  # noqa: E402
 
 
 class AgentType(Enum):

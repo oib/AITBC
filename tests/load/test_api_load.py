@@ -28,8 +28,8 @@ try:
 except Exception:
     # Skip this module if locust is not installed or fails (e.g., during pytest collection)
     HttpUser = object  # type: ignore[misc,assignment]
-    between = lambda a, b: None  # type: ignore[assignment]
-    task = lambda weight: lambda f: f  # type: ignore[assignment]
+    between = lambda a, b: None  # type: ignore[assignment]  # noqa: E731
+    task = lambda weight: lambda f: f  # type: ignore[assignment]  # noqa: E731
 
 
 # Inline blockchain load test (from tests/load_test.py)

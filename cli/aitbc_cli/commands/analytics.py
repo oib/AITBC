@@ -85,7 +85,7 @@ def summary(ctx, chain_id, hours, format):
 
     except Exception as e:
         error(f"Error getting analytics summary: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @analytics.command()
@@ -109,7 +109,7 @@ def monitor(ctx, realtime, interval, chain_id):
 
             console = Console()
 
-            def generate_monitor_table():
+            def generate_monitor_table(cid: str = chain_id):
                 try:
                     # Collect latest metrics
                     asyncio.run(analytics.collect_all_metrics())
@@ -121,9 +121,9 @@ def monitor(ctx, realtime, interval, chain_id):
                     table.add_column("Health", style="red")
                     table.add_column("Alerts", style="magenta")
 
-                    if chain_id:
+                    if cid:
                         # Single chain monitoring
-                        summary = analytics.get_chain_performance_summary(chain_id, 1)
+                        summary = analytics.get_chain_performance_summary(cid, 1)
                         if summary:
                             health_color = (
                                 "green"
@@ -133,7 +133,7 @@ def monitor(ctx, realtime, interval, chain_id):
                                 else "red"
                             )
                             table.add_row(
-                                chain_id,
+                                cid,
                                 f"{summary['statistics']['tps']['avg']:.2f}",
                                 f"{summary['statistics']['block_time']['avg']:.2f}s",
                                 f"[{health_color}]{summary['health_score']:.1f}[/{health_color}]",
@@ -207,7 +207,7 @@ def monitor(ctx, realtime, interval, chain_id):
 
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @analytics.command()
@@ -275,7 +275,7 @@ def predict(ctx, chain_id, hours, format):
 
     except Exception as e:
         error(f"Error generating predictions: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @analytics.command()
@@ -347,7 +347,7 @@ def optimize(ctx, chain_id, format):
 
     except Exception as e:
         error(f"Error getting optimization recommendations: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @analytics.command()
@@ -392,7 +392,7 @@ def alerts(ctx, severity, hours, format):
 
     except Exception as e:
         error(f"Error getting alerts: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @analytics.command()
@@ -420,4 +420,4 @@ def dashboard(ctx, format):
 
     except Exception as e:
         error(f"Error getting dashboard data: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e

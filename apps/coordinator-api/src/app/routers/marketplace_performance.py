@@ -13,14 +13,14 @@ from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
-from app.services.distributed_framework import (  # type: ignore[import-not-found]
+from app.services.distributed_framework import (  # type: ignore[import-not-found]  # noqa: E402
     DistributedProcessingCoordinator,
     DistributedTask,
 )
-from app.services.marketplace_cache_optimizer import MarketplaceDataOptimizer  # type: ignore[import-not-found]
-from app.services.marketplace_gpu_optimizer import MarketplaceGPUOptimizer  # type: ignore[import-not-found]
-from app.services.marketplace_monitor import monitor as marketplace_monitor  # type: ignore[import-not-found]
-from app.services.marketplace_scaler import ResourceScaler  # type: ignore[import-not-found]
+from app.services.marketplace_cache_optimizer import MarketplaceDataOptimizer  # type: ignore[import-not-found]  # noqa: E402
+from app.services.marketplace_gpu_optimizer import MarketplaceGPUOptimizer  # type: ignore[import-not-found]  # noqa: E402
+from app.services.marketplace_monitor import monitor as marketplace_monitor  # type: ignore[import-not-found]  # noqa: E402
+from app.services.marketplace_scaler import ResourceScaler  # type: ignore[import-not-found]  # noqa: E402
 
 router = APIRouter(prefix="/v1/marketplace/performance", tags=["marketplace-performance"])
 gpu_optimizer = MarketplaceGPUOptimizer()
@@ -96,7 +96,7 @@ async def allocate_gpu_resources(request: Request, gpu_request: GPUAllocationReq
     except Exception as e:
         marketplace_monitor.record_api_call(0, is_error=True)
         logger.error("Error in GPU allocation: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/gpu/release")

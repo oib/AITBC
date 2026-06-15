@@ -9,8 +9,8 @@ from hypothesis import strategies as st
 
 pytestmark = pytest.mark.skip("Skipping broken test file")
 
-from aitbc.exceptions import ValidationError
-from aitbc.utils.validation import (
+from aitbc.exceptions import ValidationError  # noqa: E402
+from aitbc.utils.validation import (  # noqa: E402
     validate_address,
     validate_chain_id,
     validate_email,

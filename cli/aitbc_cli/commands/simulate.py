@@ -356,7 +356,7 @@ def run(ctx, scenario: str, params: str | None, async_run: bool):
                 sim_data["params"] = json.loads(params)
             except json.JSONDecodeError:
                 error("Invalid JSON parameters")
-                raise click.Abort()
+                raise click.Abort() from None
 
         result = http_client.post("/simulate/run", json=sim_data)
         success(f"Simulation '{scenario}' started")

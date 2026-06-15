@@ -3,16 +3,16 @@ from __future__ import annotations
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import UTC, datetime
-from secrets import token_hex
-from typing import Any, cast
+from datetime import UTC, datetime  # noqa: E402
+from secrets import token_hex  # noqa: E402
+from typing import Any, cast  # noqa: E402
 
-from aitbc_crypto.signing import ReceiptSigner  # type: ignore[import-untyped]
-from sqlmodel import Session
+from aitbc_crypto.signing import ReceiptSigner  # type: ignore[import-untyped]  # noqa: E402
+from sqlmodel import Session  # noqa: E402
 
-from ..config import settings
-from ..domain import Job, JobReceipt
-from .zk_proofs import zk_proof_service
+from ..config import settings  # noqa: E402
+from ..domain import Job, JobReceipt  # noqa: E402
+from .zk_proofs import zk_proof_service  # noqa: E402
 
 
 class ReceiptService:

@@ -8,13 +8,13 @@ from typing import Any
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.security import HTTPBearer
+from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
+from fastapi.security import HTTPBearer  # noqa: E402
 
-from aitbc.rate_limiting import rate_limit
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
-from ....auth import get_api_key
-from ....schemas import (
+from ....auth import get_api_key  # noqa: E402
+from ....schemas import (  # noqa: E402
     AccessLogQuery,
     AccessLogResponse,
     ConfidentialAccessRequest,
@@ -25,9 +25,9 @@ from ....schemas import (
     KeyRegistrationRequest,
     KeyRegistrationResponse,
 )
-from ...security.services.access_control import AccessController
-from ...security.services.encryption import EncryptedData, EncryptionService
-from ...security.services.key_management import KeyManagementError, KeyManager
+from ...security.services.access_control import AccessController  # noqa: E402
+from ...security.services.encryption import EncryptedData, EncryptionService  # noqa: E402
+from ...security.services.key_management import KeyManagementError, KeyManager  # noqa: E402
 
 router = APIRouter(prefix="/confidential", tags=["confidential"])
 security = HTTPBearer()
@@ -125,7 +125,7 @@ async def create_confidential_transaction(
         )
     except Exception as e:
         logger.error("Failed to create confidential transaction: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/transactions/{transaction_id}", response_model=ConfidentialTransactionView)
@@ -140,7 +140,7 @@ async def get_confidential_transaction(
         raise
     except Exception as e:
         logger.error("Failed to get transaction %s: %s", transaction_id, e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/transactions/{transaction_id}/access", response_model=ConfidentialAccessResponse)
@@ -197,7 +197,7 @@ async def access_confidential_data(
         raise
     except Exception as e:
         logger.error("Failed to access confidential data: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/transactions/{transaction_id}/audit", response_model=ConfidentialAccessResponse)
@@ -240,7 +240,7 @@ async def audit_access_confidential_data(
         raise
     except Exception as e:
         logger.error("Failed audit access: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/keys/register", response_model=KeyRegistrationResponse)
@@ -282,7 +282,7 @@ async def register_encryption_key(
         )
     except Exception as e:
         logger.error("Failed to register key: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/keys/rotate")
@@ -300,10 +300,10 @@ async def rotate_encryption_key(request: Request, participant_id: str, api_key: 
         }
     except KeyManagementError as e:
         logger.error("Key rotation failed: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.error("Failed to rotate keys: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/access/logs", response_model=AccessLogResponse)
@@ -316,7 +316,7 @@ async def get_access_logs(
         return AccessLogResponse(logs=[], total_count=0, has_more=False)
     except Exception as e:
         logger.error("Failed to get access logs: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/status")
@@ -336,4 +336,4 @@ async def get_confidential_status(request: Request, api_key: str = Depends(get_a
         }
     except Exception as e:
         logger.error("Failed to get status: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

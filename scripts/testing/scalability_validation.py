@@ -99,7 +99,7 @@ class ScalabilityValidator:
                 "median_response_time": statistics.median(response_times) if response_times else 0,
                 "p95_response_time": statistics.quantiles(response_times, n=20)[18] if len(response_times) > 20 else 0,
                 "p99_response_time": statistics.quantiles(response_times, n=100)[98] if len(response_times) > 100 else 0,
-                "requests_per_second": len(successful_results) / (max(response_times) - min(response_time))
+                "requests_per_second": len(successful_results) / (max(response_times) - min(response_times))
                 if len(response_times) > 1
                 else 0,
             }

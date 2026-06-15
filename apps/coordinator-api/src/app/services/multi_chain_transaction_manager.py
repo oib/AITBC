@@ -13,14 +13,19 @@ from uuid import uuid4
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from sqlalchemy import desc
-from sqlmodel import Session, select
+from sqlalchemy import desc  # noqa: E402
+from sqlmodel import Session, select  # noqa: E402
 
-from ..agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory
-from ..contexts.cross_chain.services.cross_chain.bridge_enhanced import CrossChainBridgeService
-from ..domain.multi_chain_transaction import MultiChainTransaction, RoutingStrategy, TransactionPriority, TransactionStatus
-from ..domain.multi_chain_transaction import TransactionType as MultiChainTransactionType
-from ..reputation.engine import CrossChainReputationEngine
+from ..agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory  # noqa: E402
+from ..contexts.cross_chain.services.cross_chain.bridge_enhanced import CrossChainBridgeService  # noqa: E402
+from ..domain.multi_chain_transaction import (  # noqa: E402
+    MultiChainTransaction,
+    RoutingStrategy,
+    TransactionPriority,
+    TransactionStatus,
+)
+from ..domain.multi_chain_transaction import TransactionType as MultiChainTransactionType  # noqa: E402
+from ..reputation.engine import CrossChainReputationEngine  # noqa: E402
 
 
 class MultiChainTransactionManager:

@@ -95,9 +95,9 @@ async def create_global_offer(
         }
 
     except ValueError:
-        raise HTTPException(status_code=400, detail="Bad request")
+        raise HTTPException(status_code=400, detail="Bad request") from None
     except Exception:
-        raise HTTPException(status_code=500, detail="Error creating global offer")
+        raise HTTPException(status_code=500, detail="Error creating global offer") from None
 
 
 @router.get("/offers", response_model=list[dict[str, Any]])
@@ -119,7 +119,7 @@ async def get_global_offers(
             try:
                 status_enum = MarketplaceStatus(status)
             except ValueError:
-                raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+                raise HTTPException(status_code=400, detail=f"Invalid status: {status}") from None
 
         offers = await marketplace_service.get_global_offers(
             region=region, service_type=service_type, status=status_enum, limit=limit, offset=offset
@@ -154,7 +154,7 @@ async def get_global_offers(
         return response_offers
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting global offers")
+        raise HTTPException(status_code=500, detail="Error getting global offers") from None
 
 
 @router.get("/offers/{offer_id}", response_model=dict[str, Any])
@@ -200,7 +200,7 @@ async def get_global_offer(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting global offer")
+        raise HTTPException(status_code=500, detail="Error getting global offer") from None
 
 
 # Global Marketplace Transaction Endpoints
@@ -266,9 +266,9 @@ async def create_global_transaction(
         }
 
     except ValueError:
-        raise HTTPException(status_code=400, detail="Bad request")
+        raise HTTPException(status_code=400, detail="Bad request") from None
     except Exception:
-        raise HTTPException(status_code=500, detail="Error creating global transaction")
+        raise HTTPException(status_code=500, detail="Error creating global transaction") from None
 
 
 @router.get("/transactions", response_model=list[dict[str, Any]])
@@ -321,7 +321,7 @@ async def get_global_transactions(
         return response_transactions
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting global transactions")
+        raise HTTPException(status_code=500, detail="Error getting global transactions") from None
 
 
 @router.get("/transactions/{transaction_id}", response_model=dict[str, Any])
@@ -371,7 +371,7 @@ async def get_global_transaction(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting global transaction")
+        raise HTTPException(status_code=500, detail="Error getting global transaction") from None
 
 
 # Region Management Endpoints
@@ -389,7 +389,7 @@ async def get_regions(
                 status_enum = RegionStatus(status)
                 stmt = stmt.where(MarketplaceRegion.status == status_enum)
             except ValueError:
-                raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+                raise HTTPException(status_code=400, detail=f"Invalid status: {status}") from None
 
         regions = session.execute(stmt).scalars().all()
 
@@ -422,7 +422,7 @@ async def get_regions(
         return response_regions
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting regions")
+        raise HTTPException(status_code=500, detail="Error getting regions") from None
 
 
 @router.get("/regions/{region_code}/health", response_model=dict[str, Any])
@@ -438,7 +438,7 @@ async def get_region_health(
         return health_data
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting region health")
+        raise HTTPException(status_code=500, detail="Error getting region health") from None
 
 
 @router.post("/regions/{region_code}/health", response_model=dict[str, Any])
@@ -463,7 +463,7 @@ async def update_region_health(
         }
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error updating region health")
+        raise HTTPException(status_code=500, detail="Error updating region health") from None
 
 
 # Analytics Endpoints
@@ -517,7 +517,7 @@ async def get_marketplace_analytics(
         }
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting marketplace analytics")
+        raise HTTPException(status_code=500, detail="Error getting marketplace analytics") from None
 
 
 # Configuration Endpoints
@@ -550,7 +550,7 @@ async def get_global_marketplace_config(
         return config_dict
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting configuration")
+        raise HTTPException(status_code=500, detail="Error getting configuration") from None
 
 
 # Health and Status Endpoints
@@ -612,4 +612,4 @@ async def get_global_marketplace_health(
         }
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting health status")
+        raise HTTPException(status_code=500, detail="Error getting health status") from None

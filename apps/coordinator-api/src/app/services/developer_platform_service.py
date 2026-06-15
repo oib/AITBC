@@ -295,7 +295,7 @@ class DeveloperPlatformService:
         try:
             await mint_tokens(address, rewards["pending_rewards"])
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to mint rewards: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to mint rewards: {str(e)}") from e
         claim_info = {
             "address": address,
             "amount_claimed": rewards["pending_rewards"],

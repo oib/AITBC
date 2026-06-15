@@ -12,7 +12,7 @@ if str(app_root) not in sys.path:
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 
-from src.app.config import settings, validated_cors_origins
+from src.app.config import settings, validated_cors_origins  # noqa: E402
 
 
 def test_default_cors_origins_do_not_allow_wildcard():

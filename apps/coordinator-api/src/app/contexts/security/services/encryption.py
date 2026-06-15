@@ -115,7 +115,7 @@ class EncryptionService:
             )
         except Exception as e:
             logger.error("Encryption failed: %s", e)
-            raise EncryptionError(f"Failed to encrypt data: {e}")
+            raise EncryptionError(f"Failed to encrypt data: {e}") from e
 
     def decrypt(self, encrypted_data: EncryptedData, participant_id: str, purpose: str = "access") -> dict[str, Any]:
         """Decrypt data for a specific participant
@@ -143,7 +143,7 @@ class EncryptionService:
         except Exception as e:
             logger.error("Decryption failed for participant %s: %s", participant_id, e)
             self._log_access(transaction_id=None, participant_id=participant_id, purpose=purpose, success=False, error=str(e))
-            raise DecryptionError(f"Failed to decrypt data: {e}")
+            raise DecryptionError(f"Failed to decrypt data: {e}") from e
 
     def audit_decrypt(self, encrypted_data: EncryptedData, audit_authorization: str, purpose: str = "audit") -> dict[str, Any]:
         """Decrypt data for audit purposes
@@ -179,7 +179,7 @@ class EncryptionService:
             return data  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("Audit decryption failed: %s", e)
-            raise DecryptionError(f"Failed to decrypt for audit: {e}")
+            raise DecryptionError(f"Failed to decrypt for audit: {e}") from e
 
     def _encrypt_dek(self, dek: bytes, public_key: X25519PublicKey) -> bytes:
         """Encrypt DEK using ECIES with X25519"""

@@ -10,7 +10,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-import aiohttp
+import aiohttp  # noqa: E402
 
 
 class AITBCServiceIntegration:

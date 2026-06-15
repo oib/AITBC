@@ -111,14 +111,14 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     try:
         amount_dec = Decimal(str(amount))
     except Exception:
-        raise HTTPException(status_code=400, detail=f"Invalid amount: {amount}")
+        raise HTTPException(status_code=400, detail=f"Invalid amount: {amount}") from None
     if not isinstance(job_id, str) or not isinstance(buyer, str) or not isinstance(provider, str):
-        raise HTTPException(status_code=400, detail="Invalid types for job_id, buyer, or provider")
+        raise HTTPException(status_code=400, detail="Invalid types for job_id, buyer, or provider") from None
     success, message, contract_id = await mgr.create_contract(
         job_id=job_id, client_address=buyer, agent_address=provider, amount=amount_dec
     )
     if not success:
-        raise HTTPException(status_code=400, detail=message)
+        raise HTTPException(status_code=400, detail=message) from None
     try:
         with session_scope() as session:
             escrow_record = Escrow(job_id=job_id, buyer=buyer, provider=provider, amount=int(amount_dec))
@@ -244,7 +244,7 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
             "created_at": db_record.created_at.isoformat(),
             "released_at": db_record.released_at.isoformat() if db_record.released_at else None,
         }
-    raise HTTPException(status_code=404, detail=f"No escrow found for job_id={job_id}")
+    raise HTTPException(status_code=404, detail=f"No escrow found for job_id={job_id}") from None
 
 
 def _find_contract_id(mgr: Any, job_id: str) -> str | None:

@@ -29,8 +29,8 @@ def log_debug(msg: str) -> None:
     logger.debug(msg)
 
 
-from .discovery import NodeStatus, P2PDiscovery
-from .health import PeerHealthMonitor
+from .discovery import NodeStatus, P2PDiscovery  # noqa: E402
+from .health import PeerHealthMonitor  # noqa: E402
 
 
 class PartitionState(Enum):

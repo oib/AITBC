@@ -28,7 +28,7 @@ sys.modules["aitbc.aitbc_logging"] = MockLogger
 sys.modules["aitbc.exceptions"] = type(sys)("aitbc.exceptions")
 sys.modules["aitbc.exceptions"].NetworkError = Exception
 
-from aitbc_agent.contract_integration import ContractConfig, create_agent_contract_integration
+from aitbc_agent.contract_integration import ContractConfig, create_agent_contract_integration  # noqa: E402
 
 
 @pytest.mark.asyncio

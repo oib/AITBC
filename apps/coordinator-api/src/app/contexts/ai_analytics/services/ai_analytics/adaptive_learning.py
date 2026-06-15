@@ -5,15 +5,15 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 "\nAdaptive Learning Systems - Phase 5.2\nReinforcement learning frameworks for agent self-improvement\n"
-from aitbc import get_logger
+from aitbc import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
-from datetime import UTC, datetime
-from enum import StrEnum
-from typing import Any
+from datetime import UTC, datetime  # noqa: E402
+from enum import StrEnum  # noqa: E402
+from typing import Any  # noqa: E402
 
-import numpy as np
-from app.storage import get_session  # type: ignore[import-not-found]
+import numpy as np  # noqa: E402
+from app.storage import get_session  # type: ignore[import-not-found]  # noqa: E402
 
 
 class LearningAlgorithm(StrEnum):

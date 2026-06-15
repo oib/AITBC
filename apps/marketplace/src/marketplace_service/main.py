@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
-from aitbc import (  # type: ignore[attr-defined]
+from aitbc import (  # type: ignore[attr-defined]  # noqa: E402
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
     RequestIDMiddleware,
@@ -26,9 +26,9 @@ from aitbc import (  # type: ignore[attr-defined]
     get_logger,
 )
 
-from .services.marketplace_service import MarketplaceService
-from .services.matching_service import MatchingService
-from .storage import get_session, init_db
+from .services.marketplace_service import MarketplaceService  # noqa: E402
+from .services.matching_service import MatchingService  # noqa: E402
+from .storage import get_session, init_db  # noqa: E402
 
 configure_logging(level="INFO")
 logger = get_logger(__name__)

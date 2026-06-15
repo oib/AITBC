@@ -105,4 +105,4 @@ async def list_marketplace_plugins(
     except Exception as e:
         marketplace_errors_total.labels(endpoint="/marketplace/plugins", method="GET", error_type="internal").inc()
         logger.error("Error listing plugins: %s", e)
-        raise HTTPException(status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list plugins")
+        raise HTTPException(status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list plugins") from e

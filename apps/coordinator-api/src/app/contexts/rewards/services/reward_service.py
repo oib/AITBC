@@ -10,10 +10,10 @@ from uuid import uuid4
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from sqlmodel import Session, and_, select
+from sqlmodel import Session, and_, select  # noqa: E402
 
-from ....domain.reputation import AgentReputation
-from ....domain.rewards import (
+from ....domain.reputation import AgentReputation  # noqa: E402
+from ....domain.rewards import (  # noqa: E402
     AgentRewardProfile,
     RewardCalculation,
     RewardDistribution,

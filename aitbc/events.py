@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, TypeVar
+
 from .aitbc_logging import get_logger
 
 logger = get_logger(__name__)
@@ -177,7 +178,7 @@ class EventFilter:
 
     def matches(self, event: Event) -> bool:
         """Check if event matches all filters"""
-        return all((f(event) for f in self.filters))
+        return all(f(event) for f in self.filters)
 
     def get_filtered_events(self, event_type: str | None = None, limit: int = 100) -> list[Event]:
         """Get filtered events"""

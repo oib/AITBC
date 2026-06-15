@@ -7,6 +7,7 @@ import functools
 import time
 from collections.abc import Callable
 from typing import Any
+
 from .aitbc_logging import get_logger
 from .exceptions import AITBCError
 

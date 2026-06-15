@@ -68,7 +68,7 @@ async def generate_context(request: Request, req: GenerateContextRequest) -> dic
         )
         return {"success": True, **result}
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate context: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate context: {str(e)}") from e
 
 
 @router.post("/encrypt", summary="Encrypt data")
@@ -84,9 +84,9 @@ async def encrypt_data(request: Request, req: EncryptRequest) -> dict[str, Any]:
             "context_id": encrypted.context_id,
         }
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Encryption failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Encryption failed: {str(e)}") from e
 
 
 @router.post("/decrypt", summary="Decrypt data")
@@ -101,9 +101,9 @@ async def decrypt_data(request: Request, req: DecryptRequest) -> dict[str, Any]:
 
         return {"success": True, "data": decrypted.tolist(), "shape": list(decrypted.shape), "dtype": str(decrypted.dtype)}
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Decryption failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Decryption failed: {str(e)}") from e
 
 
 @router.post("/add", summary="Homomorphic addition")
@@ -131,9 +131,9 @@ async def homomorphic_add(request: Request, req: HomomorphicOpRequest) -> dict[s
 
         return {"success": True, "result": result.serialize(), "operation": "add"}
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Operation failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Operation failed: {str(e)}") from e
 
 
 @router.post("/multiply-scalar", summary="Homomorphic scalar multiplication")
@@ -151,9 +151,9 @@ async def homomorphic_multiply(request: Request, req: HomomorphicOpRequest) -> d
 
         return {"success": True, "result": result.serialize(), "operation": "multiply_scalar", "scalar": req.scalar}
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Operation failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Operation failed: {str(e)}") from e
 
 
 @router.post("/inference", summary="Encrypted inference")
@@ -169,9 +169,9 @@ async def encrypted_inference(request: Request, req: InferenceRequest) -> dict[s
 
         return {"success": True, "encrypted_output": result.serialize(), "model_type": req.model.get("type", "unknown")}
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Inference failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Inference failed: {str(e)}") from e
 
 
 @router.get("/context/{context_id}", summary="Get context info")
@@ -181,7 +181,7 @@ async def get_context_info(request: Request, context_id: str) -> dict[str, Any]:
         provider = get_fhe_provider()
         return provider.get_context_info(context_id)
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get context info: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get context info: {str(e)}") from e
 
 
 @router.get("/health", summary="Health check")

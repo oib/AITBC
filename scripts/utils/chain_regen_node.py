@@ -21,11 +21,11 @@ if str(REPO_DIR) not in sys.path:
 if str(BLOCKCHAIN_SRC) not in sys.path:
     sys.path.insert(0, str(BLOCKCHAIN_SRC))
 
-from aitbc_chain.config import ChainSettings
-from aitbc_chain.models import Account, Block, Transaction
-from aitbc_chain.state.merkle_patricia_trie import StateManager
-from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import Session, create_engine, select
+from aitbc_chain.config import ChainSettings  # noqa: E402
+from aitbc_chain.models import Account, Block, Transaction  # noqa: E402
+from aitbc_chain.state.merkle_patricia_trie import StateManager  # noqa: E402
+from sqlalchemy.exc import SQLAlchemyError  # noqa: E402
+from sqlmodel import Session, create_engine, select  # noqa: E402
 
 SERVICE_NAME = "aitbc-blockchain-node.service"
 DATA_ROOT = Path("/var/lib/aitbc/data")

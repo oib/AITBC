@@ -231,7 +231,7 @@ class DisputeResolutionService:
         try:
             outcome_enum = DisputeOutcome(outcome)
         except ValueError:
-            raise ValueError(f"Invalid outcome: {outcome}")
+            raise ValueError(f"Invalid outcome: {outcome}") from None
         for vote in dispute.votes:
             if vote.arbitrator == arbitrator:
                 raise ValueError("Arbitrator has already voted")

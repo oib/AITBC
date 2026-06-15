@@ -77,11 +77,11 @@ async def create_proposal(request: Request, req: CreateProposalRequest) -> dict[
         return {"success": True, **proposal.to_dict()}
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create proposal: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create proposal: {str(e)}") from e
 
 
 @router.post("/vote", summary="Cast vote on proposal")
@@ -111,11 +111,11 @@ async def cast_vote(request: Request, req: CastVoteRequest) -> dict[str, Any]:
         }
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to cast vote: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to cast vote: {str(e)}") from e
 
 
 @router.post("/execute", summary="Execute passed proposal")
@@ -137,11 +137,11 @@ async def execute_proposal(request: Request, req: ExecuteProposalRequest) -> dic
         }
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Execution failed: {str(e)}") from e
 
 
 @router.get("/proposals/{proposal_id}", summary="Get proposal details")
@@ -162,7 +162,7 @@ async def get_proposal(request: Request, proposal_id: str) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get proposal: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get proposal: {str(e)}") from e
 
 
 @router.get("/proposals", summary="List proposals")
@@ -183,7 +183,7 @@ async def list_proposals(request: Request, status: str | None = None, proposer: 
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to list proposals: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list proposals: {str(e)}") from e
 
 
 @router.get("/proposals/{proposal_id}/votes", summary="Get proposal votes")
@@ -206,7 +206,7 @@ async def get_votes(request: Request, proposal_id: str) -> dict[str, Any]:
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get votes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get votes: {str(e)}") from e
 
 
 @router.get("/params", summary="Get governance parameters")
@@ -221,7 +221,7 @@ async def get_params(request: Request) -> dict[str, Any]:
         return service.get_governance_params()
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get params: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get params: {str(e)}") from e
 
 
 @router.get("/voting-power/{address}", summary="Get voting power")
@@ -238,7 +238,7 @@ async def get_voting_power(request: Request, address: str) -> dict[str, Any]:
         return {"address": address, "voting_power": power, "can_create_proposal": power >= service.MIN_PROPOSAL_STAKE}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get voting power: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get voting power: {str(e)}") from e
 
 
 @router.get("/health", summary="Governance health check")

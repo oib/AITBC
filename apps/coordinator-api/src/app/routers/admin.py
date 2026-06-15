@@ -88,7 +88,7 @@ async def create_test_miner(
         }
     except Exception:
         logger.error("Failed to create test miner")
-        raise HTTPException(status_code=500, detail="Failed to create test miner")
+        raise HTTPException(status_code=500, detail="Failed to create test miner") from None
 
 
 @router.get("/test-key", summary="Test API key validation")

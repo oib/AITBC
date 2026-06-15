@@ -61,7 +61,7 @@ async def register_developer(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error registering developer")
+        raise HTTPException(status_code=500, detail="Error registering developer") from None
 
 
 @router.get("/profile/{wallet_address}", response_model=dict[str, Any])
@@ -95,7 +95,7 @@ async def get_developer_profile(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting developer profile")
+        raise HTTPException(status_code=500, detail="Error getting developer profile") from None
 
 
 @router.put("/profile/{wallet_address}", response_model=dict[str, Any])
@@ -123,7 +123,7 @@ async def update_developer_profile(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error updating developer profile")
+        raise HTTPException(status_code=500, detail="Error updating developer profile") from None
 
 
 @router.get("/leaderboard", response_model=list[dict[str, Any]])
@@ -155,7 +155,7 @@ async def get_leaderboard(
         ]
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting leaderboard")
+        raise HTTPException(status_code=500, detail="Error getting leaderboard") from None
 
 
 @router.get("/stats/{wallet_address}", response_model=dict[str, Any])
@@ -175,7 +175,7 @@ async def get_developer_stats(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting developer stats")
+        raise HTTPException(status_code=500, detail="Error getting developer stats") from None
 
 
 # Bounty Management Endpoints
@@ -205,7 +205,7 @@ async def create_bounty(
         }
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error creating bounty")
+        raise HTTPException(status_code=500, detail="Error creating bounty") from None
 
 
 @router.get("/bounties", response_model=list[dict[str, Any]])
@@ -240,7 +240,7 @@ async def list_bounties(
         ]
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error listing bounties")
+        raise HTTPException(status_code=500, detail="Error listing bounties") from None
 
 
 @router.get("/bounties/{bounty_id}", response_model=dict[str, Any])
@@ -260,7 +260,7 @@ async def get_bounty_details(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting bounty details")
+        raise HTTPException(status_code=500, detail="Error getting bounty details") from None
 
 
 @router.post("/bounties/{bounty_id}/submit", response_model=dict[str, Any])
@@ -291,7 +291,7 @@ async def submit_bounty_solution(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error submitting bounty solution")
+        raise HTTPException(status_code=500, detail="Error submitting bounty solution") from None
 
 
 @router.get("/bounties/my-submissions", response_model=list[dict[str, Any]])
@@ -326,7 +326,7 @@ async def get_my_submissions(
         ]
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting submissions")
+        raise HTTPException(status_code=500, detail="Error getting submissions") from None
 
 
 @router.post("/bounties/{bounty_id}/review", response_model=dict[str, Any])
@@ -364,7 +364,7 @@ async def review_bounty_submission(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error reviewing submission")
+        raise HTTPException(status_code=500, detail="Error reviewing submission") from None
 
 
 @router.get("/bounties/stats", response_model=dict[str, Any])
@@ -381,7 +381,7 @@ async def get_bounty_statistics(
         return stats
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting bounty statistics")
+        raise HTTPException(status_code=500, detail="Error getting bounty statistics") from None
 
 
 # Certification Management Endpoints
@@ -413,7 +413,7 @@ async def grant_certification(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error granting certification")
+        raise HTTPException(status_code=500, detail="Error granting certification") from None
 
 
 @router.get("/certifications/{wallet_address}", response_model=list[dict[str, Any]])
@@ -451,7 +451,7 @@ async def get_developer_certifications(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting certifications")
+        raise HTTPException(status_code=500, detail="Error getting certifications") from None
 
 
 @router.get("/certifications/verify/{certification_id}", response_model=dict[str, Any])
@@ -480,7 +480,7 @@ async def verify_certification(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error verifying certification")
+        raise HTTPException(status_code=500, detail="Error verifying certification") from None
 
 
 @router.get("/certifications/types", response_model=list[dict[str, Any]])
@@ -519,7 +519,7 @@ async def get_certification_types(request: Request) -> list[dict[str, Any]]:
         return certification_types
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting certification types")
+        raise HTTPException(status_code=500, detail="Error getting certification types") from None
 
 
 # Regional Hub Management Endpoints
@@ -552,7 +552,7 @@ async def create_regional_hub(
         }
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error creating regional hub")
+        raise HTTPException(status_code=500, detail="Error creating regional hub") from None
 
 
 @router.get("/hubs", response_model=list[dict[str, Any]])
@@ -582,7 +582,7 @@ async def get_regional_hubs(
         ]
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting regional hubs")
+        raise HTTPException(status_code=500, detail="Error getting regional hubs") from None
 
 
 @router.get("/hubs/{hub_id}/developers", response_model=list[dict[str, Any]])
@@ -614,7 +614,7 @@ async def get_hub_developers(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting hub developers")
+        raise HTTPException(status_code=500, detail="Error getting hub developers") from None
 
 
 # Staking & Rewards Endpoints
@@ -655,7 +655,7 @@ async def stake_on_developer(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error staking on developer")
+        raise HTTPException(status_code=500, detail="Error staking on developer") from None
 
 
 @router.get("/staking/{address}", response_model=dict[str, Any])
@@ -673,7 +673,7 @@ async def get_staking_info(
         return staking_info
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting staking info")
+        raise HTTPException(status_code=500, detail="Error getting staking info") from None
 
 
 @router.post("/unstake", response_model=dict[str, Any])
@@ -692,7 +692,7 @@ async def unstake_tokens(
         return unstake_info
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error unstaking tokens")
+        raise HTTPException(status_code=500, detail="Error unstaking tokens") from None
 
 
 @router.get("/rewards/{address}", response_model=dict[str, Any])
@@ -710,7 +710,7 @@ async def get_rewards(
         return rewards
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting rewards")
+        raise HTTPException(status_code=500, detail="Error getting rewards") from None
 
 
 @router.post("/claim-rewards", response_model=dict[str, Any])
@@ -730,7 +730,7 @@ async def claim_rewards(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="Error claiming rewards")
+        raise HTTPException(status_code=500, detail="Error claiming rewards") from None
 
 
 @router.get("/staking-stats", response_model=dict[str, Any])
@@ -757,7 +757,7 @@ async def get_staking_statistics(request: Request, session: Session = Depends(ge
         return stats
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting staking statistics")
+        raise HTTPException(status_code=500, detail="Error getting staking statistics") from None
 
 
 # Platform Analytics Endpoints
@@ -882,4 +882,4 @@ async def get_platform_health(request: Request, session: Session = Depends(get_s
         }
 
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting platform health")
+        raise HTTPException(status_code=500, detail="Error getting platform health") from None

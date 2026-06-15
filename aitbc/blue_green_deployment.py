@@ -6,7 +6,9 @@ Provides zero-downtime deployment capabilities with traffic routing
 import time
 from dataclasses import dataclass
 from enum import Enum
+
 import requests
+
 from .aitbc_logging import get_logger
 
 logger = get_logger(__name__)

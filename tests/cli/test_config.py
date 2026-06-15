@@ -9,9 +9,9 @@ from unittest.mock import Mock, patch
 import pytest
 
 pytestmark = pytest.mark.skip("Skipping broken test file")
-import yaml
-from aitbc_cli.commands.config import config
-from click.testing import CliRunner
+import yaml  # noqa: E402
+from aitbc_cli.commands.config import config  # noqa: E402
+from click.testing import CliRunner  # noqa: E402
 
 
 @pytest.fixture

@@ -1079,9 +1079,9 @@ async def search_transactions(
                         detail=f"Failed to fetch transactions from blockchain RPC: {response.text}",
                     )
     except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}") from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}") from e
 
 
 @app.get("/api/search/blocks")
@@ -1130,9 +1130,9 @@ async def search_blocks(
                         status_code=response.status_code, detail=f"Failed to fetch blocks from blockchain RPC: {response.text}"
                     )
     except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}") from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}") from e
 
 
 @app.get("/api/analytics/overview")
@@ -1161,9 +1161,9 @@ async def analytics_overview(period: str = "24h") -> dict[str, Any]:
                         detail=f"Failed to fetch analytics from blockchain RPC: {response.text}",
                     )
     except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}") from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Analytics failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Analytics failed: {str(e)}") from e
 
 
 @app.get("/api/export/search")
@@ -1224,7 +1224,7 @@ async def export_search(format: str = "csv", type: str = "transactions", data: s
             raise HTTPException(status_code=400, detail="Unsupported format")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}") from e
 
 
 @app.get("/api/export/blocks")
@@ -1267,7 +1267,7 @@ async def export_blocks(format: str = "csv") -> StreamingResponse:
             raise HTTPException(status_code=400, detail="Unsupported format")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}") from e
 
 
 # Helper functions
