@@ -10,10 +10,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from aitbc import get_logger
+from aitbc.domain.multi_chain_transaction import TransactionPriority  # type: ignore[import-not-found]
 
 from ....agent_identity.manager import AgentIdentityManager
 from ....reputation.engine import CrossChainReputationEngine
-from ....services.multi_chain_transaction_manager import TransactionPriority  # type: ignore[attr-defined]
 from ....storage.db import get_session
 from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol
 from ..domain.global_marketplace import GlobalMarketplaceOffer

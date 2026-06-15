@@ -442,7 +442,13 @@ async def award_badge(
         )  # type: ignore[arg-type]
         if not success:
             raise HTTPException(status_code=400, detail=message)
-        badge = session.execute(select(AchievementBadge).where(AchievementBadge.badge_id == badge_request.badge_id)).first()
+        badge = (
+            session.execute(select(AchievementBadge).where(AchievementBadge.badge_id == badge_request.badge_id))
+            .scalars()
+            .first()
+        )
+        if not badge:
+            raise HTTPException(status_code=404, detail="Badge not found")
         return BadgeResponse(
             badge_id=badge.badge_id,
             badge_name=badge.badge_name,
@@ -451,10 +457,10 @@ async def award_badge(
             rarity=badge.rarity,
             point_value=badge.point_value,
             category=badge.category,
-            awarded_at=agent_badge.awarded_at.isoformat(),
-            is_featured=agent_badge.is_featured,
+            awarded_at=agent_badge.awarded_at.isoformat() if agent_badge.awarded_at else None,  # type: ignore[union-attr]
+            is_featured=agent_badge.is_featured,  # type: ignore[union-attr]
             badge_icon=badge.badge_icon,
-        )  # type: ignore[union-attr]
+        )
     except HTTPException:
         raise
     except Exception as e:
