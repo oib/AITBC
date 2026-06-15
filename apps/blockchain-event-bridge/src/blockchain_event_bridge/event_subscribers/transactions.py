@@ -1,7 +1,7 @@
 """Transaction event subscriber for gossip broker."""
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from aitbc.aitbc_logging import get_logger
 
@@ -10,6 +10,17 @@ from ..metrics import event_queue_size, gossip_subscribers_total
 
 if TYPE_CHECKING:
     from ..bridge import BlockchainEventBridge
+
+logger = get_logger(__name__)
+
+
+class SubscriptionProtocol(Protocol):
+    async def get(self) -> object: ...
+    @property
+    def queue(self) -> object: ...
+    def close(self) -> None: ...
+
+
 logger = get_logger(__name__)
 
 
@@ -20,7 +31,7 @@ class TransactionEventSubscriber:
         self.settings = settings
         self._running = False
         self._bridge: BlockchainEventBridge | None = None
-        self._subscription = None
+        self._subscription: SubscriptionProtocol | None = None
 
     def set_bridge(self, bridge: "BlockchainEventBridge") -> None:
         """Set the bridge instance for event handling."""
@@ -53,8 +64,9 @@ class TransactionEventSubscriber:
             return
         while self._running:
             try:
-                tx_data = await self._subscription.get()  # type: ignore[attr-defined]
-                event_queue_size.labels(topic="transactions").set(self._subscription.queue.qsize())  # type: ignore[attr-defined]
+                assert self._subscription is not None
+                tx_data = await self._subscription.get()
+                event_queue_size.labels(topic="transactions").set(self._subscription.queue.qsize())
                 logger.info("Received transaction event: hash=%s", tx_data.get("hash"))
                 if self._bridge:
                     await self._bridge.handle_transaction_event(tx_data)
