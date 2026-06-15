@@ -7,14 +7,14 @@ from sqlalchemy.orm import Session
 from sqlmodel import select
 
 "Payment service for job payments"
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta  # noqa: E402
 
-from aitbc import AITBCHTTPClient, NetworkError, get_logger
+from aitbc import AITBCHTTPClient, NetworkError, get_logger  # noqa: E402
 
 logger = get_logger(__name__)
-from ....schemas import JobPaymentCreate, JobPaymentView
-from ....storage import get_session
-from ..domain.payment import JobPayment, PaymentEscrow
+from ....schemas import JobPaymentCreate, JobPaymentView  # noqa: E402
+from ....storage import get_session  # noqa: E402
+from ..domain.payment import JobPayment, PaymentEscrow  # noqa: E402
 
 
 class PaymentService:

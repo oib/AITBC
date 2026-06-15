@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from ....domain.governance import (
+from ....domain.governance import (  # noqa: E402
     DaoTreasury,
     GovernanceProfile,
     GovernanceRole,

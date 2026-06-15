@@ -14,26 +14,26 @@ from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
-from app.agent_identity.manager import AgentIdentityManager  # type: ignore[import-not-found]
-from app.agent_identity.wallet_adapter_enhanced import (  # type: ignore[import-not-found]
+from app.agent_identity.manager import AgentIdentityManager  # type: ignore[import-not-found]  # noqa: E402
+from app.agent_identity.wallet_adapter_enhanced import (  # type: ignore[import-not-found]  # noqa: E402
     SecurityLevel,
     TransactionStatus,
     WalletAdapterFactory,
     WalletStatus,
 )
-from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (  # type: ignore[import-not-found]
+from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (  # type: ignore[import-not-found]  # noqa: E402
     BridgeProtocol,
     BridgeSecurityLevel,
     CrossChainBridgeService,
 )
-from app.domain.multi_chain_transaction import TransactionType  # type: ignore[import-not-found]
-from app.reputation.engine import CrossChainReputationEngine  # type: ignore[import-not-found]
-from app.services.multi_chain_transaction_manager import (  # type: ignore[import-not-found]
+from app.domain.multi_chain_transaction import TransactionType  # type: ignore[import-not-found]  # noqa: E402
+from app.reputation.engine import CrossChainReputationEngine  # type: ignore[import-not-found]  # noqa: E402
+from app.services.multi_chain_transaction_manager import (  # type: ignore[import-not-found]  # noqa: E402
     MultiChainTransactionManager,
     RoutingStrategy,
     TransactionPriority,
 )
-from app.storage.db import get_session  # type: ignore[import-not-found]
+from app.storage.db import get_session  # type: ignore[import-not-found]  # noqa: E402
 
 router = APIRouter(prefix="/cross-chain", tags=["Cross-Chain Integration"])
 
@@ -78,7 +78,7 @@ async def create_enhanced_wallet(
             "security_config": wallet_data["security_config"],
         }
     except Exception:
-        raise HTTPException(status_code=500, detail="Error creating wallet")
+        raise HTTPException(status_code=500, detail="Error creating wallet") from None
 
 
 @router.get("/wallets/{wallet_address}/balance", response_model=dict[str, Any])
@@ -98,7 +98,7 @@ async def get_wallet_balance(
         balance_data = await adapter.get_balance(wallet_address, token_address)
         return balance_data  # type: ignore[no-any-return]
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting balance")
+        raise HTTPException(status_code=500, detail="Error getting balance") from None
 
 
 @router.post("/wallets/{wallet_address}/transactions", response_model=dict[str, Any])
@@ -131,7 +131,7 @@ async def execute_wallet_transaction(
         )
         return transaction_data  # type: ignore[no-any-return]
     except Exception:
-        raise HTTPException(status_code=500, detail="Error executing transaction")
+        raise HTTPException(status_code=500, detail="Error executing transaction") from None
 
 
 @router.get("/wallets/{wallet_address}/transactions", response_model=list[dict[str, Any]])
@@ -154,7 +154,7 @@ async def get_wallet_transaction_history(
         transactions = await adapter.get_transaction_history(wallet_address, limit, offset, from_block, to_block)
         return transactions  # type: ignore[no-any-return]
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting transaction history")
+        raise HTTPException(status_code=500, detail="Error getting transaction history") from None
 
 
 @router.post("/wallets/{wallet_address}/sign", response_model=dict[str, Any])
@@ -169,7 +169,7 @@ async def sign_message(
         signature_data = await adapter.secure_sign_message(message, private_key)
         return signature_data  # type: ignore[no-any-return]
     except Exception:
-        raise HTTPException(status_code=500, detail="Error signing message")
+        raise HTTPException(status_code=500, detail="Error signing message") from None
 
 
 @router.post("/wallets/verify-signature", response_model=dict[str, Any])
@@ -189,7 +189,7 @@ async def verify_signature(
             "verified_at": datetime.now(UTC).isoformat(),
         }
     except Exception:
-        raise HTTPException(status_code=500, detail="Error verifying signature")
+        raise HTTPException(status_code=500, detail="Error verifying signature") from None
 
 
 @router.post("/bridge/create-request", response_model=dict[str, Any])
@@ -225,7 +225,7 @@ async def create_bridge_request(
         )
         return bridge_request  # type: ignore[no-any-return]
     except Exception:
-        raise HTTPException(status_code=500, detail="Error creating bridge request")
+        raise HTTPException(status_code=500, detail="Error creating bridge request") from None
 
 
 @router.get("/bridge/request/{bridge_request_id}", response_model=dict[str, Any])
@@ -239,7 +239,7 @@ async def get_bridge_request_status(
         status = await bridge_service.get_bridge_request_status(bridge_request_id)
         return status  # type: ignore[no-any-return]
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting bridge request status")
+        raise HTTPException(status_code=500, detail="Error getting bridge request status") from None
 
 
 @router.post("/bridge/request/{bridge_request_id}/cancel", response_model=dict[str, Any])
@@ -253,7 +253,7 @@ async def cancel_bridge_request(
         result = await bridge_service.cancel_bridge_request(bridge_request_id, reason)
         return result  # type: ignore[no-any-return]
     except Exception:
-        raise HTTPException(status_code=500, detail="Error cancelling bridge request")
+        raise HTTPException(status_code=500, detail="Error cancelling bridge request") from None
 
 
 @router.get("/bridge/statistics", response_model=dict[str, Any])
@@ -267,7 +267,7 @@ async def get_bridge_statistics(
         stats = await bridge_service.get_bridge_statistics(time_period_hours)
         return stats  # type: ignore[no-any-return]
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting bridge statistics")
+        raise HTTPException(status_code=500, detail="Error getting bridge statistics") from None
 
 
 @router.get("/bridge/liquidity-pools", response_model=list[dict[str, Any]])
@@ -279,7 +279,7 @@ async def get_liquidity_pools(request: Request, session: Session = Depends(get_s
         pools = await bridge_service.get_liquidity_pools()
         return pools  # type: ignore[no-any-return]
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting liquidity pools")
+        raise HTTPException(status_code=500, detail="Error getting liquidity pools") from None
 
 
 @router.post("/transactions/submit", response_model=dict[str, Any])
@@ -327,7 +327,7 @@ async def submit_transaction(
         )
         return result  # type: ignore[no-any-return]
     except Exception:
-        raise HTTPException(status_code=500, detail="Error submitting transaction")
+        raise HTTPException(status_code=500, detail="Error submitting transaction") from None
 
 
 @router.get("/transactions/history", response_model=list[dict[str, Any]])
@@ -435,7 +435,7 @@ async def get_transaction_statistics(
         stats = await tx_manager.get_transaction_statistics(time_period_hours, chain_id)
         return stats  # type: ignore[no-any-return]
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting transaction statistics")
+        raise HTTPException(status_code=500, detail="Error getting transaction statistics") from None
 
 
 @router.post("/transactions/optimize-routing", response_model=dict[str, Any])
@@ -459,7 +459,7 @@ async def optimize_transaction_routing(
         )
         return optimization  # type: ignore[no-any-return]
     except Exception:
-        raise HTTPException(status_code=500, detail="Error optimizing routing")
+        raise HTTPException(status_code=500, detail="Error optimizing routing") from None
 
 
 @router.get("/chains/supported", response_model=list[dict[str, Any]])
@@ -474,7 +474,7 @@ async def get_supported_chains(request: Request) -> list[dict[str, Any]]:
             chain_info.append({"chain_id": chain_id, **info})
         return chain_info
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting supported chains")
+        raise HTTPException(status_code=500, detail="Error getting supported chains") from None
 
 
 @router.get("/chains/{chain_id}/info", response_model=dict[str, Any])
@@ -491,7 +491,7 @@ async def get_chain_info(request: Request, chain_id: int, session: Session = Dep
         }
         return chain_info
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting chain info")
+        raise HTTPException(status_code=500, detail="Error getting chain info") from None
 
 
 @router.get("/health", response_model=dict[str, Any])
@@ -520,7 +520,7 @@ async def get_cross_chain_health(request: Request, session: Session = Depends(ge
         }
     except Exception as e:
         logger.error("Error getting health status: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="Error getting health status")
+        raise HTTPException(status_code=500, detail="Error getting health status") from e
 
 
 @router.get("/config", response_model=dict[str, Any])
@@ -578,7 +578,7 @@ async def get_cross_chain_config(request: Request, session: Session = Depends(ge
             "last_updated": datetime.now(UTC).isoformat(),
         }
     except Exception:
-        raise HTTPException(status_code=500, detail="Error getting configuration")
+        raise HTTPException(status_code=500, detail="Error getting configuration") from None
 
 
 @router.get("/bridge/whitelist", response_model=dict[str, Any])
@@ -591,7 +591,7 @@ async def get_bridge_whitelist(request: Request, session: Session = Depends(get_
         return {"allowed_transfers": whitelist, "count": len(whitelist), "last_updated": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error("Error getting bridge whitelist: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="Error getting bridge whitelist")
+        raise HTTPException(status_code=500, detail="Error getting bridge whitelist") from e
 
 
 @router.post("/bridge/whitelist/add", response_model=dict[str, Any])
@@ -611,4 +611,4 @@ async def add_bridge_whitelist_entry(
         }
     except Exception as e:
         logger.error("Error adding whitelist entry: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="Error adding whitelist entry")
+        raise HTTPException(status_code=500, detail="Error adding whitelist entry") from e

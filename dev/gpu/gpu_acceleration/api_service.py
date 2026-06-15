@@ -6,6 +6,7 @@ Uses the new abstraction layer for backend-agnostic GPU acceleration.
 
 import logging
 
+import numpy as np
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -37,7 +38,7 @@ async def field_add(op: FieldOperation):
         result = gpu_manager.field_add(a, b)
         return {"result": result.tolist()}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/field/mul")
@@ -49,7 +50,7 @@ async def field_mul(op: FieldOperation):
         result = gpu_manager.field_mul(a, b)
         return {"result": result.tolist()}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/backend/info")

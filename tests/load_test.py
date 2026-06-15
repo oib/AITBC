@@ -2,8 +2,8 @@ try:
     from locust import HttpUser, between, task
 except Exception:
     HttpUser = object  # type: ignore[misc,assignment]
-    between = lambda a, b: None  # type: ignore[assignment]
-    task = lambda weight: lambda f: f  # type: ignore[assignment]
+    between = lambda a, b: None  # type: ignore[assignment]  # noqa: E731
+    task = lambda weight: lambda f: f  # type: ignore[assignment]  # noqa: E731
 
 
 class AITBCUser(HttpUser):  # type: ignore[misc,valid-type]

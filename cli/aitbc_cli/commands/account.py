@@ -30,10 +30,10 @@ def get(ctx, address, rpc_url, chain_id):
         output(account_data, ctx.obj.get("output_format", "table"), title=f"Account: {address}")
     except NetworkError as e:
         error(f"Network error: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error getting account: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @account.command()
@@ -61,4 +61,4 @@ def list(ctx, rpc_url, chain_id):
         output(accounts, ctx.obj.get("output_format", "table"), title="Accounts (Simulated)")
     except Exception as e:
         error(f"Error listing accounts: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

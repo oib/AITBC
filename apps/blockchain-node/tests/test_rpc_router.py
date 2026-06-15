@@ -199,8 +199,8 @@ def test_unsupported_transaction_type() -> None:
 
 
 # Integration tests for full flow
-from aitbc_chain.rpc.router import router
-from fastapi.testclient import TestClient
+from aitbc_chain.rpc.router import router  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 
 @pytest.fixture

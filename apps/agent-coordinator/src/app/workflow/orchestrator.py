@@ -18,7 +18,7 @@ try:
     redis_client = redis
 except ImportError:
     pass
-from aitbc import get_logger
+from aitbc import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
 

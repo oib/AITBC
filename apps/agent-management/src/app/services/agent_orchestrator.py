@@ -8,13 +8,18 @@ import asyncio
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
-from enum import StrEnum
-from typing import Any
+from dataclasses import dataclass, field  # noqa: E402
+from datetime import UTC, datetime, timedelta  # noqa: E402
+from enum import StrEnum  # noqa: E402
+from typing import Any  # noqa: E402
 
-from .bid_strategy_engine import BidResult  # type: ignore[import-not-found]
-from .task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposition  # type: ignore[import-not-found]
+from .bid_strategy_engine import BidResult  # type: ignore[import-not-found]  # noqa: E402
+from .task_decomposition import (  # type: ignore[import-not-found]  # noqa: E402
+    GPU_Tier,
+    SubTask,
+    SubTaskStatus,
+    TaskDecomposition,
+)
 
 
 class OrchestratorStatus(StrEnum):

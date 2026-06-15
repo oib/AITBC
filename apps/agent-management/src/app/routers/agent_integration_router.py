@@ -1,18 +1,18 @@
 from typing import Annotated, Any
 
 "\nAgent Integration and Deployment API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for production deployment and integration management\n"
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
 
-from aitbc import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger  # noqa: E402
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
 logger = get_logger(__name__)
-from sqlmodel import Session, select
+from sqlmodel import Session, select  # noqa: E402
 
-from app.domain.agent import AgentExecution, AIAgentWorkflow, VerificationLevel
+from app.domain.agent import AgentExecution, AIAgentWorkflow, VerificationLevel  # noqa: E402
 
-from ..deps import require_admin_key
-from ..services.agent_integration import (
+from ..deps import require_admin_key  # noqa: E402
+from ..services.agent_integration import (  # noqa: E402
     AgentDeploymentConfig,
     AgentDeploymentInstance,
     AgentDeploymentManager,
@@ -21,8 +21,8 @@ from ..services.agent_integration import (
     AgentProductionManager,
     DeploymentStatus,
 )
-from ..storage import get_session
-from ..utils.alerting import alert_dispatcher  # type: ignore[import-not-found]
+from ..storage import get_session  # noqa: E402
+from ..utils.alerting import alert_dispatcher  # type: ignore[import-not-found]  # noqa: E402
 
 router = APIRouter(prefix="/agents/integration", tags=["Agent Integration"])
 
@@ -54,7 +54,7 @@ async def create_deployment_config(
         raise
     except Exception as e:
         logger.error("Failed to create deployment config: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to create deployment config")
+        raise HTTPException(status_code=500, detail="Failed to create deployment config") from e
 
 
 @router.get("/deployments/configs", response_model=list[AgentDeploymentConfig])
@@ -82,7 +82,7 @@ async def list_deployment_configs(
         return user_configs
     except Exception as e:
         logger.error("Failed to list deployment configs: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/deployments/configs/{config_id}", response_model=AgentDeploymentConfig)
@@ -106,7 +106,7 @@ async def get_deployment_config(
         raise
     except Exception as e:
         logger.error("Failed to get deployment config: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/deployments/{config_id}/deploy")
@@ -136,7 +136,7 @@ async def deploy_workflow(
         raise
     except Exception as e:
         logger.error("Failed to deploy workflow: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/deployments/{config_id}/health")
@@ -162,7 +162,7 @@ async def get_deployment_health(
         raise
     except Exception as e:
         logger.error("Failed to get deployment health: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/deployments/{config_id}/scale")
@@ -192,7 +192,7 @@ async def scale_deployment(
         raise
     except Exception as e:
         logger.error("Failed to scale deployment: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/deployments/{config_id}/rollback")
@@ -219,7 +219,7 @@ async def rollback_deployment(
         raise
     except Exception as e:
         logger.error("Failed to rollback deployment: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/deployments/instances", response_model=list[AgentDeploymentInstance])
@@ -252,7 +252,7 @@ async def list_deployment_instances(
         return user_instances
     except Exception as e:
         logger.error("Failed to list deployment instances: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/deployments/instances/{instance_id}", response_model=AgentDeploymentInstance)
@@ -279,7 +279,7 @@ async def get_deployment_instance(
         raise
     except Exception as e:
         logger.error("Failed to get deployment instance: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/integrations/zk/{execution_id}")
@@ -309,7 +309,7 @@ async def integrate_with_zk_system(
         raise
     except Exception as e:
         logger.error("Failed to integrate with ZK system: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/metrics/deployments/{deployment_id}")
@@ -336,7 +336,7 @@ async def get_deployment_metrics(
         raise
     except Exception as e:
         logger.error("Failed to get deployment metrics: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/production/deploy")
@@ -366,7 +366,7 @@ async def deploy_to_production(
         raise
     except Exception as e:
         logger.error("Failed to deploy to production: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/production/dashboard")
@@ -412,7 +412,7 @@ async def get_production_dashboard(
         return dashboard_data
     except Exception as e:
         logger.error("Failed to get production dashboard: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/production/health")
@@ -471,7 +471,7 @@ async def get_production_health(
         return health_status
     except Exception as e:
         logger.error("Failed to get production health: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/production/alerts")
@@ -488,4 +488,4 @@ async def get_production_alerts(
         return {"alerts": alerts, "total_count": len(alerts), "severity": severity, "source": "coordinator_metrics"}
     except Exception as e:
         logger.error("Failed to get production alerts: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

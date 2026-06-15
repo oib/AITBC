@@ -278,7 +278,7 @@ class GPUAccelerationManager:
                 # Fallback to CPU operations
                 logger.warning("GPU multi-scalar mul failed, falling back to CPU")
                 result.fill(0)
-                for scalar, point in zip(scalars, points):
+                for scalar, point in zip(scalars, points, strict=True):
                     temp = np.multiply(scalar, point, dtype=result.dtype)
                     np.add(result, temp, out=result, dtype=result.dtype)
                 success = True

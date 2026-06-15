@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Any
 
 
-class AgentStatus(str, Enum):
+class AgentStatus(str, Enum):  # noqa: UP042
     """Agent execution status enumeration"""
 
     PENDING = "pending"
@@ -19,7 +19,7 @@ class AgentStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class VerificationLevel(str, Enum):
+class VerificationLevel(str, Enum):  # noqa: UP042
     """Verification level for agent execution"""
 
     BASIC = "basic"
@@ -27,7 +27,7 @@ class VerificationLevel(str, Enum):
     ZERO_KNOWLEDGE = "zero-knowledge"
 
 
-class StepType(str, Enum):
+class StepType(str, Enum):  # noqa: UP042
     """Agent step type enumeration"""
 
     INFERENCE = "inference"

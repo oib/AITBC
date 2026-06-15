@@ -228,7 +228,7 @@ class TestAsyncStateMachine:
                 return {"idle": ["running"], "running": []}.get(state, [])
 
         machine = ConcreteAsyncMachine(initial_state="idle")
-        handler = lambda t: None
+        handler = lambda t: None  # noqa: E731
         machine.on_transition("running", handler)
         assert "running" in machine.transition_handlers
 
@@ -316,7 +316,7 @@ class TestStateMonitor:
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         monitor = state.StateMonitor(machine)
 
-        observer = lambda t: None
+        observer = lambda t: None  # noqa: E731
         monitor.add_observer(observer)
         assert observer in monitor.observers
 
@@ -325,7 +325,7 @@ class TestStateMonitor:
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         monitor = state.StateMonitor(machine)
 
-        observer = lambda t: None
+        observer = lambda t: None  # noqa: E731
         monitor.add_observer(observer)
         result = monitor.remove_observer(observer)
         assert result is True
@@ -336,7 +336,7 @@ class TestStateMonitor:
         machine = state.ConfigurableStateMachine(initial_state="idle", transitions=transitions)
         monitor = state.StateMonitor(machine)
 
-        observer = lambda t: None
+        observer = lambda t: None  # noqa: E731
         result = monitor.remove_observer(observer)
         assert result is False
 

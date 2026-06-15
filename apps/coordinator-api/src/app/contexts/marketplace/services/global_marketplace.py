@@ -5,19 +5,19 @@ from ..domain.global_marketplace import (
 )
 
 "\nGlobal Marketplace Services\nCore services for global marketplace operations, multi-region support, and cross-chain integration\n"
-from datetime import UTC, datetime, timedelta
-from typing import Any
-from uuid import uuid4
+from datetime import UTC, datetime, timedelta  # noqa: E402
+from typing import Any  # noqa: E402
+from uuid import uuid4  # noqa: E402
 
-from aitbc import get_logger
+from aitbc import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
-from sqlalchemy import desc
-from sqlmodel import Session, select
+from sqlalchemy import desc  # noqa: E402
+from sqlmodel import Session, select  # noqa: E402
 
-from ....reputation.engine import CrossChainReputationEngine
-from ...agent_identity.domain.agent_identity import AgentIdentity
-from ..domain.global_marketplace import (
+from ....reputation.engine import CrossChainReputationEngine  # noqa: E402
+from ...agent_identity.domain.agent_identity import AgentIdentity  # noqa: E402
+from ..domain.global_marketplace import (  # noqa: E402
     GlobalMarketplaceAnalytics,
     GlobalMarketplaceOffer,
     GlobalMarketplaceTransaction,

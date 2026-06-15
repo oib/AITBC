@@ -3,9 +3,11 @@ Standardized error response middleware for FastAPI
 """
 
 from collections.abc import Callable
+
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+
 from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)

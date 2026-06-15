@@ -205,7 +205,7 @@ async def create_stake(
         raise
     except Exception as e:
         logger.error("Failed to create stake: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/stake/{stake_id}", response_model=StakeResponse)
@@ -229,7 +229,7 @@ async def get_stake(
         raise
     except Exception as e:
         logger.error("Failed to get stake %s: %s", stake_id, e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/stakes", response_model=list[StakeResponse])
@@ -257,7 +257,7 @@ async def get_stakes(
         return [StakeResponse.from_orm(stake) for stake in stakes]  # type: ignore[pydantic-orm]
     except Exception as e:
         logger.error("Failed to get stakes: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/stake/{stake_id}/add", response_model=StakeResponse)
@@ -288,7 +288,7 @@ async def add_to_stake(
         raise
     except Exception as e:
         logger.error("Failed to add to stake: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/stake/{stake_id}/unbond")
@@ -320,7 +320,7 @@ async def unbond_stake(
         raise
     except Exception as e:
         logger.error("Failed to unbond stake: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/stake/{stake_id}/complete")
@@ -355,7 +355,7 @@ async def complete_unbonding(
         raise
     except Exception as e:
         logger.error("Failed to complete unbonding: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/stake/{stake_id}/rewards")
@@ -387,7 +387,7 @@ async def get_stake_rewards(
         raise
     except Exception as e:
         logger.error("Failed to get stake rewards: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/agents/{agent_wallet}/metrics", response_model=AgentMetricsResponse)
@@ -408,7 +408,7 @@ async def get_agent_metrics(
         raise
     except Exception as e:
         logger.error("Failed to get agent metrics: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/agents/{agent_wallet}/staking-pool", response_model=StakingPoolResponse)
@@ -429,7 +429,7 @@ async def get_staking_pool(
         raise
     except Exception as e:
         logger.error("Failed to get staking pool: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/agents/{agent_wallet}/apy")
@@ -453,7 +453,7 @@ async def get_agent_apy(
         }
     except Exception as e:
         logger.error("Failed to get agent APY: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/agents/{agent_wallet}/performance")
@@ -481,7 +481,7 @@ async def update_agent_performance(
         raise
     except Exception as e:
         logger.error("Failed to update agent performance: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/agents/{agent_wallet}/distribute-earnings")
@@ -514,7 +514,7 @@ async def distribute_agent_earnings(
         raise
     except Exception as e:
         logger.error("Failed to distribute earnings: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/agents/supported")
@@ -533,7 +533,7 @@ async def get_supported_agents(
         return {"agents": agents, "total_count": len(agents), "page": page, "limit": limit}
     except Exception as e:
         logger.error("Failed to get supported agents: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/staking/stats", response_model=StakingStatsResponse)
@@ -550,7 +550,7 @@ async def get_staking_stats(
         return StakingStatsResponse.from_orm(stats)  # type: ignore[pydantic-orm]
     except Exception as e:
         logger.error("Failed to get staking stats: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/staking/leaderboard")
@@ -632,7 +632,7 @@ async def get_my_staking_positions(
         return [StakeResponse.from_orm(stake) for stake in stakes]  # type: ignore[pydantic-orm]
     except Exception as e:
         logger.error("Failed to get staking positions: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/staking/my-rewards")
@@ -650,7 +650,7 @@ async def get_my_staking_rewards(
         return rewards
     except Exception as e:
         logger.error("Failed to get staking rewards: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/staking/claim-rewards")
@@ -688,7 +688,7 @@ async def claim_staking_rewards(
         raise
     except Exception as e:
         logger.error("Failed to claim rewards: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/staking/risk-assessment/{agent_wallet}")
@@ -705,4 +705,4 @@ async def get_risk_assessment(
         return assessment
     except Exception as e:
         logger.error("Failed to get risk assessment: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e

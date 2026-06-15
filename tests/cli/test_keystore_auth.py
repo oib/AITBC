@@ -15,7 +15,7 @@ cli_path = Path("/opt/aitbc/cli")
 if str(cli_path) not in sys.path:
     sys.path.insert(0, str(cli_path))
 
-import pytest
+import pytest  # noqa: E402
 
 
 class TestDeriveKey:
@@ -109,7 +109,7 @@ class TestLoadKeystore:
         try:
             from keystore_auth import load_keystore
 
-            from aitbc.utils.paths import get_keystore_path
+            from aitbc.utils.paths import get_keystore_path  # noqa: F401
         except ImportError:
             pytest.skip("aitbc.utils.paths import failed")
 
@@ -132,7 +132,7 @@ class TestLoadKeystore:
         try:
             from keystore_auth import load_keystore
 
-            from aitbc.utils.paths import get_keystore_path
+            from aitbc.utils.paths import get_keystore_path  # noqa: F401
         except ImportError:
             pytest.skip("aitbc.utils.paths import failed")
 
@@ -148,7 +148,11 @@ class TestGetPrivateKey:
     def test_get_private_key_from_env(self):
         """Test getting private key with environment password"""
         try:
-            from keystore_auth import decrypt_private_key, get_private_key, load_keystore
+            from keystore_auth import (  # noqa: F401
+                decrypt_private_key,  # noqa: F401
+                get_private_key,
+                load_keystore,
+            )
         except ImportError:
             pytest.skip("Required imports failed")
 

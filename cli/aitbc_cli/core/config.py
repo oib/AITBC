@@ -57,7 +57,7 @@ def load_multichain_config(config_path: str | None = None) -> MultiChainConfig:
 
         return MultiChainConfig(**config_data)
     except Exception as e:
-        raise ValueError(f"Failed to load configuration from {config_path}: {e}")
+        raise ValueError(f"Failed to load configuration from {config_path}: {e}") from e
 
 
 def save_multichain_config(config: MultiChainConfig, config_path: str | None = None) -> None:
@@ -77,7 +77,7 @@ def save_multichain_config(config: MultiChainConfig, config_path: str | None = N
         with open(config_file, "w") as f:
             yaml.dump(config_dict, f, default_flow_style=False, indent=2)
     except Exception as e:
-        raise ValueError(f"Failed to save configuration to {config_path}: {e}")
+        raise ValueError(f"Failed to save configuration to {config_path}: {e}") from e
 
 
 def get_default_node_config() -> NodeConfig:

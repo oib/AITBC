@@ -26,7 +26,7 @@ class AITBCHTTPClient:
             response.raise_for_status()
             return response.json()
         except httpx.HTTPError as e:
-            raise NetworkError(f"HTTP error: {e}")
+            raise NetworkError(f"HTTP error: {e}") from e
 
     def post(self, path: str, json_data: dict[str, Any] | None = None) -> dict[str, Any]:
         """POST request to blockchain RPC"""
@@ -35,7 +35,7 @@ class AITBCHTTPClient:
             response.raise_for_status()
             return response.json()
         except httpx.HTTPError as e:
-            raise NetworkError(f"HTTP error: {e}")
+            raise NetworkError(f"HTTP error: {e}") from e
 
     def close(self):
         """Close the HTTP client"""

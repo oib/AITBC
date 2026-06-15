@@ -10,9 +10,9 @@ from typing import Any
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from sqlmodel import Session, select, update
+from sqlmodel import Session, select, update  # noqa: E402
 
-from ...domain.agent import (
+from ...domain.agent import (  # noqa: E402
     AgentExecution,
     AgentExecutionRequest,
     AgentExecutionResponse,

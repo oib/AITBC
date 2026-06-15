@@ -31,7 +31,7 @@ def start(ctx, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Started (Simulated)")
     except Exception as e:
         error(f"Error starting bridge: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @bridge.command()
@@ -53,7 +53,7 @@ def status(ctx, rpc_url):
         output(status, ctx.obj.get("output_format", "table"), title="Bridge Status (Simulated)")
     except Exception as e:
         error(f"Error getting bridge status: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @bridge.command()
@@ -75,4 +75,4 @@ def stop(ctx, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Stopped (Simulated)")
     except Exception as e:
         error(f"Error stopping bridge: {e}")
-        raise click.Abort()
+        raise click.Abort() from e

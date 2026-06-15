@@ -3,16 +3,16 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 
 "\nEnhanced Marketplace API Router - Phase 6.5\nREST API endpoints for advanced marketplace features including royalties, licensing, and analytics\n"
-from aitbc import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger  # noqa: E402
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
 logger = get_logger(__name__)
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
 
-from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService
-from ..deps import require_admin_key
-from ..domain import MarketplaceOffer  # type: ignore[attr-defined]
-from ..schemas.marketplace_enhanced import (
+from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService  # noqa: E402
+from ..deps import require_admin_key  # noqa: E402
+from ..domain import MarketplaceOffer  # type: ignore[attr-defined]  # noqa: E402
+from ..schemas.marketplace_enhanced import (  # noqa: E402
     MarketplaceAnalyticsResponse,
     ModelLicenseRequest,
     ModelLicenseResponse,
@@ -21,7 +21,7 @@ from ..schemas.marketplace_enhanced import (
     RoyaltyDistributionRequest,
     RoyaltyDistributionResponse,
 )
-from ..storage import get_session
+from ..storage import get_session  # noqa: E402
 
 router = APIRouter(prefix="/marketplace/enhanced", tags=["Enhanced Marketplace"])
 
@@ -54,7 +54,7 @@ async def create_royalty_distribution(
         )
     except Exception as e:
         logger.error("Error creating royalty distribution: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/royalties/calculate", response_model=dict)
@@ -81,7 +81,7 @@ async def calculate_royalties(
         return royalties
     except Exception as e:
         logger.error("Error calculating royalties: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/licenses/create", response_model=ModelLicenseResponse)
@@ -118,7 +118,7 @@ async def create_model_license(
         )
     except Exception as e:
         logger.error("Error creating model license: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/verification/verify", response_model=ModelVerificationResponse)
@@ -150,7 +150,7 @@ async def verify_model(
         )
     except Exception as e:
         logger.error("Error verifying model: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/analytics", response_model=MarketplaceAnalyticsResponse)
@@ -174,4 +174,4 @@ async def get_marketplace_analytics(
         )
     except Exception as e:
         logger.error("Error getting marketplace analytics: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

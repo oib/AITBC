@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import socket
+import sys
 import uuid
 
 import click
@@ -33,7 +34,7 @@ def create_island_command(ctx, island_id, island_name, chain_id):
 
     except Exception as e:
         error(f"Error creating island: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub):
@@ -146,7 +147,7 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub):
 
     except Exception as e:
         error(f"Error joining island: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 def leave_island_command(ctx, island_id):
@@ -156,7 +157,7 @@ def leave_island_command(ctx, island_id):
 
     except Exception as e:
         error(f"Error leaving island: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 def list_islands_command(ctx):
@@ -176,7 +177,7 @@ def list_islands_command(ctx):
 
     except Exception as e:
         error(f"Error listing islands: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 def island_info_command(ctx, island_id):
@@ -195,4 +196,4 @@ def island_info_command(ctx, island_id):
 
     except Exception as e:
         error(f"Error getting island info: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e

@@ -73,7 +73,7 @@ class IPFSAdapterService:
             logger.error("Failed to store memory node %s: %s", node.id, str(e))
             node.status = StorageStatus.FAILED
             self.session.commit()
-            raise HTTPException(status_code=500, detail="Failed to upload data to decentralized storage")
+            raise HTTPException(status_code=500, detail="Failed to upload data to decentralized storage") from e
 
     async def get_memory_nodes(
         self, agent_id: str, memory_type: MemoryType | None = None, tags: list[str] | None = None
@@ -112,7 +112,7 @@ class IPFSAdapterService:
             return node
         except Exception as e:
             logger.error("Failed to anchor memory node %s: %s", node_id, str(e))
-            raise HTTPException(status_code=500, detail="Failed to anchor CID to blockchain")
+            raise HTTPException(status_code=500, detail="Failed to anchor CID to blockchain") from e
 
     async def retrieve_memory(self, node_id: str) -> bytes:
         """Retrieve the raw data from IPFS"""

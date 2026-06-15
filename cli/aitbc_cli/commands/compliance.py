@@ -21,7 +21,7 @@ def check(ctx, standard):
         output(result, ctx.obj.get("output_format", "table"), title=f"Compliance Check: {standard}")
     except Exception as e:
         error(f"Error running compliance check: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @compliance.command()
@@ -34,4 +34,4 @@ def report(ctx, format):
         output(result, ctx.obj.get("output_format", "table"), title="Compliance Report")
     except Exception as e:
         error(f"Error generating compliance report: {e}")
-        raise click.Abort()
+        raise click.Abort() from e
