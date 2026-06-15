@@ -1,15 +1,19 @@
 from datetime import UTC, datetime
 from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 from ..deps import get_miner_id, require_miner_key
 from ..schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
 from ..services import JobService, MinerService
 from ..services.receipts import ReceiptService
 from ..storage import get_session
+
 logger = get_logger(__name__)
 router = APIRouter(tags=['miner'])
 

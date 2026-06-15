@@ -3,9 +3,13 @@ Edge GPU service for managing GPU operations
 """
 import subprocess
 from typing import Any
+
 from sqlmodel import Session, select
+
 from aitbc import get_logger
+
 from ..domain.gpu_marketplace import ConsumerGPUProfile, EdgeGPUMetrics, GPUArchitecture, GPURegistry
+
 logger = get_logger(__name__)
 
 class EdgeGPUService:
@@ -40,7 +44,7 @@ class EdgeGPUService:
             logger.error('Failed to list GPU metrics for %s: %s', gpu_id, e)
             return []
 
-    def create_metric(self, payload: dict) -> EdgeGPUMetrics:
+    def create_metric(self, payload: dict[str, Any]) -> EdgeGPUMetrics:
         metric = EdgeGPUMetrics(**payload)
         self.session.add(metric)
         self.session.commit()
@@ -125,6 +129,6 @@ class EdgeGPUService:
             logger.error('Failed to discover GPUs for miner %s: %s', miner_id, e)
             return {'miner_id': miner_id, 'gpus': [], 'registered': 0, 'edge_optimized': 0, 'error': str(e)}
 
-    async def optimize_inference_for_edge(self, gpu_id: str, model_name: str, request_data: dict) -> dict[str, Any]:
+    async def optimize_inference_for_edge(self, gpu_id: str, model_name: str, request_data: dict[str, Any]) -> dict[str, Any]:
         """Optimize ML inference request for edge GPU"""
         return {'gpu_id': gpu_id, 'model_name': model_name, 'optimized': True, 'latency_reduction': 0.0}

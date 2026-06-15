@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import asyncio
 import json
 import warnings
@@ -7,12 +8,14 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import Any
+
 warnings.filterwarnings('ignore', message='coroutine.* was never awaited', category=RuntimeWarning)
 try:
     from broadcaster import Broadcast  # type: ignore[import-not-found]
 except ImportError:
     Broadcast = None
 from ..metrics import metrics_registry
+
 
 def _increment_publication(metric_prefix: str, topic: str) -> None:
     metrics_registry.increment(f'{metric_prefix}_total')
@@ -24,7 +27,7 @@ def _set_queue_gauge(topic: str, size: int) -> None:
 def _update_subscriber_metrics(topics: dict[str, list[asyncio.Queue[Any]]]) -> None:
     for topic, queues in topics.items():
         metrics_registry.set_gauge(f'gossip_subscribers_topic_{topic}', float(len(queues)))
-    total = sum((len(queues) for queues in topics.values()))
+    total = sum(len(queues) for queues in topics.values())
     metrics_registry.set_gauge('gossip_subscribers_total', float(total))
 
 def _clear_topic_metrics(topic: str) -> None:

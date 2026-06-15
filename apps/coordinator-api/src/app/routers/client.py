@@ -1,9 +1,13 @@
 from __future__ import annotations
+
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
+
 from aitbc import AITBCHTTPClient, NetworkError, get_logger
 from aitbc.rate_limiting import rate_limit
+
 from ..config import settings
 from ..contexts.payments.services.payments import PaymentService
 from ..custom_types import JobState
@@ -12,6 +16,7 @@ from ..schemas import JobCreate, JobPaymentCreate, JobResult, JobView
 from ..services import JobService
 from ..storage import get_session
 from ..utils.cache import cached, get_cache_config
+
 logger = get_logger(__name__)
 router = APIRouter(tags=['client'])
 

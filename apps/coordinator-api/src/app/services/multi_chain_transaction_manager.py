@@ -8,15 +8,19 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlalchemy import desc
 from sqlmodel import Session, select
+
 from ..agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory
 from ..contexts.cross_chain.services.cross_chain.bridge_enhanced import CrossChainBridgeService
 from ..domain.multi_chain_transaction import MultiChainTransaction, RoutingStrategy, TransactionPriority, TransactionStatus
 from ..domain.multi_chain_transaction import TransactionType as MultiChainTransactionType
 from ..reputation.engine import CrossChainReputationEngine
+
 
 class MultiChainTransactionManager:
     """Advanced multi-chain transaction management system"""
@@ -148,7 +152,7 @@ class MultiChainTransactionManager:
             completed_transactions = [tx for tx in transactions if tx.status == TransactionStatus.COMPLETED and tx.processing_time]
             avg_processing_time = 0.0
             if completed_transactions:
-                avg_processing_time = sum((tx.processing_time for tx in completed_transactions)) / len(completed_transactions)
+                avg_processing_time = sum(tx.processing_time for tx in completed_transactions) / len(completed_transactions)
             gas_stats = {}
             for tx in transactions:
                 if tx.gas_used and tx.gas_price_paid:

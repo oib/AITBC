@@ -5,11 +5,14 @@ import asyncio
 import os
 from datetime import UTC, datetime
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from ..domain.job import Job
 from .bridges.base import BridgeStatus, SettlementMessage, SettlementResult
 from .manager import BridgeManager
+
 
 class SettlementHook:
     """Settlement hook for coordinator to handle cross-chain settlements"""

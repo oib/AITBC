@@ -11,10 +11,14 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 from uuid import uuid4
+
 import numpy as np
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from .websocket_stream_manager import MessageType, StreamConfig, stream_manager
+
 
 class FusionStreamType(Enum):
     """Types of fusion streams"""

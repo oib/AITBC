@@ -5,13 +5,18 @@ This module provides the StateTransition class that validates all state changes
 to ensure they only occur through validated transactions.
 """
 from __future__ import annotations
+
 import os
 from datetime import UTC, datetime
+from typing import Any
+
 from sqlalchemy import text
 from sqlmodel import Session, select
+
 from ..logger import get_logger
 from ..models import Account, Receipt, Transaction
 from .gpu_resources import GPUAllocation, GPURegistration
+
 try:
     from aitbc.redis_cache import RedisCache
     _REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
@@ -31,9 +36,9 @@ class StateTransition:
 
     def __init__(self) -> None:
         self._processed_nonces: dict[str, int] = {}
-        self._processed_tx_hashes: set = set()
+        self._processed_tx_hashes: set[str] = set()
 
-    def validate_transaction(self, session: Session, chain_id: str, tx_data: dict, tx_hash: str) -> tuple[bool, str]:
+    def validate_transaction(self, session: Session, chain_id: str, tx_data: dict[str, Any], tx_hash: str) -> tuple[bool, str]:
         """
         Validate a transaction before applying state changes.
 
@@ -104,7 +109,7 @@ class StateTransition:
                 return (False, f'Receipt {receipt_id} has invalid coordinator attestations')
         return (True, 'Transaction validated successfully')
 
-    def apply_transaction(self, session: Session, chain_id: str, tx_data: dict, tx_hash: str) -> tuple[bool, str]:
+    def apply_transaction(self, session: Session, chain_id: str, tx_data: dict[str, Any], tx_hash: str) -> tuple[bool, str]:
         """
         Apply a validated transaction to update state.
         
@@ -195,7 +200,7 @@ class StateTransition:
         """Get the last processed nonce for each address."""
         return self._processed_nonces.copy()
 
-    def handle_gpu_registration(self, session: Session, chain_id: str, gpu_data: dict) -> tuple[bool, str]:
+    def handle_gpu_registration(self, session: Session, chain_id: str, gpu_data: dict[str, Any]) -> tuple[bool, str]:
         """
         Handle GPU registration state transition.
 
@@ -230,7 +235,7 @@ class StateTransition:
             logger.error('GPU registration error: %s', e)
             return (False, str(e))
 
-    def handle_gpu_allocation(self, session: Session, chain_id: str, allocation_data: dict) -> tuple[bool, str]:
+    def handle_gpu_allocation(self, session: Session, chain_id: str, allocation_data: dict[str, Any]) -> tuple[bool, str]:
         """
         Handle GPU allocation state transition.
 

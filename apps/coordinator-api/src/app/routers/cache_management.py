@@ -2,11 +2,15 @@
 Cache monitoring and management endpoints
 """
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 from ..deps import require_admin_key
 from ..utils.cache_management import clear_cache, get_cache_stats, warm_cache
+
 logger = get_logger(__name__)
 router = APIRouter(prefix='/cache', tags=['cache-management'])
 

@@ -6,11 +6,15 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
+
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
+
 from aitbc import AsyncAITBCHTTPClient, NetworkError, get_logger
+
 from ..models import MatchRequest, MatchResult, Miner
 from ..settings import settings
+
 logger = get_logger(__name__)
 
 class BillingIntegration:
@@ -83,7 +87,7 @@ class BillingIntegration:
         usage_data['api_calls'] = float(api_calls)
         result_stmt = select(MatchResult).where(and_(MatchResult.miner_id == miner_id, MatchResult.created_at >= start_date, MatchResult.created_at <= end_date)).where(MatchResult.eta_ms.isnot_(None))
         results = self.db.execute(result_stmt).scalars().all()
-        total_compute_time_ms = sum((r.eta_ms for r in results if r.eta_ms))
+        total_compute_time_ms = sum(r.eta_ms for r in results if r.eta_ms)
         compute_hours = total_compute_time_ms / 1000 / 3600 if results else 0.0
         usage_data['compute_hours'] = compute_hours
         gpu_hours = compute_hours * 1.5

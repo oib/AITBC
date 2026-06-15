@@ -4,11 +4,15 @@ Business logic for AI agent bounty system with ZK-proof verification
 """
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
+
 from ..domain.bounty import Bounty, BountyStats, BountyStatus, BountySubmission, BountyTier, SubmissionStatus
+
 
 class BountyService:
     """Service for managing AI agent bounties"""

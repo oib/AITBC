@@ -4,7 +4,9 @@ Week 9-12: Enterprise scaling and agent marketplace development
 """
 import asyncio
 from typing import Any
+
 from aitbc.logging import get_logger
+
 logger = get_logger(__name__)
 
 class Phase5Implementation:

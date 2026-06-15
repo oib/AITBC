@@ -5,11 +5,14 @@ Provides web interface and marketplace functionality for plugins
 import asyncio
 import os
 from datetime import UTC, datetime, timedelta
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 app = FastAPI(title='AITBC Plugin Marketplace', description='Plugin marketplace frontend and community features', version='1.0.0')
 
@@ -109,7 +112,7 @@ async def get_plugin_reviews_api(plugin_id: str):
     """Get all reviews for a plugin"""
     plugin_reviews = reviews.get(plugin_id, [])
     if plugin_reviews:
-        avg_rating = sum((r['rating'] for r in plugin_reviews)) / len(plugin_reviews)
+        avg_rating = sum(r['rating'] for r in plugin_reviews) / len(plugin_reviews)
     else:
         avg_rating = 0.0
     return {'plugin_id': plugin_id, 'reviews': plugin_reviews, 'total_reviews': len(plugin_reviews), 'average_rating': avg_rating, 'rating_distribution': get_rating_distribution(plugin_reviews)}

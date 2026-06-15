@@ -1,15 +1,21 @@
 from typing import Annotated
+
 from sqlalchemy.orm import Session
+
 '\nRouter to create marketplace offers from registered miners\n'
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
+
 from aitbc import get_logger
+
 from ....deps import require_admin_key
 from ....domain import Miner
 from ....schemas import MarketplaceOfferView
 from ....storage import get_session
 from ..domain.marketplace import MarketplaceOffer
+
 logger = get_logger(__name__)
 router = APIRouter(tags=['marketplace-offers'])
 

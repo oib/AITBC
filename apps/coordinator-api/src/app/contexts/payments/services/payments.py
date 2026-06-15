@@ -1,15 +1,21 @@
 from __future__ import annotations
+
 from typing import Annotated
+
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from sqlmodel import select
+
 'Payment service for job payments'
 from datetime import UTC, datetime, timedelta
+
 from aitbc import AITBCHTTPClient, NetworkError, get_logger
+
 logger = get_logger(__name__)
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
 from ..domain.payment import JobPayment, PaymentEscrow
+
 
 class PaymentService:
     """Service for handling job payments"""

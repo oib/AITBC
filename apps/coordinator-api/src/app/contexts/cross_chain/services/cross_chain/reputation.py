@@ -3,13 +3,16 @@ Cross-Chain Reputation Service for Advanced Agent Features
 Implements portable reputation scores across multiple blockchain networks
 """
 import asyncio
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 
 class ReputationTier(StrEnum):
     """Reputation tiers for agents"""
@@ -289,8 +292,8 @@ class CrossChainReputationService:
             raise ValueError(f'Agent {agent_id} not found')
         reputation = self.reputation_data[agent_id]
         success_rate = reputation.success_count / reputation.task_count * 100 if reputation.task_count > 0 else 0
-        stake_amount = sum((stake.amount for stake in self.reputation_stakes.get(agent_id, []) if stake.is_active))
-        delegation_amount = sum((delegation.amount for delegation in self.reputation_delegations.get(agent_id, []) if delegation.is_active))
+        stake_amount = sum(stake.amount for stake in self.reputation_stakes.get(agent_id, []) if stake.is_active)
+        delegation_amount = sum(delegation.amount for delegation in self.reputation_delegations.get(agent_id, []) if delegation.is_active)
         chain_count = len(self.chain_reputations.get(agent_id, {}))
         reputation_age = (datetime.now(UTC) - reputation.last_updated).days
         return ReputationAnalytics(agent_id=agent_id, total_score=reputation.score, effective_score=await self.get_effective_reputation(agent_id), success_rate=success_rate, stake_amount=stake_amount, delegation_amount=delegation_amount, chain_count=chain_count, tier=reputation.tier, reputation_age=reputation_age, last_activity=reputation.last_updated)

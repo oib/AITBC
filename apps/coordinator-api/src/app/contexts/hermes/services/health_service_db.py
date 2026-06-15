@@ -2,11 +2,15 @@
 import json
 import uuid
 from datetime import datetime
+
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from ....models.hermes import ErrorReportModel, HealthCheckModel, RecoveryResultModel
 from ....schemas.hermes_health import ErrorReport, HealthCheck, HealthStatus, RecoveryResult
+
 
 class HealthService:
     """Service for health monitoring and self-healing with database storage."""

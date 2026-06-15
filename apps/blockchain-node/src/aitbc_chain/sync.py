@@ -1,14 +1,18 @@
 """Chain synchronization with conflict resolution, signature validation, and metrics."""
 from __future__ import annotations
+
 import asyncio
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Callable
+from typing import Any
+
 import httpx
 from sqlalchemy import desc
 from sqlmodel import Session, select
+
 from .base_models import Account, Block
 from .base_models import Transaction as ChainTransaction
 from .config import settings
@@ -16,6 +20,7 @@ from .logger import get_logger
 from .metrics import metrics_registry
 from .state.merkle_patricia_trie import StateManager
 from .state.state_transition import get_state_transition
+
 logger = get_logger(__name__)
 
 @dataclass
@@ -34,7 +39,7 @@ class ProposerSignatureValidator:
         self._trusted = set(trusted_proposers or [])
 
     @property
-    def trusted_proposers(self) -> set:
+    def trusted_proposers(self) -> set[str]:
         return self._trusted
 
     def add_trusted(self, proposer_id: str) -> None:

@@ -8,6 +8,7 @@ import hashlib
 import time
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from ..models import Block
 
@@ -43,7 +44,7 @@ class MultiValidatorPoA:
         self.partitioned_validators: set[str] = set()
 
         # Byzantine fault tolerance tracking
-        self.prepare_messages: dict[str, list[dict]] = {}  # validator -> list of prepare messages
+        self.prepare_messages: dict[str, list[dict[str, Any]]] = {}  # validator -> list of prepare messages
         self.consensus_attempts: int = 0
 
     def add_validator(self, address: str, stake: float = 1000.0) -> bool:
@@ -207,7 +208,7 @@ class MultiValidatorPoA:
 
         return False
 
-    def get_state_snapshot(self) -> dict:
+    def get_state_snapshot(self) -> dict[str, Any]:
         """Get a snapshot of the current blockchain state"""
         return {
             'chain_id': self.chain_id,
@@ -226,13 +227,13 @@ class MultiValidatorPoA:
             'timestamp': time.time()
         }
 
-    def calculate_state_hash(self, state: dict) -> str:
+    def calculate_state_hash(self, state: dict[str, Any]) -> str:
         """Calculate hash of blockchain state"""
         import json
         state_str = json.dumps(state, sort_keys=True)
         return hashlib.sha256(state_str.encode()).hexdigest()
 
-    def create_block(self) -> dict:
+    def create_block(self) -> dict[str, Any]:
         """Create a new block"""
         proposer = self.select_proposer(len(self.validators))
         return {
@@ -255,7 +256,7 @@ class MultiValidatorPoA:
         if hasattr(self, '_crashed_state'):
             self._crashed_state = None  # type: ignore[assignment]
 
-    def recover_state(self, state: dict) -> bool:
+    def recover_state(self, state: dict[str, Any]) -> bool:
         """Recover state from snapshot (for testing)"""
         try:
             self.validators = {}

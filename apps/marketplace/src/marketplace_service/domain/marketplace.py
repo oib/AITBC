@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column
@@ -18,7 +19,7 @@ class MarketplaceOffer(SQLModel, table=True):
     sla: str = Field(default="")
     status: str = Field(default="open", max_length=20)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
-    attributes: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    attributes: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     # GPU-specific fields
     gpu_model: str | None = Field(default=None, index=True)
     gpu_memory_gb: int | None = Field(default=None)
@@ -41,7 +42,7 @@ class Plugin(SQLModel, table=True):
     type: str = Field(default="cli", index=True)  # cli, web, blockchain, ai
     version: str = Field(default="1.0.0")
     ipfs_cid: str | None = Field(default=None, index=True)  # IPFS CID for plugin code
-    plugin_metadata: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    plugin_metadata: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     status: str = Field(default="pending", index=True)  # pending, approved, rejected
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
@@ -113,7 +114,7 @@ class GraphNode(SQLModel, table=True):
     graph_id: str = Field(index=True)
     node_type: str = Field(index=True)  # entity, concept, relation, etc.
     label: str = Field(index=True)
-    properties: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    properties: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
@@ -127,7 +128,7 @@ class GraphEdge(SQLModel, table=True):
     source_node_id: str = Field(index=True)
     target_node_id: str = Field(index=True)
     edge_type: str = Field(index=True)  # relates_to, depends_on, etc.
-    properties: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    properties: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     weight: float = Field(default=1.0)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)

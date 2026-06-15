@@ -1,15 +1,31 @@
-from ..domain.global_marketplace import GlobalMarketplaceAnalyticsRequest, GlobalMarketplaceOfferRequest, GlobalMarketplaceTransactionRequest
+from ..domain.global_marketplace import (
+    GlobalMarketplaceAnalyticsRequest,
+    GlobalMarketplaceOfferRequest,
+    GlobalMarketplaceTransactionRequest,
+)
+
 '\nGlobal Marketplace Services\nCore services for global marketplace operations, multi-region support, and cross-chain integration\n'
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlalchemy import desc
 from sqlmodel import Session, select
+
 from ....reputation.engine import CrossChainReputationEngine
 from ...agent_identity.domain.agent_identity import AgentIdentity
-from ..domain.global_marketplace import GlobalMarketplaceAnalytics, GlobalMarketplaceOffer, GlobalMarketplaceTransaction, MarketplaceRegion, MarketplaceStatus, RegionStatus
+from ..domain.global_marketplace import (
+    GlobalMarketplaceAnalytics,
+    GlobalMarketplaceOffer,
+    GlobalMarketplaceTransaction,
+    MarketplaceRegion,
+    MarketplaceStatus,
+    RegionStatus,
+)
+
 
 class GlobalMarketplaceService:
     """Core service for global marketplace operations"""
@@ -149,12 +165,12 @@ class GlobalMarketplaceService:
         transactions = self.session.execute(stmt).all()
         total_offers = len(offers)
         total_transactions = len(transactions)
-        total_volume = sum((tx.total_amount for tx in transactions))
+        total_volume = sum(tx.total_amount for tx in transactions)
         average_price = total_volume / max(total_transactions, 1)
         completed_transactions = [tx for tx in transactions if tx.status == 'completed']
         success_rate = len(completed_transactions) / max(total_transactions, 1)
         cross_chain_transactions = [tx for tx in transactions if tx.source_chain and tx.target_chain]
-        cross_chain_volume = sum((tx.total_amount for tx in cross_chain_transactions))
+        cross_chain_volume = sum(tx.total_amount for tx in cross_chain_transactions)
         regional_distribution: dict[str, int] = {}
         for tx in transactions:
             region = tx.source_region

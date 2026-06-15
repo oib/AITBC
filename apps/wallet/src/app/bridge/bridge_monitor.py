@@ -6,6 +6,7 @@ Polls Ethereum RPC for incoming ETH transactions to the bridge wallet address.
 import os
 import threading
 import time
+from typing import Any
 
 import requests
 
@@ -19,7 +20,7 @@ POLL_INTERVAL = int(os.getenv("BRIDGE_POLL_INTERVAL", "30"))  # seconds
 BRIDGE_ENABLED = os.getenv("BRIDGE_ENABLED", "false").lower() == "true"
 
 
-def get_eth_transactions(address: str) -> list:
+def get_eth_transactions(address: str) -> list[dict[str, Any]]:
     """
     Fetch recent transactions for an Ethereum address using RPC.
     Returns list of transaction objects.
@@ -57,7 +58,7 @@ def get_eth_transactions(address: str) -> list:
         return []
 
 
-def process_transaction(tx: dict) -> bool:
+def process_transaction(tx: dict[str, Any]) -> bool:
     """
     Process a single ETH transaction and record it as a deposit.
     Returns True if deposit was recorded, False if already exists.

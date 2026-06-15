@@ -4,13 +4,18 @@ Multi-Chain Wallet Service
 Service for managing agent wallets across multiple blockchain networks.
 """
 from __future__ import annotations
+
 import secrets
 from typing import Any
+
 from sqlalchemy import select
 from sqlmodel import Session
+
 from aitbc import get_logger
+
 from ....domain.wallet import AgentWallet, TokenBalance, TransactionStatus, WalletTransaction
 from ....schemas.wallet import TransactionRequest, WalletCreate
+
 logger = get_logger(__name__)
 
 class WalletService:
@@ -27,6 +32,7 @@ class WalletService:
         try:
             import base64
             import secrets
+
             from cryptography.fernet import Fernet
             from eth_account import Account
             account = Account.create()

@@ -7,8 +7,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 import numpy as np
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class AlertLevel(StrEnum):
@@ -156,14 +159,14 @@ class TradingSurveillance:
             pump_start = 0
             for i in range(10, len(price_changes) - 10):
                 recent_changes = price_changes[i - 10:i]
-                if all((change > pump_threshold for change in recent_changes)):
+                if all(change > pump_threshold for change in recent_changes):
                     pump_detected = True
                     pump_start = i
                     break
             if pump_detected and pump_start < len(price_changes) - 10:
                 dump_changes = price_changes[pump_start:pump_start + 10]
-                if all((change < -pump_threshold for change in dump_changes)):
-                    confidence = min(0.9, sum((abs(c) for c in dump_changes[:5])) / 0.5)
+                if all(change < -pump_threshold for change in dump_changes):
+                    confidence = min(0.9, sum(abs(c) for c in dump_changes[:5]) / 0.5)
                     alert = TradingAlert(alert_id=f'pump_dump_{symbol}_{int(datetime.now().timestamp())}', timestamp=datetime.now(), alert_level=AlertLevel.HIGH, manipulation_type=ManipulationType.PUMP_AND_DUMP, anomaly_type=None, description=f'Pump and dump pattern detected in {symbol}', confidence=confidence, affected_symbols=[symbol], affected_users=[], evidence={'price_changes': price_changes[pump_start - 10:pump_start + 10], 'volume_spike': max(volumes[pump_start - 10:pump_start + 10]) / np.mean(volumes), 'pump_start': pump_start, 'dump_start': pump_start + 10}, risk_score=0.8)
                     self.alerts.append(alert)
                     logger.warning('🚨 Pump and dump detected: %s (confidence: %s)', symbol, confidence)
@@ -231,7 +234,7 @@ class TradingSurveillance:
         """Detect concentrated trading from few users"""
         try:
             user_distribution = data['user_distribution']
-            hhi = sum((share ** 2 for share in user_distribution.values()))
+            hhi = sum(share ** 2 for share in user_distribution.values())
             if hhi > self.thresholds['concentration_threshold']:
                 sorted_users = sorted(user_distribution.items(), key=lambda x: x[1], reverse=True)
                 top_users = sorted_users[:3]

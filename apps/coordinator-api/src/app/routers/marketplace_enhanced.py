@@ -1,15 +1,28 @@
 from typing import Annotated
+
 from sqlalchemy.orm import Session
+
 '\nEnhanced Marketplace API Router - Phase 6.5\nREST API endpoints for advanced marketplace features including royalties, licensing, and analytics\n'
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, Request
+
 from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService
 from ..deps import require_admin_key
 from ..domain import MarketplaceOffer  # type: ignore[attr-defined]
-from ..schemas.marketplace_enhanced import MarketplaceAnalyticsResponse, ModelLicenseRequest, ModelLicenseResponse, ModelVerificationRequest, ModelVerificationResponse, RoyaltyDistributionRequest, RoyaltyDistributionResponse
+from ..schemas.marketplace_enhanced import (
+    MarketplaceAnalyticsResponse,
+    ModelLicenseRequest,
+    ModelLicenseResponse,
+    ModelVerificationRequest,
+    ModelVerificationResponse,
+    RoyaltyDistributionRequest,
+    RoyaltyDistributionResponse,
+)
 from ..storage import get_session
+
 router = APIRouter(prefix='/marketplace/enhanced', tags=['Enhanced Marketplace'])
 
 @router.post('/royalties/distribution', response_model=RoyaltyDistributionResponse)

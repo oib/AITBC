@@ -5,7 +5,9 @@ Complete deployment procedures for the agent orchestration system
 import asyncio
 from datetime import UTC, datetime
 from typing import Any
+
 from aitbc.logging import get_logger
+
 logger = get_logger(__name__)
 
 class AgentOrchestrationDeployment:
@@ -61,7 +63,7 @@ class AgentOrchestrationDeployment:
     async def _deploy_api_services(self) -> dict[str, Any]:
         """Deploy API services for agent orchestration"""
         api_services = [{'name': 'Agent Workflow API', 'router': '/agents/workflows', 'endpoints': 6, 'status': 'deployed'}, {'name': 'Agent Security API', 'router': '/agents/security', 'endpoints': 12, 'status': 'deployed'}, {'name': 'Agent Integration API', 'router': '/agents/integration', 'endpoints': 15, 'status': 'deployed'}]
-        deployment_result = {'api_services_deployed': len(api_services), 'total_endpoints': sum((service['endpoints'] for service in api_services)), 'services': api_services, 'authentication': 'admin_key_required', 'rate_limiting': '1000_requests_per_minute', 'ssl_enabled': True}
+        deployment_result = {'api_services_deployed': len(api_services), 'total_endpoints': sum(service['endpoints'] for service in api_services), 'services': api_services, 'authentication': 'admin_key_required', 'rate_limiting': '1000_requests_per_minute', 'ssl_enabled': True}
         logger.info('API services deployed successfully')
         return deployment_result
 
@@ -86,7 +88,7 @@ class AgentOrchestrationDeployment:
     async def _verify_production_deployment(self) -> dict[str, Any]:
         """Verify production deployment"""
         verification_tests = [{'test': 'API Connectivity', 'status': 'passed', 'response_time': '45ms'}, {'test': 'Database Operations', 'status': 'passed', 'query_time': '12ms'}, {'test': 'GPU Acceleration', 'status': 'passed', 'speedup': '165.54x'}, {'test': 'Security Controls', 'status': 'passed', 'audit_coverage': '100%'}, {'test': 'Agent Workflow Execution', 'status': 'passed', 'execution_time': '2.3s'}]
-        verification_result = {'total_tests': len(verification_tests), 'tests_passed': len([t for t in verification_tests if t['status'] == 'passed']), 'tests_failed': len([t for t in verification_tests if t['status'] == 'failed']), 'overall_status': 'passed' if all((t['status'] == 'passed' for t in verification_tests)) else 'failed', 'test_results': verification_tests}
+        verification_result = {'total_tests': len(verification_tests), 'tests_passed': len([t for t in verification_tests if t['status'] == 'passed']), 'tests_failed': len([t for t in verification_tests if t['status'] == 'failed']), 'overall_status': 'passed' if all(t['status'] == 'passed' for t in verification_tests) else 'failed', 'test_results': verification_tests}
         logger.info('Production deployment verification completed')
         return verification_result
 

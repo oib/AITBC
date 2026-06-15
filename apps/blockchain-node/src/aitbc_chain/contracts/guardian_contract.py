@@ -16,9 +16,9 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
-from eth_utils import keccak, to_checksum_address
+from eth_utils import keccak, to_checksum_address  # type: ignore[attr-defined]
 
 
 @dataclass
@@ -52,7 +52,7 @@ class GuardianContract:
     Guardian contract implementation for agent wallet protection
     """
 
-    def __init__(self, agent_address: str, config: GuardianConfig, storage_path: Optional[str] = None):
+    def __init__(self, agent_address: str, config: GuardianConfig, storage_path: str | None = None):
         self.agent_address = to_checksum_address(agent_address)
         self.config = config
 
@@ -73,8 +73,8 @@ class GuardianContract:
         self._load_state()
 
         # In-memory cache for performance (synced with storage)
-        self.spending_history: list[dict] = []
-        self.pending_operations: dict[str, dict] = {}
+        self.spending_history: list[dict[str, Any]] = []
+        self.pending_operations: dict[str, dict[str, Any]] = {}
         self.paused = False
         self.emergency_mode = False
 
@@ -177,7 +177,7 @@ class GuardianContract:
                     "nonce": row[7]
                 })
 
-    def _save_spending_record(self, record: dict) -> None:
+    def _save_spending_record(self, record: dict[str, Any]) -> None:
         """Save spending record to persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -212,7 +212,7 @@ class GuardianContract:
                 operation_data["status"] = row[2]
                 self.pending_operations[row[0]] = operation_data
 
-    def _save_pending_operation(self, operation_id: str, operation: dict) -> None:
+    def _save_pending_operation(self, operation_id: str, operation: dict[str, Any]) -> None:
         """Save pending operation to persistent storage"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -245,7 +245,7 @@ class GuardianContract:
         else:
             raise ValueError(f"Invalid period: {period}")
 
-    def _get_spent_in_period(self, period: str, timestamp: Optional[datetime] = None) -> int:
+    def _get_spent_in_period(self, period: str, timestamp: datetime | None = None) -> int:
         """Calculate total spent in given period"""
         if timestamp is None:
             timestamp = datetime.now(UTC)
@@ -262,7 +262,7 @@ class GuardianContract:
 
         return total
 
-    def _check_spending_limits(self, amount: int, timestamp: Optional[datetime] = None) -> tuple[bool, str]:
+    def _check_spending_limits(self, amount: int, timestamp: datetime | None = None) -> tuple[bool, str]:
         """Check if amount exceeds spending limits"""
         if timestamp is None:
             timestamp = datetime.now(UTC)
@@ -292,12 +292,12 @@ class GuardianContract:
         """Check if amount requires time lock"""
         return amount >= self.config.time_lock.threshold
 
-    def _create_operation_hash(self, operation: dict) -> str:
+    def _create_operation_hash(self, operation: dict[str, Any]) -> str:
         """Create hash for operation identification"""
         operation_str = json.dumps(operation, sort_keys=True)
         return keccak(operation_str.encode()).hex()
 
-    def initiate_transaction(self, to_address: str, amount: int, data: str = "") -> dict:
+    def initiate_transaction(self, to_address: str, amount: int, data: str = "") -> dict[str, Any]:
         """
         Initiate a transaction with guardian protection
         
@@ -384,7 +384,7 @@ class GuardianContract:
             "message": "Transaction approved for execution"
         }
 
-    def execute_transaction(self, operation_id: str, signature: str) -> dict:
+    def execute_transaction(self, operation_id: str, signature: str) -> dict[str, Any]:
         """
         Execute a previously approved transaction
         
@@ -455,7 +455,7 @@ class GuardianContract:
             "executed_at": record["executed_at"]
         }
 
-    def emergency_pause(self, guardian_address: str) -> dict:
+    def emergency_pause(self, guardian_address: str) -> dict[str, Any]:
         """
         Emergency pause function (guardian only)
         
@@ -484,7 +484,7 @@ class GuardianContract:
             "message": "Emergency pause activated - all operations halted"
         }
 
-    def emergency_unpause(self, guardian_signatures: list[str]) -> dict:
+    def emergency_unpause(self, guardian_signatures: list[str]) -> dict[str, Any]:
         """
         Emergency unpause function (requires multiple guardian signatures)
         
@@ -517,7 +517,7 @@ class GuardianContract:
             "message": "Emergency pause lifted - operations resumed"
         }
 
-    def update_limits(self, new_limits: SpendingLimit, guardian_address: str) -> dict:
+    def update_limits(self, new_limits: SpendingLimit, guardian_address: str) -> dict[str, Any]:
         """
         Update spending limits (guardian only)
         
@@ -545,7 +545,7 @@ class GuardianContract:
             "guardian": guardian_address
         }
 
-    def get_spending_status(self) -> dict:
+    def get_spending_status(self) -> dict[str, Any]:
         """Get current spending status and limits"""
         now = datetime.now(UTC)
 
@@ -568,11 +568,11 @@ class GuardianContract:
             "nonce": self.nonce
         }
 
-    def get_operation_history(self, limit: int = 50) -> list[dict]:
+    def get_operation_history(self, limit: int = 50) -> list[dict[str, Any]]:
         """Get operation history"""
         return sorted(self.spending_history, key=lambda x: x["timestamp"], reverse=True)[:limit]
 
-    def get_pending_operations(self) -> list[dict]:
+    def get_pending_operations(self) -> list[dict[str, Any]]:
         """Get all pending operations"""
         return list(self.pending_operations.values())
 
@@ -586,7 +586,7 @@ def create_guardian_contract(
     per_week: int = 100000,
     time_lock_threshold: int = 10000,
     time_lock_delay: int = 24,
-    guardians: Optional[list[str]] = None
+    guardians: list[str] | None = None
 ) -> GuardianContract:
     """
     Create a guardian contract with default security parameters

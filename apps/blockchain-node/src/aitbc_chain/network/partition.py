@@ -8,6 +8,7 @@ import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -289,7 +290,7 @@ class NetworkPartitionManager:
 
         return best_node
 
-    def get_partition_status(self) -> dict:
+    def get_partition_status(self) -> dict[str, Any]:
         """Get current partition status"""
         return {
             'state': self.current_state.value,

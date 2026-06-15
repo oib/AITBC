@@ -3,6 +3,7 @@ import logging
 import re
 import subprocess
 
+
 def get_island_members() -> set[str]:
     """
     Get list of island members by parsing journalctl for blockchain sync events.

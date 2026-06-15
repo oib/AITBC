@@ -1,11 +1,10 @@
 """Database connection and session management for Hermes service."""
 
 import os
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
 
-from sqlalchemy import Engine
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from .schema import Base
@@ -53,7 +52,7 @@ def get_session_local() -> sessionmaker[Session]:
 
 
 @contextmanager
-def get_db_session() -> Generator[Session, None, None]:
+def get_db_session() -> Generator[Session]:
     """Context manager for database sessions."""
     session_local = get_session_local()
     session = session_local()

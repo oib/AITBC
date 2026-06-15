@@ -3,6 +3,7 @@
 
 import uvicorn
 from fastapi import FastAPI
+from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 
@@ -37,7 +38,7 @@ from collections.abc import Generator
 
 
 # Dependency
-def get_db() -> Generator:
+def get_db() -> Generator[Session]:
     db = SessionLocal()
     try:
         yield db

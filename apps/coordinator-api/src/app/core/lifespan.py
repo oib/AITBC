@@ -1,10 +1,13 @@
 """
 Lifecycle events for Coordinator API.
 """
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
+
 from aitbc.aitbc_logging import get_logger
+
 logger = get_logger(__name__)
 
 @asynccontextmanager
@@ -28,6 +31,7 @@ async def lifespan(app: Any) -> AsyncIterator[None]:
         logger.info('Warming up database connections...')
         try:
             from sqlmodel import select
+
             from .domain import Job  # type: ignore[import-not-found]
             from .storage import get_session  # type: ignore[import-not-found]
             session_gen = get_session()

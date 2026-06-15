@@ -5,9 +5,12 @@ Provides a unified dashboard for all 6 enhanced services
 import asyncio
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, Request
+
 from aitbc import AITBCHTTPClient, NetworkError, get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 router = APIRouter(prefix='/monitoring', tags=['monitoring'])
 SERVICES = {'multimodal': {'name': 'Multi-Modal Agent Service', 'port': 8002, 'url': 'http://localhost:8002', 'description': 'Text, image, audio, video processing', 'icon': '🤖'}, 'gpu_multimodal': {'name': 'GPU Multi-Modal Service', 'port': 8003, 'url': 'http://localhost:8003', 'description': 'CUDA-optimized processing', 'icon': '🚀'}, 'modality_optimization': {'name': 'Modality Optimization Service', 'port': 8004, 'url': 'http://localhost:8004', 'description': 'Specialized optimization strategies', 'icon': '⚡'}, 'adaptive_learning': {'name': 'Adaptive Learning Service', 'port': 8005, 'url': 'http://localhost:8005', 'description': 'Reinforcement learning frameworks', 'icon': '🧠'}, 'marketplace_enhanced': {'name': 'Enhanced Marketplace Service', 'port': 8006, 'url': 'http://localhost:8006', 'description': 'NFT 2.0, royalties, analytics', 'icon': '🏪'}, 'hermes_enhanced': {'name': 'hermes Enhanced Service', 'port': 8007, 'url': 'http://localhost:8007', 'description': 'Agent orchestration, edge computing', 'icon': '🌐'}}

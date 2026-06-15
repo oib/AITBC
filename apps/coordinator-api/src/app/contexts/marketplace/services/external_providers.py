@@ -1,11 +1,16 @@
 """External Provider Service for AWS/GCP/Azure integrations."""
 from __future__ import annotations
+
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
-from sqlmodel import Session, select, desc
+
+from sqlmodel import Session, desc, select
+
 from aitbc import get_logger
+
 from ..domain.gpu_marketplace import ExternalProvider, GPURegistry, ProviderMapping, SyncStatus
+
 logger = get_logger(__name__)
 
 class ExternalProviderService:

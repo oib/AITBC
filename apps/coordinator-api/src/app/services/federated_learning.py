@@ -4,13 +4,25 @@ Federated Learning Service
 Service for managing cross-agent knowledge sharing and collaborative model training.
 """
 from __future__ import annotations
+
 from datetime import UTC, datetime
+
 from fastapi import HTTPException
 from sqlmodel import Session, select
+
 from aitbc import get_logger
+
 from ..blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
-from ..domain.federated_learning import FederatedLearningSession, LocalModelUpdate, ParticipantStatus, TrainingParticipant, TrainingRound, TrainingStatus
+from ..domain.federated_learning import (
+    FederatedLearningSession,
+    LocalModelUpdate,
+    ParticipantStatus,
+    TrainingParticipant,
+    TrainingRound,
+    TrainingStatus,
+)
 from ..schemas.federated_learning import FederatedSessionCreate, JoinSessionRequest, SubmitUpdateRequest
+
 logger = get_logger(__name__)
 
 class FederatedLearningService:

@@ -7,12 +7,15 @@ import os
 import time
 from dataclasses import dataclass
 from typing import cast
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 @dataclass

@@ -10,12 +10,16 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import Session, func, select, update
+
 from .....agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory
 from .....domain.cross_chain_bridge import BridgeRequest, BridgeRequestStatus
 from .....reputation.engine import CrossChainReputationEngine
+
 
 class BridgeProtocol(StrEnum):
     """Bridge protocol types"""
