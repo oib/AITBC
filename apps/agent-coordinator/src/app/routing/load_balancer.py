@@ -504,9 +504,7 @@ class TaskDistributor:
 
     async def start_distribution(self) -> None:
         """Start task distribution loop"""
-        logger.warning("=" * 60)
-        logger.warning("DEBUG: TASK DISTRIBUTION LOOP STARTED")
-        logger.warning("=" * 60)
+        logger.info("Task distribution loop started")
         while True:
             try:
                 task_info = None
