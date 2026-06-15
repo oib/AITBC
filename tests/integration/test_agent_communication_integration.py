@@ -4,15 +4,9 @@ Tests message protocols, encryption, workflow orchestration, and discovery
 """
 
 import asyncio
-import sys
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pytest
-
-# Add agent-coordinator to path for imports
-coordinator_path = Path(__file__).parent.parent.parent / "apps" / "agent-coordinator" / "src"
-sys.path.insert(0, str(coordinator_path))
 
 
 class TestMessageEncryption:

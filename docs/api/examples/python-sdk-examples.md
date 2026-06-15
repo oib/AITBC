@@ -96,10 +96,10 @@ job_id = "your-job-id"
 while True:
     status = client.get_job(job_id)
     print(f"State: {status.state}")
-    
+
     if status.state in ["COMPLETED", "FAILED", "CANCELLED", "EXPIRED"]:
         break
-    
+
     time.sleep(5)
 ```
 

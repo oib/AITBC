@@ -365,6 +365,6 @@ aitbc exchange history --chain ethereum
 
 ---
 
-*Last Updated: 2026-06-06*  
-*Version: 0.4.9*  
+*Last Updated: 2026-06-06*
+*Version: 0.4.9*
 *Status: Concept Plan*

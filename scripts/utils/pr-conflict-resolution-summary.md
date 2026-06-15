@@ -40,7 +40,7 @@
 
 ### Files Modified:
 - ✅ apps/blockchain-node/src/aitbc_chain/rpc/router.py
-- ✅ dev/tools/scripts/dev_heartbeat.py  
+- ✅ dev/tools/scripts/dev_heartbeat.py
 - ✅ scripts/claim-task.py
 
 **PR #40 is now ready for final review and merge.**

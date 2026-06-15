@@ -1163,7 +1163,7 @@ add_l1ns2:
         movsx rdx, ecx
         add rdi, 8
         cmp rdx, 0
-        
+
         jns tmp_1
         neg rdx
         call rawSubLS
@@ -1251,7 +1251,7 @@ add_s1l2n:
         movsx rdx, eax
         add rdi, 8
         cmp rdx, 0
-        
+
         jns tmp_2
         neg rdx
         call rawSubLS
@@ -1660,7 +1660,7 @@ sub_l1ns2:
         movsx rdx, ecx
         add rdi, 8
         cmp rdx, 0
-        
+
         jns tmp_3
         neg rdx
         call rawAddLS
@@ -1744,7 +1744,7 @@ sub_s1l2n:
         mov [rdi+4], r11d
 
         cmp eax, 0
-        
+
         js tmp_4
 
         ; First Operand is positive
@@ -2425,7 +2425,7 @@ mul_l1ns2n:
         movsx rdx, r9d
         add rdi, 8
         cmp rdx, 0
-        
+
         jns tmp_5
         neg rdx
         call Fr_rawMMul1
@@ -2433,7 +2433,7 @@ mul_l1ns2n:
         call rawNegL
         sub rdi, 8
         pop rsi
-        
+
         jmp tmp_6
 tmp_5:
         call Fr_rawMMul1
@@ -2482,7 +2482,7 @@ mul_l1ms2n:
         movsx rdx, r9d
         add rdi, 8
         cmp rdx, 0
-        
+
         jns tmp_7
         neg rdx
         call Fr_rawMMul1
@@ -2490,7 +2490,7 @@ mul_l1ms2n:
         call rawNegL
         sub rdi, 8
         pop rsi
-        
+
         jmp tmp_8
 tmp_7:
         call Fr_rawMMul1
@@ -2533,7 +2533,7 @@ mul_s1nl2n:
         movsx rdx, r8d
         add rdi, 8
         cmp rdx, 0
-        
+
         jns tmp_9
         neg rdx
         call Fr_rawMMul1
@@ -2541,7 +2541,7 @@ mul_s1nl2n:
         call rawNegL
         sub rdi, 8
         pop rsi
-        
+
         jmp tmp_10
 tmp_9:
         call Fr_rawMMul1
@@ -2571,7 +2571,7 @@ mul_s1nl2m:
         movsx rdx, r8d
         add rdi, 8
         cmp rdx, 0
-        
+
         jns tmp_11
         neg rdx
         call Fr_rawMMul1
@@ -2579,7 +2579,7 @@ mul_s1nl2m:
         call rawNegL
         sub rdi, 8
         pop rsi
-        
+
         jmp tmp_12
 tmp_11:
         call Fr_rawMMul1
@@ -2740,7 +2740,7 @@ Fr_band:
 and_s1s2:
 
         cmp    eax, 0
-        
+
         js     tmp_13
 
         cmp    ecx, 0
@@ -2807,8 +2807,8 @@ tmp_13:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -2875,7 +2875,7 @@ and_l1ns2:
 
         mov    rcx, [rdx]
         cmp    ecx, 0
-        
+
         js     tmp_16
         movsx  rax, ecx
         and rax, [rsi +8]
@@ -2899,8 +2899,8 @@ and_l1ns2:
         mov    [rdi + 32 ], rax;
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -2988,8 +2988,8 @@ tmp_16:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -3057,7 +3057,7 @@ and_l1ms2:
 
         mov    rcx, [rdx]
         cmp    ecx, 0
-        
+
         js     tmp_21
         movsx  rax, ecx
         and rax, [rsi +8]
@@ -3081,8 +3081,8 @@ and_l1ms2:
         mov    [rdi + 32 ], rax;
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -3170,8 +3170,8 @@ tmp_21:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -3232,7 +3232,7 @@ and_s1l2n:
 
         mov    eax, [rsi]
         cmp    eax, 0
-        
+
         js     tmp_26
         and rax, [rdx +8]
         mov    [rdi+8], rax
@@ -3255,8 +3255,8 @@ and_s1l2n:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -3343,8 +3343,8 @@ tmp_26:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -3413,7 +3413,7 @@ and_s1l2m:
 
         mov    eax, [rsi]
         cmp    eax, 0
-        
+
         js     tmp_31
         and rax, [rdx +8]
         mov    [rdi+8], rax
@@ -3436,8 +3436,8 @@ and_s1l2m:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -3524,8 +3524,8 @@ tmp_31:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -3610,8 +3610,8 @@ and_l1nl2n:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -3700,8 +3700,8 @@ and_l1nl2m:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -3792,8 +3792,8 @@ and_l1ml2n:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -3893,8 +3893,8 @@ and_l1ml2m:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -3969,7 +3969,7 @@ Fr_bor:
 or_s1s2:
 
         cmp    eax, 0
-        
+
         js     tmp_44
 
         cmp    ecx, 0
@@ -4036,8 +4036,8 @@ tmp_44:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -4104,7 +4104,7 @@ or_l1ns2:
 
         mov    rcx, [rdx]
         cmp    ecx, 0
-        
+
         js     tmp_47
         movsx  rax, ecx
         or rax, [rsi +8]
@@ -4128,8 +4128,8 @@ or_l1ns2:
         mov    [rdi + 32 ], rax;
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -4217,8 +4217,8 @@ tmp_47:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -4286,7 +4286,7 @@ or_l1ms2:
 
         mov    rcx, [rdx]
         cmp    ecx, 0
-        
+
         js     tmp_52
         movsx  rax, ecx
         or rax, [rsi +8]
@@ -4310,8 +4310,8 @@ or_l1ms2:
         mov    [rdi + 32 ], rax;
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -4399,8 +4399,8 @@ tmp_52:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -4461,7 +4461,7 @@ or_s1l2n:
 
         mov    eax, [rsi]
         cmp    eax, 0
-        
+
         js     tmp_57
         or rax, [rdx +8]
         mov    [rdi+8], rax
@@ -4484,8 +4484,8 @@ or_s1l2n:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -4572,8 +4572,8 @@ tmp_57:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -4642,7 +4642,7 @@ or_s1l2m:
 
         mov    eax, [rsi]
         cmp    eax, 0
-        
+
         js     tmp_62
         or rax, [rdx +8]
         mov    [rdi+8], rax
@@ -4665,8 +4665,8 @@ or_s1l2m:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -4753,8 +4753,8 @@ tmp_62:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -4839,8 +4839,8 @@ or_l1nl2n:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -4929,8 +4929,8 @@ or_l1nl2m:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -5021,8 +5021,8 @@ or_l1ml2n:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -5122,8 +5122,8 @@ or_l1ml2m:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -5198,7 +5198,7 @@ Fr_bxor:
 xor_s1s2:
 
         cmp    eax, 0
-        
+
         js     tmp_75
 
         cmp    ecx, 0
@@ -5265,8 +5265,8 @@ tmp_75:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -5333,7 +5333,7 @@ xor_l1ns2:
 
         mov    rcx, [rdx]
         cmp    ecx, 0
-        
+
         js     tmp_78
         movsx  rax, ecx
         xor rax, [rsi +8]
@@ -5357,8 +5357,8 @@ xor_l1ns2:
         mov    [rdi + 32 ], rax;
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -5446,8 +5446,8 @@ tmp_78:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -5515,7 +5515,7 @@ xor_l1ms2:
 
         mov    rcx, [rdx]
         cmp    ecx, 0
-        
+
         js     tmp_83
         movsx  rax, ecx
         xor rax, [rsi +8]
@@ -5539,8 +5539,8 @@ xor_l1ms2:
         mov    [rdi + 32 ], rax;
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -5628,8 +5628,8 @@ tmp_83:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -5690,7 +5690,7 @@ xor_s1l2n:
 
         mov    eax, [rsi]
         cmp    eax, 0
-        
+
         js     tmp_88
         xor rax, [rdx +8]
         mov    [rdi+8], rax
@@ -5713,8 +5713,8 @@ xor_s1l2n:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -5801,8 +5801,8 @@ tmp_88:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -5871,7 +5871,7 @@ xor_s1l2m:
 
         mov    eax, [rsi]
         cmp    eax, 0
-        
+
         js     tmp_93
         xor rax, [rdx +8]
         mov    [rdi+8], rax
@@ -5894,8 +5894,8 @@ xor_s1l2m:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -5982,8 +5982,8 @@ tmp_93:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -6068,8 +6068,8 @@ xor_l1nl2n:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -6158,8 +6158,8 @@ xor_l1nl2m:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -6250,8 +6250,8 @@ xor_l1ml2n:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -6351,8 +6351,8 @@ xor_l1ml2m:
         mov    [rdi + 32 ], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -6425,7 +6425,7 @@ Fr_bnot:
         bt      rax, 63          ; Check if is long operand
         jc      bnot_l1
 bnot_s:
-        
+
         mov  r8, rdi
         sub  rsp, 40
         mov  rdi, rsp
@@ -6480,8 +6480,8 @@ bnot_l1n:
         mov    [rdi + 32], rax
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -6745,7 +6745,7 @@ rawShr_endif3_3:
 rawShl:
         cmp rdx, 0
         je Fr_rawCopy
-        
+
         cmp rdx, 254
         jae Fr_rawZero
 
@@ -6785,7 +6785,7 @@ rawShl:
 
         and rax, [lboMask]
 
-        
+
         mov [rdi + 24], rax
 
         jmp rawShl_endif_3
@@ -6798,7 +6798,7 @@ rawShl_if2_3:
 
         and rax, [lboMask]
 
-        
+
         mov [rdi + 24], rax
 
         jmp rawShl_endif_3
@@ -6820,7 +6820,7 @@ rawShl_endif_3:
         and r11, r10
         or rax, r11
 
-        
+
         mov [rdi + 16], rax
 
         jmp rawShl_endif_2
@@ -6831,7 +6831,7 @@ rawShl_if2_2:
         shl rax, cl
         and rax, r9
 
-        
+
         mov [rdi + 16], rax
 
         jmp rawShl_endif_2
@@ -6853,7 +6853,7 @@ rawShl_endif_2:
         and r11, r10
         or rax, r11
 
-        
+
         mov [rdi + 8], rax
 
         jmp rawShl_endif_1
@@ -6864,7 +6864,7 @@ rawShl_if2_1:
         shl rax, cl
         and rax, r9
 
-        
+
         mov [rdi + 8], rax
 
         jmp rawShl_endif_1
@@ -6886,7 +6886,7 @@ rawShl_endif_1:
         and r11, r10
         or rax, r11
 
-        
+
         mov [rdi + 0], rax
 
         jmp rawShl_endif_0
@@ -6897,7 +6897,7 @@ rawShl_if2_0:
         shl rax, cl
         and rax, r9
 
-        
+
         mov [rdi + 0], rax
 
         jmp rawShl_endif_0
@@ -6908,8 +6908,8 @@ rawShl_endif_0:
 
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -6964,50 +6964,50 @@ rawShl_aligned:
         mov rax, [rdx + 24 ]
 
         and rax, [lboMask]
-        
+
         mov [rdi + 24], rax
         jmp rawShl_endif3_3
 rawShl_if3_3:
-        xor rax, rax 
+        xor rax, rax
         mov [rdi + 24], rax
 rawShl_endif3_3:
 
         cmp r8, 2
         ja rawShl_if3_2
         mov rax, [rdx + 16 ]
-        
+
         mov [rdi + 16], rax
         jmp rawShl_endif3_2
 rawShl_if3_2:
-        xor rax, rax 
+        xor rax, rax
         mov [rdi + 16], rax
 rawShl_endif3_2:
 
         cmp r8, 1
         ja rawShl_if3_1
         mov rax, [rdx + 8 ]
-        
+
         mov [rdi + 8], rax
         jmp rawShl_endif3_1
 rawShl_if3_1:
-        xor rax, rax 
+        xor rax, rax
         mov [rdi + 8], rax
 rawShl_endif3_1:
 
         cmp r8, 0
         ja rawShl_if3_0
         mov rax, [rdx + 0 ]
-        
+
         mov [rdi + 0], rax
         jmp rawShl_endif3_0
 rawShl_if3_0:
-        xor rax, rax 
+        xor rax, rax
         mov [rdi + 0], rax
 rawShl_endif3_0:
 
 
-        
-        
+
+
 
         ; Compare with q
 
@@ -7049,7 +7049,7 @@ tmp_110:
 tmp_111:
 
         ret
-        
+
 
 
 
@@ -7074,10 +7074,10 @@ Fr_shr:
         mov    rbp, rsp
 
 
-        
-        
-        
-        
+
+
+
+
         mov    rcx, [rdx]
         bt     rcx, 63          ; Check if is short second operand
         jnc     tmp_112
@@ -7102,16 +7102,16 @@ tmp_113:
         cmp rcx, 254
         jae  tmp_114
         xor rax, rax
-        
+
         cmp [rdx + 16], rax
         jnz tmp_114
-        
+
         cmp [rdx + 24], rax
         jnz tmp_114
-        
+
         cmp [rdx + 32], rax
         jnz tmp_114
-        
+
         mov rdx, rcx
         jmp do_shr
 
@@ -7122,19 +7122,19 @@ tmp_114:
         jae  setzero
         mov rax, [q]
         sub rax, [rdx+8]
-        
-        mov rax, [q+ 8] 
+
+        mov rax, [q+ 8]
         sbb rax, [rdx + 16]
         jnz setzero
-        
-        mov rax, [q+ 16] 
+
+        mov rax, [q+ 16]
         sbb rax, [rdx + 24]
         jnz setzero
-        
-        mov rax, [q+ 24] 
+
+        mov rax, [q+ 24]
         sbb rax, [rdx + 32]
         jnz setzero
-        
+
         mov rdx, rcx
         jmp do_shl
 
@@ -7143,17 +7143,17 @@ tmp_112:
         jl  tmp_115
         cmp ecx, 254
         jae  setzero
-        movsx rdx, ecx 
+        movsx rdx, ecx
         jmp do_shr
 tmp_115:
         neg ecx
         cmp ecx, 254
         jae  setzero
-        movsx rdx, ecx 
+        movsx rdx, ecx
         jmp do_shl
 
 
-        
+
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ; shl
@@ -7173,10 +7173,10 @@ Fr_shl:
         push   rdx
         mov    rbp, rsp
 
-        
-        
-        
-        
+
+
+
+
         mov    rcx, [rdx]
         bt     rcx, 63          ; Check if is short second operand
         jnc     tmp_116
@@ -7201,16 +7201,16 @@ tmp_117:
         cmp rcx, 254
         jae  tmp_118
         xor rax, rax
-        
+
         cmp [rdx + 16], rax
         jnz tmp_118
-        
+
         cmp [rdx + 24], rax
         jnz tmp_118
-        
+
         cmp [rdx + 32], rax
         jnz tmp_118
-        
+
         mov rdx, rcx
         jmp do_shl
 
@@ -7221,19 +7221,19 @@ tmp_118:
         jae  setzero
         mov rax, [q]
         sub rax, [rdx+8]
-        
-        mov rax, [q+ 8] 
+
+        mov rax, [q+ 8]
         sbb rax, [rdx + 16]
         jnz setzero
-        
-        mov rax, [q+ 16] 
+
+        mov rax, [q+ 16]
         sbb rax, [rdx + 24]
         jnz setzero
-        
-        mov rax, [q+ 24] 
+
+        mov rax, [q+ 24]
         sbb rax, [rdx + 32]
         jnz setzero
-        
+
         mov rdx, rcx
         jmp do_shr
 
@@ -7242,13 +7242,13 @@ tmp_116:
         jl  tmp_119
         cmp ecx, 254
         jae  setzero
-        movsx rdx, ecx 
+        movsx rdx, ecx
         jmp do_shl
 tmp_119:
         neg ecx
         cmp ecx, 254
         jae  setzero
-        movsx rdx, ecx 
+        movsx rdx, ecx
         jmp do_shr
 
 
@@ -7256,7 +7256,7 @@ tmp_119:
 ;;;;;;;;;;
 ;;; doShl
 ;;;;;;;;;;
-do_shl: 
+do_shl:
         mov    rcx, [rsi]
         bt     rcx, 63          ; Check if is short second operand
         jc     do_shll
@@ -7270,7 +7270,7 @@ do_shls:
         cmp rdx, 31
         jae do_shlcl
 
-        mov cl, dl 
+        mov cl, dl
         shl rax, cl
         mov rcx, rax
         shr rcx, 31
@@ -7329,7 +7329,7 @@ do_shlln:
 ;;;;;;;;;;
 ;;; doShr
 ;;;;;;;;;;
-do_shr: 
+do_shr:
         mov    rcx, [rsi]
         bt     rcx, 63          ; Check if is short second operand
         jc     do_shrl
@@ -7342,7 +7342,7 @@ do_shrs:
         cmp rdx, 31
         jae setzero
 
-        mov cl, dl 
+        mov cl, dl
         shr rax, cl
         mov [rdi], rax
         mov rsp, rbp
@@ -8728,7 +8728,7 @@ lnot_retOne:
 ;   rax <= 1 if true 0 if false
 ;;;;;;;;;;;;;;;;;;;;;;;
 Fr_isTrue:
-        
+
 
 
 
@@ -8791,4 +8791,3 @@ Fr_rawR3:
 R3      dq      0x5e94d8e1b4bf0040,0x2a489cbe1cfbb6b8,0x893cc664a19fcfed,0x0cf8594b7fcc657c
 lboMask dq      0x3fffffffffffffff
 np      dq      0xc2e1f593efffffff
-

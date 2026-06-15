@@ -90,8 +90,8 @@ The main CLI entry point (`aitbc-cli`) automatically delegates commands based on
 ```python
 # In aitbc_cli.py
 CLICK_COMMANDS = [
-    'agent', 'ipfs', 'oracle', 'swarm', 'arbitrage', 'validator', 
-    'plugin', 'database', 'island', 'edge', 'ai', 'monitor', 
+    'agent', 'ipfs', 'oracle', 'swarm', 'arbitrage', 'validator',
+    'plugin', 'database', 'island', 'edge', 'ai', 'monitor',
     'governance', 'staking', 'compliance'
 ]
 

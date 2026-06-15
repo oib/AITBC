@@ -5,11 +5,6 @@ Uses centralized aitbc utilities for path configuration
 """
 
 import os
-import sys
-from pathlib import Path
-
-# Add aitbc to path
-sys.path.insert(0, str(Path("/opt/aitbc")))
 
 from aitbc.constants import DATA_DIR, ENV_FILE, LOG_DIR, NODE_ENV_FILE, REPO_DIR
 

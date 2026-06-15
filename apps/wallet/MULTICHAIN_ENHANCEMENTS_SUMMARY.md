@@ -26,7 +26,7 @@ Successfully implemented **significant multi-chain enhancements** for the AITBC 
 ```python
 class ChainManager:
     """Central manager for multi-chain operations"""
-    
+
     # Features:
     - Dynamic chain addition/removal
     - Chain status management (active/inactive/maintenance)
@@ -39,7 +39,7 @@ class ChainManager:
 ```python
 class MultiChainLedgerAdapter:
     """Chain-specific storage and ledger management"""
-    
+
     # Features:
     - Separate SQLite database per chain
     - Chain-isolated wallet metadata
@@ -52,7 +52,7 @@ class MultiChainLedgerAdapter:
 ```python
 class ChainAwareWalletService:
     """Chain-aware wallet service with multi-chain support"""
-    
+
     # Features:
     - Chain-specific wallet creation/management
     - Cross-chain wallet migration
@@ -173,7 +173,7 @@ class WalletMigrationRequest:
 # Development network
 POST /v1/chains/ait-devnet/wallets
 
-# Test network  
+# Test network
 POST /v1/chains/ait-testnet/wallets
 
 # Production network
@@ -186,7 +186,7 @@ POST /v1/chains/ait-mainnet/wallets
 POST /v1/wallets/migrate
 {
   "source_chain_id": "ait-devnet",
-  "target_chain_id": "ait-testnet", 
+  "target_chain_id": "ait-testnet",
   "wallet_id": "user-wallet",
   "password": "secure-password"
 }

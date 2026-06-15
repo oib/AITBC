@@ -107,7 +107,7 @@ cat > /opt/aitbc/monitoring/dashboard.html << 'EOF'
     <div id="metrics">
         <p>Loading metrics...</p>
     </div>
-    
+
     <script>
         function updateMetrics() {
             fetch('/metrics')
@@ -135,7 +135,7 @@ cat > /opt/aitbc/monitoring/dashboard.html << 'EOF'
                     document.getElementById('metrics').innerHTML = '<p>Error loading metrics</p>';
                 });
         }
-        
+
         updateMetrics();
         setInterval(updateMetrics, 10000); // Update every 10 seconds
     </script>
@@ -167,15 +167,15 @@ def get_metrics():
     try:
         # Get blockchain height
         height = subprocess.getoutput("curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height 2>/dev/null || echo 0")
-        
+
         # Check blockchain health
         health = "healthy" if subprocess.getoutput("curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null 2>&1 && echo healthy || echo unhealthy").strip() == "healthy"
-        
+
         # Get system metrics
         cpu = subprocess.getoutput("top -bn1 | grep 'Cpu(s)' | awk '{print $2}' | sed 's/%us,//'")
         memory = subprocess.getoutput("free | grep Mem | awk '{printf \"%.1f\", $3/$2 * 100.0}'")
         disk = subprocess.getoutput("df / | awk 'NR==2 {print $5}' | sed 's/%//'")
-        
+
         return jsonify({
             'height': int(height),
             'health': health,

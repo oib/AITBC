@@ -21,7 +21,7 @@ async def api_transaction(tx_hash: str):
         # ... field mapping implementation
 ```
 
-**Evidence:** 
+**Evidence:**
 - ✅ Endpoint defined at line 441
 - ✅ Proxies to blockchain node RPC
 - ✅ Returns 500 when node is down (expected behavior)
@@ -57,7 +57,7 @@ async def api_transaction(tx_hash: str):
 ```javascript
 function formatTimestamp(timestamp) {
     if (!timestamp) return '-';
-    
+
     // Handle ISO string timestamps
     if (typeof timestamp === 'string') {
         try {
@@ -66,7 +66,7 @@ function formatTimestamp(timestamp) {
             return '-';
         }
     }
-    
+
     // Handle numeric timestamps (Unix seconds)
     if (typeof timestamp === 'number') {
         try {
@@ -75,7 +75,7 @@ function formatTimestamp(timestamp) {
             return '-';
         }
     }
-    
+
     return '-';
 }
 ```
@@ -138,10 +138,10 @@ curl http://localhost:3001/health
 
 **ALL YOUR ORIGINAL CONCERNS HAVE BEEN RESOLVED:**
 
-✅ **Transaction API endpoint exists and works**  
-✅ **Complete field mapping implemented (7/7)**  
-✅ **Robust timestamp handling for all formats**  
-✅ **Frontend fully integrated with backend**  
+✅ **Transaction API endpoint exists and works**
+✅ **Complete field mapping implemented (7/7)**
+✅ **Robust timestamp handling for all formats**
+✅ **Frontend fully integrated with backend**
 
 **The Explorer transaction search functionality is completely implemented and working correctly.** The 500 errors are expected when the blockchain node is not running.
 

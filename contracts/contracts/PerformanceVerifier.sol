@@ -14,12 +14,12 @@ import "./AIPowerRental.sol";
  * @notice Verifies AI service performance metrics and enforces SLA compliance
  */
 contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
-    
+
     // State variables
     ZKReceiptVerifier public zkVerifier;
     Groth16Verifier public groth16Verifier;
     AIPowerRental public aiPowerRental;
-    
+
     uint256 public verificationCounter;
     uint256 public minResponseTime = 100; // 100ms minimum
     uint256 public maxResponseTime = 5000; // 5 seconds maximum
@@ -33,7 +33,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
     uint256 public disputeWindow = 3600; // 1 hour dispute window before execution is final
     mapping(uint256 => uint256) public verificationFinalizedAt;
 
-    
+
     // Structs
     struct PerformanceMetrics {
         uint256 verificationId;
@@ -55,7 +55,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         uint256 penaltyAmount;
         uint256 rewardAmount;
     }
-    
+
     struct SLAParameters {
         uint256 maxResponseTime;
         uint256 minAccuracy;
@@ -66,7 +66,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         bool isActive;
         uint256 lastUpdated;
     }
-    
+
     struct OracleData {
         address oracleAddress;
         uint256 lastUpdateTime;
@@ -75,7 +75,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         uint256 totalReports;
         uint256 accurateReports;
     }
-    
+
     struct PerformanceHistory {
         uint256 totalVerifications;
         uint256 successfulVerifications;
@@ -86,7 +86,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         uint256 currentStreak;
         uint256 bestStreak;
     }
-    
+
     // Enums
     enum VerificationStatus {
         Submitted,
@@ -96,7 +96,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         Expired,
         Disputed
     }
-    
+
     enum MetricType {
         ResponseTime,
         Accuracy,
@@ -106,7 +106,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         MemoryUsage,
         EnergyEfficiency
     }
-    
+
     // Mappings
     mapping(uint256 => PerformanceMetrics) public performanceMetrics;
     mapping(uint256 => SLAParameters) public slaParameters;
@@ -115,10 +115,10 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
     mapping(uint256 => uint256[]) public agreementVerifications;
     mapping(address => uint256[]) public providerVerifications;
     mapping(bytes32 => uint256) public proofToVerification;
-    
+
     // Arrays for authorized oracles
     address[] public authorizedOracles;
-    
+
     // Events
     event PerformanceSubmitted(
         uint256 indexed verificationId,
@@ -128,83 +128,83 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         uint256 accuracy,
         uint256 availability
     );
-    
+
     event PerformanceVerified(
         uint256 indexed verificationId,
         bool withinSLA,
         uint256 penaltyAmount,
         uint256 rewardAmount
     );
-    
+
     event PerformanceRejected(
         uint256 indexed verificationId,
         string reason,
         bytes32 invalidProof
     );
-    
+
     event SLAParametersUpdated(
         uint256 indexed agreementId,
         uint256 maxResponseTime,
         uint256 minAccuracy,
         uint256 minAvailability
     );
-    
+
     event OracleAuthorized(
         address indexed oracle,
         uint256 reputationScore
     );
-    
+
     event OracleRevoked(
         address indexed oracle,
         string reason
     );
-    
+
     event OracleReportSubmitted(
         address indexed oracle,
         uint256 indexed verificationId,
         bool accurate
     );
-    
+
     event PenaltyApplied(
         uint256 indexed agreementId,
         address indexed provider,
         uint256 penaltyAmount
     );
-    
+
     event RewardIssued(
         uint256 indexed agreementId,
         address indexed provider,
         uint256 rewardAmount
     );
-    
+
     event VerificationChallenged(uint256 indexed verificationId, address indexed challenger, string challengeData);
     event PerformanceThresholdUpdated(
         MetricType indexed metricType,
         uint256 oldValue,
         uint256 newValue
     );
-    
+
     // Modifiers
     modifier onlyAuthorizedOracle() {
         require(oracles[msg.sender].isAuthorized, "Not authorized oracle");
         _;
     }
-    
+
     modifier verificationExists(uint256 _verificationId) {
         require(_verificationId < verificationCounter, "Verification does not exist");
         _;
     }
-    
+
     modifier validStatus(uint256 _verificationId, VerificationStatus _requiredStatus) {
         require(performanceMetrics[_verificationId].status == _requiredStatus, "Invalid verification status");
         _;
     }
-    
+
     modifier withinVerificationWindow(uint256 _timestamp) {
         require(block.timestamp - _timestamp <= verificationWindow, "Verification window expired");
         _;
     }
-    
+
     // Constructor
     constructor(
         address _zkVerifier,
@@ -216,7 +216,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         aiPowerRental = AIPowerRental(_aiPowerRental);
         verificationCounter = 0;
     }
-    
+
     /**
      * @dev Submits performance metrics for verification
      * @param _agreementId ID of the rental agreement
@@ -245,13 +245,13 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         require(_responseTime >= minResponseTime && _responseTime <= maxResponseTime, "Invalid response time");
         require(_accuracy <= 100, "Invalid accuracy");
         require(_availability <= 100, "Invalid availability");
-        
+
         // Get agreement details
         AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(_agreementId);
         require(agreement.provider != address(0), "Invalid agreement");
-        
+
         uint256 verificationId = verificationCounter++;
-        
+
         performanceMetrics[verificationId] = PerformanceMetrics({
             verificationId: verificationId,
             agreementId: _agreementId,
@@ -272,11 +272,11 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
             penaltyAmount: 0,
             rewardAmount: 0
         });
-        
+
         agreementVerifications[_agreementId].push(verificationId);
         providerVerifications[agreement.provider].push(verificationId);
         proofToVerification[keccak256(_zkProof)] = verificationId;
-        
+
         emit PerformanceSubmitted(
             verificationId,
             _agreementId,
@@ -285,17 +285,17 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
             _accuracy,
             _availability
         );
-        
+
         // Auto-verify if proofs are valid
         if (_verifyProofs(_zkProof, _groth16Proof, verificationId)) {
             _verifyPerformance(verificationId);
         } else {
             performanceMetrics[verificationId].status = VerificationStatus.Pending;
         }
-        
+
         return verificationId;
     }
-    
+
     /**
      * @dev Verifies performance metrics (oracle verification)
      * @param _verificationId ID of the verification
@@ -308,9 +308,9 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         string memory _additionalData
     ) external onlyAuthorizedOracle verificationExists(_verificationId) validStatus(_verificationId, VerificationStatus.Pending) {
         PerformanceMetrics storage metrics = performanceMetrics[_verificationId];
-        
+
         require(block.timestamp - metrics.timestamp <= verificationWindow, "Verification window expired");
-        
+
         // Update oracle statistics
         OracleData storage oracle = oracles[msg.sender];
         oracle.totalReports++;
@@ -318,17 +318,17 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
             oracle.accurateReports++;
         }
         oracle.lastUpdateTime = block.timestamp;
-        
+
         if (_accurate) {
             _verifyPerformance(_verificationId);
         } else {
             metrics.status = VerificationStatus.Rejected;
             emit PerformanceRejected(_verificationId, _additionalData, metrics.zkProof);
         }
-        
+
         emit OracleReportSubmitted(msg.sender, _verificationId, _accurate);
     }
-    
+
     /**
      * @dev Sets SLA parameters for an agreement
      * @param _agreementId ID of the agreement
@@ -358,7 +358,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
             isActive: true,
             lastUpdated: block.timestamp
         });
-        
+
         emit SLAParametersUpdated(
             _agreementId,
             _maxResponseTime,
@@ -366,7 +366,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
             _minAvailability
         );
     }
-    
+
     /**
      * @dev Authorizes an oracle
      * @param _oracle Address of the oracle
@@ -375,7 +375,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
     function authorizeOracle(address _oracle, uint256 _reputationScore) external onlyOwner {
         require(_oracle != address(0), "Invalid oracle address");
         require(!oracles[_oracle].isAuthorized, "Oracle already authorized");
-        
+
         oracles[_oracle] = OracleData({
             oracleAddress: _oracle,
             lastUpdateTime: block.timestamp,
@@ -384,12 +384,12 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
             totalReports: 0,
             accurateReports: 0
         });
-        
+
         authorizedOracles.push(_oracle);
-        
+
         emit OracleAuthorized(_oracle, _reputationScore);
     }
-    
+
     /**
      * @dev Revokes oracle authorization
      * @param _oracle Address of the oracle
@@ -397,12 +397,12 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
      */
     function revokeOracle(address _oracle, string memory _reason) external onlyOwner {
         require(oracles[_oracle].isAuthorized, "Oracle not authorized");
-        
+
         oracles[_oracle].isAuthorized = false;
-        
+
         emit OracleRevoked(_oracle, _reason);
     }
-    
+
     /**
      * @dev Updates performance thresholds
      * @param _metricType Type of metric
@@ -410,7 +410,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
      */
     function updatePerformanceThreshold(MetricType _metricType, uint256 _newValue) external onlyOwner {
         uint256 oldValue;
-        
+
         if (_metricType == MetricType.ResponseTime) {
             oldValue = maxResponseTime;
             maxResponseTime = _newValue;
@@ -426,162 +426,162 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         } else {
             revert("Invalid metric type");
         }
-        
+
         emit PerformanceThresholdUpdated(_metricType, oldValue, _newValue);
     }
-    
+
     /**
      * @dev Calculates penalty for SLA violation
      * @param _verificationId ID of the verification
      */
-    function calculatePenalty(uint256 _verificationId) 
-        external 
-        view 
-        verificationExists(_verificationId) 
-        returns (uint256) 
+    function calculatePenalty(uint256 _verificationId)
+        external
+        view
+        verificationExists(_verificationId)
+        returns (uint256)
     {
         PerformanceMetrics memory metrics = performanceMetrics[_verificationId];
-        
+
         if (metrics.withinSLA) {
             return 0;
         }
-        
+
         // Get agreement details to calculate penalty amount
         AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(metrics.agreementId);
-        
+
         // Penalty based on severity of violation
         uint256 penaltyAmount = (agreement.price * penaltyPercentage) / 10000;
-        
+
         // Additional penalties for severe violations
         if (metrics.responseTime > maxResponseTime * 2) {
             penaltyAmount += (agreement.price * 1000) / 10000; // Additional 10%
         }
-        
+
         if (metrics.accuracy < minAccuracy - 10) {
             penaltyAmount += (agreement.price * 1000) / 10000; // Additional 10%
         }
-        
+
         return penaltyAmount;
     }
-    
+
     /**
      * @dev Calculates reward for exceeding SLA
      * @param _verificationId ID of the verification
      */
-    function calculateReward(uint256 _verificationId) 
-        external 
-        view 
-        verificationExists(_verificationId) 
-        returns (uint256) 
+    function calculateReward(uint256 _verificationId)
+        external
+        view
+        verificationExists(_verificationId)
+        returns (uint256)
     {
         PerformanceMetrics memory metrics = performanceMetrics[_verificationId];
-        
+
         if (!metrics.withinSLA) {
             return 0;
         }
-        
+
         // Get agreement details
         AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(metrics.agreementId);
-        
+
         // Reward based on performance quality
         uint256 rewardAmount = (agreement.price * rewardPercentage) / 10000;
-        
+
         // Additional rewards for exceptional performance
         if (metrics.responseTime < maxResponseTime / 2) {
             rewardAmount += (agreement.price * 500) / 10000; // Additional 5%
         }
-        
+
         if (metrics.accuracy > minAccuracy + 5) {
             rewardAmount += (agreement.price * 500) / 10000; // Additional 5%
         }
-        
+
         return rewardAmount;
     }
-    
+
     /**
      * @dev Gets performance history for a provider
      * @param _provider Address of the provider
      */
-    function getProviderHistory(address _provider) 
-        external 
-        view 
-        returns (PerformanceHistory memory) 
+    function getProviderHistory(address _provider)
+        external
+        view
+        returns (PerformanceHistory memory)
     {
         return providerHistory[_provider];
     }
-    
+
     /**
      * @dev Gets all verifications for an agreement
      * @param _agreementId ID of the agreement
      */
-    function getAgreementVerifications(uint256 _agreementId) 
-        external 
-        view 
-        returns (uint256[] memory) 
+    function getAgreementVerifications(uint256 _agreementId)
+        external
+        view
+        returns (uint256[] memory)
     {
         return agreementVerifications[_agreementId];
     }
-    
+
     /**
      * @dev Gets all verifications for a agreement.provider
      * @param _provider Address of the provider
      */
-    function getProviderVerifications(address _provider) 
-        external 
-        view 
-        returns (uint256[] memory) 
+    function getProviderVerifications(address _provider)
+        external
+        view
+        returns (uint256[] memory)
     {
         return providerVerifications[_provider];
     }
-    
+
     /**
      * @dev Gets oracle information
      * @param _oracle Address of the oracle
      */
-    function getOracleInfo(address _oracle) 
-        external 
-        view 
-        returns (OracleData memory) 
+    function getOracleInfo(address _oracle)
+        external
+        view
+        returns (OracleData memory)
     {
         return oracles[_oracle];
     }
-    
+
     /**
      * @dev Gets all authorized oracles
      */
-    function getAuthorizedOracles() 
-        external 
-        view 
-        returns (address[] memory) 
+    function getAuthorizedOracles()
+        external
+        view
+        returns (address[] memory)
     {
         address[] memory activeOracles = new address[](authorizedOracles.length);
         uint256 activeCount = 0;
-        
+
         for (uint256 i = 0; i < authorizedOracles.length; i++) {
             if (oracles[authorizedOracles[i]].isAuthorized) {
                 activeOracles[activeCount] = authorizedOracles[i];
                 activeCount++;
             }
         }
-        
+
         // Create correctly sized array and copy elements
         address[] memory result = new address[](activeCount);
         for (uint256 i = 0; i < activeCount; i++) {
             result[i] = activeOracles[i];
         }
-        
+
         return result;
     }
-    
+
     // Internal functions
-    
+
     function _verifyProofs(
         bytes memory _zkProof,
         bytes memory _groth16Proof,
         uint256 _verificationId
     ) internal view returns (bool) {
         PerformanceMetrics memory metrics = performanceMetrics[_verificationId];
-        
+
         // Verify ZK proof
         bool zkValid = zkVerifier.verifyPerformanceProof(
             metrics.agreementId,
@@ -591,13 +591,13 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
             metrics.computePower,
             _zkProof
         );
-        
+
         // Verify Groth16 proof
         bool groth16Valid = true; // Placeholder for Groth16 verification
-        
+
         return zkValid && groth16Valid;
     }
-    
+
 function verifyPerformanceProof(
         uint256 agreementId,
         uint256 responseTime,
@@ -612,14 +612,14 @@ function verifyPerformanceProof(
 
     function _verifyPerformance(uint256 _verificationId) internal {
         PerformanceMetrics storage metrics = performanceMetrics[_verificationId];
-        
+
         // Setup optimistic rollup finalization time
         verificationFinalizedAt[_verificationId] = block.timestamp + disputeWindow;
         metrics.status = VerificationStatus.Verified;
-        
+
         emit PerformanceVerified(_verificationId, metrics.withinSLA, metrics.penaltyAmount, metrics.rewardAmount);
     }
-    
+
     /**
      * @dev Finalizes an optimistic verification after the dispute window has passed
      * @param _verificationId ID of the verification
@@ -628,12 +628,12 @@ function verifyPerformanceProof(
         PerformanceMetrics storage metrics = performanceMetrics[_verificationId];
         require(metrics.status == VerificationStatus.Verified, "Verification not in verified status");
         require(block.timestamp >= verificationFinalizedAt[_verificationId], "Dispute window still open");
-        
+
         metrics.status = VerificationStatus.Verified;
-        
+
         // Get agreement details for reward/penalty
         AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(metrics.agreementId);
-        
+
         // Execute SLA logic (distribute rewards/penalties)
         if (metrics.score >= minAccuracy) {
             _rewardProvider(agreement.provider, metrics.agreementId);
@@ -641,7 +641,7 @@ function verifyPerformanceProof(
             _penalizeProvider(agreement.provider, metrics.agreementId);
         }
     }
-    
+
     /**
      * @dev Challenge an optimistic verification within the dispute window
      * @param _verificationId ID of the verification
@@ -651,16 +651,16 @@ function verifyPerformanceProof(
         PerformanceMetrics storage metrics = performanceMetrics[_verificationId];
         require(metrics.status == VerificationStatus.Verified, "Verification not in verified status");
         require(block.timestamp < verificationFinalizedAt[_verificationId], "Dispute window closed");
-        
+
         // A watcher node challenges the verification
         // Switch to manual review or on-chain full ZK validation
         metrics.status = VerificationStatus.Disputed;
         emit VerificationChallenged(_verificationId, msg.sender, _challengeData);
     }
-    
+
     function _updateProviderHistory(address _provider, bool _withinSLA) internal {
         PerformanceHistory storage history = providerHistory[_provider];
-        
+
         history.totalVerifications++;
         if (_withinSLA) {
             history.successfulVerifications++;
@@ -671,27 +671,27 @@ function verifyPerformanceProof(
         } else {
             history.currentStreak = 0;
         }
-        
+
         history.lastVerificationTime = block.timestamp;
-        
+
         // Update averages (simplified calculation)
         // In a real implementation, you'd want to maintain running averages
     }
-    
+
     /**
      * @dev Emergency pause function
      */
     function pause() external onlyOwner {
         _pause();
     }
-    
+
     /**
      * @dev Unpause function
      */
     function _rewardProvider(address _provider, uint256 _agreementId) internal {
         emit RewardIssued(_agreementId, _provider, 0);
     }
-    
+
     function _penalizeProvider(address _provider, uint256 _agreementId) internal {
         emit PenaltyApplied(_agreementId, _provider, 0);
     }

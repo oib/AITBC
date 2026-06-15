@@ -32,7 +32,7 @@ log_warn() {
 # Start consensus service
 start_consensus() {
     log_info "Starting AITBC Consensus Service..."
-    
+
     cd "$AITBC_ROOT"
     "$PYTHON_CMD" -c "
 import sys
@@ -57,7 +57,7 @@ print('✅ Consensus service started')
 # Start network service
 start_network() {
     log_info "Starting AITBC Network Service..."
-    
+
     cd "$AITBC_ROOT"
     "$PYTHON_CMD" -c "
 import sys
@@ -66,10 +66,10 @@ sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
 try:
     from aitbc_chain.network.p2p_discovery import P2PDiscovery
     from aitbc_chain.network.peer_health import PeerHealthMonitor
-    
+
     discovery = P2PDiscovery()
     health_monitor = PeerHealthMonitor()
-    
+
     print('✅ Network services initialized')
     print('✅ P2P Discovery started')
     print('✅ Peer Health Monitor started')
@@ -82,7 +82,7 @@ except Exception as e:
 # Start economic service
 start_economics() {
     log_info "Starting AITBC Economic Service..."
-    
+
     cd "$AITBC_ROOT"
     "$PYTHON_CMD" -c "
 import sys
@@ -91,10 +91,10 @@ sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
 try:
     from aitbc_chain.economics.staking import StakingManager
     from aitbc_chain.economics.rewards import RewardDistributor
-    
+
     staking = StakingManager()
     rewards = RewardDistributor()
-    
+
     print('✅ Economic services initialized')
     print('✅ Staking Manager started')
     print('✅ Reward Distributor started')
@@ -107,7 +107,7 @@ except Exception as e:
 # Start agent service
 start_agents() {
     log_info "Starting AITBC Agent Services..."
-    
+
     cd "$AITBC_ROOT"
     "$PYTHON_CMD" -c "
 import sys
@@ -116,10 +116,10 @@ sys.path.insert(0, '/opt/aitbc/aitbc/agent_registry/src')
 try:
     from aitbc_agents.registry import AgentRegistry
     from aitbc_agents.capability import CapabilityMatcher
-    
+
     registry = AgentRegistry()
     matcher = CapabilityMatcher()
-    
+
     print('✅ Agent services initialized')
     print('✅ Agent Registry started')
     print('✅ Capability Matcher started')
@@ -132,7 +132,7 @@ except Exception as e:
 # Start contract service
 start_contracts() {
     log_info "Starting AITBC Smart Contract Service..."
-    
+
     cd "$AITBC_ROOT"
     "$PYTHON_CMD" -c "
 import sys
@@ -141,10 +141,10 @@ sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
 try:
     from aitbc_chain.contracts.escrow import EscrowManager
     from aitbc_chain.contracts.dispute import DisputeResolver
-    
+
     escrow = EscrowManager()
     dispute = DisputeResolver()
-    
+
     print('✅ Smart Contract services initialized')
     print('✅ Escrow Manager started')
     print('✅ Dispute Resolver started')
@@ -158,7 +158,7 @@ except Exception as e:
 check_status() {
     log_info "Checking AITBC Service Status..."
     echo ""
-    
+
     # Check consensus
     cd "$AITBC_ROOT"
     consensus_status=$("$PYTHON_CMD" -c "
@@ -171,7 +171,7 @@ try:
 except:
     print('CONSENSUS:INACTIVE')
 " 2>/dev/null || echo "CONSENSUS:ERROR")
-    
+
     # Check network
     network_status=$("$PYTHON_CMD" -c "
 import sys
@@ -183,7 +183,7 @@ try:
 except:
     print('NETWORK:INACTIVE')
 " 2>/dev/null || echo "NETWORK:ERROR")
-    
+
     # Check economics
     economics_status=$("$PYTHON_CMD" -c "
 import sys
@@ -195,7 +195,7 @@ try:
 except:
     print('ECONOMICS:INACTIVE')
 " 2>/dev/null || echo "ECONOMICS:ERROR")
-    
+
     # Check agents
     agent_status=$("$PYTHON_CMD" -c "
 import sys
@@ -207,7 +207,7 @@ try:
 except:
     print('AGENTS:INACTIVE')
 " 2>/dev/null || echo "AGENTS:ERROR")
-    
+
     # Check contracts
     contract_status=$("$PYTHON_CMD" -c "
 import sys
@@ -219,13 +219,13 @@ try:
 except:
     print('CONTRACTS:INACTIVE')
 " 2>/dev/null || echo "CONTRACTS:ERROR")
-    
+
     # Display status
     for status in "$consensus_status" "$network_status" "$economics_status" "$agent_status" "$contract_status"; do
         service=$(echo "$status" | cut -d: -f1)
         state=$(echo "$status" | cut -d: -f2)
         details=$(echo "$status" | cut -d: -f3-)
-        
+
         case "$state" in
             "ACTIVE")
                 echo -e "${GREEN}✅ $service${NC}: $details"
@@ -244,14 +244,14 @@ except:
 add_validator() {
     local address="$1"
     local stake="${2:-1000.0}"
-    
+
     if [[ -z "$address" ]]; then
         log_error "Usage: $0 add-validator <address> [stake]"
         exit 1
     fi
-    
+
     log_info "Adding validator: $address (stake: $stake)"
-    
+
     cd "$AITBC_ROOT"
     "$PYTHON_CMD" -c "
 import sys

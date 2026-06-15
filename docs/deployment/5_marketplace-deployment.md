@@ -47,7 +47,7 @@
 
 ### Current GPU Inventory:
 1. RTX 4090 (24GB) - $0.50/hr - Available
-2. RTX 3080 (16GB) - $0.35/hr - Available  
+2. RTX 3080 (16GB) - $0.35/hr - Available
 3. A100 (40GB) - $1.20/hr - Booked
 4. **RTX 4060 Ti (16GB) - $0.30/hr - Available** (newly registered)
 

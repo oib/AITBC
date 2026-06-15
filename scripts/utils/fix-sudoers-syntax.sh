@@ -36,10 +36,10 @@ check_root() {
 # Fix sudoers configuration
 fix_sudoers() {
     print_header "Fixing Sudoers Syntax Errors"
-    
+
     # Create corrected sudoers file
     sudoers_file="/etc/sudoers.d/aitbc-dev"
-    
+
     cat > "$sudoers_file" << 'EOF'
 # AITBC Development Sudoers Configuration
 # This file provides passwordless access for AITBC development operations
@@ -92,17 +92,17 @@ oib ALL=(root) NOPASSWD: /usr/bin/incus shell aitbc1 *
 oib ALL=(aitbc) NOPASSWD: ALL
 
 EOF
-    
+
     # Set proper permissions
     chmod 440 "$sudoers_file"
-    
+
     print_status "Sudoers configuration fixed: $sudoers_file"
 }
 
 # Test the sudoers configuration
 test_sudoers() {
     print_header "Testing Sudoers Configuration"
-    
+
     # Test syntax
     if visudo -c -f "$sudoers_file"; then
         print_status "✅ Sudoers syntax is valid"
@@ -117,13 +117,13 @@ main() {
     print_header "Fix AITBC Sudoers Syntax Errors"
     echo "This script will fix the syntax errors in /etc/sudoers.d/aitbc-dev"
     echo ""
-    
+
     check_root
-    
+
     # Fix and test
     fix_sudoers
     test_sudoers
-    
+
     print_header "Fix Complete! 🎉"
     echo ""
     echo "✅ Sudoers syntax errors fixed"

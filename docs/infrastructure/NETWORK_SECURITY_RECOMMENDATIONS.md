@@ -1,6 +1,6 @@
 # Network Security Recommendations for AITBC
 
-**Last Updated:** June 2, 2026  
+**Last Updated:** June 2, 2026
 **Target Audience:** System Administrators
 
 This document provides network security recommendations for AITBC deployments. These are recommendations for system administrators to implement - AITBC does not automate firewall configuration as this is infrastructure-level security.

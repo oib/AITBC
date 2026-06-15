@@ -53,7 +53,7 @@ print()
 if total_applications > 0:
     print('Application Details:')
     print('=' * 80)
-    
+
     app_counter = 1
     for job_id, job in marketplace['jobs'].items():
         applications = job.get('applications', [])
@@ -61,7 +61,7 @@ if total_applications > 0:
             print(f'Job: {job[\"title\"]} (ID: {job_id})')
             print(f'Budget: {job[\"budget\"]:.2f} AITBC | Status: {job[\"status\"]}')
             print('-' * 60)
-            
+
             for app in applications:
                 print(f'{app_counter}. Application for {job[\"title\"]}')
                 print(f'   Agent: {app[\"agent_name\"]} ({app[\"agent_address\"]})')

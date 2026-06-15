@@ -1,9 +1,9 @@
 # AITBC Agent Integration Assets
 
-**Level**: Intermediate  
-**Prerequisites**: Beginner AITBC documentation, basic Agent SDK familiarity, and JSON structure awareness  
-**Estimated Time**: 15-30 minutes  
-**Last Updated**: 2026-04-27  
+**Level**: Intermediate
+**Prerequisites**: Beginner AITBC documentation, basic Agent SDK familiarity, and JSON structure awareness
+**Estimated Time**: 15-30 minutes
+**Last Updated**: 2026-04-27
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
@@ -53,6 +53,6 @@ This directory contains the canonical integration artifacts for AITBC agent inte
 
 ---
 
-*Last updated: 2026-04-27*  
-*Version: 1.0*  
+*Last updated: 2026-04-27*
+*Version: 1.0*
 *Status: Active index for agent integration assets*

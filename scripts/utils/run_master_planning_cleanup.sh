@@ -51,26 +51,26 @@ main() {
     echo "📋 This workflow will run all cleanup scripts in sequence"
     echo "🎯 Total process: Planning cleanup → Documentation conversion → Final organization"
     echo ""
-    
+
     # Check if scripts exist
     check_scripts_exist
-    
+
     # Step 1: Enhanced Planning Cleanup
     print_step "1" "Enhanced Planning Cleanup (docs/10_plan → docs/completed/)"
     run_enhanced_cleanup
-    
+
     # Step 2: Comprehensive Subfolder Cleanup
     print_step "2" "Comprehensive Subfolder Cleanup (all subfolders → docs/completed/)"
     run_comprehensive_cleanup
-    
+
     # Step 3: Documentation Conversion
     print_step "3" "Documentation Conversion (docs/completed/ → docs/)"
     run_documentation_conversion
-    
+
     # Step 4: Final Verification
     print_step "4" "Final Verification and Reporting"
     run_final_verification
-    
+
     print_header "MASTER PLANNING CLEANUP WORKFLOW COMPLETE! 🎉"
     echo ""
     echo "✅ Enhanced planning cleanup completed"
@@ -91,37 +91,37 @@ main() {
 # Check if scripts exist
 check_scripts_exist() {
     print_status "Checking if all required scripts exist..."
-    
+
     missing_scripts=()
-    
+
     if [[ ! -f "$ENHANCED_CLEANUP_SCRIPT" ]]; then
         missing_scripts+=("run_enhanced_planning_cleanup.sh")
     fi
-    
+
     if [[ ! -f "$COMPREHENSIVE_CLEANUP_SCRIPT" ]]; then
         missing_scripts+=("run_comprehensive_planning_cleanup.sh")
     fi
-    
+
     if [[ ! -f "$DOCUMENTATION_CONVERSION_SCRIPT" ]]; then
         missing_scripts+=("run_documentation_conversion.sh")
     fi
-    
+
     if [[ ${#missing_scripts[@]} -gt 0 ]]; then
         print_warning "Missing scripts: ${missing_scripts[*]}"
         print_warning "Please ensure all scripts are created before running the master workflow"
         exit 1
     fi
-    
+
     print_success "All required scripts found"
 }
 
 # Run Enhanced Planning Cleanup
 run_enhanced_cleanup() {
     print_status "Running enhanced planning cleanup..."
-    
+
     if [[ -f "$ENHANCED_CLEANUP_SCRIPT" ]]; then
         cd "$PROJECT_ROOT"
-        
+
         print_status "Executing: $ENHANCED_CLEANUP_SCRIPT"
         if bash "$ENHANCED_CLEANUP_SCRIPT"; then
             print_success "Enhanced planning cleanup completed successfully"
@@ -131,17 +131,17 @@ run_enhanced_cleanup() {
     else
         print_warning "Enhanced cleanup script not found, skipping..."
     fi
-    
+
     echo ""
 }
 
 # Run Comprehensive Subfolder Cleanup
 run_comprehensive_cleanup() {
     print_status "Running comprehensive subfolder cleanup..."
-    
+
     if [[ -f "$COMPREHENSIVE_CLEANUP_SCRIPT" ]]; then
         cd "$PROJECT_ROOT"
-        
+
         print_status "Executing: $COMPREHENSIVE_CLEANUP_SCRIPT"
         if bash "$COMPREHENSIVE_CLEANUP_SCRIPT"; then
             print_success "Comprehensive subfolder cleanup completed successfully"
@@ -151,17 +151,17 @@ run_comprehensive_cleanup() {
     else
         print_warning "Comprehensive cleanup script not found, skipping..."
     fi
-    
+
     echo ""
 }
 
 # Run Documentation Conversion
 run_documentation_conversion() {
     print_status "Running documentation conversion..."
-    
+
     if [[ -f "$DOCUMENTATION_CONVERSION_SCRIPT" ]]; then
         cd "$PROJECT_ROOT"
-        
+
         print_status "Executing: $DOCUMENTATION_CONVERSION_SCRIPT"
         if bash "$DOCUMENTATION_CONVERSION_SCRIPT"; then
             print_success "Documentation conversion completed successfully"
@@ -171,42 +171,42 @@ run_documentation_conversion() {
     else
         print_warning "Documentation conversion script not found, skipping..."
     fi
-    
+
     echo ""
 }
 
 # Run Final Verification
 run_final_verification() {
     print_status "Running final verification and reporting..."
-    
+
     cd "$WORKSPACE_DIR"
-    
+
     # Count files in each location
     planning_files=$(find "$PROJECT_ROOT/docs/10_plan" -name "*.md" | wc -l)
     completed_files=$(find "$PROJECT_ROOT/docs/completed" -name "*.md" | wc -l)
     archive_files=$(find "$PROJECT_ROOT/docs/archive" -name "*.md" | wc -l)
     documented_files=$(find "$PROJECT_ROOT/docs" -name "documented_*.md" | wc -l)
-    
+
     echo "📊 Final System Statistics:"
     echo "  • Planning files (docs/10_plan): $planning_files"
     echo "  • Completed files (docs/completed): $completed_files"
     echo "  • Archive files (docs/archive): $archive_files"
     echo "  • Documented files (docs/): $documented_files"
     echo ""
-    
+
     # Check for completion markers
     completion_markers=$(find "$PROJECT_ROOT/docs/10_plan" -name "*.md" -exec grep -l "✅" {} \; | wc -l)
     echo "  • Files with completion markers: $completion_markers"
-    
+
     if [[ $completion_markers -eq 0 ]]; then
         print_success "Perfect cleanup: No completion markers remaining in planning"
     else
         print_warning "Some completion markers may remain in planning files"
     fi
-    
+
     # Generate final summary
     generate_final_summary "$planning_files" "$completed_files" "$archive_files" "$documented_files" "$completion_markers"
-    
+
     echo ""
 }
 
@@ -217,7 +217,7 @@ generate_final_summary() {
     local archive_files=$3
     local documented_files=$4
     local completion_markers=$5
-    
+
     cat > "$WORKSPACE_DIR/MASTER_WORKFLOW_FINAL_SUMMARY.md" << 'EOF'
 # AITBC Master Planning Cleanup Workflow - Final Summary
 

@@ -206,7 +206,7 @@ class EventAggregator:
         for k, v in event.data.items():
             if k not in agg["data"]:
                 agg["data"][k] = v
-            elif isinstance(v, (int, float)):
+            elif isinstance(v, int | float):
                 agg["data"][k] = agg["data"].get(k, 0) + v
 
     def get_aggregated_events(self) -> dict[str, dict[str, Any]]:

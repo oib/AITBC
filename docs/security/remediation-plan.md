@@ -16,7 +16,7 @@ The security audit identified **20 security findings** across the following cate
   - Missing ECDSA verification in receipt.circom - Mitigated (moved to API layer)
   - Mock ZK proof verification in zk_proofs.py - Resolved (actual Groth16 implemented)
   - Unlimited token minting in AIToken.sol - Resolved (supply cap + cooldown added)
-  
+
 - **High (5):** 5 resolved, 5 deferred
   - Incorrect learning rate constraint - Resolved
   - Incorrect verification logic - Resolved
@@ -152,7 +152,7 @@ The findings span:
 
 #### 2.1 Fix Circom Circuit Constraints
 
-**Files:** 
+**Files:**
 - `apps/zk-circuits/ml_training_verification.circom`
 - `apps/zk-circuits/ml_inference_verification.circom`
 - `apps/zk-circuits/modular_ml_components.circom`

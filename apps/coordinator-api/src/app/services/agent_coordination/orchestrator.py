@@ -4,20 +4,20 @@ Implements multi-agent coordination and sub-task management
 """
 
 import asyncio
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import Any
 
-from aitbc import get_logger
-
-logger = get_logger(__name__)
-from dataclasses import dataclass, field  # noqa: E402
-from datetime import UTC, datetime, timedelta  # noqa: E402
-from enum import StrEnum  # noqa: E402
-from typing import Any  # noqa: E402
-
-from app.contexts.trading.services.trading_marketplace.bid_strategy import (  # noqa: E402
+from app.contexts.trading.services.trading_marketplace.bid_strategy import (
     BidResult,  # type: ignore[import-not-found]
 )
 
-from ..task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposition  # noqa: E402
+from aitbc import get_logger
+
+from ..task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposition
+
+logger = get_logger(__name__)
 
 
 class OrchestratorStatus(StrEnum):

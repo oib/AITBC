@@ -66,7 +66,7 @@ if [ -n "$OLLAMA_OFFER_ID" ]; then
     echo "Running inference..."
     RUN_RESULT=$(aitbc market run $OLLAMA_OFFER_ID "What is artificial intelligence?" 2>&1)
     echo "$RUN_RESULT"
-    
+
     JOB_ID=$(echo "$RUN_RESULT" | grep -oP 'sw_job_\w+' || echo "")
     if [ -n "$JOB_ID" ]; then
         echo "✅ Inference job created: $JOB_ID"

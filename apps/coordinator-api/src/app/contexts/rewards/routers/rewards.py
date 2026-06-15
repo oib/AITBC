@@ -1,21 +1,25 @@
+"""
+Reward System API Endpoints
+REST API for agent rewards, incentives, and performance-based earnings
+"""
+
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
-"\nReward System API Endpoints\nREST API for agent rewards, incentives, and performance-based earnings\n"
-from datetime import UTC, datetime, timedelta  # noqa: E402
-from typing import Any  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
-
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
+from ....domain.rewards import AgentRewardProfile, RewardTier, RewardType
+from ....storage import get_session
+from ..services.reward_service import RewardEngine
 
 logger = get_logger(__name__)
-from ....domain.rewards import AgentRewardProfile, RewardTier, RewardType  # noqa: E402
-from ....storage import get_session  # noqa: E402
-from ..services.reward_service import RewardEngine  # noqa: E402
 
 router = APIRouter(prefix="/rewards", tags=["rewards"])
 

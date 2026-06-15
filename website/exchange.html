@@ -9,7 +9,7 @@
 
     <!-- Stylesheet -->
     <link rel="stylesheet" href="/assets/css/style.css">
-    
+
 </head>
 <body>
     <div class="container">
@@ -54,20 +54,20 @@
                     <label for="eth-amount" style="display: block; margin-bottom: 0.5rem;">ETH Amount:</label>
                     <input type="number" id="eth-amount" step="0.0001" min="0.001" placeholder="0.01" class="endpoint" style="width: 100%; margin-bottom: 0.5rem;">
                     <small style="color: var(--text-muted); display: block; margin-bottom: 1rem;">Amount of ETH you want to bridge to AIT</small>
-                    
+
                     <label for="eth-address" style="display: block; margin-bottom: 0.5rem;">Your Ethereum Address (Optional):</label>
                     <input type="text" id="eth-address" placeholder="0x..." class="endpoint" style="width: 100%; margin-bottom: 0.5rem;">
                     <small style="color: var(--text-muted); display: block; margin-bottom: 1rem;">Your Ethereum wallet address (for tracking purposes only)</small>
-                    
+
                     <label for="ait-address" style="display: block; margin-bottom: 0.5rem;">AIT Wallet Address (Required):</label>
                     <input type="text" id="ait-address" placeholder="ait1..." class="endpoint" style="width: 100%; margin-bottom: 0.5rem;">
                     <small style="color: var(--text-muted); display: block; margin-bottom: 1rem;">Your AIT wallet address where you want to receive the bridged tokens</small>
-                    
+
                     <div class="endpoint endpoint-link" onclick="calculateDeposit()" style="cursor: pointer;">
                         <span class="method">POST</span> <span class="path">Calculate Deposit</span>
                     </div>
                 </div>
-                
+
                 <div id="deposit-estimate" style="display: none; margin-top: 1rem; padding: 1rem; border-radius: 4px;">
                     <p><strong>Estimated AIT Amount:</strong> <span id="estimated-ait">-</span></p>
                     <p><strong>Fee (0.5%):</strong> <span id="fee-eth">-</span> ETH</p>
@@ -75,9 +75,9 @@
                     <p><strong>ETH/USD:</strong> $<span id="eth-usd">-</span></p>
                     <p><strong>AIT/USD:</strong> $<span id="ait-usd">-</span></p>
                 </div>
-                
+
                 <div id="deposit-error" style="display: none; margin-top: 1rem; padding: 1rem; background: #fee; border-radius: 4px; color: #c00;"></div>
-                
+
                 <div id="deposit-instructions" style="display: none; margin-top: 1rem;">
                     <p><strong>Deposit Address (Sepolia):</strong></p>
                     <div class="endpoint" id="deposit-address-box" style="cursor: pointer;" onclick="copyAddress()">
@@ -139,12 +139,12 @@
                 <span class="method">GET</span> <span class="path">/exchange/price.json</span>
             </a>
             <p class="endpoint-note">Current prices in JSON format for agents</p>
-            
+
             <a href="/v1/exchange/price" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/v1/exchange/price</span>
             </a>
             <p class="endpoint-note">Bridge API price endpoint</p>
-            
+
             <a href="/v1/exchange/history" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/v1/exchange/history</span>
             </a>
@@ -153,16 +153,16 @@
     </div>
 
     <script>
-                
+
         async function fetchPrices() {
             try {
                 const response = await fetch('http://hub.aitbc.bubuit.net/v1/exchange/history');
                 const data = await response.json();
-                
+
                 if (!data.success) {
                     throw new Error(data.error || 'Failed to fetch prices');
                 }
-                
+
                 updatePrices(data);
             } catch (error) {
                 console.error('Error fetching prices:', error);
@@ -170,14 +170,14 @@
                 document.getElementById('eur-prices').innerHTML = '<p class="error">Failed to load prices</p>';
             }
         }
-        
+
         async function fetchBridgeStatus() {
             try {
                 const response = await fetch('http://hub.aitbc.bubuit.net/v1/bridge/status');
                 const data = await response.json();
-                
+
                 updateBridgeStatus(data);
-                
+
                 // Update deposit address if available
                 if (data.deposit_address) {
                     const depositEl = document.getElementById('deposit-address');
@@ -190,12 +190,12 @@
                 document.getElementById('bridge-status').innerHTML = '<p class="error">Failed to load bridge status</p>';
             }
         }
-        
+
         function updatePrices(data) {
             const current = data.current;
             const averages = data.averages;
             const change = data.change_vs_average;
-            
+
             // Update USD prices
             let usdHtml = '';
             if (current.eth_usd) {
@@ -204,16 +204,16 @@
             if (current.ait_usd) {
                 usdHtml += `<p><strong>AIT Price:</strong> $${current.ait_usd.toFixed(6)} USD</p>`;
             }
-            
+
             if (averages) {
                 const changeClass = change.eth_usd_percent >= 0 ? 'price-up' : 'price-down';
                 const arrow = change.eth_usd_percent >= 0 ? '↑' : '↓';
                 usdHtml += `<p><strong>All-Time Average:</strong> $${averages.eth_usd.toFixed(2)} USD</p>`;
                 usdHtml += `<p><strong>vs Average:</strong> <span class="${changeClass}">${Math.abs(change.eth_usd_percent).toFixed(2)}% ${arrow}</span></p>`;
             }
-            
+
             document.getElementById('usd-prices').innerHTML = usdHtml;
-            
+
             // Update EUR prices
             let eurHtml = '';
             if (current.eth_eur) {
@@ -222,53 +222,53 @@
             if (current.ait_eur) {
                 eurHtml += `<p><strong>AIT Price:</strong> €${current.ait_eur.toFixed(6)} EUR</p>`;
             }
-            
+
             if (averages) {
                 const changeClass = change.eth_eur_percent >= 0 ? 'price-up' : 'price-down';
                 const arrow = change.eth_eur_percent >= 0 ? '↑' : '↓';
                 eurHtml += `<p><strong>All-Time Average:</strong> €${averages.eth_eur.toFixed(2)} EUR</p>`;
                 eurHtml += `<p><strong>vs Average:</strong> <span class="${changeClass}">${Math.abs(change.eth_eur_percent).toFixed(2)}% ${arrow}</span></p>`;
             }
-            
+
             document.getElementById('eur-prices').innerHTML = eurHtml;
-            
+
             // Update exchange rate (top section)
             const exchangeRateElement = document.getElementById('exchange-rate');
             if (exchangeRateElement && current.eth_ait_rate_usd) {
                 exchangeRateElement.innerHTML = `<p><strong>1 ETH = ${current.eth_ait_rate_usd.toFixed(2)} AIT</strong></p>`;
             }
-            
+
             // Update timestamp
             if (current.timestamp) {
                 document.getElementById('last-updated').textContent = `Last updated: ${new Date(current.timestamp * 1000).toLocaleString()}`;
             }
         }
-        
+
         function updateBridgeStatus(data) {
             let statusHtml = '';
             statusHtml += `<p><strong>Bridge:</strong> ${data.bridge}</p>`;
             statusHtml += `<p><strong>Status:</strong> ${data.status}</p>`;
             statusHtml += `<p><strong>Contract:</strong> ${data.contract_address || 'N/A'}</p>`;
             statusHtml += `<p><strong>Message:</strong> ${data.message}</p>`;
-            
+
             document.getElementById('bridge-status').innerHTML = statusHtml;
         }
-        
+
         async function calculateDeposit() {
             const ethAmount = document.getElementById('eth-amount').value;
             const aitAddress = document.getElementById('ait-address').value;
-            
+
             // Hide previous results
             document.getElementById('deposit-estimate').style.display = 'none';
             document.getElementById('deposit-error').style.display = 'none';
             document.getElementById('deposit-instructions').style.display = 'none';
-            
+
             if (!ethAmount || !aitAddress) {
                 document.getElementById('deposit-error').style.display = 'block';
                 document.getElementById('deposit-error').textContent = 'Please enter both ETH amount and AIT address';
                 return;
             }
-            
+
             try {
                 const response = await fetch('/v1/bridge/deposit', {
                     method: 'POST',
@@ -280,9 +280,9 @@
                         ait_address: aitAddress
                     })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (response.ok && data.status === 'ready') {
                     // Show estimates
                     document.getElementById('deposit-estimate').style.display = 'block';
@@ -291,7 +291,7 @@
                     document.getElementById('net-eth').textContent = data.estimate.net_eth || '-';
                     document.getElementById('eth-usd').textContent = data.estimate.eth_usd_price || '-';
                     document.getElementById('ait-usd').textContent = data.estimate.ait_usd_price || '-';
-                    
+
                     // Show instructions
                     document.getElementById('deposit-instructions').style.display = 'block';
                     document.getElementById('deposit-address').textContent = data.instructions.send_eth_to;
@@ -309,7 +309,7 @@
                 document.getElementById('deposit-error').textContent = 'Failed to connect to server';
             }
         }
-        
+
         function copyAddress() {
             const addressElement = document.getElementById('deposit-address');
             const address = addressElement ? addressElement.textContent : '';
@@ -324,7 +324,7 @@
                 console.error('Failed to copy:', err);
             });
         }
-        
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
             fetchPrices();

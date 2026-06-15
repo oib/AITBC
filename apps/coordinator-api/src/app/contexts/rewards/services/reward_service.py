@@ -7,13 +7,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from sqlmodel import Session, and_, select
+
 from aitbc import get_logger
 
-logger = get_logger(__name__)
-from sqlmodel import Session, and_, select  # noqa: E402
-
-from ....domain.reputation import AgentReputation  # noqa: E402
-from ....domain.rewards import (  # noqa: E402
+from ....domain.reputation import AgentReputation
+from ....domain.rewards import (
     AgentRewardProfile,
     RewardCalculation,
     RewardDistribution,
@@ -24,6 +23,8 @@ from ....domain.rewards import (  # noqa: E402
     RewardTierConfig,
     RewardType,
 )
+
+logger = get_logger(__name__)
 
 
 class RewardCalculator:

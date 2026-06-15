@@ -21,12 +21,12 @@ contract AgentMemory is Ownable, ReentrancyGuard {
     mapping(address => uint256) public agentMemoryVersions;
 
     event MemoryAnchored(
-        address indexed agent, 
-        string cid, 
+        address indexed agent,
+        string cid,
         string memoryType,
         bytes32 zkProofHash,
         bool isEncrypted,
-        uint256 version, 
+        uint256 version,
         uint256 timestamp
     );
 
@@ -64,9 +64,9 @@ contract AgentMemory is Ownable, ReentrancyGuard {
             );
             require(isValid, "ZK Proof verification failed");
         }
-        
+
         uint256 nextVersion = agentMemoryVersions[msg.sender] + 1;
-        
+
         agentMemories[msg.sender].push(MemoryAnchor({
             cid: _cid,
             memoryType: _memoryType,
@@ -75,16 +75,16 @@ contract AgentMemory is Ownable, ReentrancyGuard {
             timestamp: block.timestamp,
             version: nextVersion
         }));
-        
+
         agentMemoryVersions[msg.sender] = nextVersion;
-        
+
         emit MemoryAnchored(
-            msg.sender, 
-            _cid, 
+            msg.sender,
+            _cid,
             _memoryType,
             _zkProofHash,
             _isEncrypted,
-            nextVersion, 
+            nextVersion,
             block.timestamp
         );
     }
@@ -93,7 +93,7 @@ contract AgentMemory is Ownable, ReentrancyGuard {
         require(agentMemories[_agent].length > 0, "No memory anchored");
         return agentMemories[_agent][agentMemories[_agent].length - 1];
     }
-    
+
     function getMemoryCount(address _agent) external view returns (uint256) {
         return agentMemories[_agent].length;
     }

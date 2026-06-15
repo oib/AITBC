@@ -69,7 +69,7 @@ check_rpc_health() {
 
     local response=$(curl -s --max-time 10 "$url" 2>&1)
     local curl_exit_code=$?
-    
+
     if [ $curl_exit_code -eq 0 ] && [ -n "$response" ]; then
         log_success "RPC endpoint healthy on ${node_name}${chain_id:+ (chain: ${chain_id})}"
         return 0
@@ -83,9 +83,9 @@ check_rpc_health() {
 get_supported_chains() {
     local node_ip="$1"
     local url="http://${node_ip}:${RPC_PORT}/health"
-    
+
     local supported_chains=$(curl -s "$url" | python3 -c "import sys, json; data = json.load(sys.stdin); print(','.join(data.get('supported_chains', [])))" 2>/dev/null || echo "")
-    
+
     if [ -z "$supported_chains" ]; then
         echo "$CHAINS"  # Fallback to configured chains if health endpoint doesn't return supported chains
     else
@@ -98,7 +98,7 @@ check_service_status() {
     local node_name="$1"
     local node_ip="$2"
     local service="$3"
-    
+
     # Skip SSH-based service checks - use RPC health instead
     log "Skipping SSH-based service check for ${service} on ${node_name} (using RPC health instead)"
     return 0
@@ -108,7 +108,7 @@ check_service_status() {
 check_resource_usage() {
     local node_name="$1"
     local node_ip="$2"
-    
+
     # Skip SSH-based resource checks
     log "Skipping SSH-based resource usage check for ${node_name} (not supported without SSH)"
     return 0
@@ -117,7 +117,7 @@ check_resource_usage() {
 # Check Redis connectivity
 check_redis_connectivity() {
     log "Checking Redis connectivity (${REDIS_HOST}:${REDIS_PORT})"
-    
+
     if redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" ping > /dev/null 2>&1; then
         log_success "Redis connectivity OK"
         return 0
@@ -157,24 +157,24 @@ check_node_health() {
 # Main execution
 main() {
     log "=== Multi-Node Blockchain Health Check Started ==="
-    
+
     # Create log directory if it doesn't exist
     mkdir -p "${LOG_DIR}"
-    
+
     local total_failures=0
-    
+
     # Check Redis connectivity (shared resource)
     if ! check_redis_connectivity; then
         log_error "Redis connectivity failed - this affects all nodes"
         ((total_failures++))
     fi
-    
+
     # Check each node
     for node_config in "${NODES[@]}"; do
         IFS=':' read -r node_name node_ip <<< "$node_config"
-        
+
         log "=== Checking node: ${node_name} (${node_ip}) ==="
-        
+
         if check_node_health "$node_name" "$node_ip"; then
             log_success "Node ${node_name} is healthy"
         else
@@ -182,13 +182,13 @@ main() {
             log_error "Node ${node_name} has ${failures} health issues"
             ((total_failures+=failures))
         fi
-        
+
         echo "" | tee -a "${LOG_FILE}"
     done
-    
+
     log "=== Multi-Node Blockchain Health Check Completed ==="
     log "Total failures: ${total_failures}"
-    
+
     if [ ${total_failures} -eq 0 ]; then
         log_success "All nodes are healthy"
         exit 0

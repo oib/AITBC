@@ -111,26 +111,26 @@ config = AgentConfig(
     # Basic settings
     name="my-agent",
     version="1.0.0",
-    
+
     # Blockchain settings
     blockchain_network="mainnet",
     rpc_url="https://rpc.aitbc.net",
     wallet_private_key="0x...",
-    
+
     # AI settings
     ai_model="gpt-4",
     ai_provider="openai",
     max_tokens=1000,
-    
+
     # Resource settings
     max_cpu_cores=4,
     max_memory_gb=8,
     max_gpu_count=1,
-    
+
     # Network settings
     peer_discovery=True,
     heartbeat_interval=30,
-    
+
     # Security settings
     encryption_enabled=True,
     authentication_required=True
@@ -171,12 +171,12 @@ class ComputingAgent(Agent):
     def __init__(self, config):
         super().__init__(config)
         self.computing_engine = ComputingEngine(config)
-    
+
     def handle_computation_request(self, task):
         """Handle incoming computation requests"""
         result = self.computing_engine.execute(task)
         return result
-    
+
     def register_computing_services(self):
         """Register available computing services"""
         services = [
@@ -184,7 +184,7 @@ class ComputingAgent(Agent):
             {"type": "data_processing", "price": 0.05},
             {"type": "encryption", "price": 0.02}
         ]
-        
+
         for service in services:
             self.register_service(service)
 
@@ -206,13 +206,13 @@ class DataAgent(Agent):
     def __init__(self, config):
         super().__init__(config)
         self.processor = DataProcessor(config)
-    
+
     def process_dataset(self, dataset_hash):
         """Process a dataset and return results"""
         data = self.load_dataset(dataset_hash)
         results = self.processor.analyze(data)
         return results
-    
+
     def train_model(self, training_data):
         """Train AI model on provided data"""
         model = self.processor.train(training_data)
@@ -235,15 +235,15 @@ class OracleAgent(Agent):
     def __init__(self, config):
         super().__init__(config)
         self.oracle = OracleProvider(config)
-    
+
     def get_price_data(self, symbol):
         """Get real-time price data"""
         return self.oracle.get_price(symbol)
-    
+
     def get_weather_data(self, location):
         """Get weather information"""
         return self.oracle.get_weather(location)
-    
+
     def submit_oracle_data(self, data_type, value):
         """Submit data to blockchain oracle"""
         return self.blockchain_client.submit_oracle_data(data_type, value)
@@ -347,11 +347,11 @@ class TestAgent(unittest.TestCase):
             blockchain_network="testnet"
         )
         self.agent = Agent(self.config)
-    
+
     def test_agent_initialization(self):
         self.assertIsNotNone(self.agent)
         self.assertEqual(self.agent.name, "test-agent")
-    
+
     def test_task_execution(self):
         result = self.agent.execute_task("test", {})
         self.assertIsNotNone(result)
@@ -370,11 +370,11 @@ from aitbc_agent_sdk import Agent, AgentConfig
 def test_blockchain_integration():
     config = AgentConfig(blockchain_network="testnet")
     agent = Agent(config)
-    
+
     # Test blockchain connection
     balance = agent.get_balance()
     assert isinstance(balance, float)
-    
+
     # Test transaction
     tx_hash = agent.send_transaction(
         to="0x123...",

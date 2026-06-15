@@ -12,13 +12,13 @@ This guide explains how to migrate from the current polling-based message system
 while True:
     response = requests.get(f"{coordinator_url}/v1/hermes/messages/{agent_id}")
     messages = response.json()["messages"]
-    
+
     for message in messages:
         # Process message
         if "PING" in message["content"]:
             # Send PONG
             requests.post(f"{coordinator_url}/v1/hermes/messages/send", ...)
-    
+
     time.sleep(5)  # Poll every 5 seconds
 ```
 
@@ -39,15 +39,15 @@ import json
 
 async def hermes_websocket_listener(agent_id: str, coordinator_url: str):
     uri = f"ws://{coordinator_url}/v1/hermes/ws/{agent_id}"
-    
+
     async with websockets.connect(uri) as websocket:
         print(f"Connected to Hermes WebSocket as {agent_id}")
-        
+
         # Listen for messages
         while True:
             message = await websocket.recv()
             data = json.loads(message)
-            
+
             # Process message
             if data["type"] == "connection_established":
                 print("WebSocket listener active")
@@ -55,7 +55,7 @@ async def hermes_websocket_listener(agent_id: str, coordinator_url: str):
                 print(f"Received PONG: {data['content']}")
             elif data["type"] == "handler_acknowledgment":
                 print(f"Handler triggered: {data['handler_results']}")
-            
+
             # Send messages
             await websocket.send(json.dumps({
                 "id": "msg-001",
@@ -186,16 +186,16 @@ await websocket.send(json.dumps({
 ```python
 async def websocket_listener(agent_id: str):
     uri = f"ws://{coordinator_url}/v1/hermes/ws/{agent_id}"
-    
+
     while True:  # Auto-reconnect loop
         try:
             async with websockets.connect(uri) as websocket:
                 print(f"Connected as {agent_id}")
-                
+
                 while True:
                     message = await websocket.recv()
                     process_message(json.loads(message))
-                    
+
         except websockets.exceptions.ConnectionClosed:
             print("Connection closed, reconnecting in 5s...")
             await asyncio.sleep(5)
@@ -246,14 +246,14 @@ async def test_connection():
     uri = "ws://localhost:8000/v1/hermes/ws/test-agent"
     async with websockets.connect(uri) as websocket:
         print("Connected!")
-        
+
         # Send PING
         await websocket.send(json.dumps({
             "sender": "test-agent",
             "recipient": "owl-hub",
             "content": "PING"
         }))
-        
+
         # Wait for PONG
         response = await websocket.recv()
         print(f"Received: {response}")

@@ -270,4 +270,3 @@ jobs:
           fi
 
           echo "✅ ZK proof implementation security check completed"
-

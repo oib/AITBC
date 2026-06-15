@@ -41,10 +41,10 @@ jobs:
       - name: Setup Python environment
         run: |
           cd /opt/aitbc
-          
+
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv
-          
+
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
@@ -63,4 +63,3 @@ jobs:
           if [ -f /var/log/aitbc/failover-simulation.log ]; then
             tail -50 /var/log/aitbc/failover-simulation.log
           fi
-

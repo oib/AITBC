@@ -50,7 +50,7 @@ print(f'NETWORK:ACTIVE:{len(poa.validators)}:{total_stake}')
 if [[ "$network_status" == NETWORK:ACTIVE:* ]]; then
     validator_count=$(echo "$network_status" | cut -d: -f3)
     total_stake=$(echo "$network_status" | cut -d: -f4)
-    
+
     echo -e "${GREEN}✅ Network Status: PRODUCTION READY${NC}"
     echo "   Validators: $validator_count"
     echo "   Total Stake: $total_stake AITBC"
@@ -87,7 +87,7 @@ print(f'ECONOMY:ACTIVE:{registry[\"total_agents\"]}:{marketplace[\"total_jobs\"]
         total_jobs=$(echo "$economy_info" | cut -d: -f4)
         transactions=$(echo "$economy_info" | cut -d: -f5)
         completed_jobs=$(echo "$economy_info" | cut -d: -f6)
-        
+
         echo -e "${GREEN}✅ Agent Economy: OPERATIONAL${NC}"
         echo "   Total Agents: $total_agents"
         echo "   Total Jobs: $total_jobs"

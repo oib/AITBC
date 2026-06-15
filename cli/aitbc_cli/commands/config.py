@@ -259,7 +259,7 @@ def validate(ctx):
 
     # Validate timeout
     timeout = getattr(config, "timeout", 30)
-    if not isinstance(timeout, (int, float)) or timeout <= 0:
+    if not isinstance(timeout, int | float) or timeout <= 0:
         errors.append("Timeout must be a positive number")
 
     # Output results

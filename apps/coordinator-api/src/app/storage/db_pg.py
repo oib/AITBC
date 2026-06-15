@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Generator
+from datetime import UTC, datetime
 from typing import Any
 
 import psycopg2
@@ -12,10 +13,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from aitbc import get_logger
 
-logger = get_logger(__name__)
-from datetime import UTC, datetime  # noqa: E402
+from .config_pg import settings  # type: ignore[import-not-found]
 
-from .config_pg import settings  # type: ignore[import-not-found]  # noqa: E402
+logger = get_logger(__name__)
 
 # SQLAlchemy setup for complex queries
 engine = create_engine(

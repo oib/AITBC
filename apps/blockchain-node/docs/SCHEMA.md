@@ -172,7 +172,7 @@ with session_scope() as session:
     )
     session.add(block)
     session.commit()
-    
+
     tx = Transaction(
         tx_hash="0x" + "b" * 64,
         block_height=block.height,
@@ -194,7 +194,7 @@ with session_scope() as session:
     block = session.exec(
         select(Block).where(Block.height == 1)
     ).first()
-    
+
     # Access related transactions (lazy loaded)
     for tx in block.transactions:
         print(f"TX: {tx.tx_hash}")

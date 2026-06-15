@@ -91,11 +91,11 @@ ssh aitbc '
   echo "   Pulling latest changes..."
   git pull origin main
   echo "   Latest commit: $(git log --oneline -1)"
-  
+
   # Restart services if code changed
   echo "   Restarting services to apply code changes..."
   systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc
-  
+
   # Verify services are running
   echo "   Verifying services..."
   systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc

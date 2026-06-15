@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     started_at TIMESTAMP WITH TIME ZONE,
     completed_at TIMESTAMP WITH TIME ZONE,
     deadline TIMESTAMP WITH TIME ZONE,
-    
+
     CONSTRAINT valid_status CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled'))
 );
 
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS miners (
     uptime_percent DECIMAL(5,2) DEFAULT 100.00,
     registered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     last_heartbeat TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     CONSTRAINT valid_miner_status CHECK (status IN ('available', 'busy', 'maintenance', 'offline'))
 );
 

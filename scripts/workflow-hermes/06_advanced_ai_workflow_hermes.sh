@@ -20,7 +20,7 @@ fi
 echo "=== hermes Advanced AI Workflow v5.0 ==="
 echo "Advanced AI Teaching Plan - All Phases Completed"
 echo "Phase 1: Advanced AI Workflow Orchestration ✅"
-echo "Phase 2: Multi-Model AI Pipelines ✅" 
+echo "Phase 2: Multi-Model AI Pipelines ✅"
 echo "Phase 3: AI Resource Optimization ✅"
 
 # Configuration
@@ -219,7 +219,7 @@ time ./aitbc-cli --help > /dev/null
 # Test blockchain performance
 time ./aitbc-cli blockchain info > /dev/null
 
-# Test marketplace performance  
+# Test marketplace performance
 time ./aitbc-cli market list > /dev/null
 
 # 10. Advanced AI Capabilities Summary

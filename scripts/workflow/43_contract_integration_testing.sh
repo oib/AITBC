@@ -47,11 +47,11 @@ echo ""
 run_test() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🧪 Testing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
@@ -67,11 +67,11 @@ run_test() {
 run_test_verbose() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🧪 Testing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
@@ -89,25 +89,25 @@ echo "=========================================="
 
 run_test_verbose "Contract service connectivity" "
     echo 'Testing contract service connectivity...'
-    
+
     # Test contract service endpoints
     echo 'Testing contract list endpoint:'
     curl -s http://localhost:$GENESIS_PORT/rpc/contracts | jq .success 2>/dev/null || echo 'Contract list endpoint responding'
-    
+
     echo 'Testing contract status endpoint:'
     curl -s http://localhost:$GENESIS_PORT/rpc/contracts/status | jq .status 2>/dev/null || echo 'Contract status endpoint responding'
-    
+
     echo 'Testing contract deployment endpoint:'
     DEPLOY_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/deploy \
       -H 'Content-Type: application/json' \
       -d '{\"contract_code\": \"test_contract\", \"sender\": \"ait1test\", \"gas_limit\": 1000000}')
-    
+
     echo \"Contract deployment test: \$(echo \$DEPLOY_RESULT | jq .success 2>/dev/null || echo 'Deployment endpoint responding')\"
 "
 
 run_test_verbose "Contract service functionality" "
     echo 'Testing contract service functionality...'
-    
+
     # Test contract creation
     echo 'Creating test contract:'
     CONTRACT_DATA='{
@@ -116,19 +116,19 @@ run_test_verbose "Contract service functionality" "
         \"sender\": \"ait1test\",
         \"gas_limit\": 1000000
     }'
-    
+
     CREATE_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/create \
       -H 'Content-Type: application/json' \
       -d \"\$CONTRACT_DATA\")
-    
+
     echo \"Contract creation: \$(echo \$CREATE_RESULT | jq .success 2>/dev/null || echo 'Contract creation responding')\"
-    
+
     # Test contract interaction
     echo 'Testing contract interaction:'
     INTERACT_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/call \
       -H 'Content-Type: application/json' \
       -d '{\"contract_address\": \"0xtest\", \"function\": \"test\", \"params\": [], \"sender\": \"ait1test\"}')
-    
+
     echo \"Contract interaction: \$(echo \$INTERACT_RESULT | jq .success 2>/dev/null || echo 'Contract interaction responding')\"
 "
 
@@ -139,12 +139,12 @@ echo "====================================="
 
 run_test_verbose "Marketplace contract integration" "
     echo 'Testing marketplace contract integration...'
-    
+
     # Test marketplace listings
     echo 'Testing marketplace listings:'
     LISTINGS_RESULT=\$(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings)
     echo \"Marketplace listings: \$(echo \$LISTINGS_RESULT | jq .success 2>/dev/null || echo 'Marketplace responding')\"
-    
+
     # Test marketplace contract creation
     echo 'Testing marketplace contract creation:'
     MKT_CONTRACT='{
@@ -153,13 +153,13 @@ run_test_verbose "Marketplace contract integration" "
         \"owner\": \"ait1marketplace\",
         \"settings\": {\"fee_rate\": 0.01, \"min_listing_price\": 100}
     }'
-    
+
     MKT_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/marketplace/create \
       -H 'Content-Type: application/json' \
       -d \"\$MKT_CONTRACT\")
-    
+
     echo \"Marketplace contract: \$(echo \$MKT_RESULT | jq .success 2>/dev/null || echo 'Marketplace contract creation responding')\"
-    
+
     # Test marketplace transaction
     echo 'Testing marketplace transaction:'
     TX_DATA='{
@@ -168,11 +168,11 @@ run_test_verbose "Marketplace contract integration" "
         \"amount\": 1000,
         \"payment_method\": \"ait\"
     }'
-    
+
     TX_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/marketplace/transaction \
       -H 'Content-Type: application/json' \
       -d \"\$TX_DATA\")
-    
+
     echo \"Marketplace transaction: \$(echo \$TX_RESULT | jq .success 2>/dev/null || echo 'Marketplace transaction responding')\"
 "
 
@@ -183,12 +183,12 @@ echo "=================================="
 
 run_test_verbose "AI service contract integration" "
     echo 'Testing AI service contract integration...'
-    
+
     # Test AI service stats
     echo 'Testing AI service stats:'
     AI_STATS=\$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats')
     echo \"AI service stats: \$(echo \$AI_STATS | jq .success 2>/dev/null || echo 'AI service responding')\"
-    
+
     # Test AI job submission through contract
     echo 'Testing AI job submission:'
     AI_JOB='{
@@ -197,13 +197,13 @@ run_test_verbose "AI service contract integration" "
         \"max_tokens\": 1000,
         \"sender\": \"ait1aiuser\"
     }'
-    
+
     AI_RESULT=\$(ssh $FOLLOWER_NODE 'curl -s -X POST http://localhost:$FOLLOWER_PORT/rpc/ai/submit \
       -H \"Content-Type: application/json\" \
       -d \"$AI_JOB"')
-    
+
     echo \"AI job submission: \$(echo \$AI_RESULT | jq .success 2>/dev/null || echo 'AI job submission responding')\"
-    
+
     # Test AI service contract interaction
     echo 'Testing AI service contract:'
     AI_CONTRACT='{
@@ -213,11 +213,11 @@ run_test_verbose "AI service contract integration" "
         \"models\": [\"gpt-3.5-turbo\", \"gpt-4\"],
         \"pricing\": {\"gpt-3.5-turbo\": 0.001, \"gpt-4\": 0.01}
     }'
-    
+
     AI_CONTRACT_RESULT=\$(ssh $FOLLOWER_NODE 'curl -s -X POST http://localhost:$FOLLOWER_PORT/rpc/contracts/ai/create \
       -H \"Content-Type: application/json\" \
       -d \"$AI_CONTRACT"')
-    
+
     echo \"AI service contract: \$(echo \$AI_CONTRACT_RESULT | jq .success 2>/dev/null || echo 'AI service contract creation responding')\"
 "
 
@@ -228,12 +228,12 @@ echo "========================================="
 
 run_test_verbose "Agent messaging contract integration" "
     echo 'Testing agent messaging contract integration...'
-    
+
     # Test messaging contract endpoints
     echo 'Testing messaging topics:'
     MSG_TOPICS=\$(curl -s http://localhost:$GENESIS_PORT/rpc/messaging/topics)
     echo \"Messaging topics: \$(echo \$MSG_TOPICS | jq .success 2>/dev/null || echo 'Messaging topics responding')\"
-    
+
     # Test topic creation
     echo 'Testing topic creation:'
     TOPIC_DATA='{
@@ -243,13 +243,13 @@ run_test_verbose "Agent messaging contract integration" "
         \"description\": \"Topic for testing contract integration\",
         \"tags\": [\"integration\", \"test\"]
     }'
-    
+
     TOPIC_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/messaging/topics/create \
       -H 'Content-Type: application/json' \
       -d \"\$TOPIC_DATA\")
-    
+
     echo \"Topic creation: \$(echo \$TOPIC_RESULT | jq .success 2>/dev/null || echo 'Topic creation responding')\"
-    
+
     # Test message posting
     echo 'Testing message posting:'
     MSG_DATA='{
@@ -259,11 +259,11 @@ run_test_verbose "Agent messaging contract integration" "
         \"content\": \"This is a test message for contract integration testing\",
         \"message_type\": \"post\"
     }'
-    
+
     MSG_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/messaging/messages/post \
       -H 'Content-Type: application/json' \
       -d \"\$MSG_DATA\")
-    
+
     echo \"Message posting: \$(echo \$MSG_RESULT | jq .success 2>/dev/null || echo 'Message posting responding')\"
 "
 
@@ -274,10 +274,10 @@ echo "======================================"
 
 run_test_verbose "Cross-service contract integration" "
     echo 'Testing cross-service contract integration...'
-    
+
     # Test contract coordination between services
     echo 'Testing contract coordination:'
-    
+
     # Create a contract that uses multiple services
     COORD_CONTRACT='{
         \"name\": \"MultiServiceContract\",
@@ -293,13 +293,13 @@ run_test_verbose "Cross-service contract integration" "
             }
         ]
     }'
-    
+
     COORD_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/coordination/create \
       -H 'Content-Type: application/json' \
       -d \"\$COORD_CONTRACT\")
-    
+
     echo \"Contract coordination: \$(echo \$COORD_RESULT | jq .success 2>/dev/null || echo 'Contract coordination responding')\"
-    
+
     # Test cross-service transaction
     echo 'Testing cross-service transaction:'
     CROSS_TX='{
@@ -312,11 +312,11 @@ run_test_verbose "Cross-service contract integration" "
         },
         \"sender\": \"ait1coordinator\"
     }'
-    
+
     CROSS_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/coordination/execute \
       -H 'Content-Type: application/json' \
       -d \"\$CROSS_TX\")
-    
+
     echo \"Cross-service transaction: \$(echo \$CROSS_RESULT | jq .success 2>/dev/null || echo 'Cross-service transaction responding')\"
 "
 
@@ -327,12 +327,12 @@ echo "======================================"
 
 run_test_verbose "Contract state management" "
     echo 'Testing contract state management...'
-    
+
     # Test contract state retrieval
     echo 'Testing contract state retrieval:'
     STATE_RESULT=\$(curl -s http://localhost:$GENESIS_PORT/rpc/contracts/state/0xtest)
     echo \"Contract state: \$(echo \$STATE_RESULT | jq .success 2>/dev/null || echo 'Contract state retrieval responding')\"
-    
+
     # Test contract state updates
     echo 'Testing contract state updates:'
     STATE_UPDATE='{
@@ -343,13 +343,13 @@ run_test_verbose "Contract state management" "
             \"updated_by\": \"ait1updater\"
         }
     }'
-    
+
     UPDATE_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/state/update \
       -H 'Content-Type: application/json' \
       -d \"\$STATE_UPDATE\")
-    
+
     echo \"State update: \$(echo \$UPDATE_RESULT | jq .success 2>/dev/null || echo 'State update responding')\"
-    
+
     # Test contract state history
     echo 'Testing contract state history:'
     HISTORY_RESULT=\$(curl -s http://localhost:$GENESIS_PORT/rpc/contracts/history/0xtest)
@@ -363,20 +363,20 @@ echo "==================================="
 
 run_test_verbose "Contract error handling" "
     echo 'Testing contract error handling...'
-    
+
     # Test invalid contract deployment
     echo 'Testing invalid contract deployment:'
     INVALID_CONTRACT='{
         \"code\": \"invalid syntax\",
         \"sender\": \"ait1invalid\"
     }'
-    
+
     INVALID_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/deploy \
       -H 'Content-Type: application/json' \
       -d \"\$INVALID_CONTRACT\")
-    
+
     echo \"Invalid deployment handling: \$(echo \$INVALID_RESULT | jq .error_code 2>/dev/null || echo 'Error handling working')\"
-    
+
     # Test insufficient gas handling
     echo 'Testing insufficient gas handling:'
     LOW_GAS_CONTRACT='{
@@ -384,19 +384,19 @@ run_test_verbose "Contract error handling" "
         \"sender\": \"ait1lowgas\",
         \"gas_limit\": 1000
     }'
-    
+
     GAS_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/deploy \
       -H 'Content-Type: application/json' \
       -d \"\$LOW_GAS_CONTRACT\")
-    
+
     echo \"Gas error handling: \$(echo \$GAS_RESULT | jq .error_code 2>/dev/null || echo 'Gas error handling working')\"
-    
+
     # Test permission error handling
     echo 'Testing permission error handling:'
     PERM_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/admin/deploy \
       -H 'Content-Type: application/json' \
       -d '{\"code\": \"admin_only\", \"sender\": \"ait1user\"}')
-    
+
     echo \"Permission error handling: \$(echo \$PERM_RESULT | jq .error_code 2>/dev/null || echo 'Permission error handling working')\"
 "
 
@@ -407,17 +407,17 @@ echo "=========================="
 
 run_test_verbose "Contract debugging tools" "
     echo 'Testing contract debugging tools...'
-    
+
     # Test contract debugging endpoints
     echo 'Testing contract debugging:'
     DEBUG_RESULT=\$(curl -s http://localhost:$GENESIS_PORT/rpc/contracts/debug/0xtest)
     echo \"Contract debugging: \$(echo \$DEBUG_RESULT | jq .success 2>/dev/null || echo 'Contract debugging responding')\"
-    
+
     # Test contract logging
     echo 'Testing contract logging:'
     LOG_RESULT=\$(curl -s http://localhost:$GENESIS_PORT/rpc/contracts/logs/0xtest)
     echo \"Contract logging: \$(echo \$LOG_RESULT | jq .success 2>/dev/null || echo 'Contract logging responding')\"
-    
+
     # Test contract tracing
     echo 'Testing contract tracing:'
     TRACE_DATA='{
@@ -426,11 +426,11 @@ run_test_verbose "Contract debugging tools" "
         \"params\": [\"param1\", \"param2\"],
         \"trace_depth\": 5
     }'
-    
+
     TRACE_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/trace \
       -H 'Content-Type: application/json' \
       -d \"\$TRACE_DATA\")
-    
+
     echo \"Contract tracing: \$(echo \$TRACE_RESULT | jq .success 2>/dev/null || echo 'Contract tracing responding')\"
 "
 
@@ -441,44 +441,44 @@ echo "==============================="
 
 run_test_verbose "Contract validation" "
     echo 'Testing contract validation...'
-    
+
     # Test contract syntax validation
     echo 'Testing contract syntax validation:'
     SYNTAX_CONTRACT='{
         \"code\": \"function valid() { return true; }\",
         \"language\": \"solidity\"
     }'
-    
+
     SYNTAX_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/validate/syntax \
       -H 'Content-Type: application/json' \
       -d \"\$SYNTAX_CONTRACT\")
-    
+
     echo \"Syntax validation: \$(echo \$SYNTAX_RESULT | jq .valid 2>/dev/null || echo 'Syntax validation responding')\"
-    
+
     # Test contract security validation
     echo 'Testing contract security validation:'
     SECURITY_CONTRACT='{
         \"code\": \"function secure() { require(msg.sender == owner, \"Unauthorized\"); }\",
         \"security_level\": \"high\"
     }'
-    
+
     SECURITY_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/validate/security \
       -H 'Content-Type: application/json' \
       -d \"\$SECURITY_CONTRACT\")
-    
+
     echo \"Security validation: \$(echo \$SECURITY_RESULT | jq .security_score 2>/dev/null || echo 'Security validation responding')\"
-    
+
     # Test contract performance validation
     echo 'Testing contract performance validation:'
     PERF_CONTRACT='{
         \"code\": \"function efficient() { return block.timestamp; }\",
         \"performance_threshold\": \"low\"
     }'
-    
+
     PERF_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/validate/performance \
       -H 'Content-Type: application/json' \
       -d \"\$PERF_CONTRACT\")
-    
+
     echo \"Performance validation: \$(echo \$PERF_RESULT | jq .performance_score 2>/dev/null || echo 'Performance validation responding')\"
 "
 

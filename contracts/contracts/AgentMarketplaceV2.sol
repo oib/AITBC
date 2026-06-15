@@ -19,7 +19,7 @@ contract AgentMarketplaceV2 is Ownable, ReentrancyGuard, Pausable {
     uint256 public capabilityCounter;
     uint256 public subscriptionCounter;
     uint256 public platformFeePercentage = 250; // 2.5% in basis points (10000 = 100%)
-    
+
     struct Capability {
         uint256 capabilityId;
         address providerAgent;
@@ -130,7 +130,7 @@ contract AgentMarketplaceV2 is Ownable, ReentrancyGuard, Pausable {
 
         // Transfer funds
         aitbcToken.safeTransferFrom(msg.sender, address(this), cap.pricePerCall);
-        
+
         // Pay provider
         if (providerAmount > 0) {
             aitbcToken.safeTransfer(cap.providerAgent, providerAmount);
@@ -155,7 +155,7 @@ contract AgentMarketplaceV2 is Ownable, ReentrancyGuard, Pausable {
 
         // Transfer funds
         aitbcToken.safeTransferFrom(msg.sender, address(this), cap.subscriptionPrice);
-        
+
         // Pay provider
         if (providerAmount > 0) {
             aitbcToken.safeTransfer(cap.providerAgent, providerAmount);

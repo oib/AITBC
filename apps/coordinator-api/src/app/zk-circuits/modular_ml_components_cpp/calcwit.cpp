@@ -53,14 +53,14 @@ uint Circom_CalcWit::getInputSignalHashPosition(u64 h) {
   uint pos = (uint)(h % (u64)n);
   if (circuit->InputHashMap[pos].hash!=h){
     uint inipos = pos;
-    pos = (pos+1)%n; 
+    pos = (pos+1)%n;
     while (pos != inipos) {
       if (circuit->InputHashMap[pos].hash == h) return pos;
       if (circuit->InputHashMap[pos].signalid == 0) {
 	fprintf(stderr, "Signal not found\n");
 	assert(false);
       }
-      pos = (pos+1)%n; 
+      pos = (pos+1)%n;
     }
     fprintf(stderr, "Signals not found\n");
     assert(false);
@@ -68,7 +68,7 @@ uint Circom_CalcWit::getInputSignalHashPosition(u64 h) {
   return pos;
 }
 
-void Circom_CalcWit::tryRunCircuit(){ 
+void Circom_CalcWit::tryRunCircuit(){
   if (inputSignalAssignedCounter == 0) {
     run(this);
   }
@@ -84,7 +84,7 @@ void Circom_CalcWit::setInputSignal(u64 h, uint i,  FrElement & val){
     fprintf(stderr, "Input signal array access exceeds the size\n");
     assert(false);
   }
-  
+
   uint si = circuit->InputHashMap[pos].signalid+i;
   if (inputSignalAssigned[si-get_main_input_signal_start()]) {
     fprintf(stderr, "Signal assigned twice: %d\n", si);
@@ -124,4 +124,3 @@ std::string Circom_CalcWit::generate_position_array(uint* dimensions, uint size_
   }
   return positions;
 }
-

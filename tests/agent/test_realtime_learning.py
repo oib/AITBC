@@ -1,17 +1,9 @@
 """Tests for realtime learning module"""
 
-import sys
-from pathlib import Path
+from collections import deque
+from datetime import UTC, datetime, timedelta
 
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
-
-from collections import deque  # noqa: E402
-from datetime import UTC, datetime, timedelta  # noqa: E402
-
-from app.ai.realtime_learning import (  # noqa: E402
+from app.ai.realtime_learning import (
     LearningExperience,
     PredictiveModel,
     RealTimeLearningSystem,

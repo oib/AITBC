@@ -213,24 +213,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip poetry
           poetry config virtualenvs.create false
           poetry install --no-interaction --no-ansi
-      
+
       - name: Lint (ruff)
         run: poetry run ruff check .
-      
+
       - name: Check .env.example drift
         run: python scripts/focused_dotenv_linter.py --check
-      
+
       - name: Test (pytest)
         run: >-
           poetry run pytest --cov=aitbc_cli --cov-report=term-missing
@@ -341,7 +341,7 @@ def test_branch_protection_config():
     main_protection = get_branch_protection("main")
     assert main_protection.required_status_checks == EXPECTED_CHECKS
     assert main_protection.required_approving_review_count == 2
-    
+
     # Test develop branch protection
     develop_protection = get_branch_protection("develop")
     assert develop_protection.required_approving_review_count == 1
@@ -356,11 +356,11 @@ def test_pr_with_branch_protection():
     """Test PR flow with branch protection"""
     # Create PR
     pr = create_pull_request()
-    
+
     # Verify status checks run
     assert "Lint (ruff)" in pr.status_checks
     assert "Test (pytest)" in pr.status_checks
-    
+
     # Verify merge is blocked until checks pass
     assert pr.mergeable == False
 ```

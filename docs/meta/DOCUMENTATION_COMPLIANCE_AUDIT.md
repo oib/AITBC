@@ -1,9 +1,9 @@
 # Documentation Compliance Audit
 
-**Level**: All Levels  
-**Prerequisites**: Familiarity with the AITBC docs tree and template standard  
-**Estimated Time**: 15-20 minutes  
-**Last Updated**: 2026-05-28  
+**Level**: All Levels
+**Prerequisites**: Familiarity with the AITBC docs tree and template standard
+**Estimated Time**: 15-20 minutes
+**Last Updated**: 2026-05-28
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
@@ -122,6 +122,6 @@ This checklist tracks the current remediation target:
 
 ---
 
-*Last updated: 2026-04-27*  
-*Version: 1.0*  
+*Last updated: 2026-04-27*
+*Version: 1.0*
 *Status: Audit checklist*

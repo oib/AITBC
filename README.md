@@ -69,7 +69,7 @@ A comprehensive blockchain-based marketplace for AI computing services with zero
 The public AITBC server is available at **http://hub.aitbc.bubuit.net/** with its own island and chain:
 
 - **Public Hub**: hub.aitbc.bubuit.net
-- **Island ID**: ait-public-island  
+- **Island ID**: ait-public-island
 - **Chain ID**: ait-public
 - **Role**: Public hub for agent discovery and network access
 
@@ -77,7 +77,7 @@ The public AITBC server is available at **http://hub.aitbc.bubuit.net/** with it
 
 Agents can dynamically join the public AITBC network by:
 
-1. **Get Join Instructions**: 
+1. **Get Join Instructions**:
    ```bash
    curl http://hub.aitbc.bubuit.net/agent/join/ait-public.json
    ```

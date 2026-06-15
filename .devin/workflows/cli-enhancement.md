@@ -52,7 +52,7 @@ ls -la cli/aitbc_cli/commands/
 # Create blockchain command
 # File: cli/aitbc_cli/commands/blockchain.py
 
-# Create marketplace command  
+# Create marketplace command
 # File: cli/aitbc_cli/commands/marketplace.py
 
 # Create simulate command
@@ -75,7 +75,7 @@ ls -la cli/aitbc_cli/commands/
 # Create test files in cli/tests/
 # - test_cli_basic.py
 # - test_client.py
-# - test_miner.py  
+# - test_miner.py
 # - test_wallet.py
 # - test_auth.py
 # - test_blockchain.py
@@ -135,7 +135,7 @@ python -m pytest cli/tests/test_cli_basic.py -v
 ```bash
 # Working commands (verify these exist)
 ./aitbc-cli client          # Client operations
-./aitbc-cli miner           # Miner operations  
+./aitbc-cli miner           # Miner operations
 ./aitbc-cli wallet          # Wallet operations
 ./aitbc-cli auth            # Authentication
 ./aitbc-cli marketplace     # Marketplace operations (basic)
@@ -173,7 +173,7 @@ python -m pytest cli/tests/test_cli_basic.py -v
 # Coordinator API
 curl -s http://localhost:8000/health
 
-# Exchange API  
+# Exchange API
 curl -s http://localhost:8001/api/health
 
 # Blockchain RPC

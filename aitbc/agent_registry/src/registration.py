@@ -6,6 +6,9 @@ Handles AI agent registration, capability management, and discovery
 import hashlib
 import logging
 import time
+from dataclasses import dataclass
+from decimal import Decimal
+from enum import Enum
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +19,6 @@ def log_info(msg: str):
 
 def log_error(msg: str):
     logger.error(msg)
-
-
-from dataclasses import dataclass  # noqa: E402
-from decimal import Decimal  # noqa: E402
-from enum import Enum  # noqa: E402
 
 
 class AgentType(Enum):

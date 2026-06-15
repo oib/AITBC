@@ -42,11 +42,11 @@ echo ""
 run_test() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🔧 Optimizing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ OPTIMIZED${NC}: $test_name"
         return 0
@@ -60,11 +60,11 @@ run_test() {
 run_test_verbose() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🔧 Optimizing: $test_name"
     echo "================================"
-    
+
     if eval "$test_command"; then
         echo -e "${GREEN}✅ OPTIMIZED${NC}: $test_name"
         return 0
@@ -168,7 +168,7 @@ run_test_verbose "Cross-node optimization" "
     echo \"Local height: \$LOCAL_HEIGHT\"
     echo \"Remote height: \$REMOTE_HEIGHT\"
     echo \"Sync difference: \$SYNC_DIFF\"
-    
+
     if [ \"\$SYNC_DIFF\" -le 5 ]; then
         echo \"✅ Cross-node synchronization optimized\"
     else
@@ -222,7 +222,7 @@ echo "============================"
 
 run_test_verbose "Comprehensive system test" "
     echo 'Running comprehensive system validation...'
-    
+
     echo 'Testing all major services:'
     echo \"✅ Blockchain RPC: \$(curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null && echo 'Working' || echo 'Failed')\"
     echo \"✅ Coordinator API: \$(curl -s http://localhost:8203/health/live >/dev/null && echo 'Working' || echo 'Failed')\"

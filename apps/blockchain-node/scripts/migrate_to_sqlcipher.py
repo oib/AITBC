@@ -9,10 +9,6 @@ encrypted format using the built-in sqlcipher_export function.
 import sys
 from pathlib import Path
 
-# Add repo root to path for imports
-repo_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(repo_root))
-
 try:
     import sqlcipher3 as sqlite3
 except ImportError:

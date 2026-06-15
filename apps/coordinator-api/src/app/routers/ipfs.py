@@ -127,7 +127,9 @@ async def get_content(request: Request, cid: str) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to retrieve content: {str(e)}") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to retrieve content: {str(e)}"
+        ) from e
 
 
 @router.post("/pin", summary="Pin a CID")

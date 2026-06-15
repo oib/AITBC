@@ -59,8 +59,8 @@ contract AgentWallet is Ownable {
     // Modifiers
     modifier onlyAuthorized() {
         require(
-            msg.sender == owner() || 
-            agentState.authorizedCallers[msg.sender] || 
+            msg.sender == owner() ||
+            agentState.authorizedCallers[msg.sender] ||
             msg.sender == address(agentState.daoContract),
             "Not authorized"
         );
@@ -82,13 +82,13 @@ contract AgentWallet is Ownable {
         agentState.daoContract = _daoContract;
         agentState.isActive = true;
         agentState.authorizedCallers[_owner] = true;
-        
+
         dao = HermesDAO(_daoContract);
         governanceToken = IERC20(_governanceToken);
-        
+
         // Set default voting strategy based on role
         _setDefaultVotingStrategy(_role);
-        
+
         emit AgentRegistered(_owner, _role, _daoContract);
     }
 
@@ -111,7 +111,7 @@ contract AgentWallet is Ownable {
         string calldata reason
     ) external onlyAuthorized onlyActiveAgent {
         require(!agentState.votedProposals[proposalId], "Already voted");
-        
+
         // Check reputation requirement
         require(
             agentState.reputation >= votingStrategy.minReputationToVote,
@@ -121,11 +121,11 @@ contract AgentWallet is Ownable {
         // Cast vote through DAO
         uint8 supportValue = support ? 1 : 0;
         dao.castVoteWithReason(proposalId, supportValue, reason);
-        
+
         // Update agent state
         agentState.lastVote = block.timestamp;
         agentState.votedProposals[proposalId] = true;
-        
+
         emit VoteCast(proposalId, support, reason);
     }
 
@@ -136,17 +136,17 @@ contract AgentWallet is Ownable {
     function autonomousVote(uint256 proposalId) external onlyAuthorized onlyActiveAgent {
         require(votingStrategy.autoVote, "Auto-vote disabled");
         require(!agentState.votedProposals[proposalId], "Already voted");
-        
+
         // Get proposal details from DAO
         (, , , , , , , , , ) = dao.getProposal(proposalId);
-        
+
         // Determine vote based on strategy
         bool support = _calculateAutonomousVote(proposalId);
-        
+
         // Cast the vote
         string memory reason = _generateVotingReason(proposalId, support);
         castVote(proposalId, support, reason);
-        
+
         emit AutonomousVoteExecuted(proposalId, support);
     }
 
@@ -157,7 +157,7 @@ contract AgentWallet is Ownable {
     function updateReputation(uint256 newReputation) external onlyAuthorized {
         uint256 oldReputation = agentState.reputation;
         agentState.reputation = newReputation;
-        
+
         emit ReputationUpdated(oldReputation, newReputation);
     }
 
@@ -172,7 +172,7 @@ contract AgentWallet is Ownable {
     ) external onlyAuthorized {
         votingStrategy.autoVote = autoVote;
         votingStrategy.supportThreshold = supportThreshold;
-        
+
         emit StrategyUpdated(autoVote, supportThreshold);
     }
 
@@ -221,7 +221,7 @@ contract AgentWallet is Ownable {
         if (!agentState.isActive) return false;
         if (agentState.votedProposals[proposalId]) return false;
         if (agentState.reputation < votingStrategy.minReputationToVote) return false;
-        
+
         return true;
     }
 
@@ -234,11 +234,11 @@ contract AgentWallet is Ownable {
         // Get proposal type preference
         (, , , HermesDAO.ProposalType proposalType, , , , , , ) = dao.getProposal(proposalId);
         uint8 preference = votingStrategy.roleVotingPreferences[proposalType];
-        
+
         // Combine with general support threshold
         uint256 combinedScore = uint256(preference) + uint256(votingStrategy.supportThreshold);
         uint256 midpoint = 256; // Midpoint of 0-511 range
-        
+
         return combinedScore > midpoint;
     }
 
@@ -253,11 +253,11 @@ contract AgentWallet is Ownable {
         bool support
     ) internal view returns (string memory) {
         (, , , HermesDAO.ProposalType proposalType, , , , , , ) = dao.getProposal(proposalId);
-        
+
         string memory roleString = _roleToString(agentState.role);
         string memory actionString = support ? "support" : "oppose";
         string memory typeString = _proposalTypeToString(proposalType);
-        
+
         return string(abi.encodePacked(
             "Autonomous ",
             roleString,
@@ -275,7 +275,7 @@ contract AgentWallet is Ownable {
      */
     function _setDefaultVotingStrategy(AgentRole role) internal {
         votingStrategy.minReputationToVote = 100; // Default minimum reputation
-        
+
         if (role == AgentRole.PROVIDER) {
             // Providers favor infrastructure and resource proposals
             votingStrategy.roleVotingPreferences[HermesDAO.ProposalType.PARAMETER_CHANGE] = 180;

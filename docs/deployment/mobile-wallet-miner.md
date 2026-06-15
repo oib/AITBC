@@ -48,7 +48,7 @@ import LocalAuthentication
 struct AITBCWallet: App {
     @StateObject private var walletManager = WalletManager()
     @StateObject private var biometricAuth = BiometricAuth()
-    
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -64,7 +64,7 @@ struct AITBCWallet: App {
 class AITBCWalletApplication : Application() {
     val walletManager: WalletManager by lazy { WalletManager() }
     val biometricAuth: BiometricAuth by lazy { BiometricAuth() }
-    
+
     override fun onCreate() {
         super.onCreate()
         // Initialize security components
@@ -78,11 +78,11 @@ class AITBCWalletApplication : Application() {
 ```swift
 class SecureKeyManager {
     private let secureEnclave = SecureEnclave()
-    
+
     func generatePrivateKey() throws -> PrivateKey {
         return try secureEnclave.generateKey()
     }
-    
+
     func signTransaction(_ transaction: Transaction) throws -> Signature {
         return try secureEnclave.sign(transaction.hash)
     }
@@ -99,7 +99,7 @@ class BiometricAuthManager {
                 .setSubtitle("Authenticate to access wallet")
                 .setNegativeButtonText("Cancel")
                 .build()
-                
+
             biometricPrompt.authenticate(promptInfo)
         }
     }
@@ -153,15 +153,15 @@ class AITBCMiner:
         self.hardware_detector = HardwareDetector()
         self.optimization_engine = OptimizationEngine()
         self.monitor = MiningMonitor()
-        
+
     async def start_mining(self):
         # Detect and configure hardware
         hardware = await self.hardware_detector.detect()
         optimized_config = self.optimization_engine.optimize(hardware)
-        
+
         # Start mining with optimized settings
         await self.mining_engine.start(optimized_config)
-        
+
         # Start monitoring
         await self.monitor.start()
 ```
@@ -171,7 +171,7 @@ class AITBCMiner:
 class HardwareDetector:
     def detect_gpu(self) -> List[GPUInfo]:
         gpus = []
-        
+
         # NVIDIA GPUs
         if nvidia_ml_py3.nvmlInit() == 0:
             device_count = nvidia_ml_py3.nvmlDeviceGetCount()
@@ -179,16 +179,16 @@ class HardwareDetector:
                 handle = nvidia_ml_py3.nvmlDeviceGetHandleByIndex(i)
                 name = nvidia_ml_py3.nvmlDeviceGetName(handle)
                 memory = nvidia_ml_py3.nvmlDeviceGetMemoryInfo(handle)
-                
+
                 gpus.append(GPUInfo(
                     name=name.decode(),
                     memory=memory.total,
                     index=i
                 ))
-        
+
         # AMD GPUs
         # AMD GPU detection logic
-        
+
         return gpus
 ```
 
@@ -201,22 +201,22 @@ class OptimizationEngine:
             return self.optimize_nvidia_gpu(gpu_info)
         elif "AMD" in gpu_info.name:
             return self.optimize_amd_gpu(gpu_info)
-        
+
         return self.default_gpu_settings()
-    
+
     def optimize_nvidia_gpu(self, gpu_info: GPUInfo) -> GPUSettings:
         # NVIDIA-specific optimizations
         settings = GPUSettings()
-        
+
         # Optimize memory clock
         settings.memory_clock = self.calculate_optimal_memory_clock(gpu_info)
-        
+
         # Optimize core clock
         settings.core_clock = self.calculate_optimal_core_clock(gpu_info)
-        
+
         # Optimize power limit
         settings.power_limit = self.calculate_optimal_power_limit(gpu_info)
-        
+
         return settings
 ```
 
@@ -229,7 +229,7 @@ const MiningDashboard: React.FC = () => {
   const [isMining, setIsMining] = useState(false);
   const [hashrate, setHashrate] = useState(0);
   const [earnings, setEarnings] = useState(0);
-  
+
   const startMining = async () => {
     try {
       await window.aitbc.startMining();
@@ -238,7 +238,7 @@ const MiningDashboard: React.FC = () => {
       console.error('Failed to start mining:', error);
     }
   };
-  
+
   return (
     <div className="mining-dashboard">
       <div className="status-panel">
@@ -247,7 +247,7 @@ const MiningDashboard: React.FC = () => {
           {isMining ? 'Mining Active' : 'Mining Stopped'}
         </div>
       </div>
-      
+
       <div className="performance-panel">
         <h3>Performance</h3>
         <div className="metric">
@@ -259,9 +259,9 @@ const MiningDashboard: React.FC = () => {
           <span>{earnings.toFixed(4)} AITBC</span>
         </div>
       </div>
-      
+
       <div className="control-panel">
-        <button 
+        <button
           onClick={startMining}
           disabled={isMining}
           className="start-button"
@@ -279,7 +279,7 @@ const MiningDashboard: React.FC = () => {
 // SwiftUI Mobile Mining Monitor
 struct MiningMonitorView: View {
     @StateObject private var miningService = MiningService()
-    
+
     var body: some View {
         NavigationView {
             VStack {
@@ -288,19 +288,19 @@ struct MiningMonitorView: View {
                     isMining: miningService.isMining,
                     hashrate: miningService.currentHashrate
                 )
-                
+
                 // Performance Metrics
                 PerformanceMetricsView(
                     dailyEarnings: miningService.dailyEarnings,
                     uptime: miningService.uptime
                 )
-                
+
                 // Hardware Status
                 HardwareStatusView(
                     temperature: miningService.temperature,
                     fanSpeed: miningService.fanSpeed
                 )
-                
+
                 // Control Buttons
                 ControlButtonsView(
                     onStart: miningService.startMining,

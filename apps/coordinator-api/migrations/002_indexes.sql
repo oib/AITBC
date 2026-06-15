@@ -9,14 +9,14 @@ CREATE INDEX IF NOT EXISTS idx_jobs_miner_id ON jobs(miner_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_model ON jobs(model);
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_jobs_pending ON jobs(status, priority DESC, created_at ASC) 
+CREATE INDEX IF NOT EXISTS idx_jobs_pending ON jobs(status, priority DESC, created_at ASC)
     WHERE status = 'pending';
 
 -- Miners indexes
 CREATE INDEX IF NOT EXISTS idx_miners_status ON miners(status);
 CREATE INDEX IF NOT EXISTS idx_miners_capabilities ON miners USING GIN(capabilities);
 CREATE INDEX IF NOT EXISTS idx_miners_last_heartbeat ON miners(last_heartbeat DESC);
-CREATE INDEX IF NOT EXISTS idx_miners_available ON miners(status, score DESC) 
+CREATE INDEX IF NOT EXISTS idx_miners_available ON miners(status, score DESC)
     WHERE status = 'available';
 
 -- Receipts indexes
@@ -50,9 +50,9 @@ CREATE INDEX IF NOT EXISTS idx_job_history_event_type ON job_history(event_type)
 CREATE INDEX IF NOT EXISTS idx_job_history_created_at ON job_history(created_at DESC);
 
 -- Composite indexes for common queries
-CREATE INDEX IF NOT EXISTS idx_jobs_explorer ON jobs(status, created_at DESC) 
+CREATE INDEX IF NOT EXISTS idx_jobs_explorer ON jobs(status, created_at DESC)
     INCLUDE (job_id, model, miner_id);
-CREATE INDEX IF NOT EXISTS idx_receipts_explorer ON receipts(created_at DESC) 
+CREATE INDEX IF NOT EXISTS idx_receipts_explorer ON receipts(created_at DESC)
     INCLUDE (receipt_id, job_id, provider, client, price);
 
 -- Full-text search index for job prompts (optional)

@@ -14,8 +14,9 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X
 
 from aitbc import get_logger
 
+from ....schemas import KeyPair, KeyRotationLog
+
 logger = get_logger(__name__)
-from ....schemas import KeyPair, KeyRotationLog  # noqa: E402
 
 
 class KeyManager:

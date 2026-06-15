@@ -203,7 +203,7 @@ We thank all security researchers who contribute to the security of the AITBC pl
 
 ---
 
-**Last Updated**: 2026-03-04  
-**Version**: 1.0  
-**Contact**: security@aitbc.dev  
+**Last Updated**: 2026-03-04
+**Version**: 1.0
+**Contact**: security@aitbc.dev
 **Project**: AITBC (AI Trading Blockchain Compute)

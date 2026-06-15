@@ -228,7 +228,7 @@
         async function refreshData() {
             const btn = document.getElementById('refreshBtn');
             btn.classList.add('spinning');
-            
+
             try {
                 await Promise.all([
                     loadMarketStats(),
@@ -248,32 +248,32 @@
                 // Get treasury balance instead of hardcoded amount
                 const treasuryResponse = await axios.get(`${API_BASE}/treasury-balance`);
                 const treasury = treasuryResponse.data;
-                
+
                 const availableAitbc = parseInt(treasury.available_for_sale) / 1000000; // Convert from smallest units
                 const stats = { price: 0.00001 }; // Default price
-                
+
                 // Update elements with defensive checks
                 const totalSoldEl = document.getElementById('totalAitbcSold');
                 if (totalSoldEl) totalSoldEl.textContent = (stats.daily_volume || 0).toLocaleString();
-                
+
                 const totalBtcEl = document.getElementById('totalBtcReceived');
                 if (totalBtcEl) totalBtcEl.textContent = (stats.daily_volume_btc || 0).toFixed(8) + ' BTC';
-                
+
                 const pendingEl = document.getElementById('pendingPayments');
                 if (pendingEl) pendingEl.textContent = stats.pending_payments || 0;
-                
+
                 // Update available AITBC from treasury
-                document.getElementById('availableAitbc').textContent = 
+                document.getElementById('availableAitbc').textContent =
                     availableAitbc.toLocaleString();
-                document.getElementById('estimatedValue').textContent = 
+                document.getElementById('estimatedValue').textContent =
                     (availableAitbc * (stats.price || 0.00001)).toFixed(2) + ' BTC';
-                
+
                 // Add source indicator
                 const supplyElement = document.getElementById('availableAitbc');
                 if (treasury.source === 'genesis') {
                     supplyElement.innerHTML += ' <span class="text-xs text-orange-600">(Genesis)</span>';
                 }
-                
+
                 // Update market status
                 const marketStatus = stats.market_status;
                 const marketStatusEl = document.getElementById('marketStatus');
@@ -300,7 +300,7 @@
         async function loadPayments() {
             try {
                 // Since there's no endpoint to list all payments, we'll show a message
-                document.getElementById('paymentsList').innerHTML = 
+                document.getElementById('paymentsList').innerHTML =
                     '<div class="text-gray-500 text-center py-8">Payment history requires database implementation</div>';
             } catch (error) {
                 console.error('Error loading payments:', error);
@@ -312,18 +312,18 @@
             try {
                 const response = await axios.get(`${API_BASE}/exchange/wallet/info`);
                 const wallet = response.data;
-                
-                document.getElementById('btcBalance').textContent = 
+
+                document.getElementById('btcBalance').textContent =
                     wallet.balance.toFixed(8) + ' BTC';
-                document.getElementById('walletAddress').textContent = 
+                document.getElementById('walletAddress').textContent =
                     wallet.address;
-                
+
                 // Show wallet type
                 const balanceElement = document.getElementById('btcBalance');
                 if (wallet.testnet) {
                     balanceElement.innerHTML += ' <span style="font-size: 0.5em; opacity: 0.7;">(TESTNET)</span>';
                 }
-                
+
                 // Update wallet info section
                 updateWalletInfo(wallet);
             } catch (error) {
@@ -333,7 +333,7 @@
                 document.getElementById('walletAddress').textContent = 'Wallet API unavailable';
             }
         }
-        
+
         // Update wallet information display
         function updateWalletInfo(wallet) {
             // Create or update wallet info display
@@ -344,7 +344,7 @@
                 walletInfo.className = 'mt-4 p-4 bg-gray-100 rounded-lg';
                 document.querySelector('.wallet-balance').appendChild(walletInfo);
             }
-            
+
             walletInfo.innerHTML = `
                 <div class="text-sm">
                     <div class="mb-2"><strong>Wallet Type:</strong> ${wallet.wallet_type}</div>

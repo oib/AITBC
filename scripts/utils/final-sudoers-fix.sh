@@ -36,10 +36,10 @@ check_root() {
 # Create simple, working sudoers configuration
 create_simple_sudoers() {
     print_header "Creating Simple Working Sudoers"
-    
+
     # Create clean sudoers file
     sudoers_file="/etc/sudoers.d/aitbc-dev"
-    
+
     cat > "$sudoers_file" << 'EOF'
 # AITBC Development Sudoers Configuration
 # Simple, working configuration without complex commands
@@ -95,17 +95,17 @@ oib ALL=(root) NOPASSWD: /usr/bin/incus shell aitbc1 *
 oib ALL=(aitbc) NOPASSWD: ALL
 
 EOF
-    
+
     # Set proper permissions
     chmod 440 "$sudoers_file"
-    
+
     print_status "Simple sudoers configuration created: $sudoers_file"
 }
 
 # Test the sudoers configuration
 test_sudoers() {
     print_header "Testing Sudoers Configuration"
-    
+
     # Test syntax
     if visudo -c -f "$sudoers_file"; then
         print_status "✅ Sudoers syntax is valid"
@@ -119,7 +119,7 @@ test_sudoers() {
 # Create helper scripts for complex operations
 create_helper_scripts() {
     print_header "Creating Helper Scripts for Complex Operations"
-    
+
     # Create permission fix script
     cat > "/opt/aitbc/scripts/fix-permissions.sh" << 'EOF'
 #!/bin/bash
@@ -144,10 +144,10 @@ sudo find /opt/aitbc -type d -exec chmod g+s {} \;
 
 echo "✅ Permissions fixed!"
 EOF
-    
+
     # Make script executable
     chmod +x /opt/aitbc/scripts/fix-permissions.sh
-    
+
     print_status "Helper scripts created"
 }
 
@@ -156,17 +156,17 @@ main() {
     print_header "Final AITBC Sudoers Fix"
     echo "Creating simple, working sudoers configuration"
     echo ""
-    
+
     check_root
-    
+
     # Create simple configuration
     create_simple_sudoers
-    
+
     # Test it
     if test_sudoers; then
         # Create helper scripts
         create_helper_scripts
-        
+
         print_header "Success! 🎉"
         echo ""
         echo "✅ Working sudoers configuration created"

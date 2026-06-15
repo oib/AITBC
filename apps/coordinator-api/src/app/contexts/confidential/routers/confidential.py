@@ -5,16 +5,14 @@ API endpoints for confidential transactions
 from datetime import UTC, datetime
 from typing import Any
 
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import HTTPBearer
+
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
-logger = get_logger(__name__)
-from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
-from fastapi.security import HTTPBearer  # noqa: E402
-
-from aitbc.rate_limiting import rate_limit  # noqa: E402
-
-from ....auth import get_api_key  # noqa: E402
-from ....schemas import (  # noqa: E402
+from ....auth import get_api_key
+from ....schemas import (
     AccessLogQuery,
     AccessLogResponse,
     ConfidentialAccessRequest,
@@ -25,9 +23,11 @@ from ....schemas import (  # noqa: E402
     KeyRegistrationRequest,
     KeyRegistrationResponse,
 )
-from ...security.services.access_control import AccessController  # noqa: E402
-from ...security.services.encryption import EncryptedData, EncryptionService  # noqa: E402
-from ...security.services.key_management import KeyManagementError, KeyManager  # noqa: E402
+from ...security.services.access_control import AccessController
+from ...security.services.encryption import EncryptedData, EncryptionService
+from ...security.services.key_management import KeyManagementError, KeyManager
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/confidential", tags=["confidential"])
 security = HTTPBearer()

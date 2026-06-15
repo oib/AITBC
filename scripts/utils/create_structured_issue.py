@@ -45,10 +45,10 @@ def create_issue(title, context, expected, files, implementation, difficulty, pr
 {implementation}
 
 ## Difficulty
-{chr(10).join([f'- [{"x" if difficulty == d else " "}] {d}' for d in difficulty_levels])}
+{chr(10).join([f"- [{'x' if difficulty == d else ' '}] {d}" for d in difficulty_levels])}
 
 ## Priority
-{chr(10).join([f'- [{"x" if priority == p else " "}] {p}' for p in priority_levels])}
+{chr(10).join([f"- [{'x' if priority == p else ' '}] {p}" for p in priority_levels])}
 
 ## Labels
 {", ".join([f"[{label}]" for label in labels])}

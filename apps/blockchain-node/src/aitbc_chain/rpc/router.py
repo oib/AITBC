@@ -16,9 +16,7 @@ from aitbc.rate_limiting import rate_limit
 from ..config import settings
 from ..logger import get_logger
 from ..mempool import get_mempool
-
-_logger = get_logger(__name__)
-from .accounts import (  # noqa: E402
+from .accounts import (
     create_account,
     faucet_request,
     get_account,
@@ -26,20 +24,24 @@ from .accounts import (  # noqa: E402
     get_balance_breakdown,
     reconcile_balance,
 )
-from .blocks import get_block, get_blocks_range, get_genesis_allocations, get_head, import_block  # noqa: E402
-from .subscription import (  # noqa: E402
+from .blocks import get_block, get_blocks_range, get_genesis_allocations, get_head, import_block
+from .gossip import GetLogsRequest, GetLogsResponse, get_logs
+from .subscription import (
     get_lease_status,
     get_subscribers,
     heartbeat,
     register_subscription,
     revoke_subscription,
 )
-from .transactions import (  # noqa: E402
+from .sync import export_chain, force_sync, import_chain
+from .transactions import (
     TransactionRequest,
     query_transactions,
     submit_marketplace_transaction,
     submit_transaction,
 )
+
+_logger = get_logger(__name__)
 
 try:
     from .disputes import (
@@ -111,8 +113,6 @@ except ImportError:
         verify_contract,
         vote_message,
     )
-from .gossip import GetLogsRequest, GetLogsResponse, get_logs  # noqa: E402
-from .sync import export_chain, force_sync, import_chain  # noqa: E402
 
 try:
     from .islands import (

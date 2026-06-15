@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import re
+import time
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from datetime import UTC, datetime
@@ -10,16 +11,16 @@ from typing import Any
 
 from sqlmodel import Session, select
 
+from ..config import ProposerConfig
 from ..gossip import gossip_broker
 from ..lease_tracker import lease_tracker
 from ..logger import get_logger
+from ..metrics import metrics_registry
+from ..models import Account, Block
 from ..state.merkle_patricia_trie import StateManager
+from ..state.state_transition import get_state_transition
 
 logger = get_logger(__name__)
-from ..config import ProposerConfig  # noqa: E402
-from ..metrics import metrics_registry  # noqa: E402
-from ..models import Account, Block  # noqa: E402
-from ..state.state_transition import get_state_transition  # noqa: E402
 
 _METRIC_KEY_SANITIZE = re.compile("[^a-zA-Z0-9_]")
 
@@ -40,9 +41,6 @@ def _compute_state_root(session: Session, chain_id: str) -> str | None:
     except Exception as e:
         logger.warning("Failed to compute state root: %s", e)
         return None
-
-
-import time  # noqa: E402
 
 
 class CircuitBreaker:

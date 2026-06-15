@@ -37,14 +37,14 @@ check_dependencies() {
         error "Python 3.11+ is required but not found"
         exit 1
     fi
-    
+
     log "Python version: $(python3.11 --version)"
-    
+
     if ! command -v kubectl &> /dev/null; then
         error "kubectl is not installed or not in PATH"
         exit 1
     fi
-    
+
     if ! command -v pg_dump &> /dev/null; then
         error "pg_dump is not installed or not in PATH"
         exit 1
@@ -63,12 +63,12 @@ get_postgresql_pod() {
     if [[ -z "$pod" ]]; then
         pod=$(kubectl get pods -n "$NAMESPACE" -l app=postgresql -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
     fi
-    
+
     if [[ -z "$pod" ]]; then
         error "Could not find PostgreSQL pod in namespace $NAMESPACE"
         exit 1
     fi
-    
+
     echo "$pod"
 }
 
@@ -76,9 +76,9 @@ get_postgresql_pod() {
 wait_for_postgresql() {
     local pod=$1
     log "Waiting for PostgreSQL pod $pod to be ready..."
-    
+
     kubectl wait --for=condition=ready pod "$pod" -n "$NAMESPACE" --timeout=300s
-    
+
     # Check if PostgreSQL is accepting connections
     local retries=30
     while [[ $retries -gt 0 ]]; do
@@ -89,7 +89,7 @@ wait_for_postgresql() {
         sleep 2
         ((retries--))
     done
-    
+
     error "PostgreSQL did not become ready within timeout"
     exit 1
 }
@@ -98,32 +98,32 @@ wait_for_postgresql() {
 perform_backup() {
     local pod=$1
     local backup_file="$BACKUP_DIR/${BACKUP_NAME}.sql"
-    
+
     log "Starting PostgreSQL backup to $backup_file"
-    
+
     # Get database credentials from secret
     local db_user=$(kubectl get secret -n "$NAMESPACE" coordinator-postgresql -o jsonpath='{.data.username}' 2>/dev/null | base64 -d || echo "postgres")
     local db_password=$(kubectl get secret -n "$NAMESPACE" coordinator-postgresql -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo "")
     local db_name=$(kubectl get secret -n "$NAMESPACE" coordinator-postgresql -o jsonpath='{.data.database}' 2>/dev/null | base64 -d || echo "aitbc")
-    
+
     # Perform the backup
     PGPASSWORD="$db_password" kubectl exec -n "$NAMESPACE" "$pod" -- \
         pg_dump -U "$db_user" -h localhost -d "$db_name" \
         --verbose --clean --if-exists --create --format=custom \
         --file="/tmp/${BACKUP_NAME}.dump"
-    
+
     # Copy backup from pod
     kubectl cp "$NAMESPACE/$pod:/tmp/${BACKUP_NAME}.dump" "$backup_file"
-    
+
     # Clean up remote backup file
     kubectl exec -n "$NAMESPACE" "$pod" -- rm -f "/tmp/${BACKUP_NAME}.dump"
-    
+
     # Compress backup
     gzip "$backup_file"
     backup_file="${backup_file}.gz"
-    
+
     log "Backup completed: $backup_file"
-    
+
     # Verify backup
     if [[ -f "$backup_file" ]] && [[ -s "$backup_file" ]]; then
         local size=$(du -h "$backup_file" | cut -f1)
@@ -144,13 +144,13 @@ cleanup_old_backups() {
 # Upload to cloud storage (optional)
 upload_to_cloud() {
     local backup_file="$1"
-    
+
     # Check if AWS CLI is configured
     if command -v aws &> /dev/null && aws sts get-caller-identity &>/dev/null; then
         log "Uploading backup to S3"
         local s3_bucket="aitbc-backups-${NAMESPACE}"
         local s3_key="postgresql/$(basename "$backup_file")"
-        
+
         aws s3 cp "$backup_file" "s3://$s3_bucket/$s3_key" --storage-class GLACIER_IR
         log "Backup uploaded to s3://$s3_bucket/$s3_key"
     else
@@ -161,19 +161,19 @@ upload_to_cloud() {
 # Main execution
 main() {
     log "Starting PostgreSQL backup process"
-    
+
     check_dependencies
     create_backup_dir
-    
+
     local pod=$(get_postgresql_pod)
     wait_for_postgresql "$pod"
-    
+
     perform_backup "$pod"
     cleanup_old_backups
-    
+
     local backup_file="$BACKUP_DIR/${BACKUP_NAME}.sql.gz"
     upload_to_cloud "$backup_file"
-    
+
     log "PostgreSQL backup process completed successfully"
 }
 

@@ -5,7 +5,7 @@ const { ethers } = hardhat;
 describe.skip("DynamicPricing", function () {
   let dynamicPricing, aitbcToken, aiPowerRental, performanceVerifier;
   let deployer, provider, oracle;
-  
+
   const BASE_PRICE = ethers.parseEther("0.01");
   const INITIAL_SUPPLY = ethers.parseUnits("1000000", 18);
 
@@ -92,7 +92,7 @@ describe.skip("DynamicPricing", function () {
         95,   // averageAccuracy
         75    // marketSentiment
       );
-      
+
       const marketData = await dynamicPricing.marketDataHistory(0);
       expect(marketData.totalSupply).to.equal(1000);
       expect(marketData.totalDemand).to.equal(800);
@@ -129,7 +129,7 @@ describe.skip("DynamicPricing", function () {
 
     it("Should update price", async function () {
       await dynamicPricing.connect(oracle).updatePrice(0);
-      
+
       const priceHistory = await dynamicPricing.priceHistory(0, 0);
       expect(priceHistory.price).to.be.gt(0);
     });
@@ -159,7 +159,7 @@ describe.skip("DynamicPricing", function () {
         1, // Fixed strategy
         100 // reputation score
       );
-      
+
       const providerPricing = await dynamicPricing.providerPricing(provider.address);
       expect(providerPricing.currentPrice).to.equal(BASE_PRICE);
     });
@@ -182,10 +182,10 @@ describe.skip("DynamicPricing", function () {
         1,
         100
       );
-      
+
       const newPrice = BASE_PRICE * 110n / 100n; // 10% increase
       await dynamicPricing.connect(deployer).updateProviderPrice(provider.address, newPrice);
-      
+
       const providerPricing = await dynamicPricing.providerPricing(provider.address);
       expect(providerPricing.currentPrice).to.equal(newPrice);
     });
@@ -211,7 +211,7 @@ describe.skip("DynamicPricing", function () {
         400,
         BASE_PRICE
       );
-      
+
       const regionalPricing = await dynamicPricing.regionalPricing("us-east-1");
       expect(regionalPricing.regionalMultiplier).to.equal(150);
     });
@@ -236,7 +236,7 @@ describe.skip("DynamicPricing", function () {
         400,
         BASE_PRICE
       );
-      
+
       const regions = await dynamicPricing.getSupportedRegions();
       expect(regions).to.include("us-east-1");
     });
@@ -257,31 +257,31 @@ describe.skip("DynamicPricing", function () {
   describe("Configuration Updates", function () {
     it("Should update base price", async function () {
       await dynamicPricing.connect(deployer).updateBasePrice(2e16);
-      
+
       expect(await dynamicPricing.basePricePerHour()).to.equal(2e16);
     });
 
     it("Should update minimum price", async function () {
       await dynamicPricing.connect(deployer).updateMinPrice(2e15);
-      
+
       expect(await dynamicPricing.minPricePerHour()).to.equal(2e15);
     });
 
     it("Should update maximum price", async function () {
       await dynamicPricing.connect(deployer).updateMaxPrice(2e18);
-      
+
       expect(await dynamicPricing.maxPricePerHour()).to.equal(2e18);
     });
 
     it("Should update price volatility threshold", async function () {
       await dynamicPricing.connect(deployer).updatePriceVolatilityThreshold(3000);
-      
+
       expect(await dynamicPricing.priceVolatilityThreshold()).to.equal(3000);
     });
 
     it("Should update surge multiplier", async function () {
       await dynamicPricing.connect(deployer).updateSurgeMultiplier(400); // 4x
-      
+
       expect(await dynamicPricing.surgeMultiplier()).to.equal(400);
     });
 
@@ -295,14 +295,14 @@ describe.skip("DynamicPricing", function () {
   describe("Oracle Management", function () {
     it("Should authorize price oracle", async function () {
       await dynamicPricing.connect(deployer).authorizePriceOracle(provider.address);
-      
+
       expect(await dynamicPricing.authorizedPriceOracles(provider.address)).to.be.true;
     });
 
     it("Should revoke price oracle", async function () {
       await dynamicPricing.connect(deployer).authorizePriceOracle(provider.address);
       await dynamicPricing.connect(deployer).revokePriceOracle(provider.address);
-      
+
       expect(await dynamicPricing.authorizedPriceOracles(provider.address)).to.be.false;
     });
 
@@ -332,7 +332,7 @@ describe.skip("DynamicPricing", function () {
 
     it("Should get price history", async function () {
       await dynamicPricing.connect(oracle).updatePrice(0);
-      
+
       const history = await dynamicPricing.priceHistory(0, 0);
       expect(history.price).to.be.gt(0);
     });

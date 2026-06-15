@@ -145,7 +145,7 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
 
     constructor(address _feeRecipient) {
         feeRecipient = _feeRecipient;
-        
+
         // Initialize with Ethereum mainnet
         _addChain(1, ChainType.ETHEREUM, "Ethereum", true, address(0), 12, 12);
     }
@@ -165,14 +165,14 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         uint256 amount,
         uint256 targetChainId,
         address recipient
-    ) 
-        external 
-        nonReentrant 
+    )
+        external
+        nonReentrant
         whenNotPaused
         supportedToken(sourceToken)
         supportedChain(targetChainId)
         withinBridgeLimit(sourceToken, amount)
-        returns (uint256 requestId) 
+        returns (uint256 requestId)
     {
         require(sourceToken != address(0), "Invalid source token");
         require(targetToken != address(0), "Invalid target token");
@@ -237,13 +237,13 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         uint256 requestId,
         bytes32 lockTxHash,
         bytes memory signature
-    ) 
-        external 
+    )
+        external
         onlyActiveValidator
         validRequest(requestId)
     {
         BridgeRequest storage request = bridgeRequests[requestId];
-        
+
         require(request.status == BridgeStatus.PENDING, "Request not pending");
         require(!request.hasConfirmed[msg.sender], "Already confirmed");
         require(block.timestamp <= request.createdAt + BRIDGE_TIMEOUT, "Bridge request expired");
@@ -279,14 +279,14 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         uint256 requestId,
         bytes32 unlockTxHash,
         bytes32[] calldata proof
-    ) 
-        external 
-        nonReentrant 
+    )
+        external
+        nonReentrant
         whenNotPaused
         validRequest(requestId)
     {
         BridgeRequest storage request = bridgeRequests[requestId];
-        
+
         require(request.status == BridgeStatus.CONFIRMED, "Request not confirmed");
         require(block.chainid == request.targetChainId, "Wrong chain");
         require(!processedTxHashes[unlockTxHash], "Transaction already processed");
@@ -312,13 +312,13 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
      * @param requestId The bridge request ID
      * @param reason Reason for cancellation
      */
-    function cancelBridge(uint256 requestId, string memory reason) 
-        external 
-        nonReentrant 
-        validRequest(requestId) 
+    function cancelBridge(uint256 requestId, string memory reason)
+        external
+        nonReentrant
+        validRequest(requestId)
     {
         BridgeRequest storage request = bridgeRequests[requestId];
-        
+
         require(request.status == BridgeStatus.PENDING, "Request not pending");
         require(
             msg.sender == request.sender || msg.sender == owner(),
@@ -348,9 +348,9 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
      * @return status The request status
      * @return createdAt The request timestamp
      */
-    function getBridgeRequest(uint256 requestId) 
-        external 
-        view 
+    function getBridgeRequest(uint256 requestId)
+        external
+        view
         validRequest(requestId)
         returns (
             uint256 sourceChainId,
@@ -360,7 +360,7 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
             address recipient,
             BridgeStatus status,
             uint256 createdAt
-        ) 
+        )
     {
         BridgeRequest storage request = bridgeRequests[requestId];
         return (
@@ -379,10 +379,10 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
      * @param user The user address
      * @return requestIds Array of bridge request IDs
      */
-    function getUserBridgeHistory(address user) 
-        external 
-        view 
-        returns (uint256[] memory requestIds) 
+    function getUserBridgeHistory(address user)
+        external
+        view
+        returns (uint256[] memory requestIds)
     {
         return userBridgeHistory[user];
     }
@@ -394,10 +394,10 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
      * @param signature The signature to validate
      * @return isValid Whether the signature is valid
      */
-    function validateBridgeRequest(uint256 requestId, bytes32 lockTxHash, bytes memory signature) 
-        external 
-        view 
-        returns (bool isValid) 
+    function validateBridgeRequest(uint256 requestId, bytes32 lockTxHash, bytes memory signature)
+        external
+        view
+        returns (bool isValid)
     {
         bytes32 messageHash = keccak256(abi.encodePacked(requestId, lockTxHash, block.chainid));
         address recoveredAddress = messageHash.recover(signature);
@@ -497,7 +497,7 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         require(validators[validatorAddress].isActive, "Validator not active");
 
         validators[validatorAddress].isActive = false;
-        
+
         // Remove from active validators array
         for (uint i = 0; i < activeValidators.length; i++) {
             if (activeValidators[i] == validatorAddress) {

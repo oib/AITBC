@@ -22,13 +22,13 @@ case $ACTION in
         git push github main
         echo "✅ Pushed to GitHub"
         ;;
-        
+
     "pull")
         echo "📥 Pulling changes from GitHub..."
         git pull github main
         echo "✅ Pulled from GitHub"
         ;;
-        
+
     "deploy")
         echo "🚀 Deploying to AITBC server..."
         if [ "$ENVIRONMENT" != "aitbc" ]; then
@@ -39,7 +39,7 @@ case $ACTION in
         systemctl restart aitbc-coordinator
         echo "✅ Deployed and service restarted"
         ;;
-        
+
     "status")
         echo "📊 Git Status:"
         git status
@@ -50,7 +50,7 @@ case $ACTION in
         echo "📊 Recent Commits:"
         git log --oneline -3
         ;;
-        
+
     *)
         echo "Usage: $0 [push|pull|deploy|status]"
         echo "  push    - Push changes to GitHub (localhost only)"

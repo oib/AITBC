@@ -48,36 +48,36 @@ jobs:
       - name: Setup Node.js environment
         run: |
           cd "/opt/aitbc/contracts"
-          
+
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
             npm install -g pnpm
           fi
-          
+
           pnpm install
           echo "✅ Node.js environment ready"
 
       - name: Run gas usage benchmarks
         run: |
           cd "/opt/aitbc/contracts"
-          
+
           echo "🧪 Running gas usage benchmarks"
-          
+
           # Run benchmarks (gas reporting will be added when tests are implemented)
           pnpm hardhat test test/benchmarks/gas-usage.test.js
-          
+
           echo "✅ Gas usage benchmarks completed"
 
       - name: Upload gas report
         run: |
           cd /opt/aitbc
-          
+
           echo "📊 Gas report upload skipped (reports will be added when tests are implemented)"
-          
+
           # Save report to artifacts directory (placeholder)
           mkdir -p /var/lib/aitbc/benchmarks
           echo "Gas report placeholder - $(date)" > /var/lib/aitbc/benchmarks/gas-report-placeholder-$(date +%Y%m%d-%H%M%S).txt
-          
+
           echo "✅ Gas report placeholder uploaded"
 
   benchmark-execution-time:
@@ -101,34 +101,34 @@ jobs:
       - name: Setup Node.js environment
         run: |
           cd "/opt/aitbc/contracts"
-          
+
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
             npm install -g pnpm
           fi
-          
+
           pnpm install
           echo "✅ Node.js environment ready"
 
       - name: Run execution time benchmarks
         run: |
           cd "/opt/aitbc/contracts"
-          
+
           echo "🧪 Running execution time benchmarks"
-          
+
           pnpm hardhat test test/benchmarks/execution-time.test.js
-          
+
           echo "✅ Execution time benchmarks completed"
 
       - name: Upload execution time report
         run: |
           cd /opt/aitbc
-          
+
           echo "📊 Execution time report upload skipped (reports will be added when tests are implemented)"
-          
+
           mkdir -p /var/lib/aitbc/benchmarks
           echo "Execution time report placeholder - $(date)" > /var/lib/aitbc/benchmarks/execution-time-placeholder-$(date +%Y%m%d-%H%M%S).json
-          
+
           echo "✅ Execution time report placeholder uploaded"
 
   benchmark-throughput:
@@ -152,34 +152,34 @@ jobs:
       - name: Setup Node.js environment
         run: |
           cd "/opt/aitbc/contracts"
-          
+
           # Install pnpm if not available
           if ! command -v pnpm &> /dev/null; then
             npm install -g pnpm
           fi
-          
+
           pnpm install
           echo "✅ Node.js environment ready"
 
       - name: Run throughput benchmarks
         run: |
           cd "/opt/aitbc/contracts"
-          
+
           echo "🧪 Running throughput benchmarks"
-          
+
           pnpm hardhat test test/benchmarks/throughput.test.js
-          
+
           echo "✅ Throughput benchmarks completed"
 
       - name: Upload throughput report
         run: |
           cd /opt/aitbc
-          
+
           echo "📊 Throughput report upload skipped (reports will be added when tests are implemented)"
-          
+
           mkdir -p /var/lib/aitbc/benchmarks
           echo "Throughput report placeholder - $(date)" > /var/lib/aitbc/benchmarks/throughput-placeholder-$(date +%Y%m%d-%H%M%S).json
-          
+
           echo "✅ Throughput report placeholder uploaded"
 
   compare-benchmarks:
@@ -204,21 +204,20 @@ jobs:
       - name: Compare with previous benchmarks
         run: |
           cd /opt/aitbc
-          
+
           echo "📊 Comparing benchmark results"
-          
+
           # Run comparison script
           bash scripts/benchmarking/compare-benchmarks.sh
-          
+
           echo "✅ Benchmark comparison completed"
 
       - name: Generate benchmark report
         run: |
           cd /opt/aitbc
-          
-          echo "📝 Generating benchmark report"
-          
-          bash scripts/benchmarking/generate-report.sh
-          
-          echo "✅ Benchmark report generated"
 
+          echo "📝 Generating benchmark report"
+
+          bash scripts/benchmarking/generate-report.sh
+
+          echo "✅ Benchmark report generated"

@@ -3,10 +3,10 @@
 ## Status: ALL PRs CLOSED & MERGED
 
 ### Summary:
-**Total PRs**: 25  
-**Open PRs**: 0  
-**Merged PRs**: 22  
-**Closed (Unmerged)**: 3  
+**Total PRs**: 25
+**Open PRs**: 0
+**Merged PRs**: 22
+**Closed (Unmerged)**: 3
 
 ### Recently Merged PRs (Today):
 

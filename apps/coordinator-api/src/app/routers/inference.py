@@ -160,7 +160,9 @@ async def batch_generate(request: Request, req: BatchInferenceRequest) -> dict[s
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Ollama service not available") from None
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Batch inference failed: {str(e)}") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Batch inference failed: {str(e)}"
+        ) from e
 
 
 @router.get("/models", summary="List available models")

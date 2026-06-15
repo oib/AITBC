@@ -5,20 +5,20 @@ const path = require("path");
 async function main() {
     console.log("🚀 Deploying Hermes Autonomous Economics Contracts");
     console.log("==============================================");
-    
+
     const [deployer] = await ethers.getSigners();
     const balance = await deployer.getBalance();
-    
+
     console.log(`Deployer: ${deployer.address}`);
     console.log(`Balance: ${ethers.utils.formatEther(balance)} ETH`);
-    
+
     if (balance.lt(ethers.utils.parseEther("1"))) {
         throw new Error("Insufficient ETH balance. Minimum 1 ETH recommended for deployment.");
     }
-    
+
     console.log("");
     console.log("Proceeding with contract deployment...");
-    
+
     // Deployment configuration
     const deployedContracts = {
         network: hre.network.name,
@@ -26,11 +26,11 @@ async function main() {
         timestamp: new Date().toISOString(),
         contracts: {}
     };
-    
+
     try {
         // Get existing contracts
         let aitbcTokenAddress, paymentProcessorAddress, aiPowerRentalAddress;
-        
+
         try {
             const existingContractsFile = `deployed-contracts-${hre.network.name}.json`;
             if (fs.existsSync(existingContractsFile)) {
@@ -42,7 +42,7 @@ async function main() {
         } catch (error) {
             console.log("Could not load existing contracts, deploying mock ones...");
         }
-        
+
         // Deploy Mock ERC20 if needed
         if (!aitbcTokenAddress) {
             console.log("📦 Deploying mock AITBC token...");
@@ -54,16 +54,16 @@ async function main() {
             );
             await aitbcToken.deployed();
             aitbcTokenAddress = aitbcToken.address;
-            
+
             deployedContracts.contracts.AITBCToken = {
                 address: aitbcTokenAddress,
                 deploymentHash: aitbcToken.deployTransaction.hash,
                 gasUsed: (await aitbcToken.deployTransaction.wait()).gasUsed.toString()
             };
-            
+
             console.log(`✅ AITBC Token: ${aitbcTokenAddress}`);
         }
-        
+
         // Deploy Mock Payment Processor if needed
         if (!paymentProcessorAddress) {
             console.log("📦 Deploying mock AITBC Payment Processor...");
@@ -71,16 +71,16 @@ async function main() {
             const paymentProcessor = await MockPaymentProcessor.deploy(aitbcTokenAddress);
             await paymentProcessor.deployed();
             paymentProcessorAddress = paymentProcessor.address;
-            
+
             deployedContracts.contracts.AITBCPaymentProcessor = {
                 address: paymentProcessorAddress,
                 deploymentHash: paymentProcessor.deployTransaction.hash,
                 gasUsed: (await paymentProcessor.deployTransaction.wait()).gasUsed.toString()
             };
-            
+
             console.log(`✅ Payment Processor: ${paymentProcessorAddress}`);
         }
-        
+
         // Deploy AgentWallet contract
         console.log("📦 Deploying AgentWallet contract...");
         const AgentWallet = await ethers.getContractFactory("AgentWallet");
@@ -89,29 +89,29 @@ async function main() {
             paymentProcessorAddress
         );
         await agentWallet.deployed();
-        
+
         deployedContracts.contracts.AgentWallet = {
             address: agentWallet.address,
             deploymentHash: agentWallet.deployTransaction.hash,
             gasUsed: (await agentWallet.deployTransaction.wait()).gasUsed.toString()
         };
-        
+
         console.log(`✅ AgentWallet: ${agentWallet.address}`);
-        
+
         // Deploy AgentOrchestration contract
         console.log("📦 Deploying AgentOrchestration contract...");
         const AgentOrchestration = await ethers.getContractFactory("AgentOrchestration");
         const agentOrchestration = await AgentOrchestration.deploy();
         await agentOrchestration.deployed();
-        
+
         deployedContracts.contracts.AgentOrchestration = {
             address: agentOrchestration.address,
             deploymentHash: agentOrchestration.deployTransaction.hash,
             gasUsed: (await agentOrchestration.deployTransaction.wait()).gasUsed.toString()
         };
-        
+
         console.log(`✅ AgentOrchestration: ${agentOrchestration.address}`);
-        
+
         // Deploy or extend AIPowerRental contract
         if (!aiPowerRentalAddress) {
             console.log("📦 Deploying AIPowerRental contract...");
@@ -121,13 +121,13 @@ async function main() {
             );
             await aiPowerRental.deployed();
             aiPowerRentalAddress = aiPowerRental.address;
-            
+
             deployedContracts.contracts.AIPowerRental = {
                 address: aiPowerRentalAddress,
                 deploymentHash: aiPowerRental.deployTransaction.hash,
                 gasUsed: (await aiPowerRental.deployTransaction.wait()).gasUsed.toString()
             };
-            
+
             console.log(`✅ AIPowerRental: ${aiPowerRentalAddress}`);
         } else {
             console.log(`📦 Using existing AIPowerRental: ${aiPowerRentalAddress}`);
@@ -136,47 +136,47 @@ async function main() {
                 note: "Existing contract - agent features added"
             };
         }
-        
+
         // Initialize contracts
         console.log("🔧 Initializing contracts...");
-        
+
         // Authorize deployer as agent
         await agentWallet.authorizeAgent(deployer.address, deployer.address);
         console.log("✅ Authorized deployer as agent");
-        
+
         // Authorize deployer as provider
         await agentWallet.authorizeProvider(deployer.address);
         console.log("✅ Authorized deployer as provider");
-        
+
         // Authorize agent for AIPowerRental
         const aiPowerRentalContract = await ethers.getContractAt("AIPowerRental", aiPowerRentalAddress);
         await aiPowerRentalContract.authorizeAgent(deployer.address, deployer.address);
         console.log("✅ Authorized agent for AIPowerRental");
-        
+
         // Authorize provider for AIPowerRental
         await aiPowerRentalContract.authorizeProvider(deployer.address);
         console.log("✅ Authorized provider for AIPowerRental");
-        
+
         // Save deployment information
         const deploymentFile = `deployed-contracts-${hre.network.name}.json`;
-        
+
         // Load existing contracts if file exists
         let existingContracts = {};
         if (fs.existsSync(deploymentFile)) {
             existingContracts = JSON.parse(fs.readFileSync(deploymentFile, 'utf8'));
         }
-        
+
         // Merge with existing contracts
         const allContracts = {
             ...existingContracts,
             ...deployedContracts
         };
-        
+
         fs.writeFileSync(
             path.join(__dirname, "..", deploymentFile),
             JSON.stringify(allContracts, null, 2)
         );
-        
+
         // Generate environment variables for frontend
         const envVars = `
 # AITBC Hermes Autonomous Economics - ${hre.network.name.toUpperCase()}
@@ -209,10 +209,10 @@ VITE_ASSIGNMENT_TIMEOUT=300
 VITE_MONITORING_INTERVAL=30
 VITE_RETRY_LIMIT=3
 `;
-        
+
         const envFile = path.join(__dirname, "..", "..", "apps", "marketplace-web", ".env.agent-economics");
         fs.writeFileSync(envFile, envVars);
-        
+
         console.log("");
         console.log("🎉 CONTRACT DEPLOYMENT COMPLETED");
         console.log("===============================");
@@ -233,7 +233,7 @@ VITE_RETRY_LIMIT=3
         console.log("  3. Test agent wallet functionality");
         console.log("  4. Initialize bid strategy engine");
         console.log("  5. Set up agent orchestrator");
-        
+
     } catch (error) {
         console.error("❌ Deployment failed:", error);
         process.exit(1);

@@ -6,9 +6,9 @@ import re
 
 from aitbc import AITBCHTTPClient, NetworkError, get_logger
 
-logger = get_logger(__name__)
+from ....config import settings
 
-from ....config import settings  # noqa: E402
+logger = get_logger(__name__)
 
 BLOCKCHAIN_RPC = "http://127.0.0.1:9080/rpc"
 

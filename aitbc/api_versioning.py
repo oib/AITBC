@@ -44,7 +44,6 @@ def api_version(
     """
 
     def decorator(func: Callable) -> Callable:
-
         @wraps(func)
         def wrapper(*args, **kwargs):
             if deprecated:

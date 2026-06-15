@@ -160,7 +160,6 @@ def traced(name: str | None = None, attributes: dict[str, Any] | None = None):
     """
 
     def decorator(func: Callable) -> Callable:
-
         @wraps(func)
         def wrapper(*args, **kwargs):
             if not OPENTELEMETRY_AVAILABLE:

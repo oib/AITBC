@@ -3,16 +3,8 @@ Prometheus Metrics Module Tests
 Tests for Counter, Gauge, Histogram, MetricsRegistry, and PerformanceMonitor
 """
 
-import sys
-from pathlib import Path
-
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
-
-import pytest  # noqa: E402
-from app.monitoring.prometheus_metrics import (  # noqa: E402
+import pytest
+from app.monitoring.prometheus_metrics import (
     Counter,
     Gauge,
     Histogram,

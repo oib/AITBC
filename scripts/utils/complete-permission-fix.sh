@@ -40,10 +40,10 @@ check_root() {
 # Fix sudoers configuration
 fix_sudoers() {
     print_header "Fixing Sudoers Configuration"
-    
+
     # Create comprehensive AITBC sudoers file
     sudoers_file="/etc/sudoers.d/aitbc-dev"
-    
+
     cat > "$sudoers_file" << 'EOF'
 # AITBC Development Sudoers Configuration
 # This file provides passwordless access for AITBC development operations
@@ -96,51 +96,51 @@ oib ALL=(root) NOPASSWD: /usr/bin/incus shell aitbc1 *
 oib ALL=(aitbc) NOPASSWD: ALL
 
 EOF
-    
+
     # Set proper permissions
     chmod 440 "$sudoers_file"
-    
+
     print_status "Sudoers configuration updated: $sudoers_file"
 }
 
 # Fix directory permissions completely
 fix_permissions() {
     print_header "Fixing Directory Permissions"
-    
+
     # Set proper ownership
     print_status "Setting ownership to oib:aitbc"
     chown -R oib:aitbc /opt/aitbc
-    
+
     # Set directory permissions (2775 = rwxrwsr-x)
     print_status "Setting directory permissions to 2775"
     find /opt/aitbc -type d -exec chmod 2775 {} \;
-    
+
     # Set file permissions (664 = rw-rw-r--)
     print_status "Setting file permissions to 664"
     find /opt/aitbc -type f -exec chmod 664 {} \;
-    
+
     # Make scripts executable
     print_status "Making scripts executable"
     find /opt/aitbc -name "*.sh" -exec chmod +x {} \;
     find /opt/aitbc -name "*.py" -exec chmod +x {} \;
-    
+
     # Set SGID bit for group inheritance
     print_status "Setting SGID bit for group inheritance"
     find /opt/aitbc -type d -exec chmod g+s {} \;
-    
+
     # Special permissions for logs and data
     print_status "Setting special permissions for logs and data"
     mkdir -p /opt/aitbc/logs /var/lib/aitbc/data
     chown -R aitbc:aitbc /opt/aitbc/logs /var/lib/aitbc/data
     chmod 775 /opt/aitbc/logs /var/lib/aitbc/data
-    
+
     print_status "Directory permissions fixed"
 }
 
 # Create enhanced helper scripts
 create_helper_scripts() {
     print_header "Creating Enhanced Helper Scripts"
-    
+
     # Enhanced service management script
     cat > "/opt/aitbc/scripts/dev-services.sh" << 'EOF'
 #!/bin/bash
@@ -212,7 +212,7 @@ case "${1:-help}" in
         ;;
 esac
 EOF
-    
+
     # Quick permission fix script
     cat > "/opt/aitbc/scripts/quick-fix.sh" << 'EOF'
 #!/bin/bash
@@ -238,18 +238,18 @@ sudo find /opt/aitbc -type d -exec chmod g+s {} \;
 
 echo "✅ Permissions fixed!"
 EOF
-    
+
     # Make scripts executable
     chmod +x /opt/aitbc/scripts/dev-services.sh
     chmod +x /opt/aitbc/scripts/quick-fix.sh
-    
+
     print_status "Enhanced helper scripts created"
 }
 
 # Create development environment setup
 create_dev_env() {
     print_header "Creating Development Environment"
-    
+
     # Create comprehensive .env file
     cat > "/opt/aitbc/.env.dev" << 'EOF'
 # AITBC Development Environment
@@ -290,7 +290,7 @@ alias aitbc-logs='sudo journalctl -u aitbc-* -f'
 echo "🚀 AITBC Development Environment Loaded"
 echo "💡 Available commands: aitbc-services, aitbc-fix, aitbc-logs"
 EOF
-    
+
     print_status "Development environment created: /opt/aitbc/.env.dev"
 }
 
@@ -304,15 +304,15 @@ main() {
     echo "  Service user: aitbc"
     echo "  Project directory: /opt/aitbc"
     echo ""
-    
+
     check_root
-    
+
     # Execute all fixes
     fix_sudoers
     fix_permissions
     create_helper_scripts
     create_dev_env
-    
+
     print_header "Setup Complete! 🎉"
     echo ""
     echo "✅ Sudoers configuration fixed"

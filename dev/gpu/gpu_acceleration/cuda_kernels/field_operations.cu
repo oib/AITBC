@@ -1,6 +1,6 @@
 /**
  * CUDA Kernel for ZK Circuit Field Operations
- * 
+ *
  * Implements GPU-accelerated field arithmetic for zero-knowledge proof generation
  * focusing on parallel processing of large constraint systems and witness calculations.
  */
@@ -36,17 +36,17 @@ __global__ void field_addition_kernel(
     int num_elements
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    
+
     if (idx < num_elements) {
         // Perform field addition with modulus reduction
         uint64_t carry = 0;
-        
+
         for (int i = 0; i < 4; i++) {
             uint128_t sum = (uint128_t)a[idx].limbs[i] + b[idx].limbs[i] + carry;
             result[idx].limbs[i] = (uint64_t)sum;
             carry = sum >> 64;
         }
-        
+
         // Modulus reduction if needed
         uint128_t reduction = 0;
         for (int i = 0; i < 4; i++) {
@@ -55,7 +55,7 @@ __global__ void field_addition_kernel(
                 break;
             }
         }
-        
+
         if (reduction) {
             carry = 0;
             for (int i = 0; i < 4; i++) {
@@ -76,11 +76,11 @@ __global__ void field_multiplication_kernel(
     int num_elements
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    
+
     if (idx < num_elements) {
         // Perform schoolbook multiplication with modulus reduction
         uint64_t product[8] = {0};  // Intermediate product (512 bits)
-        
+
         // Multiply all limbs
         for (int i = 0; i < 4; i++) {
             uint64_t carry = 0;
@@ -91,7 +91,7 @@ __global__ void field_multiplication_kernel(
             }
             product[i + 4] = carry;
         }
-        
+
         // Montgomery reduction (simplified for demonstration)
         // In practice, would use proper Montgomery reduction algorithm
         for (int i = 0; i < 4; i++) {
@@ -108,11 +108,11 @@ __global__ void constraint_verification_kernel(
     int num_constraints
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    
+
     if (idx < num_constraints) {
         const constraint_t* c = &constraints[idx];
         field_element_t computed;
-        
+
         if (c->operation == 0) {
             // Addition constraint: a + b = c
             // Simplified field addition
@@ -130,7 +130,7 @@ __global__ void constraint_verification_kernel(
             computed.limbs[2] = 0;
             computed.limbs[3] = 0;
         }
-        
+
         // Check if computed equals expected
         bool equal = true;
         for (int i = 0; i < 4; i++) {
@@ -139,7 +139,7 @@ __global__ void constraint_verification_kernel(
                 break;
             }
         }
-        
+
         results[idx] = equal;
     }
 }
@@ -152,11 +152,11 @@ __global__ void witness_generation_kernel(
     int witness_size
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    
+
     if (idx < num_inputs) {
         // Copy inputs to witness
         witness[idx] = inputs[idx];
-        
+
         // Generate additional witness elements (simplified)
         // In practice, would implement proper witness generation algorithm
         for (int i = num_inputs; i < witness_size; i++) {
@@ -178,19 +178,19 @@ extern "C" {
 cudaError_t init_cuda_device() {
     int deviceCount = 0;
     cudaError_t error = cudaGetDeviceCount(&deviceCount);
-    
+
     if (error != cudaSuccess || deviceCount == 0) {
         printf("No CUDA devices found\n");
         return error;
     }
-    
+
     // Select first available device
     error = cudaSetDevice(0);
     if (error != cudaSuccess) {
         printf("Failed to set CUDA device\n");
         return error;
     }
-    
+
     // Get device properties
     cudaDeviceProp prop;
     error = cudaGetDeviceProperties(&prop, 0);
@@ -201,7 +201,7 @@ cudaError_t init_cuda_device() {
         printf("Shared Memory per Block: %zu KB\n", prop.sharedMemPerBlock / 1024);
         printf("Max Threads per Block: %d\n", prop.maxThreadsPerBlock);
     }
-    
+
     return error;
 }
 
@@ -216,56 +216,56 @@ cudaError_t gpu_field_addition(
     // Allocate device memory
     field_element_t *d_a, *d_b, *d_result;
     uint64_t *d_modulus;
-    
+
     size_t field_size = num_elements * sizeof(field_element_t);
     size_t modulus_size = 4 * sizeof(uint64_t);
-    
+
     cudaError_t error = cudaMalloc(&d_a, field_size);
     if (error != cudaSuccess) return error;
-    
+
     error = cudaMalloc(&d_b, field_size);
     if (error != cudaSuccess) return error;
-    
+
     error = cudaMalloc(&d_result, field_size);
     if (error != cudaSuccess) return error;
-    
+
     error = cudaMalloc(&d_modulus, modulus_size);
     if (error != cudaSuccess) return error;
-    
+
     // Copy data to device
     error = cudaMemcpy(d_a, a, field_size, cudaMemcpyHostToDevice);
     if (error != cudaSuccess) return error;
-    
+
     error = cudaMemcpy(d_b, b, field_size, cudaMemcpyHostToDevice);
     if (error != cudaSuccess) return error;
-    
+
     error = cudaMemcpy(d_modulus, modulus, modulus_size, cudaMemcpyHostToDevice);
     if (error != cudaSuccess) return error;
-    
+
     // Launch kernel
     int threadsPerBlock = 256;
     int blocksPerGrid = (num_elements + threadsPerBlock - 1) / threadsPerBlock;
-    
-    printf("Launching field addition kernel: %d blocks, %d threads per block\n", 
+
+    printf("Launching field addition kernel: %d blocks, %d threads per block\n",
            blocksPerGrid, threadsPerBlock);
-    
+
     field_addition_kernel<<<blocksPerGrid, threadsPerBlock>>>(
         d_a, d_b, d_result, d_modulus, num_elements
     );
-    
+
     // Check for kernel launch errors
     error = cudaGetLastError();
     if (error != cudaSuccess) return error;
-    
+
     // Copy result back to host
     error = cudaMemcpy(result, d_result, field_size, cudaMemcpyDeviceToHost);
-    
+
     // Free device memory
     cudaFree(d_a);
     cudaFree(d_b);
     cudaFree(d_result);
     cudaFree(d_modulus);
-    
+
     return error;
 }
 
@@ -280,50 +280,50 @@ cudaError_t gpu_constraint_verification(
     constraint_t *d_constraints;
     field_element_t *d_witness;
     bool *d_results;
-    
+
     size_t constraint_size = num_constraints * sizeof(constraint_t);
     size_t witness_size = 1000 * sizeof(field_element_t);  // Assume witness size
     size_t result_size = num_constraints * sizeof(bool);
-    
+
     cudaError_t error = cudaMalloc(&d_constraints, constraint_size);
     if (error != cudaSuccess) return error;
-    
+
     error = cudaMalloc(&d_witness, witness_size);
     if (error != cudaSuccess) return error;
-    
+
     error = cudaMalloc(&d_results, result_size);
     if (error != cudaSuccess) return error;
-    
+
     // Copy data to device
     error = cudaMemcpy(d_constraints, constraints, constraint_size, cudaMemcpyHostToDevice);
     if (error != cudaSuccess) return error;
-    
+
     error = cudaMemcpy(d_witness, witness, witness_size, cudaMemcpyHostToDevice);
     if (error != cudaSuccess) return error;
-    
+
     // Launch kernel
     int threadsPerBlock = 256;
     int blocksPerGrid = (num_constraints + threadsPerBlock - 1) / threadsPerBlock;
-    
-    printf("Launching constraint verification kernel: %d blocks, %d threads per block\n", 
+
+    printf("Launching constraint verification kernel: %d blocks, %d threads per block\n",
            blocksPerGrid, threadsPerBlock);
-    
+
     constraint_verification_kernel<<<blocksPerGrid, threadsPerBlock>>>(
         d_constraints, d_witness, d_results, num_constraints
     );
-    
+
     // Check for kernel launch errors
     error = cudaGetLastError();
     if (error != cudaSuccess) return error;
-    
+
     // Copy result back to host
     error = cudaMemcpy(results, d_results, result_size, cudaMemcpyDeviceToHost);
-    
+
     // Free device memory
     cudaFree(d_constraints);
     cudaFree(d_witness);
     cudaFree(d_results);
-    
+
     return error;
 }
 

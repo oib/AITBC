@@ -166,7 +166,7 @@ class HardwareValidator:
             # Type validation
             if param_type == "integer" and not isinstance(value, int):
                 result.errors.append(f"Parameter {name} must be an integer")
-            elif param_type == "float" and not isinstance(value, (int, float)):
+            elif param_type == "float" and not isinstance(value, int | float):
                 result.errors.append(f"Parameter {name} must be a number")
             elif param_type == "array" and not isinstance(value, list):
                 result.errors.append(f"Parameter {name} must be an array")

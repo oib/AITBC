@@ -47,7 +47,7 @@ log_agent() {
 agent_architecture_training() {
     log_agent "INFO" "Starting agent architecture training for $AGENT_ID"
     log_agent "INFO" "Training data: $TRAINING_DATA"
-    
+
     # Use Hermes CLI to train the agent
     if $CLI_PATH hermes-training train agent \
         --agent-id "$AGENT_ID" \
@@ -64,7 +64,7 @@ agent_architecture_training() {
 # 2. Agent Validation
 agent_validation() {
     log_agent "INFO" "Starting agent validation for stage $STAGE"
-    
+
     # Use Hermes CLI to validate the agent
     if $CLI_PATH hermes-training train validate \
         --agent-id "$AGENT_ID" \
@@ -79,7 +79,7 @@ agent_validation() {
 # 3. Agent Certification
 agent_certification() {
     log_agent "INFO" "Starting agent certification"
-    
+
     # Use Hermes CLI to certify the agent
     if $CLI_PATH hermes-training train certify \
         --agent-id "$AGENT_ID"; then
@@ -92,7 +92,7 @@ agent_certification() {
 # Main execution
 main() {
     log_agent "INFO" "Starting $TRAINING_STAGE"
-    
+
     # Agent Architecture Training
     if agent_architecture_training; then
         log_agent "SUCCESS" "Architecture training completed"
@@ -100,7 +100,7 @@ main() {
         log_agent "ERROR" "Architecture training failed"
         exit 1
     fi
-    
+
     # Agent Validation
     if agent_validation; then
         log_agent "SUCCESS" "Validation completed"
@@ -108,12 +108,12 @@ main() {
         log_agent "ERROR" "Validation failed"
         exit 1
     fi
-    
+
     # Agent Certification
     agent_certification
-    
+
     log_agent "INFO" "$TRAINING_STAGE completed successfully"
-    
+
     echo ""
     echo "========================================"
     echo "$TRAINING_STAGE COMPLETED SUCCESSFULLY"

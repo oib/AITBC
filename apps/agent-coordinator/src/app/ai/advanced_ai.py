@@ -12,13 +12,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from aitbc import get_logger
+
 np: Any = None
 try:
     import numpy as np
 except ImportError:
     pass
-
-from aitbc import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
 

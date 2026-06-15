@@ -79,7 +79,7 @@ jobs:
         run: |
           cd /opt/aitbc
           VERSION=${GITHUB_REF#refs/tags/v}
-          
+
           # Create release using Gitea API
           curl -X POST \
             -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
@@ -98,7 +98,7 @@ jobs:
         run: |
           cd /opt/aitbc
           VERSION=${GITHUB_REF#refs/tags/v}
-          
+
           # Upload binary
           curl -X POST \
             -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
@@ -109,7 +109,7 @@ jobs:
         run: |
           cd /opt/aitbc
           VERSION=${GITHUB_REF#refs/tags/v}
-          
+
           # Upload package
           curl -X POST \
             -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
@@ -120,7 +120,7 @@ jobs:
         run: |
           cd /opt/aitbc
           VERSION=${GITHUB_REF#refs/tags/v}
-          
+
           # Upload checksums
           curl -X POST \
             -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \

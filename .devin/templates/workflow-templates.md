@@ -17,7 +17,7 @@ steps:
     parameters:
       max_height_diff: 5
       timeout_seconds: 10
-    
+
   - name: analyze-transactions
     agent: blockchain-analyzer
     action: transaction_pattern_analysis
@@ -25,7 +25,7 @@ steps:
     parameters:
       time_window: 300
       anomaly_threshold: 0.95
-    
+
   - name: check-wallet-balances
     agent: blockchain-monitor
     action: balance_verification
@@ -33,7 +33,7 @@ steps:
     parameters:
       critical_wallets: ["genesis", "treasury"]
       min_balance_threshold: 1000000
-    
+
   - name: verify-connectivity
     agent: multi-node-coordinator
     action: node_connectivity_check
@@ -41,7 +41,7 @@ steps:
     parameters:
       nodes: ["aitbc", "aitbc1"]
       test_endpoints: ["/rpc/head", "/rpc/accounts", "/rpc/mempool"]
-    
+
   - name: generate-report
     agent: blockchain-analyzer
     action: create_health_report
@@ -50,7 +50,7 @@ steps:
       include_recommendations: true
       format: "json"
       output_location: "/var/log/aitbc/health-reports/"
-    
+
   - name: send-alerts
     agent: blockchain-monitor
     action: send_health_alerts
@@ -58,7 +58,7 @@ steps:
     parameters:
       channels: ["email", "slack"]
       severity_threshold: "warning"
-      
+
 on_failure:
   - name: emergency-alert
     agent: blockchain-monitor
@@ -88,7 +88,7 @@ steps:
       max_price: 500
       min_rating: 4.0
       categories: ["blockchain", "analysis", "monitoring"]
-    
+
   - name: evaluate-agents
     agent: blockchain-analyzer
     action: assess_agent_value
@@ -96,7 +96,7 @@ steps:
     parameters:
       evaluation_criteria: ["performance", "cost_efficiency", "reliability"]
       weight_factors: {"performance": 0.4, "cost_efficiency": 0.3, "reliability": 0.3}
-    
+
   - name: check-budget
     agent: marketplace-trader
     action: verify_budget_availability
@@ -104,7 +104,7 @@ steps:
     parameters:
       min_budget: 100
       max_single_purchase: 250
-    
+
   - name: execute-purchase
     agent: marketplace-trader
     action: purchase_best_agents
@@ -113,7 +113,7 @@ steps:
       max_purchases: 2
       auto_confirm: true
       payment_wallet: "aitbc-user"
-    
+
   - name: deploy-agents
     agent: deployment-manager
     action: deploy_purchased_agents
@@ -122,7 +122,7 @@ steps:
       environment: "production"
       auto_configure: true
       health_check: true
-    
+
   - name: update-portfolio
     agent: marketplace-trader
     action: update_portfolio
@@ -152,7 +152,7 @@ steps:
     parameters:
       metrics_period: 86400  # 24 hours
       include_nodes: ["aitbc", "aitbc1"]
-      
+
   - name: analyze-performance
     agent: blockchain-analyzer
     action: performance_analysis
@@ -161,7 +161,7 @@ steps:
       baseline_comparison: true
       identify_bottlenecks: true
       optimization_suggestions: true
-    
+
   - name: check-resource-utilization
     agent: resource-monitor
     action: analyze_resource_usage
@@ -169,7 +169,7 @@ steps:
     parameters:
       resources: ["cpu", "memory", "storage", "network"]
       threshold_alerts: {"cpu": 80, "memory": 85, "storage": 90}
-    
+
   - name: optimize-configuration
     agent: blockchain-optimizer
     action: apply_optimizations
@@ -178,7 +178,7 @@ steps:
       auto_apply_safe: true
       require_confirmation: false
       backup_config: true
-    
+
   - name: verify-improvements
     agent: blockchain-monitor
     action: measure_improvements
@@ -186,7 +186,7 @@ steps:
     parameters:
       measurement_period: 1800  # 30 minutes
       compare_baseline: true
-    
+
   - name: generate-optimization-report
     agent: blockchain-analyzer
     action: create_optimization_report
@@ -215,21 +215,21 @@ steps:
     timeout: 30
     parameters:
       event_types: ["node_down", "sync_issue", "high_load", "maintenance"]
-    
+
   - name: assess-impact
     agent: blockchain-analyzer
     action: impact_assessment
     timeout: 120
     parameters:
       impact_scope: ["network", "transactions", "agents", "marketplace"]
-      
+
   - name: coordinate-response
     agent: multi-node-coordinator
     action: coordinate_node_response
     timeout: 300
     parameters:
       response_strategies: ["failover", "load_balance", "graceful_degradation"]
-      
+
   - name: update-agent-routing
     agent: routing-manager
     action: update_agent_routing
@@ -237,14 +237,14 @@ steps:
     parameters:
       redistribute_agents: true
       maintain_services: true
-      
+
   - name: notify-stakeholders
     agent: notification-agent
     action: send_coordination_updates
     timeout: 60
     parameters:
       channels: ["email", "slack", "blockchain_events"]
-      
+
   - name: monitor-resolution
     agent: blockchain-monitor
     action: monitor_event_resolution
@@ -273,7 +273,7 @@ steps:
     parameters:
       learning_period: 86400
       include_all_agents: true
-      
+
   - name: analyze-performance-patterns
     agent: learning-analyzer
     action: identify_improvement_areas
@@ -281,7 +281,7 @@ steps:
     parameters:
       pattern_recognition: true
       success_metrics: ["accuracy", "efficiency", "cost"]
-      
+
   - name: update-agent-models
     agent: learning-updater
     action: improve_agent_models
@@ -290,7 +290,7 @@ steps:
       auto_update: true
       backup_models: true
       validation_required: true
-      
+
   - name: test-improved-agents
     agent: testing-agent
     action: validate_agent_improvements
@@ -298,7 +298,7 @@ steps:
     parameters:
       test_scenarios: ["performance", "accuracy", "edge_cases"]
       acceptance_threshold: 0.95
-      
+
   - name: deploy-improved-agents
     agent: deployment-manager
     action: rollout_agent_updates
@@ -306,7 +306,7 @@ steps:
     parameters:
       rollout_strategy: "canary"
       rollback_enabled: true
-      
+
   - name: update-learning-database
     agent: learning-manager
     action: record_learning_outcomes

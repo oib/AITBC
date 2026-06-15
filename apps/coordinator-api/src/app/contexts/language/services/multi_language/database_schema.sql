@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS translation_cache (
     created_at TIMESTAMP DEFAULT NOW(),
     last_accessed TIMESTAMP DEFAULT NOW(),
     expires_at TIMESTAMP,
-    
+
     -- Indexes for performance
     INDEX idx_cache_key (cache_key),
     INDEX idx_source_target (source_language, target_language),
@@ -58,10 +58,10 @@ CREATE TABLE IF NOT EXISTS marketplace_listings_i18n (
     translated_at TIMESTAMP DEFAULT NOW(),
     translation_confidence FLOAT,
     translator_provider VARCHAR(50),
-    
+
     -- Unique constraint per listing and language
     UNIQUE(listing_id, language),
-    
+
     -- Indexes
     INDEX idx_listing_language (listing_id, language),
     INDEX idx_language (language),
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS agent_message_translations (
     confidence FLOAT NOT NULL,
     translation_time_ms INTEGER NOT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
-    
+
     -- Indexes
     INDEX idx_message_id (message_id),
     INDEX idx_source_target (source_language, target_language),
@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS translation_quality_logs (
     recommendations TEXT[],
     processing_time_ms INTEGER NOT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
-    
+
     -- Indexes
     INDEX idx_provider_date (provider, created_at),
     INDEX idx_score (overall_score),
@@ -125,10 +125,10 @@ CREATE TABLE IF NOT EXISTS user_language_preferences (
     quality_threshold FLOAT DEFAULT 0.7,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
-    
+
     -- Unique constraint per user and language
     UNIQUE(user_id, language),
-    
+
     -- Indexes
     INDEX idx_user_id (user_id),
     INDEX idx_language (language),
@@ -151,10 +151,10 @@ CREATE TABLE IF NOT EXISTS translation_statistics (
     avg_processing_time_ms INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
-    
+
     -- Unique constraint per date and language pair
     UNIQUE(date, source_language, target_language, provider),
-    
+
     -- Indexes
     INDEX idx_date (date),
     INDEX idx_language_pair (source_language, target_language),
@@ -170,10 +170,10 @@ CREATE TABLE IF NOT EXISTS localization_templates (
     variables TEXT[],
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
-    
+
     -- Unique constraint per template key and language
     UNIQUE(template_key, language),
-    
+
     -- Indexes
     INDEX idx_template_key (template_key),
     INDEX idx_language (language)
@@ -194,7 +194,7 @@ CREATE TABLE IF NOT EXISTS translation_api_logs (
     ip_address INET,
     user_agent TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
-    
+
     -- Indexes
     INDEX idx_endpoint (endpoint),
     INDEX idx_created_at (created_at),
@@ -346,7 +346,7 @@ BEGIN
         total_translations, successful_translations, failed_translations,
         avg_confidence, avg_processing_time_ms
     ) VALUES (
-        CURRENT_DATE, 
+        CURRENT_DATE,
         COALESCE(NEW.source_language, 'unknown'),
         COALESCE(NEW.target_language, 'unknown'),
         COALESCE(NEW.provider, 'unknown'),
@@ -361,7 +361,7 @@ BEGIN
         avg_confidence = (translation_statistics.avg_confidence * translation_statistics.successful_translations + COALESCE(NEW.confidence, 0)) / (translation_statistics.successful_translations + 1),
         avg_processing_time_ms = (translation_statistics.avg_processing_time_ms * translation_statistics.successful_translations + COALESCE(NEW.processing_time_ms, 0)) / (translation_statistics.successful_translations + 1),
         updated_at = NOW();
-    
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -379,18 +379,18 @@ RETURNS INTEGER AS $$
 DECLARE
     deleted_count INTEGER;
 BEGIN
-    DELETE FROM translation_cache 
+    DELETE FROM translation_cache
     WHERE expires_at IS NOT NULL AND expires_at < NOW();
-    
+
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
-    
+
     RETURN deleted_count;
 END;
 $$ LANGUAGE plpgsql;
 
 -- Create view for translation analytics
 CREATE OR REPLACE VIEW translation_analytics AS
-SELECT 
+SELECT
     DATE(created_at) as date,
     source_language,
     target_language,
@@ -406,7 +406,7 @@ ORDER BY date DESC;
 
 -- Create view for cache performance metrics
 CREATE OR REPLACE VIEW cache_performance_metrics AS
-SELECT 
+SELECT
     (SELECT COUNT(*) FROM translation_cache) as total_entries,
     (SELECT COUNT(*) FROM translation_cache WHERE created_at > NOW() - INTERVAL '24 hours') as entries_last_24h,
     (SELECT AVG(access_count) FROM translation_cache) as avg_access_count,

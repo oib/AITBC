@@ -126,7 +126,9 @@ async def get_mempool(request: Request, chain_id: str | None = None, limit: int 
         return {"success": True, "transactions": pending_txs, "count": len(pending_txs)}
     except Exception as e:
         _logger.error("Failed to get mempool", extra={"error": str(e)})
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get mempool: {str(e)}") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get mempool: {str(e)}"
+        ) from e
 
 
 @rate_limit(rate=50, per=60)

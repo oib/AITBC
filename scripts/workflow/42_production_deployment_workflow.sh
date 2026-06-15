@@ -42,11 +42,11 @@ echo ""
 run_test() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🚀 Deploying: $test_name"
     echo "================================"
-    
+
     if eval "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ DEPLOYED${NC}: $test_name"
         return 0
@@ -60,11 +60,11 @@ run_test() {
 run_test_verbose() {
     local test_name="$1"
     local test_command="$2"
-    
+
     echo ""
     echo "🚀 Deploying: $test_name"
     echo "================================"
-    
+
     if eval "$test_command"; then
         echo -e "${GREEN}✅ DEPLOYED${NC}: $test_name"
         return 0
@@ -80,22 +80,22 @@ echo "============================"
 
 run_test_verbose "Environment preparation" "
     echo 'Preparing production environment...'
-    
+
     # Check system requirements
     echo 'System requirements check:'
     echo \"Python version: \$(python3 --version)\"
     echo \"Available memory: \$(free -h | awk 'NR==2{print \$2}')\"
     echo \"Disk space: \$(df -h / | awk 'NR==2{print \$4}')\"
-    
+
     # Check dependencies
     echo 'Dependency check:'
     pip list | grep -E '(fastapi|uvicorn|sqlmodel)' || echo 'Dependencies OK'
-    
+
     # Create necessary directories
     mkdir -p /var/log/aitbc/{events,analytics,reports}
     mkdir -p /var/lib/aitbc/backups
     mkdir -p /opt/aitbc/security_reports
-    
+
     echo '✅ Environment prepared'
 "
 
@@ -106,20 +106,20 @@ echo "============================="
 
 run_test_verbose "Core services deployment" "
     echo 'Deploying core blockchain services...'
-    
+
     # Deploy blockchain node
     systemctl restart aitbc-blockchain-node
     sleep 5
-    
+
     # Deploy coordinator API
     systemctl restart aitbc-coordinator-api
     sleep 3
-    
+
     # Verify core services
     echo 'Core services status:'
     systemctl status aitbc-blockchain-node --no-pager | grep Active
     systemctl status aitbc-coordinator-api --no-pager | grep Active
-    
+
     echo '✅ Core services deployed'
 "
 
@@ -130,14 +130,14 @@ echo "=================================="
 
 run_test_verbose "Agent communication deployment" "
     echo 'Deploying agent communication system...'
-    
+
     # Deploy messaging contract
     /opt/aitbc/scripts/workflow/40_deploy_messaging_contract_simple.sh
-    
+
     # Test agent communication
     echo 'Agent communication test:'
     curl -s $BLOCKCHAIN_RPC/rpc/messaging/topics | jq .success 2>/dev/null || echo 'Messaging endpoints available'
-    
+
     echo '✅ Agent communication deployed'
 "
 
@@ -148,14 +148,14 @@ echo "============================"
 
 run_test_verbose "Security systems deployment" "
     echo 'Deploying security systems...'
-    
+
     # Run security testing
     /opt/aitbc/scripts/workflow/36_contract_security_testing.sh | head -10
-    
+
     # Check security configurations
     echo 'Security status:'
     ls -la /opt/aitbc/security_reports/ 2>/dev/null | wc -l
-    
+
     echo '✅ Security systems deployed'
 "
 
@@ -166,13 +166,13 @@ echo "==============================="
 
 run_test_verbose "Monitoring systems deployment" "
     echo 'Deploying monitoring systems...'
-    
+
     # Deploy event monitoring
     /opt/aitbc/scripts/workflow/37_contract_event_monitoring.sh | head -10
-    
+
     # Deploy health monitoring
     /opt/aitbc/scripts/workflow/34_service_health_monitoring.sh quick
-    
+
     echo '✅ Monitoring systems deployed'
 "
 
@@ -183,14 +183,14 @@ echo "=============================="
 
 run_test_verbose "Analytics systems deployment" "
     echo 'Deploying analytics systems...'
-    
+
     # Deploy data analytics
     /opt/aitbc/scripts/workflow/38_contract_data_analytics.sh | head -10
-    
+
     # Check analytics setup
     echo 'Analytics status:'
     ls -la /var/log/aitbc/analytics/ 2>/dev/null | wc -l
-    
+
     echo '✅ Analytics systems deployed'
 "
 
@@ -201,11 +201,11 @@ echo "========================"
 
 run_test_verbose "Marketplace deployment" "
     echo 'Deploying marketplace services...'
-    
+
     # Test marketplace functionality
     echo 'Marketplace test:'
     curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings | jq .total 2>/dev/null || echo 'Marketplace responding'
-    
+
     echo '✅ Marketplace deployed'
 "
 
@@ -216,11 +216,11 @@ echo "========================"
 
 run_test_verbose "AI services deployment" "
     echo 'Deploying AI services...'
-    
+
     # Test AI service on follower node
     echo 'AI service test:'
     ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs' 2>/dev/null || echo 'AI service responding'
-    
+
     echo '✅ AI services deployed'
 "
 
@@ -231,14 +231,14 @@ echo "========================"
 
 run_test_verbose "Cross-node deployment" "
     echo 'Deploying cross-node systems...'
-    
+
     # Test cross-node synchronization
     LOCAL_HEIGHT=\$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)
     REMOTE_HEIGHT=\$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height')
     SYNC_DIFF=\$((LOCAL_HEIGHT - REMOTE_HEIGHT))
-    
+
     echo \"Cross-node sync status: \$SYNC_DIFF blocks difference\"
-    
+
     if [ \"\$SYNC_DIFF\" -le 5 ]; then
         echo \"✅ Cross-node deployment successful\"
     else
@@ -253,7 +253,7 @@ echo "=========================="
 
 run_test_verbose "Production validation" "
     echo 'Validating production deployment...'
-    
+
     echo 'Production validation checklist:'
     echo \"✅ Blockchain RPC: \$(curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Coordinator API: \$(curl -s http://localhost:8203/health/live >/dev/null && echo 'PASS' || echo 'FAIL')\"

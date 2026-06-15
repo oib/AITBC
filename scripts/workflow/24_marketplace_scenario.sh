@@ -219,7 +219,7 @@ else
     echo "Querying marketplace list to find Whisper offer ID..."
     sleep 2  # Wait for blockchain to include the transaction
     WHISPER_MARKET_LIST=$(aitbc market list 2>&1)
-    
+
     # Extract offer_id from marketplace list (parse entire JSON array with capital keys)
     WHISPER_OFFER_ID=$(echo "$WHISPER_MARKET_LIST" | python3 -c "
 import sys, json
@@ -247,7 +247,7 @@ fi
 
 if [ -n "$WHISPER_OFFER_ID" ]; then
     echo -e "${GREEN}✅ Whisper offer created: $WHISPER_OFFER_ID${NC}"
-    
+
     # Create a test audio file (or use existing)
     TEST_AUDIO="/tmp/test_audio.wav"
     if [ ! -f "$TEST_AUDIO" ]; then
@@ -255,11 +255,11 @@ if [ -n "$WHISPER_OFFER_ID" ]; then
         # Create a minimal WAV file header for testing
         echo -e "RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x44\xAC\x00\x00\x88\x58\x01\x00\x02\x00\x10\x00data\x00\x00\x00\x00" > "$TEST_AUDIO"
     fi
-    
+
     echo "Running transcription test..."
     TRANSCRIBE_RESULT=$(aitbc market transcribe $WHISPER_OFFER_ID $TEST_AUDIO 2>&1)
     echo "$TRANSCRIBE_RESULT"
-    
+
     TRANSCRIBE_JOB_ID=$(echo "$TRANSCRIBE_RESULT" | python3 -c "
 import sys, json, re
 data = sys.stdin.read()

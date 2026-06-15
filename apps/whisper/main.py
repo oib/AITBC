@@ -120,5 +120,10 @@ async def transcribe(
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("WHISPER_PORT", "8110"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    import os
+
+    # Standardized environment variable naming: SERVICE_BIND_HOST and SERVICE_BIND_PORT
+    host = os.getenv("WHISPER_BIND_HOST", "0.0.0.0")
+    port = int(os.getenv("WHISPER_BIND_PORT", os.getenv("WHISPER_PORT", "8110")))
+
+    uvicorn.run(app, host=host, port=port)

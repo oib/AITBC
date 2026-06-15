@@ -245,25 +245,25 @@ Coordinate blockchain service restart on genesis node
 - Force operations with validation
 
 **Performance Notes**
-- **Execution Time**: 
+- **Execution Time**:
   - Sync operations: 5-30 seconds (blockchain), 2-15 seconds (git), 3-20 seconds (mempool)
   - Status checks: 2-10 seconds per node
   - Health checks: 5-15 seconds per node
   - Coordinate operations: 10-45 seconds depending on complexity
   - Message operations: 1-5 seconds per message
-- **Memory Usage**: 
+- **Memory Usage**:
   - Status checks: <50MB
   - Sync operations: <100MB
   - Complex coordination: <150MB
-- **Network Requirements**: 
+- **Network Requirements**:
   - SSH connectivity (port 22)
   - P2P mesh network (port 7070)
   - Git remote access (HTTP/SSH)
-- **Concurrency**: 
+- **Concurrency**:
   - Safe for sequential operations on different nodes
   - Max 5 parallel operations across nodes
   - Coordinate parallel ops carefully to avoid service overload
-- **Optimization Tips**: 
+- **Optimization Tips**:
   - Use status checks before sync operations to validate node health
   - Batch multiple sync operations when possible
   - Use verify=false for non-critical operations to speed up execution

@@ -38,18 +38,18 @@ backup_requirements() {
     timestamp=$(date +%Y%m%d_%H%M%S)
     backup_dir="backups/dependency_backup_$timestamp"
     mkdir -p "$backup_dir"
-    
+
     # Backup all requirements files
     find . -name "requirements*.txt" -not -path "./venv/*" -exec cp {} "$backup_dir/" \;
     find . -name "pyproject.toml" -not -path "./venv/*" -not -path "./project-config/*" -exec cp {} "$backup_dir/" \;
-    
+
     log_success "Backup created in $backup_dir"
 }
 
 # Update central requirements
 update_central_requirements() {
     log_info "Updating central requirements..."
-    
+
     # Install consolidated dependencies
     if [ -f "requirements-consolidated.txt" ]; then
         log_info "Installing consolidated dependencies..."
@@ -64,7 +64,7 @@ update_central_requirements() {
 # Update service-specific pyproject.toml files
 update_service_configs() {
     log_info "Updating service configurations..."
-    
+
     # List of services to update
     services=(
         "apps/coordinator-api"
@@ -72,7 +72,7 @@ update_service_configs() {
         "apps/pool-hub"
         "apps/wallet"
     )
-    
+
     for service in "${services[@]}"; do
         if [ -f "$service/pyproject.toml" ]; then
             log_info "Updating $service..."
@@ -103,7 +103,7 @@ EOF
 # Update CLI requirements
 update_cli_requirements() {
     log_info "Updating CLI requirements..."
-    
+
     if [ -f "cli/requirements-cli.txt" ]; then
         # Create minimal CLI requirements (others from central)
         cat > "cli/requirements-cli.txt" << EOF
@@ -128,7 +128,7 @@ EOF
 # Create installation profiles script
 create_profiles() {
     log_info "Creating installation profiles..."
-    
+
     cat > "scripts/install-profiles.sh" << 'EOF'
 #!/bin/bash
 # AITBC Installation Profiles
@@ -246,7 +246,7 @@ esac
 
 log_success "Installation completed"
 EOF
-    
+
     chmod +x "scripts/install-profiles.sh"
     log_success "Created installation profiles script"
 }
@@ -254,11 +254,11 @@ EOF
 # Validate dependency consistency
 validate_dependencies() {
     log_info "Validating dependency consistency..."
-    
+
     # Check for conflicts
     log_info "Checking for version conflicts..."
     conflicts=$(./venv/bin/pip check 2>&1 || true)
-    
+
     if echo "$conflicts" | grep -q "No broken requirements"; then
         log_success "No dependency conflicts found"
     else
@@ -271,9 +271,9 @@ validate_dependencies() {
 # Generate dependency report
 generate_report() {
     log_info "Generating dependency report..."
-    
+
     report_file="dependency-report-$(date +%Y%m%d_%H%M%S).txt"
-    
+
     cat > "$report_file" << EOF
 AITBC Dependency Report
 ====================
@@ -292,24 +292,24 @@ Security Audit:
 $(./venv/bin/safety check --json 2>/dev/null | ./venv/bin/python -c "import json, sys; data=json.load(sys.stdin); print(f'Vulnerabilities: {len(data)}')" 2>/dev/null || echo "Unable to check")
 
 EOF
-    
+
     log_success "Dependency report generated: $report_file"
 }
 
 # Main execution
 main() {
     log_info "Starting AITBC dependency consolidation..."
-    
+
     backup_requirements
     update_central_requirements
     update_service_configs
     update_cli_requirements
     create_profiles
-    
+
     if validate_dependencies; then
         generate_report
         log_success "Dependency consolidation completed successfully!"
-        
+
         echo ""
         log_info "Next steps:"
         echo "1. Test services with new dependencies"

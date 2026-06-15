@@ -3,28 +3,10 @@ Minimal conftest for pytest discovery
 Imports fixtures from dedicated fixture files for better organization
 """
 
-import sys
-from pathlib import Path
+import pytest
+from click.testing import CliRunner
 
-# Configure Python path for test discovery
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root / "cli"))
-sys.path.insert(0, str(project_root))
-
-# Import fixtures from dedicated fixture files
-# Common fixtures (environment setup, data generators)
-
-# Coordinator API fixtures
-
-# Blockchain fixtures
-
-# Training fixtures (kept here as they're specific to training tests)
-# Auth fixtures
-# Test data factory
-import pytest  # noqa: E402
-from click.testing import CliRunner  # noqa: E402
-
-from aitbc.training_setup import TrainingEnvironment, TrainingSetupError  # noqa: E402
+from aitbc.training_setup import TrainingEnvironment, TrainingSetupError
 
 
 @pytest.fixture(autouse=True)

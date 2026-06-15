@@ -106,7 +106,7 @@ cd /opt/aitbc/tests
 # JWT Authentication
 /opt/aitbc/venv/bin/python -m pytest production/test_jwt_authentication.py -v
 
-# Production Monitoring  
+# Production Monitoring
 /opt/aitbc/venv/bin/python -m pytest production/test_production_monitoring.py -v
 
 # Type Safety

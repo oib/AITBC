@@ -1,17 +1,16 @@
-from typing import Annotated, Any
-
-from sqlalchemy.orm import Session
-
 """
 Multi-Modal Agent Service - FastAPI Entry Point
 """
 
-from fastapi import Depends, FastAPI  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from typing import Annotated, Any
 
-from ..contexts.multimodal.routers.multimodal_health import router as health_router  # noqa: E402
-from ..contexts.multimodal.services.multimodal_agent import MultiModalAgentService  # noqa: E402
-from ..storage import get_session  # noqa: E402
+from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+
+from ..contexts.multimodal.routers.multimodal_health import router as health_router
+from ..contexts.multimodal.services.multimodal_agent import MultiModalAgentService
+from ..storage import get_session
 
 app = FastAPI(
     title="AITBC Multi-Modal Agent Service",

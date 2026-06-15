@@ -3,13 +3,9 @@ Coordinator API test fixtures
 Provides fixtures for testing the coordinator API
 """
 
-import sys
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-
-project_root = Path(__file__).parent.parent.parent
 
 
 @pytest.fixture
@@ -21,10 +17,6 @@ def coordinator_client():
 
     try:
         # Import the coordinator app specifically
-        coordinator_path = str(project_root / "apps" / "coordinator-api" / "src")
-        if coordinator_path not in sys.path[:1]:
-            sys.path.insert(0, coordinator_path)
-
         from app.main import app as coordinator_app
 
         print("✅ Using real coordinator API client")

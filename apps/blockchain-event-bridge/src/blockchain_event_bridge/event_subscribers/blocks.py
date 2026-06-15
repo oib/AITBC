@@ -34,12 +34,6 @@ class BlockEventSubscriber:
         self._running = True
         logger.info("Starting block event subscriber...")
         try:
-            import sys
-            from pathlib import Path
-
-            blockchain_node_src = Path("/opt/aitbc/apps/blockchain-node/src")
-            if str(blockchain_node_src) not in sys.path:
-                sys.path.insert(0, str(blockchain_node_src))
             from aitbc_chain.gossip.broker import GossipBroker, create_backend  # type: ignore[import-not-found]
 
             backend = create_backend(self.settings.gossip_backend, broadcast_url=self.settings.gossip_broadcast_url)

@@ -3,19 +3,11 @@ Message Protocols Tests
 Tests for message types, routing, filtering, and message handling
 """
 
-import sys
-from pathlib import Path
+from datetime import UTC, datetime, timedelta
 
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
-
-from datetime import UTC, datetime, timedelta  # noqa: E402
-
-import pytest  # noqa: E402
-from app.protocols.communication import AgentMessage, MessageType, Priority  # noqa: E402
-from app.protocols.message_types import (  # noqa: E402
+import pytest
+from app.protocols.communication import AgentMessage, MessageType, Priority
+from app.protocols.message_types import (
     ConsensusMessage,
     CoordinationMessage,
     DiscoveryMessage,

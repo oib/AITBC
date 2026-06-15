@@ -62,7 +62,7 @@ print(f'NETWORK:ACTIVE:{len(poa.validators)}:{total_stake}')
 if [[ "$network_status" == NETWORK:ACTIVE:* ]]; then
     validator_count=$(echo "$network_status" | cut -d: -f3)
     total_stake=$(echo "$network_status" | cut -d: -f4)
-    
+
     echo -e "${GREEN}✅ Network Status: ACTIVE${NC}"
     echo "   Validators: $validator_count"
     echo "   Total Stake: $total_stake AITBC"

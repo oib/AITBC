@@ -68,18 +68,18 @@ from aitbc_sdk import AITBCClient
 async def main():
     # Initialize client
     client = AITBCClient(base_url="https://aitbc.bubuit.net")
-    
+
     # Submit a job
     job = await client.submit_job({
         "service_type": "llm_inference",
         "model": "llama3.2",
         "prompt": "Hello, world!"
     })
-    
+
     # Check job status
     status = await client.get_job_status(job.id)
     print(f"Job status: {status.status}")
-    
+
     # Get results when complete
     if status.status == "completed":
         result = await client.get_job_result(job.id)

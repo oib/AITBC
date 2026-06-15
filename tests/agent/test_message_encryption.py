@@ -3,18 +3,10 @@ Message Encryption Module Tests
 Tests for RSA/AES-GCM encryption, key exchange, and digital signatures
 """
 
-import sys
-from pathlib import Path
+from datetime import UTC, datetime
 
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
-
-from datetime import UTC, datetime  # noqa: E402
-
-import pytest  # noqa: E402
-from app.encryption.message_encryption import (  # noqa: E402
+import pytest
+from app.encryption.message_encryption import (
     AgentKeyPair,
     EncryptedMessage,
     MessageEncryptor,

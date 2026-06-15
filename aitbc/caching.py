@@ -543,7 +543,6 @@ def cached(ttl: int = 300, cache_instance: LRUCache | TTLCache | None = None):
         cache_instance = TTLCache(default_ttl=ttl)
 
     def decorator(func: Callable) -> Callable:
-
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             cache_key = _generate_cache_key(func.__name__, args, kwargs)
@@ -574,7 +573,6 @@ def cached_lru(capacity: int = 128, ttl: int | None = None):
     cache_instance = LRUCache(capacity=capacity)
 
     def decorator(func: Callable) -> Callable:
-
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             cache_key = _generate_cache_key(func.__name__, args, kwargs)
@@ -605,13 +603,13 @@ def _generate_cache_key(func_name: str, args: tuple, kwargs: dict) -> str:
     """
     key_parts = [func_name]
     for arg in args:
-        if isinstance(arg, (str, int, float, bool, type(None))):
+        if isinstance(arg, str | int | float | bool | type(None)):
             key_parts.append(str(arg))
         else:
             key_parts.append(hashlib.md5(json.dumps(arg, sort_keys=True).encode()).hexdigest())
     for key in sorted(kwargs.keys()):
         value = kwargs[key]
-        if isinstance(value, (str, int, float, bool, type(None))):
+        if isinstance(value, str | int | float | bool | type(None)):
             key_parts.append(f"{key}={value}")
         else:
             key_parts.append(f"{key}={hashlib.md5(json.dumps(value, sort_keys=True).encode()).hexdigest()}")
@@ -681,7 +679,6 @@ def cached_blockchain(operation: str, ttl: int | None = None):
         ttl = ttl_map.get(operation, 300)
 
     def decorator(func: Callable) -> Callable:
-
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             metrics = get_cache_metrics()

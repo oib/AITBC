@@ -1,7 +1,7 @@
 # AITBC v0.3.8 Release Notes
 
-**Date**: May 12, 2026  
-**Status**: ✅ Released  
+**Date**: May 12, 2026
+**Status**: ✅ Released
 **Scope: Skills framework implementation and repository reorganization
 
 ## 🎯 Overview
@@ -139,6 +139,6 @@ AITBC v0.3.8 is a **major development workflow release** that introduces the Ski
 
 ---
 
-*Last updated: 2026-05-12*  
-*Version: 0.3.8*  
+*Last updated: 2026-05-12*
+*Version: 0.3.8*
 *Status: Development Workflow Release*

@@ -1,68 +1,54 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        exclude: \.(svg|png|jpg|ico|woff|woff2|ttf|eot)$
       - id: end-of-file-fixer
+        exclude: \.(svg|png|jpg|ico|woff|woff2|ttf|eot)$
       - id: check-yaml
+        exclude: apps/blockchain-node/observability/
       - id: check-added-large-files
+        args: ['--maxkb=1000']
       - id: check-json
       - id: check-merge-conflict
       - id: debug-statements
-      - id: check-docstring-first
-      - id: check-executables-have-shebangs
+        exclude: cli/templates/.*|tests/cli/.*
       - id: check-toml
       - id: check-xml
       - id: check-case-conflict
       - id: check-ast
-      - id: check-builddir
-      - id: check-shebang-scripts
+        exclude: cli/templates/.*|tests/cli/.*
 
-  - repo: https://github.com/psf/black
-    rev: 24.4.2
-    hooks:
-      - id: black
-        language_version: python3
-        args: [--line-length=127]
-
-  - repo: https://github.com/pycqa/isort
-    rev: 8.0.1
-    hooks:
-      - id: isort
-        args: [--profile=black, --line-length=127]
-
+  # Ruff: linting and formatting (replaces Black, isort, flake8, pydocstyle, pyupgrade)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.10
+    rev: v0.11.0
     hooks:
       - id: ruff
-        args: [--line-length=127, --select=F821,F823,F811]
+        args: [--fix, --unsafe-fixes, --exit-non-zero-on-fix]
+        exclude: cli/templates/.*|tests/cli/.*
+        stages: [pre-commit]
       - id: ruff-format
-        args: [--line-length=127]
+        exclude: cli/templates/.*|tests/cli/.*
+        stages: [pre-commit]
 
-  # Local hook: mypy on changed files only (gradual type checking approach)
+  # MyPy type checking on the 12 clean apps
   - repo: local
     hooks:
-      - id: mypy-changed-files
-        name: mypy-changed-files
-        entry: bash scripts/ci/check-mypy-changed.sh
+      - id: mypy-apps
+        name: mypy-clean-apps
+        entry: bash scripts/ci/mypy-precommit.sh
         language: system
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
 
+  # Security checks with Bandit (only on pre-push to save time)
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.9.4
+    rev: 1.8.3
     hooks:
       - id: bandit
-        args: [-r, ., -f, json, -o, bandit-report.json]
+        args: [-c, pyproject.toml, -r, ., -x, cli/templates, tests/cli, tests/]
+        additional_dependencies: ["bandit[toml]"]
         pass_filenames: false
-
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.2
-    hooks:
-      - id: pyupgrade
-        args: [--py313-plus]
-
-# Note: Pytest tests run in CI, not in pre-commit hooks
-# Use --no-verify to skip pre-commit hooks during active development
-# Example: git commit --no-verify -m "WIP: feature in progress"
+        stages: [pre-push]

@@ -56,9 +56,9 @@ class Settings(BaseSettings):
     environment: Environment = Environment.DEVELOPMENT
     debug: bool = False
 
-    # Server settings
-    host: str = os.getenv("HOST", "0.0.0.0")
-    port: int = int(os.getenv("PORT", "9001"))
+    # Server settings (standardized: AGENT_COORDINATOR_BIND_HOST/PORT, fallback to HOST/PORT for backward compatibility)
+    host: str = os.getenv("AGENT_COORDINATOR_BIND_HOST", os.getenv("HOST", "0.0.0.0"))
+    port: int = int(os.getenv("AGENT_COORDINATOR_BIND_PORT", os.getenv("PORT", "9001")))
     workers: int = int(os.getenv("WORKERS", "1"))
 
     # Redis settings

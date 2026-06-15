@@ -23,9 +23,9 @@ setup_database() {
     local db_name=$1
     local db_user=$2
     local db_password=${3:-password}
-    
+
     echo -e "${BLUE}Setting up ${db_name}...${NC}"
-    
+
     # Create user if not exists
     sudo -u postgres psql -c "DO \$\$
     BEGIN
@@ -34,29 +34,29 @@ setup_database() {
         END IF;
     END
     \$\$;" 2>/dev/null || echo "User ${db_user} already exists"
-    
+
     # Create database if not exists
     sudo -u postgres psql -c "SELECT 'CREATE DATABASE ${db_name} OWNER ${db_user}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${db_name}')\\gexec" 2>/dev/null || echo "Database ${db_name} already exists"
-    
+
     # Grant privileges
     sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${db_name} TO ${db_user};" 2>/dev/null || true
-    
+
     # Grant schema permissions
     sudo -u postgres psql -d ${db_name} -c "ALTER SCHEMA public OWNER TO ${db_user};" 2>/dev/null || true
     sudo -u postgres psql -d ${db_name} -c "GRANT CREATE ON SCHEMA public TO ${db_user};" 2>/dev/null || true
-    
+
     echo -e "${GREEN}✅ ${db_name} setup complete${NC}"
 }
 
 # Function to configure PostgreSQL for remote connections
 configure_remote_connections() {
     local network_cidr=${1:-10.1.223.0/24}
-    
+
     echo -e "${BLUE}Configuring PostgreSQL for remote connections...${NC}"
-    
+
     # Update listen_addresses
     sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/*/main/postgresql.conf 2>/dev/null || echo "listen_addresses already configured"
-    
+
     # Add pg_hba.conf rule if not exists
     if ! sudo grep -q "${network_cidr}" /etc/postgresql/*/main/pg_hba.conf 2>/dev/null; then
         sudo bash -c "echo \"host    all             all             ${network_cidr}          scram-sha-256\" >> /etc/postgresql/*/main/pg_hba.conf"
@@ -64,10 +64,10 @@ configure_remote_connections() {
     else
         echo -e "${YELLOW}⚠️  pg_hba.conf rule already exists for ${network_cidr}${NC}"
     fi
-    
+
     # Reload PostgreSQL
     sudo systemctl reload postgresql.service 2>/dev/null || sudo systemctl restart postgresql.service
-    
+
     echo -e "${GREEN}✅ PostgreSQL remote connections configured${NC}"
 }
 

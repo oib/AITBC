@@ -1,17 +1,18 @@
+"""
+hermes Integration Enhancement API Router - Phase 6.6
+REST API endpoints for advanced agent orchestration, edge computing integration, and ecosystem development
+"""
+
 from typing import Annotated
 
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-"\nhermes Integration Enhancement API Router - Phase 6.6\nREST API endpoints for advanced agent orchestration, edge computing integration, and ecosystem development\n"
-from aitbc import get_logger  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
-logger = get_logger(__name__)
-from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
-
-from aitbc.rate_limiting import rate_limit  # noqa: E402
-
-from ....deps import require_admin_key  # noqa: E402
-from ....schemas.hermes_enhanced import (  # noqa: E402
+from ....deps import require_admin_key
+from ....schemas.hermes_enhanced import (
     AgentCollaborationRequest,
     AgentCollaborationResponse,
     EcosystemDevelopmentRequest,
@@ -27,8 +28,10 @@ from ....schemas.hermes_enhanced import (  # noqa: E402
     SkillRoutingRequest,
     SkillRoutingResponse,
 )
-from ....storage import get_session  # noqa: E402
-from ..services.hermes_enhanced import hermesEnhancedService  # noqa: E402
+from ....storage import get_session
+from ..services.hermes_enhanced import hermesEnhancedService
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/hermes/enhanced", tags=["hermes Enhanced"])
 

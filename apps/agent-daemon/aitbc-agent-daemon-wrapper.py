@@ -7,12 +7,6 @@ Also supports Hermes API polling for agent messaging
 
 import os
 import subprocess
-import sys
-from pathlib import Path
-
-# Add aitbc to path
-sys.path.insert(0, str(Path("/opt/aitbc")))
-sys.path.insert(0, str(Path("/opt/aitbc/aitbc")))
 
 from aitbc import DATA_DIR, ENV_FILE, KEYSTORE_DIR, LOG_DIR, NODE_ENV_FILE, REPO_DIR
 

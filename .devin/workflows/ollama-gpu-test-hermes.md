@@ -23,7 +23,7 @@ This Hermes agent workflow executes the complete end-to-end test for Ollama GPU 
 - Monitor progress and validate results
 - Handle error conditions and retry logic
 
-### Client Agent  
+### Client Agent
 **Purpose**: Simulate client submitting AI inference jobs
 - Create and manage test wallets
 - Submit inference requests to coordinator
@@ -196,7 +196,7 @@ hermes agent --agent test-coordinator --session-id $SESSION_ID \
 ```json
 {
   "name": "AI Test Client",
-  "type": "client-agent", 
+  "type": "client-agent",
   "description": "Simulates client submitting AI inference jobs",
   "capabilities": ["wallet_management", "job_submission", "payment_processing"],
   "configuration": {

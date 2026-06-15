@@ -51,14 +51,14 @@ upstream aitbc_backend {
 server {
     listen 80;
     server_name _;
-    
+
     # Health check endpoint
     location /health {
         access_log off;
         return 200 "healthy\n";
         add_header Content-Type text/plain;
     }
-    
+
     # Load balanced RPC endpoints
     location /rpc/ {
         proxy_pass http://aitbc_backend;
@@ -66,16 +66,16 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
         # Timeout settings
         proxy_connect_timeout 5s;
         proxy_send_timeout 10s;
         proxy_read_timeout 10s;
-        
+
         # Health check
         proxy_next_upstream error timeout http_500 http_502 http_503 http_504;
     }
-    
+
     # Default route to RPC
     location / {
         proxy_pass http://aitbc_backend/rpc/;
@@ -83,13 +83,13 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
         # Timeout settings
         proxy_connect_timeout 5s;
         proxy_send_timeout 10s;
         proxy_read_timeout 10s;
     }
-    
+
     # Status page
     location /nginx_status {
         stub_status on;
@@ -129,7 +129,7 @@ nodes:
     port: 8202
     p2p_port: 8200
     priority: 100
-  
+
   - name: "aitbc2"
     role: "follower"
     host: "10.1.223.40"
@@ -188,7 +188,7 @@ get_current_load() {
     local cpu_load=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//')
     local mem_usage=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}')
     local rpc_response=$(curl -s -w "%{time_total}" -o /dev/null $BLOCKCHAIN_RPC/rpc/info)
-    
+
     echo "$cpu_load,$mem_usage,$rpc_response"
 }
 
@@ -198,12 +198,12 @@ check_scaling_needed() {
     local cpu_load=$(echo "$metrics" | cut -d',' -f1)
     local mem_usage=$(echo "$metrics" | cut -d',' -f2)
     local rpc_response=$(echo "$metrics" | cut -d',' -f3)
-    
+
     # Convert CPU load to float
     cpu_load_float=$(echo "$cpu_load" | sed 's/,//')
-    
+
     log_scale "Current metrics - CPU: ${cpu_load_float}%, MEM: ${mem_usage}%, RPC: ${rpc_response}s"
-    
+
     # Check scale up conditions
     if (( $(echo "$cpu_load_float > $scale_up_threshold" | bc -l) )) || \
        (( $(echo "$mem_usage > $scale_up_threshold" | bc -l) )) || \
@@ -211,7 +211,7 @@ check_scaling_needed() {
         echo "scale_up"
         return 0
     fi
-    
+
     # Check scale down conditions
     if (( $(echo "$cpu_load_float < $scale_down_threshold" | bc -l) )) && \
        (( $(echo "$mem_usage < $scale_down_threshold" | bc -l) )) && \
@@ -219,7 +219,7 @@ check_scaling_needed() {
         echo "scale_down"
         return 0
     fi
-    
+
     echo "no_scale"
 }
 
@@ -233,9 +233,9 @@ get_node_count() {
 main() {
     local scaling_decision=$(check_scaling_needed)
     local current_nodes=$(get_node_count)
-    
+
     log_scale "Scaling decision: $scaling_decision, Current nodes: $current_nodes"
-    
+
     case "$scaling_decision" in
         "scale_up")
             if [ "$current_nodes" -lt "$max_nodes" ]; then
@@ -293,7 +293,7 @@ cat > /opt/aitbc/cluster/service_discovery.json << 'EOF'
           "status": "active"
         },
         {
-          "id": "aitbc2", 
+          "id": "aitbc2",
           "host": "10.1.223.40",
           "port": 8202,
           "role": "follower",
@@ -314,7 +314,7 @@ cat > /opt/aitbc/cluster/service_discovery.json << 'EOF'
         },
         {
           "id": "aitbc2",
-          "host": "10.1.223.40", 
+          "host": "10.1.223.40",
           "port": 8200,
           "role": "peer"
         }
@@ -345,7 +345,7 @@ check_node_health() {
     local host=$1
     local port=$2
     local path=$3
-    
+
     if curl -s "http://$host:$port$path" >/dev/null 2>&1; then
         echo "healthy"
     else
@@ -356,7 +356,7 @@ check_node_health() {
 # Function to update service discovery
 update_discovery() {
     local timestamp=$(date -Iseconds)
-    
+
     # Update node statuses
     python3 << EOF
 import json
@@ -365,28 +365,28 @@ import sys
 try:
     with open('$DISCOVERY_FILE', 'r') as f:
         discovery = json.load(f)
-    
+
     # Update blockchain nodes
     for node in discovery['services']['aitbc-blockchain']['nodes']:
         host = node['host']
         port = node['port']
-        
+
         # Check health
         import subprocess
-        result = subprocess.run(['curl', '-s', f'http://{host}:{port}/rpc/info'], 
+        result = subprocess.run(['curl', '-s', f'http://{host}:{port}/rpc/info'],
                               capture_output=True, text=True)
-        
+
         if result.returncode == 0:
             node['status'] = 'active'
             node['last_check'] = '$timestamp'
         else:
             node['status'] = 'unhealthy'
             node['last_check'] = '$timestamp'
-    
+
     # Write back
     with open('$DISCOVERY_FILE', 'w') as f:
         json.dump(discovery, f, indent=2)
-    
+
     print("Service discovery updated")
 except Exception as e:
     print(f"Error updating discovery: {e}")
@@ -437,7 +437,7 @@ This document outlines the procedures for scaling the AITBC blockchain network h
    # Clone AITBC repository
    git clone <repository-url> /opt/aitbc
    cd /opt/aitbc
-   
+
    # Run node setup
    /opt/aitbc/scripts/workflow/03_follower_node_setup.sh
    ```
@@ -459,7 +459,7 @@ This document outlines the procedures for scaling the AITBC blockchain network h
    ```bash
    # Check node health
    curl http://<host>:<port>/rpc/info
-   
+
    # Check load balancer stats
    curl http://localhost/nginx_status
    ```

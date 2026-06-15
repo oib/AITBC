@@ -6,7 +6,7 @@
 ```
 /opt/aitbc/
 ├── python-packages-workspace/    # Created inside repo
-├── javascript-packages-workspace/ # Created inside repo  
+├── javascript-packages-workspace/ # Created inside repo
 ├── security-workspace/           # Created inside repo
 └── compatibility-workspace/       # Created inside repo
 ```
@@ -93,7 +93,7 @@
       rm -rf "$workspace" 2>/dev/null || true
       mkdir -p "$workspace"
     }
-    
+
     # Setup different workspaces
     cleanup_workspace "/var/lib/aitbc-workspaces/python"
     cleanup_workspace "/var/lib/aitbc-workspaces/javascript"
@@ -112,18 +112,18 @@ setup_workspace() {
     local workspace_base="/var/lib/aitbc-workspaces"
     local workspace_dir="$workspace_base/$workspace_type"
     local repo_url="http://10.0.3.107:3000/oib/aitbc.git"
-    
+
     echo "=== Setting up $workspace_type workspace ==="
-    
+
     # Cleanup and create
     rm -rf "$workspace_dir"
     mkdir -p "$workspace_dir"
     cd "$workspace_dir"
-    
+
     # Clone repository
     git clone "$repo_url" repo
     cd repo
-    
+
     echo "✅ $workspace_type workspace ready at $workspace_dir/repo"
 }
 

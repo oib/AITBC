@@ -1,18 +1,19 @@
+"""
+Agent Integration and Deployment API Router for Verifiable AI Agent Orchestration
+Provides REST API endpoints for production deployment and integration management
+"""
+
 from typing import Annotated, Any
 
-"\nAgent Integration and Deployment API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for production deployment and integration management\n"
-from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlmodel import Session, select
 
-from aitbc import get_logger  # noqa: E402
-from aitbc.rate_limiting import rate_limit  # noqa: E402
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
+from app.domain.agent import AgentExecution, AIAgentWorkflow, VerificationLevel
 
-logger = get_logger(__name__)
-from sqlmodel import Session, select  # noqa: E402
-
-from app.domain.agent import AgentExecution, AIAgentWorkflow, VerificationLevel  # noqa: E402
-
-from ..deps import require_admin_key  # noqa: E402
-from ..services.agent_integration import (  # noqa: E402
+from ..deps import require_admin_key
+from ..services.agent_integration import (
     AgentDeploymentConfig,
     AgentDeploymentInstance,
     AgentDeploymentManager,
@@ -21,8 +22,10 @@ from ..services.agent_integration import (  # noqa: E402
     AgentProductionManager,
     DeploymentStatus,
 )
-from ..storage import get_session  # noqa: E402
-from ..utils.alerting import alert_dispatcher  # type: ignore[import-not-found]  # noqa: E402
+from ..storage import get_session
+from ..utils.alerting import alert_dispatcher  # type: ignore[import-not-found]
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/agents/integration", tags=["Agent Integration"])
 

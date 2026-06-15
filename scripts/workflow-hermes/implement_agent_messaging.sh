@@ -152,7 +152,7 @@ cat > /tmp/hermes_messaging_implementation_report.json << EOF
             "capabilities": ["coordination", "moderation", "status_broadcasting"]
         },
         "follower_node": {
-            "agent_status": "trained_and_active", 
+            "agent_status": "trained_and_active",
             "blockchain_height": $(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height'),
             "capabilities": ["participation", "status_reporting", "collaboration"]
         }
@@ -166,7 +166,7 @@ cat > /tmp/hermes_messaging_implementation_report.json << EOF
     },
     "scenarios_demonstrated": [
         "Coordination topic creation",
-        "Status update broadcasting", 
+        "Status update broadcasting",
         "Cross-node collaboration",
         "Agent training and specialization"
     ],

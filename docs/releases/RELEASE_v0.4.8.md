@@ -251,6 +251,6 @@ location /api/v1/agent/messages/stream {
 
 ---
 
-*Last Updated: 2026-06-06*  
-*Version: 0.4.8*  
+*Last Updated: 2026-06-06*
+*Version: 0.4.8*
 *Status: Released*

@@ -7,21 +7,22 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from sqlmodel import Session
+
 from aitbc import get_logger
 
-logger = get_logger(__name__)
-from sqlmodel import Session  # noqa: E402
-
-from ..contexts.agent_identity.domain.agent_identity import (  # noqa: E402
+from ..contexts.agent_identity.domain.agent_identity import (
     AgentIdentityCreate,
     AgentIdentityUpdate,
     AgentWalletUpdate,
     IdentityStatus,
     VerificationType,
 )
-from .core import AgentIdentityCore  # noqa: E402
-from .registry import CrossChainRegistry  # noqa: E402
-from .wallet_adapter import MultiChainWalletAdapter  # noqa: E402
+from .core import AgentIdentityCore
+from .registry import CrossChainRegistry
+from .wallet_adapter import MultiChainWalletAdapter
+
+logger = get_logger(__name__)
 
 
 class AgentIdentityManager:

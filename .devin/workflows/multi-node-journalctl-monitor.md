@@ -181,7 +181,7 @@ echo ""
 monitor_node() {
     local node_name=$1
     local node_cmd=$2
-    
+
     while true; do
         timestamp=$(date '+%Y-%m-%d %H:%M:%S')
         echo "[$timestamp] $node_name"
@@ -219,29 +219,29 @@ echo ""
 
 while true; do
     echo "=== Error Count Check $(date '+%Y-%m-%d %H:%M:%S') ==="
-    
+
     # Count errors on each node
     aitbc_errors=$(journalctl -u aitbc-blockchain-node.service --since "$CHECK_INTERVAL seconds ago" -p err --no-pager | wc -l)
     aitbc1_errors=$(ssh aitbc1 'journalctl -u aitbc-blockchain-node.service --since "$CHECK_INTERVAL seconds ago" -p err --no-pager' 2>/dev/null | wc -l)
     gitea_errors=$(ssh gitea-runner 'journalctl -u aitbc-blockchain-node.service --since "$CHECK_INTERVAL seconds ago" -p err --no-pager' 2>/dev/null | wc -l)
-    
+
     echo "aitbc errors: $aitbc_errors"
     echo "aitbc1 errors: $aitbc1_errors"
     echo "gitea-runner errors: $gitea_errors"
-    
+
     # Alert on threshold breach
     if [ "$aitbc_errors" -ge "$ERROR_THRESHOLD" ]; then
         echo "⚠️  ALERT: aitbc error count ($aitbc_errors) exceeds threshold ($ERROR_THRESHOLD)"
     fi
-    
+
     if [ "$aitbc1_errors" -ge "$ERROR_THRESHOLD" ]; then
         echo "⚠️  ALERT: aitbc1 error count ($aitbc1_errors) exceeds threshold ($ERROR_THRESHOLD)"
     fi
-    
+
     if [ "$gitea_errors" -ge "$ERROR_THRESHOLD" ]; then
         echo "⚠️  ALERT: gitea-runner error count ($gitea_errors) exceeds threshold ($ERROR_THRESHOLD)"
     fi
-    
+
     echo ""
     sleep $CHECK_INTERVAL
 done
@@ -269,7 +269,7 @@ mkfifo $PIPE_GITEA
 read_pipe() {
     local prefix=$1
     local pipe=$2
-    
+
     while read line; do
         echo "[$prefix] $line"
     done < $pipe

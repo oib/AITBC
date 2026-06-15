@@ -1,7 +1,7 @@
 # AITBC v0.4.5 Release Notes
 
-**Date**: June 3, 2026  
-**Status**: ✅ Released  
+**Date**: June 3, 2026
+**Status**: ✅ Released
 **Scope**: Software Marketplace & On-Chain Proof of Work
 
 ## 🎯 Overview
@@ -320,6 +320,6 @@ Server hostname configured via include file, patched by install-nginx-node.sh sc
 
 ---
 
-*Last Updated: 2026-06-03*  
-*Version: 0.4.5*  
+*Last Updated: 2026-06-03*
+*Version: 0.4.5*
 *Status: Released*

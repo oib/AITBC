@@ -1,16 +1,14 @@
-from typing import Annotated
-
-from sqlalchemy.orm import Session
-
 """Payment router for job payments"""
 
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status  # noqa: E402
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
-from ....deps import require_client_key  # noqa: E402
-from ....schemas import EscrowRelease, JobPaymentCreate, JobPaymentView, PaymentReceipt, RefundRequest  # noqa: E402
-from ....storage import get_session  # noqa: E402
-from ..services.payments import PaymentService  # noqa: E402
+from ....deps import require_client_key
+from ....schemas import EscrowRelease, JobPaymentCreate, JobPaymentView, PaymentReceipt, RefundRequest
+from ....storage import get_session
+from ..services.payments import PaymentService
 
 router = APIRouter(tags=["payments"])
 

@@ -37,7 +37,7 @@ steps:
     auto_remediation:
       - "install_git"
       - "install_github_cli"
-  
+
   - step: 2
     name: "Fork Repository"
     action: "fork_repo"
@@ -48,7 +48,7 @@ steps:
     verification:
       - "fork exists"
       - "local repository cloned"
-  
+
   - step: 3
     name: "Agent Creation"
     action: "create_agent"
@@ -57,7 +57,7 @@ steps:
     verification:
       - "builder.identity.id is generated"
       - "builder.specializations defined"
-  
+
   - step: 4
     name: "Network Registration"
     action: "register_network"
@@ -65,7 +65,7 @@ steps:
       - "python3 -c 'await builder.register()'"
     verification:
       - "builder.registered == True"
-  
+
   - step: 5
     name: "First Contribution"
     action: "create_contribution"
@@ -74,7 +74,7 @@ steps:
     verification:
       - "contribution.status == 'draft'"
       - "contribution.id is generated"
-  
+
   - step: 6
     name: "Submit Pull Request"
     action: "submit_pr"
@@ -88,7 +88,7 @@ steps:
     verification:
       - "pull request created"
       - "pr number is generated"
-  
+
   - step: 7
     name: "Swarm Integration"
     action: "join_swarm"

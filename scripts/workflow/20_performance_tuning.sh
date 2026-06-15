@@ -83,12 +83,12 @@ echo "Optimizing blockchain configuration..."
 if [ -f "/etc/aitbc/blockchain.env" ]; then
     # Backup original config
     cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.backup.$(date +%Y%m%d_%H%M%S)
-    
+
     # Optimize key parameters
     sed -i 's/block_time_seconds=10/block_time_seconds=2/' /etc/aitbc/blockchain.env
     sed -i 's/max_txs_per_block=100/max_txs_per_block=500/' /etc/aitbc/blockchain.env
     sed -i 's/max_block_size_bytes=1048576/max_block_size_bytes=2097152/' /etc/aitbc/blockchain.env
-    
+
     echo -e "   ${GREEN}✅${NC} Blockchain configuration optimized"
     echo "   • Block time: 2 seconds"
     echo "   • Max transactions per block: 500"

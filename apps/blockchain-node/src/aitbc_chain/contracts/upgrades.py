@@ -7,6 +7,8 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
+from decimal import Decimal
+from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -22,10 +24,6 @@ def log_error(msg: str) -> None:
 
 def log_warn(msg: str) -> None:
     logger.warning(msg)
-
-
-from decimal import Decimal  # noqa: E402
-from enum import Enum  # noqa: E402
 
 
 class UpgradeStatus(Enum):

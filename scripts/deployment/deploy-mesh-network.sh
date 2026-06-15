@@ -72,30 +72,30 @@ get_progress() {
 # Validation functions
 validate_environment() {
     log_info "Validating environment: $ENVIRONMENT"
-    
+
     # Check if environment is valid
     if [[ ! " ${VALID_ENVIRONMENTS[@]} " =~ " ${ENVIRONMENT} " ]]; then
         log_error "Invalid environment: $ENVIRONMENT. Valid options: ${VALID_ENVIRONMENTS[*]}"
         exit 1
     fi
-    
+
     # Check environment config exists
     local env_config="$CONFIG_DIR/$ENVIRONMENT/.env"
     if [[ ! -f "$env_config" ]]; then
         log_error "Environment config not found: $env_config"
         exit 1
     fi
-    
+
     # Load environment config
     source "$env_config"
-    
+
     log_info "Environment validation passed"
     return 0
 }
 
 validate_prerequisites() {
     log_info "Validating prerequisites"
-    
+
     # Check required directories
     local required_dirs=("$SCRIPTS_DIR" "$TESTS_DIR" "$CONFIG_DIR" "$LOG_DIR" "$BACKUP_DIR")
     for dir in "${required_dirs[@]}"; do
@@ -104,7 +104,7 @@ validate_prerequisites() {
             exit 1
         fi
     done
-    
+
     # Check required scripts
     local required_scripts=(
         "$SCRIPTS_DIR/01_consensus_setup.sh"
@@ -113,7 +113,7 @@ validate_prerequisites() {
         "$SCRIPTS_DIR/04_agent_network_scaling.sh"
         "$SCRIPTS_DIR/05_smart_contracts.sh"
     )
-    
+
     for script in "${required_scripts[@]}"; do
         if [[ ! -f "$script" ]]; then
             log_error "Required script not found: $script"
@@ -124,7 +124,7 @@ validate_prerequisites() {
             chmod +x "$script"
         fi
     done
-    
+
     log_info "Prerequisites validation passed"
     return 0
 }
@@ -132,25 +132,25 @@ validate_prerequisites() {
 # Backup functions
 create_backup() {
     log_info "Creating backup before deployment"
-    
+
     local backup_name="pre_deployment_$(date +%Y%m%d_%H%M%S)"
     local backup_path="$BACKUP_DIR/$backup_name"
-    
+
     mkdir -p "$backup_path"
-    
+
     # Backup configuration
     cp -r "$CONFIG_DIR" "$backup_path/"
-    
+
     # Backup current blockchain data if exists
     if [[ -d "$AITBC_ROOT/data" ]]; then
         cp -r "$AITBC_ROOT/data" "$backup_path/"
     fi
-    
+
     # Backup logs
     if [[ -d "$AITBC_ROOT/logs" ]]; then
         cp -r "$AITBC_ROOT/logs" "$backup_path/"
     fi
-    
+
     log_info "Backup created: $backup_path"
     echo "$backup_path" > "$AITBC_ROOT/.last_backup"
 }
@@ -159,18 +159,18 @@ create_backup() {
 deploy_phase() {
     local phase="$1"
     local script_name="$2"
-    
+
     log_info "Deploying phase: $phase"
     update_progress "$phase" "started"
-    
+
     local script_path="$SCRIPTS_DIR/$script_name"
-    
+
     if [[ ! -f "$script_path" ]]; then
         log_error "Phase script not found: $script_path"
         update_progress "$phase" "failed"
         return 1
     fi
-    
+
     # Execute phase script
     if bash "$script_path"; then
         log_info "Phase $phase deployed successfully"
@@ -186,12 +186,12 @@ deploy_phase() {
 # Validation functions
 validate_phase() {
     local phase="$1"
-    
+
     log_info "Validating phase: $phase"
-    
+
     # Run phase-specific tests
     cd "$TESTS_DIR"
-    
+
     case "$phase" in
         "consensus")
             "$PYTHON_CMD" -m pytest -c /dev/null --rootdir "$AITBC_ROOT" --import-mode=importlib phase1/ -v --tb=short
@@ -212,7 +212,7 @@ validate_phase() {
             log_warn "No specific tests for phase: $phase"
             ;;
     esac
-    
+
     if [[ $? -eq 0 ]]; then
         log_info "Phase $phase validation passed"
         return 0
@@ -225,47 +225,47 @@ validate_phase() {
 # Rollback functions
 rollback_deployment() {
     log_warn "Rolling back deployment"
-    
+
     local last_backup_file="$AITBC_ROOT/.last_backup"
     if [[ ! -f "$last_backup_file" ]]; then
         log_error "No backup found for rollback"
         exit 1
     fi
-    
+
     local backup_path=$(cat "$last_backup_file")
     if [[ ! -d "$backup_path" ]]; then
         log_error "Backup directory not found: $backup_path"
         exit 1
     fi
-    
+
     # Restore configuration
     if [[ -d "$backup_path/config" ]]; then
         cp -r "$backup_path/config" "$AITBC_ROOT/"
         log_info "Configuration restored"
     fi
-    
+
     # Restore data
     if [[ -d "$backup_path/data" ]]; then
         cp -r "$backup_path/data" "$AITBC_ROOT/"
         log_info "Data restored"
     fi
-    
+
     # Restore logs
     if [[ -d "$backup_path/logs" ]]; then
         cp -r "$backup_path/logs" "$AITBC_ROOT/"
         log_info "Logs restored"
     fi
-    
+
     log_info "Rollback completed"
 }
 
 # Health check functions
 health_check() {
     log_info "Running health checks"
-    
+
     # Check if services are running
     local services=("aitbc-coordinator" "aitbc-validator" "aitbc-agent-registry")
-    
+
     for service in "${services[@]}"; do
         if systemctl is-active --quiet "$service"; then
             log_info "Service $service is running"
@@ -273,14 +273,14 @@ health_check() {
             log_warn "Service $service is not running"
         fi
     done
-    
+
     # Check network connectivity
     if ping -c 1 localhost >/dev/null 2>&1; then
         log_info "Network connectivity OK"
     else
         log_warn "Network connectivity issues detected"
     fi
-    
+
     # Check disk space
     local disk_usage=$(df "$AITBC_ROOT" | awk 'NR==2 {print $5}' | sed 's/%//')
     if [[ $disk_usage -lt 80 ]]; then
@@ -295,24 +295,24 @@ main() {
     log_info "Starting AITBC Mesh Network Deployment"
     log_info "Environment: $ENVIRONMENT"
     log_info "Timestamp: $(date)"
-    
+
     # Create log directory
     mkdir -p "$(dirname "$LOG_FILE")"
-    
+
     # Validate environment and prerequisites
     validate_environment
     validate_prerequisites
-    
+
     # Create backup
     create_backup
-    
+
     # Deploy phases
     local failed_phases=()
-    
+
     for i in "${!PHASES[@]}"; do
         local phase="${PHASES[$i]}"
         local script_number=$((i + 1))
-        
+
         # Map phase to correct script name
         local script_name
         case "$phase" in
@@ -336,21 +336,21 @@ main() {
                 continue
                 ;;
         esac
-        
+
         if ! deploy_phase "$phase" "$script_name"; then
             failed_phases+=("$phase")
             continue
         fi
-        
+
         if ! validate_phase "$phase"; then
             failed_phases+=("$phase")
         fi
     done
-    
+
     # Check if any phases failed
     if [[ ${#failed_phases[@]} -gt 0 ]]; then
         log_error "Deployment failed for phases: ${failed_phases[*]}"
-        
+
         read -p "Do you want to rollback? (y/N): " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -358,13 +358,13 @@ main() {
         fi
         exit 1
     fi
-    
+
     # Run health checks
     health_check
-    
+
     log_info "Deployment completed successfully"
     log_info "All phases deployed and validated"
-    
+
     # Generate deployment report
     local report_file="$AITBC_ROOT/logs/deployment_report_$(date +%Y%m%d_%H%M%S).txt"
     {
@@ -383,7 +383,7 @@ main() {
         echo ""
         echo "Health Check: PASSED"
     } > "$report_file"
-    
+
     log_info "Deployment report generated: $report_file"
 }
 
@@ -419,22 +419,22 @@ show_status() {
     echo "Deployment Status"
     echo "================="
     echo ""
-    
+
     local progress=$(get_progress)
     if [[ "$progress" == "no_progress" ]]; then
         echo "No deployment in progress"
         return
     fi
-    
+
     local phase=$(echo "$progress" | cut -d: -f1)
     local status=$(echo "$progress" | cut -d: -f2)
     local timestamp=$(echo "$progress" | cut -d: -f3)
-    
+
     echo "Last Phase: $phase"
     echo "Status: $status"
     echo "Timestamp: $(date -d @$timestamp)"
     echo ""
-    
+
     echo "Phase Progress:"
     for phase in "${PHASES[@]}"; do
         local phase_progress=$(grep "^$phase:" "$PROGRESS_FILE" 2>/dev/null | tail -n 1)

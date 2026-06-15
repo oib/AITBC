@@ -142,7 +142,7 @@ from pydantic import BaseModel, Field, validator
 class CreateUserRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     email: str = Field(..., regex=r'^[^@]+@[^@]+\.[^@]+$')
-    
+
     @validator('username')
     def validate_username(cls, v):
         if not v.isalnum():

@@ -14,7 +14,7 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     IERC20 public governanceToken;
-    
+
     // Staking Parameters
     uint256 public minStakeAmount;
     uint256 public unbondingPeriod = 7 days;
@@ -31,7 +31,7 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
 
     // Proposal Parameters
     enum ProposalState { Pending, Active, Canceled, Defeated, Succeeded, Queued, Expired, Executed }
-    
+
     struct Proposal {
         uint256 id;
         address proposer;
@@ -48,7 +48,7 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
 
     uint256 public proposalCount;
     mapping(uint256 => Proposal) public proposals;
-    
+
     // Regional Councils
     mapping(string => mapping(address => bool)) public isRegionalCouncilMember;
     mapping(string => address[]) public regionalCouncilMembers;
@@ -69,15 +69,15 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
 
     function stake(uint256 _amount) external nonReentrant {
         require(_amount > 0, "Cannot stake 0");
-        
+
         governanceToken.safeTransferFrom(msg.sender, address(this), _amount);
-        
+
         stakers[msg.sender].amount += _amount;
         stakers[msg.sender].lastStakeTime = block.timestamp;
         totalStaked += _amount;
-        
+
         require(stakers[msg.sender].amount >= minStakeAmount, "Below min stake");
-        
+
         emit Staked(msg.sender, _amount);
     }
 
@@ -99,9 +99,9 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
 
         uint256 amount = staker.unbondingAmount;
         staker.unbondingAmount = 0;
-        
+
         governanceToken.safeTransfer(msg.sender, amount);
-        
+
         emit Unstaked(msg.sender, amount);
     }
 
@@ -109,7 +109,7 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
 
     function createProposal(string calldata _region, string calldata _descriptionHash, uint256 _votingPeriod) external returns (uint256) {
         require(stakers[msg.sender].amount >= minStakeAmount, "Must be staked to propose");
-        
+
         // If regional, must be a council member
         if (bytes(_region).length > 0) {
             require(isRegionalCouncilMember[_region][msg.sender], "Not a council member");
@@ -123,7 +123,7 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
         p.descriptionHash = _descriptionHash;
         p.startTime = block.timestamp;
         p.endTime = block.timestamp + _votingPeriod;
-        
+
         emit ProposalCreated(p.id, msg.sender, _region, _descriptionHash);
         return p.id;
     }
@@ -132,7 +132,7 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
         Proposal storage p = proposals[_proposalId];
         require(block.timestamp >= p.startTime && block.timestamp <= p.endTime, "Voting closed");
         require(!p.hasVoted[msg.sender], "Already voted");
-        
+
         uint256 weight = stakers[msg.sender].amount;
         require(weight > 0, "No voting weight");
 
@@ -162,7 +162,7 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
         p.executed = true;
         // The actual execution logic (e.g., transferring treasury funds) would happen here
         // Usually involves calling other contracts via target[] and callData[] arrays.
-        
+
         emit ProposalExecuted(_proposalId);
     }
 

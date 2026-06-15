@@ -5,25 +5,25 @@ const path = require("path");
 async function main() {
     console.log("🔍 Verifying Decentralized Memory & Storage Contracts");
     console.log("==============================================");
-    
+
     const networkName = hre.network.name;
     const deploymentFile = `deployed-contracts-${networkName}.json`;
-    
+
     // Check if deployment file exists
     if (!fs.existsSync(deploymentFile)) {
         console.error(`❌ Deployment file not found: ${deploymentFile}`);
         console.log("Please run the deployment script first.");
         process.exit(1);
     }
-    
+
     // Load deployment information
     const deployedContracts = JSON.parse(fs.readFileSync(deploymentFile, 'utf8'));
-    
+
     console.log(`Network: ${networkName}`);
     console.log(`Deployer: ${deployedContracts.deployer}`);
     console.log(`Timestamp: ${deployedContracts.timestamp}`);
     console.log("");
-    
+
     // Check if Etherscan API key is configured
     const etherscanApiKey = process.env.ETHERSCAN_API_KEY;
     if (!etherscanApiKey) {
@@ -32,7 +32,7 @@ async function main() {
         console.log("Skipping verification...");
         return;
     }
-    
+
     const contracts = [
         {
             name: "AgentMemory",
@@ -71,16 +71,16 @@ async function main() {
             ]
         }
     ];
-    
+
     console.log(`Found ${contracts.length} contracts to verify`);
     console.log("");
-    
+
     let verificationResults = {
         verified: [],
         failed: [],
         skipped: []
     };
-    
+
     for (const contract of contracts) {
         if (!contract.address) {
             console.log(`⏭️  Skipping ${contract.name} - no address found`);
@@ -90,29 +90,29 @@ async function main() {
             });
             continue;
         }
-        
+
         console.log(`🔍 Verifying ${contract.name} at ${contract.address}...`);
-        
+
         try {
             // Wait for a few seconds to ensure the contract is properly deployed
             await new Promise(resolve => setTimeout(resolve, 5000));
-            
+
             // Verify the contract
             await hre.run("verify:verify", {
                 address: contract.address,
                 constructorArgs: contract.constructorArgs
             });
-            
+
             console.log(`✅ ${contract.name} verified successfully`);
             verificationResults.verified.push({
                 name: contract.name,
                 address: contract.address,
                 etherscanUrl: `https://${networkName === "mainnet" ? "" : networkName + "."}etherscan.io/address/${contract.address}`
             });
-            
+
         } catch (error) {
             console.error(`❌ Failed to verify ${contract.name}:`, error.message);
-            
+
             // Check if it's already verified
             if (error.message.includes("Already Verified") || error.message.includes("already verified")) {
                 console.log(`✅ ${contract.name} is already verified`);
@@ -130,11 +130,11 @@ async function main() {
                 });
             }
         }
-        
+
         // Add delay between verifications to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 3000));
     }
-    
+
     console.log("");
     console.log("🎉 VERIFICATION SUMMARY");
     console.log("======================");
@@ -142,7 +142,7 @@ async function main() {
     console.log(`❌ Failed: ${verificationResults.failed.length}`);
     console.log(`⏭️  Skipped: ${verificationResults.skipped.length}`);
     console.log("");
-    
+
     // Show verification results
     if (verificationResults.verified.length > 0) {
         console.log("✅ Successfully Verified Contracts:");
@@ -151,7 +151,7 @@ async function main() {
             console.log(`  ${contract.name}: ${contract.etherscanUrl} ${status}`);
         });
     }
-    
+
     if (verificationResults.failed.length > 0) {
         console.log("");
         console.log("❌ Failed Verifications:");
@@ -165,7 +165,7 @@ async function main() {
         console.log("  3. Verify constructor arguments match exactly");
         console.log("  4. Check Etherscan API rate limits");
     }
-    
+
     if (verificationResults.skipped.length > 0) {
         console.log("");
         console.log("⏭️  Skipped Contracts:");
@@ -173,7 +173,7 @@ async function main() {
             console.log(`  ${contract.name}: ${contract.reason}`);
         });
     }
-    
+
     // Save verification results
     const verificationReport = {
         timestamp: new Date().toISOString(),
@@ -186,15 +186,15 @@ async function main() {
             skipped: verificationResults.skipped.length
         }
     };
-    
+
     const reportFile = `memory-contract-verification-${networkName}-${Date.now()}.json`;
     fs.writeFileSync(
         path.join(__dirname, "..", reportFile),
         JSON.stringify(verificationReport, null, 2)
     );
-    
+
     console.log(`📄 Verification report saved to: ${reportFile}`);
-    
+
     // Return appropriate exit code
     if (verificationResults.failed.length > 0) {
         console.log("");

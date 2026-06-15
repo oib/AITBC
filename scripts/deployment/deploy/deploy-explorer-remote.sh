@@ -101,7 +101,7 @@ cat > index.html << 'EOF'
         <!-- Search -->
         <div class="bg-white rounded-lg shadow p-6 mb-8">
             <div class="flex space-x-4">
-                <input type="text" id="search-input" placeholder="Search by block height, hash, or transaction hash" 
+                <input type="text" id="search-input" placeholder="Search by block height, hash, or transaction hash"
                        class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <button onclick="search()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
                     Search
@@ -172,8 +172,8 @@ cat > index.html << 'EOF'
         lucide.createIcons();
 
         // RPC URL - change based on environment
-        const RPC_URL = window.location.hostname === 'localhost' ? 
-            'http://localhost:8082' : 
+        const RPC_URL = window.location.hostname === 'localhost' ?
+            'http://localhost:8082' :
             'http://95.216.198.140:8082';
 
         // Global state
@@ -201,11 +201,11 @@ cat > index.html << 'EOF'
         async function loadChainStats() {
             const response = await fetch(`${RPC_URL}/rpc/head`);
             const data = await response.json();
-            
+
             document.getElementById('chain-height').textContent = data.height || '-';
             document.getElementById('latest-hash').textContent = data.hash ? data.hash.substring(0, 16) + '...' : '-';
             document.getElementById('node-status').innerHTML = '<span class="text-green-500">Online</span>';
-            
+
             currentData.head = data;
         }
 
@@ -213,16 +213,16 @@ cat > index.html << 'EOF'
         async function loadLatestBlocks() {
             const tbody = document.getElementById('blocks-table');
             tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500">Loading blocks...</td></tr>';
-            
+
             const head = await fetch(`${RPC_URL}/rpc/head`).then(r => r.json());
             const blocks = [];
-            
+
             // Load last 10 blocks
             for (let i = 0; i < 10 && head.height - i >= 0; i++) {
                 const block = await fetch(`${RPC_URL}/rpc/blocks/${head.height - i}`).then(r => r.json());
                 blocks.push(block);
             }
-            
+
             tbody.innerHTML = blocks.map(block => `
                 <tr class="border-t hover:bg-gray-50">
                     <td class="py-3 font-mono">${block.height}</td>
@@ -243,7 +243,7 @@ cat > index.html << 'EOF'
             const block = await fetch(`${RPC_URL}/rpc/blocks/${height}`).then(r => r.json());
             const modal = document.getElementById('block-modal');
             const details = document.getElementById('block-details');
-            
+
             details.innerHTML = `
                 <div class="space-y-6">
                     <div>
@@ -271,7 +271,7 @@ cat > index.html << 'EOF'
                             </div>
                         </div>
                     </div>
-                    
+
                     ${block.transactions && block.transactions.length > 0 ? `
                     <div>
                         <h3 class="text-lg font-semibold mb-2">Transactions (${block.transactions.length})</h3>
@@ -301,7 +301,7 @@ cat > index.html << 'EOF'
                     ` : '<p class="text-gray-500">No transactions in this block</p>'}
                 </div>
             `;
-            
+
             modal.classList.remove('hidden');
         }
 
@@ -314,13 +314,13 @@ cat > index.html << 'EOF'
         async function search() {
             const query = document.getElementById('search-input').value.trim();
             if (!query) return;
-            
+
             // Try block height first
             if (/^\\d+$/.test(query)) {
                 showBlockDetails(parseInt(query));
                 return;
             }
-            
+
             // TODO: Add transaction hash search
             alert('Search by block height is currently supported');
         }
@@ -350,11 +350,11 @@ server {
     server_name _;
     root /opt/blockchain-explorer;
     index index.html;
-    
+
     location / {
         try_files \$uri \$uri/ =404;
     }
-    
+
     # CORS headers for API access
     location /rpc/ {
         proxy_pass http://localhost:8082;

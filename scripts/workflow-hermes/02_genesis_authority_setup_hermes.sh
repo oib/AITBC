@@ -52,7 +52,7 @@ echo "5. Updating environment configuration via hermes GenesisAgent..."
 hermes execute --agent GenesisAgent --task update_genesis_config || {
     echo "⚠️ hermes config update failed - using manual method"
     cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.aitbc.backup 2>/dev/null || true
-    
+
     # Update .env for aitbc genesis authority configuration
     # Note: Don't overwrite auto-generated proposer_id - it will be updated with actual genesis address after wallet generation
     # Note: Don't overwrite auto-generated p2p_node_id - it must remain unique for P2P networking

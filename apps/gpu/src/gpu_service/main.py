@@ -242,9 +242,6 @@ async def scan_edge_gpus(miner_id: str, svc: EdgeGPUService = Depends(get_edge_s
     return await svc.discover_and_register_edge_gpus(miner_id)
 
 
-from pydantic import BaseModel  # noqa: E402
-
-
 class OptimizeInferenceRequest(BaseModel):
     model_name: str
     request_data: dict[str, Any]
@@ -585,6 +582,11 @@ async def deregister_miner(miner_id: str, session: AsyncSession = Depends(get_se
 
 
 if __name__ == "__main__":
+    import os
+
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=8101)
+    host = os.getenv("GPU_BIND_HOST", "0.0.0.0")
+    port = int(os.getenv("GPU_BIND_PORT", "8101"))
+
+    uvicorn.run(app, host=host, port=port)

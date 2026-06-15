@@ -3,10 +3,11 @@ from __future__ import annotations
 import datetime as dt
 import json
 
-from aitbc.logging import get_logger  # type: ignore
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from aitbc.logging import get_logger  # type: ignore
 
 from ..models import Feedback
 from ..storage.redis_keys import RedisKeys
