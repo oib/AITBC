@@ -16,6 +16,8 @@ os.environ["PYTHONPATH"] = f"{Path('/opt/aitbc')}:{REPO_DIR}/apps/coordinator-ap
 os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
+log_level = os.getenv("LOG_LEVEL", "warning").lower()
+
 # Execute the actual service
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
@@ -35,7 +37,6 @@ exec_cmd = [
     "--backlog",
     "256",
     "--log-level",
-    "critical",
-    "--no-access-log",
+    log_level,
 ]
 os.execvp(exec_cmd[0], exec_cmd)
