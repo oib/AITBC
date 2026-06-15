@@ -3,7 +3,6 @@ End-to-End Test for Job Lifecycle
 Tests complete job submission and processing workflow
 """
 
-
 import pytest
 
 
@@ -24,15 +23,10 @@ class TestJobLifecycle:
     async def test_job_submission_and_retrieval(self):
         """Test job submission and retrieval"""
         # Submit job
-        job_data = {
-            "payload": self.test_data["test_job"],
-            "ttl_seconds": 900
-        }
+        job_data = {"payload": self.test_data["test_job"], "ttl_seconds": 900}
 
         response = await self.http_client.post(
-            f"{self.coordinator_url}/v1/jobs",
-            json=job_data,
-            headers={"X-Api-Key": self.api_key}
+            f"{self.coordinator_url}/v1/jobs", json=job_data, headers={"X-Api-Key": self.api_key}
         )
 
         # Accept 201 or 400 (service might not be fully configured)
@@ -44,8 +38,7 @@ class TestJobLifecycle:
 
             # Retrieve job
             response = await self.http_client.get(
-                f"{self.coordinator_url}/v1/jobs/{job['job_id']}",
-                headers={"X-Api-Key": self.api_key}
+                f"{self.coordinator_url}/v1/jobs/{job['job_id']}", headers={"X-Api-Key": self.api_key}
             )
             assert response.status_code in [200, 404]
 
@@ -56,15 +49,10 @@ class TestJobLifecycle:
     async def test_job_status_check(self):
         """Test job status checking"""
         # Submit job
-        job_data = {
-            "payload": self.test_data["test_job"],
-            "ttl_seconds": 900
-        }
+        job_data = {"payload": self.test_data["test_job"], "ttl_seconds": 900}
 
         response = await self.http_client.post(
-            f"{self.coordinator_url}/v1/jobs",
-            json=job_data,
-            headers={"X-Api-Key": self.api_key}
+            f"{self.coordinator_url}/v1/jobs", json=job_data, headers={"X-Api-Key": self.api_key}
         )
 
         if response.status_code == 201:
@@ -73,8 +61,7 @@ class TestJobLifecycle:
 
             # Check job status
             response = await self.http_client.get(
-                f"{self.coordinator_url}/v1/jobs/{job_id}",
-                headers={"X-Api-Key": self.api_key}
+                f"{self.coordinator_url}/v1/jobs/{job_id}", headers={"X-Api-Key": self.api_key}
             )
             assert response.status_code in [200, 404]
 
@@ -86,15 +73,10 @@ class TestJobLifecycle:
     async def test_job_receipt_retrieval(self):
         """Test job receipt retrieval"""
         # Submit job
-        job_data = {
-            "payload": self.test_data["test_job"],
-            "ttl_seconds": 900
-        }
+        job_data = {"payload": self.test_data["test_job"], "ttl_seconds": 900}
 
         response = await self.http_client.post(
-            f"{self.coordinator_url}/v1/jobs",
-            json=job_data,
-            headers={"X-Api-Key": self.api_key}
+            f"{self.coordinator_url}/v1/jobs", json=job_data, headers={"X-Api-Key": self.api_key}
         )
 
         if response.status_code == 201:
@@ -103,8 +85,7 @@ class TestJobLifecycle:
 
             # Get receipts
             response = await self.http_client.get(
-                f"{self.coordinator_url}/v1/jobs/{job_id}/receipts",
-                headers={"X-Api-Key": self.api_key}
+                f"{self.coordinator_url}/v1/jobs/{job_id}/receipts", headers={"X-Api-Key": self.api_key}
             )
             assert response.status_code in [200, 404]
 
@@ -126,18 +107,12 @@ class TestBlockchainIntegration:
 
     async def test_blockchain_health(self):
         """Test blockchain health endpoint"""
-        response = await self.http_client.get(
-            f"{self.blockchain_url}/v1/health",
-            timeout=5.0
-        )
+        response = await self.http_client.get(f"{self.blockchain_url}/v1/health", timeout=5.0)
         assert response.status_code in [200, 404, 500]
 
     async def test_get_head_block(self):
         """Test getting head block"""
-        response = await self.http_client.get(
-            f"{self.blockchain_url}/v1/blocks/head",
-            timeout=5.0
-        )
+        response = await self.http_client.get(f"{self.blockchain_url}/v1/blocks/head", timeout=5.0)
         assert response.status_code in [200, 404, 500]
 
         if response.status_code == 200:
@@ -158,18 +133,13 @@ class TestMarketplaceIntegration:
 
     async def test_marketplace_health(self):
         """Test marketplace health endpoint"""
-        response = await self.http_client.get(
-            f"{self.marketplace_url}/v1/health",
-            timeout=5.0
-        )
+        response = await self.http_client.get(f"{self.marketplace_url}/v1/health", timeout=5.0)
         assert response.status_code in [200, 404, 500]
 
     async def test_list_offers(self):
         """Test listing marketplace offers"""
         response = await self.http_client.get(
-            f"{self.marketplace_url}/v1/marketplace/offers",
-            params={"limit": 20},
-            timeout=5.0
+            f"{self.marketplace_url}/v1/marketplace/offers", params={"limit": 20}, timeout=5.0
         )
         assert response.status_code in [200, 404, 500]
 

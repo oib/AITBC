@@ -26,6 +26,7 @@ class TextFormatter(logging.Formatter):
 
         return f"{record.levelname} {record.name} {message}"
 
+
 def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
 

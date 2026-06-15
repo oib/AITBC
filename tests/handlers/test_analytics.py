@@ -25,7 +25,7 @@ from handlers.analytics import (
 class TestHandleAnalyticsMetrics:
     """Test handle_analytics_metrics function"""
 
-    @patch('handlers.analytics.logger')
+    @patch("handlers.analytics.logger")
     def test_handle_analytics_metrics_json(self, mock_logger):
         """Test analytics metrics with JSON output"""
         args = Mock()
@@ -41,7 +41,7 @@ class TestHandleAnalyticsMetrics:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.analytics.logger')
+    @patch("handlers.analytics.logger")
     def test_handle_analytics_metrics_text(self, mock_logger):
         """Test analytics metrics with text output"""
         args = Mock()
@@ -56,7 +56,7 @@ class TestHandleAnalyticsMetrics:
 
         mock_render.assert_called_once()
 
-    @patch('handlers.analytics.logger')
+    @patch("handlers.analytics.logger")
     def test_handle_analytics_metrics_default_period(self, mock_logger):
         """Test analytics metrics with default period"""
         args = Mock()
@@ -75,7 +75,7 @@ class TestHandleAnalyticsMetrics:
 class TestHandleAnalyticsReport:
     """Test handle_analytics_report function"""
 
-    @patch('handlers.analytics.logger')
+    @patch("handlers.analytics.logger")
     def test_handle_analytics_report_json(self, mock_logger):
         """Test analytics report with JSON output"""
         args = Mock()
@@ -91,7 +91,7 @@ class TestHandleAnalyticsReport:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.analytics.logger')
+    @patch("handlers.analytics.logger")
     def test_handle_analytics_report_text(self, mock_logger):
         """Test analytics report with text output"""
         args = Mock()
@@ -106,7 +106,7 @@ class TestHandleAnalyticsReport:
 
         mock_render.assert_called_once()
 
-    @patch('handlers.analytics.logger')
+    @patch("handlers.analytics.logger")
     def test_handle_analytics_report_default_type(self, mock_logger):
         """Test analytics report with default report type"""
         args = Mock()
@@ -125,7 +125,7 @@ class TestHandleAnalyticsReport:
 class TestHandleAnalyticsExport:
     """Test handle_analytics_export function"""
 
-    @patch('handlers.analytics.logger')
+    @patch("handlers.analytics.logger")
     def test_handle_analytics_export_csv(self, mock_logger):
         """Test analytics export with CSV format"""
         args = Mock()
@@ -138,7 +138,7 @@ class TestHandleAnalyticsExport:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.analytics.logger')
+    @patch("handlers.analytics.logger")
     def test_handle_analytics_export_json_format(self, mock_logger):
         """Test analytics export with JSON format"""
         args = Mock()
@@ -151,7 +151,7 @@ class TestHandleAnalyticsExport:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.analytics.logger')
+    @patch("handlers.analytics.logger")
     def test_handle_analytics_export_default_format(self, mock_logger):
         """Test analytics export with default format"""
         args = Mock()
@@ -168,7 +168,7 @@ class TestHandleAnalyticsExport:
 class TestHandleAnalyticsPredict:
     """Test handle_analytics_predict function"""
 
-    @patch('handlers.analytics.logger')
+    @patch("handlers.analytics.logger")
     def test_handle_analytics_predict_defaults(self, mock_logger):
         """Test analytics predict with default values"""
         args = Mock()
@@ -182,7 +182,7 @@ class TestHandleAnalyticsPredict:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.analytics.logger')
+    @patch("handlers.analytics.logger")
     def test_handle_analytics_predict_custom(self, mock_logger):
         """Test analytics predict with custom values"""
         args = Mock()
@@ -200,7 +200,7 @@ class TestHandleAnalyticsPredict:
 class TestHandleAnalyticsOptimize:
     """Test handle_analytics_optimize function"""
 
-    @patch('handlers.analytics.logger')
+    @patch("handlers.analytics.logger")
     def test_handle_analytics_optimize_defaults(self, mock_logger):
         """Test analytics optimize with default values"""
         args = Mock()
@@ -214,7 +214,7 @@ class TestHandleAnalyticsOptimize:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.analytics.logger')
+    @patch("handlers.analytics.logger")
     def test_handle_analytics_optimize_custom(self, mock_logger):
         """Test analytics optimize with custom values"""
         args = Mock()

@@ -95,7 +95,7 @@ class AgentSecurityManagerAdapter(ISecurityManager):
     async def validate_operation(self, operation: str, context: dict[str, Any]) -> bool:
         # Delegate to app-specific implementation
         try:
-            if hasattr(self._manager, 'validate_operation'):
+            if hasattr(self._manager, "validate_operation"):
                 return await self._manager.validate_operation(operation, context)  # type: ignore[no-any-return]
             # Fallback: basic validation
             return True
@@ -105,7 +105,7 @@ class AgentSecurityManagerAdapter(ISecurityManager):
 
     async def audit_event(self, event_type: str, details: dict[str, Any]) -> None:
         # Delegate to app-specific implementation
-        if hasattr(self._manager, 'audit_event'):
+        if hasattr(self._manager, "audit_event"):
             await self._manager.audit_event(event_type, details)
 
 
@@ -117,9 +117,9 @@ class AgentAuditorAdapter(IAuditor):
 
     async def log_audit(self, event_type: str, details: dict[str, Any]) -> None:
         # Delegate to app-specific implementation
-        if hasattr(self._auditor, 'log_audit'):
+        if hasattr(self._auditor, "log_audit"):
             await self._auditor.log_audit(event_type, details)
-        elif hasattr(self._auditor, 'audit_event'):
+        elif hasattr(self._auditor, "audit_event"):
             await self._auditor.audit_event(event_type, details)
 
 
@@ -129,13 +129,9 @@ class AgentOrchestratorAdapter(IAgentOrchestrator):
     def __init__(self, orchestrator: AIAgentOrchestrator):
         self._orchestrator = orchestrator
 
-    async def execute_workflow(
-        self,
-        workflow_id: str,
-        inputs: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def execute_workflow(self, workflow_id: str, inputs: dict[str, Any]) -> dict[str, Any]:
         # Delegate to app-specific implementation
-        if hasattr(self._orchestrator, 'execute_workflow'):
+        if hasattr(self._orchestrator, "execute_workflow"):
             return await self._orchestrator.execute_workflow(workflow_id, inputs)  # type: ignore[no-any-return]
         # Fallback: return mock result
         return {
@@ -146,7 +142,7 @@ class AgentOrchestratorAdapter(IAgentOrchestrator):
 
     async def get_status(self, execution_id: str) -> dict[str, Any]:
         # Delegate to app-specific implementation
-        if hasattr(self._orchestrator, 'get_status'):
+        if hasattr(self._orchestrator, "get_status"):
             return await self._orchestrator.get_status(execution_id)  # type: ignore[no-any-return]
         # Fallback: return mock status
         return {
@@ -161,13 +157,10 @@ class ZKProofServiceAdapter(IZKProofService):
     def __init__(self, session: Session):
         self._session = session
 
-    async def generate_zk_proof(
-        self,
-        circuit_name: str,
-        inputs: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def generate_zk_proof(self, circuit_name: str, inputs: dict[str, Any]) -> dict[str, Any]:
         """Mock ZK proof generation"""
         from uuid import uuid4
+
         return {
             "proof_id": f"proof_{uuid4().hex[:8]}",
             "circuit_name": circuit_name,
@@ -178,11 +171,7 @@ class ZKProofServiceAdapter(IZKProofService):
 
     async def verify_proof(self, proof_id: str) -> dict[str, Any]:
         """Mock ZK proof verification"""
-        return {
-            "verified": True,
-            "verification_time": 0.05,
-            "details": {"mock": True}
-        }
+        return {"verified": True, "verification_time": 0.05, "details": {"mock": True}}
 
 
 class SessionProviderAdapter(ISessionProvider):

@@ -12,6 +12,7 @@ from typing import Any
 try:
     from web3 import Web3
     from web3.contract import Contract
+
     WEB3_AVAILABLE = True
 except ImportError:
     WEB3_AVAILABLE = False
@@ -24,6 +25,7 @@ from aitbc.exceptions import NetworkError
 # Import CLI client for AITBC (no Web3 needed)
 try:
     from .cli_contract_client import CLIContractClient
+
     CLI_AVAILABLE = True
 except ImportError:
     CLI_AVAILABLE = False
@@ -35,6 +37,7 @@ logger = get_logger(__name__)
 @dataclass
 class ContractConfig:
     """Configuration for smart contract addresses"""
+
     payment_processor: str
     agent_marketplace: str
     staking_contract: str
@@ -96,26 +99,22 @@ class ContractClient:
 
         if self.config.payment_processor:
             self.contracts["payment_processor"] = self.w3.eth.contract(
-                address=self.config.payment_processor,
-                abi=payment_processor_abi
+                address=self.config.payment_processor, abi=payment_processor_abi
             )
 
         if self.config.agent_marketplace:
             self.contracts["agent_marketplace"] = self.w3.eth.contract(
-                address=self.config.agent_marketplace,
-                abi=agent_marketplace_abi
+                address=self.config.agent_marketplace, abi=agent_marketplace_abi
             )
 
         if self.config.staking_contract:
             self.contracts["staking_contract"] = self.w3.eth.contract(
-                address=self.config.staking_contract,
-                abi=staking_contract_abi
+                address=self.config.staking_contract, abi=staking_contract_abi
             )
 
         if self.config.cross_chain_atomic_swap:
             self.contracts["cross_chain_atomic_swap"] = self.w3.eth.contract(
-                address=self.config.cross_chain_atomic_swap,
-                abi=atomic_swap_abi
+                address=self.config.cross_chain_atomic_swap, abi=atomic_swap_abi
             )
 
         logger.info("Loaded %s contracts", len(self.contracts))
@@ -130,7 +129,7 @@ class ContractClient:
                 "name": "getBalance",
                 "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
                 "stateMutability": "view",
-                "type": "function"
+                "type": "function",
             }
         ]
 
@@ -147,13 +146,7 @@ class ContractClient:
             logger.error("Error getting balance from %s: %s", contract_name, e)
             raise
 
-    async def send_transaction(
-        self,
-        contract_name: str,
-        method_name: str,
-        *args: Any,
-        **kwargs: Any
-    ) -> str:
+    async def send_transaction(self, contract_name: str, method_name: str, *args: Any, **kwargs: Any) -> str:
         """Send a transaction to a contract"""
         contract = self.contracts.get(contract_name)
         if not contract:
@@ -167,14 +160,14 @@ class ContractClient:
             contract_method = getattr(contract.functions, method_name)
 
             # Build transaction
-            transaction = contract_method(*args, **kwargs).build_transaction({
-                'from': self.w3.eth.account.from_key(self.private_key).address,
-                'gas': kwargs.get('gas', 200000),
-                'gasPrice': self.w3.eth.gas_price,
-                'nonce': self.w3.eth.get_transaction_count(
-                    self.w3.eth.account.from_key(self.private_key).address
-                ),
-            })
+            transaction = contract_method(*args, **kwargs).build_transaction(
+                {
+                    "from": self.w3.eth.account.from_key(self.private_key).address,
+                    "gas": kwargs.get("gas", 200000),
+                    "gasPrice": self.w3.eth.gas_price,
+                    "nonce": self.w3.eth.get_transaction_count(self.w3.eth.account.from_key(self.private_key).address),
+                }
+            )
 
             # Sign transaction
             signed_txn = self.w3.eth.account.sign_transaction(transaction, self.private_key)
@@ -216,11 +209,7 @@ class AgentContractIntegration:
         self.agent_address = address
         logger.info("Agent address set to %s", address)
 
-    async def register_on_marketplace(
-        self,
-        capabilities: dict[str, Any],
-        stake_amount: int = 0
-    ) -> str:
+    async def register_on_marketplace(self, capabilities: dict[str, Any], stake_amount: int = 0) -> str:
         """Register agent on the marketplace contract"""
         if not self.agent_address:
             raise ValueError("Agent address not set")
@@ -228,11 +217,7 @@ class AgentContractIntegration:
         try:
             # Register agent on marketplace
             tx_hash = await self.contract_client.send_transaction(
-                "agent_marketplace",
-                "registerAgent",
-                self.agent_address,
-                json.dumps(capabilities),
-                stake_amount
+                "agent_marketplace", "registerAgent", self.agent_address, json.dumps(capabilities), stake_amount
             )
 
             # Wait for confirmation
@@ -256,21 +241,13 @@ class AgentContractIntegration:
         try:
             # Approve staking contract to spend tokens
             approve_tx = await self.contract_client.send_transaction(
-                "payment_processor",
-                "approve",
-                self.contract_client.config.staking_contract,
-                amount
+                "payment_processor", "approve", self.contract_client.config.staking_contract, amount
             )
 
             await self.contract_client.wait_for_transaction(approve_tx)
 
             # Stake tokens
-            stake_tx = await self.contract_client.send_transaction(
-                "staking_contract",
-                "stake",
-                amount,
-                lock_period
-            )
+            stake_tx = await self.contract_client.send_transaction("staking_contract", "stake", amount, lock_period)
 
             receipt = await self.contract_client.wait_for_transaction(stake_tx)
 
@@ -290,10 +267,7 @@ class AgentContractIntegration:
             raise ValueError("Agent address not set")
 
         try:
-            tx_hash = await self.contract_client.send_transaction(
-                "staking_contract",
-                "unstake"
-            )
+            tx_hash = await self.contract_client.send_transaction("staking_contract", "unstake")
 
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
 
@@ -313,10 +287,7 @@ class AgentContractIntegration:
             raise ValueError("Agent address not set")
 
         try:
-            stake_info = await self.contract_client.get_contract_balance(
-                "staking_contract",
-                self.agent_address
-            )
+            stake_info = await self.contract_client.get_contract_balance("staking_contract", self.agent_address)
 
             return {
                 "staked_amount": stake_info,
@@ -327,23 +298,14 @@ class AgentContractIntegration:
             logger.error("Failed to get stake info: %s", e)
             raise
 
-    async def submit_job_completion(
-        self,
-        job_id: str,
-        result_hash: str,
-        metadata: dict[str, Any] | None = None
-    ) -> str:
+    async def submit_job_completion(self, job_id: str, result_hash: str, metadata: dict[str, Any] | None = None) -> str:
         """Submit job completion to marketplace contract"""
         if not self.agent_address:
             raise ValueError("Agent address not set")
 
         try:
             tx_hash = await self.contract_client.send_transaction(
-                "agent_marketplace",
-                "completeJob",
-                job_id,
-                result_hash,
-                json.dumps(metadata or {})
+                "agent_marketplace", "completeJob", job_id, result_hash, json.dumps(metadata or {})
             )
 
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
@@ -364,10 +326,7 @@ class AgentContractIntegration:
             raise ValueError("Agent address not set")
 
         try:
-            tx_hash = await self.contract_client.send_transaction(
-                "agent_marketplace",
-                "claimRewards"
-            )
+            tx_hash = await self.contract_client.send_transaction("agent_marketplace", "claimRewards")
 
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
 
@@ -381,12 +340,7 @@ class AgentContractIntegration:
             logger.error("Failed to claim rewards: %s", e)
             raise
 
-    async def listen_to_contract_events(
-        self,
-        contract_name: str,
-        event_name: str,
-        callback: callable
-    ) -> None:
+    async def listen_to_contract_events(self, contract_name: str, event_name: str, callback: callable) -> None:
         """Listen to contract events"""
         contract = self.contract_client.contracts.get(contract_name)
         if not contract:
@@ -394,7 +348,7 @@ class AgentContractIntegration:
 
         try:
             # Create event filter
-            event_filter = contract.events[event_name].create_filter(from_block='latest')
+            event_filter = contract.events[event_name].create_filter(from_block="latest")
 
             # Poll for events
             while True:
@@ -408,14 +362,7 @@ class AgentContractIntegration:
             raise
 
     async def initiate_atomic_swap(
-        self,
-        swap_id: str,
-        token: str,
-        amount: int,
-        participant: str,
-        hashlock: str,
-        timelock: int,
-        contract_address: str
+        self, swap_id: str, token: str, amount: int, participant: str, hashlock: str, timelock: int, contract_address: str
     ) -> dict[str, Any]:
         """Initiate atomic swap on CrossChainAtomicSwap contract via CLI"""
         try:
@@ -432,7 +379,7 @@ class AgentContractIntegration:
                 token,
                 amount,
                 hashlock_bytes,
-                timelock
+                timelock,
             )
 
             # Wait for transaction
@@ -444,7 +391,7 @@ class AgentContractIntegration:
                     "swap_id": swap_id,
                     "tx_hash": tx_hash,
                     "status": "OPEN",
-                    "block_number": receipt.get("block_number", 0)
+                    "block_number": receipt.get("block_number", 0),
                 }
             else:
                 raise Exception("Transaction failed: %s" % receipt)
@@ -453,22 +400,14 @@ class AgentContractIntegration:
             logger.error("Failed to initiate atomic swap: %s", e)
             raise
 
-    async def complete_atomic_swap(
-        self,
-        swap_id: str,
-        secret: str,
-        contract_address: str
-    ) -> dict[str, Any]:
+    async def complete_atomic_swap(self, swap_id: str, secret: str, contract_address: str) -> dict[str, Any]:
         """Complete atomic swap by revealing secret via CLI"""
         try:
             swap_id_bytes = bytes.fromhex(swap_id)
             secret_bytes = bytes.fromhex(secret)
 
             tx_hash = await self.contract_client.send_transaction(
-                "cross_chain_atomic_swap",
-                "completeSwap",
-                swap_id_bytes,
-                secret_bytes
+                "cross_chain_atomic_swap", "completeSwap", swap_id_bytes, secret_bytes
             )
 
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
@@ -479,7 +418,7 @@ class AgentContractIntegration:
                     "swap_id": swap_id,
                     "tx_hash": tx_hash,
                     "status": "COMPLETED",
-                    "block_number": receipt.get("block_number", 0)
+                    "block_number": receipt.get("block_number", 0),
                 }
             else:
                 raise Exception("Transaction failed: %s" % receipt)
@@ -488,58 +427,38 @@ class AgentContractIntegration:
             logger.error("Failed to complete atomic swap: %s", e)
             raise
 
-    async def get_swap_status(
-        self,
-        swap_id: str,
-        contract_address: str
-    ) -> dict[str, Any]:
+    async def get_swap_status(self, swap_id: str, contract_address: str) -> dict[str, Any]:
         """Get status of an atomic swap via CLI"""
         try:
             swap_id_bytes = bytes.fromhex(swap_id)
 
             # Use CLI to call getSwapStatus
-            result = await self.contract_client.send_transaction(
-                "cross_chain_atomic_swap",
-                "getSwapStatus",
-                swap_id_bytes
-            )
+            _ = await self.contract_client.send_transaction("cross_chain_atomic_swap", "getSwapStatus", swap_id_bytes)
 
             # CLI doesn't return actual contract state yet
             # Return basic info
             return {
                 "swap_id": swap_id,
                 "status": "UNKNOWN",
-                "note": "CLI doesn't return actual swap status yet. Use 'aitbc contract call' to check manually."
+                "note": "CLI doesn't return actual swap status yet. Use 'aitbc contract call' to check manually.",
             }
 
         except Exception as e:
             logger.error("Failed to get swap status: %s", e)
             raise
 
-    async def refund_atomic_swap(
-        self,
-        swap_id: str,
-        contract_address: str
-    ) -> dict[str, Any]:
+    async def refund_atomic_swap(self, swap_id: str, contract_address: str) -> dict[str, Any]:
         """Refund atomic swap if timelock expired via CLI"""
         try:
             swap_id_bytes = bytes.fromhex(swap_id)
 
-            tx_hash = await self.contract_client.send_transaction(
-                "cross_chain_atomic_swap",
-                "refundSwap",
-                swap_id_bytes
-            )
+            tx_hash = await self.contract_client.send_transaction("cross_chain_atomic_swap", "refundSwap", swap_id_bytes)
 
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
 
             if receipt["status"] == "success":
                 logger.info("Atomic swap refunded: %s", swap_id)
-                return {
-                    "swap_id": swap_id,
-                    "tx_hash": tx_hash,
-                    "status": "REFUNDED"
-                }
+                return {"swap_id": swap_id, "tx_hash": tx_hash, "status": "REFUNDED"}
             else:
                 raise Exception("Transaction failed: %s" % receipt)
 
@@ -551,16 +470,14 @@ class AgentContractIntegration:
 def getenv(key: str, default: str = "") -> str:
     """Get environment variable with default"""
     import os
+
     return os.getenv(key, default)
 
 
-def create_agent_contract_integration(
-    config: ContractConfig,
-    private_key: str | None = None
-) -> AgentContractIntegration:
+def create_agent_contract_integration(config: ContractConfig, private_key: str | None = None) -> AgentContractIntegration:
     """
     Factory function to create AgentContractIntegration with appropriate client.
-    
+
     Uses CLIContractClient if config.use_cli=True and CLI is available,
     otherwise uses standard ContractClient (Web3-based).
     """

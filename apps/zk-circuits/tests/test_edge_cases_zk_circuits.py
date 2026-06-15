@@ -13,7 +13,7 @@ def test_is_cache_valid_no_cache_entry():
     cache = ZKCircuitCache()
 
     test_file = Path("/tmp/test_circuit.circom")
-    test_file.write_text('pragma circom 2.0.0;')
+    test_file.write_text("pragma circom 2.0.0;")
 
     output_dir = Path("/tmp/build/test")
 
@@ -30,17 +30,17 @@ def test_is_cache_valid_missing_output_files():
     cache = ZKCircuitCache()
 
     test_file = Path("/tmp/test_circuit.circom")
-    test_file.write_text('pragma circom 2.0.0;')
+    test_file.write_text("pragma circom 2.0.0;")
 
     output_dir = Path("/tmp/build/test_missing")
 
     # Create a cache entry with non-existent output files
     cache_key = cache._get_cache_key(test_file, output_dir)
     test_entry = {
-        'circuit_file': str(test_file),
-        'circuit_hash': cache._calculate_file_hash(test_file),
-        'dependencies': {},
-        'output_files': ['/nonexistent/file.r1cs']
+        "circuit_file": str(test_file),
+        "circuit_hash": cache._calculate_file_hash(test_file),
+        "dependencies": {},
+        "output_files": ["/nonexistent/file.r1cs"],
     }
     cache._save_cache_entry(cache_key, test_entry)
 
@@ -57,19 +57,14 @@ def test_is_cache_valid_changed_source():
     cache = ZKCircuitCache()
 
     test_file = Path("/tmp/test_circuit_change.circom")
-    test_file.write_text('pragma circom 2.0.0;')
+    test_file.write_text("pragma circom 2.0.0;")
 
     output_dir = Path("/tmp/build/test_change")
 
     # Create a cache entry
     cache_key = cache._get_cache_key(test_file, output_dir)
     original_hash = cache._calculate_file_hash(test_file)
-    test_entry = {
-        'circuit_file': str(test_file),
-        'circuit_hash': original_hash,
-        'dependencies': {},
-        'output_files': []
-    }
+    test_entry = {"circuit_file": str(test_file), "circuit_hash": original_hash, "dependencies": {}, "output_files": []}
     cache._save_cache_entry(cache_key, test_entry)
 
     # Modify the source file
@@ -88,7 +83,7 @@ def test_cache_artifacts_with_missing_files():
     cache = ZKCircuitCache()
 
     test_file = Path("/tmp/test_cache_empty.circom")
-    test_file.write_text('pragma circom 2.0.0;')
+    test_file.write_text("pragma circom 2.0.0;")
 
     output_dir = Path("/tmp/build/test_empty")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -99,10 +94,11 @@ def test_cache_artifacts_with_missing_files():
         cache_key = cache._get_cache_key(test_file, output_dir)
         entry = cache._load_cache_entry(cache_key)
         assert entry is not None
-        assert entry['output_files'] == []
+        assert entry["output_files"] == []
     finally:
         test_file.unlink()
         import shutil
+
         shutil.rmtree(output_dir.parent)
 
 
@@ -112,7 +108,7 @@ def test_get_cached_artifacts_invalid():
     cache = ZKCircuitCache()
 
     test_file = Path("/tmp/test_cache_invalid.circom")
-    test_file.write_text('pragma circom 2.0.0;')
+    test_file.write_text("pragma circom 2.0.0;")
 
     output_dir = Path("/tmp/build/test_invalid")
 
@@ -129,8 +125,8 @@ def test_save_cache_entry_json_error():
     cache = ZKCircuitCache()
 
     # Mock json.dump to raise an exception
-    with patch('json.dump', side_effect=Exception("JSON error")):
-        test_entry = {'circuit_file': '/test.circom'}
+    with patch("json.dump", side_effect=Exception("JSON error")):
+        test_entry = {"circuit_file": "/test.circom"}
         cache._save_cache_entry("test_key", test_entry)
         # Should not raise exception, just print warning
 
@@ -175,15 +171,13 @@ def test_get_cache_stats_file_stat_error():
     cache = ZKCircuitCache()
 
     # Add a cache entry with non-existent files
-    test_entry = {
-        'output_files': ['/nonexistent/file.r1cs']
-    }
+    test_entry = {"output_files": ["/nonexistent/file.r1cs"]}
     cache._save_cache_entry("test_key", test_entry)
 
     stats = cache.get_cache_stats()
     # Should handle missing files gracefully
-    assert stats['entries'] == 1
-    assert stats['total_size_mb'] >= 0
+    assert stats["entries"] == 1
+    assert stats["total_size_mb"] >= 0
 
 
 @pytest.mark.unit
@@ -194,6 +188,7 @@ def test_clear_cache_nonexistent_dir():
     # Remove cache directory
     if cache.cache_dir.exists():
         import shutil
+
         shutil.rmtree(cache.cache_dir)
 
     # Clear should recreate directory

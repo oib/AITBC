@@ -14,7 +14,7 @@ class ISessionProvider(ABC):
     def get_session(self) -> Any:
         """
         Get a database session.
-        
+
         Returns:
             Database session object (typically SQLModel Session)
         """
@@ -24,7 +24,7 @@ class ISessionProvider(ABC):
     def close_session(self, session: Any) -> None:
         """
         Close a database session.
-        
+
         Args:
             session: Session object to close
         """

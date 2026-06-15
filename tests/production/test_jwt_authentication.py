@@ -18,10 +18,7 @@ def _service_available(host: str = "localhost", port: int = 9001) -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(
-    not _service_available(),
-    reason="Agent coordinator service not running on localhost:9001"
-)
+pytestmark = pytest.mark.skipif(not _service_available(), reason="Agent coordinator service not running on localhost:9001")
 
 
 class TestJWTAuthentication:
@@ -34,7 +31,7 @@ class TestJWTAuthentication:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -52,7 +49,7 @@ class TestJWTAuthentication:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "operator", "password": "operator123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -67,7 +64,7 @@ class TestJWTAuthentication:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "user", "password": "user123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -82,7 +79,7 @@ class TestJWTAuthentication:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "invalid", "password": "invalid"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 401
@@ -92,9 +89,7 @@ class TestJWTAuthentication:
     def test_missing_credentials(self):
         """Test login with missing credentials"""
         response = requests.post(
-            f"{self.BASE_URL}/auth/login",
-            json={"username": "admin"},
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/auth/login", json={"username": "admin"}, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 422  # Validation error
@@ -105,15 +100,13 @@ class TestJWTAuthentication:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Validate token
         response = requests.post(
-            f"{self.BASE_URL}/auth/validate",
-            json={"token": token},
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/auth/validate", json={"token": token}, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -127,9 +120,7 @@ class TestJWTAuthentication:
     def test_invalid_token_validation(self):
         """Test validation of invalid token"""
         response = requests.post(
-            f"{self.BASE_URL}/auth/validate",
-            json={"token": "invalid_token"},
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/auth/validate", json={"token": "invalid_token"}, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 401
@@ -145,20 +136,20 @@ class TestJWTAuthentication:
     def test_expired_token_validation(self):
         """Test validation of expired token"""
         # Create manually expired token
-        expired_payload = {
+        {
             "user_id": "test_user",
             "username": "test",
             "role": "user",
             "exp": datetime.now(UTC) - timedelta(hours=1),  # Expired 1 hour ago
             "iat": datetime.now(UTC) - timedelta(hours=2),
-            "type": "access"
+            "type": "access",
         }
 
         # Note: This would require the secret key, so we'll test with a malformed token
         response = requests.post(
             f"{self.BASE_URL}/auth/validate",
             json={"token": "malformed.jwt.token"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 401
@@ -169,7 +160,7 @@ class TestJWTAuthentication:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         refresh_token = response.json()["refresh_token"]
@@ -178,7 +169,7 @@ class TestJWTAuthentication:
         response = requests.post(
             f"{self.BASE_URL}/auth/refresh",
             json={"refresh_token": refresh_token},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -192,12 +183,13 @@ class TestJWTAuthentication:
         response = requests.post(
             f"{self.BASE_URL}/auth/refresh",
             json={"refresh_token": "invalid_refresh_token"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 401
         data = response.json()
         assert "Invalid or expired refresh token" in data["detail"]
+
 
 class TestProtectedEndpoints:
     """Test protected endpoints with authentication"""
@@ -210,15 +202,12 @@ class TestProtectedEndpoints:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Access admin endpoint
-        response = requests.get(
-            f"{self.BASE_URL}/protected/admin",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/protected/admin", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -232,15 +221,12 @@ class TestProtectedEndpoints:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "operator", "password": "operator123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Access operator endpoint
-        response = requests.get(
-            f"{self.BASE_URL}/protected/operator",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/protected/operator", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -254,15 +240,12 @@ class TestProtectedEndpoints:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "user", "password": "user123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Try to access admin endpoint
-        response = requests.get(
-            f"{self.BASE_URL}/protected/admin",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/protected/admin", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 403
         data = response.json()
@@ -292,10 +275,7 @@ class TestProtectedEndpoints:
 
     def test_invalid_token_protected_endpoint(self):
         """Test accessing protected endpoint with invalid token"""
-        response = requests.get(
-            f"{self.BASE_URL}/protected/admin",
-            headers={"Authorization": "Bearer invalid_token"}
-        )
+        response = requests.get(f"{self.BASE_URL}/protected/admin", headers={"Authorization": "Bearer invalid_token"})
 
         assert response.status_code == 401
         data = response.json()
@@ -306,6 +286,7 @@ class TestProtectedEndpoints:
         else:
             # Handle other authentication error formats
             assert "Authentication" in str(error_detail) or "Invalid token" in str(error_detail)
+
 
 class TestAPIKeyManagement:
     """Test API key management"""
@@ -318,7 +299,7 @@ class TestAPIKeyManagement:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
@@ -326,10 +307,7 @@ class TestAPIKeyManagement:
         response = requests.post(
             f"{self.BASE_URL}/auth/api-key/generate?user_id=test_user_001",
             json=["agent:view", "task:view"],
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -346,25 +324,20 @@ class TestAPIKeyManagement:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         response = requests.post(
             f"{self.BASE_URL}/auth/api-key/generate?user_id=test_user_validate",
             json=["agent:view", "task:view"],
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         api_key = response.json()["api_key"]
 
         # Validate API key (use query parameter)
         response = requests.post(
-            f"{self.BASE_URL}/auth/api-key/validate",
-            params={"api_key": api_key},
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/auth/api-key/validate", params={"api_key": api_key}, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -379,7 +352,7 @@ class TestAPIKeyManagement:
         response = requests.post(
             f"{self.BASE_URL}/auth/api-key/validate",
             params={"api_key": "invalid_api_key"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 401
@@ -392,25 +365,19 @@ class TestAPIKeyManagement:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         response = requests.post(
             f"{self.BASE_URL}/auth/api-key/generate?user_id=test_user_002",
             json=["agent:view"],
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         api_key = response.json()["api_key"]
 
         # Revoke API key (use DELETE method)
-        response = requests.delete(
-            f"{self.BASE_URL}/auth/api-key/{api_key}",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.delete(f"{self.BASE_URL}/auth/api-key/{api_key}", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -419,12 +386,11 @@ class TestAPIKeyManagement:
 
         # Try to validate revoked key (use query parameter)
         response = requests.post(
-            f"{self.BASE_URL}/auth/api-key/validate",
-            params={"api_key": api_key},
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/auth/api-key/validate", params={"api_key": api_key}, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 401
+
 
 class TestUserManagement:
     """Test user and role management"""
@@ -437,17 +403,14 @@ class TestUserManagement:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Assign role to user
         response = requests.post(
             f"{self.BASE_URL}/users/test_user_003/role?role=operator",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -463,15 +426,12 @@ class TestUserManagement:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Get user role
-        response = requests.get(
-            f"{self.BASE_URL}/users/test_user_003/role",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/users/test_user_003/role", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -485,14 +445,13 @@ class TestUserManagement:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Get user permissions
         response = requests.get(
-            f"{self.BASE_URL}/users/test_user_003/permissions",
-            headers={"Authorization": f"Bearer {token}"}
+            f"{self.BASE_URL}/users/test_user_003/permissions", headers={"Authorization": f"Bearer {token}"}
         )
 
         assert response.status_code == 200
@@ -508,17 +467,14 @@ class TestUserManagement:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Grant custom permission
         response = requests.post(
             f"{self.BASE_URL}/users/test_user_003/permissions/grant?permission=agent:register",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -533,14 +489,13 @@ class TestUserManagement:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Revoke custom permission
         response = requests.delete(
-            f"{self.BASE_URL}/users/test_user_003/permissions/agent:register",
-            headers={"Authorization": f"Bearer {token}"}
+            f"{self.BASE_URL}/users/test_user_003/permissions/agent:register", headers={"Authorization": f"Bearer {token}"}
         )
 
         assert response.status_code == 200
@@ -553,6 +508,7 @@ class TestUserManagement:
             assert data["status"] == "error"
             assert "No custom permissions found" in data["message"]
 
+
 class TestRoleManagement:
     """Test role and permission management"""
 
@@ -564,15 +520,12 @@ class TestRoleManagement:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # List all roles
-        response = requests.get(
-            f"{self.BASE_URL}/roles",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/roles", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -593,15 +546,12 @@ class TestRoleManagement:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Get admin role permissions
-        response = requests.get(
-            f"{self.BASE_URL}/roles/admin",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/roles/admin", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -617,15 +567,12 @@ class TestRoleManagement:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Get permission stats
-        response = requests.get(
-            f"{self.BASE_URL}/auth/stats",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/auth/stats", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -637,5 +584,6 @@ class TestRoleManagement:
         assert "total_users" in stats
         assert "users_by_role" in stats
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     pytest.main([__file__])

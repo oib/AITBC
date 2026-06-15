@@ -2,6 +2,7 @@
 Security utilities for AITBC
 Provides security hardening features including input validation, sanitization, and audit logging
 """
+
 import html
 import json
 import re
@@ -10,23 +11,29 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 from .aitbc_logging import get_logger
+
 logger = get_logger(__name__)
+
 
 class SecurityValidator:
     """
     Security validator for input validation and sanitization.
     Provides methods to validate and sanitize user inputs.
     """
-    EMAIL_PATTERN = re.compile('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$')
-    URL_PATTERN = re.compile('^https?://(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\\.)+(?:[A-Z]{2,6}\\.?|[A-Z0-9-]{2,}\\.?)|localhost|\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})(?::\\d+)?(?:/?|[/?]\\S+)$', re.IGNORECASE)
-    ETHEREUM_ADDRESS_PATTERN = re.compile('^0x[a-fA-F0-9]{40}$')
-    TX_HASH_PATTERN = re.compile('^0x[a-fA-F0-9]{64}$')
-    PRIVATE_KEY_PATTERN = re.compile('^(0x)?[a-fA-F0-9]{64}$')
-    CHAIN_ID_PATTERN = re.compile('^[1-9]\\d*$')
-    CONTRACT_ADDRESS_PATTERN = re.compile('^0x[a-fA-F0-9]{40}$')
-    BLOCK_NUMBER_PATTERN = re.compile('^[1-9]\\d*$')
-    GAS_PRICE_PATTERN = re.compile('^[1-9]\\d*$')
-    GAS_LIMIT_PATTERN = re.compile('^[1-9]\\d{1,7}$')
+
+    EMAIL_PATTERN = re.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
+    URL_PATTERN = re.compile(
+        "^https?://(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\\.)+(?:[A-Z]{2,6}\\.?|[A-Z0-9-]{2,}\\.?)|localhost|\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})(?::\\d+)?(?:/?|[/?]\\S+)$",
+        re.IGNORECASE,
+    )
+    ETHEREUM_ADDRESS_PATTERN = re.compile("^0x[a-fA-F0-9]{40}$")
+    TX_HASH_PATTERN = re.compile("^0x[a-fA-F0-9]{64}$")
+    PRIVATE_KEY_PATTERN = re.compile("^(0x)?[a-fA-F0-9]{64}$")
+    CHAIN_ID_PATTERN = re.compile("^[1-9]\\d*$")
+    CONTRACT_ADDRESS_PATTERN = re.compile("^0x[a-fA-F0-9]{40}$")
+    BLOCK_NUMBER_PATTERN = re.compile("^[1-9]\\d*$")
+    GAS_PRICE_PATTERN = re.compile("^[1-9]\\d*$")
+    GAS_LIMIT_PATTERN = re.compile("^[1-9]\\d{1,7}$")
 
     @staticmethod
     def validate_email(email: str) -> bool:
@@ -104,7 +111,7 @@ class SecurityValidator:
         Returns:
             Sanitized JSON string
         """
-        sanitized = re.sub('[\\x00-\\x1f\\x7f-\\x9f]', '', json_string)
+        sanitized = re.sub("[\\x00-\\x1f\\x7f-\\x9f]", "", json_string)
         return sanitized
 
     @staticmethod
@@ -134,18 +141,18 @@ class SecurityValidator:
         Returns:
             Sanitized filename
         """
-        sanitized = re.sub('[\\\\/\\0]', '', filename)
-        sanitized = re.sub('[\\x00-\\x1f\\x7f-\\x9f]', '', sanitized)
+        sanitized = re.sub("[\\\\/\\0]", "", filename)
+        sanitized = re.sub("[\\x00-\\x1f\\x7f-\\x9f]", "", sanitized)
         return sanitized
 
     @staticmethod
     def validate_ethereum_private_key(private_key: str) -> bool:
         """
         Validate Ethereum private key format
-        
+
         Args:
             private_key: Private key to validate
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -155,10 +162,10 @@ class SecurityValidator:
     def validate_chain_id(chain_id: str | int) -> bool:
         """
         Validate blockchain chain ID
-        
+
         Args:
             chain_id: Chain ID to validate
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -169,10 +176,10 @@ class SecurityValidator:
     def validate_contract_address(address: str) -> bool:
         """
         Validate smart contract address format
-        
+
         Args:
             address: Contract address to validate
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -182,10 +189,10 @@ class SecurityValidator:
     def validate_block_number(block_number: str | int) -> bool:
         """
         Validate block number
-        
+
         Args:
             block_number: Block number to validate
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -196,10 +203,10 @@ class SecurityValidator:
     def validate_gas_price(gas_price: str | int) -> bool:
         """
         Validate gas price (in wei)
-        
+
         Args:
             gas_price: Gas price to validate
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -210,10 +217,10 @@ class SecurityValidator:
     def validate_gas_limit(gas_limit: str | int) -> bool:
         """
         Validate gas limit (reasonable bounds)
-        
+
         Args:
             gas_limit: Gas limit to validate
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -224,16 +231,16 @@ class SecurityValidator:
     def validate_transaction_data(tx_data: str) -> bool:
         """
         Validate transaction data hex string
-        
+
         Args:
             tx_data: Transaction data hex string to validate
-            
+
         Returns:
             True if valid, False otherwise
         """
         if not tx_data:
             return True
-        if tx_data.startswith('0x'):
+        if tx_data.startswith("0x"):
             tx_data = tx_data[2:]
             if not tx_data:
                 return True
@@ -247,10 +254,10 @@ class SecurityValidator:
     def validate_amount(amount: str | int | float) -> bool:
         """
         Validate transaction amount (positive numbers only)
-        
+
         Args:
             amount: Amount to validate
-            
+
         Returns:
             True if valid, False otherwise
         """
@@ -260,15 +267,18 @@ class SecurityValidator:
         except (ValueError, TypeError):
             return False
 
+
 @dataclass
 class SecurityAuditLog:
     """Security audit log entry"""
+
     timestamp: datetime
     action: str
     user: str | None
     ip_address: str | None
     details: dict[str, Any]
-    severity: str = 'INFO'
+    severity: str = "INFO"
+
 
 class SecurityAuditor:
     """
@@ -276,7 +286,7 @@ class SecurityAuditor:
     Provides audit logging for security-relevant events.
     """
 
-    def __init__(self, log_file: Path | None=None):
+    def __init__(self, log_file: Path | None = None):
         """
         Initialize security auditor
 
@@ -286,7 +296,14 @@ class SecurityAuditor:
         self.log_file = log_file
         self._logs: list[SecurityAuditLog] = []
 
-    def log_security_event(self, action: str, user: str | None=None, ip_address: str | None=None, details: dict[str, Any] | None=None, severity: str='INFO') -> None:
+    def log_security_event(
+        self,
+        action: str,
+        user: str | None = None,
+        ip_address: str | None = None,
+        details: dict[str, Any] | None = None,
+        severity: str = "INFO",
+    ) -> None:
         """
         Log a security event
 
@@ -297,11 +314,13 @@ class SecurityAuditor:
             details: Additional details about the event
             severity: Severity level (INFO, WARNING, ERROR, CRITICAL)
         """
-        log_entry = SecurityAuditLog(timestamp=datetime.now(), action=action, user=user, ip_address=ip_address, details=details or {}, severity=severity)
+        log_entry = SecurityAuditLog(
+            timestamp=datetime.now(), action=action, user=user, ip_address=ip_address, details=details or {}, severity=severity
+        )
         self._logs.append(log_entry)
         if self.log_file:
             self._write_to_file(log_entry)
-        logger.info('Security Event: %s | User: %s | IP: %s | Severity: %s', action, user, ip_address, severity)
+        logger.info("Security Event: %s | User: %s | IP: %s | Severity: %s", action, user, ip_address, severity)
 
     def _write_to_file(self, log_entry: SecurityAuditLog) -> None:
         """
@@ -313,10 +332,12 @@ class SecurityAuditor:
         if not self.log_file:
             return
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.log_file, 'a') as f:
-            f.write(f'{json.dumps(asdict(log_entry), default=str)}\n')
+        with open(self.log_file, "a") as f:
+            f.write(f"{json.dumps(asdict(log_entry), default=str)}\n")
 
-    def get_logs(self, action: str | None=None, user: str | None=None, severity: str | None=None, limit: int=100) -> list[SecurityAuditLog]:
+    def get_logs(
+        self, action: str | None = None, user: str | None = None, severity: str | None = None, limit: int = 100
+    ) -> list[SecurityAuditLog]:
         """
         Get filtered audit logs
 
@@ -338,7 +359,7 @@ class SecurityAuditor:
             filtered_logs = [log for log in filtered_logs if log.severity == severity]
         return filtered_logs[-limit:]
 
-    def get_critical_logs(self, limit: int=50) -> list[SecurityAuditLog]:
+    def get_critical_logs(self, limit: int = 50) -> list[SecurityAuditLog]:
         """
         Get only critical security logs
 
@@ -348,8 +369,9 @@ class SecurityAuditor:
         Returns:
             List of critical audit logs
         """
-        critical_logs = [log for log in self._logs if log.severity == 'CRITICAL']
+        critical_logs = [log for log in self._logs if log.severity == "CRITICAL"]
         return critical_logs[-limit:]
+
 
 class RateLimiter:
     """
@@ -357,7 +379,7 @@ class RateLimiter:
     Implements token bucket algorithm for rate limiting.
     """
 
-    def __init__(self, rate: int, per: int=60):
+    def __init__(self, rate: int, per: int = 60):
         """
         Initialize rate limiter
 
@@ -385,7 +407,7 @@ class RateLimiter:
         cutoff_time = now - timedelta(seconds=self.per)
         self._requests[identifier] = [req_time for req_time in self._requests[identifier] if req_time > cutoff_time]
         if len(self._requests[identifier]) >= self.rate:
-            logger.warning('Rate limit exceeded for %s', identifier)
+            logger.warning("Rate limit exceeded for %s", identifier)
             return False
         self._requests[identifier].append(now)
         return True
@@ -399,7 +421,7 @@ class RateLimiter:
         """
         if identifier in self._requests:
             del self._requests[identifier]
-            logger.info('Rate limit reset for %s', identifier)
+            logger.info("Rate limit reset for %s", identifier)
 
     def get_remaining_requests(self, identifier: str) -> int:
         """
@@ -417,9 +439,18 @@ class RateLimiter:
         cutoff_time = now - timedelta(seconds=self.per)
         recent_requests = [req_time for req_time in self._requests[identifier] if req_time > cutoff_time]
         return max(0, self.rate - len(recent_requests))
+
+
 _global_security_auditor = SecurityAuditor()
 
-def log_security_event(action: str, user: str | None=None, ip_address: str | None=None, details: dict[str, Any] | None=None, severity: str='INFO') -> None:
+
+def log_security_event(
+    action: str,
+    user: str | None = None,
+    ip_address: str | None = None,
+    details: dict[str, Any] | None = None,
+    severity: str = "INFO",
+) -> None:
     """
     Log a security event using global auditor
 
@@ -431,6 +462,7 @@ def log_security_event(action: str, user: str | None=None, ip_address: str | Non
         severity: Severity level
     """
     _global_security_auditor.log_security_event(action, user, ip_address, details, severity)
+
 
 def get_security_auditor() -> SecurityAuditor:
     """

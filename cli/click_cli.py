@@ -19,33 +19,39 @@ from commands import agent, ai, arbitrage, cross_chain, database, edge, ipfs, is
 # Import commands with dependencies (may fail if dependencies not installed)
 try:
     from commands import monitor
+
     MONITOR_AVAILABLE = True
 except ImportError:
     MONITOR_AVAILABLE = False
 
 try:
     from commands import governance
+
     GOVERNANCE_AVAILABLE = True
 except ImportError:
     GOVERNANCE_AVAILABLE = False
 
 try:
     from commands import staking
+
     STAKING_AVAILABLE = True
 except ImportError:
     STAKING_AVAILABLE = False
 
 try:
     from commands import compliance
+
     COMPLIANCE_AVAILABLE = True
 except ImportError:
     COMPLIANCE_AVAILABLE = False
+
 
 @click.group()
 @click.version_option(version="2.1.0")
 def aitbc_click():
     """AITBC Click-based CLI - Separate entry point for Click commands"""
     pass
+
 
 # Register command groups
 aitbc_click.add_command(oracle)

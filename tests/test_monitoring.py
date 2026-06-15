@@ -314,39 +314,27 @@ class TestHealthChecker:
     def test_get_overall_status_healthy(self):
         """Test overall status calculation for healthy"""
         checker = HealthChecker()
-        results = {
-            "check1": {"status": "healthy"},
-            "check2": {"status": "healthy"}
-        }
+        results = {"check1": {"status": "healthy"}, "check2": {"status": "healthy"}}
         status = checker._get_overall_status(results)
         assert status == "healthy"
 
     def test_get_overall_status_degraded(self):
         """Test overall status calculation for degraded"""
         checker = HealthChecker()
-        results = {
-            "check1": {"status": "healthy"},
-            "check2": {"status": "degraded"}
-        }
+        results = {"check1": {"status": "healthy"}, "check2": {"status": "degraded"}}
         status = checker._get_overall_status(results)
         assert status == "degraded"
 
     def test_get_overall_status_unhealthy(self):
         """Test overall status calculation for unhealthy"""
         checker = HealthChecker()
-        results = {
-            "check1": {"status": "healthy"},
-            "check2": {"status": "unhealthy"}
-        }
+        results = {"check1": {"status": "healthy"}, "check2": {"status": "unhealthy"}}
         status = checker._get_overall_status(results)
         assert status == "unhealthy"
 
     def test_get_overall_status_unknown(self):
         """Test overall status calculation for unknown"""
         checker = HealthChecker()
-        results = {
-            "check1": {"status": "unknown"},
-            "check2": {"status": "healthy"}
-        }
+        results = {"check1": {"status": "unknown"}, "check2": {"status": "healthy"}}
         status = checker._get_overall_status(results)
         assert status == "degraded"

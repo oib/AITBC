@@ -15,7 +15,9 @@ from aitbc_cli.models.chain import ChainType, ConsensusAlgorithm, GenesisBlock, 
 
 class GenesisValidationError(Exception):
     """Genesis validation error"""
+
     pass
+
 
 class GenesisGenerator:
     """Genesis block generator"""
@@ -62,7 +64,7 @@ class GenesisGenerator:
             privacy=genesis_config.privacy,
             parameters=genesis_config.parameters,
             state_root=state_root,
-            hash=genesis_hash
+            hash=genesis_hash,
         )
 
         return genesis_block
@@ -85,86 +87,78 @@ class GenesisGenerator:
         merged_config = self._merge_configs(template_data, custom_data)
 
         # Create genesis config
-        genesis_config = GenesisConfig(**merged_config['genesis'])
+        genesis_config = GenesisConfig(**merged_config["genesis"])
 
         # Create genesis block
         return self.create_genesis(genesis_config)
 
-    def validate_genesis(self, genesis_block: GenesisBlock) -> 'ValidationResult':
+    def validate_genesis(self, genesis_block: GenesisBlock) -> "ValidationResult":
         """Validate a genesis block"""
         errors = []
         checks = {}
 
         # Check required fields
-        checks['chain_id'] = bool(genesis_block.chain_id)
+        checks["chain_id"] = bool(genesis_block.chain_id)
         if not genesis_block.chain_id:
             errors.append("Chain ID is required")
 
-        checks['chain_type'] = genesis_block.chain_type in ChainType
+        checks["chain_type"] = genesis_block.chain_type in ChainType
         if genesis_block.chain_type not in ChainType:
             errors.append(f"Invalid chain type: {genesis_block.chain_type}")
 
-        checks['purpose'] = bool(genesis_block.purpose)
+        checks["purpose"] = bool(genesis_block.purpose)
         if not genesis_block.purpose:
             errors.append("Purpose is required")
 
-        checks['name'] = bool(genesis_block.name)
+        checks["name"] = bool(genesis_block.name)
         if not genesis_block.name:
             errors.append("Name is required")
 
-        checks['timestamp'] = isinstance(genesis_block.timestamp, datetime)
+        checks["timestamp"] = isinstance(genesis_block.timestamp, datetime)
         if not isinstance(genesis_block.timestamp, datetime):
             errors.append("Invalid timestamp format")
 
-        checks['consensus'] = bool(genesis_block.consensus)
+        checks["consensus"] = bool(genesis_block.consensus)
         if not genesis_block.consensus:
             errors.append("Consensus configuration is required")
 
-        checks['hash'] = bool(genesis_block.hash)
+        checks["hash"] = bool(genesis_block.hash)
         if not genesis_block.hash:
             errors.append("Genesis hash is required")
 
         # Validate hash
         if genesis_block.hash:
             calculated_hash = self._calculate_genesis_hash(genesis_block, genesis_block.state_root)
-            checks['hash_valid'] = genesis_block.hash == calculated_hash
+            checks["hash_valid"] = genesis_block.hash == calculated_hash
             if genesis_block.hash != calculated_hash:
                 errors.append("Genesis hash does not match calculated hash")
 
         # Validate state root
         if genesis_block.state_root:
             calculated_state_root = self._calculate_state_root_from_block(genesis_block)
-            checks['state_root_valid'] = genesis_block.state_root == calculated_state_root
+            checks["state_root_valid"] = genesis_block.state_root == calculated_state_root
             if genesis_block.state_root != calculated_state_root:
                 errors.append("State root does not match calculated state root")
 
         # Validate accounts
-        checks['accounts_valid'] = all(
-            bool(account.address) and bool(account.balance)
-            for account in genesis_block.accounts
-        )
-        if not checks['accounts_valid']:
+        checks["accounts_valid"] = all(bool(account.address) and bool(account.balance) for account in genesis_block.accounts)
+        if not checks["accounts_valid"]:
             errors.append("All accounts must have address and balance")
 
         # Validate contracts
-        checks['contracts_valid'] = all(
-            bool(contract.name) and bool(contract.address) and bool(contract.bytecode)
-            for contract in genesis_block.contracts
+        checks["contracts_valid"] = all(
+            bool(contract.name) and bool(contract.address) and bool(contract.bytecode) for contract in genesis_block.contracts
         )
-        if not checks['contracts_valid']:
+        if not checks["contracts_valid"]:
             errors.append("All contracts must have name, address, and bytecode")
 
         # Validate consensus
         if genesis_block.consensus:
-            checks['consensus_algorithm'] = genesis_block.consensus.algorithm in ConsensusAlgorithm
+            checks["consensus_algorithm"] = genesis_block.consensus.algorithm in ConsensusAlgorithm
             if genesis_block.consensus.algorithm not in ConsensusAlgorithm:
                 errors.append(f"Invalid consensus algorithm: {genesis_block.consensus.algorithm}")
 
-        return ValidationResult(
-            is_valid=len(errors) == 0,
-            errors=errors,
-            checks=checks
-        )
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors, checks=checks)
 
     def get_genesis_info(self, genesis_file: str) -> dict[str, Any]:
         """Get information about a genesis block file"""
@@ -173,7 +167,7 @@ class GenesisGenerator:
             raise FileNotFoundError(f"Genesis file {genesis_file} not found")
 
         # Load genesis block
-        if genesis_path.suffix.lower() in ['.yaml', '.yml']:
+        if genesis_path.suffix.lower() in [".yaml", ".yml"]:
             with open(genesis_path) as f:
                 genesis_data = yaml.safe_load(f)
         else:
@@ -200,7 +194,7 @@ class GenesisGenerator:
             "privacy_visibility": genesis_block.privacy.visibility,
             "access_control": genesis_block.privacy.access_control,
             "file_size": genesis_path.stat().st_size,
-            "file_format": genesis_path.suffix.lower().replace('.', '')
+            "file_format": genesis_path.suffix.lower().replace(".", ""),
         }
 
     def export_genesis(self, chain_id: str, format: str = "json") -> str:
@@ -216,7 +210,7 @@ class GenesisGenerator:
             raise FileNotFoundError(f"Genesis file {genesis_file} not found")
 
         # Load genesis block
-        if genesis_path.suffix.lower() in ['.yaml', '.yml']:
+        if genesis_path.suffix.lower() in [".yaml", ".yml"]:
             with open(genesis_path) as f:
                 genesis_data = yaml.safe_load(f)
         else:
@@ -243,10 +237,10 @@ class GenesisGenerator:
 
                 templates[template_name] = {
                     "name": template_name,
-                    "description": template_data.get('description', ''),
-                    "chain_type": template_data.get('genesis', {}).get('chain_type', 'unknown'),
-                    "purpose": template_data.get('genesis', {}).get('purpose', 'unknown'),
-                    "file_path": str(template_file)
+                    "description": template_data.get("description", ""),
+                    "chain_type": template_data.get("genesis", {}).get("chain_type", "unknown"),
+                    "purpose": template_data.get("genesis", {}).get("purpose", "unknown"),
+                    "file_path": str(template_file),
                 }
             except Exception as e:
                 templates[template_name] = {
@@ -254,7 +248,7 @@ class GenesisGenerator:
                     "description": f"Error loading template: {e}",
                     "chain_type": "error",
                     "purpose": "error",
-                    "file_path": str(template_file)
+                    "file_path": str(template_file),
                 }
 
         return templates
@@ -294,7 +288,7 @@ class GenesisGenerator:
             "timestamp": genesis_config.timestamp.isoformat() if genesis_config.timestamp else datetime.now().isoformat(),
             "accounts": [account.dict() for account in genesis_config.accounts],
             "contracts": [contract.dict() for contract in genesis_config.contracts],
-            "parameters": genesis_config.parameters.dict()
+            "parameters": genesis_config.parameters.dict(),
         }
 
         state_json = json.dumps(state_data, sort_keys=True)
@@ -316,7 +310,7 @@ class GenesisGenerator:
             "consensus": genesis_config.consensus.dict(),
             "privacy": genesis_config.privacy.dict(),
             "parameters": genesis_config.parameters.dict(),
-            "state_root": state_root
+            "state_root": state_root,
         }
 
         genesis_json = json.dumps(genesis_data, sort_keys=True)
@@ -332,7 +326,7 @@ class GenesisGenerator:
             "timestamp": genesis_block.timestamp.isoformat(),
             "accounts": [account.dict() for account in genesis_block.accounts],
             "contracts": [contract.dict() for contract in genesis_block.contracts],
-            "parameters": genesis_block.parameters.dict()
+            "parameters": genesis_block.parameters.dict(),
         }
 
         state_json = json.dumps(state_data, sort_keys=True)
@@ -342,14 +336,14 @@ class GenesisGenerator:
         """Merge template configuration with custom overrides"""
         result = template.copy()
 
-        if 'genesis' in custom:
-            for key, value in custom['genesis'].items():
-                if isinstance(value, dict) and key in result.get('genesis', {}):
-                    result['genesis'][key].update(value)
+        if "genesis" in custom:
+            for key, value in custom["genesis"].items():
+                if isinstance(value, dict) and key in result.get("genesis", {}):
+                    result["genesis"][key].update(value)
                 else:
-                    if 'genesis' not in result:
-                        result['genesis'] = {}
-                    result['genesis'][key] = value
+                    if "genesis" not in result:
+                        result["genesis"] = {}
+                    result["genesis"][key] = value
 
         return result
 

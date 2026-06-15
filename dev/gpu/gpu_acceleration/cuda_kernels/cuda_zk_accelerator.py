@@ -14,14 +14,16 @@ import numpy as np
 class FieldElement(ctypes.Structure):
     _fields_ = [("limbs", ctypes.c_uint64 * 4)]
 
+
 # Constraint structure for parallel processing
 class Constraint(ctypes.Structure):
     _fields_ = [
         ("a", FieldElement),
         ("b", FieldElement),
         ("c", FieldElement),
-        ("operation", ctypes.c_uint8)  # 0: a + b = c, 1: a * b = c
+        ("operation", ctypes.c_uint8),  # 0: a + b = c, 1: a * b = c
     ]
+
 
 class CUDAZKAccelerator:
     """Python interface for CUDA-accelerated ZK circuit operations"""
@@ -29,7 +31,7 @@ class CUDAZKAccelerator:
     def __init__(self, lib_path: str = None):
         """
         Initialize CUDA accelerator
-        
+
         Args:
             lib_path: Path to compiled CUDA library (.so file)
         """
@@ -54,7 +56,7 @@ class CUDAZKAccelerator:
             "./field_operations.so",
             "../field_operations.so",
             "../../field_operations.so",
-            "/usr/local/lib/libfield_operations.so"
+            "/usr/local/lib/libfield_operations.so",
         ]
 
         for path in possible_paths:
@@ -78,7 +80,7 @@ class CUDAZKAccelerator:
             np.ctypeslib.ndpointer(FieldElement, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(FieldElement, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_uint64, flags="C_CONTIGUOUS"),
-            ctypes.c_int
+            ctypes.c_int,
         ]
         self.lib.gpu_field_addition.restype = ctypes.c_int
 
@@ -87,7 +89,7 @@ class CUDAZKAccelerator:
             np.ctypeslib.ndpointer(Constraint, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(FieldElement, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_bool, flags="C_CONTIGUOUS"),
-            ctypes.c_int
+            ctypes.c_int,
         ]
         self.lib.gpu_constraint_verification.restype = ctypes.c_int
 
@@ -110,19 +112,16 @@ class CUDAZKAccelerator:
             return False
 
     def field_addition(
-        self,
-        a: list[FieldElement],
-        b: list[FieldElement],
-        modulus: list[int]
+        self, a: list[FieldElement], b: list[FieldElement], modulus: list[int]
     ) -> tuple[bool, list[FieldElement] | None]:
         """
         Perform parallel field addition on GPU
-        
+
         Args:
             a: First operand array
             b: Second operand array
             modulus: Field modulus (4 x 64-bit limbs)
-            
+
         Returns:
             (success, result_array)
         """
@@ -142,9 +141,7 @@ class CUDAZKAccelerator:
             modulus_array = np.array(modulus, dtype=ctypes.c_uint64)
 
             # Call GPU function
-            result = self.lib.gpu_field_addition(
-                a_array, b_array, result_array, modulus_array, num_elements
-            )
+            result = self.lib.gpu_field_addition(a_array, b_array, result_array, modulus_array, num_elements)
 
             if result == 0:
                 print(f"✅ GPU field addition completed for {num_elements} elements")
@@ -158,17 +155,15 @@ class CUDAZKAccelerator:
             return False, None
 
     def constraint_verification(
-        self,
-        constraints: list[Constraint],
-        witness: list[FieldElement]
+        self, constraints: list[Constraint], witness: list[FieldElement]
     ) -> tuple[bool, list[bool] | None]:
         """
         Perform parallel constraint verification on GPU
-        
+
         Args:
             constraints: Array of constraints to verify
             witness: Witness array
-            
+
         Returns:
             (success, verification_results)
         """
@@ -184,9 +179,7 @@ class CUDAZKAccelerator:
             results_array = np.zeros(num_constraints, dtype=ctypes.c_bool)
 
             # Call GPU function
-            result = self.lib.gpu_constraint_verification(
-                constraints_array, witness_array, results_array, num_constraints
-            )
+            result = self.lib.gpu_constraint_verification(constraints_array, witness_array, results_array, num_constraints)
 
             if result == 0:
                 verified_count = np.sum(results_array)
@@ -203,10 +196,10 @@ class CUDAZKAccelerator:
     def benchmark_performance(self, num_elements: int = 10000) -> dict:
         """
         Benchmark GPU vs CPU performance for field operations
-        
+
         Args:
             num_elements: Number of elements to process
-            
+
         Returns:
             Performance benchmark results
         """
@@ -236,6 +229,7 @@ class CUDAZKAccelerator:
 
         # GPU benchmark
         import time
+
         start_time = time.time()
 
         success, gpu_result = self.field_addition(a_elements, b_elements, modulus)
@@ -265,7 +259,7 @@ class CUDAZKAccelerator:
             "speedup": speedup,
             "gpu_success": success,
             "elements_per_second_gpu": num_elements / gpu_time if gpu_time > 0 else 0,
-            "elements_per_second_cpu": num_elements / cpu_time if cpu_time > 0 else 0
+            "elements_per_second_cpu": num_elements / cpu_time if cpu_time > 0 else 0,
         }
 
         print("📊 Benchmark Results:")
@@ -275,6 +269,7 @@ class CUDAZKAccelerator:
         print(f"   GPU Throughput: {results['elements_per_second_gpu']:.0f} elements/s")
 
         return results
+
 
 def main():
     """Main function for testing CUDA acceleration"""
@@ -306,6 +301,7 @@ def main():
 
     except Exception as e:
         print(f"❌ Test failed: {e}")
+
 
 if __name__ == "__main__":
     main()

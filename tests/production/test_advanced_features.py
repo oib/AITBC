@@ -17,10 +17,7 @@ def _service_available(host: str = "localhost", port: int = 9001) -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(
-    not _service_available(),
-    reason="Agent coordinator service not running on localhost:9001"
-)
+pytestmark = pytest.mark.skipif(not _service_available(), reason="Agent coordinator service not running on localhost:9001")
 
 
 class TestAdvancedFeatures:
@@ -43,25 +40,15 @@ class TestAdvancedFeatures:
     def test_realtime_learning_experience(self):
         """Test real-time learning experience recording"""
         experience_data = {
-            "context": {
-                "system_load": 0.7,
-                "agents": 5,
-                "task_queue_size": 25
-            },
+            "context": {"system_load": 0.7, "agents": 5, "task_queue_size": 25},
             "action": "scale_resources",
             "outcome": "success",
-            "performance_metrics": {
-                "response_time": 0.5,
-                "throughput": 100,
-                "error_rate": 0.02
-            },
-            "reward": 0.8
+            "performance_metrics": {"response_time": 0.5, "throughput": 100, "error_rate": 0.02},
+            "reward": 0.8,
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/ai/learning/experience",
-            json=experience_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/ai/learning/experience", json=experience_data, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -81,17 +68,13 @@ class TestAdvancedFeatures:
 
     def test_performance_prediction(self):
         """Test performance prediction"""
-        context = {
-            "system_load": 0.6,
-            "agents": 4,
-            "task_queue_size": 20
-        }
+        context = {"system_load": 0.6, "agents": 4, "task_queue_size": 20}
 
         response = requests.post(
             f"{self.BASE_URL}/ai/learning/predict",
             params={"action": "scale_resources"},
             json=context,
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -106,20 +89,13 @@ class TestAdvancedFeatures:
 
     def test_action_recommendation(self):
         """Test AI action recommendation"""
-        context = {
-            "system_load": 0.8,
-            "agents": 3,
-            "task_queue_size": 30
-        }
+        context = {"system_load": 0.8, "agents": 3, "task_queue_size": 30}
         available_actions = ["scale_resources", "allocate_agents", "maintain_status"]
 
         response = requests.post(
             f"{self.BASE_URL}/ai/learning/recommend",
-            json={
-                "context": context,
-                "available_actions": available_actions
-            },
-            headers={"Content-Type": "application/json"}
+            json={"context": context, "available_actions": available_actions},
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -135,13 +111,11 @@ class TestAdvancedFeatures:
             "input_size": 10,
             "hidden_sizes": [64, 32],
             "output_size": 1,
-            "learning_rate": 0.01
+            "learning_rate": 0.01,
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/ai/neural-network/create",
-            json=config,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/ai/neural-network/create", json=config, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -156,13 +130,11 @@ class TestAdvancedFeatures:
             "model_id": "test_ml_001",
             "model_type": "linear_regression",
             "features": ["system_load", "agent_count"],
-            "target": "performance_score"
+            "target": "performance_score",
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/ai/ml-model/create",
-            json=config,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/ai/ml-model/create", json=config, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -188,13 +160,11 @@ class TestAdvancedFeatures:
             "node_id": "consensus_node_001",
             "endpoint": "http://localhost:9002",
             "reputation_score": 0.9,
-            "voting_power": 1.0
+            "voting_power": 1.0,
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/consensus/node/register",
-            json=node_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/consensus/node/register", json=node_data, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -207,17 +177,11 @@ class TestAdvancedFeatures:
         """Test consensus proposal creation"""
         proposal_data = {
             "proposer_id": "node_001",
-            "content": {
-                "action": "system_update",
-                "version": "1.1.0",
-                "description": "Update system to new version"
-            }
+            "content": {"action": "system_update", "version": "1.1.0", "description": "Update system to new version"},
         }
 
         response = requests.post(
-            f"{self.BASE_URL}/consensus/proposal/create",
-            json=proposal_data,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/consensus/proposal/create", json=proposal_data, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -228,10 +192,7 @@ class TestAdvancedFeatures:
 
     def test_consensus_algorithm_setting(self):
         """Test consensus algorithm setting"""
-        response = requests.put(
-            f"{self.BASE_URL}/consensus/algorithm",
-            params={"algorithm": "supermajority"}
-        )
+        response = requests.put(f"{self.BASE_URL}/consensus/algorithm", params={"algorithm": "supermajority"})
 
         assert response.status_code == 200
         data = response.json()
@@ -250,6 +211,7 @@ class TestAdvancedFeatures:
         assert "success_rate" in data
         assert "current_algorithm" in data
 
+
 class TestAdvancedFeaturesIntegration:
     """Integration tests for advanced features"""
 
@@ -264,29 +226,27 @@ class TestAdvancedFeaturesIntegration:
                 "action": "maintain",
                 "outcome": "success",
                 "performance_metrics": {"response_time": 0.3},
-                "reward": 0.7
+                "reward": 0.7,
             },
             {
                 "context": {"load": 0.8, "agents": 2},
                 "action": "scale",
                 "outcome": "success",
                 "performance_metrics": {"response_time": 0.6},
-                "reward": 0.9
+                "reward": 0.9,
             },
             {
                 "context": {"load": 0.9, "agents": 2},
                 "action": "maintain",
                 "outcome": "failure",
                 "performance_metrics": {"response_time": 1.2},
-                "reward": 0.3
-            }
+                "reward": 0.3,
+            },
         ]
 
         for exp in experiences:
             response = requests.post(
-                f"{self.BASE_URL}/ai/learning/experience",
-                json=exp,
-                headers={"Content-Type": "application/json"}
+                f"{self.BASE_URL}/ai/learning/experience", json=exp, headers={"Content-Type": "application/json"}
             )
             assert response.status_code == 200
 
@@ -302,11 +262,8 @@ class TestAdvancedFeaturesIntegration:
 
         response = requests.post(
             f"{self.BASE_URL}/ai/learning/recommend",
-            json={
-                "context": context,
-                "available_actions": actions
-            },
-            headers={"Content-Type": "application/json"}
+            json={"context": context, "available_actions": actions},
+            headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -319,27 +276,20 @@ class TestAdvancedFeaturesIntegration:
         nodes = [
             {"node_id": "node_001", "endpoint": "http://localhost:9002"},
             {"node_id": "node_002", "endpoint": "http://localhost:9003"},
-            {"node_id": "node_003", "endpoint": "http://localhost:9004"}
+            {"node_id": "node_003", "endpoint": "http://localhost:9004"},
         ]
 
         for node in nodes:
             response = requests.post(
-                f"{self.BASE_URL}/consensus/node/register",
-                json=node,
-                headers={"Content-Type": "application/json"}
+                f"{self.BASE_URL}/consensus/node/register", json=node, headers={"Content-Type": "application/json"}
             )
             assert response.status_code == 200
 
         # Step 2: Create proposal
-        proposal = {
-            "proposer_id": "node_001",
-            "content": {"action": "test_consensus", "value": "test_value"}
-        }
+        proposal = {"proposer_id": "node_001", "content": {"action": "test_consensus", "value": "test_value"}}
 
         response = requests.post(
-            f"{self.BASE_URL}/consensus/proposal/create",
-            json=proposal,
-            headers={"Content-Type": "application/json"}
+            f"{self.BASE_URL}/consensus/proposal/create", json=proposal, headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 200
@@ -349,8 +299,7 @@ class TestAdvancedFeaturesIntegration:
         # Step 3: Cast votes
         for node_id in ["node_001", "node_002", "node_003"]:
             response = requests.post(
-                f"{self.BASE_URL}/consensus/proposal/{proposal_id}/vote",
-                params={"node_id": node_id, "vote": "true"}
+                f"{self.BASE_URL}/consensus/proposal/{proposal_id}/vote", params={"node_id": node_id, "vote": "true"}
             )
             assert response.status_code == 200
 
@@ -367,7 +316,9 @@ class TestAdvancedFeaturesIntegration:
             # Handle case where consensus endpoints are not implemented
             assert response.status_code in [404, 500]
             error_data = response.json()
-            assert "not found" in error_data.get("message", "").lower() or "Resource not found" in error_data.get("message", "")
+            assert "not found" in error_data.get("message", "").lower() or "Resource not found" in error_data.get(
+                "message", ""
+            )
 
         # Step 5: Get consensus statistics
         response = requests.get(f"{self.BASE_URL}/consensus/statistics")
@@ -379,7 +330,10 @@ class TestAdvancedFeaturesIntegration:
             # Handle case where consensus endpoints are not implemented
             assert response.status_code in [404, 500]
             error_data = response.json()
-            assert "not found" in error_data.get("message", "").lower() or "Resource not found" in error_data.get("message", "")
+            assert "not found" in error_data.get("message", "").lower() or "Resource not found" in error_data.get(
+                "message", ""
+            )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     pytest.main([__file__])

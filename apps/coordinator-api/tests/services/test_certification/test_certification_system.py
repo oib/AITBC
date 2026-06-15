@@ -30,9 +30,7 @@ class TestCertificationSystem:
         system = CertificationSystem()
 
         hash_value = system.generate_verification_hash(
-            agent_id="agent123",
-            level=CertificationLevel.BASIC,
-            certification_id="cert_abc123"
+            agent_id="agent123", level=CertificationLevel.BASIC, certification_id="cert_abc123"
         )
 
         assert hash_value is not None
@@ -52,7 +50,7 @@ class TestCertificationSystem:
         assert len(capabilities) > 0
         assert "standard_trading" in capabilities
 
-    @patch('app.services.certification.certification_system.Session')
+    @patch("app.services.certification.certification_system.Session")
     async def test_verify_identity(self, mock_session):
         """Test identity verification"""
         from app.domain.reputation import AgentReputation
@@ -77,17 +75,17 @@ class TestCertificationSystem:
             certifications=["basic"],
             geographic_region="us-west",
             community_contributions=10,
-            created_at=datetime.now(UTC)
+            created_at=datetime.now(UTC),
         )
 
         mock_session_instance.execute.return_value.first.return_value = mock_reputation
 
         result = await system.verify_identity(mock_session_instance, "agent123")
 
-        assert result["passed"] == True
+        assert result["passed"]
         assert "trust_score" in result["details"]
 
-    @patch('app.services.certification.certification_system.Session')
+    @patch("app.services.certification.certification_system.Session")
     async def test_verify_performance(self, mock_session):
         """Test performance verification"""
         from app.domain.reputation import AgentReputation
@@ -112,17 +110,17 @@ class TestCertificationSystem:
             certifications=["basic"],
             geographic_region="us-west",
             community_contributions=20,
-            created_at=datetime.now(UTC)
+            created_at=datetime.now(UTC),
         )
 
         mock_session_instance.execute.return_value.first.return_value = mock_reputation
 
         result = await system.verify_performance(mock_session_instance, "agent123")
 
-        assert result["passed"] == True
+        assert result["passed"]
         assert result["score"] > 80.0
 
-    @patch('app.services.certification.certification_system.Session')
+    @patch("app.services.certification.certification_system.Session")
     async def test_certify_agent(self, mock_session):
         """Test agent certification"""
         from app.domain.certification import AgentCertification, CertificationLevel
@@ -142,7 +140,7 @@ class TestCertificationSystem:
         mock_session_instance.execute.return_value.first.return_value = mock_reputation
 
         # Mock certification creation
-        mock_certification = AgentCertification(
+        AgentCertification(
             certification_id="cert_abc123",
             agent_id="agent123",
             certification_level=CertificationLevel.BASIC,
@@ -150,7 +148,7 @@ class TestCertificationSystem:
             issued_by="system",
             status="active",
             requirements_met=["identity_verified", "basic_performance"],
-            granted_privileges=["basic_trading", "standard_support"]
+            granted_privileges=["basic_trading", "standard_support"],
         )
 
         mock_session_instance.add.return_value = None
@@ -158,12 +156,9 @@ class TestCertificationSystem:
         mock_session_instance.refresh.return_value = None
 
         result = await system.certify_agent(
-            mock_session_instance,
-            agent_id="agent123",
-            level=CertificationLevel.BASIC,
-            issued_by="system"
+            mock_session_instance, agent_id="agent123", level=CertificationLevel.BASIC, issued_by="system"
         )
 
-        assert result[0] == True  # Success
+        assert result[0]  # Success
         assert result[1] is not None  # Certification object
         assert len(result[2]) == 0  # No errors

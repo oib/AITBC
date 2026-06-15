@@ -12,6 +12,7 @@ router = APIRouter()
 
 class JoinIslandRequest(BaseModel):
     """Request model for joining an island"""
+
     island_id: str
     island_name: str
     chain_id: str
@@ -21,11 +22,13 @@ class JoinIslandRequest(BaseModel):
 
 class LeaveIslandRequest(BaseModel):
     """Request model for leaving an island"""
+
     island_id: str
 
 
 class BridgeRequestRequest(BaseModel):
     """Request model for requesting a bridge"""
+
     target_island_id: str
 
 
@@ -42,7 +45,7 @@ async def join_island(request: JoinIslandRequest, svc: IslandService = Depends(g
         island_name=request.island_name,
         chain_id=request.chain_id,
         role=request.role,
-        is_hub=request.is_hub
+        is_hub=request.is_hub,
     )
     return result
 

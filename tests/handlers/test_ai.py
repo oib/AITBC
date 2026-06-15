@@ -29,9 +29,9 @@ from handlers.ai import (
 class TestHandleAiSubmit:
     """Test handle_ai_submit function"""
 
-    @patch('handlers.ai.requests.post')
-    @patch('handlers.ai.click')
-    @patch('sys.exit')
+    @patch("handlers.ai.requests.post")
+    @patch("handlers.ai.click")
+    @patch("sys.exit")
     def test_handle_ai_submit_success(self, mock_exit, mock_click, mock_post):
         """Test successful AI job submission"""
         mock_response = Mock()
@@ -67,8 +67,8 @@ class TestHandleAiSubmit:
 
         mock_post.assert_called_once()
 
-    @patch('handlers.ai.click')
-    @patch('sys.exit')
+    @patch("handlers.ai.click")
+    @patch("sys.exit")
     def test_handle_ai_submit_missing_params(self, mock_exit, mock_click):
         """Test AI job submission with missing parameters"""
         args = Mock()
@@ -98,8 +98,8 @@ class TestHandleAiSubmit:
 class TestHandleAiJobs:
     """Test handle_ai_jobs function"""
 
-    @patch('handlers.ai.requests.get')
-    @patch('handlers.ai.click')
+    @patch("handlers.ai.requests.get")
+    @patch("handlers.ai.click")
     def test_handle_ai_jobs_json(self, mock_click, mock_get):
         """Test AI jobs list with JSON output"""
         mock_response = Mock()
@@ -122,8 +122,8 @@ class TestHandleAiJobs:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.ai.requests.get')
-    @patch('handlers.ai.click')
+    @patch("handlers.ai.requests.get")
+    @patch("handlers.ai.click")
     def test_handle_ai_jobs_text(self, mock_click, mock_get):
         """Test AI jobs list with text output"""
         mock_response = Mock()
@@ -146,8 +146,8 @@ class TestHandleAiJobs:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.ai.requests.get')
-    @patch('handlers.ai.click')
+    @patch("handlers.ai.requests.get")
+    @patch("handlers.ai.click")
     def test_handle_ai_jobs_error_stub(self, mock_click, mock_get):
         """Test AI jobs list with error returning stub data"""
         mock_response = Mock()
@@ -173,9 +173,9 @@ class TestHandleAiJobs:
 class TestHandleAiJob:
     """Test handle_ai_job function"""
 
-    @patch('handlers.ai.requests.get')
-    @patch('handlers.ai.click')
-    @patch('sys.exit')
+    @patch("handlers.ai.requests.get")
+    @patch("handlers.ai.click")
+    @patch("sys.exit")
     def test_handle_ai_job_success(self, mock_exit, mock_click, mock_get):
         """Test successful AI job details query"""
         mock_response = Mock()
@@ -202,8 +202,8 @@ class TestHandleAiJob:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.ai.click')
-    @patch('sys.exit')
+    @patch("handlers.ai.click")
+    @patch("sys.exit")
     def test_handle_ai_job_missing_id(self, mock_exit, mock_click):
         """Test AI job details with missing job ID"""
         args = Mock()
@@ -229,9 +229,9 @@ class TestHandleAiJob:
 class TestHandleAiStats:
     """Test handle_ai_stats function"""
 
-    @patch('handlers.ai.requests.get')
-    @patch('handlers.ai.click')
-    @patch('sys.exit')
+    @patch("handlers.ai.requests.get")
+    @patch("handlers.ai.click")
+    @patch("sys.exit")
     def test_handle_ai_stats_success(self, mock_exit, mock_click, mock_get):
         """Test successful AI stats query"""
         mock_response = Mock()
@@ -257,9 +257,9 @@ class TestHandleAiStats:
 class TestHandleAiDistributionStats:
     """Test handle_ai_distribution_stats function"""
 
-    @patch('handlers.ai.requests.get')
-    @patch('handlers.ai.click')
-    @patch('sys.exit')
+    @patch("handlers.ai.requests.get")
+    @patch("handlers.ai.click")
+    @patch("sys.exit")
     def test_handle_ai_distribution_stats_success(self, mock_exit, mock_click, mock_get):
         """Test successful distribution stats query"""
         mock_response = Mock()
@@ -284,7 +284,7 @@ class TestHandleAiDistributionStats:
 class TestHandleAiServiceList:
     """Test handle_ai_service_list function"""
 
-    @patch('sys.exit')
+    @patch("sys.exit")
     def test_handle_ai_service_list_success(self, mock_exit):
         """Test successful AI service list"""
         args = Mock()
@@ -301,7 +301,7 @@ class TestHandleAiServiceList:
 class TestHandleAiServiceStatus:
     """Test handle_ai_service_status function"""
 
-    @patch('sys.exit')
+    @patch("sys.exit")
     def test_handle_ai_service_status_success(self, mock_exit):
         """Test successful AI service status"""
         args = Mock()
@@ -315,7 +315,7 @@ class TestHandleAiServiceStatus:
 
         handle_ai_service_status(args, ai_operations, render_mapping)
 
-    @patch('sys.exit')
+    @patch("sys.exit")
     def test_handle_ai_service_status_no_name(self, mock_exit):
         """Test AI service status without name"""
         args = Mock()
@@ -333,7 +333,7 @@ class TestHandleAiServiceStatus:
 class TestHandleAiServiceTest:
     """Test handle_ai_service_test function"""
 
-    @patch('sys.exit')
+    @patch("sys.exit")
     def test_handle_ai_service_test_success(self, mock_exit):
         """Test successful AI service test"""
         args = Mock()
@@ -351,8 +351,8 @@ class TestHandleAiServiceTest:
 class TestHandleAiStatus:
     """Test handle_ai_status function"""
 
-    @patch('handlers.ai.requests.get')
-    @patch('handlers.ai.click')
+    @patch("handlers.ai.requests.get")
+    @patch("handlers.ai.click")
     def test_handle_ai_status_both_operational(self, mock_click, mock_get):
         """Test AI status with both services operational"""
         mock_coordinator_response = Mock()
@@ -380,8 +380,8 @@ class TestHandleAiStatus:
 
         assert mock_get.call_count == 2
 
-    @patch('handlers.ai.requests.get')
-    @patch('handlers.ai.click')
+    @patch("handlers.ai.requests.get")
+    @patch("handlers.ai.click")
     def test_handle_ai_status_json(self, mock_click, mock_get):
         """Test AI status with JSON output"""
         mock_coordinator_response = Mock()

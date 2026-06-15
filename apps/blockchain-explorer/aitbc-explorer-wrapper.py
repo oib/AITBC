@@ -25,8 +25,5 @@ os.environ["LOG_DIR"] = str(LOG_DIR)
 os.chdir(f"{REPO_DIR}/apps/blockchain-explorer")
 
 # Execute the actual service
-exec_cmd = [
-    "/opt/aitbc/venv/bin/python",
-    "main.py"
-]
+exec_cmd = ["/opt/aitbc/venv/bin/python", "main.py"]
 os.execvp(exec_cmd[0], exec_cmd)

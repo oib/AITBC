@@ -38,11 +38,7 @@ class TestOracleRouter:
 
     def test_set_price(self, client: TestClient):
         """Test setting price (admin function)"""
-        price_data = {
-            "asset": "TEST",
-            "price": 123.45,
-            "source": "manual"
-        }
+        price_data = {"asset": "TEST", "price": 123.45, "source": "manual"}
 
         response = client.post("/oracle/price", json=price_data)
         assert response.status_code == 200
@@ -86,11 +82,7 @@ class TestOracleIntegration:
     def test_price_update_and_retrieval(self, client: TestClient):
         """Test setting price and then retrieving it"""
         # Set a custom price
-        client.post("/oracle/price", json={
-            "asset": "CUSTOM",
-            "price": 999.99,
-            "source": "test"
-        })
+        client.post("/oracle/price", json={"asset": "CUSTOM", "price": 999.99, "source": "test"})
 
         # Retrieve it
         response = client.get("/oracle/price/CUSTOM")

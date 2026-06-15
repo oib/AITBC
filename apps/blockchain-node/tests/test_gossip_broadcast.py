@@ -32,9 +32,10 @@ async def test_websocket_fanout_with_broadcast_backend():
 
     def _sync_test() -> None:
         with TestClient(app) as client:
-            with client.websocket_connect("/rpc/ws/transactions") as ws_a, client.websocket_connect(
-                "/rpc/ws/transactions"
-            ) as ws_b:
+            with (
+                client.websocket_connect("/rpc/ws/transactions") as ws_a,
+                client.websocket_connect("/rpc/ws/transactions") as ws_b,
+            ):
                 payload = {
                     "tx_hash": "0x01",
                     "sender": "alice",

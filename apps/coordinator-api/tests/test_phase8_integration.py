@@ -67,13 +67,18 @@ def test_economics_stats():
 
 
 # Task-based health check tests
-@pytest.mark.skipif(not os.getenv("MARKETPLACE_HEALTH_URL"), reason="MARKETPLACE_HEALTH_URL not set; marketplace health check skipped")
+@pytest.mark.skipif(
+    not os.getenv("MARKETPLACE_HEALTH_URL"), reason="MARKETPLACE_HEALTH_URL not set; marketplace health check skipped"
+)
 def test_marketplace_health_primary():
     """Test primary marketplace health endpoint"""
     _check_health(os.environ["MARKETPLACE_HEALTH_URL"])
 
 
-@pytest.mark.skipif(not os.getenv("MARKETPLACE_HEALTH_URL_ALT"), reason="MARKETPLACE_HEALTH_URL_ALT not set; alt marketplace health check skipped")
+@pytest.mark.skipif(
+    not os.getenv("MARKETPLACE_HEALTH_URL_ALT"),
+    reason="MARKETPLACE_HEALTH_URL_ALT not set; alt marketplace health check skipped",
+)
 def test_marketplace_health_secondary():
     """Test secondary marketplace health endpoint"""
     _check_health(os.environ["MARKETPLACE_HEALTH_URL_ALT"])
@@ -85,7 +90,9 @@ def test_blockchain_rpc_head():
     _check_json(os.environ["BLOCKCHAIN_RPC_URL"])
 
 
-@pytest.mark.skipif(not os.getenv("COORDINATOR_HEALTH_URL"), reason="COORDINATOR_HEALTH_URL not set; coordinator health check skipped")
+@pytest.mark.skipif(
+    not os.getenv("COORDINATOR_HEALTH_URL"), reason="COORDINATOR_HEALTH_URL not set; coordinator health check skipped"
+)
 def test_coordinator_health():
     """Test coordinator API health endpoint"""
     _check_health(os.environ["COORDINATOR_HEALTH_URL"])

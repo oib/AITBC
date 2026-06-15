@@ -14,6 +14,7 @@ Base = declarative_base()
 
 class User(Base):
     """User account for trading"""
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -35,6 +36,7 @@ class User(Base):
 
 class Order(Base):
     """Trading order (buy or sell)"""
+
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -45,7 +47,7 @@ class Order(Base):
     total = Column(Float, nullable=False)  # Total in BTC (amount * price)
     filled = Column(Float, default=0.0)  # Amount filled
     remaining = Column(Float, nullable=False)  # Amount remaining to fill
-    status = Column(String(20), default='OPEN')  # OPEN, PARTIALLY_FILLED, FILLED, CANCELLED
+    status = Column(String(20), default="OPEN")  # OPEN, PARTIALLY_FILLED, FILLED, CANCELLED
     created_at = Column(DateTime, default=datetime.now(UTC))
     updated_at = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
 
@@ -54,8 +56,8 @@ class Order(Base):
     trades = relationship("Trade", back_populates="order")
 
     __table_args__ = (
-        Index('idx_order_type_status', 'order_type', 'status'),
-        Index('idx_price_status', 'price', 'status'),
+        Index("idx_order_type_status", "order_type", "status"),
+        Index("idx_price_status", "price", "status"),
     )
 
     def __repr__(self):
@@ -64,6 +66,7 @@ class Order(Base):
 
 class Trade(Base):
     """Completed trade record"""
+
     __tablename__ = "trades"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -82,8 +85,8 @@ class Trade(Base):
     order = relationship("Order", back_populates="trades")
 
     __table_args__ = (
-        Index('idx_created_at', 'created_at'),
-        Index('idx_price', 'price'),
+        Index("idx_created_at", "created_at"),
+        Index("idx_price", "price"),
     )
 
     def __repr__(self):
@@ -92,6 +95,7 @@ class Trade(Base):
 
 class Balance(Base):
     """User balance tracking"""
+
     __tablename__ = "balances"
 
     id = Column(Integer, primary_key=True, index=True)

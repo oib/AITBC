@@ -26,12 +26,7 @@ class TestCreateSignatureChallenge:
 
     def test_create_challenge_basic(self):
         """Test basic challenge creation"""
-        tx_data = {
-            "tx_id": "tx123",
-            "to": "ait123",
-            "amount": 100,
-            "timestamp": 1234567890
-        }
+        tx_data = {"tx_id": "tx123", "to": "ait123", "amount": 100, "timestamp": 1234567890}
         nonce = "abc123"
 
         challenge = create_signature_challenge(tx_data, nonce)
@@ -41,9 +36,7 @@ class TestCreateSignatureChallenge:
 
     def test_create_challenge_with_missing_fields(self):
         """Test challenge creation with missing fields"""
-        tx_data = {
-            "tx_id": "tx123"
-        }
+        tx_data = {"tx_id": "tx123"}
         nonce = "abc123"
 
         challenge = create_signature_challenge(tx_data, nonce)
@@ -52,12 +45,7 @@ class TestCreateSignatureChallenge:
 
     def test_create_challenge_deterministic(self):
         """Test that same inputs produce same challenge"""
-        tx_data = {
-            "tx_id": "tx123",
-            "to": "ait123",
-            "amount": 100,
-            "timestamp": 1234567890
-        }
+        tx_data = {"tx_id": "tx123", "to": "ait123", "amount": 100, "timestamp": 1234567890}
         nonce = "abc123"
 
         challenge1 = create_signature_challenge(tx_data, nonce)
@@ -103,7 +91,7 @@ class TestValidateMultisigTransaction:
             "to": "ait1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
             "amount": 100,
             "timestamp": 1234567890,
-            "nonce": "abc123"
+            "nonce": "abc123",
         }
 
         is_valid, error = validate_multisig_transaction(tx_data)
@@ -113,12 +101,7 @@ class TestValidateMultisigTransaction:
 
     def test_validate_missing_field(self):
         """Test validation with missing required field"""
-        tx_data = {
-            "to": "ait123",
-            "amount": 100,
-            "timestamp": 1234567890,
-            "nonce": "abc123"
-        }
+        tx_data = {"to": "ait123", "amount": 100, "timestamp": 1234567890, "nonce": "abc123"}
 
         is_valid, error = validate_multisig_transaction(tx_data)
 
@@ -127,13 +110,7 @@ class TestValidateMultisigTransaction:
 
     def test_validate_invalid_address_prefix(self):
         """Test validation with invalid address prefix"""
-        tx_data = {
-            "tx_id": "tx123",
-            "to": "eth123",
-            "amount": 100,
-            "timestamp": 1234567890,
-            "nonce": "abc123"
-        }
+        tx_data = {"tx_id": "tx123", "to": "eth123", "amount": 100, "timestamp": 1234567890, "nonce": "abc123"}
 
         is_valid, error = validate_multisig_transaction(tx_data)
 
@@ -142,13 +119,7 @@ class TestValidateMultisigTransaction:
 
     def test_validate_invalid_address_length(self):
         """Test validation with invalid address length"""
-        tx_data = {
-            "tx_id": "tx123",
-            "to": "ait123",
-            "amount": 100,
-            "timestamp": 1234567890,
-            "nonce": "abc123"
-        }
+        tx_data = {"tx_id": "tx123", "to": "ait123", "amount": 100, "timestamp": 1234567890, "nonce": "abc123"}
 
         is_valid, error = validate_multisig_transaction(tx_data)
 
@@ -162,7 +133,7 @@ class TestValidateMultisigTransaction:
             "to": "ait1234567890ghijkl1234567890abcdef1234567890abcdef1234567890ab",
             "amount": 100,
             "timestamp": 1234567890,
-            "nonce": "abc123"
+            "nonce": "abc123",
         }
 
         is_valid, error = validate_multisig_transaction(tx_data)
@@ -177,7 +148,7 @@ class TestValidateMultisigTransaction:
             "to": "ait1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
             "amount": -100,
             "timestamp": 1234567890,
-            "nonce": "abc123"
+            "nonce": "abc123",
         }
 
         is_valid, error = validate_multisig_transaction(tx_data)
@@ -192,7 +163,7 @@ class TestValidateMultisigTransaction:
             "to": "ait1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
             "amount": "invalid",
             "timestamp": 1234567890,
-            "nonce": "abc123"
+            "nonce": "abc123",
         }
 
         is_valid, error = validate_multisig_transaction(tx_data)
@@ -283,7 +254,7 @@ class TestMultisigSecurityManager:
             "amount": 100,
             "timestamp": 1234567890,
             "nonce": "abc123",
-            "required_signers": ["addr1", "addr2"]
+            "required_signers": ["addr1", "addr2"],
         }
 
         result = manager.create_signing_request(tx_data, "wallet123")
@@ -296,10 +267,7 @@ class TestMultisigSecurityManager:
     def test_create_signing_request_invalid_transaction(self):
         """Test creating signing request with invalid transaction"""
         manager = MultisigSecurityManager()
-        tx_data = {
-            "to": "ait123",
-            "amount": 100
-        }
+        tx_data = {"to": "ait123", "amount": 100}
 
         with pytest.raises(ValueError) as exc_info:
             manager.create_signing_request(tx_data, "wallet123")
@@ -315,7 +283,7 @@ class TestMultisigSecurityManager:
             "amount": 100,
             "timestamp": 1234567890,
             "nonce": "abc123",
-            "required_signers": ["addr1", "addr2"]
+            "required_signers": ["addr1", "addr2"],
         }
 
         manager.create_signing_request(tx_data, "wallet123")
@@ -345,7 +313,7 @@ class TestMultisigSecurityManager:
             "amount": 100,
             "timestamp": 1234567890,
             "nonce": "abc123",
-            "required_signers": []
+            "required_signers": [],
         }
 
         manager.create_signing_request(tx_data, "wallet123")

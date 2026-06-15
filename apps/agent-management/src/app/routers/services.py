@@ -192,7 +192,9 @@ async def stable_diffusion_generate(
     }
 
     job_create = JobCreate(
-        payload=job_payload, constraints=request.get_constraints(), ttl_seconds=600  # 10 minutes for image generation
+        payload=job_payload,
+        constraints=request.get_constraints(),
+        ttl_seconds=600,  # 10 minutes for image generation
     )
 
     service = JobService(session)
@@ -261,7 +263,9 @@ async def llm_inference(
     }
 
     job_create = JobCreate(
-        payload=job_payload, constraints=request.get_constraints(), ttl_seconds=300  # 5 minutes for text generation
+        payload=job_payload,
+        constraints=request.get_constraints(),
+        ttl_seconds=300,  # 5 minutes for text generation
     )
 
     service = JobService(session)
@@ -330,7 +334,9 @@ async def ffmpeg_transcode(
 
     # Adjust TTL based on video length (would need to probe video)
     job_create = JobCreate(
-        payload=job_payload, constraints=request.get_constraints(), ttl_seconds=1800  # 30 minutes for video transcoding
+        payload=job_payload,
+        constraints=request.get_constraints(),
+        ttl_seconds=1800,  # 30 minutes for video transcoding
     )
 
     service = JobService(session)
@@ -386,9 +392,7 @@ async def blender_render(
 # Utility endpoints
 @router.get("/services", summary="List available services")
 @rate_limit(rate=200, per=60)
-async def list_services(
-    request: Request
-) -> dict[str, Any]:
+async def list_services(request: Request) -> dict[str, Any]:
     """List all available service types and their capabilities"""
     return {
         "services": [
@@ -448,9 +452,7 @@ async def list_services(
 
 @router.get("/services/{service_type}/schema", summary="Get service request schema", deprecated=True)
 @rate_limit(rate=200, per=60)
-async def get_service_schema(
-    request: Request, service_type: ServiceType
-) -> dict[str, Any]:
+async def get_service_schema(request: Request, service_type: ServiceType) -> dict[str, Any]:
     """Get the JSON schema for a specific service type
 
     DEPRECATED: Use /v1/registry/services/{service_id}/schema instead.

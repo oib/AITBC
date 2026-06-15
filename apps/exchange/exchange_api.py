@@ -35,18 +35,16 @@ async def lifespan(app: FastAPI):
     # Shutdown (cleanup if needed)
     pass
 
+
 # Initialize FastAPI app
 app = FastAPI(title="AITBC Trade Exchange API", version="1.0.0", lifespan=lifespan)
 
 # Add rate limiting middleware
-app.add_middleware(
-    RateLimitMiddleware,
-    rate=100,
-    per=60
-)
+app.add_middleware(RateLimitMiddleware, rate=100, per=60)
 
 # In-memory session storage (use Redis in production)
 user_sessions = {}
+
 
 def verify_session_token(token: str = Header(..., alias="Authorization")) -> int:
     """Verify session token and return user_id"""
@@ -55,22 +53,17 @@ def verify_session_token(token: str = Header(..., alias="Authorization")) -> int
         token = token[7:]
 
     if token not in user_sessions:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
     session = user_sessions[token]
 
     # Check if expired
     if int(time.time()) > session["expires_at"]:
         del user_sessions[token]
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token expired"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
 
     return session["user_id"]
+
 
 def optional_auth(token: str | None = Header(None, alias="Authorization")) -> int | None:
     """Optional authentication - returns user_id if token is valid, None otherwise"""
@@ -82,6 +75,7 @@ def optional_auth(token: str | None = Header(None, alias="Authorization")) -> in
     except HTTPException:
         return None
 
+
 # Type annotations for dependencies
 UserDep = Annotated[int, Depends(verify_session_token)]
 OptionalUserDep = Annotated[int | None, Depends(optional_auth)]
@@ -89,22 +83,19 @@ OptionalUserDep = Annotated[int | None, Depends(optional_auth)]
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:8080",
-        "http://localhost:8011",
-        "http://localhost:8008"
-    ],
+    allow_origins=["http://localhost:3000", "http://localhost:8080", "http://localhost:8011", "http://localhost:8008"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],  # Allow all headers for auth tokens
 )
+
 
 # Pydantic models
 class OrderCreate(BaseModel):
     order_type: str  # 'BUY' or 'SELL'
     amount: float
     price: float
+
 
 class OrderResponse(BaseModel):
     id: int
@@ -120,6 +111,7 @@ class OrderResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class TradeResponse(BaseModel):
     id: int
     amount: float
@@ -130,9 +122,11 @@ class TradeResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class OrderBookResponse(BaseModel):
     buys: list[OrderResponse]
     sells: list[OrderResponse]
+
 
 def create_mock_trades(db: Session):
     """Create some mock trades for demonstration"""
@@ -156,7 +150,7 @@ def create_mock_trades(db: Session):
             price=price,
             total=total,
             trade_hash=f"mock_tx_{i:04d}",
-            created_at=now - timedelta(minutes=random.randint(0, 60))
+            created_at=now - timedelta(minutes=random.randint(0, 60)),
         )
         trades.append(trade)
 
@@ -164,18 +158,20 @@ def create_mock_trades(db: Session):
     db.commit()
     logger.info("Created mock trades", count=len(trades))
 
+
 @app.get("/api/trades/recent", response_model=list[TradeResponse])
 def get_recent_trades(limit: int = 20, db: Session = Depends(get_db_session)):
     """Get recent trades"""
     trades = db.query(Trade).order_by(desc(Trade.created_at)).limit(limit).all()
     return trades
 
+
 @app.get("/api/orders", response_model=list[OrderResponse])
 def get_orders(
     status_filter: str | None = None,
     user_only: bool = False,
     db: Session = Depends(get_db_session),
-    user_id: OptionalUserDep = None
+    user_id: OptionalUserDep = None,
 ):
     """Get all orders with optional status filter"""
     query = db.query(Order)
@@ -190,12 +186,9 @@ def get_orders(
     orders = query.order_by(Order.created_at.desc()).all()
     return orders
 
+
 @app.get("/api/my/orders", response_model=list[OrderResponse])
-def get_my_orders(
-    user_id: UserDep,
-    status_filter: str | None = None,
-    db: Session = Depends(get_db_session)
-):
+def get_my_orders(user_id: UserDep, status_filter: str | None = None, db: Session = Depends(get_db_session)):
     """Get current user's orders"""
     query = db.query(Order).filter(Order.user_id == user_id)
 
@@ -205,36 +198,35 @@ def get_my_orders(
     orders = query.order_by(Order.created_at.desc()).all()
     return orders
 
+
 @app.get("/api/orders/orderbook", response_model=OrderBookResponse)
 def get_orderbook(db: Session = Depends(get_db_session)):
     """Get current order book"""
 
     # Get open buy orders (sorted by price descending)
-    buys = db.query(Order).filter(
-        and_(Order.order_type == 'BUY', Order.status == 'OPEN')
-    ).order_by(desc(Order.price)).limit(20).all()
+    buys = (
+        db.query(Order)
+        .filter(and_(Order.order_type == "BUY", Order.status == "OPEN"))
+        .order_by(desc(Order.price))
+        .limit(20)
+        .all()
+    )
 
     # Get open sell orders (sorted by price ascending)
-    sells = db.query(Order).filter(
-        and_(Order.order_type == 'SELL', Order.status == 'OPEN')
-    ).order_by(Order.price).limit(20).all()
+    sells = (
+        db.query(Order).filter(and_(Order.order_type == "SELL", Order.status == "OPEN")).order_by(Order.price).limit(20).all()
+    )
 
     return OrderBookResponse(buys=buys, sells=sells)
 
+
 @app.post("/api/orders", response_model=OrderResponse)
-def create_order(
-    order: OrderCreate,
-    user_id: UserDep,
-    db: Session = Depends(get_db_session)
-):
+def create_order(order: OrderCreate, user_id: UserDep, db: Session = Depends(get_db_session)):
     """Create a new order"""
 
     # Validate order type
-    if order.order_type not in ['BUY', 'SELL']:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Order type must be 'BUY' or 'SELL'"
-        )
+    if order.order_type not in ["BUY", "SELL"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order type must be 'BUY' or 'SELL'")
 
     # Create order
     total = order.amount * order.price
@@ -244,7 +236,7 @@ def create_order(
         amount=order.amount,
         price=order.price,
         total=total,
-        remaining=order.amount
+        remaining=order.amount,
     )
 
     db.add(db_order)
@@ -256,27 +248,26 @@ def create_order(
 
     return db_order
 
+
 def try_match_order(order: Order, db: Session):
     """Try to match an order with existing orders"""
 
-    if order.order_type == 'BUY':
+    if order.order_type == "BUY":
         # Match with sell orders at same or lower price
-        matching_orders = db.query(Order).filter(
-            and_(
-                Order.order_type == 'SELL',
-                Order.status == 'OPEN',
-                Order.price <= order.price
-            )
-        ).order_by(Order.price).all()
+        matching_orders = (
+            db.query(Order)
+            .filter(and_(Order.order_type == "SELL", Order.status == "OPEN", Order.price <= order.price))
+            .order_by(Order.price)
+            .all()
+        )
     else:
         # Match with buy orders at same or higher price
-        matching_orders = db.query(Order).filter(
-            and_(
-                Order.order_type == 'BUY',
-                Order.status == 'OPEN',
-                Order.price >= order.price
-            )
-        ).order_by(desc(Order.price)).all()
+        matching_orders = (
+            db.query(Order)
+            .filter(and_(Order.order_type == "BUY", Order.status == "OPEN", Order.price >= order.price))
+            .order_by(desc(Order.price))
+            .all()
+        )
 
     for match in matching_orders:
         if order.remaining <= 0:
@@ -288,13 +279,13 @@ def try_match_order(order: Order, db: Session):
 
         # Create trade record
         trade = Trade(
-            buyer_id=order.user_id if order.order_type == 'BUY' else match.user_id,
-            seller_id=match.user_id if order.order_type == 'BUY' else order.user_id,
+            buyer_id=order.user_id if order.order_type == "BUY" else match.user_id,
+            seller_id=match.user_id if order.order_type == "BUY" else order.user_id,
             order_id=order.id,
             amount=trade_amount,
             price=match.price,
             total=trade_total,
-            trade_hash=f"trade_{datetime.now(UTC).timestamp()}"
+            trade_hash=f"trade_{datetime.now(UTC).timestamp()}",
         )
 
         db.add(trade)
@@ -307,16 +298,17 @@ def try_match_order(order: Order, db: Session):
 
         # Update order statuses
         if order.remaining <= 0:
-            order.status = 'FILLED'
+            order.status = "FILLED"
         else:
-            order.status = 'PARTIALLY_FILLED'
+            order.status = "PARTIALLY_FILLED"
 
         if match.remaining <= 0:
-            match.status = 'FILLED'
+            match.status = "FILLED"
         else:
-            match.status = 'PARTIALLY_FILLED'
+            match.status = "PARTIALLY_FILLED"
 
     db.commit()
+
 
 @app.post("/api/auth/login")
 def login_user(wallet_address: str, db: Session = Depends(get_db_session)):
@@ -324,11 +316,7 @@ def login_user(wallet_address: str, db: Session = Depends(get_db_session)):
     # Find or create user
     user = db.query(User).filter(User.wallet_address == wallet_address).first()
     if not user:
-        user = User(
-            wallet_address=wallet_address,
-            email=f"{wallet_address}@aitbc.local",
-            is_active=True
-        )
+        user = User(wallet_address=wallet_address, email=f"{wallet_address}@aitbc.local", is_active=True)
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -341,10 +329,11 @@ def login_user(wallet_address: str, db: Session = Depends(get_db_session)):
     user_sessions[token] = {
         "user_id": user.id,
         "created_at": int(time.time()),
-        "expires_at": int(time.time()) + 86400  # 24 hours
+        "expires_at": int(time.time()) + 86400,  # 24 hours
     }
 
     return {"token": token, "user_id": user.id}
+
 
 @app.post("/api/auth/logout")
 def logout_user(token: str = Header(..., alias="Authorization")):
@@ -357,11 +346,14 @@ def logout_user(token: str = Header(..., alias="Authorization")):
 
     return {"message": "Logged out successfully"}
 
+
 @app.get("/api/health")
 def health_check():
     """Health check endpoint"""
     return {"status": "ok", "timestamp": datetime.now(UTC)}
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8008)  # nosec B104

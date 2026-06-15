@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field
 
 from ..domain.decentralized_memory import MemoryType, StorageStatus

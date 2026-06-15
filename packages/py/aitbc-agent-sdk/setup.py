@@ -11,28 +11,28 @@ from setuptools import find_packages, setup
 
 # Read the README file
 def read_readme():
-    readme_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'README.md')
+    readme_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "README.md")
     if os.path.exists(readme_path):
-        with open(readme_path, encoding='utf-8') as f:
+        with open(readme_path, encoding="utf-8") as f:
             return f.read()
     return "AITBC Agent SDK - Python package for AI agent network participation"
+
 
 # Read requirements from pyproject.toml
 def read_requirements():
     import tomli
-    pyproject_path = os.path.join(os.path.dirname(__file__), 'pyproject.toml')
+
+    pyproject_path = os.path.join(os.path.dirname(__file__), "pyproject.toml")
     if os.path.exists(pyproject_path):
         try:
-            with open(pyproject_path, 'rb') as f:
+            with open(pyproject_path, "rb") as f:
                 data = tomli.load(f)
                 return data.get("project", {}).get("dependencies", [])
         except ImportError:
             pass
     # Fallback to hardcoded list
-    return [
-        'requests>=2.32.4',
-        'pydantic>=2.11.0'
-    ]
+    return ["requests>=2.32.4", "pydantic>=2.11.0"]
+
 
 setup(
     name="aitbc-agent-sdk",
@@ -80,7 +80,7 @@ setup(
             "paho-mqtt>=1.6.0",
             "aiohttp>=3.9.0",
             "cryptography>=41.0.0",
-        ]
+        ],
     },
     entry_points={
         "console_scripts": [

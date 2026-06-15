@@ -3,19 +3,20 @@
 DEFINITIVE PROOF: All Explorer Issues Have Been Resolved
 """
 
+
 def main():
     print("🎯 DEFINITIVE VERIFICATION: Explorer Issues Status")
     print("=" * 60)
 
     # Read the actual Explorer code
-    with open('/home/oib/windsurf/aitbc/apps/blockchain-explorer/main.py') as f:
+    with open("/home/oib/windsurf/aitbc/apps/blockchain-explorer/main.py") as f:
         explorer_code = f.read()
 
     issues_status = {
         "1. Transaction API Endpoint": False,
         "2. Field Mapping (RPC→UI)": False,
         "3. Robust Timestamp Handling": False,
-        "4. Frontend Integration": False
+        "4. Frontend Integration": False,
     }
 
     print("\n🔍 ISSUE 1: Frontend ruft nicht vorhandene Explorer-API auf")
@@ -23,16 +24,16 @@ def main():
 
     # Check if endpoint exists
     if '@app.get("/api/transactions/{tx_hash}")' in explorer_code:
-        print("✅ ENDPOINT EXISTS: @app.get(\"/api/transactions/{tx_hash}\")")
+        print('✅ ENDPOINT EXISTS: @app.get("/api/transactions/{tx_hash}")')
         issues_status["1. Transaction API Endpoint"] = True
 
         # Show the implementation
-        lines = explorer_code.split('\n')
+        lines = explorer_code.split("\n")
         for i, line in enumerate(lines):
             if '@app.get("/api/transactions/{tx_hash}")' in line:
-                print(f"   Line {i+1}: {line.strip()}")
-                print(f"   Line {i+2}: {lines[i+1].strip()}")
-                print(f"   Line {i+3}: {lines[i+2].strip()}")
+                print(f"   Line {i + 1}: {line.strip()}")
+                print(f"   Line {i + 2}: {lines[i + 1].strip()}")
+                print(f"   Line {i + 3}: {lines[i + 2].strip()}")
                 break
     else:
         print("❌ ENDPOINT NOT FOUND")
@@ -42,13 +43,13 @@ def main():
 
     # Check field mappings
     mappings = [
-        ('"hash": tx.get("tx_hash")', 'tx_hash → hash'),
-        ('"from": tx.get("sender")', 'sender → from'),
-        ('"to": tx.get("recipient")', 'recipient → to'),
-        ('"type": payload.get("type"', 'payload.type → type'),
-        ('"amount": payload.get("amount"', 'payload.amount → amount'),
-        ('"fee": payload.get("fee"', 'payload.fee → fee'),
-        ('"timestamp": tx.get("created_at")', 'created_at → timestamp')
+        ('"hash": tx.get("tx_hash")', "tx_hash → hash"),
+        ('"from": tx.get("sender")', "sender → from"),
+        ('"to": tx.get("recipient")', "recipient → to"),
+        ('"type": payload.get("type"', "payload.type → type"),
+        ('"amount": payload.get("amount"', "payload.amount → amount"),
+        ('"fee": payload.get("fee"', "payload.fee → fee"),
+        ('"timestamp": tx.get("created_at")', "created_at → timestamp"),
     ]
 
     mapping_count = 0
@@ -68,11 +69,11 @@ def main():
 
     # Check timestamp handling
     timestamp_checks = [
-        ('function formatTimestamp', 'Function exists'),
-        ('typeof timestamp === "string"', 'Handles ISO strings'),
-        ('typeof timestamp === "number"', 'Handles Unix timestamps'),
-        ('new Date(timestamp)', 'ISO string parsing'),
-        ('timestamp * 1000', 'Unix timestamp conversion')
+        ("function formatTimestamp", "Function exists"),
+        ('typeof timestamp === "string"', "Handles ISO strings"),
+        ('typeof timestamp === "number"', "Handles Unix timestamps"),
+        ("new Date(timestamp)", "ISO string parsing"),
+        ("timestamp * 1000", "Unix timestamp conversion"),
     ]
 
     timestamp_count = 0
@@ -92,13 +93,13 @@ def main():
 
     # Check frontend calls
     frontend_checks = [
-        ('fetch(`/api/transactions/${query}`)', 'Calls transaction API'),
-        ('tx.hash', 'Displays hash field'),
-        ('tx.from', 'Displays from field'),
-        ('tx.to', 'Displays to field'),
-        ('tx.amount', 'Displays amount field'),
-        ('tx.fee', 'Displays fee field'),
-        ('formatTimestamp(', 'Uses timestamp formatting')
+        ("fetch(`/api/transactions/${query}`)", "Calls transaction API"),
+        ("tx.hash", "Displays hash field"),
+        ("tx.from", "Displays from field"),
+        ("tx.to", "Displays to field"),
+        ("tx.amount", "Displays amount field"),
+        ("tx.fee", "Displays fee field"),
+        ("formatTimestamp(", "Uses timestamp formatting"),
     ]
 
     frontend_count = 0
@@ -137,6 +138,7 @@ def main():
         print("   cd apps/blockchain-node && python -m aitbc_chain.rpc")
     else:
         print(f"\n⚠️  {total_count - resolved_count} Probleme verbleiben")
+
 
 if __name__ == "__main__":
     main()

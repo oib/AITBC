@@ -16,15 +16,14 @@ def load_module_from_path(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-events = load_module_from_path(
-    "aitbc.events",
-    Path("/opt/aitbc/aitbc/events.py")
-)
+
+events = load_module_from_path("aitbc.events", Path("/opt/aitbc/aitbc/events.py"))
 
 
 # ============================================================================
 # Event Priority Tests
 # ============================================================================
+
 
 class TestEventPriority:
     """Test EventPriority enum"""
@@ -40,14 +39,12 @@ class TestEventPriority:
 # Event Dataclass Tests
 # ============================================================================
 
+
 class TestEvent:
     """Test Event dataclass"""
 
     def test_event_initialization(self):
-        event = events.Event(
-            event_type="test_event",
-            data={"key": "value"}
-        )
+        event = events.Event(event_type="test_event", data={"key": "value"})
         assert event.event_type == "test_event"
         assert event.data == {"key": "value"}
         assert event.timestamp is not None
@@ -55,34 +52,23 @@ class TestEvent:
         assert event.source is None
 
     def test_event_with_priority(self):
-        event = events.Event(
-            event_type="test_event",
-            data={"key": "value"},
-            priority=events.EventPriority.HIGH
-        )
+        event = events.Event(event_type="test_event", data={"key": "value"}, priority=events.EventPriority.HIGH)
         assert event.priority == events.EventPriority.HIGH
 
     def test_event_with_source(self):
-        event = events.Event(
-            event_type="test_event",
-            data={"key": "value"},
-            source="test_source"
-        )
+        event = events.Event(event_type="test_event", data={"key": "value"}, source="test_source")
         assert event.source == "test_source"
 
     def test_event_with_custom_timestamp(self):
         custom_ts = datetime.now(UTC)
-        event = events.Event(
-            event_type="test_event",
-            data={"key": "value"},
-            timestamp=custom_ts
-        )
+        event = events.Event(event_type="test_event", data={"key": "value"}, timestamp=custom_ts)
         assert event.timestamp == custom_ts
 
 
 # ============================================================================
 # Event Bus Tests
 # ============================================================================
+
 
 class TestEventBus:
     """Test EventBus class"""
@@ -244,6 +230,7 @@ class TestEventBus:
 # Async Event Bus Tests
 # ============================================================================
 
+
 class TestAsyncEventBus:
     """Test AsyncEventBus class"""
 
@@ -287,6 +274,7 @@ class TestAsyncEventBus:
 # Event Handler Decorator Tests
 # ============================================================================
 
+
 class TestEventHandlerDecorator:
     """Test event_handler decorator"""
 
@@ -316,6 +304,7 @@ class TestEventHandlerDecorator:
 # Publish Event Helper Tests
 # ============================================================================
 
+
 class TestPublishEventHelper:
     """Test publish_event helper function"""
 
@@ -338,6 +327,7 @@ class TestPublishEventHelper:
 # Global Event Bus Tests
 # ============================================================================
 
+
 class TestGlobalEventBus:
     """Test global event bus functions"""
 
@@ -357,6 +347,7 @@ class TestGlobalEventBus:
 # ============================================================================
 # Event Filter Tests
 # ============================================================================
+
 
 class TestEventFilter:
     """Test EventFilter class"""
@@ -427,6 +418,7 @@ class TestEventFilter:
 # Event Aggregator Tests
 # ============================================================================
 
+
 class TestEventAggregator:
     """Test EventAggregator class"""
 
@@ -479,6 +471,7 @@ class TestEventAggregator:
         agg.add_event(event)
 
         import time
+
         time.sleep(0.02)
 
         result = agg.get_aggregated_events()
@@ -496,6 +489,7 @@ class TestEventAggregator:
 # ============================================================================
 # Event Router Tests
 # ============================================================================
+
 
 class TestEventRouter:
     """Test EventRouter class"""

@@ -29,7 +29,7 @@ class CPUDevice(ComputeDevice):
             backend=ComputeBackend.CPU,
             memory_total=self._get_total_memory(),
             memory_available=self._get_available_memory(),
-            is_available=True
+            is_available=True,
         )
         self._update_utilization()
 
@@ -37,6 +37,7 @@ class CPUDevice(ComputeDevice):
         """Get total system memory in bytes."""
         try:
             import psutil
+
             return psutil.virtual_memory().total
         except ImportError:
             # Fallback: estimate 16GB
@@ -46,6 +47,7 @@ class CPUDevice(ComputeDevice):
         """Get available system memory in bytes."""
         try:
             import psutil
+
             return psutil.virtual_memory().available
         except ImportError:
             # Fallback: estimate 8GB available
@@ -55,6 +57,7 @@ class CPUDevice(ComputeDevice):
         """Update CPU utilization."""
         try:
             import psutil
+
             self.utilization = psutil.cpu_percent(interval=1)
         except ImportError:
             self.utilization = 0.0
@@ -63,11 +66,12 @@ class CPUDevice(ComputeDevice):
         """Update CPU temperature."""
         try:
             import psutil
+
             # Try to get temperature from sensors
             temps = psutil.sensors_temperatures()
             if temps:
                 for name, entries in temps.items():
-                    if 'core' in name.lower() or 'cpu' in name.lower():
+                    if "core" in name.lower() or "cpu" in name.lower():
                         for entry in entries:
                             if entry.current:
                                 self.temperature = entry.current
@@ -158,7 +162,7 @@ class CPUComputeProvider(ComputeProvider):
             if isinstance(host_data, np.ndarray):
                 # Copy data to the allocated array
                 data_bytes = host_data.tobytes()
-                device_array[:len(data_bytes)] = np.frombuffer(data_bytes, dtype=np.uint8)
+                device_array[: len(data_bytes)] = np.frombuffer(data_bytes, dtype=np.uint8)
 
     def copy_to_host(self, device_data: Any, host_data: Any) -> None:
         """Copy data from CPU to host (no-op, already on host)."""
@@ -167,7 +171,7 @@ class CPUComputeProvider(ComputeProvider):
             device_array = self.memory_allocations[device_data]
             if isinstance(host_data, np.ndarray):
                 # Copy data from the allocated array
-                data_bytes = device_array.tobytes()[:host_data.nbytes]
+                data_bytes = device_array.tobytes()[: host_data.nbytes]
                 host_data.flat[:] = np.frombuffer(data_bytes, dtype=host_data.dtype)
 
     def execute_kernel(
@@ -176,7 +180,7 @@ class CPUComputeProvider(ComputeProvider):
         grid_size: tuple[int, int, int],
         block_size: tuple[int, int, int],
         args: list[Any],
-        shared_memory: int = 0
+        shared_memory: int = 0,
     ) -> bool:
         """Execute a CPU "kernel" (simulated)."""
         if not self.initialized:
@@ -221,6 +225,7 @@ class CPUComputeProvider(ComputeProvider):
         """Get CPU memory information."""
         try:
             import psutil
+
             memory = psutil.virtual_memory()
             return (memory.available, memory.total)
         except ImportError:
@@ -276,12 +281,7 @@ class CPUComputeProvider(ComputeProvider):
             logger.error("CPU field inverse failed: %s", e)
             return False
 
-    def zk_multi_scalar_mul(
-        self,
-        scalars: list[np.ndarray],
-        points: list[np.ndarray],
-        result: np.ndarray
-    ) -> bool:
+    def zk_multi_scalar_mul(self, scalars: list[np.ndarray], points: list[np.ndarray], result: np.ndarray) -> bool:
         """Perform multi-scalar multiplication using CPU."""
         try:
             # Simplified implementation
@@ -352,7 +352,7 @@ class CPUComputeProvider(ComputeProvider):
                 "total_time": total_time,
                 "average_time": avg_time,
                 "operations_per_second": ops_per_second,
-                "iterations": iterations
+                "iterations": iterations,
             }
 
         except Exception as e:
@@ -376,7 +376,7 @@ class CPUComputeProvider(ComputeProvider):
                     "free": free_mem,
                     "total": total_mem,
                     "used": total_mem - free_mem,
-                    "utilization": ((total_mem - free_mem) / total_mem) * 100
+                    "utilization": ((total_mem - free_mem) / total_mem) * 100,
                 },
                 "utilization": utilization,
                 "temperature": temperature,
@@ -387,9 +387,9 @@ class CPUComputeProvider(ComputeProvider):
                         "memory_total": self.device.memory_total,
                         "compute_capability": None,
                         "utilization": self.device.utilization,
-                        "temperature": self.device.temperature
+                        "temperature": self.device.temperature,
                     }
-                ]
+                ],
             }
 
         except Exception as e:

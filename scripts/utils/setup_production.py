@@ -25,6 +25,7 @@ NODE_ENV = Path("/opt/aitbc/apps/blockchain-node/.env")
 SERVICE_NODE = "aitbc-blockchain-node"
 SERVICE_RPC = "aitbc-blockchain-rpc"
 
+
 def run(cmd, check=True, capture_output=False):
     print(f"+ {cmd}")
     if capture_output:
@@ -32,6 +33,7 @@ def run(cmd, check=True, capture_output=False):
     else:
         result = subprocess.run(cmd, shell=False, check=check)
     return result
+
 
 def main():
     if os.geteuid() != 0:
@@ -68,14 +70,13 @@ def main():
     # 2. Generate keystores
     print("\n=== Generating keystore for aitbc1genesis ===")
     result = run(
-        f"{NODE_VENV} /opt/aitbc/scripts/keystore.py aitbc1genesis --output-dir {KEYS_DIR} --force",
-        capture_output=True
+        f"{NODE_VENV} /opt/aitbc/scripts/keystore.py aitbc1genesis --output-dir {KEYS_DIR} --force", capture_output=True
     )
     print(result.stdout)
     genesis_priv = None
     for line in result.stdout.splitlines():
         if "Private key (hex):" in line:
-            genesis_priv = line.split(":",1)[1].strip()
+            genesis_priv = line.split(":", 1)[1].strip()
             break
     if not genesis_priv:
         print("ERROR: Could not extract genesis private key")
@@ -85,14 +86,13 @@ def main():
 
     print("\n=== Generating keystore for aitbc1treasury ===")
     result = run(
-        f"{NODE_VENV} /opt/aitbc/scripts/keystore.py aitbc1treasury --output-dir {KEYS_DIR} --force",
-        capture_output=True
+        f"{NODE_VENV} /opt/aitbc/scripts/keystore.py aitbc1treasury --output-dir {KEYS_DIR} --force", capture_output=True
     )
     print(result.stdout)
     treasury_priv = None
     for line in result.stdout.splitlines():
         if "Private key (hex):" in line:
-            treasury_priv = line.split(":",1)[1].strip()
+            treasury_priv = line.split(":", 1)[1].strip()
             break
     if not treasury_priv:
         print("ERROR: Could not extract treasury private key")
@@ -139,6 +139,7 @@ GOSSIP_BACKEND=memory
     print(f"[+] Verify with: curl 'http://127.0.0.1:8006/head?chain_id={CHAIN_ID}' | jq")
     print(f"[+] Keystore files in {KEYS_DIR} (encrypted, 600)")
     print(f"[+] Private keys saved in {KEYS_DIR}/genesis_private_key.txt and treasury_private_key.txt (keep secure!)")
+
 
 if __name__ == "__main__":
     main()

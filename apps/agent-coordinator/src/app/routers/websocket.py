@@ -16,10 +16,7 @@ router = APIRouter(prefix="/api/v1/agent", tags=["websocket"])
 
 
 @router.websocket("/messages/stream")
-async def websocket_message_stream(
-    websocket: WebSocket,
-    agent_id: str = Query(..., description="Agent ID")
-) -> None:
+async def websocket_message_stream(websocket: WebSocket, agent_id: str = Query(..., description="Agent ID")) -> None:
     """WebSocket endpoint for real-time agent messaging with automatic handler triggering"""
     connection_manager = get_connection_manager()
     stream_handler = AgentStreamHandler(connection_manager)
@@ -28,10 +25,7 @@ async def websocket_message_stream(
 
 
 @router.websocket("/presence/stream")
-async def websocket_presence_stream(
-    websocket: WebSocket,
-    agent_id: str = Query(..., description="Agent ID")
-) -> None:
+async def websocket_presence_stream(websocket: WebSocket, agent_id: str = Query(..., description="Agent ID")) -> None:
     """WebSocket endpoint for real-time agent presence tracking"""
     connection_manager = get_connection_manager()
     stream_handler = AgentStreamHandler(connection_manager)
@@ -47,8 +41,5 @@ async def websocket_status() -> dict[str, Any]:
         "active_connections": len(connection_manager.active_connections),
         "connected_agents": list(connection_manager.active_connections.keys()),
         "registered_handlers": list(connection_manager.message_handlers.keys()),
-        "queued_messages": {
-            agent_id: len(messages)
-            for agent_id, messages in connection_manager.agent_inboxes.items()
-        }
+        "queued_messages": {agent_id: len(messages) for agent_id, messages in connection_manager.agent_inboxes.items()},
     }

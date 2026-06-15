@@ -18,8 +18,8 @@ import pytest
 class TestHandleSyncBulk:
     """Test handle_sync_bulk function"""
 
-    @patch('handlers.sync.subprocess.run')
-    @patch('handlers.sync.Path')
+    @patch("handlers.sync.subprocess.run")
+    @patch("handlers.sync.Path")
     def test_handle_sync_bulk_success(self, mock_path, mock_subprocess):
         """Test successful bulk sync"""
         from handlers.sync import handle_sync_bulk
@@ -54,8 +54,8 @@ class TestHandleSyncBulk:
         assert result == 0
         mock_subprocess.assert_called_once()
 
-    @patch('handlers.sync.subprocess.run')
-    @patch('handlers.sync.Path')
+    @patch("handlers.sync.subprocess.run")
+    @patch("handlers.sync.Path")
     def test_handle_sync_bulk_script_not_found(self, mock_path, mock_subprocess):
         """Test bulk sync when script not found"""
         from handlers.sync import handle_sync_bulk
@@ -83,8 +83,8 @@ class TestHandleSyncBulk:
 
         assert result == 1
 
-    @patch('handlers.sync.subprocess.run')
-    @patch('handlers.sync.Path')
+    @patch("handlers.sync.subprocess.run")
+    @patch("handlers.sync.Path")
     def test_handle_sync_bulk_subprocess_failure(self, mock_path, mock_subprocess):
         """Test bulk sync when subprocess fails"""
         from handlers.sync import handle_sync_bulk
@@ -117,8 +117,8 @@ class TestHandleSyncBulk:
 
         assert result == 1
 
-    @patch('handlers.sync.subprocess.run')
-    @patch('handlers.sync.Path')
+    @patch("handlers.sync.subprocess.run")
+    @patch("handlers.sync.Path")
     def test_handle_sync_bulk_exception(self, mock_path, mock_subprocess):
         """Test bulk sync when exception occurs"""
         from handlers.sync import handle_sync_bulk

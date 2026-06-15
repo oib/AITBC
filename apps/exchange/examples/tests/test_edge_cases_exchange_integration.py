@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 # Mock aiohttp before importing
-sys.modules['aiohttp'] = Mock()
+sys.modules["aiohttp"] = Mock()
 
 from main import ExchangeRegistration, OrderRequest, TradingPair, app, exchanges, orders, trading_pairs
 
@@ -27,20 +27,14 @@ def reset_state():
 @pytest.mark.unit
 def test_exchange_registration_empty_name():
     """Test ExchangeRegistration with empty name"""
-    registration = ExchangeRegistration(
-        name="",
-        api_key="test_key_123"
-    )
+    registration = ExchangeRegistration(name="", api_key="test_key_123")
     assert registration.name == ""
 
 
 @pytest.mark.unit
 def test_exchange_registration_empty_api_key():
     """Test ExchangeRegistration with empty API key"""
-    registration = ExchangeRegistration(
-        name="TestExchange",
-        api_key=""
-    )
+    registration = ExchangeRegistration(name="TestExchange", api_key="")
     assert registration.api_key == ""
 
 
@@ -48,12 +42,7 @@ def test_exchange_registration_empty_api_key():
 def test_trading_pair_zero_min_order_size():
     """Test TradingPair with zero min order size"""
     pair = TradingPair(
-        symbol="AITBC/BTC",
-        base_asset="AITBC",
-        quote_asset="BTC",
-        min_order_size=0.0,
-        price_precision=8,
-        quantity_precision=6
+        symbol="AITBC/BTC", base_asset="AITBC", quote_asset="BTC", min_order_size=0.0, price_precision=8, quantity_precision=6
     )
     assert pair.min_order_size == 0.0
 
@@ -67,7 +56,7 @@ def test_trading_pair_negative_min_order_size():
         quote_asset="BTC",
         min_order_size=-0.001,
         price_precision=8,
-        quantity_precision=6
+        quantity_precision=6,
     )
     assert pair.min_order_size == -0.001
 
@@ -75,26 +64,14 @@ def test_trading_pair_negative_min_order_size():
 @pytest.mark.unit
 def test_order_request_zero_quantity():
     """Test OrderRequest with zero quantity"""
-    order = OrderRequest(
-        symbol="AITBC/BTC",
-        side="buy",
-        type="limit",
-        quantity=0.0,
-        price=0.00001
-    )
+    order = OrderRequest(symbol="AITBC/BTC", side="buy", type="limit", quantity=0.0, price=0.00001)
     assert order.quantity == 0.0
 
 
 @pytest.mark.unit
 def test_order_request_negative_quantity():
     """Test OrderRequest with negative quantity"""
-    order = OrderRequest(
-        symbol="AITBC/BTC",
-        side="buy",
-        type="limit",
-        quantity=-100.0,
-        price=0.00001
-    )
+    order = OrderRequest(symbol="AITBC/BTC", side="buy", type="limit", quantity=-100.0, price=0.00001)
     assert order.quantity == -100.0
 
 
@@ -110,18 +87,12 @@ def test_order_request_invalid_side():
         quote_asset="BTC",
         min_order_size=0.001,
         price_precision=8,
-        quantity_precision=6
+        quantity_precision=6,
     )
     client.post("/api/v1/pairs/create", json=pair.model_dump())
 
     # Create order with invalid side (API doesn't validate, but test the behavior)
-    order = OrderRequest(
-        symbol="AITBC/BTC",
-        side="invalid",
-        type="limit",
-        quantity=100.0,
-        price=0.00001
-    )
+    order = OrderRequest(symbol="AITBC/BTC", side="invalid", type="limit", quantity=100.0, price=0.00001)
     # This will be accepted by the API as it doesn't validate the side
     response = client.post("/api/v1/orders", json=order.model_dump())
     assert response.status_code == 200
@@ -139,18 +110,12 @@ def test_order_request_invalid_type():
         quote_asset="BTC",
         min_order_size=0.001,
         price_precision=8,
-        quantity_precision=6
+        quantity_precision=6,
     )
     client.post("/api/v1/pairs/create", json=pair.model_dump())
 
     # Create order with invalid type (API doesn't validate, but test the behavior)
-    order = OrderRequest(
-        symbol="AITBC/BTC",
-        side="buy",
-        type="invalid",
-        quantity=100.0,
-        price=0.00001
-    )
+    order = OrderRequest(symbol="AITBC/BTC", side="buy", type="invalid", quantity=100.0, price=0.00001)
     # This will be accepted by the API as it doesn't validate the type
     response = client.post("/api/v1/orders", json=order.model_dump())
     assert response.status_code == 200
@@ -160,10 +125,7 @@ def test_order_request_invalid_type():
 def test_connect_already_connected_exchange():
     """Test connecting to already connected exchange"""
     client = TestClient(app)
-    registration = ExchangeRegistration(
-        name="TestExchange",
-        api_key="test_key_123"
-    )
+    registration = ExchangeRegistration(name="TestExchange", api_key="test_key_123")
 
     # Register exchange
     client.post("/api/v1/exchanges/register", json=registration.model_dump())
@@ -190,7 +152,7 @@ def test_update_market_price_missing_fields():
         quote_asset="BTC",
         min_order_size=0.001,
         price_precision=8,
-        quantity_precision=6
+        quantity_precision=6,
     )
     create_response = client.post("/api/v1/pairs/create", json=pair.model_dump())
     assert create_response.status_code == 200
@@ -216,7 +178,7 @@ def test_update_market_price_zero_price():
         quote_asset="BTC",
         min_order_size=0.001,
         price_precision=8,
-        quantity_precision=6
+        quantity_precision=6,
     )
     create_response = client.post("/api/v1/pairs/create", json=pair.model_dump())
     assert create_response.status_code == 200
@@ -241,7 +203,7 @@ def test_update_market_price_negative_price():
         quote_asset="BTC",
         min_order_size=0.001,
         price_precision=8,
-        quantity_precision=6
+        quantity_precision=6,
     )
     create_response = client.post("/api/v1/pairs/create", json=pair.model_dump())
     assert create_response.status_code == 200

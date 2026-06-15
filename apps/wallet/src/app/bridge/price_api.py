@@ -3,7 +3,6 @@ ETH-AIT Price API
 Fetches ETH price from CoinGecko and calculates AIT exchange rate.
 """
 
-
 from typing import Any
 
 import requests
@@ -20,10 +19,7 @@ def get_eth_prices() -> dict[str, float] | None:
     try:
         # CoinGecko public API (no API key required for basic usage)
         url = "https://api.coingecko.com/api/v3/simple/price"
-        params = {
-            "ids": "ethereum",
-            "vs_currencies": "usd,eur"
-        }
+        params = {"ids": "ethereum", "vs_currencies": "usd,eur"}
 
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
@@ -34,10 +30,7 @@ def get_eth_prices() -> dict[str, float] | None:
         eth_eur = eth_data.get("eur")
 
         if eth_usd and eth_eur:
-            return {
-                "usd": float(eth_usd),
-                "eur": float(eth_eur)
-            }
+            return {"usd": float(eth_usd), "eur": float(eth_eur)}
 
         return None
     except Exception as e:
@@ -57,7 +50,7 @@ def get_eth_price_usd() -> float | None:
 def calculate_ait_amount(eth_amount: float, eth_price_usd: float | None = None) -> float | None:
     """
     Calculate AIT amount based on ETH deposited.
-    
+
     Formula: AIT = (ETH * ETH_USD) / AIT_USD
     """
     if eth_price_usd is None:
@@ -76,10 +69,7 @@ def get_exchange_rate() -> dict[str, Any]:
     eth_prices = get_eth_prices()
 
     if eth_prices is None:
-        return {
-            "success": False,
-            "error": "Failed to fetch ETH prices"
-        }
+        return {"success": False, "error": "Failed to fetch ETH prices"}
 
     return {
         "success": True,
@@ -89,5 +79,5 @@ def get_exchange_rate() -> dict[str, Any]:
         "ait_eur": AIT_USD_PRICE * (eth_prices["eur"] / eth_prices["usd"]),  # Approximate EUR price
         "eth_ait_rate_usd": eth_prices["usd"] / AIT_USD_PRICE,
         "eth_ait_rate_eur": eth_prices["eur"] / (AIT_USD_PRICE * (eth_prices["eur"] / eth_prices["usd"])),
-        "timestamp": __import__("datetime").datetime.now().isoformat()
+        "timestamp": __import__("datetime").datetime.now().isoformat(),
     }

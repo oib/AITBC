@@ -19,31 +19,38 @@ logger = logging.getLogger(__name__)
 
 class ChainType(Enum):
     """Chain types in marketplace"""
+
     TOPIC = "topic"
     PRIVATE = "private"
     RESEARCH = "research"
     ENTERPRISE = "enterprise"
     GOVERNANCE = "governance"
 
+
 class MarketplaceStatus(Enum):
     """Marketplace listing status"""
+
     ACTIVE = "active"
     PENDING = "pending"
     SOLD = "sold"
     EXPIRED = "expired"
     DELISTED = "delisted"
 
+
 class TransactionStatus(Enum):
     """Transaction status"""
+
     PENDING = "pending"
     CONFIRMED = "confirmed"
     COMPLETED = "completed"
     FAILED = "failed"
     REFUNDED = "refunded"
 
+
 @dataclass
 class ChainListing:
     """Chain marketplace listing"""
+
     listing_id: str
     chain_id: str
     chain_name: str
@@ -61,9 +68,11 @@ class ChainListing:
     reputation_requirements: dict[str, Any]
     governance_rules: dict[str, Any]
 
+
 @dataclass
 class MarketplaceTransaction:
     """Marketplace transaction"""
+
     transaction_id: str
     listing_id: str
     buyer_id: str
@@ -79,9 +88,11 @@ class MarketplaceTransaction:
     transaction_hash: str | None
     metadata: dict[str, Any]
 
+
 @dataclass
 class ChainEconomy:
     """Chain economic metrics"""
+
     chain_id: str
     total_value_locked: Decimal
     daily_volume: Decimal
@@ -94,9 +105,11 @@ class ChainEconomy:
     staking_rewards: Decimal
     last_updated: datetime
 
+
 @dataclass
 class MarketplaceMetrics:
     """Marketplace performance metrics"""
+
     total_listings: int
     active_listings: int
     total_transactions: int
@@ -107,6 +120,7 @@ class MarketplaceMetrics:
     price_trends: dict[str, list[Decimal]]
     market_sentiment: float
     last_updated: datetime
+
 
 class GlobalChainMarketplace:
     """Global chain marketplace system"""
@@ -123,25 +137,34 @@ class GlobalChainMarketplace:
 
         # Marketplace thresholds
         self.thresholds = {
-            'min_reputation_score': 0.5,
-            'max_listing_duration_days': 30,
-            'escrow_fee_percentage': 0.02,  # 2%
-            'marketplace_fee_percentage': 0.01,  # 1%
-            'min_chain_price': Decimal('0.001'),
-            'max_chain_price': Decimal('1000000')
+            "min_reputation_score": 0.5,
+            "max_listing_duration_days": 30,
+            "escrow_fee_percentage": 0.02,  # 2%
+            "marketplace_fee_percentage": 0.01,  # 1%
+            "min_chain_price": Decimal("0.001"),
+            "max_chain_price": Decimal("1000000"),
         }
 
-    async def create_listing(self, chain_id: str, chain_name: str, chain_type: ChainType,
-                           description: str, seller_id: str, price: Decimal, currency: str,
-                           chain_specifications: dict[str, Any], metadata: dict[str, Any]) -> str | None:
+    async def create_listing(
+        self,
+        chain_id: str,
+        chain_name: str,
+        chain_type: ChainType,
+        description: str,
+        seller_id: str,
+        price: Decimal,
+        currency: str,
+        chain_specifications: dict[str, Any],
+        metadata: dict[str, Any],
+    ) -> str | None:
         """Create a new chain listing in the marketplace"""
         try:
             # Validate seller reputation
-            if self.user_reputations.get(seller_id, 0) < self.thresholds['min_reputation_score']:
+            if self.user_reputations.get(seller_id, 0) < self.thresholds["min_reputation_score"]:
                 return None
 
             # Validate price
-            if price < self.thresholds['min_chain_price'] or price > self.thresholds['max_chain_price']:
+            if price < self.thresholds["min_chain_price"] or price > self.thresholds["max_chain_price"]:
                 return None
 
             # Check if chain already has active listing
@@ -151,7 +174,7 @@ class GlobalChainMarketplace:
 
             # Create listing
             listing_id = str(uuid.uuid4())
-            expires_at = datetime.now() + timedelta(days=self.thresholds['max_listing_duration_days'])
+            expires_at = datetime.now() + timedelta(days=self.thresholds["max_listing_duration_days"])
 
             listing = ChainListing(
                 listing_id=listing_id,
@@ -169,7 +192,7 @@ class GlobalChainMarketplace:
                 chain_specifications=chain_specifications,
                 performance_metrics={},
                 reputation_requirements={"min_score": 0.5},
-                governance_rules={"voting_threshold": 0.6}
+                governance_rules={"voting_threshold": 0.6},
             )
 
             self.listings[listing_id] = listing
@@ -194,7 +217,7 @@ class GlobalChainMarketplace:
                 return None
 
             # Validate buyer reputation
-            if self.user_reputations.get(buyer_id, 0) < self.thresholds['min_reputation_score']:
+            if self.user_reputations.get(buyer_id, 0) < self.thresholds["min_reputation_score"]:
                 return None
 
             # Check if listing is expired
@@ -221,7 +244,7 @@ class GlobalChainMarketplace:
                 escrow_address=escrow_address,
                 smart_contract_address=smart_contract_address,
                 transaction_hash=None,
-                metadata={"payment_method": payment_method}
+                metadata={"payment_method": payment_method},
             )
 
             self.transactions[transaction_id] = transaction
@@ -279,16 +302,16 @@ class GlobalChainMarketplace:
                 # Initialize chain economy
                 self.chain_economies[chain_id] = ChainEconomy(
                     chain_id=chain_id,
-                    total_value_locked=Decimal('0'),
-                    daily_volume=Decimal('0'),
-                    market_cap=Decimal('0'),
+                    total_value_locked=Decimal("0"),
+                    daily_volume=Decimal("0"),
+                    market_cap=Decimal("0"),
                     price_history=[],
                     transaction_count=0,
                     active_users=0,
                     agent_count=0,
-                    governance_tokens=Decimal('0'),
-                    staking_rewards=Decimal('0'),
-                    last_updated=datetime.now()
+                    governance_tokens=Decimal("0"),
+                    staking_rewards=Decimal("0"),
+                    last_updated=datetime.now(),
                 )
 
             # Update with latest data
@@ -300,11 +323,14 @@ class GlobalChainMarketplace:
             logger.error("Error getting chain economy: %s", e)
             return None
 
-    async def search_listings(self, chain_type: ChainType | None = None,
-                           min_price: Decimal | None = None,
-                           max_price: Decimal | None = None,
-                           seller_id: str | None = None,
-                           status: MarketplaceStatus | None = None) -> list[ChainListing]:
+    async def search_listings(
+        self,
+        chain_type: ChainType | None = None,
+        min_price: Decimal | None = None,
+        max_price: Decimal | None = None,
+        seller_id: str | None = None,
+        status: MarketplaceStatus | None = None,
+    ) -> list[ChainListing]:
         """Search chain listings with filters"""
         try:
             results = []
@@ -383,7 +409,7 @@ class GlobalChainMarketplace:
                 "price_trends": price_trends,
                 "chain_types_distribution": await self._get_chain_types_distribution(),
                 "user_activity": await self._get_user_activity_metrics(),
-                "escrow_summary": await self._get_escrow_summary()
+                "escrow_summary": await self._get_escrow_summary(),
             }
 
             return overview
@@ -404,16 +430,14 @@ class GlobalChainMarketplace:
                 "seller_id": transaction.seller_id,
                 "created_at": datetime.now(),
                 "status": "active",
-                "release_conditions": {
-                    "transaction_confirmed": False,
-                    "dispute_resolved": False
-                }
+                "release_conditions": {"transaction_confirmed": False, "dispute_resolved": False},
             }
 
             self.escrow_contracts[transaction.escrow_address] = escrow_contract
 
         except Exception as e:
             logger.error("Error creating escrow contract: %s", e)
+
     async def _release_escrow(self, transaction: MarketplaceTransaction):
         """Release escrow funds"""
         try:
@@ -424,34 +448,35 @@ class GlobalChainMarketplace:
                 escrow_contract["release_conditions"]["transaction_confirmed"] = True
 
                 # Calculate fees
-                escrow_fee = transaction.price * Decimal(str(self.thresholds['escrow_fee_percentage']))
-                marketplace_fee = transaction.price * Decimal(str(self.thresholds['marketplace_fee_percentage']))
+                escrow_fee = transaction.price * Decimal(str(self.thresholds["escrow_fee_percentage"]))
+                marketplace_fee = transaction.price * Decimal(str(self.thresholds["marketplace_fee_percentage"]))
                 seller_amount = transaction.price - escrow_fee - marketplace_fee
 
                 escrow_contract["fee_breakdown"] = {
                     "escrow_fee": escrow_fee,
                     "marketplace_fee": marketplace_fee,
-                    "seller_amount": seller_amount
+                    "seller_amount": seller_amount,
                 }
 
         except Exception as e:
             logger.error("Error releasing escrow: %s", e)
+
     async def _update_chain_economy(self, chain_id: str, transaction_price: Decimal | None = None):
         """Update chain economic metrics"""
         try:
             if chain_id not in self.chain_economies:
                 self.chain_economies[chain_id] = ChainEconomy(
                     chain_id=chain_id,
-                    total_value_locked=Decimal('0'),
-                    daily_volume=Decimal('0'),
-                    market_cap=Decimal('0'),
+                    total_value_locked=Decimal("0"),
+                    daily_volume=Decimal("0"),
+                    market_cap=Decimal("0"),
                     price_history=[],
                     transaction_count=0,
                     active_users=0,
                     agent_count=0,
-                    governance_tokens=Decimal('0'),
-                    staking_rewards=Decimal('0'),
-                    last_updated=datetime.now()
+                    governance_tokens=Decimal("0"),
+                    staking_rewards=Decimal("0"),
+                    last_updated=datetime.now(),
                 )
 
             economy = self.chain_economies[chain_id]
@@ -462,23 +487,26 @@ class GlobalChainMarketplace:
                 economy.transaction_count += 1
 
                 # Add to price history
-                economy.price_history.append({
-                    "price": float(transaction_price),
-                    "timestamp": datetime.now().isoformat(),
-                    "volume": float(transaction_price)
-                })
+                economy.price_history.append(
+                    {
+                        "price": float(transaction_price),
+                        "timestamp": datetime.now().isoformat(),
+                        "volume": float(transaction_price),
+                    }
+                )
 
             # Update other metrics (would be fetched from chain nodes)
             # For now, using mock data
             economy.active_users = max(10, economy.active_users)
             economy.agent_count = max(5, economy.agent_count)
-            economy.total_value_locked = economy.daily_volume * Decimal('10')  # Mock TVL
-            economy.market_cap = economy.daily_volume * Decimal('100')  # Mock market cap
+            economy.total_value_locked = economy.daily_volume * Decimal("10")  # Mock TVL
+            economy.market_cap = economy.daily_volume * Decimal("100")  # Mock market cap
 
             economy.last_updated = datetime.now()
 
         except Exception as e:
             logger.error("Error updating chain economy: %s", e)
+
     async def _update_market_metrics(self):
         """Update marketplace performance metrics"""
         try:
@@ -489,7 +517,7 @@ class GlobalChainMarketplace:
             # Calculate total volume and average price
             completed_transactions = [t for t in self.transactions.values() if t.status == TransactionStatus.COMPLETED]
             total_volume = sum(t.price for t in completed_transactions)
-            average_price = total_volume / len(completed_transactions) if completed_transactions else Decimal('0')
+            average_price = total_volume / len(completed_transactions) if completed_transactions else Decimal("0")
 
             # Popular chain types
             chain_types = defaultdict(int)
@@ -497,7 +525,7 @@ class GlobalChainMarketplace:
                 chain_types[listing.chain_type.value] += 1
 
             # Top sellers
-            seller_stats = defaultdict(lambda: {"count": 0, "volume": Decimal('0')})
+            seller_stats = defaultdict(lambda: {"count": 0, "volume": Decimal("0")})
             for transaction in completed_transactions:
                 seller_stats[transaction.seller_id]["count"] += 1
                 seller_stats[transaction.seller_id]["volume"] += transaction.price
@@ -532,11 +560,12 @@ class GlobalChainMarketplace:
                 top_sellers=top_sellers,
                 price_trends=price_trends,
                 market_sentiment=market_sentiment,
-                last_updated=datetime.now()
+                last_updated=datetime.now(),
             )
 
         except Exception as e:
             logger.error("Error updating market metrics: %s", e)
+
     def _update_user_reputation(self, user_id: str, delta: float):
         """Update user reputation"""
         try:
@@ -545,24 +574,26 @@ class GlobalChainMarketplace:
             self.user_reputations[user_id] = new_rep
         except Exception as e:
             logger.error("Error updating user reputation: %s", e)
+
     async def _calculate_24h_volume(self) -> Decimal:
         """Calculate 24-hour trading volume"""
         try:
             cutoff_time = datetime.now() - timedelta(hours=24)
             recent_transactions = [
-                t for t in self.transactions.values()
+                t
+                for t in self.transactions.values()
                 if t.created_at >= cutoff_time and t.status == TransactionStatus.COMPLETED
             ]
 
             return sum(t.price for t in recent_transactions)
         except Exception as e:
             logger.error("Error calculating 24h volume: %s", e)
-            return Decimal('0')
+            return Decimal("0")
 
     async def _get_top_performing_chains(self, limit: int = 10) -> list[dict[str, Any]]:
         """Get top performing chains by volume"""
         try:
-            chain_performance = defaultdict(lambda: {"volume": Decimal('0'), "transactions": 0})
+            chain_performance = defaultdict(lambda: {"volume": Decimal("0"), "transactions": 0})
 
             for transaction in self.transactions.values():
                 if transaction.status == TransactionStatus.COMPLETED:
@@ -570,11 +601,7 @@ class GlobalChainMarketplace:
                     chain_performance[transaction.chain_id]["transactions"] += 1
 
             top_chains = [
-                {
-                    "chain_id": chain_id,
-                    "volume": float(stats["volume"]),
-                    "transactions": stats["transactions"]
-                }
+                {"chain_id": chain_id, "volume": float(stats["volume"]), "transactions": stats["transactions"]}
                 for chain_id, stats in chain_performance.items()
             ]
 
@@ -633,7 +660,9 @@ class GlobalChainMarketplace:
                 "active_buyers_7d": len(active_buyers),
                 "active_sellers_7d": len(active_sellers),
                 "total_unique_users": len(set(self.user_reputations.keys())),
-                "average_reputation": sum(self.user_reputations.values()) / len(self.user_reputations) if self.user_reputations else 0
+                "average_reputation": sum(self.user_reputations.values()) / len(self.user_reputations)
+                if self.user_reputations
+                else 0,
             }
 
         except Exception as e:
@@ -647,15 +676,14 @@ class GlobalChainMarketplace:
             released_escrows = len([e for e in self.escrow_contracts.values() if e["status"] == "released"])
 
             total_escrow_value = sum(
-                Decimal(str(e["amount"])) for e in self.escrow_contracts.values()
-                if e["status"] == "active"
+                Decimal(str(e["amount"])) for e in self.escrow_contracts.values() if e["status"] == "active"
             )
 
             return {
                 "active_escrows": active_escrows,
                 "released_escrows": released_escrows,
                 "total_escrow_value": float(total_escrow_value),
-                "escrow_fee_collected": float(total_escrow_value * Decimal(str(self.thresholds['escrow_fee_percentage'])))
+                "escrow_fee_collected": float(total_escrow_value * Decimal(str(self.thresholds["escrow_fee_percentage"]))),
             }
 
         except Exception as e:

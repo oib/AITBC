@@ -6,7 +6,8 @@ Fix database persistence by switching to persistent SQLite
 import os
 import sys
 
-sys.path.insert(0, '/home/oib/windsurf/aitbc/apps/coordinator-api/src')
+sys.path.insert(0, "/home/oib/windsurf/aitbc/apps/coordinator-api/src")
+
 
 def fix_database_persistence():
     """Switch from in-memory to persistent SQLite database"""
@@ -21,13 +22,10 @@ def fix_database_persistence():
         content = f.read()
 
     # Replace in-memory SQLite with persistent file
-    new_content = content.replace(
-        '"sqlite:///:memory:"',
-        f'"sqlite:///{database_file}"'
-    )
+    new_content = content.replace('"sqlite:///:memory:"', f'"sqlite:///{database_file}"')
 
     # Write back the fixed content
-    with open(db_file, 'w') as f:
+    with open(db_file, "w") as f:
         f.write(new_content)
 
     print(f"✅ Database switched to persistent file: {database_file}")
@@ -38,6 +36,7 @@ def fix_database_persistence():
         print("🗑️  Removed old database file")
 
     return True
+
 
 if __name__ == "__main__":
     if fix_database_persistence():

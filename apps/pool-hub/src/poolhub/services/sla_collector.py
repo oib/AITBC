@@ -2,6 +2,7 @@
 SLA Metrics Collection Service for Pool-Hub
 Collects and tracks SLA metrics for miners including uptime, response time, job completion rate, and capacity availability.
 """
+
 import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -15,23 +16,41 @@ from ..models import CapacitySnapshot, Feedback, MatchResult, Miner, MinerStatus
 
 logger = get_logger(__name__)
 
+
 class SLACollector:
     """Service for collecting and tracking SLA metrics for miners"""
 
     def __init__(self, db: Session):
         self.db = db
-        self.sla_thresholds = {'uptime_pct': 95.0, 'response_time_ms': 1000.0, 'completion_rate_pct': 90.0, 'capacity_availability_pct': 80.0}
+        self.sla_thresholds = {
+            "uptime_pct": 95.0,
+            "response_time_ms": 1000.0,
+            "completion_rate_pct": 90.0,
+            "capacity_availability_pct": 80.0,
+        }
 
-    async def record_sla_metric(self, miner_id: str, metric_type: str, metric_value: float, metadata: dict[str, str] | None=None) -> SLAMetric:
+    async def record_sla_metric(
+        self, miner_id: str, metric_type: str, metric_value: float, metadata: dict[str, str] | None = None
+    ) -> SLAMetric:
         """Record an SLA metric for a miner"""
         threshold = self.sla_thresholds.get(metric_type, 100.0)
         is_violation = self._check_violation(metric_type, metric_value, threshold)
-        sla_metric = SLAMetric(miner_id=miner_id, metric_type=metric_type, metric_value=metric_value, threshold=threshold, is_violation=is_violation, timestamp=datetime.now(UTC), meta_data=metadata or {})
+        sla_metric = SLAMetric(
+            miner_id=miner_id,
+            metric_type=metric_type,
+            metric_value=metric_value,
+            threshold=threshold,
+            is_violation=is_violation,
+            timestamp=datetime.now(UTC),
+            meta_data=metadata or {},
+        )
         self.db.add(sla_metric)
         await self.db.commit()  # type: ignore[misc, func-returns-value]
         if is_violation:
             await self._record_violation(miner_id, metric_type, metric_value, threshold, metadata)
-        logger.info('Recorded SLA metric: miner=%s, type=%s, value=%s, violation=%s', miner_id, metric_type, metric_value, is_violation)
+        logger.info(
+            "Recorded SLA metric: miner=%s, type=%s, value=%s, violation=%s", miner_id, metric_type, metric_value, is_violation
+        )
         return sla_metric
 
     async def collect_miner_uptime(self, miner_id: str) -> float:
@@ -51,7 +70,7 @@ class SLACollector:
             uptime_pct = 0.0
         miner_status.uptime_pct = uptime_pct
         self.db.commit()
-        await self.record_sla_metric(miner_id, 'uptime_pct', uptime_pct, {'method': 'heartbeat_based'})
+        await self.record_sla_metric(miner_id, "uptime_pct", uptime_pct, {"method": "heartbeat_based"})
         return uptime_pct
 
     async def collect_response_time(self, miner_id: str) -> float | None:
@@ -64,18 +83,31 @@ class SLACollector:
         if not response_times:
             return None
         avg_response_time: float = sum(response_times) / len(response_times)
-        await self.record_sla_metric(miner_id, 'response_time_ms', avg_response_time, {'method': 'match_results', 'sample_size': str(len(response_times))})
+        await self.record_sla_metric(
+            miner_id,
+            "response_time_ms",
+            avg_response_time,
+            {"method": "match_results", "sample_size": str(len(response_times))},
+        )
         return avg_response_time
 
     async def collect_completion_rate(self, miner_id: str) -> float | None:
         """Calculate job completion rate for a miner from feedback"""
-        stmt = select(Feedback).where(Feedback.miner_id == miner_id).where(Feedback.created_at >= datetime.now(UTC) - timedelta(days=7)).order_by(Feedback.created_at.desc()).limit(100)
+        stmt = (
+            select(Feedback)
+            .where(Feedback.miner_id == miner_id)
+            .where(Feedback.created_at >= datetime.now(UTC) - timedelta(days=7))
+            .order_by(Feedback.created_at.desc())
+            .limit(100)
+        )
         feedback_records = (await self.db.execute(stmt)).scalars().all()  # type: ignore[misc]
         if not feedback_records:
             return None
-        successful = sum(1 for f in feedback_records if f.outcome == 'success')
+        successful = sum(1 for f in feedback_records if f.outcome == "success")
         completion_rate = successful / len(feedback_records) * 100.0
-        await self.record_sla_metric(miner_id, 'completion_rate_pct', completion_rate, {'method': 'feedback', 'sample_size': str(len(feedback_records))})
+        await self.record_sla_metric(
+            miner_id, "completion_rate_pct", completion_rate, {"method": "feedback", "sample_size": str(len(feedback_records))}
+        )
         return completion_rate
 
     async def collect_capacity_availability(self) -> dict[str, Any]:
@@ -83,37 +115,67 @@ class SLACollector:
         stmt = select(MinerStatus)
         miner_statuses = (await self.db.execute(stmt)).scalars().all()  # type: ignore[misc]
         if not miner_statuses:
-            return {'total_miners': 0, 'active_miners': 0, 'capacity_availability_pct': 0.0}
+            return {"total_miners": 0, "active_miners": 0, "capacity_availability_pct": 0.0}
         total_miners = len(miner_statuses)
         active_miners = sum(1 for ms in miner_statuses if not ms.busy)
         capacity_availability_pct = active_miners / total_miners * 100.0
-        snapshot = CapacitySnapshot(total_miners=total_miners, active_miners=active_miners, total_parallel_capacity=sum(m.max_parallel for m in (await self.db.execute(select(Miner))).scalars().all()), total_queue_length=sum(ms.queue_len for ms in miner_statuses), capacity_utilization_pct=100.0 - capacity_availability_pct, forecast_capacity=total_miners, recommended_scaling='stable', scaling_reason='Capacity within normal range', timestamp=datetime.now(UTC), meta_data={'method': 'real_time_collection'})  # type: ignore[misc]
+        snapshot = CapacitySnapshot(
+            total_miners=total_miners,
+            active_miners=active_miners,
+            total_parallel_capacity=sum(m.max_parallel for m in (await self.db.execute(select(Miner))).scalars().all()),
+            total_queue_length=sum(ms.queue_len for ms in miner_statuses),
+            capacity_utilization_pct=100.0 - capacity_availability_pct,
+            forecast_capacity=total_miners,
+            recommended_scaling="stable",
+            scaling_reason="Capacity within normal range",
+            timestamp=datetime.now(UTC),
+            meta_data={"method": "real_time_collection"},
+        )  # type: ignore[misc]
         self.db.add(snapshot)
         await self.db.commit()  # type: ignore[misc, func-returns-value]
-        logger.info('Capacity snapshot: total=%s, active=%s, availability=%s%', total_miners, active_miners, capacity_availability_pct)
-        return {'total_miners': total_miners, 'active_miners': active_miners, 'capacity_availability_pct': capacity_availability_pct}
+        logger.info(
+            "Capacity snapshot: total=%s, active=%s, availability=%s%", total_miners, active_miners, capacity_availability_pct
+        )
+        return {
+            "total_miners": total_miners,
+            "active_miners": active_miners,
+            "capacity_availability_pct": capacity_availability_pct,
+        }
 
     async def collect_all_miner_metrics(self) -> dict[str, Any]:
         """Collect all SLA metrics for all miners"""
         miners = self.db.execute(select(Miner)).scalars().all()
-        results: dict[str, Any] = {'miners_processed': 0, 'metrics_collected': [], 'violations_detected': 0}
+        results: dict[str, Any] = {"miners_processed": 0, "metrics_collected": [], "violations_detected": 0}
         for miner in miners:
             try:
                 uptime = await self.collect_miner_uptime(miner.miner_id)
                 response_time = await self.collect_response_time(miner.miner_id)
                 completion_rate = await self.collect_completion_rate(miner.miner_id)
-                results['metrics_collected'].append({'miner_id': miner.miner_id, 'uptime_pct': uptime, 'response_time_ms': response_time, 'completion_rate_pct': completion_rate})
-                results['miners_processed'] += 1
+                results["metrics_collected"].append(
+                    {
+                        "miner_id": miner.miner_id,
+                        "uptime_pct": uptime,
+                        "response_time_ms": response_time,
+                        "completion_rate_pct": completion_rate,
+                    }
+                )
+                results["miners_processed"] += 1
             except Exception as e:
-                logger.error('Failed to collect metrics for miner %s: %s', miner.miner_id, e)
+                logger.error("Failed to collect metrics for miner %s: %s", miner.miner_id, e)
         capacity = await self.collect_capacity_availability()
-        results['capacity'] = capacity
-        violation_stmt = select(func.count(SLAViolation.id)).where(SLAViolation.resolved_at.is_(None)).where(SLAViolation.created_at >= datetime.now(UTC) - timedelta(hours=1))
-        results['violations_detected'] = self.db.execute(violation_stmt).scalar() or 0
-        logger.info('SLA collection complete: processed=%s, violations=%s', results['miners_processed'], results['violations_detected'])
+        results["capacity"] = capacity
+        violation_stmt = (
+            select(func.count(SLAViolation.id))
+            .where(SLAViolation.resolved_at.is_(None))
+            .where(SLAViolation.created_at >= datetime.now(UTC) - timedelta(hours=1))
+        )
+        results["violations_detected"] = self.db.execute(violation_stmt).scalar() or 0
+        logger.info(
+            "SLA collection complete: processed=%s, violations=%s", results["miners_processed"], results["violations_detected"]
+        )
         return results
 
-    async def get_sla_metrics(self, miner_id: str | None=None, hours: int=24) -> list[SLAMetric]:
+    async def get_sla_metrics(self, miner_id: str | None = None, hours: int = 24) -> list[SLAMetric]:
         """Get SLA metrics for a miner or all miners"""
         cutoff = datetime.now(UTC) - timedelta(hours=hours)
         stmt = select(SLAMetric).where(SLAMetric.timestamp >= cutoff)
@@ -122,7 +184,7 @@ class SLACollector:
         stmt = stmt.order_by(desc(SLAMetric.timestamp))
         return (await self.db.execute(stmt)).scalars().all()  # type: ignore[misc, no-any-return]
 
-    async def get_sla_violations(self, miner_id: str | None=None, resolved: bool=False) -> list[SLAViolation]:
+    async def get_sla_violations(self, miner_id: str | None = None, resolved: bool = False) -> list[SLAViolation]:
         """Get SLA violations for a miner or all miners"""
         stmt = select(SLAViolation)
         if miner_id:
@@ -136,25 +198,44 @@ class SLACollector:
 
     def _check_violation(self, metric_type: str, value: float, threshold: float) -> bool:
         """Check if a metric value violates its SLA threshold"""
-        if metric_type in ['uptime_pct', 'completion_rate_pct', 'capacity_availability_pct']:
+        if metric_type in ["uptime_pct", "completion_rate_pct", "capacity_availability_pct"]:
             return value < threshold
-        elif metric_type in ['response_time_ms']:
+        elif metric_type in ["response_time_ms"]:
             return value > threshold
         return False
 
-    async def _record_violation(self, miner_id: str, metric_type: str, metric_value: float, threshold: float, metadata: dict[str, str] | None=None) -> SLAViolation:
+    async def _record_violation(
+        self, miner_id: str, metric_type: str, metric_value: float, threshold: float, metadata: dict[str, str] | None = None
+    ) -> SLAViolation:
         """Record an SLA violation"""
-        if metric_type in ['uptime_pct', 'completion_rate_pct']:
-            severity = 'critical' if metric_value < threshold * 0.8 else 'high'
-        elif metric_type == 'response_time_ms':
-            severity = 'critical' if metric_value > threshold * 2 else 'high'
+        if metric_type in ["uptime_pct", "completion_rate_pct"]:
+            severity = "critical" if metric_value < threshold * 0.8 else "high"
+        elif metric_type == "response_time_ms":
+            severity = "critical" if metric_value > threshold * 2 else "high"
         else:
-            severity = 'medium'
-        violation = SLAViolation(miner_id=miner_id, violation_type=metric_type, severity=severity, metric_value=metric_value, threshold=threshold, violation_duration_ms=None, created_at=datetime.now(UTC), meta_data=metadata or {})
+            severity = "medium"
+        violation = SLAViolation(
+            miner_id=miner_id,
+            violation_type=metric_type,
+            severity=severity,
+            metric_value=metric_value,
+            threshold=threshold,
+            violation_duration_ms=None,
+            created_at=datetime.now(UTC),
+            meta_data=metadata or {},
+        )
         self.db.add(violation)
         await self.db.commit()  # type: ignore[misc, func-returns-value]
-        logger.warning('SLA violation recorded: miner=%s, type=%s, severity=%s, value=%s, threshold=%s', miner_id, metric_type, severity, metric_value, threshold)
+        logger.warning(
+            "SLA violation recorded: miner=%s, type=%s, severity=%s, value=%s, threshold=%s",
+            miner_id,
+            metric_type,
+            severity,
+            metric_value,
+            threshold,
+        )
         return violation
+
 
 class SLACollectorScheduler:
     """Scheduler for automated SLA metric collection"""
@@ -164,18 +245,18 @@ class SLACollectorScheduler:
         self.logger = get_logger(__name__)
         self.running = False
 
-    async def start(self, collection_interval_seconds: int=300) -> None:
+    async def start(self, collection_interval_seconds: int = 300) -> None:
         """Start the SLA collection scheduler"""
         if self.running:
             return
         self.running = True
-        self.logger.info('SLA Collector scheduler started')
+        self.logger.info("SLA Collector scheduler started")
         asyncio.create_task(self._collection_loop(collection_interval_seconds))
 
     async def stop(self) -> None:
         """Stop the SLA collection scheduler"""
         self.running = False
-        self.logger.info('SLA Collector scheduler stopped')
+        self.logger.info("SLA Collector scheduler stopped")
 
     async def _collection_loop(self, interval_seconds: int) -> None:
         """Background task that collects SLA metrics periodically"""
@@ -184,5 +265,5 @@ class SLACollectorScheduler:
                 await self.sla_collector.collect_all_miner_metrics()
                 await asyncio.sleep(interval_seconds)
             except Exception as e:
-                self.logger.error('Error in SLA collection loop: %s', e)
+                self.logger.error("Error in SLA collection loop: %s", e)
                 await asyncio.sleep(60)

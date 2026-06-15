@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 # Mock aiohttp before importing
-sys.modules['aiohttp'] = Mock()
+sys.modules["aiohttp"] = Mock()
 
 from main import ExchangeRegistration, OrderRequest, TradingPair, app, exchanges, orders, trading_pairs
 
@@ -52,11 +52,7 @@ def test_health_check_endpoint():
 def test_register_exchange():
     """Test exchange registration"""
     client = TestClient(app)
-    registration = ExchangeRegistration(
-        name="TestExchange",
-        api_key="test_key_123",
-        sandbox=True
-    )
+    registration = ExchangeRegistration(name="TestExchange", api_key="test_key_123", sandbox=True)
     response = client.post("/api/v1/exchanges/register", json=registration.model_dump())
     assert response.status_code == 200
     data = response.json()
@@ -69,10 +65,7 @@ def test_register_exchange():
 def test_register_duplicate_exchange():
     """Test registering duplicate exchange"""
     client = TestClient(app)
-    registration = ExchangeRegistration(
-        name="TestExchange",
-        api_key="test_key_123"
-    )
+    registration = ExchangeRegistration(name="TestExchange", api_key="test_key_123")
 
     # First registration
     client.post("/api/v1/exchanges/register", json=registration.model_dump())
@@ -86,10 +79,7 @@ def test_register_duplicate_exchange():
 def test_connect_exchange():
     """Test connecting to exchange"""
     client = TestClient(app)
-    registration = ExchangeRegistration(
-        name="TestExchange",
-        api_key="test_key_123"
-    )
+    registration = ExchangeRegistration(name="TestExchange", api_key="test_key_123")
 
     # Register exchange first
     client.post("/api/v1/exchanges/register", json=registration.model_dump())
@@ -120,7 +110,7 @@ def test_create_trading_pair():
         quote_asset="BTC",
         min_order_size=0.001,
         price_precision=8,
-        quantity_precision=6
+        quantity_precision=6,
     )
     response = client.post("/api/v1/pairs/create", json=pair.model_dump())
     assert response.status_code == 200
@@ -140,7 +130,7 @@ def test_create_duplicate_trading_pair():
         quote_asset="BTC",
         min_order_size=0.001,
         price_precision=8,
-        quantity_precision=6
+        quantity_precision=6,
     )
 
     # First creation
@@ -172,7 +162,7 @@ def test_get_trading_pair():
         quote_asset="BTC",
         min_order_size=0.001,
         price_precision=8,
-        quantity_precision=6
+        quantity_precision=6,
     )
 
     # Create pair first
@@ -205,18 +195,12 @@ def test_create_order():
         quote_asset="BTC",
         min_order_size=0.001,
         price_precision=8,
-        quantity_precision=6
+        quantity_precision=6,
     )
     client.post("/api/v1/pairs/create", json=pair.model_dump())
 
     # Create order
-    order = OrderRequest(
-        symbol="AITBC/BTC",
-        side="buy",
-        type="limit",
-        quantity=100.0,
-        price=0.00001
-    )
+    order = OrderRequest(symbol="AITBC/BTC", side="buy", type="limit", quantity=100.0, price=0.00001)
     response = client.post("/api/v1/orders", json=order.model_dump())
     assert response.status_code == 200
     data = response.json()
@@ -230,13 +214,7 @@ def test_create_order():
 def test_create_order_nonexistent_pair():
     """Test creating order for nonexistent pair"""
     client = TestClient(app)
-    order = OrderRequest(
-        symbol="NONEXISTENT/BTC",
-        side="buy",
-        type="limit",
-        quantity=100.0,
-        price=0.00001
-    )
+    order = OrderRequest(symbol="NONEXISTENT/BTC", side="buy", type="limit", quantity=100.0, price=0.00001)
     response = client.post("/api/v1/orders", json=order.model_dump())
     assert response.status_code == 404
 
@@ -264,18 +242,12 @@ def test_get_order():
         quote_asset="BTC",
         min_order_size=0.001,
         price_precision=8,
-        quantity_precision=6
+        quantity_precision=6,
     )
     client.post("/api/v1/pairs/create", json=pair.model_dump())
 
     # Create order
-    order = OrderRequest(
-        symbol="AITBC/BTC",
-        side="buy",
-        type="limit",
-        quantity=100.0,
-        price=0.00001
-    )
+    order = OrderRequest(symbol="AITBC/BTC", side="buy", type="limit", quantity=100.0, price=0.00001)
     create_response = client.post("/api/v1/orders", json=order.model_dump())
     order_id = create_response.json()["order_id"]
 
@@ -309,10 +281,7 @@ def test_list_exchanges():
 def test_get_exchange():
     """Test getting specific exchange"""
     client = TestClient(app)
-    registration = ExchangeRegistration(
-        name="TestExchange",
-        api_key="test_key_123"
-    )
+    registration = ExchangeRegistration(name="TestExchange", api_key="test_key_123")
 
     # Register exchange first
     client.post("/api/v1/exchanges/register", json=registration.model_dump())
@@ -344,7 +313,7 @@ def test_update_market_price():
         quote_asset="BTC",
         min_order_size=0.001,
         price_precision=8,
-        quantity_precision=6
+        quantity_precision=6,
     )
     client.post("/api/v1/pairs/create", json=pair.model_dump())
 

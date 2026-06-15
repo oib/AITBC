@@ -13,7 +13,9 @@ class IslandService:
     def __init__(self) -> None:
         self.rpc_client = BlockchainRPCClient()
 
-    async def join_island(self, island_id: str, island_name: str, chain_id: str, role: str = "compute-provider", is_hub: bool = False) -> dict[str, Any]:
+    async def join_island(
+        self, island_id: str, island_name: str, chain_id: str, role: str = "compute-provider", is_hub: bool = False
+    ) -> dict[str, Any]:
         """Join an island via blockchain RPC"""
         # Call blockchain RPC to join island
         result = await self.rpc_client.join_island(island_id, island_name, chain_id, role, is_hub)
@@ -32,11 +34,7 @@ class IslandService:
                 except ValueError:
                     status = IslandStatus.ACTIVE
                 membership = IslandMembership(
-                    island_id=island_id,
-                    island_name=island_name,
-                    chain_id=chain_id,
-                    role=role,
-                    status=status
+                    island_id=island_id, island_name=island_name, chain_id=chain_id, role=role, status=status
                 )
                 session.add(membership)
                 await session.commit()
@@ -52,6 +50,7 @@ class IslandService:
         if result.get("success"):
             async with get_session() as session:
                 from sqlmodel import delete
+
                 stmt = delete(IslandMembership).where(IslandMembership.island_id == island_id)  # type: ignore[arg-type]
                 await session.execute(stmt)
                 await session.commit()
@@ -80,7 +79,7 @@ class IslandService:
                     request_id=result.get("request_id"),
                     target_island_id=target_island_id,
                     source_node_id="edge-api",  # TODO: Get actual node ID
-                    status=result.get("status", "pending")
+                    status=result.get("status", "pending"),
                 )
                 session.add(bridge_req)
                 await session.commit()

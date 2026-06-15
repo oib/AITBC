@@ -34,21 +34,15 @@ def test_mac_computation():
     password = "test_password_123"
     salt = os.urandom(32)
 
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=100_000,
-        backend=default_backend()
-    )
-    key = kdf.derive(password.encode('utf-8'))
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100_000, backend=default_backend())
+    key = kdf.derive(password.encode("utf-8"))
 
     # Generate test ciphertext
     private_key = ed25519.Ed25519PrivateKey.generate()
     private_bytes = private_key.private_bytes(
         encoding=serialization.Encoding.Raw,
         format=serialization.PrivateFormat.Raw,
-        encryption_algorithm=serialization.NoEncryption()
+        encryption_algorithm=serialization.NoEncryption(),
     )
 
     aesgcm = AESGCM(key)
@@ -98,18 +92,12 @@ def test_keystore_with_mac():
         private_bytes = private_key.private_bytes(
             encoding=serialization.Encoding.Raw,
             format=serialization.PrivateFormat.Raw,
-            encryption_algorithm=serialization.NoEncryption()
+            encryption_algorithm=serialization.NoEncryption(),
         )
 
         # Derive key
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=100_000,
-            backend=default_backend()
-        )
-        key = kdf.derive(password.encode('utf-8'))
+        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100_000, backend=default_backend())
+        key = kdf.derive(password.encode("utf-8"))
 
         # Encrypt
         aesgcm = AESGCM(key)
@@ -126,22 +114,17 @@ def test_keystore_with_mac():
                 "cipherparams": {"nonce": nonce.hex()},
                 "ciphertext": ciphertext.hex(),
                 "kdf": "pbkdf2",
-                "kdfparams": {
-                    "dklen": 32,
-                    "salt": salt.hex(),
-                    "c": 100_000,
-                    "prf": "hmac-sha256"
-                },
-                "mac": mac
+                "kdfparams": {"dklen": 32, "salt": salt.hex(), "c": 100_000, "prf": "hmac-sha256"},
+                "mac": mac,
             },
             "address": "test_address",
             "keytype": "ed25519",
-            "version": 1
+            "version": 1,
         }
 
         # Write keystore
         keystore_file = keystore_dir / f"{name}.json"
-        with open(keystore_file, 'w') as f:
+        with open(keystore_file, "w") as f:
             json.dump(keystore, f, indent=2)
 
         print(f"Keystore written to: {keystore_file}")
@@ -172,31 +155,19 @@ def test_mac_validation():
     salt = os.urandom(32)
 
     # Derive key with correct password
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=100_000,
-        backend=default_backend()
-    )
-    correct_key = kdf.derive(password.encode('utf-8'))
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100_000, backend=default_backend())
+    correct_key = kdf.derive(password.encode("utf-8"))
 
     # Derive key with wrong password
-    kdf_wrong = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=100_000,
-        backend=default_backend()
-    )
-    wrong_key = kdf_wrong.derive(wrong_password.encode('utf-8'))
+    kdf_wrong = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100_000, backend=default_backend())
+    wrong_key = kdf_wrong.derive(wrong_password.encode("utf-8"))
 
     # Generate test ciphertext
     private_key = ed25519.Ed25519PrivateKey.generate()
     private_bytes = private_key.private_bytes(
         encoding=serialization.Encoding.Raw,
         format=serialization.PrivateFormat.Raw,
-        encryption_algorithm=serialization.NoEncryption()
+        encryption_algorithm=serialization.NoEncryption(),
     )
 
     aesgcm = AESGCM(correct_key)

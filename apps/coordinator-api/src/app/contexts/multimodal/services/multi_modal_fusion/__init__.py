@@ -12,4 +12,4 @@ The original multi_modal_fusion.py has been deprecated in favor of this modular 
 from .fusion_engine import MultiModalFusionEngine
 from .neural_modules import AdaptiveModalityWeighting, CrossModalAttention, MultiModalTransformer
 
-__all__ = ['CrossModalAttention', 'MultiModalTransformer', 'AdaptiveModalityWeighting', 'MultiModalFusionEngine']
+__all__ = ["CrossModalAttention", "MultiModalTransformer", "AdaptiveModalityWeighting", "MultiModalFusionEngine"]

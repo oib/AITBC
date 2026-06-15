@@ -22,8 +22,9 @@ class TestComplianceCommands:
         """Test that compliance command group exists"""
         try:
             from aitbc_cli.commands.compliance import compliance
+
             assert compliance is not None
-            assert hasattr(compliance, 'name')
+            assert hasattr(compliance, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import compliance commands: {e}")
 
@@ -31,12 +32,13 @@ class TestComplianceCommands:
         """Test compliance group name"""
         try:
             from aitbc_cli.commands.compliance import compliance
+
             assert compliance.name == "compliance"
         except ImportError as e:
             pytest.skip(f"Cannot import compliance commands: {e}")
 
-    @patch('aitbc_cli.commands.compliance.output')
-    @patch('aitbc_cli.commands.compliance.error')
+    @patch("aitbc_cli.commands.compliance.output")
+    @patch("aitbc_cli.commands.compliance.error")
     def test_compliance_check_command(self, mock_error, mock_output):
         """Test compliance check command"""
         try:
@@ -45,11 +47,11 @@ class TestComplianceCommands:
 
             runner = CliRunner()
             ctx = Mock()
-            ctx.obj = {'output_format': 'json'}
+            ctx.obj = {"output_format": "json"}
 
             # Call the check command with context
-            with runner.make_context('compliance', [], obj=ctx.obj) as ctx:
-                check(ctx, standard='GDPR')
+            with runner.make_context("compliance", [], obj=ctx.obj) as ctx:
+                check(ctx, standard="GDPR")
 
             # Verify output was called
             assert mock_output.called

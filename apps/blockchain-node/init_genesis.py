@@ -5,7 +5,7 @@ Initialize genesis block for AITBC blockchain
 
 import sys
 
-sys.path.insert(0, 'src')
+sys.path.insert(0, "src")
 
 from aitbc_chain.consensus.poa import PoAProposer, ProposerConfig
 from aitbc_chain.database import session_scope
@@ -48,6 +48,8 @@ def init_genesis():
             print(f"Proposer: {genesis.proposer}")
             print(f"Timestamp: {genesis.timestamp}")
 
+
 if __name__ == "__main__":
     from sqlmodel import select
+
     init_genesis()

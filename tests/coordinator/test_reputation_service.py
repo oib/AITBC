@@ -48,7 +48,7 @@ class TestReputationModels:
             transaction_count=50,
             success_rate=92.0,
             jobs_completed=46,
-            jobs_failed=4
+            jobs_failed=4,
         )
         assert reputation.agent_id == "test_agent_001"
         assert reputation.trust_score == 750.0
@@ -66,7 +66,7 @@ class TestReputationModels:
             reliability_rating=5.0,
             value_rating=5.0,
             feedback_text="Excellent service",
-            feedback_tags=["professional", "timely"]
+            feedback_tags=["professional", "timely"],
         )
         assert feedback.agent_id == "test_agent_002"
         assert feedback.overall_rating == 5.0
@@ -81,7 +81,7 @@ class TestReputationModels:
             impact_score=10.0,
             trust_score_before=500.0,
             trust_score_after=510.0,
-            occurred_at=datetime.now(UTC)
+            occurred_at=datetime.now(UTC),
         )
         assert event.agent_id == "test_agent_003"
         assert event.event_type == "job_completed"
@@ -95,7 +95,7 @@ class TestReputationModels:
             category=TrustScoreCategory.PERFORMANCE,
             base_score=100.0,
             adjusted_score=120.0,
-            calculated_at=datetime.now(UTC)
+            calculated_at=datetime.now(UTC),
         )
         assert calc.agent_id == "test_agent_004"
         assert calc.category == TrustScoreCategory.PERFORMANCE
@@ -151,20 +151,14 @@ class TestTrustScoreCalculator:
         economic_score = 75.0
 
         # Weighted average
-        weights = {
-            "performance": 0.3,
-            "reliability": 0.25,
-            "community": 0.2,
-            "security": 0.15,
-            "economic": 0.1
-        }
+        weights = {"performance": 0.3, "reliability": 0.25, "community": 0.2, "security": 0.15, "economic": 0.1}
 
         composite_score = (
-            performance_score * weights["performance"] +
-            reliability_score * weights["reliability"] +
-            community_score * weights["community"] +
-            security_score * weights["security"] +
-            economic_score * weights["economic"]
+            performance_score * weights["performance"]
+            + reliability_score * weights["reliability"]
+            + community_score * weights["community"]
+            + security_score * weights["security"]
+            + economic_score * weights["economic"]
         )
 
         assert composite_score >= 0
@@ -172,13 +166,7 @@ class TestTrustScoreCalculator:
 
     def test_reputation_level_determination(self):
         """Test reputation level based on trust score"""
-        test_cases = [
-            (950, "master"),
-            (800, "expert"),
-            (650, "advanced"),
-            (450, "intermediate"),
-            (200, "beginner")
-        ]
+        test_cases = [(950, "master"), (800, "expert"), (650, "advanced"), (450, "intermediate"), (200, "beginner")]
 
         for score, expected_level in test_cases:
             if score >= 900:
@@ -208,7 +196,7 @@ class TestReputationDecay:
 
         assert decayed_score < initial_score
         assert decayed_score >= 0
-        assert decayed_score == pytest.approx(800.0 * 0.9 ** 3, rel=0.01)
+        assert decayed_score == pytest.approx(800.0 * 0.9**3, rel=0.01)
 
     def test_activity_boost(self):
         """Test activity boost to reputation"""
@@ -248,14 +236,14 @@ class TestWeightedRatingCalculation:
             {"rating": 5.0, "weight": 2.0},
             {"rating": 4.0, "weight": 1.0},
             {"rating": 5.0, "weight": 1.5},
-            {"rating": 3.0, "weight": 0.5}
+            {"rating": 3.0, "weight": 0.5},
         ]
 
         total_weight = sum(r["weight"] for r in ratings)
         weighted_sum = sum(r["rating"] * r["weight"] for r in ratings)
         weighted_average = weighted_sum / total_weight
 
-        expected = (5.0*2.0 + 4.0*1.0 + 5.0*1.5 + 3.0*0.5) / (2.0 + 1.0 + 1.5 + 0.5)
+        expected = (5.0 * 2.0 + 4.0 * 1.0 + 5.0 * 1.5 + 3.0 * 0.5) / (2.0 + 1.0 + 1.5 + 0.5)
 
         assert weighted_average == pytest.approx(expected, rel=0.01)
         assert 1.0 <= weighted_average <= 5.0
@@ -266,7 +254,7 @@ class TestWeightedRatingCalculation:
             {"rating": 5.0, "days_ago": 10},
             {"rating": 4.0, "days_ago": 30},
             {"rating": 5.0, "days_ago": 60},
-            {"rating": 3.0, "days_ago": 90}
+            {"rating": 3.0, "days_ago": 90},
         ]
 
         # More recent ratings get higher weight

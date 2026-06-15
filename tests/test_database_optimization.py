@@ -24,11 +24,7 @@ class TestQueryMetrics:
     def test_query_metrics_creation(self):
         """Test creating query metrics"""
         metrics = QueryMetrics(
-            query="SELECT * FROM test",
-            execution_time_ms=50.5,
-            timestamp=datetime.now(),
-            success=True,
-            row_count=10
+            query="SELECT * FROM test", execution_time_ms=50.5, timestamp=datetime.now(), success=True, row_count=10
         )
 
         assert metrics.query == "SELECT * FROM test"
@@ -44,7 +40,7 @@ class TestQueryMetrics:
             timestamp=datetime.now(),
             success=False,
             error_message="Connection failed",
-            row_count=0
+            row_count=0,
         )
 
         assert metrics.success is False
@@ -66,12 +62,7 @@ class TestQueryMonitor:
         """Test recording a successful query"""
         monitor = QueryMonitor(enable_logging=False)
 
-        monitor.record_query(
-            query="SELECT * FROM users",
-            execution_time_ms=45.0,
-            success=True,
-            row_count=10
-        )
+        monitor.record_query(query="SELECT * FROM users", execution_time_ms=45.0, success=True, row_count=10)
 
         stats = monitor.get_stats()
         assert stats["total_queries"] == 1
@@ -83,10 +74,7 @@ class TestQueryMonitor:
         monitor = QueryMonitor(enable_logging=False)
 
         monitor.record_query(
-            query="SELECT * FROM users",
-            execution_time_ms=100.0,
-            success=False,
-            error_message="Table not found"
+            query="SELECT * FROM users", execution_time_ms=100.0, success=False, error_message="Table not found"
         )
 
         stats = monitor.get_stats()
@@ -99,12 +87,7 @@ class TestQueryMonitor:
         monitor = QueryMonitor(slow_query_threshold_ms=100.0, enable_logging=False)
 
         # Record a slow query
-        monitor.record_query(
-            query="SELECT * FROM large_table",
-            execution_time_ms=150.0,
-            success=True,
-            row_count=1000
-        )
+        monitor.record_query(query="SELECT * FROM large_table", execution_time_ms=150.0, success=True, row_count=1000)
 
         slow_queries = monitor.get_slow_queries()
         assert len(slow_queries) == 1
@@ -204,11 +187,7 @@ class TestReadReplicaManager:
         primary_url = "sqlite:///test_primary.db"
         replica_urls = ["sqlite:///test_replica1.db", "sqlite:///test_replica2.db"]
 
-        manager = ReadReplicaManager(
-            primary_url=primary_url,
-            replica_urls=replica_urls,
-            read_weight=70
-        )
+        manager = ReadReplicaManager(primary_url=primary_url, replica_urls=replica_urls, read_weight=70)
 
         assert manager.primary_url == primary_url
         assert len(manager.replica_urls) == 2
@@ -219,11 +198,7 @@ class TestReadReplicaManager:
         """Test read replica manager with no replicas"""
         primary_url = "sqlite:///test_primary.db"
 
-        manager = ReadReplicaManager(
-            primary_url=primary_url,
-            replica_urls=None,
-            read_weight=100
-        )
+        manager = ReadReplicaManager(primary_url=primary_url, replica_urls=None, read_weight=100)
 
         assert len(manager.replica_urls) == 0
         assert manager.read_weight == 100
@@ -243,11 +218,7 @@ class TestReadReplicaManager:
             primary_url = f"sqlite:///{tmpdir}/test_primary.db"
             replica_url = f"sqlite:///{tmpdir}/test_replica.db"
 
-            manager = ReadReplicaManager(
-                primary_url=primary_url,
-                replica_urls=[replica_url],
-                read_weight=100
-            )
+            manager = ReadReplicaManager(primary_url=primary_url, replica_urls=[replica_url], read_weight=100)
 
             read_engine = manager.get_read_engine()
             assert read_engine is not None
@@ -256,11 +227,7 @@ class TestReadReplicaManager:
         """Test getting read engine without replicas (falls back to primary)"""
         primary_url = "sqlite:///test_primary.db"
 
-        manager = ReadReplicaManager(
-            primary_url=primary_url,
-            replica_urls=None,
-            read_weight=100
-        )
+        manager = ReadReplicaManager(primary_url=primary_url, replica_urls=None, read_weight=100)
 
         read_engine = manager.get_read_engine()
         assert read_engine is not None
@@ -282,10 +249,7 @@ class TestReadReplicaManager:
             primary_url = f"sqlite:///{tmpdir}/test_primary.db"
             replica_url = f"sqlite:///{tmpdir}/test_replica.db"
 
-            manager = ReadReplicaManager(
-                primary_url=primary_url,
-                replica_urls=[replica_url]
-            )
+            manager = ReadReplicaManager(primary_url=primary_url, replica_urls=[replica_url])
 
             # Should close without error
             manager.close()

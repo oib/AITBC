@@ -1,6 +1,5 @@
 """Configuration for Agent Management Service"""
 
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -22,21 +21,18 @@ class DatabaseConfig(BaseSettings):
         if self.adapter == "sqlite":
             # Use absolute path from DATA_DIR if available
             import os
+
             data_dir = os.getenv("DATA_DIR", "/var/lib/aitbc/data")
             return f"sqlite:///{data_dir}/coordinator.db"
         return f"{self.adapter}://localhost:5432/agent_management"
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
 
 class ServiceSettings(BaseSettings):
     """Base settings for AITBC microservices."""
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
     # Environment
     service_name: str = "aitbc-service"

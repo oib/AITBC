@@ -27,7 +27,7 @@ class StructuredFormatter(logging.Formatter):
         }
 
         # Add extra fields if present
-        if hasattr(record, 'extra'):
+        if hasattr(record, "extra"):
             log_entry.update(record.extra)
 
         # Add exception info if present
@@ -36,12 +36,8 @@ class StructuredFormatter(logging.Formatter):
 
         return json.dumps(log_entry)
 
-def setup_logger(
-    name: str,
-    level: str = "INFO",
-    format_string: str | None = None,
-    structured: bool = False
-) -> logging.Logger:
+
+def setup_logger(name: str, level: str = "INFO", format_string: str | None = None, structured: bool = False) -> logging.Logger:
     """Setup a logger with consistent formatting"""
     logger = logging.getLogger(name)
     logger.setLevel(getattr(logging, level.upper()))
@@ -61,9 +57,11 @@ def setup_logger(
 
     return logger
 
+
 def get_logger(name: str) -> logging.Logger:
     """Get a logger instance"""
     return logging.getLogger(name)
+
 
 def configure_logging(level: str = "INFO", structured: bool = False) -> None:
     """Configure root logging level"""
@@ -79,6 +77,7 @@ def configure_logging(level: str = "INFO", structured: bool = False) -> None:
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(StructuredFormatter())
         root_logger.addHandler(handler)
+
 
 @contextmanager
 def log_context(**kwargs: Any) -> Any:
@@ -97,6 +96,7 @@ def log_context(**kwargs: Any) -> Any:
         yield
     finally:
         logger.removeFilter(context_filter)
+
 
 class LogContext:
     """Class for adding contextual information to logs across multiple calls"""
