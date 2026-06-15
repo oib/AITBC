@@ -32,6 +32,6 @@ exec_cmd = [
     "--port",
     "8109",
     "--log-level",
-    "warning",
+    "critical",
 ]
 os.execvp(exec_cmd[0], exec_cmd)
