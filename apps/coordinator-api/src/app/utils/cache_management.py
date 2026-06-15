@@ -24,7 +24,7 @@ def invalidate_cache_pattern(pattern: str) -> int:
     return len(keys_to_delete)
 
 
-def get_cache_health() -> dict:
+def get_cache_health() -> dict[str, Any]:
     """Get cache health statistics"""
     stats = cache_manager.get_stats()
     total_requests = stats["total_requests"]

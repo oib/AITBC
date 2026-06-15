@@ -36,8 +36,8 @@ class DeveloperEcosystemService:
         self,
         user_id: str,
         username: str,
-        bio: str = None,
-        skills: list[str] = None,  # type: ignore[assignment]
+        bio: str | None = None,
+        skills: list[str] | None = None,
     ) -> DeveloperProfile:
         """Create a new developer profile"""
         profile = DeveloperProfile(user_id=user_id, username=username, bio=bio, skills=skills or [])

@@ -1,6 +1,6 @@
 """Payment router for job payments"""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -69,7 +69,7 @@ async def release_payment(
     release_data: EscrowRelease,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
-) -> dict:
+) -> dict[str, Any]:
     """Release payment from escrow (for completed jobs)"""
 
     service = PaymentService(session)
@@ -93,7 +93,7 @@ async def refund_payment(
     refund_data: RefundRequest,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
-) -> dict:
+) -> dict[str, Any]:
     """Refund payment (for failed or cancelled jobs)"""
 
     service = PaymentService(session)

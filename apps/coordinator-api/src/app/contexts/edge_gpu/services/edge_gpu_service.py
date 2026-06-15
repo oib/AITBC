@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
@@ -38,7 +38,7 @@ class EdgeGPUService:
         )
         return list(self.session.execute(stmt).all())
 
-    def create_metric(self, payload: dict) -> EdgeGPUMetrics:
+    def create_metric(self, payload: dict[str, Any]) -> EdgeGPUMetrics:
         metric = EdgeGPUMetrics(**payload)
         self.session.add(metric)
         self.session.commit()

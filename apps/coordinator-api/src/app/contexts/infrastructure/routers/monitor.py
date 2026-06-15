@@ -1,5 +1,7 @@
 """Monitor router for AITBC Coordinator API."""
 
+from typing import Any
+
 from fastapi import APIRouter, Request
 
 from aitbc.rate_limiting import rate_limit
@@ -7,11 +9,11 @@ from aitbc.rate_limiting import rate_limit
 router = APIRouter(tags=["Monitor"])
 
 
-@router.get("/api/v1/dashboard", response_model=dict)
+@router.get("/api/v1/dashboard", response_model=dict[str, Any])
 @rate_limit(rate=100, per=60)
-async def get_dashboard(request: Request) -> None:
+async def get_dashboard(request: Request) -> dict[str, Any]:
     """Get monitoring dashboard data."""
-    return {  # type: ignore[return-value]
+    return {
         "overall_status": "operational",
         "services": {"coordinator": "online", "exchange": "online", "blockchain": "online"},
         "metrics": {"active_agents": 0, "active_jobs": 0, "total_jobs": 0},
@@ -19,11 +21,11 @@ async def get_dashboard(request: Request) -> None:
     }
 
 
-@router.get("/status", response_model=dict)
+@router.get("/status", response_model=dict[str, Any])
 @rate_limit(rate=100, per=60)
-async def get_status(request: Request) -> None:
+async def get_status(request: Request) -> dict[str, Any]:
     """Get coordinator status."""
-    return {  # type: ignore[return-value]
+    return {
         "status": "online",
         "version": "1.0.0",
         "uptime": 3600,
@@ -31,22 +33,22 @@ async def get_status(request: Request) -> None:
     }
 
 
-@router.get("/miners", response_model=list[dict])
+@router.get("/miners", response_model=list[dict[str, Any]])
 @rate_limit(rate=50, per=60)
-async def get_miners(request: Request) -> None:
+async def get_miners(request: Request) -> list[dict[str, Any]]:
     """Get miners list."""
-    return []  # type: ignore[return-value]
+    return []
 
 
-@router.get("/dashboard", response_model=list[dict])
+@router.get("/dashboard", response_model=list[dict[str, Any]])
 @rate_limit(rate=50, per=60)
-async def get_history_dashboard(request: Request) -> None:
+async def get_history_dashboard(request: Request) -> list[dict[str, Any]]:
     """Get historical dashboard data."""
-    return []  # type: ignore[return-value]
+    return []
 
 
-@router.get("/jobs", response_model=list[dict])
+@router.get("/jobs", response_model=list[dict[str, Any]])
 @rate_limit(rate=50, per=60)
-async def get_jobs(request: Request) -> None:
+async def get_jobs(request: Request) -> list[dict[str, Any]]:
     """Get jobs list for history and metrics commands."""
-    return []  # type: ignore[return-value]
+    return []

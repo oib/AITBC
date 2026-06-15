@@ -12,6 +12,7 @@ from typing import Any
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 
 from aitbc import get_logger
 
@@ -152,18 +153,26 @@ class MessageEncryptor:
             nonce = os.urandom(12)
             ciphertext = aesgcm.encrypt(nonce, message_json, None)
             recipient_key = serialization.load_pem_public_key(recipient_public_key, backend=default_backend())
+            if not isinstance(recipient_key, RSAPublicKey):
+                raise TypeError(f"Encryption only supported for RSA keys, got {type(recipient_key)}")
             encrypted_session_key = recipient_key.encrypt(
                 session_key, padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-            )  # type: ignore[union-attr]
+            )
             if sender_id not in self.key_pairs or not self.key_pairs[sender_id].private_key:
                 logger.error("No private key for sender %s", sender_id)
                 return None
+            sender_private_key_bytes = self.key_pairs[sender_id].private_key
+            if sender_private_key_bytes is None:
+                logger.error("No private key for sender %s", sender_id)
+                return None
             sender_private_key = serialization.load_pem_private_key(
-                self.key_pairs[sender_id].private_key, password=None, backend=default_backend()
-            )  # type: ignore[arg-type]
+                sender_private_key_bytes, password=None, backend=default_backend()
+            )
+            if not isinstance(sender_private_key, RSAPrivateKey):
+                raise TypeError(f"Signing only supported for RSA keys, got {type(sender_private_key)}")
             signature = sender_private_key.sign(
                 ciphertext, padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH), hashes.SHA256()
-            )  # type: ignore[union-attr,call-arg,arg-type]
+            )
             encrypted_msg = EncryptedMessage(
                 ciphertext=ciphertext, session_key=encrypted_session_key, nonce=nonce, signature=signature, sender_id=sender_id
             )
@@ -179,13 +188,19 @@ class MessageEncryptor:
             if recipient_id not in self.key_pairs or not self.key_pairs[recipient_id].private_key:
                 logger.error("No private key for recipient %s", recipient_id)
                 return None
+            recipient_private_key_bytes = self.key_pairs[recipient_id].private_key
+            if recipient_private_key_bytes is None:
+                logger.error("No private key for recipient %s", recipient_id)
+                return None
             recipient_private_key = serialization.load_pem_private_key(
-                self.key_pairs[recipient_id].private_key, password=None, backend=default_backend()
-            )  # type: ignore[arg-type]
+                recipient_private_key_bytes, password=None, backend=default_backend()
+            )
+            if not isinstance(recipient_private_key, RSAPrivateKey):
+                raise TypeError(f"Decryption only supported for RSA keys, got {type(recipient_private_key)}")
             session_key = recipient_private_key.decrypt(
                 encrypted_msg.session_key,
                 padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None),
-            )  # type: ignore[union-attr]
+            )
             from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
             aesgcm = AESGCM(session_key)
@@ -195,12 +210,14 @@ class MessageEncryptor:
                     self.key_pairs[encrypted_msg.sender_id].public_key, backend=default_backend()
                 )
                 try:
+                    if not isinstance(sender_public_key, RSAPublicKey):
+                        raise TypeError(f"Signature verification only supported for RSA keys, got {type(sender_public_key)}")
                     sender_public_key.verify(
                         encrypted_msg.signature,
                         encrypted_msg.ciphertext,
                         padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
                         hashes.SHA256(),
-                    )  # type: ignore[union-attr,call-arg,arg-type]
+                    )
                     logger.info("Signature verified for message from %s", encrypted_msg.sender_id)
                 except Exception as e:
                     logger.warning("Signature verification failed: %s", e)
@@ -220,12 +237,14 @@ class MessageEncryptor:
             sender_public_key = serialization.load_pem_public_key(
                 self.key_pairs[sender_id].public_key, backend=default_backend()
             )
+            if not isinstance(sender_public_key, RSAPublicKey):
+                raise TypeError(f"Signature verification only supported for RSA keys, got {type(sender_public_key)}")
             sender_public_key.verify(
                 encrypted_msg.signature,
                 encrypted_msg.ciphertext,
                 padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
                 hashes.SHA256(),
-            )  # type: ignore[union-attr,call-arg,arg-type]
+            )
             logger.info("Signature verified for message from %s", sender_id)
             return True
         except Exception as e:

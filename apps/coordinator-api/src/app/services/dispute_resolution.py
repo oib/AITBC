@@ -128,7 +128,7 @@ class DisputeResolutionService:
     def __init__(self, session_factory: Any = None) -> None:
         self._session_factory = session_factory
         self._disputes: dict[str, DisputeCase] = {}
-        self._arbitrators: set = set()
+        self._arbitrators: set[str] = set()
         self.session = session_factory() if session_factory else None
 
     def file_dispute(

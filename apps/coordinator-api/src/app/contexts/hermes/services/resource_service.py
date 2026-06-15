@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime, timedelta
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -28,7 +29,7 @@ class ResourceService:
 
     def __init__(self) -> None:
         self.resources: dict[str, Resource] = {}
-        self.allocations: dict[str, dict] = {}
+        self.allocations: dict[str, dict[str, Any]] = {}
         self.resource_pools: dict[str, ResourcePool] = {}
 
     def register_resource(self, resource: Resource, session: Session) -> str:
@@ -202,7 +203,7 @@ class ResourceService:
         """Get all resource pools."""
         return list(self.resource_pools.values())
 
-    def get_allocations(self, agent_id: str | None = None, session: Session | None = None) -> list[dict]:
+    def get_allocations(self, agent_id: str | None = None, session: Session | None = None) -> list[dict[str, Any]]:
         """Get allocations with optional filtering."""
         results = list(self.allocations.values())
         if agent_id:

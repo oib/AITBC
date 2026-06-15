@@ -58,11 +58,11 @@ async def get_metrics_summary(request: Request) -> dict[str, Any]:
             "active_agents": len([a for a in state.agent_registry.agents.values() if getattr(a, "is_active", True)])
             if state.agent_registry
             else 0,
-            "total_tasks": len(state.task_distributor.task_queue._queue)
+            "total_tasks": state.task_distributor.task_queue.qsize()
             if state.task_distributor and hasattr(state.task_distributor, "task_queue")
             else 0,
             "load_balancer_strategy": state.load_balancer.strategy.value if state.load_balancer else "unknown",
-        }  # type: ignore
+        }
         return {
             "status": "success",
             "performance": summary,
@@ -111,12 +111,12 @@ async def get_system_status(request: Request, current_user: dict[str, Any] = Dep
             "active_agents": len([a for a in state.agent_registry.agents.values() if getattr(a, "is_active", True)])
             if state.agent_registry
             else 0,
-            "total_tasks": len(state.task_distributor.task_queue._queue)
+            "total_tasks": state.task_distributor.task_queue.qsize()
             if state.task_distributor and hasattr(state.task_distributor, "task_queue")
             else 0,
             "load_balancer_strategy": state.load_balancer.strategy.value if state.load_balancer else "unknown",
             "timestamp": datetime.now(UTC).isoformat(),
-        }  # type: ignore
+        }
         return {"status": "success", "system": system_metrics}
     except Exception as e:
         logger.error("Error getting system status: %s", e)

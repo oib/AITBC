@@ -161,7 +161,7 @@ async def discover_edge_gpus(request: Request, miner_id: str) -> dict[str, Any]:
 
 @router.post("/optimize")
 @rate_limit(rate=20, per=60)
-async def optimize_inference(request: Request, gpu_id: str, model_name: str, request_data: dict) -> dict[str, Any]:
+async def optimize_inference(request: Request, gpu_id: str, model_name: str, request_data: dict[str, Any]) -> dict[str, Any]:
     """Optimize ML inference request for edge GPU"""
     # In a real implementation, this would apply optimization techniques
     return {

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column
@@ -33,7 +34,7 @@ class GPURegistry(SQLModel, table=True):
     region: str = Field(default="", index=True)
     price_per_hour: float = Field(default=0.0)
     status: str = Field(default="available", index=True)  # available, booked, offline
-    capabilities: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    capabilities: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     average_rating: float = Field(default=0.0)
     total_reviews: int = Field(default=0)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
@@ -75,9 +76,9 @@ class ConsumerGPUProfile(SQLModel, table=True):
     thermal_throttling_resistance: float | None = Field(default=None)
 
     # Compatibility flags
-    supported_cuda_versions: list = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
-    supported_tensorrt_versions: list = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
-    supported_ollama_models: list = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
+    supported_cuda_versions: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
+    supported_tensorrt_versions: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
+    supported_ollama_models: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
 
     # Pricing and availability
     market_price_usd: float | None = Field(default=None)
@@ -197,7 +198,7 @@ class SearchHistory(SQLModel, table=True):
     id: str = Field(default_factory=lambda: f"sh_{uuid4().hex[:10]}", primary_key=True)
     user_id: str = Field(index=True)
     search_query: str = Field(default="")
-    filters: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    filters: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     results_count: int = Field(default=0)
     clicked_resource_id: str | None = Field(default=None)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
@@ -211,7 +212,7 @@ class ResourceEmbedding(SQLModel, table=True):
 
     id: str = Field(default_factory=lambda: f"re_{uuid4().hex[:10]}", primary_key=True)
     resource_id: str = Field(index=True, unique=True)
-    embedding: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    embedding: list[float] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     model_version: str = Field(default="v1.0")
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
 
@@ -224,12 +225,12 @@ class UserProfile(SQLModel, table=True):
 
     id: str = Field(default_factory=lambda: f"up_{uuid4().hex[:10]}", primary_key=True)
     user_id: str = Field(index=True, unique=True)
-    preferred_gpu_models: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
-    preferred_regions: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    preferred_gpu_models: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    preferred_regions: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     price_range_min: float = Field(default=0.0)
     price_range_max: float = Field(default=1000.0)
     min_memory_gb: int = Field(default=0)
-    preferred_capabilities: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    preferred_capabilities: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
 
@@ -278,7 +279,7 @@ class AnalyticsEvent(SQLModel, table=True):
     event_type: str = Field(index=True)
     resource_id: str = Field(index=True)
     user_id: str | None = Field(default=None, index=True)
-    event_metadata: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    event_metadata: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
 
 
@@ -342,7 +343,7 @@ class Plugin(SQLModel, table=True):
     plugin_version: str = Field(default="1.0.0")
     plugin_type: str = Field(default="extension")  # extension, integration, analytics
     enabled: bool = Field(default=True)
-    config: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    config: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     description: str = Field(default="")
     author: str = Field(default="")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)

@@ -6,7 +6,7 @@ import hashlib
 import os
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from fastapi import HTTPException, Request, status
 from sqlmodel import select
@@ -45,7 +45,7 @@ async def get_account(request: Request, address: str, chain_id: str | None = Non
 @rate_limit(rate=200, per=60)
 async def get_account_alias(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get account information (alias endpoint)"""
-    return await get_account(request, address, chain_id)
+    return cast(dict[str, Any], await get_account(request, address, chain_id))
 
 
 @rate_limit(rate=200, per=60)

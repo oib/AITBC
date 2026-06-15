@@ -1,6 +1,6 @@
 """Router for Hermes autonomous resource management API."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -29,7 +29,7 @@ router = APIRouter(prefix="/hermes/resource", tags=["hermes Resource Management"
 @router.post("/register")
 async def register_resource(
     resource: Resource, session: Annotated[Session, Depends(get_session)], current_user: str = Depends(require_admin_key())
-) -> dict:
+) -> dict[str, Any]:
     """Register a new resource for autonomous management."""
     try:
         resource_id = resource_service.register_resource(resource, session)
@@ -96,7 +96,7 @@ async def get_allocations(
     session: Annotated[Session, Depends(get_session)],
     current_user: str = Depends(require_admin_key()),
     agent_id: str | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Get allocations with optional filtering."""
     try:
         return resource_service.get_allocations(agent_id, session)

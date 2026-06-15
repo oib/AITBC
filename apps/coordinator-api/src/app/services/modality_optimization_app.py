@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 """
 Modality Optimization Service - FastAPI Entry Point
 """
@@ -8,12 +9,13 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from ..contexts.multimodal.routers.modality_optimization_health import router as health_router
-from ..contexts.multimodal.services.modality_optimization import (
+from app.contexts.multimodal.routers.modality_optimization_health import router as health_router  # type: ignore[import-not-found]
+from app.contexts.multimodal.services.modality_optimization import (  # type: ignore[import-not-found]
     ModalityOptimizationManager,
     ModalityType,
     OptimizationStrategy,
 )
+
 from ..storage import get_session
 
 app = FastAPI(
@@ -55,13 +57,13 @@ async def optimize_modality(
     strategy: str = "balanced",
     session: Annotated[Session | None, Depends(get_session)] = None,
 ) -> dict[str, Any]:
-    """Optimize specific modality"""
+    """Optimize single modality"""
     assert session is not None, "DB session required"
     manager = ModalityOptimizationManager(session)
     result = await manager.optimize_modality(
         modality=ModalityType(modality), data=data, strategy=OptimizationStrategy(strategy)
     )
-    return result
+    return result  # type: ignore[no-any-return]
 
 
 @app.post("/optimize-multimodal")
@@ -83,7 +85,7 @@ async def optimize_multimodal(
             continue
 
     result = await manager.optimize_multimodal(multimodal_data=optimized_data, strategy=OptimizationStrategy(strategy))
-    return result
+    return result  # type: ignore[no-any-return]
 
 
 if __name__ == "__main__":

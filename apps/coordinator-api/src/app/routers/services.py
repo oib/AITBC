@@ -24,6 +24,7 @@ from ..models.services import (
     StableDiffusionRequest,
     WhisperModel,
     WhisperRequest,
+    WhisperTask,
 )
 from ..schemas import JobCreate
 
@@ -78,7 +79,7 @@ async def submit_service_job(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Service {service_type} not found")
 
     # Validate request against service schema
-    validation_result = await validate_service_request(service_type.value, request_data)  # type: ignore[unreachable]
+    validation_result = await validate_service_request(service_type.value, request_data)
     if not validation_result["valid"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid request: {', '.join(validation_result['errors'])}"
@@ -133,10 +134,10 @@ async def whisper_transcribe(
 
     job_payload = {
         "service_type": ServiceType.WHISPER.value,
-        "service_request": request.dict(),  # type: ignore[attr-defined]
+        "service_request": whisper_request.model_dump(),
     }
 
-    job_create = JobCreate(payload=job_payload, constraints=request.get_constraints(), ttl_seconds=900)  # type: ignore[attr-defined]
+    job_create = JobCreate(payload=job_payload, constraints=whisper_request.get_constraints(), ttl_seconds=900)
 
     service = JobService(session)
     job = service.create_job(client_id, job_create)
@@ -164,14 +165,14 @@ async def whisper_translate(
 ) -> ServiceResponse:
     """Translate audio file using Whisper"""
     # Force task to be translate
-    request.task = "translate"  # type: ignore[attr-defined]
+    whisper_request.task = WhisperTask.TRANSLATE
 
     job_payload = {
         "service_type": ServiceType.WHISPER.value,
-        "service_request": request.dict(),  # type: ignore[attr-defined]
+        "service_request": whisper_request.model_dump(),
     }
 
-    job_create = JobCreate(payload=job_payload, constraints=request.get_constraints(), ttl_seconds=900)  # type: ignore[attr-defined]
+    job_create = JobCreate(payload=job_payload, constraints=whisper_request.get_constraints(), ttl_seconds=900)
 
     service = JobService(session)
     job = service.create_job(client_id, job_create)
@@ -202,13 +203,13 @@ async def stable_diffusion_generate(
 
     job_payload = {
         "service_type": ServiceType.STABLE_DIFFUSION.value,
-        "service_request": request.dict(),  # type: ignore[attr-defined]
+        "service_request": sd_request.model_dump(),
     }
 
     job_create = JobCreate(
         payload=job_payload,
-        constraints=request.get_constraints(),
-        ttl_seconds=600,  # type: ignore[attr-defined]  # 10 minutes for image generation
+        constraints=sd_request.get_constraints(),
+        ttl_seconds=600,  # 10 minutes for image generation
     )
 
     service = JobService(session)
@@ -237,7 +238,7 @@ async def stable_diffusion_img2img(
 ) -> ServiceResponse:
     """Image-to-image generation using Stable Diffusion"""
     # Add img2img specific parameters
-    request_data = request.dict()  # type: ignore[attr-defined]
+    request_data = sd_request.model_dump()
     request_data["mode"] = "img2img"
 
     job_payload = {
@@ -245,7 +246,7 @@ async def stable_diffusion_img2img(
         "service_request": request_data,
     }
 
-    job_create = JobCreate(payload=job_payload, constraints=request.get_constraints(), ttl_seconds=600)  # type: ignore[attr-defined]
+    job_create = JobCreate(payload=job_payload, constraints=sd_request.get_constraints(), ttl_seconds=600)
 
     service = JobService(session)
     job = service.create_job(client_id, job_create)
@@ -273,13 +274,13 @@ async def llm_inference(
 
     job_payload = {
         "service_type": ServiceType.LLM_INFERENCE.value,
-        "service_request": request.dict(),  # type: ignore[attr-defined]
+        "service_request": llm_request.model_dump(),
     }
 
     job_create = JobCreate(
         payload=job_payload,
-        constraints=request.get_constraints(),
-        ttl_seconds=300,  # type: ignore[attr-defined]  # 5 minutes for text generation
+        constraints=llm_request.get_constraints(),
+        ttl_seconds=300,  # 5 minutes for text generation
     )
 
     service = JobService(session)
@@ -303,14 +304,14 @@ async def llm_stream(
 ) -> ServiceResponse:
     """Stream LLM inference response"""
     # Force streaming mode
-    request.stream = True  # type: ignore[assignment,method-assign]
+    llm_request.stream = True
 
     job_payload = {
         "service_type": ServiceType.LLM_INFERENCE.value,
-        "service_request": request.dict(),  # type: ignore[attr-defined]
+        "service_request": llm_request.model_dump(),
     }
 
-    job_create = JobCreate(payload=job_payload, constraints=request.get_constraints(), ttl_seconds=300)  # type: ignore[attr-defined]
+    job_create = JobCreate(payload=job_payload, constraints=llm_request.get_constraints(), ttl_seconds=300)
 
     service = JobService(session)
     job = service.create_job(client_id, job_create)
@@ -343,14 +344,14 @@ async def ffmpeg_transcode(
 
     job_payload = {
         "service_type": ServiceType.FFMPEG.value,
-        "service_request": request.dict(),  # type: ignore[attr-defined]
+        "service_request": ffmpeg_request.model_dump(),
     }
 
     # Adjust TTL based on video length (would need to probe video)
     job_create = JobCreate(
         payload=job_payload,
-        constraints=request.get_constraints(),
-        ttl_seconds=1800,  # type: ignore[attr-defined]  # 30 minutes for video transcoding
+        constraints=ffmpeg_request.get_constraints(),
+        ttl_seconds=1800,  # 30 minutes for video transcoding
     )
 
     service = JobService(session)
@@ -382,15 +383,15 @@ async def blender_render(
 
     job_payload = {
         "service_type": ServiceType.BLENDER.value,
-        "service_request": request.dict(),  # type: ignore[attr-defined]
+        "service_request": blender_request.model_dump(),
     }
 
     # Adjust TTL based on frame count
-    frame_count = request.frame_end - request.frame_start + 1  # type: ignore[attr-defined]
+    frame_count = blender_request.frame_end - blender_request.frame_start + 1
     estimated_time = frame_count * 30  # 30 seconds per frame estimate
     ttl_seconds = max(600, estimated_time)  # Minimum 10 minutes
 
-    job_create = JobCreate(payload=job_payload, constraints=request.get_constraints(), ttl_seconds=ttl_seconds)  # type: ignore[attr-defined]
+    job_create = JobCreate(payload=job_payload, constraints=blender_request.get_constraints(), ttl_seconds=ttl_seconds)
 
     service = JobService(session)
     job = service.create_job(client_id, job_create)
@@ -478,8 +479,8 @@ async def get_service_schema(request: Request, service_type: ServiceType) -> dic
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Service {service_type} not found")
 
     # Build schema from service definition
-    properties = {}  # type: ignore[unreachable]
-    required = []
+    properties: dict[str, Any] = {}
+    required: list[str] = []
 
     for param in service.input_parameters:
         prop = {"type": param.type.value, "description": param.description}
@@ -510,7 +511,7 @@ async def validate_service_request(service_id: str, request_data: dict[str, Any]
     if not service:
         return {"valid": False, "errors": [f"Service {service_id} not found"]}
 
-    validation_result = {"valid": True, "errors": [], "warnings": []}  # type: ignore[unreachable]
+    validation_result: dict[str, Any] = {"valid": True, "errors": [], "warnings": []}
 
     # Check required parameters
     provided_params = set(request_data.keys())

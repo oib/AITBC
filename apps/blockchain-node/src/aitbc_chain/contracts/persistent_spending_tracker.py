@@ -157,10 +157,10 @@ class PersistentSpendingTracker:
                         agent_address=agent_address,
                         period_type=period,
                         period_key=period_key,
-                        amount=amount,
+                        amount=float(amount),  # type: ignore[arg-type]
                         transaction_hash=transaction_hash,
                         timestamp=timestamp,
-                    )  # type: ignore[arg-type]
+                    )
                     session.add(record)
                 session.commit()
                 return True
@@ -190,13 +190,13 @@ class PersistentSpendingTracker:
             if not limits:
                 limits = SpendingLimit(
                     agent_address=agent_address,
-                    per_transaction=1000.0,
-                    per_hour=5000.0,
-                    per_day=20000.0,
-                    per_week=100000.0,
-                    time_lock_threshold=5000.0,
+                    per_transaction=1000.0,  # type: ignore[arg-type]
+                    per_hour=5000.0,  # type: ignore[arg-type]
+                    per_day=20000.0,  # type: ignore[arg-type]
+                    per_week=100000.0,  # type: ignore[arg-type]
+                    time_lock_threshold=5000.0,  # type: ignore[arg-type]
                     time_lock_delay_hours=24,
-                )  # type: ignore[arg-type]
+                )
                 session.add(limits)
                 session.commit()
         current_spent: dict[str, float] = {}
@@ -373,7 +373,7 @@ class PersistentSpendingTracker:
                 .filter(
                     GuardianAuthorization.agent_address == agent_address,
                     GuardianAuthorization.guardian_address == guardian_address,
-                    GuardianAuthorization.is_active,
+                    GuardianAuthorization.is_active == True,  # noqa: E712
                 )
                 .first()
             )
@@ -411,7 +411,7 @@ class PersistentSpendingTracker:
         with self.get_session() as session:
             guardians = (
                 session.query(GuardianAuthorization)
-                .filter(GuardianAuthorization.agent_address == agent_address, GuardianAuthorization.is_active)
+                .filter(GuardianAuthorization.agent_address == agent_address, GuardianAuthorization.is_active == True)  # noqa: E712
                 .all()
             )
         return {
