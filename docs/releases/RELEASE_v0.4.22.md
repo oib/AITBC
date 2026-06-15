@@ -339,6 +339,30 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 - **Complexity**: Medium (distributed across 66 files)
 - **Files changed**: 66 files
 
+### Phase 10: Runtime Error Fixes (Priority 10)
+
+#### Issues Fixed
+
+1. **coordinator-api agent_performance endpoint syntax error**
+   - Fixed duplicate `Depends()` in function signature
+   - Fixed parameter ordering (session before period_days)
+   - Resolved uvicorn startup failure with SyntaxError
+
+2. **api_keys.json permission denied**
+   - Changed ownership from root:root to aitbc-internal:aitbc-services
+   - Changed permissions from 600 to 640
+   - Resolved agent-coordinator startup error
+
+3. **hermes-polling daemon transient connection errors**
+   - Verified daemon recovery after initial startup
+   - Confirmed successful message forwarding to Hermes service
+   - No code changes needed - transient startup issue
+
+#### Estimated Effort
+- **Time**: 30 minutes
+- **Complexity**: Low
+- **Files changed**: 2 files
+
 ## 🎯 Success Criteria
 
 ### Minimum Viable v0.4.22
@@ -357,6 +381,8 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 - [x] Environment variable standardization ✅ **ADDED**
 - [x] sys.path hacks removed ✅ **ADDED** (~319 instances eliminated)
 - [x] E402 import order violations fixed ✅ **ADDED** (~1,123 → 0 errors)
+- [x] Extended MyPy compliance ✅ **ADDED** (~250 errors across 9 apps)
+- [x] Runtime error fixes ✅ **ADDED** (coordinator-api, permissions, hermes-polling)
 
 ## 📅 Timeline Estimate
 
@@ -370,7 +396,9 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 | Phase 6: Service config drift | 1 hour | Low | ✅ Complete |
 | Phase 7: Pre-commit & Multi-node | 2 hours | Low | ✅ Complete |
 | Phase 8: sys.path hacks & E402 | 6-8 hours | Medium | ✅ Complete |
-| **Total** | **19.5-28.5 hours** | - | ✅ **ALL COMPLETE** |
+| Phase 9: Extended MyPy Compliance | 4-6 hours | Medium | ✅ Complete |
+| Phase 10: Runtime Error Fixes | 30 minutes | Low | ✅ Complete |
+| **Total** | **24-35 hours** | - | ✅ **ALL COMPLETE** |
 
 ### Execution Order
 1. ✅ **Phase 1**: Complete blockchain-node MyPy fixes (required)
@@ -381,6 +409,8 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 6. ✅ **Phase 6**: Fix service configuration drift (added during execution)
 7. ✅ **Phase 7**: Pre-commit hooks & multi-node deployment fixes (added during execution)
 8. ✅ **Phase 8**: Remove sys.path hacks and fix E402 import order violations (added during execution)
+9. ✅ **Phase 9**: Extended MyPy compliance across 9 more applications (added during execution)
+10. ✅ **Phase 10**: Runtime error fixes (added during execution)
 
 ## 🔧 Technical Considerations
 
@@ -423,7 +453,9 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 7. ✅ **Phase 6 complete** - Service configuration drift fixed
 8. ✅ **Phase 7 complete** - Pre-commit hooks & multi-node deployment fixes
 9. ✅ **Phase 8 complete** - sys.path hacks removed and E402 violations fixed
-10. **Release complete** - All phases finished successfully
+10. ✅ **Phase 9 complete** - Extended MyPy compliance across 9 more applications (~250 errors fixed)
+11. ✅ **Phase 10 complete** - Runtime error fixes (coordinator-api, permissions, hermes-polling)
+12. **Release complete** - All phases finished successfully
 
 ### Phase 1 Execution Strategy
 - Focus on error categories from easiest to hardest
@@ -439,6 +471,8 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 ### MyPy Type Safety
 - ✅ **All 11 applications**: 0 errors (100% MyPy compliance)
 - ✅ **Strict mode enabled**: 12/12 strict options with all apps passing
+- ✅ **Extended compliance**: ~250 additional errors fixed across 9 applications
+- ✅ **py.typed markers**: Added to blockchain-node and aitbc-sdk packages
 - ✅ **Zero type errors**: Complete type safety across codebase
 - ✅ **~250 additional errors fixed** in v0.4.22 late additions (9 apps)
 
@@ -459,6 +493,8 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 - ✅ **RPC ports unified**: All services now use 8202 for blockchain RPC
 - ✅ **Port conflicts resolved**: Edge (8111) and Hermes (8103) properly separated
 - ✅ **Bind hosts secured**: Internal services bind to 127.0.0.1
+- ✅ **File permissions fixed**: api_keys.json ownership and permissions corrected
+- ✅ **Runtime errors resolved**: coordinator-api endpoint syntax and parameter ordering fixed
 
 ### Documentation
 - ✅ **AGENTS.md updated**: Full strict mode configuration documented
@@ -476,6 +512,8 @@ v0.4.22 successfully achieved all primary goals and stretch goals:
 - Removed ~319 sys.path hacks across the codebase
 - Fixed ~1,123 E402 import order violations (ruff E402: 1123 → 0)
 - Fixed ~250 additional MyPy errors across coordinator-api, blockchain-node, agent-coordinator, pool-hub, wallet, agent-management, marketplace, blockchain-event-bridge
+- Fixed runtime errors (coordinator-api endpoint, file permissions, hermes-polling)
+- Added py.typed markers to blockchain-node and aitbc-sdk packages
 
 **Release Manager**: Development Team
 **Reviewers**: Development Team
