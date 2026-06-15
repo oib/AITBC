@@ -22,5 +22,16 @@ os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
 # Execute the actual service
-exec_cmd = ["/opt/aitbc/venv/bin/python", "-m", "uvicorn", "plugin_service.main:app", "--host", "0.0.0.0", "--port", "8109"]
+exec_cmd = [
+    "/opt/aitbc/venv/bin/python",
+    "-m",
+    "uvicorn",
+    "plugin_service.main:app",
+    "--host",
+    "0.0.0.0",
+    "--port",
+    "8109",
+    "--log-level",
+    "warning",
+]
 os.execvp(exec_cmd[0], exec_cmd)
