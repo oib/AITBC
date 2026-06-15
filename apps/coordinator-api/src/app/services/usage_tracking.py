@@ -7,10 +7,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
+
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import Session
+
 from ..exceptions import BillingError, TenantError
 from ..models.multitenant import Invoice, Tenant, TenantQuota, UsageRecord
+
 
 @dataclass
 class UsageSummary:

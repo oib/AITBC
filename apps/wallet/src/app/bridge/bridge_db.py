@@ -6,6 +6,7 @@ SQLite database for tracking ETH deposits and AIT minting operations.
 import os
 import sqlite3
 from datetime import datetime
+from typing import Any
 
 DB_PATH = "/var/lib/aitbc/bridge_deposits.db"
 
@@ -70,7 +71,7 @@ def insert_deposit(tx_hash: str, from_address: str, amount_eth: float, amount_ai
         conn.close()
 
 
-def get_pending_deposits() -> list[dict]:
+def get_pending_deposits() -> list[dict[str, Any]]:
     """Get all pending deposits."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -122,7 +123,7 @@ def update_deposit_status(deposit_id: str, status: str) -> bool:
     return rows_affected > 0
 
 
-def get_deposit_by_tx_hash(tx_hash: str) -> dict | None:
+def get_deposit_by_tx_hash(tx_hash: str) -> dict[str, Any] | None:
     """Get deposit by transaction hash."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -152,7 +153,7 @@ def get_deposit_by_tx_hash(tx_hash: str) -> dict | None:
     }
 
 
-def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict]:
+def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
     """Get all deposits with pagination."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -200,7 +201,7 @@ def insert_price_history(eth_usd: float, eth_eur: float, exchange_rate_usd: floa
     conn.close()
 
 
-def get_all_time_average() -> dict | None:
+def get_all_time_average() -> dict[str, Any] | None:
     """Get all-time average prices from history."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()

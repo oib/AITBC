@@ -6,14 +6,18 @@ import os
 import uuid
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import HTTPException, Request, status
 from sqlmodel import select
+
 from aitbc.rate_limiting import rate_limit
 from aitbc.redis_cache import RedisCache
+
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Transaction
 from .utils import get_chain_id
+
 _REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 _cache = RedisCache(redis_url=_REDIS_URL, default_ttl=30)
 ACCOUNT_CACHE_TTL = 30
@@ -67,7 +71,7 @@ async def get_account_details(request: Request, address: str, chain_id: str | No
         return result
 
 @rate_limit(rate=100, per=60)
-async def create_account(request: Request, account_data: dict) -> dict[str, Any]:
+async def create_account(request: Request, account_data: dict[str, Any]) -> dict[str, Any]:
     """
     Create or register a new account on the blockchain.
     
@@ -89,7 +93,7 @@ async def create_account(request: Request, account_data: dict) -> dict[str, Any]
     address = address.lower().strip()
     if not address.startswith('0x'):
         address = '0x' + address
-    if not all((c in '0123456789abcdef' for c in address[2:])):
+    if not all(c in '0123456789abcdef' for c in address[2:]):
         raise HTTPException(status_code=400, detail='address must be a valid hex string')
     with session_scope() as session:
         existing_account = session.get(Account, (chain_id, address))
@@ -101,7 +105,7 @@ async def create_account(request: Request, account_data: dict) -> dict[str, Any]
         return {'success': True, 'address': address, 'chain_id': chain_id, 'balance': 0, 'nonce': 0, 'created': True, 'message': 'Account created successfully'}
 
 @rate_limit(rate=10, per=3600)
-async def faucet_request(request: Request, faucet_data: dict) -> dict[str, Any]:
+async def faucet_request(request: Request, faucet_data: dict[str, Any]) -> dict[str, Any]:
     """
     Request test tokens from the blockchain faucet.
     
@@ -125,7 +129,7 @@ async def faucet_request(request: Request, faucet_data: dict) -> dict[str, Any]:
     address = address.lower().strip()
     if not address.startswith('0x'):
         address = '0x' + address
-    if not all((c in '0123456789abcdef' for c in address[2:])):
+    if not all(c in '0123456789abcdef' for c in address[2:]):
         raise HTTPException(status_code=400, detail='address must be a valid hex string')
     if amount > 10000000:
         amount = 10000000

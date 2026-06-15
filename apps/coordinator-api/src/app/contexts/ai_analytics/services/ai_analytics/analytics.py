@@ -5,10 +5,21 @@ Implements comprehensive analytics, insights, and reporting for the marketplace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
-from app.domain.analytics import AnalyticsAlert, AnalyticsPeriod, DashboardConfig, InsightType, MarketInsight, MarketMetric, MetricType  # type: ignore[import-not-found]
+from app.domain.analytics import (  # type: ignore[import-not-found]
+    AnalyticsAlert,
+    AnalyticsPeriod,
+    DashboardConfig,
+    InsightType,
+    MarketInsight,
+    MarketMetric,
+    MetricType,
+)
 from sqlmodel import Session, and_, select
+
 
 class DataCollector:
     """Comprehensive data collection system"""

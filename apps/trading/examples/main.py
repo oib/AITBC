@@ -7,9 +7,12 @@ import os
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 @asynccontextmanager
@@ -88,7 +91,7 @@ async def get_order_book(symbol: str, depth: int=10):
     book = order_books[symbol]
     bids = sorted(book['bids'].items(), reverse=True)[:depth]
     asks = sorted(book['asks'].items())[:depth]
-    return {'symbol': symbol, 'bids': [{'price': price, 'quantity': sum((order['remaining_quantity'] for order in orders_list)), 'orders_count': len(orders_list)} for price, orders_list in bids], 'asks': [{'price': price, 'quantity': sum((order['remaining_quantity'] for order in orders_list)), 'orders_count': len(orders_list)} for price, orders_list in asks], 'last_price': book['last_price'], 'volume_24h': book['volume_24h'], 'high_24h': book['high_24h'], 'low_24h': book['low_24h'], 'timestamp': datetime.now(UTC).isoformat()}
+    return {'symbol': symbol, 'bids': [{'price': price, 'quantity': sum(order['remaining_quantity'] for order in orders_list), 'orders_count': len(orders_list)} for price, orders_list in bids], 'asks': [{'price': price, 'quantity': sum(order['remaining_quantity'] for order in orders_list), 'orders_count': len(orders_list)} for price, orders_list in asks], 'last_price': book['last_price'], 'volume_24h': book['volume_24h'], 'high_24h': book['high_24h'], 'low_24h': book['low_24h'], 'timestamp': datetime.now(UTC).isoformat()}
 
 @app.get('/api/v1/trades')
 async def list_trades(symbol: str | None=None, limit: int=100):
@@ -108,7 +111,7 @@ async def get_ticker(symbol: str):
     trades_24h = [t for t in trades.values() if t['symbol'] == symbol and datetime.fromisoformat(t['timestamp']) > datetime.now(UTC) - timedelta(hours=24)]
     if trades_24h:
         prices = [t['price'] for t in trades_24h]
-        volume = sum((t['quantity'] for t in trades_24h))
+        volume = sum(t['quantity'] for t in trades_24h)
         ticker = {'symbol': symbol, 'last_price': book['last_price'], 'bid_price': max(book['bids'].keys()) if book['bids'] else None, 'ask_price': min(book['asks'].keys()) if book['asks'] else None, 'high_24h': max(prices), 'low_24h': min(prices), 'volume_24h': volume, 'change_24h': prices[-1] - prices[0] if len(prices) > 1 else 0, 'change_percent_24h': (prices[-1] - prices[0]) / prices[0] * 100 if len(prices) > 1 else 0}
     else:
         ticker = {'symbol': symbol, 'last_price': book['last_price'], 'bid_price': None, 'ask_price': None, 'high_24h': None, 'low_24h': None, 'volume_24h': 0.0, 'change_24h': 0.0, 'change_percent_24h': 0.0}
@@ -153,7 +156,7 @@ async def get_engine_stats():
     """Get trading engine statistics"""
     total_orders = len(orders)
     total_trades = len(trades)
-    total_volume = sum((t['quantity'] * t['price'] for t in trades.values()))
+    total_volume = sum(t['quantity'] * t['price'] for t in trades.values())
     orders_by_status = defaultdict(int)
     for order in orders.values():
         orders_by_status[order['status']] += 1
@@ -287,7 +290,7 @@ def update_market_data(symbol: str, trades_executed: list[dict]):
         prices = [t['price'] for t in trades_24h]
         book['high_24h'] = max(prices)
         book['low_24h'] = min(prices)
-        book['volume_24h'] = sum((t['quantity'] for t in trades_24h))
+        book['volume_24h'] = sum(t['quantity'] for t in trades_24h)
 
 async def simulate_market_activity():
     """Background task to simulate market activity"""

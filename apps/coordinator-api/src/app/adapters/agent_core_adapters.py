@@ -8,9 +8,15 @@ from typing import Any
 from aitbc_agent_core.protocols.database import ISessionProvider
 from aitbc_agent_core.protocols.domain import (
     AgentStatus as ProtocolAgentStatus,
+)
+from aitbc_agent_core.protocols.domain import (
     IAgentExecution,
     IAgentStepExecution,
+)
+from aitbc_agent_core.protocols.domain import (
     StepType as ProtocolStepType,
+)
+from aitbc_agent_core.protocols.domain import (
     VerificationLevel as ProtocolVerificationLevel,
 )
 from aitbc_agent_core.protocols.orchestrator import IAgentOrchestrator

@@ -1,8 +1,10 @@
 """Exporter registration for metrics/log sinks."""
 from __future__ import annotations
+
 import logging
 from collections.abc import Iterable
 from typing import Any
+
 REGISTERED_EXPORTERS: list[str] = []
 _exporter_instances: dict[str, Any] = {}
 logger = logging.getLogger(__name__)
@@ -36,6 +38,7 @@ def _initialize_prometheus() -> None:
     """Initialize Prometheus metrics exporter."""
     try:
         import os
+
         from prometheus_client import start_http_server
         port = int(os.environ.get('PROMETHEUS_PORT', 9090))
         start_http_server(port)
@@ -61,6 +64,7 @@ def _initialize_tracing() -> None:
     """Initialize distributed tracing exporter."""
     try:
         import os
+
         from opentelemetry import trace  # type: ignore[import-not-found]
         from opentelemetry.exporter.jaeger.thrift import JaegerExporter  # type: ignore[import-not-found]
         from opentelemetry.sdk.trace import TracerProvider  # type: ignore[import-not-found]

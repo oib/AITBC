@@ -1,16 +1,21 @@
 from typing import Annotated
+
 '\nGPU Multi-Modal Service Health Check Router\nProvides health monitoring for CUDA-optimized multi-modal processing\n'
 import subprocess
 import sys
 from datetime import UTC, datetime
 from typing import Any
+
 import psutil
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from ....storage import get_session
+
 router = APIRouter()
 
 @router.get('/health', tags=['health'], summary='GPU Multi-Modal Service Health')
@@ -52,7 +57,7 @@ async def gpu_multimodal_deep_health(request: Request, session: Annotated[Sessio
             cuda_tests['feature_extraction'] = {'status': 'pass', 'cpu_time': '3.2s', 'gpu_time': '0.16s', 'speedup': '20x', 'memory_usage': '2.5GB'}
         except Exception:
             cuda_tests['feature_extraction'] = {'status': 'fail', 'error': 'Test failed'}
-        return {'status': 'healthy' if gpu_info['available'] else 'degraded', 'service': 'gpu-multimodal', 'port': 8010, 'timestamp': datetime.now(UTC).isoformat(), 'gpu_info': gpu_info, 'cuda_tests': cuda_tests, 'overall_health': 'pass' if gpu_info['available'] and all((test.get('status') == 'pass' for test in cuda_tests.values())) else 'degraded'}
+        return {'status': 'healthy' if gpu_info['available'] else 'degraded', 'service': 'gpu-multimodal', 'port': 8010, 'timestamp': datetime.now(UTC).isoformat(), 'gpu_info': gpu_info, 'cuda_tests': cuda_tests, 'overall_health': 'pass' if gpu_info['available'] and all(test.get('status') == 'pass' for test in cuda_tests.values()) else 'degraded'}
     except Exception as e:
         logger.error('Deep GPU Multi-Modal health check failed: %s', e)
         return {'status': 'unhealthy', 'service': 'gpu-multimodal', 'port': 8010, 'timestamp': datetime.now(UTC).isoformat(), 'error': 'Deep health check failed'}

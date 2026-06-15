@@ -5,20 +5,21 @@ import sqlite3
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
 class WalletRecord:
     wallet_id: str
     public_key: str
-    metadata: dict
+    metadata: dict[str, Any]
 
 
 @dataclass
 class WalletEvent:
     wallet_id: str
     event_type: str
-    payload: dict
+    payload: dict[str, Any]
 
 
 class SQLiteLedgerAdapter:
@@ -56,7 +57,7 @@ class SQLiteLedgerAdapter:
                 """
             )
 
-    def upsert_wallet(self, wallet_id: str, public_key: str, metadata: dict) -> None:
+    def upsert_wallet(self, wallet_id: str, public_key: str, metadata: dict[str, Any]) -> None:
         payload = json.dumps(metadata)
         with self._connect() as conn:
             conn.execute(
@@ -84,7 +85,7 @@ class SQLiteLedgerAdapter:
         for row in rows:
             yield WalletRecord(wallet_id=row["wallet_id"], public_key=row["public_key"], metadata=json.loads(row["metadata"]))
 
-    def record_event(self, wallet_id: str, event_type: str, payload: dict) -> None:
+    def record_event(self, wallet_id: str, event_type: str, payload: dict[str, Any]) -> None:
         data = json.dumps(payload)
         with self._connect() as conn:
             conn.execute(

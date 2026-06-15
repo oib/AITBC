@@ -4,10 +4,14 @@ Implements reputation management, trust score calculations, and economic profili
 """
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import Session, and_, func, select
+
 from ....domain.reputation import AgentReputation, CommunityFeedback, ReputationEvent, ReputationLevel, TrustScoreCategory
+
 
 class TrustScoreCalculator:
     """Advanced trust score calculation algorithms"""

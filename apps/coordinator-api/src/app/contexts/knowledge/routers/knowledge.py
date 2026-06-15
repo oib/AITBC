@@ -1,10 +1,14 @@
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 from ....storage import get_session
+
 router = APIRouter(prefix='/knowledge', tags=['knowledge'])
 logger = get_logger(__name__)
 

@@ -8,6 +8,7 @@ import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from .discovery import P2PDiscovery
 from .health import PeerHealthMonitor
@@ -87,7 +88,7 @@ class NetworkRecoveryManager:
         log_info("Stopping network recovery service")
 
     async def trigger_recovery(self, trigger: RecoveryTrigger, target_node: str | None = None,
-                             metadata: dict | None = None) -> None:
+                             metadata: dict[str, Any] | None = None) -> None:
         """Trigger recovery procedure"""
         log_info(f"Recovery triggered: {trigger.value}")
 
@@ -113,7 +114,7 @@ class NetworkRecoveryManager:
             # Create recovery actions for partition
             await self._create_partition_recovery_actions(partition_status)
 
-    async def _create_partition_recovery_actions(self, partition_status: dict) -> None:
+    async def _create_partition_recovery_actions(self, partition_status: dict[str, Any]) -> None:
         """Create recovery actions for partition"""
         local_partition_size = self.partition_manager.get_local_partition_size()
 
@@ -204,7 +205,7 @@ class NetworkRecoveryManager:
         )
         self.recovery_actions.append(action)
 
-    async def _handle_manual_recovery(self, target_node: str | None, metadata: dict) -> None:
+    async def _handle_manual_recovery(self, target_node: str | None, metadata: dict[str, Any]) -> None:
         """Handle manual recovery"""
         recovery_type = metadata.get('type', 'standard')
 
@@ -423,7 +424,7 @@ class NetworkRecoveryManager:
         # Implementation would query DNS records
         log_debug("Executing DNS discovery")
 
-    def get_recovery_status(self) -> dict:
+    def get_recovery_status(self) -> dict[str, Any]:
         """Get current recovery status"""
         pending_actions = [a for a in self.recovery_actions if not a.success]
         successful_actions = [a for a in self.recovery_actions if a.success]

@@ -5,10 +5,22 @@ Implements P2P trading, matching, negotiation, and settlement systems
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
-from app.domain.trading import NegotiationStatus, SettlementType, TradeAgreement, TradeMatch, TradeNegotiation, TradeRequest, TradeStatus, TradeType  # type: ignore[import-not-found]  # type: ignore[import-not-found]
+from app.domain.trading import (  # type: ignore[import-not-found]  # type: ignore[import-not-found]
+    NegotiationStatus,
+    SettlementType,
+    TradeAgreement,
+    TradeMatch,
+    TradeNegotiation,
+    TradeRequest,
+    TradeStatus,
+    TradeType,
+)
 from sqlmodel import Session, or_, select
+
 
 class MatchingEngine:
     """Advanced agent matching and routing algorithms"""
@@ -108,9 +120,9 @@ class MatchingEngine:
         """Calculate geographic compatibility score (0-100)"""
         buyer_excluded = buyer_excluded or []
         seller_excluded = seller_excluded or []
-        if seller_regions and any((region in buyer_excluded for region in seller_regions)):
+        if seller_regions and any(region in buyer_excluded for region in seller_regions):
             return 0.0
-        if buyer_regions and any((region in seller_excluded for region in buyer_regions)):
+        if buyer_regions and any(region in seller_excluded for region in buyer_regions):
             return 0.0
         if buyer_regions and seller_regions:
             buyer_set = set(buyer_regions)
@@ -416,4 +428,4 @@ class P2PTradingProtocol:
         matches = self.session.execute(select(TradeMatch).where(or_(TradeMatch.buyer_agent_id == agent_id, TradeMatch.seller_agent_id == agent_id))).all()
         negotiations = self.session.execute(select(TradeNegotiation).where(or_(TradeNegotiation.buyer_agent_id == agent_id, TradeNegotiation.seller_agent_id == agent_id))).all()
         agreements = self.session.execute(select(TradeAgreement).where(or_(TradeAgreement.buyer_agent_id == agent_id, TradeAgreement.seller_agent_id == agent_id))).all()
-        return {'agent_id': agent_id, 'trade_requests': len(requests), 'trade_matches': len(matches), 'negotiations': len(negotiations), 'agreements': len(agreements), 'success_rate': len(agreements) / len(matches) if matches else 0.0, 'average_match_score': sum((m.match_score for m in matches)) / len(matches) if matches else 0.0, 'total_trade_volume': sum((a.total_price for a in agreements)), 'recent_activity': {'requests_last_30d': len([r for r in requests if r.created_at >= datetime.now(UTC) - timedelta(days=30)]), 'matches_last_30d': len([m for m in matches if m.created_at >= datetime.now(UTC) - timedelta(days=30)]), 'agreements_last_30d': len([a for a in agreements if a.created_at >= datetime.now(UTC) - timedelta(days=30)])}}
+        return {'agent_id': agent_id, 'trade_requests': len(requests), 'trade_matches': len(matches), 'negotiations': len(negotiations), 'agreements': len(agreements), 'success_rate': len(agreements) / len(matches) if matches else 0.0, 'average_match_score': sum(m.match_score for m in matches) / len(matches) if matches else 0.0, 'total_trade_volume': sum(a.total_price for a in agreements), 'recent_activity': {'requests_last_30d': len([r for r in requests if r.created_at >= datetime.now(UTC) - timedelta(days=30)]), 'matches_last_30d': len([m for m in matches if m.created_at >= datetime.now(UTC) - timedelta(days=30)]), 'agreements_last_30d': len([a for a in agreements if a.created_at >= datetime.now(UTC) - timedelta(days=30)])}}

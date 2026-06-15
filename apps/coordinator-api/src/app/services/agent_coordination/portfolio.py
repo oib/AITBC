@@ -5,17 +5,38 @@ Advanced portfolio management for autonomous AI agents in the AITBC ecosystem.
 Provides portfolio creation, rebalancing, risk assessment, and trading strategy execution.
 """
 from __future__ import annotations
+
 import logging
 from datetime import UTC, datetime, timedelta
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlmodel import Session
+
 from ...blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
-from ...domain.agent_portfolio import AgentPortfolio, PortfolioAsset, PortfolioStrategy, PortfolioTrade, RiskMetrics, TradeStatus
+from ...domain.agent_portfolio import (
+    AgentPortfolio,
+    PortfolioAsset,
+    PortfolioStrategy,
+    PortfolioTrade,
+    RiskMetrics,
+    TradeStatus,
+)
 from ...marketdata.price_service import PriceService  # type: ignore[import-not-found]
 from ...ml.strategy_optimizer import StrategyOptimizer  # type: ignore[import-not-found]
 from ...risk.risk_calculator import RiskCalculator  # type: ignore[import-not-found]
-from ...schemas.portfolio import PortfolioCreate, PortfolioResponse, RebalanceRequest, RebalanceResponse, RiskAssessmentResponse, StrategyCreate, StrategyResponse, TradeRequest, TradeResponse  # type: ignore[import-not-found]
+from ...schemas.portfolio import (  # type: ignore[import-not-found]
+    PortfolioCreate,
+    PortfolioResponse,
+    RebalanceRequest,
+    RebalanceResponse,
+    RiskAssessmentResponse,
+    StrategyCreate,
+    StrategyResponse,
+    TradeRequest,
+    TradeResponse,
+)
+
 logger = logging.getLogger(__name__)
 
 class AgentPortfolioManager:
@@ -171,7 +192,7 @@ class AgentPortfolioManager:
 
     def _is_valid_address(self, address: str) -> bool:
         """Validate Ethereum address"""
-        return address.startswith('0x') and len(address) == 42 and all((c in '0123456789abcdefABCDEF' for c in address[2:]))
+        return address.startswith('0x') and len(address) == 42 and all(c in '0123456789abcdefABCDEF' for c in address[2:])
 
     async def _initialize_portfolio_assets(self, portfolio: AgentPortfolio, strategy: PortfolioStrategy) -> None:
         """Initialize portfolio assets based on strategy allocations"""

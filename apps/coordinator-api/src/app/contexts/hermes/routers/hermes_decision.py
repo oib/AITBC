@@ -1,13 +1,27 @@
 """Router for Hermes distributed decision making API."""
 from typing import Annotated
+
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from fastapi import APIRouter, Depends, HTTPException
+
 from ....deps import require_admin_key
-from ....schemas.hermes_decision import DecisionListResponse, DecisionProposal, DecisionProposalResponse, DecisionResult, DecisionStatus, DecisionType, Vote, VoteResponse
+from ....schemas.hermes_decision import (
+    DecisionListResponse,
+    DecisionProposal,
+    DecisionProposalResponse,
+    DecisionResult,
+    DecisionStatus,
+    DecisionType,
+    Vote,
+    VoteResponse,
+)
 from ....storage import get_session
 from ..services.decision_service_db import decision_service
+
 router = APIRouter(prefix='/hermes/decision', tags=['hermes Decision Making'])
 
 @router.post('/propose', response_model=DecisionProposalResponse)

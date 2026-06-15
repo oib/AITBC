@@ -4,14 +4,27 @@ Developer Platform Service
 Service for managing the developer ecosystem, bounties, certifications, and regional hubs.
 """
 from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
+
 from fastapi import HTTPException
 from sqlalchemy import desc
 from sqlmodel import Session, select
+
 from aitbc import get_logger
+
 from ..contexts.blockchain.services.blockchain import get_balance, mint_tokens
-from ..domain.developer_platform import BountyStatus, BountySubmission, BountyTask, CertificationLevel, DeveloperCertification, DeveloperProfile, RegionalHub
+from ..domain.developer_platform import (
+    BountyStatus,
+    BountySubmission,
+    BountyTask,
+    CertificationLevel,
+    DeveloperCertification,
+    DeveloperProfile,
+    RegionalHub,
+)
 from ..schemas.developer_platform import BountyCreate, BountySubmissionCreate, CertificationGrant, DeveloperCreate
+
 logger = get_logger(__name__)
 
 class DeveloperPlatformService:
@@ -60,7 +73,7 @@ class DeveloperPlatformService:
         developer = self.session.get(DeveloperProfile, request.developer_id)
         if not developer:
             raise HTTPException(status_code=404, detail='Developer not found')
-        has_skills = any((skill in developer.skills for skill in bounty.required_skills))
+        has_skills = any(skill in developer.skills for skill in bounty.required_skills)
         if not has_skills and bounty.required_skills:
             logger.warning('Developer %s submitted for bounty without required skills', developer.wallet_address)
         submission = BountySubmission(bounty_id=bounty_id, developer_id=request.developer_id, github_pr_url=request.github_pr_url, submission_notes=request.submission_notes)
@@ -209,5 +222,5 @@ class DeveloperPlatformService:
         open_bounties = self.session.execute(select(BountyTask).where(BountyTask.status == BountyStatus.OPEN)).count()  # type: ignore[attr-defined]
         completed_bounties = self.session.execute(select(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)).count()  # type: ignore[attr-defined]
         total_rewards = self.session.execute(select(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)).all()
-        total_reward_amount = sum((bounty.reward_amount for bounty in total_rewards))
+        total_reward_amount = sum(bounty.reward_amount for bounty in total_rewards)
         return {'total_bounties': total_bounties, 'open_bounties': open_bounties, 'completed_bounties': completed_bounties, 'total_rewards_distributed': total_reward_amount, 'average_reward_per_bounty': total_reward_amount / max(completed_bounties, 1), 'completion_rate': completed_bounties / max(total_bounties, 1) * 100}

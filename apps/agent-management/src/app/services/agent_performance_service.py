@@ -6,10 +6,24 @@ import asyncio
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select
-from app.domain.agent_performance import AgentPerformanceProfile, LearningStrategy, MetaLearningModel, OptimizationTarget, PerformanceMetric, PerformanceOptimization, ResourceAllocation, ResourceType  # type: ignore[import-not-found]
+
+from app.domain.agent_performance import (  # type: ignore[import-not-found]
+    AgentPerformanceProfile,
+    LearningStrategy,
+    MetaLearningModel,
+    OptimizationTarget,
+    PerformanceMetric,
+    PerformanceOptimization,
+    ResourceAllocation,
+    ResourceType,
+)
+
+
 class MetaLearningEngine:
     """Advanced meta-learning system for rapid skill acquisition"""
 

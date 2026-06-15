@@ -10,9 +10,20 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
-from aitbc import AITBCHTTPClient, Web3Client, derive_ethereum_address, encrypt_private_key, get_logger, sign_transaction_hash, verify_signature
+
+from aitbc import (
+    AITBCHTTPClient,
+    Web3Client,
+    derive_ethereum_address,
+    encrypt_private_key,
+    get_logger,
+    sign_transaction_hash,
+    verify_signature,
+)
+
 logger = get_logger(__name__)
 from ..contexts.agent_identity.domain.agent_identity import ChainType
+
 
 class WalletStatus(StrEnum):
     """Wallet status enumeration"""

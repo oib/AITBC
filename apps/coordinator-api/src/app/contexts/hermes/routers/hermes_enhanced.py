@@ -1,14 +1,35 @@
 from typing import Annotated
+
 from sqlalchemy.orm import Session
+
 '\nhermes Integration Enhancement API Router - Phase 6.6\nREST API endpoints for advanced agent orchestration, edge computing integration, and ecosystem development\n'
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, Request
+
 from aitbc.rate_limiting import rate_limit
+
 from ....deps import require_admin_key
-from ....schemas.hermes_enhanced import AgentCollaborationRequest, AgentCollaborationResponse, EcosystemDevelopmentRequest, EcosystemDevelopmentResponse, EdgeCoordinationRequest, EdgeCoordinationResponse, EdgeDeploymentRequest, EdgeDeploymentResponse, HybridExecutionRequest, HybridExecutionResponse, JobOffloadingRequest, JobOffloadingResponse, SkillRoutingRequest, SkillRoutingResponse
+from ....schemas.hermes_enhanced import (
+    AgentCollaborationRequest,
+    AgentCollaborationResponse,
+    EcosystemDevelopmentRequest,
+    EcosystemDevelopmentResponse,
+    EdgeCoordinationRequest,
+    EdgeCoordinationResponse,
+    EdgeDeploymentRequest,
+    EdgeDeploymentResponse,
+    HybridExecutionRequest,
+    HybridExecutionResponse,
+    JobOffloadingRequest,
+    JobOffloadingResponse,
+    SkillRoutingRequest,
+    SkillRoutingResponse,
+)
 from ....storage import get_session
 from ..services.hermes_enhanced import hermesEnhancedService
+
 router = APIRouter(prefix='/hermes/enhanced', tags=['hermes Enhanced'])
 
 @router.post('/routing/skill', response_model=SkillRoutingResponse)

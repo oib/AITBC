@@ -1,18 +1,25 @@
 from sqlalchemy import and_, desc
 from sqlalchemy.orm import Session
+
 from ....domain.reputation import ReputationEvent
+
 '\nReputation Management API Endpoints\nREST API for agent reputation, trust scores, and economic profiles\n'
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from sqlmodel import func, select
+
 from ....domain.reputation import AgentReputation, CommunityFeedback, ReputationLevel
 from ....storage import get_session
 from ..services.reputation_service import ReputationService
+
 router = APIRouter(prefix='/reputation', tags=['reputation'])
 
 def get_reputation_service(session: Session=Depends(get_session)) -> ReputationService:
@@ -194,7 +201,7 @@ async def get_reputation_metrics(request: Request, session: Session=Depends(get_
         if not reputations:
             return ReputationMetricsResponse(total_agents=0, average_trust_score=0.0, level_distribution={}, top_regions=[], recent_activity={})
         total_agents = len(reputations)
-        average_trust_score = sum((r.trust_score for r in reputations)) / total_agents
+        average_trust_score = sum(r.trust_score for r in reputations) / total_agents
         level_counts: dict[str, int] = {}
         for reputation in reputations:
             level = reputation.reputation_level.value

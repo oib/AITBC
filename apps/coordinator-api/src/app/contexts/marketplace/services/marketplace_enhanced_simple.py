@@ -3,12 +3,16 @@ Enhanced Marketplace Service - Simplified Version for Deployment
 Basic marketplace enhancement features compatible with existing domain models
 """
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 from sqlmodel import Session, select
+
 from ..domain import MarketplaceOffer  # type: ignore[attr-defined]
+
 
 class RoyaltyTier(StrEnum):
     """Royalty distribution tiers"""
@@ -122,13 +126,13 @@ class EnhancedMarketplaceService:
             bids: list[Any] = []
             analytics: dict[str, Any] = {'period_days': period_days, 'start_date': start_date.isoformat(), 'end_date': end_date.isoformat(), 'metrics': {}}
             if 'volume' in metrics:
-                analytics['metrics']['volume'] = {'total_offers': len(offers), 'total_capacity': sum((offer.capacity or 0 for offer in offers)), 'average_capacity': sum((offer.capacity or 0 for offer in offers)) / len(offers) if offers else 0, 'daily_average': len(offers) / period_days}
+                analytics['metrics']['volume'] = {'total_offers': len(offers), 'total_capacity': sum(offer.capacity or 0 for offer in offers), 'average_capacity': sum(offer.capacity or 0 for offer in offers) / len(offers) if offers else 0, 'daily_average': len(offers) / period_days}
             if 'trends' in metrics:
                 analytics['metrics']['trends'] = {'price_trend': 'stable', 'demand_trend': 'increasing', 'capacity_utilization': 0.75}
             if 'performance' in metrics:
                 analytics['metrics']['performance'] = {'average_response_time': 0.5, 'success_rate': 0.95, 'provider_satisfaction': 4.2}
             if 'revenue' in metrics:
-                analytics['metrics']['revenue'] = {'total_revenue': 0.0, 'average_price': sum((offer.price or 0 for offer in offers)) / len(offers) if offers else 0, 'revenue_growth': 0.12}
+                analytics['metrics']['revenue'] = {'total_revenue': 0.0, 'average_price': sum(offer.price or 0 for offer in offers) / len(offers) if offers else 0, 'revenue_growth': 0.12}
             return analytics
         except Exception as e:
             logger.error('Error getting marketplace analytics: %s', e)

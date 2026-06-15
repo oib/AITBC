@@ -1,15 +1,20 @@
 from typing import Annotated
+
 '\nEnhanced Marketplace Service Health Check Router\nProvides health monitoring for royalties, licensing, verification, and analytics\n'
 import sys
 from datetime import UTC, datetime
 from typing import Any
+
 import psutil
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService
 from ..storage import get_session
+
 logger = get_logger(__name__)
 router = APIRouter()
 
@@ -60,7 +65,7 @@ async def marketplace_enhanced_deep_health(request: Request, session: Annotated[
             feature_tests['analytics_generation'] = {'status': 'pass', 'generation_time': '0.05s', 'metrics_available': 'volume,price,liquidity,sentiment', 'accuracy': '98%'}
         except Exception:
             feature_tests['analytics_generation'] = {'status': 'fail', 'error': 'Test failed'}
-        return {'status': 'healthy', 'service': 'marketplace-enhanced', 'port': 8002, 'timestamp': datetime.now(UTC).isoformat(), 'feature_tests': feature_tests, 'overall_health': 'pass' if all((test.get('status') == 'pass' for test in feature_tests.values())) else 'degraded'}
+        return {'status': 'healthy', 'service': 'marketplace-enhanced', 'port': 8002, 'timestamp': datetime.now(UTC).isoformat(), 'feature_tests': feature_tests, 'overall_health': 'pass' if all(test.get('status') == 'pass' for test in feature_tests.values()) else 'degraded'}
     except Exception as e:
         logger.error('Deep Enhanced Marketplace health check failed: %s', e)
         return {'status': 'unhealthy', 'service': 'marketplace-enhanced', 'port': 8002, 'timestamp': datetime.now(UTC).isoformat(), 'error': 'Deep health check failed'}

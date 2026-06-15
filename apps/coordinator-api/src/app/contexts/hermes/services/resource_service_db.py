@@ -2,11 +2,26 @@
 import json
 import uuid
 from datetime import datetime, timedelta
+
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from ....models.hermes import PricingAdjustmentModel, ResourceAllocationModel, ResourceModel
-from ....schemas.hermes_resource import AllocationStrategy, PricingAdjustment, Resource, ResourceAllocationRequest, ResourceAllocationResponse, ResourcePool, ResourceReleaseRequest, ResourceReleaseResponse, ResourceStatus, ResourceType
+from ....schemas.hermes_resource import (
+    AllocationStrategy,
+    PricingAdjustment,
+    Resource,
+    ResourceAllocationRequest,
+    ResourceAllocationResponse,
+    ResourcePool,
+    ResourceReleaseRequest,
+    ResourceReleaseResponse,
+    ResourceStatus,
+    ResourceType,
+)
+
 
 class ResourceService:
     """Service for autonomous resource management with database storage."""
@@ -90,8 +105,8 @@ class ResourceService:
         resources = session.query(ResourceModel).filter_by(resource_type=resource_type).all()
         if not resources:
             return None
-        total_capacity = float(sum((r.capacity for r in resources)))  # type: ignore[misc]
-        total_allocated = float(sum((r.allocated for r in resources)))  # type: ignore[misc]
+        total_capacity = float(sum(r.capacity for r in resources))  # type: ignore[misc]
+        total_allocated = float(sum(r.allocated for r in resources))  # type: ignore[misc]
         utilization = total_allocated / total_capacity if total_capacity > 0 else 0
         utilization = total_allocated / total_capacity if total_capacity > 0 else 0
         current_price = 0.1

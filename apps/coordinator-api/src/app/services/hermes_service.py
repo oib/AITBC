@@ -9,11 +9,14 @@ Provides:
 - Delivery receipts
 """
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
+
 from aitbc.aitbc_logging import get_logger
+
 logger = get_logger(__name__)
 
 class MessageType(Enum):
@@ -232,7 +235,7 @@ class HermesService:
         delivered = len([m for m in self._messages.values() if m.status == MessageStatus.delivered])
         read = len([m for m in self._messages.values() if m.status == MessageStatus.read])
         online_agents = len([a for a in self._agent_profiles.values() if a.online])
-        return {'total_messages': total_messages, 'by_status': {'pending': pending, 'delivered': delivered, 'read': read}, 'registered_agents': len(self._agent_profiles), 'online_agents': online_agents, 'queued_messages': sum((len(q) for q in self._message_queues.values()))}
+        return {'total_messages': total_messages, 'by_status': {'pending': pending, 'delivered': delivered, 'read': read}, 'registered_agents': len(self._agent_profiles), 'online_agents': online_agents, 'queued_messages': sum(len(q) for q in self._message_queues.values())}
 _hermes_service: HermesService | None = None
 
 def get_hermes_service() -> HermesService:

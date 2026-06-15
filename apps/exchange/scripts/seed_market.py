@@ -2,7 +2,9 @@
 import logging
 import sqlite3
 from datetime import UTC, datetime
+
 from aitbc.constants import DATA_DIR
+
 logger = logging.getLogger(__name__)
 
 def seed_initial_price():

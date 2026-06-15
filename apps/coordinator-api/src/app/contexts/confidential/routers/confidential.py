@@ -3,16 +3,31 @@ API endpoints for confidential transactions
 """
 from datetime import UTC, datetime
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer
+
 from aitbc.rate_limiting import rate_limit
+
 from ....auth import get_api_key
-from ....schemas import AccessLogQuery, AccessLogResponse, ConfidentialAccessRequest, ConfidentialAccessResponse, ConfidentialTransaction, ConfidentialTransactionCreate, ConfidentialTransactionView, KeyRegistrationRequest, KeyRegistrationResponse
+from ....schemas import (
+    AccessLogQuery,
+    AccessLogResponse,
+    ConfidentialAccessRequest,
+    ConfidentialAccessResponse,
+    ConfidentialTransaction,
+    ConfidentialTransactionCreate,
+    ConfidentialTransactionView,
+    KeyRegistrationRequest,
+    KeyRegistrationResponse,
+)
 from ...security.services.access_control import AccessController
 from ...security.services.encryption import EncryptedData, EncryptionService
 from ...security.services.key_management import KeyManagementError, KeyManager
+
 router = APIRouter(prefix='/confidential', tags=['confidential'])
 security = HTTPBearer()
 encryption_service: EncryptionService | None = None
@@ -24,6 +39,7 @@ def get_encryption_service() -> EncryptionService:
     global encryption_service
     if encryption_service is None:
         import tempfile
+
         from ....contexts.security.services.key_management import FileKeyStorage
         key_storage = FileKeyStorage(tempfile.gettempdir() + '/aitbc_keys')
         key_manager = KeyManager(key_storage)
@@ -35,6 +51,7 @@ def get_key_manager() -> KeyManager:
     global key_manager
     if key_manager is None:
         import tempfile
+
         from ....contexts.security.services.key_management import FileKeyStorage
         key_storage = FileKeyStorage(tempfile.gettempdir() + '/aitbc_keys')
         key_manager = KeyManager(key_storage)

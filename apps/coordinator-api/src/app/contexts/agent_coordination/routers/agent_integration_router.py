@@ -1,15 +1,28 @@
 from typing import Annotated, Any
+
 '\nAgent Integration and Deployment API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for production deployment and integration management\n'
 from fastapi import APIRouter, Depends, HTTPException, Request
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select
+
 from ....deps import require_admin_key
 from ....domain.agent import AgentExecution, AIAgentWorkflow, VerificationLevel
-from ....services.agent_coordination.integration import AgentDeploymentConfig, AgentDeploymentInstance, AgentDeploymentManager, AgentIntegrationManager, AgentMonitoringManager, AgentProductionManager, DeploymentStatus
+from ....services.agent_coordination.integration import (
+    AgentDeploymentConfig,
+    AgentDeploymentInstance,
+    AgentDeploymentManager,
+    AgentIntegrationManager,
+    AgentMonitoringManager,
+    AgentProductionManager,
+    DeploymentStatus,
+)
 from ....storage import get_session
 from ....utils.alerting import alert_dispatcher
+
 router = APIRouter(prefix='/agents/integration', tags=['Agent Integration'])
 
 @router.post('/deployments/config', response_model=AgentDeploymentConfig)

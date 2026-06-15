@@ -7,9 +7,12 @@ from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 import psutil
 import torch
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 @dataclass
@@ -117,8 +120,8 @@ class PerformanceMonitor:
             if entry['timestamp'] > cutoff_time:
                 system_metrics.append(entry['data'])
         if system_metrics:
-            avg_cpu = sum((m.cpu_percent for m in system_metrics)) / len(system_metrics)
-            avg_memory = sum((m.memory_percent for m in system_metrics)) / len(system_metrics)
+            avg_cpu = sum(m.cpu_percent for m in system_metrics) / len(system_metrics)
+            avg_memory = sum(m.memory_percent for m in system_metrics) / len(system_metrics)
             avg_gpu_util = None
             avg_gpu_mem = None
             gpu_utils = [m.gpu_utilization for m in system_metrics if m.gpu_utilization is not None]
@@ -134,15 +137,15 @@ class PerformanceMonitor:
             recent_entries = [e for e in entries if e['timestamp'] > cutoff_time]
             if recent_entries:
                 performances = [e['data'] for e in recent_entries]
-                avg_inference_time = sum((p.inference_time_ms for p in performances)) / len(performances)
-                avg_throughput = sum((p.throughput_requests_per_second for p in performances)) / len(performances)
+                avg_inference_time = sum(p.inference_time_ms for p in performances) / len(performances)
+                avg_throughput = sum(p.throughput_requests_per_second for p in performances) / len(performances)
                 avg_accuracy = None
-                avg_memory = sum((p.memory_usage_mb for p in performances)) / len(performances)
+                avg_memory = sum(p.memory_usage_mb for p in performances) / len(performances)
                 accuracies = [p.accuracy for p in performances if p.accuracy is not None]
                 if accuracies:
                     avg_accuracy = sum(accuracies) / len(accuracies)
                 model_summary[model_id] = {'avg_inference_time_ms': avg_inference_time, 'avg_throughput_rps': avg_throughput, 'avg_accuracy': avg_accuracy, 'avg_memory_usage_mb': avg_memory, 'request_count': len(recent_entries)}
-        return {'time_period_hours': hours, 'timestamp': datetime.now(UTC).isoformat(), 'system_metrics': {'avg_cpu_percent': avg_cpu, 'avg_memory_percent': avg_memory, 'avg_gpu_utilization': avg_gpu_util, 'avg_gpu_memory_percent': avg_gpu_mem}, 'model_performance': model_summary, 'total_requests': sum((len([e for e in entries if e['timestamp'] > cutoff_time]) for entries in self.model_performance.values()))}
+        return {'time_period_hours': hours, 'timestamp': datetime.now(UTC).isoformat(), 'system_metrics': {'avg_cpu_percent': avg_cpu, 'avg_memory_percent': avg_memory, 'avg_gpu_utilization': avg_gpu_util, 'avg_gpu_memory_percent': avg_gpu_mem}, 'model_performance': model_summary, 'total_requests': sum(len([e for e in entries if e['timestamp'] > cutoff_time]) for entries in self.model_performance.values())}
 
     async def get_optimization_recommendations(self) -> list[dict[str, Any]]:
         """Get current optimization recommendations"""
@@ -169,8 +172,8 @@ class PerformanceMonitor:
             x = list(range(n))
             sum_x = sum(x)
             sum_y = sum(values)
-            sum_xy = sum((x[i] * values[i] for i in range(n)))
-            sum_x2 = sum((x[i] * x[i] for i in range(n)))
+            sum_xy = sum(x[i] * values[i] for i in range(n))
+            sum_x2 = sum(x[i] * x[i] for i in range(n))
             slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x)
             return slope
         inference_trend = calculate_trend(inference_times)

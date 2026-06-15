@@ -2,7 +2,10 @@
 
 Provides communication with the AITBC coordinator API for agent orchestration.
 """
+from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class CoordinatorClient:
@@ -17,7 +20,7 @@ class CoordinatorClient:
         self.base_url = base_url
         logger.info('CoordinatorClient initialized with base_url: %s', base_url)
 
-    async def submit_task(self, task_data: dict) -> dict:
+    async def submit_task(self, task_data: dict[str, Any]) -> dict[str, Any]:
         """Submit a task to the coordinator.
         
         Args:
@@ -29,7 +32,7 @@ class CoordinatorClient:
         logger.info('Submitting task to coordinator: %s', task_data)
         return {'status': 'submitted', 'task_id': 'mock_id'}
 
-    async def get_task_status(self, task_id: str) -> dict:
+    async def get_task_status(self, task_id: str) -> dict[str, Any]:
         """Get the status of a task.
         
         Args:

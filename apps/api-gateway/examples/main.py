@@ -5,9 +5,12 @@ Handles intelligent load distribution across global regions
 import asyncio
 import os
 from datetime import UTC, datetime, timedelta
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 app = FastAPI(title='AITBC Multi-Region Load Balancer', description='Intelligent load balancing across global regions', version='1.0.0')
 
@@ -155,10 +158,10 @@ async def get_balancing_metrics(rule_id: str, hours: int=24):
     cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
     recent_metrics = [m for m in balancing_metrics.get(rule_id, []) if datetime.fromisoformat(m['timestamp']) > cutoff_time]
     if recent_metrics:
-        avg_response_time = sum((m['average_response_time'] for m in recent_metrics)) / len(recent_metrics)
-        avg_error_rate = sum((m['error_rate'] for m in recent_metrics)) / len(recent_metrics)
-        avg_throughput = sum((m['throughput'] for m in recent_metrics)) / len(recent_metrics)
-        total_requests = sum((m['total_requests'] for m in recent_metrics))
+        avg_response_time = sum(m['average_response_time'] for m in recent_metrics) / len(recent_metrics)
+        avg_error_rate = sum(m['error_rate'] for m in recent_metrics) / len(recent_metrics)
+        avg_throughput = sum(m['throughput'] for m in recent_metrics) / len(recent_metrics)
+        total_requests = sum(m['total_requests'] for m in recent_metrics)
     else:
         avg_response_time = avg_error_rate = avg_throughput = total_requests = 0.0
     return {'rule_id': rule_id, 'period_hours': hours, 'metrics': recent_metrics, 'statistics': {'average_response_time_ms': round(avg_response_time, 3), 'average_error_rate': round(avg_error_rate, 4), 'average_throughput': round(avg_throughput, 2), 'total_requests': int(total_requests), 'total_samples': len(recent_metrics)}, 'generated_at': datetime.now(UTC).isoformat()}
@@ -346,5 +349,6 @@ async def shutdown_event():
     logger.info('Shutting down AITBC Multi-Region Load Balancer')
 if __name__ == '__main__':
     import os
+
     import uvicorn
     uvicorn.run(app, host=os.getenv('BIND_HOST', '127.0.0.1'), port=8019, log_level='info')

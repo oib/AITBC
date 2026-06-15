@@ -3,12 +3,15 @@ hermes Enhanced Service - Simplified Version for Deployment
 Basic hermes integration features compatible with existing infrastructure
 """
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
+
 from sqlmodel import Session
+
 
 class SkillType(StrEnum):
     """Agent skill types"""

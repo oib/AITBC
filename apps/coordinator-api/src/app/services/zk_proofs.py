@@ -8,8 +8,11 @@ import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
+
 from aitbc import get_logger
+
 from ..schemas import JobResult, Receipt
+
 logger = get_logger(__name__)
 
 class ZKProofService:
@@ -20,7 +23,7 @@ class ZKProofService:
         self.circuits = {'receipt_simple': {'zkey_path': self.circuits_dir / 'receipt_simple_0001.zkey', 'wasm_path': self.circuits_dir / 'receipt_simple_js' / 'receipt_simple.wasm', 'vkey_path': self.circuits_dir / 'receipt_simple_js' / 'verification_key.json'}, 'ml_inference_verification': {'zkey_path': self.circuits_dir / 'ml_inference_verification_0000.zkey', 'wasm_path': self.circuits_dir / 'ml_inference_verification_js' / 'ml_inference_verification.wasm', 'vkey_path': self.circuits_dir / 'ml_inference_verification_js' / 'verification_key.json'}, 'ml_training_verification': {'zkey_path': self.circuits_dir / 'ml_training_verification_0000.zkey', 'wasm_path': self.circuits_dir / 'ml_training_verification_js' / 'ml_training_verification.wasm', 'vkey_path': self.circuits_dir / 'ml_training_verification_js' / 'verification_key.json'}, 'modular_ml_components': {'zkey_path': self.circuits_dir / 'modular_ml_components_0001.zkey', 'wasm_path': self.circuits_dir / 'modular_ml_components_js' / 'modular_ml_components.wasm', 'vkey_path': self.circuits_dir / 'verification_key.json'}}
         self.available_circuits = {}
         for circuit_name, paths in self.circuits.items():
-            if all((p.exists() for p in paths.values())):
+            if all(p.exists() for p in paths.values()):
                 self.available_circuits[circuit_name] = paths
                 logger.info("✅ Circuit '%s' available at %s", circuit_name, paths['zkey_path'].parent)
             else:

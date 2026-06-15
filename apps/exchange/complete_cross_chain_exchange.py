@@ -8,13 +8,16 @@ import sqlite3
 import uuid
 from datetime import datetime
 from typing import Any
+
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network.http_client import AsyncAITBCHTTPClient
 from aitbc.rate_limiting import RateLimitMiddleware
+
 app = FastAPI(title='AITBC Complete Cross-Chain Exchange', version='3.0.0')
 app.add_middleware(RateLimitMiddleware, rate=100, per=60)
 logger = get_logger(__name__)

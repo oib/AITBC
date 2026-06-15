@@ -1,7 +1,11 @@
 from __future__ import annotations
+
 from typing import Any
+
 from fastapi import APIRouter
+
 from aitbc import AITBCHTTPClient, NetworkError, get_logger
+
 logger = get_logger(__name__)
 router = APIRouter(tags=['blockchain'])
 
@@ -115,7 +119,7 @@ async def get_supply() -> dict[str, Any]:
         client = AITBCHTTPClient(timeout=5.0)
         response = client.get(f'{rpc_url}/rpc/genesis_allocations')
         allocations = response.get('allocations', [])
-        total_supply = sum((alloc.get('balance', 0) for alloc in allocations))
+        total_supply = sum(alloc.get('balance', 0) for alloc in allocations)
         return {'total_supply': total_supply, 'circulating_supply': total_supply, 'unit': 'AIT'}
     except NetworkError as e:
         logger.error('RPC connection failed: %s', e)

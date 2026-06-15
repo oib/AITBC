@@ -3,11 +3,14 @@ import os
 import sys
 import time
 from decimal import Decimal
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
 from aitbc.aitbc_logging import get_logger
 from aitbc.ethereum_rpc import EthereumRPCClient
 from aitbc.oracles.price_oracle import get_price_oracle
+
 from .storage import BridgeDepositStatus, create_deposit, get_deposit, init_db, update_deposit
+
 logger = get_logger(__name__)
 
 class BridgeMonitor:

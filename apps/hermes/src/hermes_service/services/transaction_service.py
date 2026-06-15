@@ -3,7 +3,9 @@ import json
 import logging
 import os
 from typing import Any
+
 from cryptography.hazmat.primitives.asymmetric import ed25519
+
 
 class TransactionService:
     """Service for generating signed blockchain transactions."""

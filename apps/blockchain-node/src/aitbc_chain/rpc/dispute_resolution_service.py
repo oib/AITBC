@@ -1,7 +1,9 @@
 """Dispute Resolution Service Module"""
 from typing import Any
+
 from ..contracts.dispute_resolution import dispute_resolution_contract
 from ..logger import get_logger
+
 logger = get_logger(__name__)
 
 class DisputeResolutionService:

@@ -6,9 +6,12 @@ import asyncio
 import os
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 app = FastAPI(title='AITBC Exchange Integration Service', description='Production exchange API integration for AITBC trading', version='1.0.0')
 

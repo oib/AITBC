@@ -7,9 +7,12 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 from uuid import uuid4
+
 import aiohttp
 from pydantic import BaseModel, Field
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class IntegrationType(str, Enum):

@@ -1,18 +1,29 @@
 from typing import Annotated
+
 from sqlmodel import Session, select
+
 """
 Agent Creativity API Endpoints
 REST API for agent creativity enhancement, ideation, and cross-domain synthesis
 """
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from app.domain.agent_performance import CreativeCapability  # type: ignore[import-not-found]
-from ..services.creative_capabilities_service import CreativityEnhancementEngine, CrossDomainCreativeIntegrator, IdeationAlgorithm  # type: ignore[import-not-found]
+
+from ..services.creative_capabilities_service import (  # type: ignore[import-not-found]
+    CreativityEnhancementEngine,
+    CrossDomainCreativeIntegrator,
+    IdeationAlgorithm,
+)
 from ..storage import get_session
+
 router = APIRouter(prefix='/v1/agent-creativity', tags=['agent-creativity'])
 
 class CreativeCapabilityCreate(BaseModel):

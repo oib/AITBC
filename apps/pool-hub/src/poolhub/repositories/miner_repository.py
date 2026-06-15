@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Mapping, cast
+from collections.abc import Mapping
+from typing import Any, cast
 
 from redis.asyncio import Redis
 from sqlalchemy import select, update

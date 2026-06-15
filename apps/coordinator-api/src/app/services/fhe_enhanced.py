@@ -8,10 +8,14 @@ For production, TenSEAL or Microsoft SEAL would be used.
 This implementation uses a simplified but real HE scheme.
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any
+
 import numpy as np
+
 from aitbc.aitbc_logging import get_logger
+
 logger = get_logger(__name__)
 
 @dataclass

@@ -3,14 +3,19 @@ Agent Orchestrator Service for hermes Autonomous Economics
 Implements multi-agent coordination and sub-task management
 """
 import asyncio
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 from .bid_strategy_engine import BidResult  # type: ignore[import-not-found]
 from .task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposition  # type: ignore[import-not-found]
+
+
 class OrchestratorStatus(StrEnum):
     """Orchestrator status"""
     IDLE = 'idle'
@@ -225,7 +230,7 @@ class AgentOrchestrator:
         for stage_idx, stage_sub_tasks in enumerate(decomposition.execution_plan):
             stage_start = datetime.now(UTC) + timedelta(hours=stage_idx * 2)
             for sub_task_id in stage_sub_tasks:
-                sub_task = next((st for st in decomposition.sub_tasks if st.sub_task_id == sub_task_id))
+                sub_task = next(st for st in decomposition.sub_tasks if st.sub_task_id == sub_task_id)
                 assignment = AgentAssignment(sub_task_id=sub_task_id, agent_id='', assigned_at=datetime.now(UTC))
                 assignments.append(assignment)
                 resource_requirements[ResourceType.GPU] += 1
@@ -241,12 +246,12 @@ class AgentOrchestrator:
 
     async def _assign_sub_task(self, sub_task_id: str, plan: OrchestrationPlan) -> None:
         """Assign sub-task to suitable agent"""
-        sub_task = next((st for st in plan.decomposition.sub_tasks if st.sub_task_id == sub_task_id))
+        sub_task = next(st for st in plan.decomposition.sub_tasks if st.sub_task_id == sub_task_id)
         available_agents = await self.get_available_agents(sub_task.requirements.task_type.value, sub_task.requirements.gpu_tier)
         if not available_agents:
             raise Exception(f'No available agents for sub-task {sub_task_id}')
         best_agent = await self._select_best_agent(available_agents, sub_task)
-        assignment = next((a for a in plan.agent_assignments if a.sub_task_id == sub_task_id))
+        assignment = next(a for a in plan.agent_assignments if a.sub_task_id == sub_task_id)
         assignment.agent_id = best_agent.agent_id
         assignment.status = SubTaskStatus.ASSIGNED
         self.agent_capabilities[best_agent.agent_id].current_load += 1
@@ -296,12 +301,12 @@ class AgentOrchestrator:
                 completed_tasks = []
                 failed_tasks = []
                 for task_id, plan in list(self.active_plans.items()):
-                    all_completed = all((a.status == SubTaskStatus.COMPLETED for a in plan.agent_assignments))
-                    any_failed = any((a.status == SubTaskStatus.FAILED for a in plan.agent_assignments))
+                    all_completed = all(a.status == SubTaskStatus.COMPLETED for a in plan.agent_assignments)
+                    any_failed = any(a.status == SubTaskStatus.FAILED for a in plan.agent_assignments)
                     if all_completed:
                         completed_tasks.append(task_id)
                     elif any_failed:
-                        all_failed_exhausted = all((a.status == SubTaskStatus.FAILED and a.retry_count >= self.retry_limit for a in plan.agent_assignments if a.status == SubTaskStatus.FAILED))
+                        all_failed_exhausted = all(a.status == SubTaskStatus.FAILED and a.retry_count >= self.retry_limit for a in plan.agent_assignments if a.status == SubTaskStatus.FAILED)
                         if all_failed_exhausted:
                             failed_tasks.append(task_id)
                 for task_id in completed_tasks:

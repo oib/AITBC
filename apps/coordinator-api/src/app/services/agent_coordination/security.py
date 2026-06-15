@@ -4,14 +4,19 @@ Implements comprehensive security, auditing, and trust establishment for agent e
 """
 import hashlib
 import json
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, cast
 from uuid import uuid4
+
 from sqlmodel import JSON, Column, Field, Session, SQLModel, select
+
 from ...domain.agent import AIAgentWorkflow, VerificationLevel
+
 
 class SecurityLevel(StrEnum):
     """Security classification levels for agent operations"""
@@ -413,7 +418,7 @@ class AgentSecurityManager:
                 monitoring_result['alerts'].append('Memory usage exceeded 90% of limit')
             if sandbox_monitoring['security_events']:
                 monitoring_result['violations'].extend(sandbox_monitoring['security_events'])
-                monitoring_result['alerts'].extend((f'Security event: {event}' for event in sandbox_monitoring['security_events']))
+                monitoring_result['alerts'].extend(f'Security event: {event}' for event in sandbox_monitoring['security_events'])
             if monitoring_result['violations']:
                 monitoring_result['security_status'] = 'violations_detected'
                 await self.auditor.log_event(AuditEventType.SECURITY_VIOLATION, execution_id=execution_id, workflow_id=workflow_id, security_level=SecurityLevel.INTERNAL, event_data={'violations': monitoring_result['violations']}, requires_investigation=len(monitoring_result['violations']) > 0)

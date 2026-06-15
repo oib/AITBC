@@ -9,9 +9,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
+
 import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class SurveillanceType(StrEnum):

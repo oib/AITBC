@@ -5,13 +5,16 @@ Complete multi-chain trading with chain isolation
 import os
 import sqlite3
 from datetime import datetime
+
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network.http_client import AsyncAITBCHTTPClient
 from aitbc.rate_limiting import RateLimitMiddleware
+
 app = FastAPI(title='AITBC Multi-Chain Exchange', version='2.0.0')
 app.add_middleware(RateLimitMiddleware, rate=100, per=60)
 logger = get_logger(__name__)

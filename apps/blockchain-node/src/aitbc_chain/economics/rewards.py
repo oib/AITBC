@@ -7,6 +7,7 @@ import time
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
+from typing import Any
 
 from .staking import StakingManager, StakingStatus
 
@@ -24,7 +25,7 @@ class RewardEvent:
     amount: Decimal
     block_height: int
     timestamp: float
-    metadata: dict
+    metadata: dict[str, Any]
 
 @dataclass
 class RewardDistribution:
@@ -118,7 +119,7 @@ class RewardDistributor:
         self.delegation_reward_split = 0.9  # 90% to delegators, 10% to validator
 
     def add_reward_event(self, validator_address: str, reward_type: RewardType,
-                        amount: float, block_height: int, metadata: dict | None = None) -> None:
+                        amount: float, block_height: int, metadata: dict[str, Any] | None = None) -> None:
         """Add a reward event"""
         reward_event = RewardEvent(
             validator_address=validator_address,
@@ -278,7 +279,7 @@ class RewardDistributor:
 
         return distributions[:limit]
 
-    def get_reward_statistics(self) -> dict:
+    def get_reward_statistics(self) -> dict[str, Any]:
         """Get reward system statistics"""
         total_distributed = self.get_total_rewards_distributed()
         total_pending = sum(self.pending_rewards.values())

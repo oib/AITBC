@@ -5,9 +5,11 @@ This module provides the entry point for running the AITBC wallet daemon
 with multi-chain support.
 """
 import uvicorn
+
 from aitbc import get_logger
 from app.main import app
 from app.settings import settings
+
 logger = get_logger(__name__)
 
 def main() -> None:

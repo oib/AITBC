@@ -1,6 +1,7 @@
 """GPU-related schemas for Edge API Service"""
 
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column
@@ -29,7 +30,7 @@ class GPUListing(SQLModel, table=True):
     region: str = Field(default="")
 
     # Capabilities
-    capabilities: list = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
+    capabilities: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
 
     # Listing metadata
-    extra_data: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
+    extra_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))

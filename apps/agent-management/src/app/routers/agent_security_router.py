@@ -1,22 +1,39 @@
 from typing import Annotated
+
 '\nAgent Security API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for security management and auditing\n'
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from sqlalchemy import desc
 from sqlmodel import Session, select
+
 from app.domain.agent import AIAgentWorkflow
+
 from ..deps import require_admin_key
-from ..services.agent_security import AgentAuditLog, AgentAuditor, AgentSandboxManager, AgentSecurityManager, AgentSecurityPolicy, AgentTrustManager, AgentTrustScore, AuditEventType, SecurityLevel
+from ..services.agent_security import (
+    AgentAuditLog,
+    AgentAuditor,
+    AgentSandboxManager,
+    AgentSecurityManager,
+    AgentSecurityPolicy,
+    AgentTrustManager,
+    AgentTrustScore,
+    AuditEventType,
+    SecurityLevel,
+)
 from ..storage import get_session
+
 router = APIRouter(prefix='/agents/security', tags=['Agent Security'])
 
 @router.post('/policies', response_model=AgentSecurityPolicy)
 @rate_limit(rate=50, per=60)
-async def create_security_policy(request: Request, name: str, description: str, security_level: SecurityLevel, policy_rules: dict, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> AgentSecurityPolicy:
+async def create_security_policy(request: Request, name: str, description: str, security_level: SecurityLevel, policy_rules: dict[str, Any], session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> AgentSecurityPolicy:
     """Create a new security policy"""
     try:
         security_manager = AgentSecurityManager(session)
@@ -60,7 +77,7 @@ async def get_security_policy(request: Request, policy_id: str, session: Annotat
 
 @router.put('/policies/{policy_id}', response_model=AgentSecurityPolicy)
 @rate_limit(rate=50, per=60)
-async def update_security_policy(request: Request, policy_id: str, policy_updates: dict, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> AgentSecurityPolicy:
+async def update_security_policy(request: Request, policy_id: str, policy_updates: dict[str, Any], session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> AgentSecurityPolicy:
     """Update a security policy"""
     try:
         policy = session.get(AgentSecurityPolicy, policy_id)
@@ -223,7 +240,7 @@ async def update_trust_score(request: Request, entity_type: str, entity_id: str,
 
 @router.post('/sandbox/{execution_id}/create')
 @rate_limit(rate=50, per=60)
-async def create_sandbox(request: Request, execution_id: str, security_level: SecurityLevel=SecurityLevel.PUBLIC, workflow_requirements: dict | None=None, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, Any]:
+async def create_sandbox(request: Request, execution_id: str, security_level: SecurityLevel=SecurityLevel.PUBLIC, workflow_requirements: dict[str, Any] | None=None, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, Any]:
     """Create sandbox environment for agent execution"""
     try:
         sandbox_manager = AgentSandboxManager(session)
@@ -283,7 +300,7 @@ async def get_security_dashboard(request: Request, session: Annotated[Session, D
         recent_audits = list(session.exec(select(AgentAuditLog).order_by(desc(AgentAuditLog.timestamp)).limit(50)).all())  # type: ignore[arg-type]
         high_risk_events = list(session.exec(select(AgentAuditLog).where(AgentAuditLog.requires_investigation).order_by(desc(AgentAuditLog.timestamp)).limit(10)).all())  # type: ignore[arg-type]
         trust_scores = list(session.exec(select(AgentTrustScore)).all())
-        avg_trust_score = sum((ts.trust_score for ts in trust_scores)) / len(trust_scores) if trust_scores else 0
+        avg_trust_score = sum(ts.trust_score for ts in trust_scores) / len(trust_scores) if trust_scores else 0
         active_sandboxes = session.exec(select(AgentSandboxConfig).where(AgentSandboxConfig.is_active)).all()
         total_audits = len(session.exec(select(AgentAuditLog)).all())
         high_risk_count = len(session.exec(select(AgentAuditLog).where(AgentAuditLog.requires_investigation)).all())
@@ -328,7 +345,7 @@ async def get_security_statistics(request: Request, session: Annotated[Session, 
                 trust_score_distribution['high'] += 1
             else:
                 trust_score_distribution['very_high'] += 1
-        return {'audit_statistics': {'total_audits': total_audits, 'event_type_counts': event_type_counts, 'risk_score_distribution': risk_score_distribution}, 'trust_statistics': {'total_entities': len(trust_scores), 'average_trust_score': sum((ts.trust_score for ts in trust_scores)) / len(trust_scores) if trust_scores else 0, 'trust_score_distribution': trust_score_distribution}, 'security_health': {'high_risk_rate': (risk_score_distribution['high'] + risk_score_distribution['critical']) / total_audits * 100 if total_audits > 0 else 0, 'average_risk_score': sum((audit.risk_score for audit in all_audits)) / len(all_audits) if all_audits else 0, 'security_violation_rate': event_type_counts.get('security_violation', 0) / total_audits * 100 if total_audits > 0 else 0}}
+        return {'audit_statistics': {'total_audits': total_audits, 'event_type_counts': event_type_counts, 'risk_score_distribution': risk_score_distribution}, 'trust_statistics': {'total_entities': len(trust_scores), 'average_trust_score': sum(ts.trust_score for ts in trust_scores) / len(trust_scores) if trust_scores else 0, 'trust_score_distribution': trust_score_distribution}, 'security_health': {'high_risk_rate': (risk_score_distribution['high'] + risk_score_distribution['critical']) / total_audits * 100 if total_audits > 0 else 0, 'average_risk_score': sum(audit.risk_score for audit in all_audits) / len(all_audits) if all_audits else 0, 'security_violation_rate': event_type_counts.get('security_violation', 0) / total_audits * 100 if total_audits > 0 else 0}}
     except Exception as e:
         logger.error('Failed to get security statistics: %s', e)
         raise HTTPException(status_code=500, detail=str(e))

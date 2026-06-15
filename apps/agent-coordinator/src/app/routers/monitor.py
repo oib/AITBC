@@ -42,21 +42,21 @@ async def get_status(request: Request) -> dict[str, Any]:
     }
 
 
-@router.get("/miners", response_model=list[dict])
+@router.get("/miners", response_model=list[dict[str, Any]])
 @rate_limit(rate=500, per=60)
 async def get_miners(request: Request) -> list[dict[str, Any]]:
     """Get miners list."""
     return []
 
 
-@router.get("/dashboard", response_model=list[dict])
+@router.get("/dashboard", response_model=list[dict[str, Any]])
 @rate_limit(rate=500, per=60)
 async def get_history_dashboard(request: Request) -> list[dict[str, Any]]:
     """Get historical dashboard data."""
     return []
 
 
-@router.get("/jobs", response_model=list[dict])
+@router.get("/jobs", response_model=list[dict[str, Any]])
 @rate_limit(rate=500, per=60)
 async def get_jobs(request: Request) -> list[dict[str, Any]]:
     """Get jobs list for history and metrics commands."""

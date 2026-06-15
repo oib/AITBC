@@ -1,18 +1,24 @@
 from uuid import uuid4
+
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
+
 '\nP2P Trading Protocol API Endpoints\nREST API for agent-to-agent trading, matching, negotiation, and settlement\n'
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlmodel import select
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from ....domain.trading import TradeMatch, TradeNegotiation, TradeRequest, TradeType
 from ....storage import get_session
 from ..services.trading_marketplace.trading import P2PTradingProtocol
+
 router = APIRouter(prefix='/trading', tags=['trading'])
 
 class TradeRequestRequest(BaseModel):
@@ -336,7 +342,7 @@ async def simulate_trade_matching(request: Request, request_data: TradeRequestRe
         seller_offers = await trading_protocol.get_available_sellers(temp_request)
         seller_reputations = await trading_protocol.get_seller_reputations([offer['agent_id'] for offer in seller_offers])
         matches = trading_protocol.matching_engine.find_matches(temp_request, seller_offers, seller_reputations)
-        return {'simulation': True, 'request_details': {'trade_type': request_data.trade_type.value, 'budget_range': request_data.budget_range, 'requirements': request_data.requirements}, 'available_sellers': len(seller_offers), 'matches_found': len(matches), 'best_matches': matches[:5], 'average_match_score': sum((m['match_score'] for m in matches)) / len(matches) if matches else 0.0}
+        return {'simulation': True, 'request_details': {'trade_type': request_data.trade_type.value, 'budget_range': request_data.budget_range, 'requirements': request_data.requirements}, 'available_sellers': len(seller_offers), 'matches_found': len(matches), 'best_matches': matches[:5], 'average_match_score': sum(m['match_score'] for m in matches) / len(matches) if matches else 0.0}
     except Exception as e:
         logger.error('Error simulating trade matching: %s', str(e))
         raise HTTPException(status_code=500, detail='Internal server error')

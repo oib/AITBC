@@ -2,14 +2,17 @@
 import asyncio
 import time
 from typing import Any
+
 import httpx
 import websockets
+
 from .config import settings
 from .database import session_scope
 from .gossip import gossip_broker
 from .logger import get_logger
 from .metrics import metrics_registry
 from .sync import ChainSync
+
 logger = get_logger(__name__)
 
 class SubscriptionClient:

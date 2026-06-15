@@ -1,11 +1,16 @@
 from __future__ import annotations
+
 import asyncio
 import json
+from typing import Any
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
 from ..config import settings
 from ..gossip import gossip_broker
 from ..lease_tracker import lease_tracker
 from ..logger import get_logger
+
 router = APIRouter(prefix='', tags=['ws'])
 logger = get_logger(__name__)
 _active_subscribers: dict[str, WebSocket] = {}
@@ -43,7 +48,7 @@ async def subscription_websocket(websocket: WebSocket) -> None:
     """
     await websocket.accept()
     node_id: str | None = None
-    subscription_task: asyncio.Task | None = None
+    subscription_task: asyncio.Task[Any] | None = None
     try:
         message = await websocket.receive_text()
         try:

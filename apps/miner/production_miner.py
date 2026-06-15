@@ -7,7 +7,9 @@ import subprocess
 import sys
 import time
 from datetime import UTC, datetime
+
 from aitbc import AITBCHTTPClient, NetworkError, get_logger
+
 COORDINATOR_URL = os.environ.get('COORDINATOR_URL', 'http://127.0.0.1:8011')
 MINER_ID = os.environ.get('MINER_API_KEY', 'miner_test')
 AUTH_TOKEN = os.environ.get('MINER_API_KEY', 'miner_test')

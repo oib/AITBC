@@ -1,7 +1,9 @@
 """Core bridge logic for blockchain event to hermes agent trigger mapping."""
 import asyncio
 from typing import Any
+
 from aitbc.aitbc_logging import get_logger
+
 from .action_handlers.agent_daemon import AgentDaemonHandler
 from .action_handlers.coordinator_api import CoordinatorAPIHandler
 from .action_handlers.marketplace import MarketplaceHandler
@@ -9,7 +11,15 @@ from .config import Settings
 from .event_subscribers.blocks import BlockEventSubscriber
 from .event_subscribers.contracts import ContractEventSubscriber
 from .event_subscribers.transactions import TransactionEventSubscriber
-from .metrics import action_execution_duration_seconds, actions_failed_total, actions_triggered_total, event_processing_duration_seconds, events_processed_total, events_received_total
+from .metrics import (
+    action_execution_duration_seconds,
+    actions_failed_total,
+    actions_triggered_total,
+    event_processing_duration_seconds,
+    events_processed_total,
+    events_received_total,
+)
+
 logger = get_logger(__name__)
 
 class BlockchainEventBridge:
@@ -18,7 +28,7 @@ class BlockchainEventBridge:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._running = False
-        self._tasks: set[asyncio.Task] = set()
+        self._tasks: set[asyncio.Task[Any]] = set()
         self.block_subscriber: BlockEventSubscriber | None = None
         self.transaction_subscriber: TransactionEventSubscriber | None = None
         self.contract_subscriber: ContractEventSubscriber | None = None
@@ -113,7 +123,7 @@ class BlockchainEventBridge:
                 events_processed_total.labels(event_type=event_type, status='error').inc()
                 logger.error('Error processing transaction event: %s', e, exc_info=True)
 
-    async def _trigger_coordinator_actions(self, block_data: dict[str, Any], transactions: list) -> None:
+    async def _trigger_coordinator_actions(self, block_data: dict[str, Any], transactions: list[Any]) -> None:
         """Trigger coordinator API actions based on block data."""
         if not self.coordinator_handler:
             return
@@ -125,7 +135,7 @@ class BlockchainEventBridge:
                 actions_failed_total.labels(action_type='coordinator_api').inc()
                 logger.error('Error triggering coordinator API actions: %s', e, exc_info=True)
 
-    async def _trigger_marketplace_actions(self, block_data: dict[str, Any], transactions: list) -> None:
+    async def _trigger_marketplace_actions(self, block_data: dict[str, Any], transactions: list[Any]) -> None:
         """Trigger marketplace actions based on block data."""
         if not self.marketplace_handler:
             return

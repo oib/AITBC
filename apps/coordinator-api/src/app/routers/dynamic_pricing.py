@@ -5,14 +5,33 @@ Provides RESTful endpoints for dynamic pricing management
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
+
 from aitbc.rate_limiting import rate_limit
-from ..contexts.trading.services.trading_marketplace.dynamic_pricing import DynamicPricingEngine, PriceConstraints, PricingStrategy, ResourceType
+
+from ..contexts.trading.services.trading_marketplace.dynamic_pricing import (
+    DynamicPricingEngine,
+    PriceConstraints,
+    PricingStrategy,
+    ResourceType,
+)
 from ..domain.pricing_strategies import StrategyLibrary
-from ..schemas.pricing import BulkPricingUpdateRequest, BulkPricingUpdateResponse, DynamicPriceResponse, MarketAnalysisResponse, PriceForecast, PriceHistoryResponse, PricingRecommendation, PricingStrategyRequest, PricingStrategyResponse
+from ..schemas.pricing import (
+    BulkPricingUpdateRequest,
+    BulkPricingUpdateResponse,
+    DynamicPriceResponse,
+    MarketAnalysisResponse,
+    PriceForecast,
+    PriceHistoryResponse,
+    PricingRecommendation,
+    PricingStrategyRequest,
+    PricingStrategyResponse,
+)
 from ..services.market_data_collector import MarketDataCollector
+
 router = APIRouter(prefix='/v1/pricing', tags=['dynamic-pricing'])
 pricing_engine = None
 market_collector = None
@@ -64,7 +83,7 @@ async def get_price_forecast(request: Request, resource_type: str, resource_id: 
         except ValueError:
             raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f'Invalid resource type: {resource_type}')
         forecast_points = await engine.get_price_forecast(resource_id, hours)
-        return PriceForecast(resource_id=resource_id, resource_type=resource_type, forecast_hours=hours, time_points=[{'timestamp': point.timestamp.isoformat(), 'price': point.price, 'demand_level': point.demand_level, 'supply_level': point.supply_level, 'confidence': point.confidence, 'strategy_used': point.strategy_used} for point in forecast_points], accuracy_score=sum((point.confidence for point in forecast_points)) / len(forecast_points) if forecast_points else 0.0, generated_at=datetime.now(UTC).isoformat())
+        return PriceForecast(resource_id=resource_id, resource_type=resource_type, forecast_hours=hours, time_points=[{'timestamp': point.timestamp.isoformat(), 'price': point.price, 'demand_level': point.demand_level, 'supply_level': point.supply_level, 'confidence': point.confidence, 'strategy_used': point.strategy_used} for point in forecast_points], accuracy_score=sum(point.confidence for point in forecast_points) / len(forecast_points) if forecast_points else 0.0, generated_at=datetime.now(UTC).isoformat())
     except Exception as e:
         raise HTTPException(status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Failed to generate price forecast: {str(e)}')
 
@@ -187,7 +206,7 @@ async def get_pricing_recommendations(request: Request, provider_id: str, resour
             history = engine.pricing_history[provider_id]
             if len(history) > 10:
                 recent_prices = [point.price for point in history[-10:]]
-                price_variance = sum(((p - sum(recent_prices) / len(recent_prices)) ** 2 for p in recent_prices)) / len(recent_prices)
+                price_variance = sum((p - sum(recent_prices) / len(recent_prices)) ** 2 for p in recent_prices) / len(recent_prices)
                 if price_variance > sum(recent_prices) / len(recent_prices) * 0.01:
                     recommendations.append(PricingRecommendation(type='stability', title='Reduce Price Variance', description='High price variance detected - consider stability improvements', impact='medium', confidence=0.8, action='Enable confidence_threshold of 0.8', expected_outcome='More stable pricing patterns'))
         return recommendations
@@ -212,7 +231,7 @@ async def get_price_history(request: Request, resource_id: str, period: str=Quer
             average_price = sum(prices) / len(prices)
             min_price = min(prices)
             max_price = max(prices)
-            variance = sum(((p - average_price) ** 2 for p in prices)) / len(prices)
+            variance = sum((p - average_price) ** 2 for p in prices) / len(prices)
             price_volatility = variance ** 0.5 / average_price if average_price > 0 else 0
             total_changes = 0
             for i in range(1, len(filtered_history)):

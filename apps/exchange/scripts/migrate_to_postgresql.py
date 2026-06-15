@@ -1,11 +1,14 @@
 """Migration script from SQLite to PostgreSQL for AITBC Exchange"""
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 import logging
 import sqlite3
 from decimal import Decimal
+
 import psycopg2
+
 logger = logging.getLogger(__name__)
 SQLITE_DB = 'exchange.db'
 PG_CONFIG = {'host': 'localhost', 'database': 'aitbc_exchange', 'user': 'aitbc_user', 'password': 'aitbc_password', 'port': 5432}

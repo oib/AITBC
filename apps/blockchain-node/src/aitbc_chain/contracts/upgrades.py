@@ -6,6 +6,8 @@ Handles safe contract versioning and upgrade mechanisms
 import asyncio
 import logging
 import time
+from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +19,6 @@ def log_error(msg: str) -> None:
 
 def log_warn(msg: str) -> None:
     logger.warning(msg)
-from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
 
@@ -45,7 +46,7 @@ class ContractVersion:
     total_contracts: int
     total_value: Decimal
     is_active: bool
-    metadata: dict
+    metadata: dict[str, Any]
 
 @dataclass
 class UpgradeProposal:
@@ -55,7 +56,7 @@ class UpgradeProposal:
     new_version: str
     upgrade_type: UpgradeType
     description: str
-    changes: dict
+    changes: dict[str, Any]
     voting_deadline: float
     execution_deadline: float
     status: UpgradeStatus
@@ -67,7 +68,7 @@ class UpgradeProposal:
     created_at: float
     proposer: str
     executed_at: float | None
-    rollback_data: dict | None
+    rollback_data: dict[str, Any] | None
 
 class ContractUpgradeManager:
     """Manages contract upgrades and versioning"""
@@ -76,7 +77,7 @@ class ContractUpgradeManager:
         self.contract_versions: dict[str, list[ContractVersion]] = {}  # contract_type -> versions
         self.active_versions: dict[str, str] = {}  # contract_type -> active version
         self.upgrade_proposals: dict[str, UpgradeProposal] = {}
-        self.upgrade_history: list[dict] = []
+        self.upgrade_history: list[dict[str, Any]] = []
 
         # Upgrade parameters
         self.min_voting_period = 86400 * 3  # 3 days
@@ -108,7 +109,7 @@ class ContractUpgradeManager:
             self.stake_weights[address] = Decimal('1000')  # Equal stake weights initially
 
     async def propose_upgrade(self, contract_type: str, current_version: str, new_version: str,
-                            upgrade_type: UpgradeType, description: str, changes: dict,
+                            upgrade_type: UpgradeType, description: str, changes: dict[str, Any],
                             proposer: str, emergency: bool = False) -> tuple[bool, str, str | None]:
         """Propose contract upgrade"""
         try:
@@ -326,7 +327,7 @@ class ContractUpgradeManager:
             proposal.status = UpgradeStatus.FAILED
             log_error(f"Error executing upgrade {proposal_id}: {e}")
 
-    async def _prepare_rollback_data(self, proposal: UpgradeProposal) -> dict:
+    async def _prepare_rollback_data(self, proposal: UpgradeProposal) -> dict[str, Any]:
         """Prepare data for potential rollback"""
         return {
             'previous_version': proposal.current_version,
@@ -484,7 +485,7 @@ class ContractUpgradeManager:
         """Get active version for contract type"""
         return self.active_versions.get(contract_type)
 
-    async def get_upgrade_statistics(self) -> dict:
+    async def get_upgrade_statistics(self) -> dict[str, Any]:
         """Get upgrade system statistics"""
         total_proposals = len(self.upgrade_proposals)
 

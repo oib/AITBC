@@ -6,7 +6,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum, StrEnum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
@@ -133,8 +133,8 @@ class MessageRouter:
         self.agent_id = agent_id
         self.round_robin_index = 0
         self.routing_rules: list[RoutingRule] = []
-        self.message_queue: asyncio.Queue = asyncio.Queue(maxsize=10000)
-        self.dead_letter_queue: asyncio.Queue = asyncio.Queue(maxsize=1000)
+        self.message_queue: asyncio.Queue[AgentMessage] = asyncio.Queue(maxsize=10000)
+        self.dead_letter_queue: asyncio.Queue[AgentMessage] = asyncio.Queue(maxsize=1000)
         self.routing_stats: dict[str, Any] = {'messages_processed': 0, 'messages_failed': 0, 'messages_expired': 0, 'routing_time_total': 0.0}
         self.active_routes: dict[str, str] = {}
         self.load_balancer_index = 0
@@ -298,7 +298,7 @@ class MessageQueue:
 
     def __init__(self, max_size: int = 10000) -> None:
         self.max_size = max_size
-        self.queues: dict[Priority, asyncio.Queue] = {Priority.CRITICAL: asyncio.Queue(maxsize=max_size // 4), Priority.HIGH: asyncio.Queue(maxsize=max_size // 4), Priority.NORMAL: asyncio.Queue(maxsize=max_size // 2), Priority.LOW: asyncio.Queue(maxsize=max_size // 4)}
+        self.queues: dict[Priority, asyncio.Queue[AgentMessage]] = {Priority.CRITICAL: asyncio.Queue(maxsize=max_size // 4), Priority.HIGH: asyncio.Queue(maxsize=max_size // 4), Priority.NORMAL: asyncio.Queue(maxsize=max_size // 2), Priority.LOW: asyncio.Queue(maxsize=max_size // 4)}
         self.message_store: dict[str, AgentMessage] = {}
         self.delivery_confirmations: dict[str, bool] = {}
 
@@ -344,10 +344,10 @@ class MessageProcessor:
         self.router = MessageRouter(agent_id)
         self.load_balancer = LoadBalancer()
         self.message_queue = MessageQueue()
-        self.processors: dict[str, Callable] = {}
+        self.processors: dict[str, Callable[[Any], Any]] = {}
         self.processing_stats: dict[str, Any] = {'messages_processed': 0, 'processing_time_total': 0.0, 'errors': 0}
 
-    def register_processor(self, message_type: MessageType, processor: Callable) -> None:
+    def register_processor(self, message_type: MessageType, processor: Callable[[Any], Any]) -> None:
         """Register message processor"""
         self.processors[message_type.value] = processor
         logger.info('Registered processor for %s', message_type.value)

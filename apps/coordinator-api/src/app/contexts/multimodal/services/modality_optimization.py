@@ -1,15 +1,21 @@
 from typing import Annotated
+
 from fastapi import Depends
 from sqlalchemy.orm import Session
+
 '\nModality-Specific Optimization Strategies - Phase 5.1\nSpecialized optimization for text, image, audio, video, tabular, and graph data\n'
 import asyncio
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
+
 from ....storage import get_session
 from .multimodal_agent import ModalityType
+
 
 class OptimizationStrategy(StrEnum):
     """Optimization strategy types"""
@@ -56,8 +62,8 @@ class TextOptimizer(ModalityOptimizer):
             optimized_result = await self._optimize_single_text(text, strategy, constraints)
             results.append(optimized_result)
         processing_time = (datetime.now(UTC) - start_time).total_seconds()
-        total_original_chars = sum((len(text) for text in texts))
-        total_optimized_size = sum((len(result['optimized_text']) for result in results))
+        total_original_chars = sum(len(text) for text in texts)
+        total_optimized_size = sum(len(result['optimized_text']) for result in results)
         metrics = self._calculate_optimization_metrics(total_original_chars, total_optimized_size, processing_time)
         return {'modality': 'text', 'strategy': strategy, 'processed_count': len(texts), 'results': results, 'optimization_metrics': metrics, 'processing_time_seconds': processing_time}
 
@@ -133,7 +139,7 @@ class TextOptimizer(ModalityOptimizer):
     def _comprehensive_clean(self, text: str) -> str:
         """Comprehensive text cleaning"""
         cleaned = text.lower().strip()
-        cleaned = ''.join((c for c in cleaned if c.isalnum() or c.isspace()))
+        cleaned = ''.join(c for c in cleaned if c.isalnum() or c.isspace())
         return cleaned
 
     def _advanced_tokenize(self, text: str) -> list[str]:
@@ -152,7 +158,7 @@ class TextOptimizer(ModalityOptimizer):
 
     def _extract_rich_features(self, text: str) -> dict[str, Any]:
         """Extract rich text features"""
-        return {'length': len(text), 'word_count': len(text.split()), 'sentence_count': text.count('.') + text.count('!') + text.count('?'), 'avg_word_length': sum((len(word) for word in text.split())) / len(text.split()), 'punctuation_ratio': sum((1 for c in text if not c.isalnum())) / len(text), 'complexity_score': min(1.0, len(text) / 1000)}
+        return {'length': len(text), 'word_count': len(text.split()), 'sentence_count': text.count('.') + text.count('!') + text.count('?'), 'avg_word_length': sum(len(word) for word in text.split()) / len(text.split()), 'punctuation_ratio': sum(1 for c in text if not c.isalnum()) / len(text), 'complexity_score': min(1.0, len(text) / 1000)}
 
     def _standard_clean(self, text: str) -> str:
         """Standard text cleaning"""
@@ -168,7 +174,7 @@ class TextOptimizer(ModalityOptimizer):
 
     def _extract_standard_features(self, text: str) -> dict[str, Any]:
         """Extract standard features"""
-        return {'length': len(text), 'word_count': len(text.split()), 'avg_word_length': sum((len(word) for word in text.split())) / len(text.split()) if text.split() else 0}
+        return {'length': len(text), 'word_count': len(text.split()), 'avg_word_length': sum(len(word) for word in text.split()) / len(text.split()) if text.split() else 0}
 
 class ImageOptimizer(ModalityOptimizer):
     """Image processing optimization strategies"""
@@ -457,6 +463,6 @@ class ModalityOptimizationManager:
             else:
                 results[modality.value] = result  # type: ignore[assignment]
         processing_time = (datetime.now(UTC) - start_time).total_seconds()
-        total_compression = sum((result.get('optimization_metrics', {}).get('compression_ratio', 1.0) for result in results.values() if 'error' not in result))  # type: ignore[call-overload, union-attr]
+        total_compression = sum(result.get('optimization_metrics', {}).get('compression_ratio', 1.0) for result in results.values() if 'error' not in result)  # type: ignore[call-overload, union-attr]
         avg_compression = total_compression / len([r for r in results.values() if 'error' not in r])
         return {'multimodal_optimization': True, 'strategy': strategy, 'modalities_processed': list(multimodal_data.keys()), 'results': results, 'aggregate_metrics': {'average_compression_ratio': avg_compression, 'total_processing_time': processing_time, 'modalities_count': len(multimodal_data)}, 'processing_time_seconds': processing_time}

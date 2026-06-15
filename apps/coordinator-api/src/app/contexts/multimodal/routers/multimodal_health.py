@@ -1,16 +1,21 @@
 from typing import Annotated
+
 '\nMulti-Modal Agent Service Health Check Router\nProvides health monitoring for multi-modal processing capabilities\n'
 import sys
 from datetime import UTC, datetime
 from typing import Any
+
 import psutil
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from ....storage import get_session
 from ..services.multimodal_agent import MultiModalAgentService
+
 router = APIRouter()
 
 @router.get('/health', tags=['health'], summary='Multi-Modal Agent Service Health')
@@ -56,7 +61,7 @@ async def multimodal_deep_health(request: Request, session: Annotated[Session, D
             modality_tests['video'] = {'status': 'pass', 'processing_time': '0.35s', 'accuracy': '85%'}
         except Exception:
             modality_tests['video'] = {'status': 'fail', 'error': 'Test failed'}
-        return {'status': 'healthy', 'service': 'multimodal-agent', 'port': 8002, 'timestamp': datetime.now(UTC).isoformat(), 'modality_tests': modality_tests, 'overall_health': 'pass' if all((test.get('status') == 'pass' for test in modality_tests.values())) else 'degraded'}
+        return {'status': 'healthy', 'service': 'multimodal-agent', 'port': 8002, 'timestamp': datetime.now(UTC).isoformat(), 'modality_tests': modality_tests, 'overall_health': 'pass' if all(test.get('status') == 'pass' for test in modality_tests.values()) else 'degraded'}
     except Exception as e:
         logger.error('Deep Multi-Modal health check failed: %s', e)
         return {'status': 'unhealthy', 'service': 'multimodal-agent', 'port': 8002, 'timestamp': datetime.now(UTC).isoformat(), 'error': 'Deep health check failed'}

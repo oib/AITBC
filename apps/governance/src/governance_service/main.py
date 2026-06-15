@@ -4,13 +4,25 @@ Manages governance operations
 """
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
+
 from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from aitbc import ErrorHandlerMiddleware, PerformanceLoggingMiddleware, RequestIDMiddleware, RequestValidationMiddleware, configure_logging, get_logger
+
+from aitbc import (
+    ErrorHandlerMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestIDMiddleware,
+    RequestValidationMiddleware,
+    configure_logging,
+    get_logger,
+)
+
 from .services.governance_service import GovernanceService
 from .storage import get_session, init_db
+
 configure_logging(level='INFO')
 logger = get_logger(__name__)
 
@@ -78,7 +90,7 @@ async def get_profile(profile_id: str, svc: GovernanceService=Depends(get_govern
     return await svc.get_profile(profile_id)
 
 @app.post('/v1/governance/profiles')
-async def create_profile(profile_data: dict, svc: GovernanceService=Depends(get_governance_service)):
+async def create_profile(profile_data: dict[str, Any], svc: GovernanceService=Depends(get_governance_service)):
     """Create a new governance profile"""
     return await svc.create_profile(profile_data)
 
@@ -93,7 +105,7 @@ async def get_proposal(proposal_id: str, svc: GovernanceService=Depends(get_gove
     return await svc.get_proposal(proposal_id)
 
 @app.post('/v1/governance/proposals')
-async def create_proposal(proposal_data: dict, svc: GovernanceService=Depends(get_governance_service)):
+async def create_proposal(proposal_data: dict[str, Any], svc: GovernanceService=Depends(get_governance_service)):
     """Create a new proposal"""
     return await svc.create_proposal(proposal_data)
 
@@ -103,7 +115,7 @@ async def get_votes(proposal_id: str | None=None, voter_id: str | None=None, svc
     return await svc.list_votes(proposal_id=proposal_id, voter_id=voter_id)
 
 @app.post('/v1/governance/votes')
-async def create_vote(vote_data: dict, svc: GovernanceService=Depends(get_governance_service)):
+async def create_vote(vote_data: dict[str, Any], svc: GovernanceService=Depends(get_governance_service)):
     """Create a new vote"""
     return await svc.create_vote(vote_data)
 
@@ -156,7 +168,7 @@ async def get_voting_power(address: str, proposal_id: str | None=None, svc: Gove
     return {'address': address, 'voting_power': total_voting_power, 'breakdown': {'token_holdings': base_voting_power, 'staking_bonus': staking_bonus, 'participation_bonus': participation_bonus}, 'has_voted': has_voted, 'proposal_id': proposal_id, 'calculated_at': svc.get_current_timestamp()}
 
 @app.post('/v1/transactions')
-async def submit_transaction(transaction_data: dict, session: AsyncSession=Depends(get_session_dep)):
+async def submit_transaction(transaction_data: dict[str, Any], session: AsyncSession=Depends(get_session_dep)):
     """Submit governance transaction"""
     from .domain.governance import Proposal, Vote
     transaction_type = transaction_data.get('type')
@@ -183,6 +195,7 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession=Depen
 async def get_transactions(transaction_type: str | None=None, action: str | None=None, status: str | None=None, island_id: str | None=None, session: AsyncSession=Depends(get_session_dep)):
     """Query governance transactions"""
     from sqlalchemy import select
+
     from .domain.governance import Proposal, Vote
     try:
         transactions = []

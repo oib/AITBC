@@ -2,8 +2,11 @@ import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
+
 import numpy as np
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 @dataclass

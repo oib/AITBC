@@ -7,8 +7,11 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 import numpy as np
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class PricingStrategy(StrEnum):

@@ -3,7 +3,9 @@ Agent Communication Service for Advanced Agent Features
 Implements secure agent-to-agent messaging with reputation-based access control
 """
 import asyncio
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 import hashlib
 import json
@@ -11,7 +13,10 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 from .cross_chain_reputation import CrossChainReputationService  # type: ignore[import-not-found]
+
+
 class MessageType(StrEnum):
     """Types of agent messages"""
     TEXT = 'text'

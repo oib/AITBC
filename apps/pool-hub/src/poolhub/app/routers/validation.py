@@ -143,14 +143,14 @@ def _get_grade_from_score(score: int) -> str:
         return "F"
 
 
-def _get_best_categories(compatible: list[tuple]) -> list[str]:
+def _get_best_categories(compatible: list[tuple[Any, ...]]) -> list[str]:
     """Get the categories with highest compatibility"""
     # This would need category info from registry
     # For now, return placeholder
     return ["AI/ML", "Media Processing"]
 
 
-def _generate_recommendations(miner: Miner, compatible: list[tuple]) -> list[str]:
+def _generate_recommendations(miner: Miner, compatible: list[tuple[Any, ...]]) -> list[str]:
     """Generate hardware upgrade recommendations"""
     recommendations = []
 

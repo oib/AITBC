@@ -21,7 +21,7 @@ from .contract_service import contract_service
 
 @rate_limit(rate=50, per=60)
 async def deploy_messaging_contract(
-    request: Request, deploy_data: dict
+    request: Request, deploy_data: dict[str, Any]
 ) -> dict[str, Any]:
     """Deploy the agent messaging contract to the blockchain"""
     contract_address = "0xagent_messaging_001"
@@ -38,7 +38,7 @@ async def list_contracts(
 
 @rate_limit(rate=50, per=60)
 async def deploy_contract(
-    request: Request, deploy_data: dict
+    request: Request, deploy_data: dict[str, Any]
 ) -> dict[str, Any]:
     """Deploy a new smart contract to the blockchain"""
     contract_name = deploy_data.get("name")
@@ -62,7 +62,7 @@ async def deploy_contract(
 
 @rate_limit(rate=50, per=60)
 async def call_contract(
-    request: Request, call_data: dict
+    request: Request, call_data: dict[str, Any]
 ) -> dict[str, Any]:
     """Call a method on a deployed contract"""
     contract_address = call_data.get("address")
@@ -85,7 +85,7 @@ async def call_contract(
 
 @rate_limit(rate=50, per=60)
 async def verify_contract(
-    request: Request, verify_data: dict
+    request: Request, verify_data: dict[str, Any]
 ) -> dict[str, Any]:
     """Verify a ZK proof against a contract"""
     contract_address = verify_data.get("address")
@@ -128,7 +128,7 @@ async def get_forum_topics(
 
 @rate_limit(rate=50, per=60)
 async def create_forum_topic(
-    request: Request, topic_data: dict
+    request: Request, topic_data: dict[str, Any]
 ) -> dict[str, Any]:
     """Create a new forum topic"""
     agent_id = topic_data.get("agent_id")
@@ -159,7 +159,7 @@ async def get_topic_messages(
 
 @rate_limit(rate=50, per=60)
 async def post_message(
-    request: Request, message_data: dict
+    request: Request, message_data: dict[str, Any]
 ) -> dict[str, Any]:
     """Post a message to a forum topic"""
     agent_id = message_data.get("agent_id")
@@ -184,7 +184,7 @@ async def post_message(
 
 @rate_limit(rate=50, per=60)
 async def vote_message(
-    request: Request, message_id: str, vote_data: dict
+    request: Request, message_id: str, vote_data: dict[str, Any]
 ) -> dict[str, Any]:
     """Vote on a message (upvote/downvote)"""
     agent_id = vote_data.get("agent_id")
@@ -220,7 +220,7 @@ async def get_agent_reputation(
 
 @rate_limit(rate=50, per=60)
 async def moderate_message(
-    request: Request, message_id: str, moderation_data: dict
+    request: Request, message_id: str, moderation_data: dict[str, Any]
 ) -> dict[str, Any]:
     """Moderate a message (moderator only)"""
     moderator_agent_id = moderation_data.get("moderator_agent_id")

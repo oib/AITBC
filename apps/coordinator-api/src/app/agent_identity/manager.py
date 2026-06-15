@@ -5,13 +5,23 @@ High-level manager for agent identity operations and cross-chain management
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import Session
-from ..contexts.agent_identity.domain.agent_identity import AgentIdentityCreate, AgentIdentityUpdate, AgentWalletUpdate, IdentityStatus, VerificationType
+
+from ..contexts.agent_identity.domain.agent_identity import (
+    AgentIdentityCreate,
+    AgentIdentityUpdate,
+    AgentWalletUpdate,
+    IdentityStatus,
+    VerificationType,
+)
 from .core import AgentIdentityCore
 from .registry import CrossChainRegistry
 from .wallet_adapter import MultiChainWalletAdapter
+
 
 class AgentIdentityManager:
     """High-level manager for agent identity operations"""
@@ -165,7 +175,7 @@ class AgentIdentityManager:
             for identity in identities:
                 if chains:
                     identity_chains = [int(chain_id) for chain_id in identity.supported_chains]
-                    if not any((chain in identity_chains for chain in chains)):
+                    if not any(chain in identity_chains for chain in chains):
                         continue
                 if min_reputation is not None and identity.reputation_score < min_reputation:
                     continue

@@ -8,15 +8,19 @@ This module provides the JobProcessor class that:
 4. Updates job state to "completed"
 """
 from __future__ import annotations
+
 import asyncio
 import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any
+
 from aitbc.aitbc_logging import get_logger
+
 from ..domain.models import JobState  # type: ignore[import-not-found]
 from .jobs import JobService
+
 logger = get_logger(__name__)
 
 class AIInferenceEngine:

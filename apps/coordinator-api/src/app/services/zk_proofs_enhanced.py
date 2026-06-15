@@ -6,13 +6,16 @@ implementations (no external snarkjs dependency) with proper commitment
 schemes and verification.
 """
 from __future__ import annotations
+
 import hashlib
 import json
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+
 from aitbc.aitbc_logging import get_logger
+
 logger = get_logger(__name__)
 
 @dataclass

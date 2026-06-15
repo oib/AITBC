@@ -1,6 +1,7 @@
 """Edge database-related schemas for Edge API Service"""
 
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column
@@ -28,4 +29,4 @@ class EdgeDatabase(SQLModel, table=True):
     records_synced: int = Field(default=0)
 
     # Database metadata
-    extra_data: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
+    extra_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))

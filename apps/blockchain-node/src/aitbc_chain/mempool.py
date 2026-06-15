@@ -18,7 +18,6 @@ mempool_metadata = MetaData()
 class MempoolEntry(SQLModel, table=True):
     __tablename__ = "mempool"
     __table_args__: Any = (
-        {"metadata": mempool_metadata},
         Index('idx_mempool_fee', 'fee', postgresql_ops={'fee': 'DESC'}),
     )
 

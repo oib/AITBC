@@ -1,9 +1,12 @@
 """Subscription RPC endpoints for lease-based block push system."""
 from typing import Any
+
 from fastapi import HTTPException
+
 from ..config import settings
 from ..lease_tracker import lease_tracker
 from ..logger import get_logger
+
 logger = get_logger(__name__)
 
 async def register_subscription(request: dict[str, Any]) -> dict[str, Any]:

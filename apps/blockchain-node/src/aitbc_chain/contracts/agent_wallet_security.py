@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from eth_utils import to_checksum_address
+from eth_utils import to_checksum_address  # type: ignore[attr-defined]
 
 from .guardian_contract import (
     AGGRESSIVE_CONFIG,
@@ -28,7 +28,7 @@ class AgentSecurityProfile:
     agent_address: str
     security_level: str  # "conservative", "aggressive", "high_security"
     guardian_addresses: list[str]
-    custom_limits: dict | None = None
+    custom_limits: dict[str, Any] | None = None
     enabled: bool = True
     created_at: datetime | None = None
 
@@ -45,7 +45,7 @@ class AgentWalletSecurity:
     def __init__(self) -> None:
         self.agent_profiles: dict[str, AgentSecurityProfile] = {}
         self.guardian_contracts: dict[str, GuardianContract] = {}
-        self.security_events: list[dict] = []
+        self.security_events: list[dict[str, Any]] = []
 
         # Default configurations
         self.configurations = {
@@ -58,7 +58,7 @@ class AgentWalletSecurity:
                       agent_address: str,
                       security_level: str = "conservative",
                       guardian_addresses: list[str] | None = None,
-                      custom_limits: dict | None = None) -> dict:
+                      custom_limits: dict[str, Any] | None = None) -> dict[str, Any]:
         """
         Register an agent for security protection
         
@@ -145,7 +145,7 @@ class AgentWalletSecurity:
                           agent_address: str,
                           to_address: str,
                           amount: int,
-                          data: str = "") -> dict:
+                          data: str = "") -> dict[str, Any]:
         """
         Protect a transaction with guardian contract
         
@@ -203,7 +203,7 @@ class AgentWalletSecurity:
     def execute_protected_transaction(self,
                                     agent_address: str,
                                     operation_id: str,
-                                    signature: str) -> dict:
+                                    signature: str) -> dict[str, Any]:
         """
         Execute a previously protected transaction
         
@@ -244,7 +244,7 @@ class AgentWalletSecurity:
                 "reason": f"Transaction execution failed: {str(e)}"
             }
 
-    def emergency_pause_agent(self, agent_address: str, guardian_address: str) -> dict:
+    def emergency_pause_agent(self, agent_address: str, guardian_address: str) -> dict[str, Any]:
         """
         Emergency pause an agent's operations
         
@@ -286,8 +286,8 @@ class AgentWalletSecurity:
 
     def update_agent_security(self,
                             agent_address: str,
-                            new_limits: dict,
-                            guardian_address: str) -> dict:
+                            new_limits: dict[str, Any],
+                            guardian_address: str) -> dict[str, Any]:
         """
         Update security limits for an agent
         
@@ -338,7 +338,7 @@ class AgentWalletSecurity:
                 "reason": f"Security update failed: {str(e)}"
             }
 
-    def get_agent_security_status(self, agent_address: str) -> dict:
+    def get_agent_security_status(self, agent_address: str) -> dict[str, Any]:
         """
         Get security status for an agent
         
@@ -378,7 +378,7 @@ class AgentWalletSecurity:
                 "reason": f"Status check failed: {str(e)}"
             }
 
-    def list_protected_agents(self) -> list[dict]:
+    def list_protected_agents(self) -> list[dict[str, Any]]:
         """List all protected agents"""
         agents = []
 
@@ -398,7 +398,7 @@ class AgentWalletSecurity:
 
         return sorted(agents, key=lambda x: x["registered_at"], reverse=True)
 
-    def get_security_events(self, agent_address: str | None = None, limit: int = 50) -> list[dict]:
+    def get_security_events(self, agent_address: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
         """
         Get security events
         
@@ -425,7 +425,7 @@ class AgentWalletSecurity:
         }
         self.security_events.append(event)
 
-    def disable_agent_protection(self, agent_address: str, guardian_address: str) -> dict:
+    def disable_agent_protection(self, agent_address: str, guardian_address: str) -> dict[str, Any]:
         """
         Disable protection for an agent (guardian only)
         
@@ -484,7 +484,7 @@ agent_wallet_security = AgentWalletSecurity()
 # Convenience functions for common operations
 def register_agent_for_protection(agent_address: str,
                                  security_level: str = "conservative",
-                                 guardians: list[str] | None = None) -> dict:
+                                 guardians: list[str] | None = None) -> dict[str, Any]:
     """Register an agent for security protection"""
     return agent_wallet_security.register_agent(
         agent_address=agent_address,
@@ -496,7 +496,7 @@ def register_agent_for_protection(agent_address: str,
 def protect_agent_transaction(agent_address: str,
                              to_address: str,
                              amount: int,
-                             data: str = "") -> dict:
+                             data: str = "") -> dict[str, Any]:
     """Protect a transaction for an agent"""
     return agent_wallet_security.protect_transaction(
         agent_address=agent_address,
@@ -506,13 +506,13 @@ def protect_agent_transaction(agent_address: str,
     )
 
 
-def get_agent_security_summary(agent_address: str) -> dict:
+def get_agent_security_summary(agent_address: str) -> dict[str, Any]:
     """Get security summary for an agent"""
     return agent_wallet_security.get_agent_security_status(agent_address)
 
 
 # Security audit and monitoring functions
-def generate_security_report() -> dict:
+def generate_security_report() -> dict[str, Any]:
     """Generate comprehensive security report"""
     protected_agents = agent_wallet_security.list_protected_agents()
 
@@ -541,7 +541,7 @@ def generate_security_report() -> dict:
     }
 
 
-def detect_suspicious_activity(agent_address: str, hours: int = 24) -> dict:
+def detect_suspicious_activity(agent_address: str, hours: int = 24) -> dict[str, Any]:
     """Detect suspicious activity for an agent"""
     status = agent_wallet_security.get_agent_security_status(agent_address)
 

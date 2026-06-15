@@ -7,7 +7,9 @@ import collections
 import time
 from datetime import UTC, datetime
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class TimeSeriesData:
@@ -165,5 +167,5 @@ class MarketplaceMonitor:
 
     def get_realtime_dashboard_data(self) -> dict[str, Any]:
         """Get aggregated data formatted for the frontend dashboard"""
-        return {'status': 'degraded' if any((a['severity'] in ['high', 'critical'] for a in self.active_alerts)) else 'healthy', 'timestamp': datetime.now(UTC).isoformat(), 'current_metrics': {'api': {'rps': round(self.api_requests_per_sec.get_latest() or 0, 2), 'latency_p50_ms': round(self.api_latency_ms.get_percentile(0.5, 60), 2), 'latency_p95_ms': round(self.api_latency_ms.get_percentile(0.95, 60), 2), 'error_rate_pct': round(self.api_error_rate.get_average(60), 2)}, 'trading': {'tps': round(self.trades_per_sec.get_latest() or 0, 2), 'matching_time_ms': round(self.order_matching_time_ms.get_average(60), 2), 'active_orders': int(self.active_orders.get_latest() or 0)}, 'network': {'active_providers': int(self.active_providers.get_latest() or 0), 'gpu_utilization_pct': round(self.gpu_utilization_pct.get_latest() or 0, 2), 'bandwidth_mbps': round(self.network_bandwidth_mbps.get_latest() or 0, 2)}}, 'alerts': self.active_alerts}
+        return {'status': 'degraded' if any(a['severity'] in ['high', 'critical'] for a in self.active_alerts) else 'healthy', 'timestamp': datetime.now(UTC).isoformat(), 'current_metrics': {'api': {'rps': round(self.api_requests_per_sec.get_latest() or 0, 2), 'latency_p50_ms': round(self.api_latency_ms.get_percentile(0.5, 60), 2), 'latency_p95_ms': round(self.api_latency_ms.get_percentile(0.95, 60), 2), 'error_rate_pct': round(self.api_error_rate.get_average(60), 2)}, 'trading': {'tps': round(self.trades_per_sec.get_latest() or 0, 2), 'matching_time_ms': round(self.order_matching_time_ms.get_average(60), 2), 'active_orders': int(self.active_orders.get_latest() or 0)}, 'network': {'active_providers': int(self.active_providers.get_latest() or 0), 'gpu_utilization_pct': round(self.gpu_utilization_pct.get_latest() or 0, 2), 'bandwidth_mbps': round(self.network_bandwidth_mbps.get_latest() or 0, 2)}}, 'alerts': self.active_alerts}
 monitor = MarketplaceMonitor()

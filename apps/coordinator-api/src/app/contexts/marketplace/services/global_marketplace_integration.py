@@ -6,15 +6,19 @@ import hashlib
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select
+
 from ....agent_identity.wallet_adapter_enhanced import WalletAdapterFactory
 from ....reputation.engine import CrossChainReputationEngine
 from ....services.multi_chain_transaction_manager import MultiChainTransactionManager, TransactionPriority
 from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol, BridgeSecurityLevel, CrossChainBridgeService
 from ..domain.global_marketplace import GlobalMarketplaceOffer
 from ..services.global_marketplace import GlobalMarketplaceService, RegionManager
+
 
 class IntegrationStatus(StrEnum):
     """Global marketplace integration status"""

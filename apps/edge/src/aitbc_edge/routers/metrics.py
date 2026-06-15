@@ -13,7 +13,7 @@ router = APIRouter()
 class RecordMetricsRequest(BaseModel):
     """Request model for recording metrics"""
     gpu_id: str
-    metrics: dict
+    metrics: dict[str, Any]
 
 
 def get_metrics_service() -> MetricsService:

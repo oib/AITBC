@@ -5,12 +5,15 @@ import json
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 import redis
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
+
 from ..exceptions import QuotaExceededError, TenantError  # type: ignore[import-not-found]
 from ..middleware.tenant_context import get_current_tenant_id  # type: ignore[import-not-found]
 from ..models.multitenant import Tenant, TenantQuota, UsageRecord  # type: ignore[import-not-found]
+
 
 class QuotaEnforcementService:
     """Service for enforcing tenant resource quotas"""

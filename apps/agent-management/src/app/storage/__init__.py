@@ -3,10 +3,14 @@
 Provides database session management using SQLModel.
 """
 from collections.abc import Generator
+
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
+
 from ..core.config import settings
+
 logger = get_logger(__name__)
 _engine: Engine | None = None
 

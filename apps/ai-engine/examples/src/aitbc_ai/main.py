@@ -1,14 +1,18 @@
 """AI Service for job operations."""
 from __future__ import annotations
+
 import logging
 import os
 from datetime import UTC, datetime
 from typing import Annotated, Any
+
 from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field, SQLModel, select
+
 from .domain.jobs import Job, JobState
 from .storage import get_session
+
 logger = logging.getLogger(__name__)
 app = FastAPI(title='AITBC AI Service', description='AI job operations service', version='1.0.0')
 
