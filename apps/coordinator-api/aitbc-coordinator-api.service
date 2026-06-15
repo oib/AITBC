@@ -23,7 +23,7 @@ RestartSec=10
 PIDFile=/run/aitbc-coordinator-api.pid
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=Coordinator
+SyslogIdentifier=aitbc-coordinator-api
 
 # Note: ProtectSystem=no removed for service user compatibility
 # Database writes handled through proper file permissions
