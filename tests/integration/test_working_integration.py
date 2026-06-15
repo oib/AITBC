@@ -2,14 +2,7 @@
 Working integration tests with proper imports
 """
 
-import sys
-from pathlib import Path
-
 import pytest
-
-# Add the correct path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root / "apps" / "coordinator-api" / "src"))
 
 
 @pytest.mark.integration

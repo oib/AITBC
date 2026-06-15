@@ -76,7 +76,7 @@ log_info "Checking endpoint availability..."
 check_endpoint() {
     local url="$1"
     local name="$2"
-    
+
     if curl -sf -o /dev/null --max-time 5 "$url"; then
         log_success "$name endpoint is available"
         return 0

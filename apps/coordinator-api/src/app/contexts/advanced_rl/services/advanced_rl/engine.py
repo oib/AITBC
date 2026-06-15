@@ -12,14 +12,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sqlmodel import Session, select
 
 from aitbc import get_logger
 
-logger = get_logger(__name__)
-from sqlmodel import Session, select  # noqa: E402
+from ...domain.agent_performance import ReinforcementLearningConfig  # type: ignore[import-not-found]
+from .agents import PPOAgent, RainbowDQNAgent, SACAgent
 
-from ...domain.agent_performance import ReinforcementLearningConfig  # type: ignore[import-not-found]  # noqa: E402
-from .agents import PPOAgent, RainbowDQNAgent, SACAgent  # noqa: E402
+logger = get_logger(__name__)
 
 
 class AdvancedReinforcementLearningEngine:

@@ -1,19 +1,21 @@
-from typing import Annotated
+"""
+Adaptive Learning Systems - Phase 5.2
+Reinforcement learning frameworks for agent self-improvement
+"""
+
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Annotated, Any
 from uuid import uuid4
 
+import numpy as np
+from app.storage import get_session  # type: ignore[import-not-found]
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-"\nAdaptive Learning Systems - Phase 5.2\nReinforcement learning frameworks for agent self-improvement\n"
-from aitbc import get_logger  # noqa: E402
+from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import UTC, datetime  # noqa: E402
-from enum import StrEnum  # noqa: E402
-from typing import Any  # noqa: E402
-
-import numpy as np  # noqa: E402
-from app.storage import get_session  # type: ignore[import-not-found]  # noqa: E402
 
 
 class LearningAlgorithm(StrEnum):
@@ -57,7 +59,7 @@ class LearningEnvironment:
                 for param, bounds in constraint_config.items():
                     if param in state:
                         value = state[param]
-                        if isinstance(bounds, (list, tuple)) and len(bounds) == 2:
+                        if isinstance(bounds, list | tuple) and len(bounds) == 2:
                             if not bounds[0] <= value <= bounds[1]:
                                 return False
         return True
@@ -69,7 +71,7 @@ class LearningEnvironment:
                 for param, bounds in constraint_config.items():
                     if param in action:
                         value = action[param]
-                        if isinstance(bounds, (list, tuple)) and len(bounds) == 2:
+                        if isinstance(bounds, list | tuple) and len(bounds) == 2:
                             if not bounds[0] <= value <= bounds[1]:
                                 return False
         return True
@@ -171,7 +173,7 @@ class ReinforcementLearningAgent:
         """Convert state to hashable key"""
         key_parts = []
         for key, value in sorted(state.items()):
-            if isinstance(value, (int, float)):
+            if isinstance(value, int | float):
                 key_parts.append(f"{key}:{value:.2f}")
             elif isinstance(value, str):
                 key_parts.append(f"{key}:{value[:10]}")
@@ -181,7 +183,7 @@ class ReinforcementLearningAgent:
         """Extract features from state for neural network"""
         features = []
         for _key, value in state.items():
-            if isinstance(value, (int, float)):
+            if isinstance(value, int | float):
                 features.append(float(value))
             elif isinstance(value, str):
                 features.append(float(len(value) % 100))

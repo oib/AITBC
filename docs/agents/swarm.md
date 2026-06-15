@@ -152,16 +152,16 @@ class CollectiveResourceAllocation:
     def optimize_allocation(self, network_state):
         # Analyze current resource distribution
         resource_analysis = self.analyze_resources(network_state)
-        
+
         # Identify optimization opportunities
         opportunities = self.identify_opportunities(resource_analysis)
-        
+
         # Generate collective allocation plan
         allocation_plan = self.generate_plan(opportunities)
-        
+
         # Coordinate agent actions
         return self.coordinate_execution(allocation_plan)
-    
+
     def analyze_resources(self, state):
         """Analyze resource distribution across network"""
         return {
@@ -181,13 +181,13 @@ class DynamicPriceDiscovery:
     def coordinate_pricing(self, market_data):
         # Collect pricing data from all agents
         pricing_data = self.collect_pricing_data(market_data)
-        
+
         # Analyze market conditions
         market_analysis = self.analyze_market_conditions(pricing_data)
-        
+
         # Propose collective price adjustments
         price_proposals = self.generate_price_proposals(market_analysis)
-        
+
         # Reach consensus on price changes
         return self.reach_pricing_consensus(price_proposals)
 ```
@@ -201,13 +201,13 @@ class CollectiveSecurity:
     def detect_threats(self, network_activity):
         # Share security telemetry
         telemetry = self.share_security_data(network_activity)
-        
+
         # Identify patterns and anomalies
         threats = self.identify_threats(telemetry)
-        
+
         # Coordinate response actions
         response_plan = self.coordinate_response(threats)
-        
+
         # Execute collective defense
         return self.execute_defense(response_plan)
 ```

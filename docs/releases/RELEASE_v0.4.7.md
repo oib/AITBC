@@ -472,7 +472,7 @@ FFmpeg service added to SERVICES dict in `/opt/aitbc/apps/api-gateway/src/api_ga
 ImportError: cannot import name 'MarketplaceBidRequest' from 'app.schemas'
 ```
 
-**Solution**: 
+**Solution**:
 - Removed deprecated `MarketplaceBidRequest` and `MarketplaceBidView` imports from multiple files
 - Updated `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/services/marketplace.py`
 - Updated `/opt/aitbc/apps/coordinator-api/src/app/models/__init__.py`

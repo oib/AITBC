@@ -310,7 +310,7 @@ echo "Starting listener for $AGENT_ID on $COORDINATOR_URL"
 while true; do
   # Fetch messages
   RESPONSE=$(curl -s "${COORDINATOR_URL}/api/v1/agent/messages/${AGENT_ID}")
-  
+
   # Process messages
   MESSAGE_COUNT=$(echo "$RESPONSE" | jq '.count // 0')
   if [ "$MESSAGE_COUNT" -gt 0 ]; then
@@ -318,9 +318,9 @@ while true; do
       SENDER=$(echo "$msg" | jq -r '.sender')
       CONTENT=$(echo "$msg" | jq -r '.content')
       MSG_ID=$(echo "$msg" | jq -r '.id')
-      
+
       echo "[$(date -Iseconds)] Received from $SENDER: $CONTENT (ID: $MSG_ID)"
-      
+
       # Process PING messages
       if echo "$CONTENT" | grep -q "PING"; then
         # Send PONG response
@@ -332,14 +332,14 @@ while true; do
             \"content\": \"PONG response\",
             \"message_type\": \"TEXT\"
           }")
-        
+
         if echo "$PONG_RESPONSE" | jq -e '.success' >/dev/null 2>&1; then
           echo "[$(date -Iseconds)] Sent PONG to $SENDER"
         fi
       fi
     done
   fi
-  
+
   sleep 5
 done
 ```
@@ -357,7 +357,7 @@ echo "$MESSAGES" | jq -c '.[] | select(.content.cmd=="PING")' | while read msg; 
   # Extract sender and timestamp
   SENDER=$(echo "$msg" | jq -r '.from')
   TIMESTAMP=$(echo "$msg" | jq -r '.content.timestamp')
-  
+
   # Send PONG response
   NODE_URL=http://hub.aitbc.bubuit.net:8202 aitbc-cli agent message \
     --agent $SENDER \

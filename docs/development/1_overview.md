@@ -39,13 +39,13 @@ graph TB
         C[CLI Tools] --> E
         D[Smart Contracts] --> F[Blockchain]
     end
-    
+
     subgraph "AITBC Platform"
         E --> G[Marketplace]
         F --> H[Miners/Validators]
         G --> I[Job Execution]
     end
-    
+
     subgraph "External Services"
         J[AI Models] --> I
         K[Storage] --> I
@@ -266,4 +266,4 @@ See our [Contributing Guide](3_contributing.md) for details.
 3. [Choose an SDK](../4_examples.md)
 4. [Build your first app](../4_examples.md)
 
-Happy building! 
+Happy building!

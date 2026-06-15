@@ -1,33 +1,35 @@
-from typing import Annotated
-
-from sqlalchemy.orm import Session
-
 """
 Services router for specific GPU workloads
 """
 
-from typing import Any  # noqa: E402
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status  # noqa: E402
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from sqlalchemy.orm import Session
 
-from aitbc.rate_limiting import rate_limit  # noqa: E402
+from aitbc.rate_limiting import rate_limit
 
-from ..deps import require_client_key  # noqa: E402
-from ..models.services import (  # noqa: E402
+from ..deps import require_client_key
+from ..models.services import (
+    BlenderEngine,
     BlenderRequest,
+    FFmpegCodec,
     FFmpegRequest,
+    LLMModel,
     LLMRequest,
+    SDModel,
     ServiceRequest,
     ServiceResponse,
     ServiceType,
     StableDiffusionRequest,
+    WhisperModel,
     WhisperRequest,
 )
-from ..schemas import JobCreate  # noqa: E402
+from ..schemas import JobCreate
 
 # from ..models.registry import ServiceRegistry, service_registry
-from ..services import JobService  # noqa: E402
-from ..storage import get_session  # noqa: E402
+from ..services import JobService
+from ..storage import get_session
 
 
 # Placeholder for service_registry - to be properly imported when module structure is fixed
@@ -89,7 +91,9 @@ async def submit_service_job(
     try:
         typed_request = service_request.get_service_request()
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid request for {service_type}: {str(e)}") from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid request for {service_type}: {str(e)}"
+        ) from e
 
     # Get constraints from service request
     constraints = typed_request.get_constraints()
@@ -526,7 +530,7 @@ async def validate_service_request(service_id: str, request_data: dict[str, Any]
             if param.type == "integer" and not isinstance(value, int):
                 validation_result["valid"] = False
                 validation_result["errors"].append(f"Parameter {param.name} must be an integer")
-            elif param.type == "float" and not isinstance(value, (int, float)):
+            elif param.type == "float" and not isinstance(value, int | float):
                 validation_result["valid"] = False
                 validation_result["errors"].append(f"Parameter {param.name} must be a number")
             elif param.type == "boolean" and not isinstance(value, bool):
@@ -551,13 +555,3 @@ async def validate_service_request(service_id: str, request_data: dict[str, Any]
                 validation_result["errors"].append(f"Parameter {param.name} must be one of: {', '.join(param.options)}")
 
     return validation_result
-
-
-# Import models for type hints
-from ..models.services import (  # noqa: E402
-    BlenderEngine,
-    FFmpegCodec,
-    LLMModel,
-    SDModel,
-    WhisperModel,
-)

@@ -43,7 +43,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     tar -czf aitbc-v${VERSION}-linux-x86_64.tar.gz linux-x86_64/
 fi
 
-# macOS package  
+# macOS package
 if [[ "$OSTYPE" == "darwin"* ]]; then
     mkdir -p darwin-x86_64
     cp ../darwin-x86_64/aitbc darwin-x86_64/

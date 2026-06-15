@@ -1,16 +1,8 @@
 """Tests for advanced AI module"""
 
-import sys
-from pathlib import Path
+from datetime import UTC, datetime
 
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
-
-from datetime import UTC, datetime  # noqa: E402
-
-from app.ai.advanced_ai import (  # noqa: E402
+from app.ai.advanced_ai import (
     AdvancedAIIntegration,
     MLModel,
     NeuralNetwork,

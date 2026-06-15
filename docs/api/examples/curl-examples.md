@@ -89,13 +89,13 @@ JOB_ID="your-job-id"
 while true; do
   STATUS=$(curl -s -H "X-Api-Key: $API_KEY" \
     $BASE_URL/v1/jobs/$JOB_ID | jq -r '.state')
-  
+
   echo "State: $STATUS"
-  
+
   if [[ "$STATUS" =~ ^(COMPLETED|FAILED|CANCELLED|EXPIRED)$ ]]; then
     break
   fi
-  
+
   sleep 5
 done
 ```
@@ -311,15 +311,15 @@ for i in $(seq 1 $MAX_RETRIES); do
   RESPONSE=$(curl -s -w "\n%{http_code}" \
     -H "X-Api-Key: $API_KEY" \
     $BASE_URL/v1/jobs/{job_id})
-  
+
   HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
   BODY=$(echo "$RESPONSE" | head -n-1)
-  
+
   if [ $HTTP_CODE -eq 200 ]; then
     echo "$BODY"
     exit 0
   fi
-  
+
   echo "Attempt $i failed with status $HTTP_CODE"
   sleep $RETRY_DELAY
 done

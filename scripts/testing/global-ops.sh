@@ -54,7 +54,7 @@ print(f'NETWORK:GLOBAL:{len(poa.validators)}:{total_stake}')
 if [[ "$network_status" == NETWORK:GLOBAL:* ]]; then
     validator_count=$(echo "$network_status" | cut -d: -f3)
     total_stake=$(echo "$network_status" | cut -d: -f4)
-    
+
     echo -e "${GREEN}✅ Global Network: OPERATIONAL${NC}"
     echo "   Total Validators: $validator_count"
     echo "   Total Stake: ${total_stake:,.0f} AITBC"
@@ -97,7 +97,7 @@ print(f'ECONOMY:GLOBAL:{registry[\"total_agents\"]}:{total_jobs}:{completed_jobs
         completed_jobs=$(echo "$economy_info" | cut -d: -f5)
         transactions=$(echo "$economy_info" | cut -d: -f6)
         total_earnings=$(echo "$economy_info" | cut -d: -f7)
-        
+
         echo -e "${GREEN}✅ Global Economy: ACTIVE${NC}"
         echo "   Total Agents: $total_agents"
         echo "   Total Jobs: $total_jobs"

@@ -1,15 +1,6 @@
 """Tests for WebSocket agent streaming module"""
 
-import sys
-from pathlib import Path
-
-# Add coordinator path for imports
-coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
-if str(coordinator_path) not in sys.path:
-    sys.path.insert(0, str(coordinator_path))
-
-
-from app.websocket.agent_stream import ConnectionManager  # noqa: E402
+from app.websocket.agent_stream import ConnectionManager
 
 
 class TestConnectionManager:

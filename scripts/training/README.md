@@ -114,7 +114,7 @@ Each stage includes node-specific testing using the training library:
 # Genesis node operations
 NODE_URL="http://localhost:8006" ./aitbc-cli wallet balance wallet
 
-# Follower node operations  
+# Follower node operations
 NODE_URL="http://localhost:8006" ./aitbc-cli wallet balance wallet
 
 # Using training library functions
@@ -264,7 +264,7 @@ Stage 5 includes custom Python automation scripts:
 ### Logging Functions
 ```bash
 log_info "Message"      # Info level logging
-log_success "Message"   # Success level logging  
+log_success "Message"   # Success level logging
 log_error "Message"     # Error level logging
 log_warning "Message"   # Warning level logging
 log_debug "Message"     # Debug level (requires DEBUG=true)
@@ -357,10 +357,10 @@ grep "measure_time\|Performance benchmark" /var/log/aitbc/training_*.log
 
 ---
 
-**Training Scripts Version**: 1.1  
-**Last Updated**: 2026-04-02  
-**Target Audience**: hermes Agents  
-**Difficulty**: Beginner to Expert (5 Stages)  
-**Estimated Duration**: 2-4 hours (automated)  
-**Certification**: hermes AITBC Master  
+**Training Scripts Version**: 1.1
+**Last Updated**: 2026-04-02
+**Target Audience**: hermes Agents
+**Difficulty**: Beginner to Expert (5 Stages)
+**Estimated Duration**: 2-4 hours (automated)
+**Certification**: hermes AITBC Master
 **Library**: `training_lib.sh` - Common utilities and functions

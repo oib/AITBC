@@ -16,11 +16,11 @@ import "./AIToken.sol";
  * @notice Allows users to stake AITBC tokens on agent wallets and earn rewards based on agent performance
  */
 contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
-    
+
     // State variables
     IERC20 public aitbcToken;
     PerformanceVerifier public performanceVerifier;
-    
+
     uint256 public stakeCounter;
     uint256 public baseAPY = 500; // 5% base APY in basis points
     uint256 public maxAPY = 2000; // 20% max APY in basis points
@@ -30,7 +30,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     uint256 public rewardDistributionInterval = 1 days;
     uint256 public platformFeePercentage = 100; // 1% platform fee
     uint256 public earlyUnbondPenalty = 1000; // 10% penalty for early unbonding
-    
+
     // Rate limiting state variables
     uint256 public maxStakesPerDay = 10; // Maximum stakes per user per day
     uint256 public maxStakesPerUser = 50; // Maximum total stakes per user
@@ -39,13 +39,13 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     mapping(address => uint256) public dailyStakeCount; // Stakes per day per user
     mapping(address => uint256) public lastStakeTime; // Last stake time per user
     mapping(address => uint256) public dailyStakeTimestamp; // Timestamp for daily stake count reset
-    
+
     // Staking status
     enum StakeStatus { ACTIVE, UNBONDING, COMPLETED, SLASHED }
-    
+
     // Agent performance tier
     enum PerformanceTier { BRONZE, SILVER, GOLD, PLATINUM, DIAMOND }
-    
+
     // Structs
     struct Stake {
         uint256 stakeId;
@@ -62,7 +62,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         PerformanceTier agentTier;
         bool autoCompound;
     }
-    
+
     struct AgentMetrics {
         address agentWallet;
         uint256 totalStaked;
@@ -75,7 +75,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         PerformanceTier currentTier;
         uint256 tierScore;
     }
-    
+
     struct StakingPool {
         address agentWallet;
         uint256 totalStaked;
@@ -85,7 +85,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         mapping(address => uint256) stakerShares;
         address[] stakers;
     }
-    
+
     struct RewardCalculation {
         uint256 baseRewards;
         uint256 performanceBonus;
@@ -94,7 +94,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         uint256 totalRewards;
         uint256 platformFee;
     }
-    
+
     // Mappings
     mapping(uint256 => Stake) public stakes;
     mapping(address => uint256[]) public stakerStakes;
@@ -103,14 +103,14 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     mapping(address => StakingPool) public stakingPools;
     mapping(PerformanceTier => uint256) public tierMultipliers;
     mapping(uint256 => uint256) public lockPeriodMultipliers;
-    
+
     // Slashing mechanism
     struct SlashingCondition {
         uint256 minAccuracyThreshold; // Minimum accuracy percentage (e.g., 50)
         uint256 maxMissedJobs; // Maximum consecutive missed jobs
         uint256 slashingPercentage; // Percentage to slash (e.g., 10 for 10%)
     }
-    
+
     struct SlashAppeal {
         uint256 stakeId;
         address appellant;
@@ -119,17 +119,17 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         bool resolved;
         bool approved;
     }
-    
+
     mapping(address => SlashingCondition) public slashingConditions;
     mapping(uint256 => SlashAppeal) public slashAppeals;
-    
+
     uint256 public defaultMinAccuracy = 50; // 50%
     uint256 public defaultMaxMissedJobs = 5;
     uint256 public defaultSlashingPercentage = 10; // 10%
     uint256 public appealCooldown = 7 days;
     uint256 public appealWindow = 3 days;
     uint256 public slashReporterReward = 500; // 5% of slashed amount
-    
+
     // Oracle protection
     mapping(address => bool) public authorizedOracles;
     uint256 public oracleCount;
@@ -137,22 +137,22 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     uint256 public performanceUpdateDelay = 1 hours;
     mapping(address => uint256) public lastPerformanceUpdateTime;
     mapping(address => uint256) public oracleNonces;
-    
+
     struct OracleReputation {
         uint256 totalUpdates;
         uint256 successfulUpdates;
         uint256 disputedUpdates;
         uint256 reputationScore; // 0-100
     }
-    
+
     mapping(address => OracleReputation) public oracleReputations;
     uint256 public oracleRotationPeriod = 30 days;
     uint256 public lastOracleRotation;
-    
+
     // Arrays
     address[] public supportedAgents;
     uint256[] public activeStakeIds;
-    
+
     // Events
     event StakeCreated(
         uint256 indexed stakeId,
@@ -162,45 +162,45 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         uint256 lockPeriod,
         uint256 apy
     );
-    
+
     // Rate limiting events
     event StakeRateLimitExceeded(address indexed staker, string reason);
     event RateLimitParametersUpdated(uint256 maxStakesPerDay, uint256 maxStakesPerUser, uint256 stakeCooldown);
-    
+
     event StakeUpdated(
         uint256 indexed stakeId,
         uint256 newAmount,
         uint256 newAPY
     );
-    
+
     event RewardsDistributed(
         uint256 indexed stakeId,
         address indexed staker,
         uint256 rewardAmount,
         uint256 platformFee
     );
-    
+
     event StakeUnbonded(
         uint256 indexed stakeId,
         address indexed staker,
         uint256 amount,
         uint256 penalty
     );
-    
+
     event StakeCompleted(
         uint256 indexed stakeId,
         address indexed staker,
         uint256 totalAmount,
         uint256 totalRewards
     );
-    
+
     event AgentTierUpdated(
         address indexed agentWallet,
         PerformanceTier oldTier,
         PerformanceTier newTier,
         uint256 tierScore
     );
-    
+
     // Slashing events
     event StakeSlashed(
         uint256 indexed stakeId,
@@ -220,75 +220,75 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         address indexed reporter,
         uint256 reward
     );
-    
+
     // Oracle events
     event OracleAdded(address indexed oracle);
     event OracleRemoved(address indexed oracle);
     event OracleRotated(address indexed oldOracle, address indexed newOracle);
     event OracleRemovedForLowReputation(address indexed oracle, uint256 reputation);
     event PerformanceUpdateWithSignature(address indexed oracle, address indexed agentWallet);
-    
+
     event PoolRewardsDistributed(
         address indexed agentWallet,
         uint256 totalRewards,
         uint256 stakerCount
     );
-    
+
     event PlatformFeeCollected(
         uint256 indexed stakeId,
         uint256 feeAmount,
         address indexed collector
     );
-    
+
     // Modifiers
     modifier stakeExists(uint256 _stakeId) {
         require(_stakeId < stakeCounter, "Stake does not exist");
         _;
     }
-    
+
     modifier onlyStakeOwner(uint256 _stakeId) {
         require(stakes[_stakeId].staker == msg.sender, "Not stake owner");
         _;
     }
-    
+
     modifier supportedAgent(address _agentWallet) {
         require(agentMetrics[_agentWallet].agentWallet != address(0), "Agent not supported");
         _;
     }
-    
+
     modifier onlyAuthorizedOracle() {
         require(authorizedOracles[msg.sender], "Not authorized oracle");
         _;
     }
-    
+
     modifier validStakeAmount(uint256 _amount) {
         require(_amount >= minStakeAmount && _amount <= maxStakeAmount, "Invalid stake amount");
         _;
     }
-    
+
     modifier sufficientBalance(uint256 _amount) {
         require(aitbcToken.balanceOf(msg.sender) >= _amount, "Insufficient balance");
         _;
     }
-    
+
     constructor(address _aitbcToken, address _performanceVerifier) {
         aitbcToken = IERC20(_aitbcToken);
         performanceVerifier = PerformanceVerifier(_performanceVerifier);
-        
+
         // Set tier multipliers (in basis points)
         tierMultipliers[PerformanceTier.BRONZE] = 1000; // 1x
         tierMultipliers[PerformanceTier.SILVER] = 1200; // 1.2x
         tierMultipliers[PerformanceTier.GOLD] = 1500;   // 1.5x
         tierMultipliers[PerformanceTier.PLATINUM] = 2000; // 2x
         tierMultipliers[PerformanceTier.DIAMOND] = 3000; // 3x
-        
+
         // Set lock period multipliers
         lockPeriodMultipliers[30 days] = 1100;   // 1.1x for 30 days
         lockPeriodMultipliers[90 days] = 1250;   // 1.25x for 90 days
         lockPeriodMultipliers[180 days] = 1500;  // 1.5x for 180 days
         lockPeriodMultipliers[365 days] = 2000;  // 2x for 365 days
     }
-    
+
     /**
      * @dev Creates a new stake on an agent wallet
      * @param _agentWallet Address of the agent wallet
@@ -301,37 +301,37 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         uint256 _amount,
         uint256 _lockPeriod,
         bool _autoCompound
-    ) external 
+    ) external
         supportedAgent(_agentWallet)
         validStakeAmount(_amount)
         sufficientBalance(_amount)
-        nonReentrant 
-        returns (uint256) 
+        nonReentrant
+        returns (uint256)
     {
         require(_lockPeriod >= 1 days, "Lock period too short");
         require(_lockPeriod <= 365 days, "Lock period too long");
-        
+
         // Rate limiting checks
         require(userStakeCount[msg.sender] < maxStakesPerUser, "Max stakes per user exceeded");
-        
+
         // Reset daily stake count if new day
         if (dailyStakeTimestamp[msg.sender] == 0 || block.timestamp >= dailyStakeTimestamp[msg.sender] + 1 days) {
             dailyStakeCount[msg.sender] = 0;
             dailyStakeTimestamp[msg.sender] = block.timestamp;
         }
         require(dailyStakeCount[msg.sender] < maxStakesPerDay, "Max daily stakes exceeded");
-        
+
         // Check cooldown
         if (lastStakeTime[msg.sender] > 0) {
             require(block.timestamp >= lastStakeTime[msg.sender] + stakeCooldown, "Stake cooldown not elapsed");
         }
-        
+
         uint256 stakeId = stakeCounter++;
-        
+
         // Calculate initial APY
         PerformanceTier agentTier = _getAgentTier(_agentWallet);
         uint256 apy = _calculateAPY(_agentWallet, _lockPeriod, agentTier);
-        
+
         Stake storage stake = stakes[stakeId];
         stake.stakeId = stakeId;
         stake.staker = msg.sender;
@@ -346,31 +346,31 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         stake.currentAPY = apy;
         stake.agentTier = agentTier;
         stake.autoCompound = _autoCompound;
-        
+
         // Update agent metrics
         _updateAgentMetrics(_agentWallet, _amount, true);
-        
+
         // Update staking pool
         _updateStakingPool(_agentWallet, msg.sender, _amount, true);
-        
+
         // Update tracking arrays
         stakerStakes[msg.sender].push(stakeId);
         agentStakes[_agentWallet].push(stakeId);
         activeStakeIds.push(stakeId);
-        
+
         // Transfer tokens to contract
         require(aitbcToken.transferFrom(msg.sender, address(this), _amount), "Transfer failed");
-        
+
         // Update rate limiting counters
         userStakeCount[msg.sender]++;
         dailyStakeCount[msg.sender]++;
         lastStakeTime[msg.sender] = block.timestamp;
-        
+
         emit StakeCreated(stakeId, msg.sender, _agentWallet, _amount, _lockPeriod, apy);
-        
+
         return stakeId;
     }
-    
+
     /**
      * @dev Adds more tokens to an existing stake
      * @param _stakeId Stake ID
@@ -379,102 +379,102 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     function addToStake(
         uint256 _stakeId,
         uint256 _additionalAmount
-    ) external 
+    ) external
         stakeExists(_stakeId)
         onlyStakeOwner(_stakeId)
         validStakeAmount(_additionalAmount)
         sufficientBalance(_additionalAmount)
-        nonReentrant 
+        nonReentrant
     {
         Stake storage stake = stakes[_stakeId];
         require(stake.status == StakeStatus.ACTIVE, "Stake not active");
-        
+
         // Calculate new APY
         uint256 newTotalAmount = stake.amount + _additionalAmount;
         uint256 newAPY = _calculateAPY(stake.agentWallet, stake.lockPeriod, stake.agentTier);
-        
+
         // Update stake
         stake.amount = newTotalAmount;
         stake.currentAPY = newAPY;
-        
+
         // Update agent metrics
         _updateAgentMetrics(stake.agentWallet, _additionalAmount, true);
-        
+
         // Update staking pool
         _updateStakingPool(stake.agentWallet, msg.sender, _additionalAmount, true);
-        
+
         // Transfer additional tokens
         require(aitbcToken.transferFrom(msg.sender, address(this), _additionalAmount), "Transfer failed");
-        
+
         emit StakeUpdated(_stakeId, newTotalAmount, newAPY);
     }
-    
+
     /**
      * @dev Initiates unbonding for a stake
      * @param _stakeId Stake ID
      */
-    function unbondStake(uint256 _stakeId) external 
+    function unbondStake(uint256 _stakeId) external
         stakeExists(_stakeId)
         onlyStakeOwner(_stakeId)
-        nonReentrant 
+        nonReentrant
     {
         Stake storage stake = stakes[_stakeId];
         require(stake.status == StakeStatus.ACTIVE, "Stake not active");
         require(block.timestamp >= stake.endTime, "Lock period not ended");
-        
+
         // Calculate final rewards
         _calculateRewards(_stakeId);
-        
+
         stake.status = StakeStatus.UNBONDING;
-        
+
         // Remove from active stakes
         _removeFromActiveStakes(_stakeId);
     }
-    
+
     /**
      * @dev Completes unbonding and returns stake + rewards
      * @param _stakeId Stake ID
      */
-    function completeUnbonding(uint256 _stakeId) external 
+    function completeUnbonding(uint256 _stakeId) external
         stakeExists(_stakeId)
         onlyStakeOwner(_stakeId)
-        nonReentrant 
+        nonReentrant
     {
         Stake storage stake = stakes[_stakeId];
         require(stake.status == StakeStatus.UNBONDING, "Stake not unbonding");
         require(block.timestamp >= stake.endTime + unbondingPeriod, "Unbonding period not ended");
-        
+
         uint256 totalAmount = stake.amount;
         uint256 totalRewards = stake.accumulatedRewards;
-        
+
         // Apply early unbonding penalty if applicable
         uint256 penalty = 0;
         if (block.timestamp < stake.endTime + 30 days) {
             penalty = (totalAmount * earlyUnbondPenalty) / 10000;
             totalAmount -= penalty;
         }
-        
+
         stake.status = StakeStatus.COMPLETED;
-        
+
         // Update agent metrics
         _updateAgentMetrics(stake.agentWallet, stake.amount, false);
-        
+
         // Update staking pool
         _updateStakingPool(stake.agentWallet, msg.sender, stake.amount, false);
-        
+
         // Transfer tokens back to staker
         if (totalAmount > 0) {
             require(aitbcToken.transfer(msg.sender, totalAmount), "Stake transfer failed");
         }
-        
+
         if (totalRewards > 0) {
             require(aitbcToken.transfer(msg.sender, totalRewards), "Rewards transfer failed");
         }
-        
+
         emit StakeCompleted(_stakeId, msg.sender, totalAmount, totalRewards);
         emit StakeUnbonded(_stakeId, msg.sender, totalAmount, penalty);
     }
-    
+
     /**
      * @dev Distributes agent earnings to stakers
      * @param _agentWallet Agent wallet address
@@ -483,34 +483,34 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     function distributeAgentEarnings(
         address _agentWallet,
         uint256 _totalEarnings
-    ) external 
+    ) external
         supportedAgent(_agentWallet)
-        nonReentrant 
+        nonReentrant
     {
         require(_totalEarnings > 0, "No earnings to distribute");
-        
+
         StakingPool storage pool = stakingPools[_agentWallet];
         require(pool.totalStaked > 0, "No stakers in pool");
-        
+
         // Calculate platform fee
         uint256 platformFee = (_totalEarnings * platformFeePercentage) / 10000;
         uint256 distributableAmount = _totalEarnings - platformFee;
-        
+
         // Transfer platform fee
         if (platformFee > 0) {
             require(aitbcToken.transferFrom(msg.sender, owner(), platformFee), "Platform fee transfer failed");
         }
-        
+
         // Transfer distributable amount to contract
         require(aitbcToken.transferFrom(msg.sender, address(this), distributableAmount), "Earnings transfer failed");
-        
+
         // Distribute to stakers proportionally
         uint256 totalDistributed = 0;
         for (uint256 i = 0; i < pool.stakers.length; i++) {
             address staker = pool.stakers[i];
             uint256 stakerShare = pool.stakerShares[staker];
             uint256 stakerReward = (distributableAmount * stakerShare) / pool.totalStaked;
-            
+
             if (stakerReward > 0) {
                 // Find and update all stakes for this staker on this agent
                 uint256[] storage stakesForAgent = agentStakes[_agentWallet];
@@ -525,13 +525,13 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
                 totalDistributed += stakerReward;
             }
         }
-        
+
         // Update agent metrics
         agentMetrics[_agentWallet].totalRewardsDistributed += totalDistributed;
-        
+
         emit PoolRewardsDistributed(_agentWallet, totalDistributed, pool.stakers.length);
     }
-    
+
     /**
      * @dev Updates agent performance metrics and tier (DEPRECATED - use updateAgentPerformanceWithSignature)
      * @param _agentWallet Agent wallet address
@@ -543,21 +543,21 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         address _agentWallet,
         uint256 _accuracy,
         bool _successful
-    ) external 
+    ) external
         supportedAgent(_agentWallet)
-        nonReentrant 
+        nonReentrant
         onlyAuthorizedOracle
     {
         require(block.timestamp >= lastPerformanceUpdateTime[_agentWallet] + performanceUpdateDelay, "Update too frequent");
-        
+
         lastPerformanceUpdateTime[_agentWallet] = block.timestamp;
-        
+
         // Update reputation
         updateOracleReputation(msg.sender, true);
-        
+
         _updateAgentPerformanceInternal(_agentWallet, _accuracy, _successful);
     }
-    
+
     /**
      * @dev Adds a supported agent
      * @param _agentWallet Agent wallet address
@@ -569,7 +569,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     ) external onlyOwner {
         require(_agentWallet != address(0), "Invalid agent address");
         require(agentMetrics[_agentWallet].agentWallet == address(0), "Agent already supported");
-        
+
         agentMetrics[_agentWallet] = AgentMetrics({
             agentWallet: _agentWallet,
             totalStaked: 0,
@@ -582,17 +582,17 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
             currentTier: _initialTier,
             tierScore: _getTierScore(_initialTier)
         });
-        
+
         // Initialize staking pool
         stakingPools[_agentWallet].agentWallet = _agentWallet;
         stakingPools[_agentWallet].totalStaked = 0;
         stakingPools[_agentWallet].totalRewards = 0;
         stakingPools[_agentWallet].poolAPY = baseAPY;
         stakingPools[_agentWallet].lastDistributionTime = block.timestamp;
-        
+
         supportedAgents.push(_agentWallet);
     }
-    
+
     /**
      * @dev Removes a supported agent
      * @param _agentWallet Agent wallet address
@@ -600,7 +600,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     function removeSupportedAgent(address _agentWallet) external onlyOwner {
         require(agentMetrics[_agentWallet].agentWallet != address(0), "Agent not supported");
         require(agentMetrics[_agentWallet].totalStaked == 0, "Agent has active stakes");
-        
+
         // Remove from supported agents
         for (uint256 i = 0; i < supportedAgents.length; i++) {
             if (supportedAgents[i] == _agentWallet) {
@@ -609,11 +609,11 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
                 break;
             }
         }
-        
+
         delete agentMetrics[_agentWallet];
         delete stakingPools[_agentWallet];
     }
-    
+
     /**
      * @dev Updates configuration parameters
      * @param _baseAPY New base APY
@@ -628,14 +628,14 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         require(_baseAPY <= _maxAPY, "Base APY cannot exceed max APY");
         require(_maxAPY <= 5000, "Max APY too high"); // Max 50%
         require(_platformFee <= 500, "Platform fee too high"); // Max 5%
-        
+
         baseAPY = _baseAPY;
         maxAPY = _maxAPY;
         platformFeePercentage = _platformFee;
     }
-    
+
     // View functions
-    
+
     /**
      * @dev Gets stake details
      * @param _stakeId Stake ID
@@ -668,7 +668,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
             stake.autoCompound
         );
     }
-    
+
     /**
      * @dev Gets agent metrics
      * @param _agentWallet Agent wallet address
@@ -695,7 +695,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
             metrics.tierScore
         );
     }
-    
+
     /**
      * @dev Gets staking pool information
      * @param _agentWallet Agent wallet address
@@ -714,7 +714,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
             pool.stakers.length
         );
     }
-    
+
     /**
      * @dev Calculates current rewards for a stake
      * @param _stakeId Stake ID
@@ -724,14 +724,14 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         if (stake.status != StakeStatus.ACTIVE) {
             return stake.accumulatedRewards;
         }
-        
+
         uint256 timeElapsed = block.timestamp - stake.lastRewardTime;
         uint256 yearlyRewards = (stake.amount * stake.currentAPY) / 10000;
         uint256 currentRewards = (yearlyRewards * timeElapsed) / 365 days;
-        
+
         return stake.accumulatedRewards + currentRewards;
     }
-    
+
     /**
      * @dev Gets all stakes for a staker
      * @param _staker Staker address
@@ -739,7 +739,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     function getStakerStakes(address _staker) external view returns (uint256[] memory) {
         return stakerStakes[_staker];
     }
-    
+
     /**
      * @dev Gets all stakes for an agent
      * @param _agentWallet Agent wallet address
@@ -747,21 +747,21 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     function getAgentStakes(address _agentWallet) external view returns (uint256[] memory) {
         return agentStakes[_agentWallet];
     }
-    
+
     /**
      * @dev Gets all supported agents
      */
     function getSupportedAgents() external view returns (address[] memory) {
         return supportedAgents;
     }
-    
+
     /**
      * @dev Gets all active stake IDs
      */
     function getActiveStakes() external view returns (uint256[] memory) {
         return activeStakeIds;
     }
-    
+
     /**
      * @dev Calculates APY for a stake
      * @param _agentWallet Agent wallet address
@@ -775,9 +775,9 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     ) external view returns (uint256) {
         return _calculateAPY(_agentWallet, _lockPeriod, _agentTier);
     }
-    
+
     // Internal functions
-    
+
     function _calculateAPY(
         address _agentWallet,
         uint256 _lockPeriod,
@@ -785,53 +785,53 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     ) internal view returns (uint256) {
         uint256 tierMultiplier = tierMultipliers[_agentTier];
         uint256 lockMultiplier = lockPeriodMultipliers[_lockPeriod];
-        
+
         uint256 apy = (baseAPY * tierMultiplier * lockMultiplier) / (10000 * 10000);
-        
+
         // Cap at maximum APY
         return apy > maxAPY ? maxAPY : apy;
     }
-    
+
     function _calculateRewards(uint256 _stakeId) internal {
         Stake storage stake = stakes[_stakeId];
         if (stake.status != StakeStatus.ACTIVE) {
             return;
         }
-        
+
         uint256 timeElapsed = block.timestamp - stake.lastRewardTime;
         uint256 yearlyRewards = (stake.amount * stake.currentAPY) / 10000;
         uint256 currentRewards = (yearlyRewards * timeElapsed) / 365 days;
-        
+
         stake.accumulatedRewards += currentRewards;
         stake.lastRewardTime = block.timestamp;
-        
+
         // Auto-compound if enabled
         if (stake.autoCompound && currentRewards >= minStakeAmount) {
             stake.amount += currentRewards;
             stake.accumulatedRewards = 0;
         }
     }
-    
+
     function _getAgentTier(address _agentWallet) internal view returns (PerformanceTier) {
         AgentMetrics storage metrics = agentMetrics[_agentWallet];
         return metrics.currentTier;
     }
-    
+
     function _calculateAgentTier(address _agentWallet) internal view returns (PerformanceTier) {
         AgentMetrics storage metrics = agentMetrics[_agentWallet];
-        
-        uint256 successRate = metrics.totalSubmissions > 0 ? 
+
+        uint256 successRate = metrics.totalSubmissions > 0 ?
             (metrics.successfulSubmissions * 100) / metrics.totalSubmissions : 0;
-        
+
         uint256 score = (metrics.averageAccuracy * 50) / 100 + (successRate * 50) / 100;
-        
+
         if (score >= 95) return PerformanceTier.DIAMOND;
         if (score >= 90) return PerformanceTier.PLATINUM;
         if (score >= 80) return PerformanceTier.GOLD;
         if (score >= 70) return PerformanceTier.SILVER;
         return PerformanceTier.BRONZE;
     }
-    
+
     function _getTierScore(PerformanceTier _tier) internal pure returns (uint256) {
         if (_tier == PerformanceTier.DIAMOND) return 95;
         if (_tier == PerformanceTier.PLATINUM) return 90;
@@ -839,10 +839,10 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         if (_tier == PerformanceTier.SILVER) return 70;
         return 60;
     }
-    
+
     function _updateAgentMetrics(address _agentWallet, uint256 _amount, bool _isStake) internal {
         AgentMetrics storage metrics = agentMetrics[_agentWallet];
-        
+
         if (_isStake) {
             metrics.totalStaked += _amount;
             if (metrics.totalStaked == _amount) {
@@ -854,14 +854,14 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
                 metrics.stakerCount = 0;
             }
         }
-        
+
         metrics.currentTier = _calculateAgentTier(_agentWallet);
         metrics.tierScore = _getTierScore(metrics.currentTier);
     }
-    
+
     function _updateStakingPool(address _agentWallet, address _staker, uint256 _amount, bool _isStake) internal {
         StakingPool storage pool = stakingPools[_agentWallet];
-        
+
         if (_isStake) {
             if (pool.stakerShares[_staker] == 0) {
                 pool.stakers.push(_staker);
@@ -871,7 +871,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         } else {
             pool.stakerShares[_staker] -= _amount;
             pool.totalStaked -= _amount;
-            
+
             // Remove staker from array if no shares left
             if (pool.stakerShares[_staker] == 0) {
                 for (uint256 i = 0; i < pool.stakers.length; i++) {
@@ -883,13 +883,13 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
                 }
             }
         }
-        
+
         // Update pool APY
         if (pool.totalStaked > 0) {
             pool.poolAPY = _calculateAPY(_agentWallet, 30 days, agentMetrics[_agentWallet].currentTier);
         }
     }
-    
+
     function _removeFromActiveStakes(uint256 _stakeId) internal {
         for (uint256 i = 0; i < activeStakeIds.length; i++) {
             if (activeStakeIds[i] == _stakeId) {
@@ -899,25 +899,25 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
             }
         }
     }
-    
+
     /**
      * @dev Emergency pause function
      */
     function pause() external onlyOwner {
         _pause();
     }
-    
+
     /**
      * @dev Unpause function
      */
     function unpause() external onlyOwner {
         _unpause();
     }
-    
+
     // =========================
     // Slashing Mechanism
     // =========================
-    
+
     /**
      * @dev Manually slash a stake (owner only)
      * @param _stakeId Stake ID to slash
@@ -933,41 +933,41 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         require(stake.status == StakeStatus.ACTIVE, "Stake not active");
         require(_slashingPercentage <= 100, "Invalid percentage");
         require(stake.amount > 0, "No amount to slash");
-        
+
         uint256 slashAmount = (stake.amount * _slashingPercentage) / 100;
         stake.amount -= slashAmount;
         stake.status = StakeStatus.SLASHED;
-        
+
         require(aitbcToken.transfer(owner(), slashAmount), "Transfer failed");
-        
+
         emit StakeSlashed(_stakeId, stake.staker, slashAmount, _reason);
     }
-    
+
     /**
      * @dev Check and slash agent based on performance metrics
      * @param _agentWallet Agent wallet address
      */
     function checkAndSlashAgent(address _agentWallet) external onlyOwner {
         require(agentMetrics[_agentWallet].agentWallet != address(0), "Agent not found");
-        
+
         AgentMetrics storage metrics = agentMetrics[_agentWallet];
-        
+
         SlashingCondition storage conditions = slashingConditions[_agentWallet];
         uint256 minAccuracy = conditions.minAccuracyThreshold > 0 ? conditions.minAccuracyThreshold : defaultMinAccuracy;
         uint256 maxMissed = conditions.maxMissedJobs > 0 ? conditions.maxMissedJobs : defaultMaxMissedJobs;
         uint256 slashPct = conditions.slashingPercentage > 0 ? conditions.slashingPercentage : defaultSlashingPercentage;
-        
+
         if (metrics.averageAccuracy < minAccuracy) {
             _slashAllStakesForAgent(_agentWallet, slashPct, "Low accuracy");
             return;
         }
-        
+
         uint256 missedJobs = metrics.totalSubmissions - metrics.successfulSubmissions;
         if (missedJobs > maxMissed) {
             _slashAllStakesForAgent(_agentWallet, slashPct, "Too many missed jobs");
         }
     }
-    
+
     /**
      * @dev Internal function to slash all stakes for an agent
      * @param _agentWallet Agent wallet address
@@ -980,23 +980,23 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         string memory _reason
     ) internal {
         uint256[] storage stakesForAgent = agentStakes[_agentWallet];
-        
+
         for (uint256 i = 0; i < stakesForAgent.length; i++) {
             uint256 stakeId = stakesForAgent[i];
             Stake storage stake = stakes[stakeId];
-            
+
             if (stake.status == StakeStatus.ACTIVE && stake.amount > 0) {
                 uint256 slashAmount = (stake.amount * _slashingPercentage) / 100;
                 stake.amount -= slashAmount;
                 stake.status = StakeStatus.SLASHED;
-                
+
                 require(aitbcToken.transfer(owner(), slashAmount), "Transfer failed");
-                
+
                 emit StakeSlashed(stakeId, stake.staker, slashAmount, _reason);
             }
         }
     }
-    
+
     /**
      * @dev File an appeal for a slashed stake
      * @param _stakeId Stake ID to appeal
@@ -1008,7 +1008,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         require(stake.status == StakeStatus.SLASHED, "Not slashed");
         require(block.timestamp - stake.lastRewardTime < appealWindow, "Appeal window expired");
         require(slashAppeals[_stakeId].appellant == address(0), "Appeal already filed");
-        
+
         slashAppeals[_stakeId] = SlashAppeal({
             stakeId: _stakeId,
             appellant: msg.sender,
@@ -1017,10 +1017,10 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
             resolved: false,
             approved: false
         });
-        
+
         emit SlashAppealFiled(_stakeId, msg.sender, _reason);
     }
-    
+
     /**
      * @dev Resolve a slash appeal (owner only)
      * @param _stakeId Stake ID
@@ -1030,10 +1030,10 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         SlashAppeal storage appeal = slashAppeals[_stakeId];
         require(appeal.appellant != address(0), "No appeal found");
         require(!appeal.resolved, "Already resolved");
-        
+
         appeal.resolved = true;
         appeal.approved = _approved;
-        
+
         if (_approved) {
             Stake storage stake = stakes[_stakeId];
             stake.status = StakeStatus.ACTIVE;
@@ -1042,7 +1042,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
             emit SlashAppealRejected(_stakeId);
         }
     }
-    
+
     /**
      * @dev Report a malicious agent and earn reward
      * @param _agentWallet Agent wallet address
@@ -1053,27 +1053,27 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         string memory _evidence
     ) external {
         require(agentMetrics[_agentWallet].agentWallet != address(0), "Agent not found");
-        
+
         AgentMetrics storage metrics = agentMetrics[_agentWallet];
-        
+
         SlashingCondition storage conditions = slashingConditions[_agentWallet];
         uint256 minAccuracy = conditions.minAccuracyThreshold > 0 ? conditions.minAccuracyThreshold : defaultMinAccuracy;
         uint256 slashPct = conditions.slashingPercentage > 0 ? conditions.slashingPercentage : defaultSlashingPercentage;
-        
+
         if (metrics.averageAccuracy < minAccuracy) {
             _slashAllStakesForAgent(_agentWallet, slashPct, string(abi.encodePacked("Reporter: ", _evidence)));
-            
+
             uint256 totalSlashed = _calculateTotalSlashed(_agentWallet);
             uint256 reward = (totalSlashed * slashReporterReward) / 10000;
-            
+
             if (reward > 0) {
                 require(aitbcToken.transfer(msg.sender, reward), "Reward transfer failed");
             }
-            
+
             emit MaliciousAgentReported(_agentWallet, msg.sender, reward);
         }
     }
-    
+
     /**
      * @dev Set slashing conditions for an agent
      * @param _agentWallet Agent wallet address
@@ -1090,14 +1090,14 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         require(_agentWallet != address(0), "Invalid agent address");
         require(_minAccuracy <= 100, "Invalid accuracy threshold");
         require(_slashingPercentage <= 100, "Invalid slash percentage");
-        
+
         slashingConditions[_agentWallet] = SlashingCondition({
             minAccuracyThreshold: _minAccuracy,
             maxMissedJobs: _maxMissedJobs,
             slashingPercentage: _slashingPercentage
         });
     }
-    
+
     /**
      * @dev Calculate total slashed amount for an agent
      * @param _agentWallet Agent wallet address
@@ -1105,23 +1105,23 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     function _calculateTotalSlashed(address _agentWallet) internal view returns (uint256) {
         uint256[] storage stakesForAgent = agentStakes[_agentWallet];
         uint256 totalSlashed = 0;
-        
+
         for (uint256 i = 0; i < stakesForAgent.length; i++) {
             uint256 stakeId = stakesForAgent[i];
             Stake storage stake = stakes[stakeId];
-            
+
             if (stake.status == StakeStatus.SLASHED) {
                 totalSlashed += (stake.amount * defaultSlashingPercentage) / 100;
             }
         }
-        
+
         return totalSlashed;
     }
-    
+
     // =========================
     // Oracle Protection
     // =========================
-    
+
     /**
      * @dev Add an authorized oracle (owner only)
      * @param _oracle Oracle address to add
@@ -1129,27 +1129,27 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     function addOracle(address _oracle) external onlyOwner {
         require(_oracle != address(0), "Invalid oracle address");
         require(!authorizedOracles[_oracle], "Oracle already authorized");
-        
+
         authorizedOracles[_oracle] = true;
         oracleList.push(_oracle);
         oracleCount++;
-        
+
         emit OracleAdded(_oracle);
     }
-    
+
     /**
      * @dev Remove an authorized oracle (owner only)
      * @param _oracle Oracle address to remove
      */
     function removeOracle(address _oracle) external onlyOwner {
         require(authorizedOracles[_oracle], "Oracle not authorized");
-        
+
         authorizedOracles[_oracle] = false;
         oracleCount--;
-        
+
         emit OracleRemoved(_oracle);
     }
-    
+
     /**
      * @dev Update agent performance with oracle signature verification
      * @param _agentWallet Agent wallet address
@@ -1169,25 +1169,25 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     ) external onlyAuthorizedOracle {
         require(block.timestamp <= _timestamp + 1 hours, "Signature expired");
         require(oracleNonces[msg.sender] == _nonce, "Invalid nonce");
-        
+
         // Verify signature using ECDSA library
         bytes32 messageHash = keccak256(abi.encodePacked(_agentWallet, _accuracy, _successful, _timestamp, _nonce));
         bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
         address signer = ECDSA.recover(ethSignedMessageHash, _signature);
         require(signer == msg.sender, "Invalid signature");
-        
+
         // Update nonce
         oracleNonces[msg.sender]++;
-        
+
         // Update reputation
         updateOracleReputation(msg.sender, true);
-        
+
         // Call internal update function
         _updateAgentPerformanceInternal(_agentWallet, _accuracy, _successful);
-        
+
         emit PerformanceUpdateWithSignature(msg.sender, _agentWallet);
     }
-    
+
     /**
      * @dev Internal function to update agent performance metrics
      * @param _agentWallet Agent wallet address
@@ -1200,25 +1200,25 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         bool _successful
     ) internal {
         AgentMetrics storage metrics = agentMetrics[_agentWallet];
-        
+
         metrics.totalSubmissions++;
         if (_successful) {
             metrics.successfulSubmissions++;
         }
-        
+
         // Update average accuracy (weighted average)
         uint256 totalAccuracy = metrics.averageAccuracy * (metrics.totalSubmissions - 1) + _accuracy;
         metrics.averageAccuracy = totalAccuracy / metrics.totalSubmissions;
-        
+
         metrics.lastUpdateTime = block.timestamp;
-        
+
         // Calculate new tier
         PerformanceTier newTier = _calculateAgentTier(_agentWallet);
         PerformanceTier oldTier = metrics.currentTier;
-        
+
         if (newTier != oldTier) {
             metrics.currentTier = newTier;
-            
+
             // Update APY for all active stakes on this agent
             uint256[] storage stakesForAgent = agentStakes[_agentWallet];
             for (uint256 i = 0; i < stakesForAgent.length; i++) {
@@ -1229,11 +1229,11 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
                     stake.agentTier = newTier;
                 }
             }
-            
+
             emit AgentTierUpdated(_agentWallet, oldTier, newTier, metrics.tierScore);
         }
     }
-    
+
     /**
      * @dev Rotate an oracle (owner only)
      * @param _oldOracle Old oracle address
@@ -1243,14 +1243,14 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         require(authorizedOracles[_oldOracle], "Old oracle not authorized");
         require(!authorizedOracles[_newOracle], "New oracle already authorized");
         require(block.timestamp >= lastOracleRotation + oracleRotationPeriod, "Rotation too soon");
-        
+
         authorizedOracles[_oldOracle] = false;
         authorizedOracles[_newOracle] = true;
         lastOracleRotation = block.timestamp;
-        
+
         emit OracleRotated(_oldOracle, _newOracle);
     }
-    
+
     /**
      * @dev Update oracle reputation
      * @param _oracle Oracle address
@@ -1259,14 +1259,14 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     function updateOracleReputation(address _oracle, bool _successful) internal {
         OracleReputation storage rep = oracleReputations[_oracle];
         rep.totalUpdates++;
-        
+
         if (_successful) {
             rep.successfulUpdates++;
             rep.reputationScore = (rep.successfulUpdates * 100) / rep.totalUpdates;
         } else {
             rep.disputedUpdates++;
             rep.reputationScore = (rep.successfulUpdates * 100) / rep.totalUpdates;
-            
+
             // Remove oracle if reputation falls below threshold
             if (rep.reputationScore < 50 && rep.totalUpdates >= 10) {
                 authorizedOracles[_oracle] = false;
@@ -1274,7 +1274,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
             }
         }
     }
-    
+
     /**
      * @dev Report a disputed oracle update
      * @param _oracle Oracle address
@@ -1282,10 +1282,10 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
      */
     function reportDisputedOracle(address _oracle, string memory _evidence) external onlyOwner {
         require(authorizedOracles[_oracle], "Oracle not authorized");
-        
+
         updateOracleReputation(_oracle, false);
     }
-    
+
     /**
      * @dev Set performance update delay (owner only)
      * @param _delay New delay in seconds
@@ -1293,7 +1293,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     function setPerformanceUpdateDelay(uint256 _delay) external onlyOwner {
         performanceUpdateDelay = _delay;
     }
-    
+
     /**
      * @dev Set oracle rotation period (owner only)
      * @param _period New period in seconds
@@ -1301,11 +1301,11 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     function setOracleRotationPeriod(uint256 _period) external onlyOwner {
         oracleRotationPeriod = _period;
     }
-    
+
     // =========================
     // Rate Limiting Admin Functions
     // =========================
-    
+
     /**
      * @dev Set max stakes per day (owner only)
      * @param _maxStakes New maximum stakes per day
@@ -1315,7 +1315,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         require(_maxStakes <= 100, "Cannot exceed 100 stakes per day");
         maxStakesPerDay = _maxStakes;
     }
-    
+
     /**
      * @dev Set max stakes per user (owner only)
      * @param _maxStakes New maximum total stakes per user
@@ -1325,7 +1325,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         require(_maxStakes <= 500, "Cannot exceed 500 stakes per user");
         maxStakesPerUser = _maxStakes;
     }
-    
+
     /**
      * @dev Set stake cooldown (owner only)
      * @param _cooldown New cooldown period in seconds

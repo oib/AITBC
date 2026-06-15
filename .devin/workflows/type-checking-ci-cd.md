@@ -93,20 +93,20 @@ on:
 jobs:
   type-check:
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
         python-version: [3.13]
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Cache pip dependencies
       uses: actions/cache@v3
       with:
@@ -114,37 +114,37 @@ jobs:
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install mypy sqlalchemy sqlmodel fastapi
-    
+
     - name: Run type checking on core domain models
       run: |
         echo "Checking core domain models..."
         mypy --ignore-missing-imports --show-error-codes apps/coordinator-api/src/app/domain/job.py
         mypy --ignore-missing-imports --show-error-codes apps/coordinator-api/src/app/domain/miner.py
         mypy --ignore-missing-imports --show-error-codes apps/coordinator-api/src/app/domain/agent_portfolio.py
-    
+
     - name: Run type checking on entire domain
       run: |
         echo "Checking entire domain directory..."
         mypy --ignore-missing-imports apps/coordinator-api/src/app/domain/ || true
-    
+
     - name: Generate type checking report
       run: |
         echo "Generating type checking report..."
         mkdir -p reports
         mypy --ignore-missing-imports --txt-report reports/type-check-report.txt apps/coordinator-api/src/app/domain/ || true
-    
+
     - name: Upload type checking report
       uses: actions/upload-artifact@v3
       if: always()
       with:
         name: type-check-report
         path: reports/
-    
+
     - name: Type checking coverage
       run: |
         echo "Calculating type checking coverage..."
@@ -153,7 +153,7 @@ jobs:
         COVERAGE=$((PASSING * 100 / CORE_FILES))
         echo "Core domain coverage: $COVERAGE%"
         echo "core_coverage=$COVERAGE" >> $GITHUB_ENV
-    
+
     - name: Coverage badge
       run: |
         if [ "$core_coverage" -ge 80 ]; then
@@ -296,11 +296,11 @@ from sqlmodel import Session
 class JobService:
     def __init__(self, session: Session) -> None:
         self.session = session
-    
+
     def get_job(self, job_id: str) -> Optional[Job]:
         """Get a job by ID."""
         return self.session.get(Job, job_id)
-    
+
     def create_job(self, job_data: JobCreate) -> Job:
         """Create a new job."""
         job = Job.model_validate(job_data)
@@ -344,7 +344,7 @@ async def get_jobs(
 ```bash
 # ✅ Completed
 # - job.py: 100% type coverage
-# - miner.py: 100% type coverage  
+# - miner.py: 100% type coverage
 # - agent_portfolio.py: 100% type coverage
 
 # Status: All core models type-safe
@@ -518,6 +518,6 @@ results: Dict[str, Any] = {}
 
 ---
 
-**Last Updated**: March 31, 2026  
-**Workflow Version**: 1.0  
+**Last Updated**: March 31, 2026
+**Workflow Version**: 1.0
 **Next Review**: April 30, 2026

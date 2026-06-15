@@ -1,55 +1,46 @@
 """Coordinator API main entry point."""
 
-import sys
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING, Any
 
-_LOCKED_PATH = []
-for p in sys.path:
-    if "site-packages" in p and "/opt/aitbc" in p:
-        _LOCKED_PATH.append(p)
-    elif "site-packages" not in p and ("/usr/lib/python" in p or "/usr/local/lib/python" in p):
-        _LOCKED_PATH.append(p)
-    elif p.startswith("/opt/aitbc/apps/coordinator-api"):
-        _LOCKED_PATH.append(p)
-    elif p.startswith("/opt/aitbc/packages/py/aitbc-crypto"):
-        _LOCKED_PATH.append(p)
-    elif p.startswith("/opt/aitbc/packages/py/aitbc-sdk"):
-        _LOCKED_PATH.append(p)
-sys.path.insert(0, "/opt/aitbc/packages/py/aitbc-crypto/src")
-sys.path.insert(0, "/opt/aitbc/packages/py/aitbc-sdk/src")
-import logging  # noqa: E402
+from fastapi import APIRouter, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import Counter, Histogram, generate_latest, make_asgi_app
+from prometheus_client.core import CollectorRegistry
+from prometheus_client.exposition import CONTENT_TYPE_LATEST
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
 
-logger = logging.getLogger(__name__)
-from collections.abc import AsyncIterator, Awaitable, Callable  # noqa: E402
-from typing import TYPE_CHECKING, Any  # noqa: E402
-
-from fastapi import APIRouter, FastAPI, Request  # noqa: E402
-from fastapi.exceptions import RequestValidationError  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import JSONResponse, Response  # noqa: E402
-from prometheus_client import Counter, Histogram, generate_latest, make_asgi_app  # noqa: E402
-from prometheus_client.core import CollectorRegistry  # noqa: E402
-from prometheus_client.exposition import CONTENT_TYPE_LATEST  # noqa: E402
-from slowapi import Limiter, _rate_limit_exceeded_handler  # noqa: E402
-from slowapi.util import get_remote_address  # noqa: E402
+from aitbc import ErrorHandlerMiddleware, PerformanceLoggingMiddleware, RequestIDMiddleware, get_logger
+from aitbc.aitbc_logging import configure_logging
 
 if TYPE_CHECKING:
-    from slowapi.errors import RateLimitExceeded as RateLimitExceededClass
+    from slowapi.errors import RateLimitExceeded
 else:
     try:
-        from slowapi.errors import RateLimitExceeded as RateLimitExceededClass
+        from slowapi.errors import RateLimitExceeded
     except ImportError:
-        RateLimitExceededClass = Exception  # type: ignore[assignment, misc]
+        RateLimitExceeded = Exception  # type: ignore[assignment, misc]
 
-RateLimitExceeded = RateLimitExceededClass
-from .config import settings  # noqa: E402
-from .contexts.agent_identity.routers import agent_identity  # noqa: E402
-from .contexts.blockchain.routers import blockchain  # noqa: E402
-from .contexts.cross_chain.routers.cross_chain_integration import router as cross_chain  # noqa: E402
-from .contexts.ipfs.routers import router as ipfs  # noqa: E402
-from .contexts.marketplace.routers import marketplace, marketplace_gpu, marketplace_offers  # noqa: E402
-from .contexts.payments.routers import payments  # noqa: E402
-from .contexts.portfolio.routers import portfolio_router  # noqa: E402
-from .routers import (  # noqa: E402
+from .config import settings
+from .contexts.agent_identity.routers import agent_identity
+from .contexts.blockchain.routers import blockchain
+from .contexts.cross_chain.routers.cross_chain_integration import router as cross_chain
+from .contexts.hermes.routers.hermes_decision import router as hermes_decision
+from .contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced
+from .contexts.hermes.routers.hermes_health import router as hermes_health
+from .contexts.hermes.routers.hermes_resource import router as hermes_resource
+from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
+from .contexts.ipfs.routers import router as ipfs
+from .contexts.marketplace.routers import marketplace, marketplace_gpu, marketplace_offers
+from .contexts.payments.routers import payments
+from .contexts.portfolio.routers import portfolio_router
+from .database_async import close_async_db, init_async_db
+from .exceptions import AITBCError, ErrorResponse
+from .routers import (
     admin,
     agent_router,
     client,
@@ -69,10 +60,14 @@ from .routers import (  # noqa: E402
     users,
     web_vitals,
 )
-from .utils.alerting import alert_dispatcher  # noqa: E402
-from .utils.cache import cache_manager  # noqa: E402
-from .utils.metrics import build_live_metrics_payload, metrics_collector  # noqa: E402
-from .utils.security import get_client_ip  # noqa: E402
+from .storage.db import init_db
+from .utils.alerting import alert_dispatcher
+from .utils.cache import cache_manager
+from .utils.metrics import build_live_metrics_payload, metrics_collector
+from .utils.security import get_client_ip
+
+configure_logging(level=settings.log_level if hasattr(settings, "log_level") else "INFO")
+logger = get_logger(__name__)
 
 ml_zk_proofs: APIRouter | None = None
 try:
@@ -81,11 +76,6 @@ try:
     ml_zk_proofs = ml_zk_proofs_import
 except ImportError:
     logger.warning("ML ZK proofs router not available (missing tenseal)")
-from .contexts.hermes.routers.hermes_decision import router as hermes_decision  # noqa: E402
-from .contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced  # noqa: E402
-from .contexts.hermes.routers.hermes_health import router as hermes_health  # noqa: E402
-from .contexts.hermes.routers.hermes_resource import router as hermes_resource  # noqa: E402
-from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard  # noqa: E402
 
 multi_modal_rl_router: APIRouter | None = None
 try:
@@ -94,17 +84,6 @@ try:
     multi_modal_rl_router = multi_modal_rl_import
 except ImportError:
     logger.warning("Multi-modal RL router not available (missing torch)")
-from aitbc import ErrorHandlerMiddleware, PerformanceLoggingMiddleware, RequestIDMiddleware, get_logger  # noqa: E402
-from aitbc.aitbc_logging import configure_logging  # noqa: E402
-
-from .exceptions import AITBCError, ErrorResponse  # noqa: E402
-
-configure_logging(level=settings.log_level if hasattr(settings, "log_level") else "INFO")
-logger = get_logger(__name__)
-from contextlib import asynccontextmanager  # noqa: E402
-
-from .database_async import close_async_db, init_async_db  # noqa: E402
-from .storage.db import init_db  # noqa: E402
 
 
 @asynccontextmanager

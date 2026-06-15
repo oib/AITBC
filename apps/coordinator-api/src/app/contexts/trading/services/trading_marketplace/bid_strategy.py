@@ -4,14 +4,14 @@ Implements intelligent bidding algorithms for GPU rental negotiations
 """
 
 import asyncio
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import Any
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from dataclasses import asdict, dataclass  # noqa: E402
-from datetime import UTC, datetime, timedelta  # noqa: E402
-from enum import StrEnum  # noqa: E402
-from typing import Any  # noqa: E402
 
 
 class BidStrategy(StrEnum):

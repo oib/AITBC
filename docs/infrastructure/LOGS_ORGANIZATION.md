@@ -7,7 +7,7 @@
 System logs are now properly organized in /var/log/aitbc:
 
 ### Current Log Files:
-- 
+-
 - contract_endpoints_final_status.txt
 - final_production_ai_results.txt
 - final_testing_fixes.txt

@@ -263,7 +263,7 @@ class TestSLAMonitoring:
         assert "overall_compliance" in sla
 
         assert isinstance(sla["total_slas"], int)
-        assert isinstance(sla["overall_compliance"], (int, float))
+        assert isinstance(sla["overall_compliance"], int | float)
         assert 0 <= sla["overall_compliance"] <= 100
 
     def test_record_sla_metric(self):
@@ -319,7 +319,7 @@ class TestSLAMonitoring:
                 assert "violations_count" in sla
                 assert "recent_violations" in sla
                 assert sla["sla_id"] == "response_time"
-                assert isinstance(sla["compliance_percentage"], (int, float))
+                assert isinstance(sla["compliance_percentage"], int | float)
                 assert 0 <= sla["compliance_percentage"] <= 100
             else:
                 # Handle case where SLA rule doesn't exist or other error
@@ -378,7 +378,7 @@ class TestSystemStatus:
         sla = data["sla"]
         assert "overall_compliance" in sla
         assert "total_slas" in sla
-        assert isinstance(sla["overall_compliance"], (int, float))
+        assert isinstance(sla["overall_compliance"], int | float)
         assert 0 <= sla["overall_compliance"] <= 100
 
         # Check system section
@@ -386,8 +386,8 @@ class TestSystemStatus:
         assert "memory_usage" in system
         assert "cpu_usage" in system
         assert "uptime" in system
-        assert isinstance(system["memory_usage"], (int, float))
-        assert isinstance(system["cpu_usage"], (int, float))
+        assert isinstance(system["memory_usage"], int | float)
+        assert isinstance(system["cpu_usage"], int | float)
         assert system["memory_usage"] >= 0
         assert system["cpu_usage"] >= 0
         assert system["uptime"] > 0

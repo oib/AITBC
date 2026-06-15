@@ -37,10 +37,10 @@ log_warn() {
 run_test() {
     local test_name="$1"
     local test_command="$2"
-    
+
     TESTS_RUN=$((TESTS_RUN + 1))
     log_info "Running: $test_name"
-    
+
     if eval "$test_command"; then
         TESTS_PASSED=$((TESTS_PASSED + 1))
         log_info "PASSED: $test_name"
@@ -53,13 +53,13 @@ run_test() {
 
 cleanup() {
     log_info "Cleaning up test artifacts..."
-    
+
     # Remove test profile if it exists
     if [ -f "$PROFILES_DIR/$TEST_PROFILE.yaml" ]; then
         rm -f "$PROFILES_DIR/$TEST_PROFILE.yaml"
         log_info "Removed test profile: $TEST_PROFILE"
     fi
-    
+
     # Remove test config file if it exists
     if [ -f "$REPO_ROOT/$CONFIG_FILE" ]; then
         rm -f "$REPO_ROOT/$CONFIG_FILE"

@@ -44,7 +44,7 @@ echo "2. Creating Hermes Agents for Blockchain Operations..."
 echo "Creating CoordinatorAgent..."
 hermes agents add --agent-id CoordinatorAgent --name "Blockchain Coordinator" 2>/dev/null || echo "CoordinatorAgent already exists"
 
-# Create GenesisAgent  
+# Create GenesisAgent
 echo "Creating GenesisAgent..."
 hermes agents add --agent-id GenesisAgent --name "Genesis Authority Manager" 2>/dev/null || echo "GenesisAgent already exists"
 

@@ -625,7 +625,7 @@ class RegulatoryReporter:
             writer = csv.writer(output)
             writer.writerow(["Field", "Value"])
             for key, value in report.content.items():
-                if isinstance(value, (str, int, float)):
+                if isinstance(value, str | int | float):
                     writer.writerow([key, value])
                 elif isinstance(value, list):
                     writer.writerow([key, f"List with {len(value)} items"])
@@ -641,7 +641,7 @@ class RegulatoryReporter:
         def dict_to_xml(data: dict[str, Any], indent: int = 1) -> None:
             indent_str = "  " * indent
             for key, value in data.items():
-                if isinstance(value, (str, int, float)):
+                if isinstance(value, str | int | float):
                     xml_lines.append(f"{indent_str}<{key}>{value}</{key}>")
                 elif isinstance(value, dict):
                     xml_lines.append(f"{indent_str}<{key}>")

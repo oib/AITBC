@@ -3,10 +3,6 @@
 Simple script to create genesis block
 """
 
-import sys
-
-sys.path.insert(0, "src")
-
 import hashlib
 from datetime import UTC, datetime
 

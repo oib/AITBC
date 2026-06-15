@@ -8,9 +8,8 @@ from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 
-logger = get_logger(__name__)
-from ....models.hermes import PricingAdjustmentModel, ResourceAllocationModel, ResourceModel  # noqa: E402
-from ....schemas.hermes_resource import (  # noqa: E402
+from ....models.hermes import PricingAdjustmentModel, ResourceAllocationModel, ResourceModel
+from ....schemas.hermes_resource import (
     AllocationStrategy,
     PricingAdjustment,
     Resource,
@@ -22,6 +21,8 @@ from ....schemas.hermes_resource import (  # noqa: E402
     ResourceStatus,
     ResourceType,
 )
+
+logger = get_logger(__name__)
 
 
 class ResourceService:

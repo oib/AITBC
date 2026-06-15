@@ -1,9 +1,9 @@
 # Release Notes
 
-**Level**: All Levels  
-**Prerequisites**: None  
-**Estimated Time**: 5-15 minutes  
-**Last Updated**: June 8, 2026  
+**Level**: All Levels
+**Prerequisites**: None
+**Estimated Time**: 5-15 minutes
+**Last Updated**: June 8, 2026
 **Version**: 1.2
 
 ## 🧭 **Navigation Path:**
@@ -97,6 +97,6 @@ This directory records versioned release notes, migration context, and milestone
 
 ---
 
-*Last updated: June 8, 2026*  
-*Version: 1.2*  
+*Last updated: June 8, 2026*
+*Version: 1.2*
 *Status: Release index*

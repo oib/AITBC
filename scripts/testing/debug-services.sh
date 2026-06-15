@@ -39,20 +39,20 @@ echo ""
 print_status "Analyzing service names field by field:"
 systemctl list-units --all | grep "aitbc-" | while read -r line; do
     echo "Raw line: '$line'"
-    
+
     # Extract each field
     unit=$(echo "$line" | awk '{print $1}')
     load=$(echo "$line" | awk '{print $2}')
     active=$(echo "$line" | awk '{print $3}')
     sub=$(echo "$line" | awk '{print $4}')
     description=$(echo "$line" | cut -d' ' -f5-)
-    
+
     echo "  Unit: '$unit'"
     echo "  Load: '$load'"
     echo "  Active: '$active'"
     echo "  Sub: '$sub'"
     echo "  Description: '$description'"
-    
+
     # Check if unit name is valid
     if [[ "$unit" =~ [^a-zA-Z0-9\-\._] ]]; then
         print_error "  ❌ Invalid characters in unit name!"
@@ -60,7 +60,7 @@ systemctl list-units --all | grep "aitbc-" | while read -r line; do
     else
         print_success "  ✅ Valid unit name"
     fi
-    
+
     echo ""
 done
 

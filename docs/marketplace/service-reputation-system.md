@@ -238,18 +238,18 @@ def _update_service_rating(session: Session, service_id: str):
     ratings = session.exec(
         select(ServiceRating).where(ServiceRating.service_id == service_id)
     ).all()
-    
+
     if ratings:
         avg = sum(r.rating for r in ratings) / len(ratings)
         count = len(ratings)
     else:
         avg = 0.0
         count = 0
-    
+
     service = session.exec(
         select(SoftwareService).where(SoftwareService.plugin_id == service_id)
     ).first()
-    
+
     if service:
         service.avg_rating = avg
         service.rating_count = count

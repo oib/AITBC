@@ -121,7 +121,7 @@ This document covers deployment procedures for the Governance Service, including
    ```bash
    sudo nano /etc/postgresql/*/main/postgresql.conf
    ```
-   
+
    Add:
    ```ini
    listen_addresses = '*'
@@ -131,7 +131,7 @@ This document covers deployment procedures for the Governance Service, including
    ```bash
    sudo nano /etc/postgresql/*/main/pg_hba.conf
    ```
-   
+
    Add:
    ```
    host    aitbc_governance    aitbc_governance    0.0.0.0/0    md5
@@ -149,7 +149,7 @@ This document covers deployment procedures for the Governance Service, including
    cd /opt/aitbc/apps/governance
    nano alembic/alembic.ini
    ```
-   
+
    Update:
    ```ini
    sqlalchemy.url = postgresql://aitbc_governance:your_secure_password@localhost:5432/aitbc_governance
@@ -184,7 +184,7 @@ This document covers deployment procedures for the Governance Service, including
            proxy_set_header X-Real-IP $remote_addr;
            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
            proxy_set_header X-Forwarded-Proto $scheme;
-           
+
            # Timeouts
            proxy_connect_timeout 60s;
            proxy_send_timeout 60s;

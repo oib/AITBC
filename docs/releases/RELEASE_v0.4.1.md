@@ -1,7 +1,7 @@
 # AITBC v0.4.1 Release Notes
 
-**Date**: May 27, 2026  
-**Status**: ✅ Released  
+**Date**: May 27, 2026
+**Status**: ✅ Released
 **Scope**: Production Hardening & Infrastructure Improvements
 
 ## 🎯 Overview
@@ -271,6 +271,6 @@ systemctl restart aitbc-edge
 
 ---
 
-*Last updated: 2026-05-27*  
-*Version: 0.4.1*  
+*Last updated: 2026-05-27*
+*Version: 0.4.1*
 *Status: Production Hardening Release*

@@ -46,7 +46,7 @@ log() {
 
 check_messaging_service() {
     log "INFO" "Checking messaging service status..."
-    
+
     # Check if messaging service is running
     if systemctl is-active --quiet aitbc-messaging 2>/dev/null; then
         log "INFO" "Messaging service is running"
@@ -59,15 +59,15 @@ check_messaging_service() {
 
 generate_auth_token() {
     log "INFO" "Generating messaging authentication token..."
-    
+
     # Generate random token
     local token
     token=$(openssl rand -hex 32)
-    
+
     # Store token
     echo "$token" > "$AUTH_TOKEN_FILE"
     chmod 600 "$AUTH_TOKEN_FILE"
-    
+
     log "SUCCESS" "Authentication token generated and stored"
     echo "$token"
 }
@@ -75,31 +75,31 @@ generate_auth_token() {
 configure_messaging_auth() {
     local wallet_name="$1"
     local password="$2"
-    
+
     log "INFO" "Configuring messaging authentication for wallet: $wallet_name"
-    
+
     cd "$AITBC_DIR"
-    
+
     # Generate auth token
     local token
     token=$(generate_auth_token)
-    
+
     # Configure wallet for messaging
     log "INFO" "Registering wallet with messaging service..."
     ./aitbc-cli agent message --wallet "$wallet_name" --password "$password" --auth-token "$token" || log "WARN" "Messaging registration may have failed"
-    
+
     log "SUCCESS" "Messaging authentication configured for $wallet_name"
 }
 
 test_messaging_connectivity() {
     log "INFO" "Testing messaging connectivity..."
-    
+
     cd "$AITBC_DIR"
-    
+
     # Send test message
     local test_result
     test_result=$(./aitbc-cli agent message --topic "test-topic" --message "test-message" 2>&1 || echo "failed")
-    
+
     if [[ "$test_result" == *"failed"* ]] || [[ "$test_result" == *"error"* ]]; then
         log "WARN" "Messaging connectivity test failed"
         return 1
@@ -111,10 +111,10 @@ test_messaging_connectivity() {
 
 setup_messaging_config() {
     log "INFO" "Setting up messaging configuration..."
-    
+
     # Create messaging config directory
     mkdir -p /var/lib/aitbc/messaging
-    
+
     # Create basic config
     cat > /var/lib/aitbc/messaging/config.json <<EOF
 {
@@ -126,26 +126,26 @@ setup_messaging_config() {
   "retention_policy": "7d"
 }
 EOF
-    
+
     log "SUCCESS" "Messaging configuration created"
 }
 
 main() {
     log "INFO" "Starting messaging authentication configuration..."
-    
+
     # Setup config
     setup_messaging_config
-    
+
     # Check service
     check_messaging_service || log "WARN" "Messaging service may need to be started"
-    
+
     # Configure authentication for training wallets
     configure_messaging_auth "training-wallet" "training123"
     configure_messaging_auth "exam-wallet" "exam123"
-    
+
     # Test connectivity
     test_messaging_connectivity || log "WARN" "Messaging connectivity may require additional setup"
-    
+
     log "SUCCESS" "Messaging authentication configuration completed"
     echo ""
     echo -e "${GREEN}=== Messaging Configuration Summary ===${NC}"

@@ -81,7 +81,9 @@ async def create_payment(request: Request, req: CreatePaymentRequest) -> dict[st
         return {"success": True, "payment": payment.to_dict()}
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to create payment: {str(e)}") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to create payment: {str(e)}"
+        ) from e
 
 
 @router.post("/confirm", summary="Confirm payment")
@@ -98,7 +100,9 @@ async def confirm_payment(request: Request, req: ConfirmPaymentRequest) -> dict[
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to confirm payment: {str(e)}") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to confirm payment: {str(e)}"
+        ) from e
 
 
 @router.post("/escrow/release", summary="Release escrow")
@@ -115,7 +119,9 @@ async def release_escrow(request: Request, req: ReleaseEscrowRequest) -> dict[st
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to release escrow: {str(e)}") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to release escrow: {str(e)}"
+        ) from e
 
 
 @router.post("/refund", summary="Refund payment")
@@ -132,7 +138,9 @@ async def refund_payment(request: Request, req: RefundRequest) -> dict[str, Any]
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to refund payment: {str(e)}") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to refund payment: {str(e)}"
+        ) from e
 
 
 @router.get("/{payment_id}", summary="Get payment details")
@@ -151,7 +159,9 @@ async def get_payment(request: Request, payment_id: str) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get payment: {str(e)}") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get payment: {str(e)}"
+        ) from e
 
 
 @router.get("/", summary="List payments")
