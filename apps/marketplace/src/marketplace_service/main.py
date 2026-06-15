@@ -30,7 +30,7 @@ from .services.marketplace_service import MarketplaceService  # noqa: E402
 from .services.matching_service import MatchingService  # noqa: E402
 from .storage import get_session, init_db  # noqa: E402
 
-configure_logging(level="WARNING")
+configure_logging(level="CRITICAL")
 logger = get_logger(__name__)
 
 
@@ -699,4 +699,4 @@ if __name__ == "__main__":
     host = os.getenv("MARKETPLACE_BIND_HOST", "0.0.0.0")
     port = int(os.getenv("MARKETPLACE_BIND_PORT", "8102"))
 
-    uvicorn.run(app, host=host, port=port, log_level="warning")
+    uvicorn.run(app, host=host, port=port, log_level="critical")

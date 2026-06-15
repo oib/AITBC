@@ -126,4 +126,4 @@ if __name__ == "__main__":
     host = os.getenv("WHISPER_BIND_HOST", "0.0.0.0")
     port = int(os.getenv("WHISPER_BIND_PORT", os.getenv("WHISPER_PORT", "8110")))
 
-    uvicorn.run(app, host=host, port=port, log_level="warning")
+    uvicorn.run(app, host=host, port=port, log_level="critical")
