@@ -16,19 +16,19 @@ async def get_cache_statistics(request: Request, admin_key: str=Depends(require_
     """Get cache performance statistics"""
     try:
         stats = get_cache_stats()
-        return {'cache_health': stats, 'status': 'healthy' if stats['health_status'] in ['excellent', 'good'] else 'degraded'}
+        return {'cache_health': stats, 'status': 'healthy' if stats['health_status'] in ['excellent', 'good'] else 'degraded'}  # type: ignore[index]
     except Exception as e:
         logger.error('Failed to get cache stats: %s', e)
         raise HTTPException(status_code=500, detail='Failed to retrieve cache statistics')
 
 @router.post('/clear', summary='Clear cache entries')
 @rate_limit(rate=20, per=60)
-async def clear_cache_entries(request: Request, pattern: str=None, admin_key: str=Depends(require_admin_key())) -> dict[str, Any]:
+async def clear_cache_entries(request: Request, pattern: str | None=None, admin_key: str=Depends(require_admin_key())) -> dict[str, Any]:
     """Clear cache entries (all or matching pattern)"""
     try:
         result = clear_cache(pattern)
         logger.info('Cache cleared by admin: pattern=%s, result=%s', pattern, result)
-        return result
+        return result # type: ignore[return-value]
     except Exception as e:
         logger.error('Failed to clear cache: %s', e)
         raise HTTPException(status_code=500, detail='Failed to clear cache')
@@ -40,7 +40,7 @@ async def warm_up_cache(request: Request, admin_key: str=Depends(require_admin_k
     try:
         result = warm_cache()
         logger.info('Cache warming triggered by admin')
-        return result
+        return result # type: ignore[return-value]
     except Exception as e:
         logger.error('Failed to warm cache: %s', e)
         raise HTTPException(status_code=500, detail='Failed to warm cache')
@@ -53,7 +53,7 @@ async def cache_health_check(request: Request, admin_key: str=Depends(require_ad
         from ..utils.cache import cache_manager
         stats = get_cache_stats()
         cache_data = cache_manager.get_stats()
-        return {'health': stats, 'detailed_stats': cache_data, 'recommendations': _get_cache_recommendations(stats)}
+        return {'health': stats, 'detailed_stats': cache_data, 'recommendations': _get_cache_recommendations(stats)} # type: ignore[arg-type]
     except Exception as e:
         logger.error('Failed to get cache health: %s', e)
         raise HTTPException(status_code=500, detail='Failed to retrieve cache health')

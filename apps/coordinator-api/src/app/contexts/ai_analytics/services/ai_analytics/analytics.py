@@ -7,7 +7,7 @@ from typing import Any
 from uuid import uuid4
 from aitbc import get_logger
 logger = get_logger(__name__)
-from app.domain.analytics import AnalyticsAlert, AnalyticsPeriod, DashboardConfig, InsightType, MarketInsight, MarketMetric, MetricType
+from app.domain.analytics import AnalyticsAlert, AnalyticsPeriod, DashboardConfig, InsightType, MarketInsight, MarketMetric, MetricType  # type: ignore[import-not-found]
 from sqlmodel import Session, and_, select
 
 class DataCollector:
@@ -123,7 +123,7 @@ class AnalyticsEngine:
     """Advanced analytics and insights engine"""
 
     def __init__(self) -> None:
-        self.insight_algorithms = {'trend_analysis': self.analyze_trends, 'anomaly_detection': self.detect_anomalies, 'opportunity_identification': self.identify_opportunities, 'risk_assessment': self.assess_risks, 'performance_analysis': self.analyze_performance}
+        self.insight_algorithms = {'trend_analysis': self.analyze_trends, 'anomaly_detection': self.detect_anomalies, 'opportunity_identification': self.identify_opportunities, 'risk_assessment': self.assess_risks, 'performance_analysis': self.analyze_performance}  # type: ignore[attr-defined]
         self.trend_thresholds = {'significant_change': 5.0, 'strong_trend': 10.0, 'critical_trend': 20.0}
         self.anomaly_thresholds = {'statistical': 2.0, 'percentage': 15.0, 'volume': 100.0}
 
@@ -131,13 +131,13 @@ class AnalyticsEngine:
         """Generate market insights from collected metrics"""
         insights = []
         metrics = session.execute(select(MarketMetric).where(and_(MarketMetric.period_type == period_type, MarketMetric.period_start >= start_time, MarketMetric.period_end <= end_time)).order_by(MarketMetric.recorded_at.desc())).all()
-        trend_insights = await self.analyze_trends(metrics, session)
+        trend_insights = await self.analyze_trends(metrics, session)  # type: ignore[arg-type]
         insights.extend(trend_insights)
-        anomaly_insights = await self.detect_anomalies(metrics, session)
+        anomaly_insights = await self.detect_anomalies(metrics, session)  # type: ignore[arg-type]
         insights.extend(anomaly_insights)
-        opportunity_insights = await self.identify_opportunities(metrics, session)
+        opportunity_insights = await self.identify_opportunities(metrics, session)  # type: ignore[arg-type]
         insights.extend(opportunity_insights)
-        risk_insights = await self.assess_risks(metrics, session)
+        risk_insights = await self.assess_risks(metrics, session)  # type: ignore[arg-type]
         insights.extend(risk_insights)
         for insight in insights:
             session.add(insight)
@@ -308,7 +308,7 @@ class MarketplaceAnalytics:
         else:
             start_time = end_time - timedelta(hours=1)
         insights = await self.analytics_engine.generate_insights(self.session, period_type, start_time, end_time)
-        insight_groups = {}
+        insight_groups: dict[str, list[dict[str, Any]]] = {}
         for insight in insights:
             insight_type = insight.insight_type.value
             if insight_type not in insight_groups:

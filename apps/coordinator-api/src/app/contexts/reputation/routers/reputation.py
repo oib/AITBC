@@ -1,4 +1,4 @@
-from sqlalchemy import and_
+from sqlalchemy import and_, desc
 from sqlalchemy.orm import Session
 from ....domain.reputation import ReputationEvent
 '\nReputation Management API Endpoints\nREST API for agent reputation, trust scores, and economic profiles\n'
@@ -9,14 +9,14 @@ from pydantic import BaseModel, Field
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 logger = get_logger(__name__)
-from sqlmodel import Field, func, select
+from sqlmodel import func, select
 from ....domain.reputation import AgentReputation, CommunityFeedback, ReputationLevel
 from ....storage import get_session
 from ..services.reputation_service import ReputationService
 router = APIRouter(prefix='/reputation', tags=['reputation'])
 
 def get_reputation_service(session: Session=Depends(get_session)) -> ReputationService:
-    return ReputationService(session)
+    return ReputationService(session)  # type: ignore[arg-type]
 
 class ReputationProfileResponse(BaseModel):
     """Response model for reputation profile"""
@@ -108,7 +108,7 @@ class ReputationMetricsResponse(BaseModel):
 @rate_limit(rate=200, per=60)
 async def get_reputation_profile(request: Request, agent_id: str, session: Session=Depends(get_session)) -> ReputationProfileResponse:
     """Get comprehensive reputation profile for an agent"""
-    reputation_service = ReputationService(session)
+    reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
         profile_data = await reputation_service.get_reputation_summary(agent_id)
         if 'error' in profile_data:
@@ -122,7 +122,7 @@ async def get_reputation_profile(request: Request, agent_id: str, session: Sessi
 @rate_limit(rate=20, per=60)
 async def create_reputation_profile(request: Request, agent_id: str, session: Session=Depends(get_session)) -> dict[str, Any]:
     """Create a new reputation profile for an agent"""
-    reputation_service = ReputationService(session)
+    reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
         reputation = await reputation_service.create_reputation_profile(agent_id)
         return {'message': 'Reputation profile created successfully', 'agent_id': reputation.agent_id, 'trust_score': reputation.trust_score, 'reputation_level': reputation.reputation_level.value, 'created_at': reputation.created_at.isoformat()}
@@ -134,7 +134,7 @@ async def create_reputation_profile(request: Request, agent_id: str, session: Se
 @rate_limit(rate=20, per=60)
 async def add_community_feedback(request: Request, agent_id: str, feedback_request: FeedbackRequest, session: Session=Depends(get_session)) -> FeedbackResponse:
     """Add community feedback for an agent"""
-    reputation_service = ReputationService(session)
+    reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
         feedback = await reputation_service.add_community_feedback(agent_id=agent_id, reviewer_id=feedback_request.reviewer_id, ratings=feedback_request.ratings, feedback_text=feedback_request.feedback_text, tags=feedback_request.tags)
         return FeedbackResponse(id=feedback.id, agent_id=feedback.agent_id, reviewer_id=feedback.reviewer_id, overall_rating=feedback.overall_rating, performance_rating=feedback.performance_rating, communication_rating=feedback.communication_rating, reliability_rating=feedback.reliability_rating, value_rating=feedback.value_rating, feedback_text=feedback.feedback_text, feedback_tags=feedback.feedback_tags, created_at=feedback.created_at.isoformat(), moderation_status=feedback.moderation_status)
@@ -146,7 +146,7 @@ async def add_community_feedback(request: Request, agent_id: str, feedback_reque
 @rate_limit(rate=20, per=60)
 async def record_job_completion(request: Request, job_request: JobCompletionRequest, session: Session=Depends(get_session)) -> dict[str, Any]:
     """Record job completion and update reputation"""
-    reputation_service = ReputationService(session)
+    reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
         reputation = await reputation_service.record_job_completion(agent_id=job_request.agent_id, job_id=job_request.job_id, success=job_request.success, response_time=job_request.response_time, earnings=job_request.earnings)
         return {'message': 'Job completion recorded successfully', 'agent_id': reputation.agent_id, 'new_trust_score': reputation.trust_score, 'reputation_level': reputation.reputation_level.value, 'jobs_completed': reputation.jobs_completed, 'success_rate': reputation.success_rate, 'total_earnings': reputation.total_earnings}
@@ -158,15 +158,15 @@ async def record_job_completion(request: Request, job_request: JobCompletionRequ
 @rate_limit(rate=200, per=60)
 async def get_trust_score_breakdown(request: Request, agent_id: str, session: Session=Depends(get_session)) -> TrustScoreResponse:
     """Get detailed trust score breakdown for an agent"""
-    reputation_service = ReputationService(session)
+    reputation_service = ReputationService(session)  # type: ignore[arg-type]
     calculator = reputation_service.calculator
     try:
-        performance_score = calculator.calculate_performance_score(agent_id, session)
-        reliability_score = calculator.calculate_reliability_score(agent_id, session)
-        community_score = calculator.calculate_community_score(agent_id, session)
-        security_score = calculator.calculate_security_score(agent_id, session)
-        economic_score = calculator.calculate_economic_score(agent_id, session)
-        composite_score = calculator.calculate_composite_trust_score(agent_id, session)
+        performance_score = calculator.calculate_performance_score(agent_id, session)  # type: ignore[arg-type]
+        reliability_score = calculator.calculate_reliability_score(agent_id, session)  # type: ignore[arg-type]
+        community_score = calculator.calculate_community_score(agent_id, session)  # type: ignore[arg-type]
+        security_score = calculator.calculate_security_score(agent_id, session)  # type: ignore[arg-type]
+        economic_score = calculator.calculate_economic_score(agent_id, session)  # type: ignore[arg-type]
+        composite_score = calculator.calculate_composite_trust_score(agent_id, session)  # type: ignore[arg-type]
         reputation_level = calculator.determine_reputation_level(composite_score)
         return TrustScoreResponse(agent_id=agent_id, composite_score=composite_score, performance_score=performance_score, reliability_score=reliability_score, community_score=community_score, security_score=security_score, economic_score=economic_score, reputation_level=reputation_level.value, calculated_at=datetime.now(UTC).isoformat())
     except Exception as e:
@@ -177,7 +177,7 @@ async def get_trust_score_breakdown(request: Request, agent_id: str, session: Se
 @rate_limit(rate=200, per=60)
 async def get_reputation_leaderboard(request: Request, category: str=Query(default='trust_score', description='Category to rank by'), limit: int=Query(default=50, ge=1, le=100, description='Number of results'), region: str | None=Query(default=None, description='Filter by region'), session: Session=Depends(get_session)) -> list[LeaderboardEntry]:
     """Get reputation leaderboard"""
-    reputation_service = ReputationService(session)
+    reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
         leaderboard_data = await reputation_service.get_leaderboard(category=category, limit=limit, region=region)
         return [LeaderboardEntry(**entry) for entry in leaderboard_data]
@@ -195,17 +195,17 @@ async def get_reputation_metrics(request: Request, session: Session=Depends(get_
             return ReputationMetricsResponse(total_agents=0, average_trust_score=0.0, level_distribution={}, top_regions=[], recent_activity={})
         total_agents = len(reputations)
         average_trust_score = sum((r.trust_score for r in reputations)) / total_agents
-        level_counts = {}
+        level_counts: dict[str, int] = {}
         for reputation in reputations:
             level = reputation.reputation_level.value
             level_counts[level] = level_counts.get(level, 0) + 1
-        region_counts = {}
+        region_counts: dict[str, int] = {}
         for reputation in reputations:
             region = reputation.geographic_region or 'Unknown'
             region_counts[region] = region_counts.get(region, 0) + 1
         top_regions = [{'region': region, 'count': count} for region, count in sorted(region_counts.items(), key=lambda x: x[1], reverse=True)[:10]]
         recent_cutoff = datetime.now(UTC) - timedelta(days=1)
-        recent_events = session.execute(select(func.count(ReputationEvent.id)).where(ReputationEvent.occurred_at >= recent_cutoff)).first()
+        recent_events = session.execute(select(func.count(ReputationEvent.id)).where(ReputationEvent.occurred_at >= recent_cutoff)).first()  # type: ignore[arg-type]
         recent_activity = {'events_last_24h': recent_events[0] if recent_events else 0, 'active_agents': len([r for r in reputations if r.last_activity and r.last_activity >= recent_cutoff])}
         return ReputationMetricsResponse(total_agents=total_agents, average_trust_score=average_trust_score, level_distribution=level_counts, top_regions=top_regions, recent_activity=recent_activity)
     except Exception as e:
@@ -217,7 +217,7 @@ async def get_reputation_metrics(request: Request, session: Session=Depends(get_
 async def get_agent_feedback(request: Request, agent_id: str, limit: int=Query(default=10, ge=1, le=50), session: Session=Depends(get_session)) -> list[FeedbackResponse]:
     """Get community feedback for an agent"""
     try:
-        feedbacks = session.execute(select(CommunityFeedback).where(and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == 'approved')).order_by(CommunityFeedback.created_at.desc()).limit(limit)).all()
+        feedbacks = session.execute(select(CommunityFeedback).where(and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == 'approved')).order_by(desc(CommunityFeedback.created_at)).limit(limit)).all()  # type: ignore[arg-type]
         return [FeedbackResponse(id=feedback.id, agent_id=feedback.agent_id, reviewer_id=feedback.reviewer_id, overall_rating=feedback.overall_rating, performance_rating=feedback.performance_rating, communication_rating=feedback.communication_rating, reliability_rating=feedback.reliability_rating, value_rating=feedback.value_rating, feedback_text=feedback.feedback_text, feedback_tags=feedback.feedback_tags, created_at=feedback.created_at.isoformat(), moderation_status=feedback.moderation_status) for feedback in feedbacks]
     except Exception as e:
         logger.error('Error getting feedback for agent %s: %s', agent_id, str(e))
@@ -228,7 +228,7 @@ async def get_agent_feedback(request: Request, agent_id: str, limit: int=Query(d
 async def get_reputation_events(request: Request, agent_id: str, limit: int=Query(default=20, ge=1, le=100), session: Session=Depends(get_session)) -> list[dict[str, Any]]:
     """Get reputation change events for an agent"""
     try:
-        events = session.execute(select(ReputationEvent).where(ReputationEvent.agent_id == agent_id).order_by(ReputationEvent.occurred_at.desc()).limit(limit)).all()
+        events = session.execute(select(ReputationEvent).where(ReputationEvent.agent_id == agent_id).order_by(desc(ReputationEvent.occurred_at)).limit(limit)).all()  # type: ignore[arg-type]
         return [{'id': event.id, 'event_type': event.event_type, 'event_subtype': event.event_subtype, 'impact_score': event.impact_score, 'trust_score_before': event.trust_score_before, 'trust_score_after': event.trust_score_after, 'reputation_level_before': event.reputation_level_before.value if event.reputation_level_before else None, 'reputation_level_after': event.reputation_level_after.value if event.reputation_level_after else None, 'occurred_at': event.occurred_at.isoformat(), 'event_data': event.event_data} for event in events]
     except Exception as e:
         logger.error('Error getting reputation events for %s: %s', agent_id, str(e))
@@ -307,7 +307,7 @@ async def sync_cross_chain_reputation(request: Request, agent_id: str, backgroun
 async def get_cross_chain_leaderboard(request: Request, limit: int=Query(50, ge=1, le=100), min_score: float=Query(0.0, ge=0.0, le=1.0), session: Session=Depends(get_session), reputation_service: ReputationService=Depends(get_reputation_service)) -> dict[str, Any]:
     """Get cross-chain reputation leaderboard"""
     try:
-        reputations = session.execute(select(AgentReputation).where(AgentReputation.trust_score >= min_score * 1000).order_by(AgentReputation.trust_score.desc()).limit(limit)).all()
+        reputations = session.execute(select(AgentReputation).where(AgentReputation.trust_score >= min_score * 1000).order_by(desc(AgentReputation.trust_score)).limit(limit)).all()  # type: ignore[arg-type]
         agents = []
         for rep in reputations:
             agents.append({'agent_id': rep.agent_id, 'aggregated_score': rep.trust_score / 1000.0, 'chain_count': 1, 'active_chains': [1], 'consistency_score': 1.0, 'verification_status': 'verified', 'trust_score': rep.trust_score, 'reputation_level': rep.reputation_level.value, 'transaction_count': rep.transaction_count, 'success_rate': rep.success_rate, 'last_updated': rep.updated_at.isoformat()})
@@ -357,7 +357,7 @@ async def submit_cross_chain_event(request: Request, event_data: dict[str, Any],
 async def get_cross_chain_analytics(request: Request, chain_id: int | None=Query(None), session: Session=Depends(get_session), reputation_service: ReputationService=Depends(get_reputation_service)) -> dict[str, Any]:
     """Get cross-chain reputation analytics"""
     try:
-        total_agents = session.execute(select(func.count(AgentReputation.id))).first()
+        total_agents = session.execute(select(func.count(AgentReputation.id))).first()  # type: ignore[arg-type]
         avg_reputation = session.execute(select(func.avg(AgentReputation.trust_score))).first() or 0.0
         reputations = session.execute(select(AgentReputation)).all()
         distribution = {'master': 0, 'expert': 0, 'advanced': 0, 'intermediate': 0, 'beginner': 0}
@@ -376,7 +376,7 @@ async def get_cross_chain_analytics(request: Request, chain_id: int | None=Query
                 score_ranges['0.6-0.8'] += 1
             else:
                 score_ranges['0.8-1.0'] += 1
-        return {'chain_id': chain_id or 1, 'total_agents': total_agents, 'average_reputation': avg_reputation / 1000.0, 'reputation_distribution': distribution, 'score_distribution': score_ranges, 'cross_chain_metrics': {'cross_chain_agents': total_agents, 'average_consistency_score': 1.0, 'chain_diversity_score': 0.0}, 'generated_at': datetime.now(UTC).isoformat()}
+        return {'chain_id': chain_id or 1, 'total_agents': total_agents, 'average_reputation': avg_reputation / 1000.0, 'reputation_distribution': distribution, 'score_distribution': score_ranges, 'cross_chain_metrics': {'cross_chain_agents': total_agents, 'average_consistency_score': 1.0, 'chain_diversity_score': 0.0}, 'generated_at': datetime.now(UTC).isoformat()} # type: ignore[operator]
     except Exception as e:
         logger.error('Error getting cross-chain analytics: %s', str(e))
         raise HTTPException(status_code=500, detail='Internal server error')

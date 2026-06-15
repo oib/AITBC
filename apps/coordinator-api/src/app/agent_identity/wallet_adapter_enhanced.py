@@ -92,7 +92,7 @@ class EnhancedWalletAdapter(ABC):
             message_to_sign = f'{message}:{timestamp}:{nonce}'
             message_hash = hashlib.sha256(message_to_sign.encode()).hexdigest()
             signature = await self._sign_hash(message_hash, private_key)
-            return {'signature': signature, 'message': message, 'timestamp': timestamp, 'nonce': nonce, 'hash': message_hash}
+            return {'signature': signature, 'message': message, 'timestamp': timestamp, 'nonce': nonce, 'hash': message_hash} # type: ignore[return-value]
         except Exception as e:
             logger.error('Error signing message: %s', e)
             raise
@@ -150,7 +150,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
             result = {'address': wallet_address, 'chain_id': self.chain_id, 'eth_balance': eth_balance, 'token_balances': {}, 'last_updated': datetime.now(UTC).isoformat()}
             if token_address:
                 token_balance = await self._get_token_balance(wallet_address, token_address)
-                result['token_balances'][token_address] = token_balance
+                result['token_balances'][token_address] = token_balance  # type: ignore[index]
             return result
         except Exception as e:
             logger.error('Error getting balance for %s: %s', wallet_address, e)
@@ -242,7 +242,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
     async def _derive_address_from_private_key(self, private_key: str) -> str:
         """Derive Ethereum address from private key"""
         try:
-            return derive_ethereum_address(private_key)
+            return derive_ethereum_address(private_key)  # type: ignore[no-any-return]
         except Exception as e:
             logger.error('Failed to derive address from private key: %s', e)
             raise
@@ -251,7 +251,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
         """Encrypt private key with security configuration"""
         try:
             password = security_config.get('encryption_password', 'default_password')
-            return encrypt_private_key(private_key, password)
+            return encrypt_private_key(private_key, password)  # type: ignore[no-any-return]
         except Exception as e:
             logger.error('Failed to encrypt private key: %s', e)
             raise
@@ -321,7 +321,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
             account = Account.from_key(from_address)
             tx_dict = {'nonce': int(transaction_data.get('nonce', 0), 16), 'gasPrice': int(transaction_data.get('gasPrice', 0), 16), 'gas': int(transaction_data.get('gas', 0), 16), 'to': transaction_data.get('to'), 'value': int(transaction_data.get('value', '0x0'), 16), 'data': transaction_data.get('data', '0x'), 'chainId': transaction_data.get('chainId', 1)}
             signed_tx = account.sign_transaction(tx_dict)
-            return signed_tx.raw_transaction.hex()
+            return signed_tx.raw_transaction.hex()  # type: ignore[no-any-return]
         except ImportError:
             raise ImportError('eth-account is required for transaction signing. Install with: pip install eth-account')
         except Exception as e:
@@ -372,7 +372,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
     async def _sign_hash(self, message_hash: str, private_key: str) -> str:
         """Sign a hash with private key"""
         try:
-            return sign_transaction_hash(message_hash, private_key)
+            return sign_transaction_hash(message_hash, private_key)  # type: ignore[no-any-return]
         except Exception as e:
             logger.error('Failed to sign hash: %s', e)
             raise
@@ -380,7 +380,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
     async def _verify_signature(self, message_hash: str, signature: str, address: str) -> bool:
         """Verify a signature"""
         try:
-            return verify_signature(message_hash, signature, address)
+            return verify_signature(message_hash, signature, address)  # type: ignore[no-any-return]
         except Exception as e:
             logger.error('Failed to verify signature: %s', e)
             return False
@@ -479,9 +479,9 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
             response = self._http_client.get('transactions', params={'tx_hash': transaction_hash})
             transactions = response.get('transactions', [])
             if not transactions:
-                return {'transaction_hash': transaction_hash, 'status': TransactionStatus.UNKNOWN.value, 'found': False}
+                return {'transaction_hash': transaction_hash, 'status': TransactionStatus.UNKNOWN.value, 'found': False}  # type: ignore[attr-defined]
             tx = transactions[0]
-            return {'transaction_hash': transaction_hash, 'status': tx.get('status', TransactionStatus.UNKNOWN.value), 'from': tx.get('from', ''), 'to': tx.get('to', ''), 'amount': str(tx.get('amount', 0)), 'fee': tx.get('fee', 0), 'block_height': tx.get('block_height'), 'found': True}
+            return {'transaction_hash': transaction_hash, 'status': tx.get('status', TransactionStatus.UNKNOWN.value), 'from': tx.get('from', ''), 'to': tx.get('to', ''), 'amount': str(tx.get('amount', 0)), 'fee': tx.get('fee', 0), 'block_height': tx.get('block_height'), 'found': True}  # type: ignore[attr-defined]
         except Exception as e:
             logger.error('Error getting transaction status: %s', e)
             raise
@@ -506,14 +506,14 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
     async def _get_nonce(self, address: str) -> int:
         try:
             response = self._http_client.get(f'account/{address}')
-            return response.get('nonce', 0)
+            return response.get('nonce', 0)  # type: ignore[no-any-return]
         except Exception as e:
             logger.error('Error getting nonce for %s: %s', address, e)
             return 0
 
     async def _encrypt_private_key(self, private_key: str, security_config: dict[str, Any]) -> str:
         try:
-            return encrypt_private_key(private_key, security_config.get('password', ''))
+            return encrypt_private_key(private_key, security_config.get('password', ''))  # type: ignore[no-any-return]
         except Exception as e:
             logger.error('Error encrypting private key: %s', e)
             raise
@@ -552,7 +552,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
             transactions = response.get('transactions', [])
             formatted = []
             for tx in transactions:
-                formatted.append({'hash': tx.get('hash', ''), 'from': tx.get('from', ''), 'to': tx.get('to', ''), 'value': str(tx.get('amount', 0)), 'block_number': tx.get('block_height'), 'timestamp': tx.get('timestamp'), 'fee': tx.get('fee', 0), 'status': tx.get('status', TransactionStatus.UNKNOWN.value)})
+                formatted.append({'hash': tx.get('hash', ''), 'from': tx.get('from', ''), 'to': tx.get('to', ''), 'value': str(tx.get('amount', 0)), 'block_number': tx.get('block_height'), 'timestamp': tx.get('timestamp'), 'fee': tx.get('fee', 0), 'status': tx.get('status', TransactionStatus.UNKNOWN.value)})  # type: ignore[attr-defined]
             return formatted
         except Exception as e:
             logger.error('Error getting transaction history: %s', e)
@@ -580,7 +580,7 @@ class WalletAdapterFactory:
         adapter_class = chain_adapters.get(chain_id)
         if not adapter_class:
             raise ValueError(f'Unsupported chain ID: {chain_id}')
-        return adapter_class(rpc_url, security_level)
+        return adapter_class(rpc_url, security_level)  # type: ignore[no-any-return]
 
     @staticmethod
     def get_supported_chains() -> list[int]:

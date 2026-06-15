@@ -5,17 +5,17 @@ These adapters wrap coordinator-api's native domain models and services.
 
 from typing import Any
 
-from aitbc_agent_core.protocols.database import ISessionProvider  # type: ignore[import-not-found]
-from aitbc_agent_core.protocols.domain import (  # type: ignore[import-not-found]
+from aitbc_agent_core.protocols.database import ISessionProvider
+from aitbc_agent_core.protocols.domain import (
     AgentStatus as ProtocolAgentStatus,
     IAgentExecution,
     IAgentStepExecution,
     StepType as ProtocolStepType,
     VerificationLevel as ProtocolVerificationLevel,
 )
-from aitbc_agent_core.protocols.orchestrator import IAgentOrchestrator  # type: ignore[import-not-found]
-from aitbc_agent_core.protocols.security import IAuditor, ISecurityManager  # type: ignore[import-not-found]
-from aitbc_agent_core.protocols.zk_proof import IZKProofService  # type: ignore[import-not-found]
+from aitbc_agent_core.protocols.orchestrator import IAgentOrchestrator
+from aitbc_agent_core.protocols.security import IAuditor, ISecurityManager
+from aitbc_agent_core.protocols.zk_proof import IZKProofService
 
 # Import from coordinator-api's own domain models
 from app.domain.agent import (  # type: ignore[import-not-found]

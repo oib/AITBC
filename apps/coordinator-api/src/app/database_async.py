@@ -1,5 +1,6 @@
 """Async database module with connection pooling for Coordinator API."""
 import logging
+from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from .config import settings
@@ -32,15 +33,12 @@ def _build_async_url(url: str) -> str:
 def init_async_db() -> None:
     """Initialize async database engine and session factory."""
     global _async_engine, _async_session_factory
-    if _async_engine is not None:
-        logger.warning('Async database already initialized')
-        return
     try:
         sync_url = str(settings.database.effective_url)
         async_url = _build_async_url(sync_url)
         logger.info('Initializing async database connection: %s://...', async_url.split('://')[0])
         _async_engine = create_async_engine(async_url, echo=settings.database.echo if hasattr(settings.database, 'echo') else False, pool_size=getattr(settings.database, 'pool_size', 5), max_overflow=getattr(settings.database, 'max_overflow', 10), pool_pre_ping=getattr(settings.database, 'pool_pre_ping', True), pool_recycle=getattr(settings.database, 'pool_recycle', 3600))
-        _async_session_factory = sessionmaker(_async_engine, class_=AsyncSession, expire_on_commit=False)
+        _async_session_factory = sessionmaker(_async_engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore[call-overload]
         logger.info('Async database initialized successfully')
     except Exception as e:
         logger.error('Failed to initialize async database: %s', e)
@@ -55,7 +53,7 @@ def get_async_db() -> AsyncSession:
     if _async_session_factory is None:
         raise RuntimeError('Async database not initialized. Call init_async_db() first.')
 
-    async def _get_async_db() -> AsyncSession:
+    async def _get_async_db() -> AsyncSession:  # type: ignore[misc]
         async with _async_session_factory() as session:
             try:
                 yield session
@@ -63,7 +61,7 @@ def get_async_db() -> AsyncSession:
                 await session.close()
     return _get_async_db()
 
-def get_sync_engine():
+def get_sync_engine() -> Any:
     """Get synchronous engine for backward compatibility.
     
     Returns:

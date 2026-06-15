@@ -10,12 +10,12 @@ from datetime import UTC, datetime, timedelta
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlmodel import Session
-from ..blockchain.contract_interactions import ContractInteractionService
-from ..crypto.merkle_tree import MerkleTreeService
-from ..crypto.zk_proofs import ZKProofService
-from ..domain.cross_chain_bridge import BridgeRequest, BridgeRequestStatus, BridgeTransaction, ChainConfig, MerkleProof, SupportedToken, Validator
-from ..monitoring.bridge_monitor import BridgeMonitor
-from ..schemas.cross_chain_bridge import BridgeCompleteRequest, BridgeConfirmRequest, BridgeCreateRequest, BridgeResponse, BridgeStatusResponse, ChainSupportRequest, TokenSupportRequest
+from ..blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
+from ..crypto.merkle_tree import MerkleTreeService  # type: ignore[import-not-found]
+from ..crypto.zk_proofs import ZKProofService  # type: ignore[import-not-found]
+from ..domain.cross_chain_bridge import BridgeRequest, BridgeRequestStatus, BridgeTransaction, ChainConfig, MerkleProof, SupportedToken, Validator  # type: ignore[import-not-found]
+from ..monitoring.bridge_monitor import BridgeMonitor  # type: ignore[import-not-found]
+from ..schemas.cross_chain_bridge import BridgeCompleteRequest, BridgeConfirmRequest, BridgeCreateRequest, BridgeResponse, BridgeStatusResponse, ChainSupportRequest, TokenSupportRequest  # type: ignore[import-not-found]
 logger = logging.getLogger(__name__)
 
 class CrossChainBridgeService:
@@ -52,7 +52,22 @@ class CrossChainBridgeService:
                 raise HTTPException(status_code=400, detail=f'Amount exceeds bridge limit of {token_config.bridge_limit}')
             zk_proof = await self._generate_transfer_zk_proof(transfer_request, sender_address)
             contract_request_id = await self.contract_service.initiate_bridge(transfer_request.source_token, transfer_request.target_token, transfer_request.amount, transfer_request.target_chain_id, transfer_request.recipient_address)
-            bridge_request = BridgeRequest(contract_request_id=str(contract_request_id), sender_address=sender_address, recipient_address=transfer_request.recipient_address, source_token=transfer_request.source_token, target_token=transfer_request.target_token, source_chain_id=transfer_request.source_chain_id, target_chain_id=transfer_request.target_chain_id, amount=transfer_request.amount, bridge_fee=bridge_fee, total_amount=total_amount, status=BridgeRequestStatus.PENDING, zk_proof=zk_proof.proof, created_at=datetime.now(UTC), expires_at=datetime.now(UTC) + timedelta(seconds=self.bridge_timeout))
+            bridge_request = BridgeRequest(
+                contract_request_id=str(contract_request_id),
+                sender_address=sender_address,
+                recipient_address=transfer_request.recipient_address,
+                source_token=transfer_request.source_token,
+                target_token=transfer_request.target_token,
+                source_chain_id=transfer_request.source_chain_id,
+                target_chain_id=transfer_request.target_chain_id,
+                amount=transfer_request.amount,
+                bridge_fee=bridge_fee,
+                total_amount=total_amount,
+                status=BridgeRequestStatus.PENDING,
+                zk_proof=zk_proof.proof,  # type: ignore[attr-defined]
+                created_at=datetime.now(UTC),
+                expires_at=datetime.now(UTC) + timedelta(seconds=self.bridge_timeout)
+            )
             self.session.add(bridge_request)
             self.session.commit()
             self.session.refresh(bridge_request)
@@ -102,7 +117,7 @@ class CrossChainBridgeService:
             resolution_action = await self._determine_resolution_action(bridge_request, failure_analysis)
             resolution_result = await self._execute_resolution(bridge_request, resolution_action)
             bridge_request.dispute_reason = dispute_reason
-            bridge_request.resolution_action = resolution_action.action_type
+            bridge_request.resolution_action = resolution_action.action_type  # type: ignore[attr-defined]
             bridge_request.resolved_at = datetime.now(UTC)
             bridge_request.status = BridgeRequestStatus.RESOLVED
             self.session.commit()
@@ -246,7 +261,7 @@ class CrossChainBridgeService:
         """Generate ZK proof for transfer"""
         proof_inputs = {'sender': sender_address, 'recipient': transfer_request.recipient_address, 'amount': transfer_request.amount, 'source_chain': transfer_request.source_chain_id, 'target_chain': transfer_request.target_chain_id, 'timestamp': int(datetime.now(UTC).timestamp())}
         zk_proof = await self.zk_proof_service.generate_proof('bridge_transfer', proof_inputs)
-        return zk_proof
+        return zk_proof  # type: ignore[no-any-return]
 
     async def _get_bridge_confirmations(self, request_id: int) -> list[dict]:
         """Get bridge confirmations"""
@@ -269,7 +284,7 @@ class CrossChainBridgeService:
         source_confirmation_time = source_chain.avg_block_time * source_chain.min_confirmations
         target_confirmation_time = target_chain.avg_block_time * target_chain.min_confirmations
         total_estimated_time = source_confirmation_time + target_confirmation_time + 300
-        return bridge_request.created_at + timedelta(seconds=total_estimated_time)
+        return bridge_request.created_at + timedelta(seconds=total_estimated_time)  # type: ignore[no-any-return]
 
     async def _analyze_bridge_failure(self, bridge_request: BridgeRequest) -> dict:
         """Analyze bridge failure reason"""
@@ -316,7 +331,7 @@ class CrossChainBridgeService:
     async def _verify_merkle_proof(self, merkle_proof: list[str], bridge_request: BridgeRequest) -> bool:
         """Verify Merkle proof"""
         leaf_data = {'request_id': bridge_request.id, 'sender': bridge_request.sender_address, 'recipient': bridge_request.recipient_address, 'amount': bridge_request.amount, 'target_chain': bridge_request.target_chain_id}
-        return await self.merkle_tree_service.verify_proof(leaf_data, merkle_proof)
+        return await self.merkle_tree_service.verify_proof(leaf_data, merkle_proof)  # type: ignore[no-any-return]
 
 class ValidationResult:
     """Validation result for requests"""

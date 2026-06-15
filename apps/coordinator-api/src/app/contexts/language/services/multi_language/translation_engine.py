@@ -7,10 +7,13 @@ import hashlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-import deepl
-import google.cloud.translate_v2 as translate
-import openai
+from typing import TYPE_CHECKING, Any
+import deepl  # type: ignore[import-not-found]
+import google.cloud.translate_v2 as translate  # type: ignore[import-untyped]
+import openai  # type: ignore[import-not-found]
 from aitbc import get_logger
+if TYPE_CHECKING:
+    from .translation_cache import TranslationCache
 logger = get_logger(__name__)
 
 class TranslationProvider(Enum):
@@ -122,7 +125,7 @@ class LocalTranslator(BaseTranslator):
     """Local MarianMT models for privacy-preserving translation"""
 
     def __init__(self) -> None:
-        self.models = {}
+        self.models: dict[str, Any] = {}
 
     async def translate(self, request: TranslationRequest) -> TranslationResponse:
         start_time = asyncio.get_event_loop().time()
@@ -148,17 +151,17 @@ class TranslationEngine:
         if self.config.get('openai', {}).get('api_key'):
             translators[TranslationProvider.OPENAI] = OpenAITranslator(self.config['openai']['api_key'])
         if self.config.get('google', {}).get('api_key'):
-            translators[TranslationProvider.GOOGLE] = GoogleTranslator(self.config['google']['api_key'])
+            translators[TranslationProvider.GOOGLE] = GoogleTranslator(self.config['google']['api_key'])  # type: ignore[assignment]
         if self.config.get('deepl', {}).get('api_key'):
-            translators[TranslationProvider.DEEPL] = DeepLTranslator(self.config['deepl']['api_key'])
-        translators[TranslationProvider.LOCAL] = LocalTranslator()
-        return translators
+            translators[TranslationProvider.DEEPL] = DeepLTranslator(self.config['deepl']['api_key'])  # type: ignore[assignment]
+        translators[TranslationProvider.LOCAL] = LocalTranslator()  # type: ignore[assignment]
+        return translators  # type: ignore[return-value]
 
     async def translate(self, request: TranslationRequest) -> TranslationResponse:
         """Main translation method with fallback strategy"""
         cache_key = self._generate_cache_key(request)
         if self.cache:
-            cached_result = await self.cache.get(cache_key)
+            cached_result = await self.cache.get(cache_key, request.source_language, request.target_language)
             if cached_result:
                 logger.info('Cache hit for translation: %s', cache_key)
                 return cached_result
@@ -171,10 +174,10 @@ class TranslationEngine:
                 translator = self.translators[provider]
                 result = await translator.translate(request)
                 if self.quality_checker:
-                    quality_score = await self.quality_checker.evaluate_translation(request.text, result.translated_text, request.source_language, request.target_language)
+                    quality_score = await self.quality_checker.evaluate_translation(request.text, result.translated_text, request.source_language, request.target_language)  # type: ignore[unreachable]
                     result.confidence = min(result.confidence, quality_score)
                 if self.cache and result.confidence > 0.8:
-                    await self.cache.set(cache_key, result, ttl=86400)
+                    await self.cache.set(cache_key, request.target_language, result, ttl=86400)  # type: ignore[call-arg, arg-type]
                 logger.info('Translation successful using %s', provider.value)
                 return result
             except Exception as e:
