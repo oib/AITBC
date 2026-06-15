@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     bind_port: int = Field(default=8204)
 
     # Blockchain RPC
-    blockchain_rpc_url: str = Field(default="http://localhost:8006")
+    blockchain_rpc_url: str = Field(default="http://localhost:8202")
 
     # Gossip broker
     gossip_backend: str = Field(default="memory")  # memory, broadcast, redis

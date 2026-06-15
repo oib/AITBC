@@ -10,7 +10,7 @@ from aitbc.rate_limiting import rate_limit
 router = APIRouter(prefix="/islands", tags=["islands"])
 
 # Edge API base URL
-EDGE_API_BASE_URL = "http://127.0.0.1:8103/v1"
+EDGE_API_BASE_URL = "http://127.0.0.1:8111/v1"
 
 
 @router.get("/")
