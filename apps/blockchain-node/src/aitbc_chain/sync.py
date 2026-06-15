@@ -438,10 +438,12 @@ class ChainSync:
                 select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
             ).first()
             our_height = our_head.height if our_head else -1
+            gap = height - our_height
             logger.info(
-                "Import block check: height=%s, our_height=%s, parent_hash=%s, block_hash=%s",
+                "Import block check: remote height=%s, local height=%s (gap=%s), parent=%s, block=%s",
                 height,
                 our_height,
+                gap,
                 parent_hash,
                 block_hash,
             )
