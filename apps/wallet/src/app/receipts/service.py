@@ -22,7 +22,7 @@ class ReceiptValidationResult:
 
     @property
     def miner_valid(self) -> bool:
-        return self.miner_signature.valid  # type: ignore[no-any-return]
+        return self.miner_signature.valid
 
     @property
     def all_valid(self) -> bool:

@@ -7,7 +7,6 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import col
 from sqlmodel import Session, select, update
 
 from aitbc import get_logger
@@ -54,7 +53,7 @@ class AgentStateManager:
         """Update execution status and related fields"""
         stmt = (
             update(AgentExecution)
-            .where(col(AgentExecution.id) == execution_id)
+            .where(AgentExecution.id == execution_id)  # type: ignore[arg-type]
             .values(status=status, updated_at=datetime.now(UTC), **kwargs)
         )
         self.session.execute(stmt)
@@ -90,7 +89,7 @@ class AgentStateManager:
         """Update step execution"""
         stmt = (
             update(AgentStepExecution)
-            .where(col(AgentStepExecution.id) == step_execution_id)
+            .where(AgentStepExecution.id == step_execution_id)  # type: ignore[arg-type]
             .values(updated_at=datetime.now(UTC), **kwargs)
         )
         self.session.execute(stmt)

@@ -7,8 +7,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import col, desc
-from sqlmodel import Session, select
+from sqlmodel import Session, col, desc, select
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -234,7 +233,7 @@ async def list_audit_logs(
         if risk_score_max is not None:
             query = query.where(AgentAuditLog.risk_score <= risk_score_max)
         query = query.offset(offset).limit(limit)
-        query = query.order_by(desc(AgentAuditLog.timestamp))  # type: ignore[arg-type]
+        query = query.order_by(desc(AgentAuditLog.timestamp))
         audit_logs = list(session.exec(query).all())
         return audit_logs
     except Exception as e:
@@ -290,7 +289,7 @@ async def list_trust_scores(
         if max_score is not None:
             query = query.where(AgentTrustScore.trust_score <= max_score)
         query = query.offset(offset).limit(limit)
-        query = query.order_by(desc(AgentTrustScore.trust_score))  # type: ignore[arg-type]
+        query = query.order_by(desc(AgentTrustScore.trust_score))
         trust_scores = list(session.exec(query).all())
         return trust_scores
     except Exception as e:
@@ -481,7 +480,7 @@ async def get_security_dashboard(
     try:
         from ..services.agent_security import AgentAuditLog, AgentSandboxConfig
 
-        recent_audits = list(session.exec(select(AgentAuditLog).order_by(desc(AgentAuditLog.timestamp)).limit(50)).all())  # type: ignore[arg-type]
+        recent_audits = list(session.exec(select(AgentAuditLog).order_by(desc(col(AgentAuditLog.timestamp))).limit(50)).all())
         high_risk_events = list(
             session.exec(
                 select(AgentAuditLog)
