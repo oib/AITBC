@@ -69,7 +69,7 @@ class ChainSettings(BaseSettings):
     )
 
     rpc_bind_host: str = "0.0.0.0"  # nosec B104: intentional for distributed blockchain
-    rpc_bind_port: int = 8080
+    rpc_bind_port: int = 8202
 
     p2p_bind_host: str = "0.0.0.0"  # nosec B104: intentional for P2P peer connections
     p2p_bind_port: int = 8200
