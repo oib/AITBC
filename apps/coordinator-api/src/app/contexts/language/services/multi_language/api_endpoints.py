@@ -220,7 +220,7 @@ async def translate_text(
         )
     except Exception as e:
         logger.error("Translation error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/translate/batch", response_model=BatchTranslationResponse)
@@ -259,7 +259,7 @@ async def translate_batch(
         )
     except Exception as e:
         logger.error("Batch translation error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/detect-language", response_model=LanguageDetectionResponse)
@@ -283,7 +283,7 @@ async def detect_language(
         )  # type: ignore[return-value]
     except Exception as e:
         logger.error("Language detection error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/detect-language/batch", response_model=BatchDetectionResponse)
@@ -315,7 +315,7 @@ async def detect_language_batch(
         )  # type: ignore[return-value]
     except Exception as e:
         logger.error("Batch language detection error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/languages", response_model=SupportedLanguagesResponse)
@@ -335,7 +335,7 @@ async def get_supported_languages(
         return SupportedLanguagesResponse(languages=translation_languages, total_languages=len(all_languages))
     except Exception as e:
         logger.error("Get supported languages error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/cache/stats")
@@ -350,7 +350,7 @@ async def get_cache_stats(cache: TranslationCache | None = Depends(get_translati
         return JSONResponse(content=stats)  # type: ignore[return-value]
     except Exception as e:
         logger.error("Cache stats error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/cache/clear")
@@ -372,7 +372,7 @@ async def clear_cache(
             return {"message": "Full cache clear not implemented yet"}
     except Exception as e:
         logger.error("Cache clear error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -421,7 +421,7 @@ async def get_top_translations(limit: int = 100, cache: TranslationCache | None 
         return JSONResponse(content={"translations": top_translations})  # type: ignore[return-value]
     except Exception as e:
         logger.error("Get top translations error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/cache/optimize")
@@ -436,7 +436,7 @@ async def optimize_cache(cache: TranslationCache | None = Depends(get_translatio
         return JSONResponse(content=optimization_result)  # type: ignore[return-value]
     except Exception as e:
         logger.error("Cache optimization error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.exception_handler(ValueError)  # type: ignore[attr-defined, untyped-decorator]

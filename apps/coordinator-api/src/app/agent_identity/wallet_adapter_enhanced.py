@@ -23,7 +23,7 @@ from aitbc import (
 )
 
 logger = get_logger(__name__)
-from ..contexts.agent_identity.domain.agent_identity import ChainType
+from ..contexts.agent_identity.domain.agent_identity import ChainType  # noqa: E402
 
 
 class WalletStatus(StrEnum):
@@ -476,7 +476,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
             signed_tx = account.sign_transaction(tx_dict)
             return signed_tx.raw_transaction.hex()  # type: ignore[no-any-return]
         except ImportError:
-            raise ImportError("eth-account is required for transaction signing. Install with: pip install eth-account")
+            raise ImportError("eth-account is required for transaction signing. Install with: pip install eth-account") from None
         except Exception as e:
             logger.error("Failed to sign transaction: %s", e)
             raise

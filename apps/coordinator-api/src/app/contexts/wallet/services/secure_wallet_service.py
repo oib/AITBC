@@ -114,7 +114,7 @@ class SecureWalletService:
             }
         except Exception as e:
             logger.error("Failed to decrypt wallet %s: %s", wallet_id, e)
-            raise ValueError(f"Failed to access wallet: {str(e)}")
+            raise ValueError(f"Failed to access wallet: {str(e)}") from e
 
     async def verify_wallet_integrity(self, wallet_id: int) -> dict[str, bool]:
         """

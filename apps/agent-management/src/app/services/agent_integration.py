@@ -16,18 +16,18 @@ import subprocess
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import UTC, datetime
-from enum import StrEnum
-from typing import Any
-from uuid import uuid4
+from datetime import UTC, datetime  # noqa: E402
+from enum import StrEnum  # noqa: E402
+from typing import Any  # noqa: E402
+from uuid import uuid4  # noqa: E402
 
-from sqlmodel import JSON, Column, Field, Session, SQLModel, select
+from sqlmodel import JSON, Column, Field, Session, SQLModel, select  # noqa: E402
 
-from app.domain.agent import AgentExecution, AgentStepExecution, VerificationLevel
+from app.domain.agent import AgentExecution, AgentStepExecution, VerificationLevel  # noqa: E402
 
-from ..services.agent_security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel
-from ..services.agent_service import AIAgentOrchestrator
-from .agent_integration_factory import get_shared_agent_integration_service
+from ..services.agent_security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel  # noqa: E402
+from ..services.agent_service import AIAgentOrchestrator  # noqa: E402
+from .agent_integration_factory import get_shared_agent_integration_service  # noqa: E402
 
 
 class ZKProofService:
@@ -448,7 +448,7 @@ class AgentDeploymentManager:
             logger.info("Successfully deployed agent instance %s via systemd", instance.instance_id)
         except subprocess.CalledProcessError as e:
             logger.error("Failed to deploy systemd service %s: %s", service_name, e.stderr)
-            raise RuntimeError(f"Systemd deployment failed: {e.stderr}")
+            raise RuntimeError(f"Systemd deployment failed: {e.stderr}") from e
         except Exception as e:
             logger.error("Error deploying systemd service: %s", e)
             raise

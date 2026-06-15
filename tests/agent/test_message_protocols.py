@@ -11,11 +11,11 @@ coordinator_path = Path("/opt/aitbc/apps/agent-coordinator/src")
 if str(coordinator_path) not in sys.path:
     sys.path.insert(0, str(coordinator_path))
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta  # noqa: E402
 
-import pytest
-from app.protocols.communication import AgentMessage, MessageType, Priority
-from app.protocols.message_types import (
+import pytest  # noqa: E402
+from app.protocols.communication import AgentMessage, MessageType, Priority  # noqa: E402
+from app.protocols.message_types import (  # noqa: E402
     ConsensusMessage,
     CoordinationMessage,
     DiscoveryMessage,

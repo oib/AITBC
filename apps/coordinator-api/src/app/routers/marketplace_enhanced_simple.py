@@ -4,19 +4,19 @@ from typing import Annotated, Any
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
-from sqlmodel import Session
+from fastapi import APIRouter, Depends, HTTPException, Request  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
+from sqlmodel import Session  # noqa: E402
 
-from aitbc.rate_limiting import rate_limit
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
-from ..contexts.marketplace.services.marketplace_enhanced_simple import (
+from ..contexts.marketplace.services.marketplace_enhanced_simple import (  # noqa: E402
     EnhancedMarketplaceService,
     LicenseType,
     VerificationType,
 )
-from ..deps import require_admin_key
-from ..storage import get_session
+from ..deps import require_admin_key  # noqa: E402
+from ..storage import get_session  # noqa: E402
 
 router = APIRouter(prefix="/marketplace/enhanced", tags=["Marketplace Enhanced"])
 
@@ -68,7 +68,7 @@ async def create_royalty_distribution(
         return result
     except Exception as e:
         logger.error("Error creating royalty distribution: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/royalty/calculate/{offer_id}")
@@ -87,7 +87,7 @@ async def calculate_royalties(
         return royalties
     except Exception as e:
         logger.error("Error calculating royalties: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/license/create")
@@ -112,7 +112,7 @@ async def create_model_license(
         return result
     except Exception as e:
         logger.error("Error creating model license: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/verification/verify")
@@ -131,7 +131,7 @@ async def verify_model(
         return result
     except Exception as e:
         logger.error("Error verifying model: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/analytics")
@@ -149,4 +149,4 @@ async def get_marketplace_analytics(
         return analytics
     except Exception as e:
         logger.error("Error getting marketplace analytics: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

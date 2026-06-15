@@ -11,7 +11,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
-from ..domain.bounty import AgentMetrics, AgentStake, Bounty, BountyStatus, BountySubmission, EcosystemMetrics
+from ..domain.bounty import AgentMetrics, AgentStake, Bounty, BountyStatus, BountySubmission, EcosystemMetrics  # noqa: E402
 
 
 class EcosystemService:

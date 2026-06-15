@@ -15,7 +15,7 @@ try:
         save_multichain_config,
     )
     from ..core.node_client import NodeClient
-    from ..utils.output import error, info, output, success, warning
+    from ..utils.output import error, info, output, success
 except ImportError:
     from aitbc_cli.core.config import (
         add_node_config,
@@ -91,7 +91,7 @@ def info(ctx, node_id):
 
     except Exception as e:
         error(f"Error getting node info: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @node.command()
@@ -155,7 +155,7 @@ def chains(ctx, show_private, node_id):
 
     except Exception as e:
         error(f"Error listing chains: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @node.command()
@@ -185,7 +185,7 @@ def list(ctx, format):
 
     except Exception as e:
         error(f"Error listing nodes: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @node.command()
@@ -228,7 +228,7 @@ def add(ctx, node_id, endpoint, timeout, max_connections, retry_count):
 
     except Exception as e:
         error(f"Error adding node: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @node.command()
@@ -266,4 +266,4 @@ def remove(ctx, node_id, force):
 
     except Exception as e:
         error(f"Error removing node: {str(e)}")
-        raise click.Abort()
+        raise click.Abort() from e

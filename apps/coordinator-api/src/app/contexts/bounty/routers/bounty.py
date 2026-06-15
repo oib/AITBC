@@ -14,11 +14,11 @@ from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
-from ....domain.bounty import BountyStatus, BountyTier, SubmissionStatus
-from ....routers.users import get_current_user
-from ....services.bounty_service import BountyService
-from ....storage import get_session
-from ...blockchain.services.blockchain import BlockchainService
+from ....domain.bounty import BountyStatus, BountyTier, SubmissionStatus  # noqa: E402
+from ....routers.users import get_current_user  # noqa: E402
+from ....services.bounty_service import BountyService  # noqa: E402
+from ....storage import get_session  # noqa: E402
+from ...blockchain.services.blockchain import BlockchainService  # noqa: E402
 
 router = APIRouter()
 
@@ -198,7 +198,7 @@ async def create_bounty(
         return BountyResponse.from_orm(bounty)  # type: ignore[pydantic-orm]
     except Exception as e:
         logger.error("Failed to create bounty: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/bounties", response_model=list[BountyResponse])
@@ -228,7 +228,7 @@ async def get_bounties(
         return [BountyResponse.from_orm(bounty) for bounty in bounties]  # type: ignore[pydantic-orm]
     except Exception as e:
         logger.error("Failed to get bounties: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/bounties/{bounty_id}", response_model=BountyResponse)
@@ -249,7 +249,7 @@ async def get_bounty(
         raise
     except Exception as e:
         logger.error("Failed to get bounty %s: %s", bounty_id, e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/bounties/{bounty_id}/submit", response_model=BountySubmissionResponse)
@@ -291,7 +291,7 @@ async def submit_bounty_solution(
         raise
     except Exception as e:
         logger.error("Failed to submit bounty solution: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/bounties/{bounty_id}/submissions", response_model=list[BountySubmissionResponse])
@@ -317,7 +317,7 @@ async def get_bounty_submissions(
         raise
     except Exception as e:
         logger.error("Failed to get bounty submissions: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/bounties/{bounty_id}/verify")
@@ -349,7 +349,7 @@ async def verify_bounty_submission(
         return {"message": "Submission verified successfully"}
     except Exception as e:
         logger.error("Failed to verify bounty submission: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/bounties/{bounty_id}/dispute")
@@ -382,7 +382,7 @@ async def dispute_bounty_submission(
         return {"message": "Dispute created successfully"}
     except Exception as e:
         logger.error("Failed to create dispute: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/bounties/my/created", response_model=list[BountyResponse])
@@ -404,7 +404,7 @@ async def get_my_created_bounties(
         return [BountyResponse.from_orm(bounty) for bounty in bounties]  # type: ignore[pydantic-orm]
     except Exception as e:
         logger.error("Failed to get user created bounties: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/bounties/my/submissions", response_model=list[BountySubmissionResponse])
@@ -426,7 +426,7 @@ async def get_my_submissions(
         return [BountySubmissionResponse.from_orm(sub) for sub in submissions]  # type: ignore[pydantic-orm]
     except Exception as e:
         logger.error("Failed to get user submissions: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/bounties/leaderboard")
@@ -444,7 +444,7 @@ async def get_bounty_leaderboard(
         return leaderboard  # type: ignore[return-value]
     except Exception as e:
         logger.error("Failed to get bounty leaderboard: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/bounties/stats", response_model=BountyStatsResponse)
@@ -461,7 +461,7 @@ async def get_bounty_stats(
         return BountyStatsResponse.from_orm(stats)  # type: ignore[pydantic-orm]
     except Exception as e:
         logger.error("Failed to get bounty stats: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/bounties/{bounty_id}/expire")
@@ -493,7 +493,7 @@ async def expire_bounty(
         raise
     except Exception as e:
         logger.error("Failed to expire bounty: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/bounties/categories")
@@ -507,7 +507,7 @@ async def get_bounty_categories(
         return {"categories": categories}
     except Exception as e:
         logger.error("Failed to get bounty categories: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/bounties/tags")
@@ -524,7 +524,7 @@ async def get_bounty_tags(
         return {"tags": tags}
     except Exception as e:
         logger.error("Failed to get bounty tags: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/bounties/search")
@@ -543,4 +543,4 @@ async def search_bounties(
         return [BountyResponse.from_orm(bounty) for bounty in bounties]  # type: ignore[pydantic-orm]
     except Exception as e:
         logger.error("Failed to search bounties: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e

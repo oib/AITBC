@@ -14,10 +14,10 @@ import torch.nn as nn
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from sqlmodel import Session, select
+from sqlmodel import Session, select  # noqa: E402
 
-from ...domain.agent_performance import FusionModel  # type: ignore[import-not-found]
-from .neural_modules import AdaptiveModalityWeighting, CrossModalAttention, MultiModalTransformer
+from ...domain.agent_performance import FusionModel  # type: ignore[import-not-found]  # noqa: E402
+from .neural_modules import AdaptiveModalityWeighting, CrossModalAttention, MultiModalTransformer  # noqa: E402
 
 
 class MultiModalFusionEngine:

@@ -6,14 +6,14 @@ from sqlalchemy.orm import Session
 Services router for specific GPU workloads
 """
 
-from typing import Any
+from typing import Any  # noqa: E402
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status  # noqa: E402
 
-from aitbc.rate_limiting import rate_limit
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
-from ..deps import require_client_key
-from ..models.services import (
+from ..deps import require_client_key  # noqa: E402
+from ..models.services import (  # noqa: E402
     BlenderRequest,
     FFmpegRequest,
     LLMRequest,
@@ -23,11 +23,11 @@ from ..models.services import (
     StableDiffusionRequest,
     WhisperRequest,
 )
-from ..schemas import JobCreate
+from ..schemas import JobCreate  # noqa: E402
 
 # from ..models.registry import ServiceRegistry, service_registry
-from ..services import JobService
-from ..storage import get_session
+from ..services import JobService  # noqa: E402
+from ..storage import get_session  # noqa: E402
 
 
 # Placeholder for service_registry - to be properly imported when module structure is fixed
@@ -89,7 +89,7 @@ async def submit_service_job(
     try:
         typed_request = service_request.get_service_request()
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid request for {service_type}: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid request for {service_type}: {str(e)}") from e
 
     # Get constraints from service request
     constraints = typed_request.get_constraints()
@@ -554,7 +554,7 @@ async def validate_service_request(service_id: str, request_data: dict[str, Any]
 
 
 # Import models for type hints
-from ..models.services import (
+from ..models.services import (  # noqa: E402
     BlenderEngine,
     FFmpegCodec,
     LLMModel,

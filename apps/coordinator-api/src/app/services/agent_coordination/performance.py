@@ -11,9 +11,9 @@ from uuid import uuid4
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from sqlmodel import Session, select
+from sqlmodel import Session, select  # noqa: E402
 
-from ...domain.agent_performance import (
+from ...domain.agent_performance import (  # noqa: E402
     AgentPerformanceProfile,
     LearningStrategy,
     MetaLearningModel,

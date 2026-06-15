@@ -4,16 +4,11 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-import pytest
-
 from aitbc.database import (
     DatabaseConnection,
     DatabaseMetrics,
     QueryMetrics,
     QueryMonitor,
-    ReadReplicaManager,
-    create_async_pooled_engine,
-    create_async_pooled_sessionmaker,
     create_pooled_engine,
     create_pooled_sessionmaker,
     ensure_database,

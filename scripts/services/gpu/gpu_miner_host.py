@@ -94,7 +94,7 @@ def check_ollama():
 def check_vllm():
     """Check if vLLM is available and can load models"""
     try:
-        from vllm import LLM
+        from vllm import LLM  # noqa: F401
 
         # Test basic vLLM functionality
         logger.info("vLLM is available")
@@ -230,7 +230,7 @@ def execute_job_with_ollama(job_id, prompt, model):
             "execution_time": execution_time,
         }
     else:
-        raise Exception("Ollama error: %s" % ollama_response.status_code)
+        raise Exception(f"Ollama error: {ollama_response.status_code}")
 
 
 def execute_job_with_vllm(job_id, prompt, model):
@@ -258,7 +258,7 @@ def execute_job_with_vllm(job_id, prompt, model):
             "execution_time": execution_time,
         }
     except Exception as e:
-        raise Exception("vLLM error: %s" % e)
+        raise Exception(f"vLLM error: {e}") from e
 
 
 def execute_job(job, available_models, backend):
@@ -292,7 +292,7 @@ def execute_job(job, available_models, backend):
             elif backend == "vllm":
                 result = execute_job_with_vllm(job_id, prompt, model)
             else:
-                raise Exception("Unknown backend: %s" % backend)
+                raise Exception(f"Unknown backend: {backend}")
 
             # Get GPU stats after execution
             gpu_after = get_gpu_info()
@@ -323,7 +323,7 @@ def execute_job(job, available_models, backend):
         else:
             # Unsupported job type
             logger.error("Unsupported job type: %s", payload.get("type"))
-            submit_result(job_id, {"result": {"status": "failed", "error": "Unsupported job type: %s" % payload.get("type")}})
+            submit_result(job_id, {"result": {"status": "failed", "error": f"Unsupported job type: {payload.get('type')}"}})
             return False
 
     except Exception as e:

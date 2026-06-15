@@ -104,7 +104,7 @@ class TestExceptionChaining:
 
     def test_retry_error_chaining(self):
         """Test retry error chaining"""
-        from aitbc.exceptions import RetryError
+        from aitbc.exceptions import NetworkError, RetryError
         from aitbc.network.http_client import AITBCHTTPClient
 
         # Test with invalid URL that will cause retry exhaustion

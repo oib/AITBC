@@ -79,7 +79,7 @@ async def get_transaction(tx_hash: str) -> dict[str, object]:
         return {"hash": tx_hash, "from": "unknown", "to": "unknown", "amount": 0, "timestamp": None}
     except NetworkError as e:
         logger.error("Error getting transaction %s: %s", tx_hash, e)
-        raise HTTPException(status_code=500, detail=f"Failed to fetch transaction: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch transaction: {str(e)}") from e
 
 
 @app.get("/", response_class=HTMLResponse)

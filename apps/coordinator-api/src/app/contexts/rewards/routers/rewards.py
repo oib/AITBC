@@ -3,19 +3,19 @@ from sqlalchemy.orm import Session
 from sqlmodel import select
 
 "\nReward System API Endpoints\nREST API for agent rewards, incentives, and performance-based earnings\n"
-from datetime import UTC, datetime, timedelta
-from typing import Any
+from datetime import UTC, datetime, timedelta  # noqa: E402
+from typing import Any  # noqa: E402
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
-from aitbc import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger  # noqa: E402
+from aitbc.rate_limiting import rate_limit  # noqa: E402
 
 logger = get_logger(__name__)
-from ....domain.rewards import AgentRewardProfile, RewardTier, RewardType
-from ....storage import get_session
-from ..services.reward_service import RewardEngine
+from ....domain.rewards import AgentRewardProfile, RewardTier, RewardType  # noqa: E402
+from ....storage import get_session  # noqa: E402
+from ..services.reward_service import RewardEngine  # noqa: E402
 
 router = APIRouter(prefix="/rewards", tags=["rewards"])
 
@@ -137,7 +137,7 @@ async def get_reward_profile(
         raise
     except Exception as e:
         logger.error("Error getting reward profile for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/profile/{agent_id}")
@@ -156,7 +156,7 @@ async def create_reward_profile(request: Request, agent_id: str, session: Sessio
         }
     except Exception as e:
         logger.error("Error creating reward profile for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/calculate-and-distribute", response_model=RewardResponse)
@@ -188,7 +188,7 @@ async def calculate_and_distribute_reward(
         )
     except Exception as e:
         logger.error("Error calculating and distributing reward: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/tier-progress/{agent_id}", response_model=TierProgressResponse)
@@ -250,7 +250,7 @@ async def get_tier_progress(request: Request, agent_id: str, session: Session = 
         raise
     except Exception as e:
         logger.error("Error getting tier progress for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/batch-process", response_model=BatchProcessResponse)
@@ -267,7 +267,7 @@ async def batch_process_pending_rewards(
         return BatchProcessResponse(processed=result["processed"], failed=result["failed"], total=result["total"])
     except Exception as e:
         logger.error("Error batch processing rewards: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/analytics", response_model=RewardAnalyticsResponse)
@@ -294,7 +294,7 @@ async def get_reward_analytics(
         return RewardAnalyticsResponse(**analytics_data)
     except Exception as e:
         logger.error("Error getting reward analytics: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/leaderboard")
@@ -337,7 +337,7 @@ async def get_reward_leaderboard(
         return leaderboard
     except Exception as e:
         logger.error("Error getting reward leaderboard: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/tiers")
@@ -367,7 +367,7 @@ async def get_reward_tiers(request: Request, session: Session = Depends(get_sess
         return sorted(tiers, key=lambda x: x["min_trust_score"])
     except Exception as e:
         logger.error("Error getting reward tiers: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/milestones/{agent_id}")
@@ -405,7 +405,7 @@ async def get_agent_milestones(
         ]
     except Exception as e:
         logger.error("Error getting milestones for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/distributions/{agent_id}")
@@ -442,7 +442,7 @@ async def get_reward_distributions(
         ]
     except Exception as e:
         logger.error("Error getting distributions for %s: %s", agent_id, str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/simulate-reward")
@@ -473,4 +473,4 @@ async def simulate_reward_calculation(
         }
     except Exception as e:
         logger.error("Error simulating reward calculation: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e

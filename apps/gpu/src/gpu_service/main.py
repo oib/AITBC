@@ -242,7 +242,7 @@ async def scan_edge_gpus(miner_id: str, svc: EdgeGPUService = Depends(get_edge_s
     return await svc.discover_and_register_edge_gpus(miner_id)
 
 
-from pydantic import BaseModel
+from pydantic import BaseModel  # noqa: E402
 
 
 class OptimizeInferenceRequest(BaseModel):

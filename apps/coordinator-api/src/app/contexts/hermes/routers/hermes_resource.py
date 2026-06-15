@@ -1,6 +1,6 @@
 """Router for Hermes autonomous resource management API."""
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from ....deps import require_admin_key
-from ....schemas.hermes_resource import (
+from ....deps import require_admin_key  # noqa: E402
+from ....schemas.hermes_resource import (  # noqa: E402
     PricingAdjustment,
     Resource,
     ResourceAllocationRequest,
@@ -19,8 +19,8 @@ from ....schemas.hermes_resource import (
     ResourceReleaseResponse,
     ResourceType,
 )
-from ....storage import get_session
-from ..services.resource_service_db import resource_service
+from ....storage import get_session  # noqa: E402
+from ..services.resource_service_db import resource_service  # noqa: E402
 
 router = APIRouter(prefix="/hermes/resource", tags=["hermes Resource Management"])
 
@@ -35,7 +35,7 @@ async def register_resource(
         return {"status": "success", "resource_id": resource_id}
     except Exception as e:
         logger.error("Error registering resource: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/allocate", response_model=ResourceAllocationResponse)
@@ -49,7 +49,7 @@ async def allocate_resource(
         return resource_service.allocate_resource(allocation_request, session)
     except Exception as e:
         logger.error("Error allocating resource: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/release", response_model=ResourceReleaseResponse)
@@ -63,10 +63,10 @@ async def release_resource(
         return resource_service.release_resource(release_request, session)
     except Exception as e:
         logger.error("Error releasing resource: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.post("/pricing/adjust", response_model=Optional[PricingAdjustment])
+@router.post("/pricing/adjust", response_model=PricingAdjustment | None)
 async def adjust_pricing(
     session: Annotated[Session, Depends(get_session)], current_user: str = Depends(require_admin_key())
 ) -> PricingAdjustment | None:
@@ -75,7 +75,7 @@ async def adjust_pricing(
         return resource_service.adjust_pricing(ResourceType.GPU, session)
     except Exception as e:
         logger.error("Error adjusting pricing: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/pools", response_model=list[ResourcePool])
@@ -87,7 +87,7 @@ async def get_resource_pools(
         return resource_service.get_resource_pools(session)
     except Exception as e:
         logger.error("Error getting resource pools: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/allocations")
@@ -101,4 +101,4 @@ async def get_allocations(
         return resource_service.get_allocations(agent_id, session)
     except Exception as e:
         logger.error("Error getting allocations: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

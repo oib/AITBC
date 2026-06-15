@@ -1,18 +1,18 @@
 from typing import Annotated
 
 "\nRouter to create marketplace offers from registered miners\n"
-from typing import Any
+from typing import Any  # noqa: E402
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends, HTTPException  # noqa: E402
+from sqlmodel import Session, select  # noqa: E402
 
-from aitbc import get_logger
+from aitbc import get_logger  # noqa: E402
 
-from ....deps import require_admin_key
-from ....domain import Miner
-from ....schemas import MarketplaceOfferView
-from ....storage import get_session
-from ..domain.marketplace import MarketplaceOffer
+from ....deps import require_admin_key  # noqa: E402
+from ....domain import Miner  # noqa: E402
+from ....schemas import MarketplaceOfferView  # noqa: E402
+from ....storage import get_session  # noqa: E402
+from ..domain.marketplace import MarketplaceOffer  # noqa: E402
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["marketplace-offers"])
@@ -106,4 +106,4 @@ async def list_all_offers(session: Annotated[Session, Depends(get_session)]) -> 
         return result
     except Exception as e:
         logger.error("Error listing offers: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

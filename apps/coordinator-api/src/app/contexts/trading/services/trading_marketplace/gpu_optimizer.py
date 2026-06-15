@@ -16,8 +16,8 @@ try:
     import pycuda.driver as cuda  # type: ignore[import-not-found]
 
     cuda.init()
-    import pycuda.autoinit  # type: ignore[import-not-found]
-    from pycuda.compiler import SourceModule  # type: ignore[import-not-found]
+    import pycuda.autoinit  # type: ignore[import-not-found]  # noqa: F401
+    from pycuda.compiler import SourceModule  # type: ignore[import-not-found]  # noqa: F401
 
     CUDA_AVAILABLE = True
 except (ImportError, Exception) as e:

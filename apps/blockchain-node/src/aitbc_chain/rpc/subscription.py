@@ -49,7 +49,7 @@ async def register_subscription(request: dict[str, Any]) -> dict[str, Any]:
         }
     except Exception as e:
         logger.error("Failed to register subscription: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def heartbeat(request: dict[str, Any]) -> dict[str, Any]:
@@ -77,7 +77,7 @@ async def heartbeat(request: dict[str, Any]) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error("Failed to extend lease: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def get_lease_status(node_id: str) -> dict[str, Any]:
@@ -99,7 +99,7 @@ async def get_lease_status(node_id: str) -> dict[str, Any]:
         return {"node_id": node_id, "expiry": expiry, "valid": valid, "remaining_seconds": remaining}
     except Exception as e:
         logger.error("Failed to get lease status: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def revoke_subscription(node_id: str) -> dict[str, Any]:
@@ -114,7 +114,7 @@ async def revoke_subscription(node_id: str) -> dict[str, Any]:
         return {"node_id": node_id, "revoked": revoked}
     except Exception as e:
         logger.error("Failed to revoke lease: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def get_subscribers(chain_id: str | None = None) -> dict[str, Any]:
@@ -138,4 +138,4 @@ async def get_subscribers(chain_id: str | None = None) -> dict[str, Any]:
         }
     except Exception as e:
         logger.error("Failed to get subscribers: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

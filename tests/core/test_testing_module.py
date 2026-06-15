@@ -272,7 +272,7 @@ class TestMockResponse:
 
     def test_mock_response_raise_for_status_error(self):
         response = testing.MockResponse(status_code=404)
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             response.raise_for_status()
 
     def test_mock_response_headers(self):

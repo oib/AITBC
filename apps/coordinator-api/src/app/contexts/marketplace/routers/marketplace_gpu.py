@@ -1,23 +1,27 @@
 from typing import Annotated
 
 "\nGPU marketplace endpoints backed by persistent SQLModel tables.\n"
-import statistics
-from datetime import UTC, datetime, timedelta
-from typing import Any
-from uuid import uuid4
+import statistics  # noqa: E402
+from datetime import UTC, datetime, timedelta  # noqa: E402
+from typing import Any  # noqa: E402
+from uuid import uuid4  # noqa: E402
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi import status as http_status
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
-from sqlmodel import col, func, select
+from fastapi import APIRouter, Depends, HTTPException, Query  # noqa: E402
+from fastapi import status as http_status  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
+from sqlmodel import col, func, select  # noqa: E402
 
-from aitbc import get_logger
+from aitbc import get_logger  # noqa: E402
 
-from ....services.market_data_collector import MarketDataCollector
-from ....storage.db import get_session
-from ...trading.services.trading_marketplace.dynamic_pricing import DynamicPricingEngine, PricingStrategy, ResourceType
-from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
+from ....services.market_data_collector import MarketDataCollector  # noqa: E402
+from ....storage.db import get_session  # noqa: E402
+from ...trading.services.trading_marketplace.dynamic_pricing import (  # noqa: E402
+    DynamicPricingEngine,
+    PricingStrategy,
+    ResourceType,
+)
+from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview  # noqa: E402
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["marketplace-gpu"])
@@ -579,7 +583,8 @@ async def add_gpu_review(
             session.rollback()
         except Exception as rollback_error:
             logger.error("Failed to rollback transaction: %s", str(rollback_error))
-        raise HTTPException(status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to add review")
+            raise HTTPException(status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to add review") from rollback_error
+        raise HTTPException(status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to add review") from e
 
 
 @router.get("/marketplace/orders")

@@ -9,7 +9,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-class ChainType(str, Enum):
+class ChainType(str, Enum):  # noqa: UP042
     """Chain type enumeration"""
 
     MAIN = "main"
@@ -18,7 +18,7 @@ class ChainType(str, Enum):
     TEMPORARY = "temporary"
 
 
-class ChainStatus(str, Enum):
+class ChainStatus(str, Enum):  # noqa: UP042
     """Chain status enumeration"""
 
     ACTIVE = "active"
@@ -28,7 +28,7 @@ class ChainStatus(str, Enum):
     MAINTENANCE = "maintenance"
 
 
-class ConsensusAlgorithm(str, Enum):
+class ConsensusAlgorithm(str, Enum):  # noqa: UP042
     """Consensus algorithm enumeration"""
 
     POW = "pow"  # Proof of Work
