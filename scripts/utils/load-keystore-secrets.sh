@@ -107,5 +107,3 @@ fi
 chmod 600 "$ENV_FILE"
 
 log_audit "COMPLETE" "secrets_loaded_to_$ENV_FILE"
-echo "Secrets loaded to $ENV_FILE"
-echo "Audit log: $AUDIT_LOG"
