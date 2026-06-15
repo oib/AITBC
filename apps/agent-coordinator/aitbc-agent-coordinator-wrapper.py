@@ -21,6 +21,8 @@ from aitbc.utils.paths import ensure_dir
 ensure_dir(DATA_DIR / "agent-coordinator")
 ensure_dir(LOG_DIR / "agent-coordinator")
 
+log_level = os.getenv("LOG_LEVEL", "warning").lower()
+
 # Execute the actual service
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
@@ -32,7 +34,6 @@ exec_cmd = [
     "--port",
     "8107",
     "--log-level",
-    "critical",
-    "--no-access-log",
+    log_level,
 ]
 os.execvp(exec_cmd[0], exec_cmd)
