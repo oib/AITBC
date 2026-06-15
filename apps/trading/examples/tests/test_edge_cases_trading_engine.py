@@ -30,7 +30,7 @@ def test_order_zero_quantity():
         quantity=0.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
     assert order.quantity == 0.0
 
@@ -46,7 +46,7 @@ def test_order_negative_quantity():
         quantity=-100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
     assert order.quantity == -100.0
 
@@ -62,7 +62,7 @@ def test_order_negative_price():
         quantity=100.0,
         price=-0.00001,
         user_id="user_123",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
     assert order.price == -0.00001
 
@@ -78,7 +78,7 @@ def test_order_empty_symbol():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
     assert order.symbol == ""
 
@@ -95,9 +95,9 @@ def test_cancel_filled_order():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
-    client.post("/api/v1/orders/submit", json=order.model_dump(mode='json'))
+    client.post("/api/v1/orders/submit", json=order.model_dump(mode="json"))
 
     # Manually mark as filled
     orders["order_129"]["status"] = "filled"
@@ -118,9 +118,9 @@ def test_submit_order_with_slash_in_symbol():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
-    response = client.post("/api/v1/orders/submit", json=order.model_dump(mode='json'))
+    response = client.post("/api/v1/orders/submit", json=order.model_dump(mode="json"))
     assert response.status_code == 200
 
 
@@ -136,9 +136,9 @@ def test_submit_order_with_hyphen_in_symbol():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
-    response = client.post("/api/v1/orders/submit", json=order.model_dump(mode='json'))
+    response = client.post("/api/v1/orders/submit", json=order.model_dump(mode="json"))
     assert response.status_code == 200
 
 
@@ -184,9 +184,9 @@ def test_order_book_depth_parameter():
         quantity=100.0,
         price=0.00001,
         user_id="user_123",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
-    client.post("/api/v1/orders/submit", json=order.model_dump(mode='json'))
+    client.post("/api/v1/orders/submit", json=order.model_dump(mode="json"))
 
     response = client.get("/api/v1/orderbook/AITBC-BTC?depth=5")
     assert response.status_code == 200

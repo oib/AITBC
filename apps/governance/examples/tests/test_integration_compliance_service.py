@@ -63,7 +63,7 @@ def test_submit_kyc():
         email="john@example.com",
         document_type="passport",
         document_number="ABC123",
-        address={"street": "123 Main St", "city": "New York", "country": "USA"}
+        address={"street": "123 Main St", "city": "New York", "country": "USA"},
     )
     response = client.post("/api/v1/kyc/submit", json=kyc.model_dump())
     assert response.status_code == 200
@@ -83,7 +83,7 @@ def test_submit_duplicate_kyc():
         email="john@example.com",
         document_type="passport",
         document_number="ABC123",
-        address={"street": "123 Main St", "city": "New York", "country": "USA"}
+        address={"street": "123 Main St", "city": "New York", "country": "USA"},
     )
 
     # First submission
@@ -104,7 +104,7 @@ def test_get_kyc_status():
         email="john@example.com",
         document_type="passport",
         document_number="ABC123",
-        address={"street": "123 Main St", "city": "New York", "country": "USA"}
+        address={"street": "123 Main St", "city": "New York", "country": "USA"},
     )
 
     # Submit KYC first
@@ -145,7 +145,7 @@ def test_create_compliance_report():
         report_type="suspicious_activity",
         description="Suspicious transaction detected",
         severity="high",
-        details={"transaction_id": "tx123"}
+        details={"transaction_id": "tx123"},
     )
     response = client.post("/api/v1/compliance/report", json=report.model_dump())
     assert response.status_code == 200
@@ -175,9 +175,9 @@ def test_monitor_transaction():
         amount=1000.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
-    response = client.post("/api/v1/monitoring/transaction", json=tx.model_dump(mode='json'))
+    response = client.post("/api/v1/monitoring/transaction", json=tx.model_dump(mode="json"))
     assert response.status_code == 200
     data = response.json()
     assert data["transaction_id"] == "tx123"
@@ -194,9 +194,9 @@ def test_monitor_suspicious_transaction():
         amount=100000.0,
         currency="BTC",
         counterparty="high_risk_entity_1",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
-    response = client.post("/api/v1/monitoring/transaction", json=tx.model_dump(mode='json'))
+    response = client.post("/api/v1/monitoring/transaction", json=tx.model_dump(mode="json"))
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "flagged"
@@ -224,7 +224,7 @@ def test_create_compliance_rule():
         "type": "transaction_monitoring",
         "conditions": {"min_amount": 50000},
         "actions": ["flag", "report"],
-        "severity": "high"
+        "severity": "high",
     }
     response = client.post("/api/v1/rules/create", json=rule_data)
     assert response.status_code == 200

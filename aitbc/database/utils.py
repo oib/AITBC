@@ -13,10 +13,7 @@ from .connection import DatabaseConnection
 logger = get_logger(__name__)
 
 
-def get_database_connection(
-    db_path: Path,
-    timeout: int = 30
-) -> DatabaseConnection:
+def get_database_connection(db_path: Path, timeout: int = 30) -> DatabaseConnection:
     """
     Get a database connection for a given path.
 
@@ -88,8 +85,5 @@ def table_exists(db_path: Path, table_name: str) -> bool:
         True if table exists
     """
     with DatabaseConnection(db_path) as db:
-        result = db.fetch_one(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-            (table_name,)
-        )
+        result = db.fetch_one("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
         return result is not None

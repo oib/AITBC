@@ -14,21 +14,36 @@ def deploy():
     """Production deployment and scaling commands"""
     pass
 
+
 @deploy.command()
-@click.argument('name')
-@click.argument('environment')
-@click.argument('region')
-@click.argument('instance_type')
-@click.argument('min_instances', type=int)
-@click.argument('max_instances', type=int)
-@click.argument('desired_instances', type=int)
-@click.argument('port', type=int)
-@click.argument('domain')
-@click.option('--db-host', default='localhost', help='Database host')
-@click.option('--db-port', default=5432, help='Database port')
-@click.option('--db-name', default='aitbc', help='Database name')
+@click.argument("name")
+@click.argument("environment")
+@click.argument("region")
+@click.argument("instance_type")
+@click.argument("min_instances", type=int)
+@click.argument("max_instances", type=int)
+@click.argument("desired_instances", type=int)
+@click.argument("port", type=int)
+@click.argument("domain")
+@click.option("--db-host", default="localhost", help="Database host")
+@click.option("--db-port", default=5432, help="Database port")
+@click.option("--db-name", default="aitbc", help="Database name")
 @click.pass_context
-def create(ctx, name, environment, region, instance_type, min_instances, max_instances, desired_instances, port, domain, db_host, db_port, db_name):
+def create(
+    ctx,
+    name,
+    environment,
+    region,
+    instance_type,
+    min_instances,
+    max_instances,
+    desired_instances,
+    port,
+    domain,
+    db_host,
+    db_port,
+    db_name,
+):
     """Create a new deployment configuration"""
     try:
         deployment = ProductionDeployment()
@@ -38,22 +53,24 @@ def create(ctx, name, environment, region, instance_type, min_instances, max_ins
             "host": db_host,
             "port": db_port,
             "name": db_name,
-            "ssl_enabled": True if environment == "production" else False
+            "ssl_enabled": True if environment == "production" else False,
         }
 
         # Create deployment
-        deployment_id = asyncio.run(deployment.create_deployment(
-            name=name,
-            environment=environment,
-            region=region,
-            instance_type=instance_type,
-            min_instances=min_instances,
-            max_instances=max_instances,
-            desired_instances=desired_instances,
-            port=port,
-            domain=domain,
-            database_config=database_config
-        ))
+        deployment_id = asyncio.run(
+            deployment.create_deployment(
+                name=name,
+                environment=environment,
+                region=region,
+                instance_type=instance_type,
+                min_instances=min_instances,
+                max_instances=max_instances,
+                desired_instances=desired_instances,
+                port=port,
+                domain=domain,
+                database_config=database_config,
+            )
+        )
 
         if deployment_id:
             success(f"Deployment configuration created! ID: {deployment_id}")
@@ -70,10 +87,10 @@ def create(ctx, name, environment, region, instance_type, min_instances, max_ins
                 "Port": port,
                 "Domain": domain,
                 "Status": "pending",
-                "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
-            output(deployment_data, ctx.obj.get('output_format', 'table'))
+            output(deployment_data, ctx.obj.get("output_format", "table"))
         else:
             error("Failed to create deployment configuration")
             raise click.Abort()
@@ -82,8 +99,9 @@ def create(ctx, name, environment, region, instance_type, min_instances, max_ins
         error(f"Error creating deployment: {str(e)}")
         raise click.Abort()
 
+
 @deploy.command()
-@click.argument('deployment_id')
+@click.argument("deployment_id")
 @click.pass_context
 def start(ctx, deployment_id):
     """Deploy the application to production"""
@@ -99,10 +117,10 @@ def start(ctx, deployment_id):
             deployment_data = {
                 "Deployment ID": deployment_id,
                 "Status": "running",
-                "Started": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "Started": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
-            output(deployment_data, ctx.obj.get('output_format', 'table'))
+            output(deployment_data, ctx.obj.get("output_format", "table"))
         else:
             error(f"Failed to start deployment {deployment_id}")
             raise click.Abort()
@@ -111,10 +129,11 @@ def start(ctx, deployment_id):
         error(f"Error starting deployment: {str(e)}")
         raise click.Abort()
 
+
 @deploy.command()
-@click.argument('deployment_id')
-@click.argument('target_instances', type=int)
-@click.option('--reason', default='manual', help='Scaling reason')
+@click.argument("deployment_id")
+@click.argument("target_instances", type=int)
+@click.option("--reason", default="manual", help="Scaling reason")
 @click.pass_context
 def scale(ctx, deployment_id, target_instances, reason):
     """Scale a deployment to target instance count"""
@@ -132,10 +151,10 @@ def scale(ctx, deployment_id, target_instances, reason):
                 "Target Instances": target_instances,
                 "Reason": reason,
                 "Status": "completed",
-                "Scaled": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "Scaled": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
-            output(scaling_data, ctx.obj.get('output_format', 'table'))
+            output(scaling_data, ctx.obj.get("output_format", "table"))
         else:
             error(f"Failed to scale deployment {deployment_id}")
             raise click.Abort()
@@ -144,8 +163,9 @@ def scale(ctx, deployment_id, target_instances, reason):
         error(f"Error scaling deployment: {str(e)}")
         raise click.Abort()
 
+
 @deploy.command()
-@click.argument('deployment_id')
+@click.argument("deployment_id")
 @click.pass_context
 def status(ctx, deployment_id):
     """Get comprehensive deployment status"""
@@ -173,10 +193,10 @@ def status(ctx, deployment_id):
             {"Metric": "Port", "Value": deployment_info["port"]},
             {"Metric": "Domain", "Value": deployment_info["domain"]},
             {"Metric": "Health Status", "Value": "Healthy" if status_data["health_status"] else "Unhealthy"},
-            {"Metric": "Uptime", "Value": f"{status_data['uptime_percentage']:.2f}%"}
+            {"Metric": "Uptime", "Value": f"{status_data['uptime_percentage']:.2f}%"},
         ]
 
-        output(info_data, ctx.obj.get('output_format', 'table'), title=f"Deployment Status: {deployment_id}")
+        output(info_data, ctx.obj.get("output_format", "table"), title=f"Deployment Status: {deployment_id}")
 
         # Show metrics if available
         if status_data["metrics"]:
@@ -185,13 +205,13 @@ def status(ctx, deployment_id):
                 {"Metric": "CPU Usage", "Value": f"{metrics['cpu_usage']:.1f}%"},
                 {"Metric": "Memory Usage", "Value": f"{metrics['memory_usage']:.1f}%"},
                 {"Metric": "Disk Usage", "Value": f"{metrics['disk_usage']:.1f}%"},
-                {"Metric": "Request Count", "Value": metrics['request_count']},
+                {"Metric": "Request Count", "Value": metrics["request_count"]},
                 {"Metric": "Error Rate", "Value": f"{metrics['error_rate']:.2f}%"},
                 {"Metric": "Response Time", "Value": f"{metrics['response_time']:.1f}ms"},
-                {"Metric": "Active Instances", "Value": metrics['active_instances']}
+                {"Metric": "Active Instances", "Value": metrics["active_instances"]},
             ]
 
-            output(metrics_data, ctx.obj.get('output_format', 'table'), title="Performance Metrics")
+            output(metrics_data, ctx.obj.get("output_format", "table"), title="Performance Metrics")
 
         # Show recent scaling events
         if status_data["recent_scaling_events"]:
@@ -204,19 +224,20 @@ def status(ctx, deployment_id):
                     "To": event["new_instances"],
                     "Reason": event["trigger_reason"],
                     "Success": "Yes" if event["success"] else "No",
-                    "Time": event["triggered_at"]
+                    "Time": event["triggered_at"],
                 }
                 for event in events
             ]
 
-            output(events_data, ctx.obj.get('output_format', 'table'), title="Recent Scaling Events")
+            output(events_data, ctx.obj.get("output_format", "table"), title="Recent Scaling Events")
 
     except Exception as e:
         error(f"Error getting deployment status: {str(e)}")
         raise click.Abort()
 
+
 @deploy.command()
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def overview(ctx, format):
     """Get overview of all deployments"""
@@ -237,10 +258,10 @@ def overview(ctx, format):
             {"Metric": "Total Instances", "Value": overview_data["total_instances"]},
             {"Metric": "Health Check Coverage", "Value": f"{overview_data['health_check_coverage']:.1%}"},
             {"Metric": "Recent Scaling Events", "Value": overview_data["recent_scaling_events"]},
-            {"Metric": "Scaling Success Rate", "Value": f"{overview_data['successful_scaling_rate']:.1%}"}
+            {"Metric": "Scaling Success Rate", "Value": f"{overview_data['successful_scaling_rate']:.1%}"},
         ]
 
-        output(cluster_data, ctx.obj.get('output_format', format), title="Cluster Overview")
+        output(cluster_data, ctx.obj.get("output_format", format), title="Cluster Overview")
 
         # Aggregate metrics
         if "aggregate_metrics" in overview_data:
@@ -251,18 +272,19 @@ def overview(ctx, format):
                 {"Metric": "Average Disk Usage", "Value": f"{metrics['total_disk_usage']:.1f}%"},
                 {"Metric": "Average Response Time", "Value": f"{metrics['average_response_time']:.1f}ms"},
                 {"Metric": "Average Error Rate", "Value": f"{metrics['average_error_rate']:.2f}%"},
-                {"Metric": "Average Uptime", "Value": f"{metrics['average_uptime']:.1f}%"}
+                {"Metric": "Average Uptime", "Value": f"{metrics['average_uptime']:.1f}%"},
             ]
 
-            output(metrics_data, ctx.obj.get('output_format', format), title="Aggregate Performance Metrics")
+            output(metrics_data, ctx.obj.get("output_format", format), title="Aggregate Performance Metrics")
 
     except Exception as e:
         error(f"Error getting cluster overview: {str(e)}")
         raise click.Abort()
 
+
 @deploy.command()
-@click.argument('deployment_id')
-@click.option('--interval', default=60, help='Update interval in seconds')
+@click.argument("deployment_id")
+@click.option("--interval", default=60, help="Update interval in seconds")
 @click.pass_context
 def monitor(ctx, deployment_id, interval):
     """Monitor deployment performance in real-time"""
@@ -288,7 +310,9 @@ def monitor(ctx, deployment_id, interval):
                 deployment_info = status_data["deployment"]
                 metrics = status_data.get("metrics")
 
-                table = Table(title=f"Deployment Monitor - {deployment_info['name']} ({deployment_id[:8]}) - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                table = Table(
+                    title=f"Deployment Monitor - {deployment_info['name']} ({deployment_id[:8]}) - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
                 table.add_column("Metric", style="cyan")
                 table.add_column("Value", style="green")
 
@@ -301,10 +325,10 @@ def monitor(ctx, deployment_id, interval):
                     table.add_row("CPU Usage", f"{metrics['cpu_usage']:.1f}%")
                     table.add_row("Memory Usage", f"{metrics['memory_usage']:.1f}%")
                     table.add_row("Disk Usage", f"{metrics['disk_usage']:.1f}%")
-                    table.add_row("Request Count", str(metrics['request_count']))
+                    table.add_row("Request Count", str(metrics["request_count"]))
                     table.add_row("Error Rate", f"{metrics['error_rate']:.2f}%")
                     table.add_row("Response Time", f"{metrics['response_time']:.1f}ms")
-                    table.add_row("Active Instances", str(metrics['active_instances']))
+                    table.add_row("Active Instances", str(metrics["active_instances"]))
 
                 return table
             except Exception as e:
@@ -321,8 +345,9 @@ def monitor(ctx, deployment_id, interval):
         error(f"Error during monitoring: {str(e)}")
         raise click.Abort()
 
+
 @deploy.command()
-@click.argument('deployment_id')
+@click.argument("deployment_id")
 @click.pass_context
 def auto_scale(ctx, deployment_id):
     """Trigger auto-scaling evaluation for a deployment"""
@@ -342,8 +367,9 @@ def auto_scale(ctx, deployment_id):
         error(f"Error in auto-scaling: {str(e)}")
         raise click.Abort()
 
+
 @deploy.command()
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def list_deployments(ctx, format):
     """List all deployments"""
@@ -356,21 +382,23 @@ def list_deployments(ctx, format):
             status_data = asyncio.run(deployment.get_deployment_status(deployment_id))
             if status_data:
                 deployment_info = status_data["deployment"]
-                deployments.append({
-                    "Deployment ID": deployment_info["deployment_id"][:8],
-                    "Name": deployment_info["name"],
-                    "Environment": deployment_info["environment"],
-                    "Instances": f"{deployment_info['desired_instances']}/{deployment_info['max_instances']}",
-                    "Status": "Running" if status_data["health_status"] else "Stopped",
-                    "Uptime": f"{status_data['uptime_percentage']:.1f}%",
-                    "Created": deployment_info["created_at"]
-                })
+                deployments.append(
+                    {
+                        "Deployment ID": deployment_info["deployment_id"][:8],
+                        "Name": deployment_info["name"],
+                        "Environment": deployment_info["environment"],
+                        "Instances": f"{deployment_info['desired_instances']}/{deployment_info['max_instances']}",
+                        "Status": "Running" if status_data["health_status"] else "Stopped",
+                        "Uptime": f"{status_data['uptime_percentage']:.1f}%",
+                        "Created": deployment_info["created_at"],
+                    }
+                )
 
         if not deployments:
-            output("No deployments found", ctx.obj.get('output_format', 'table'))
+            output("No deployments found", ctx.obj.get("output_format", "table"))
             return
 
-        output(deployments, ctx.obj.get('output_format', format), title="All Deployments")
+        output(deployments, ctx.obj.get("output_format", format), title="All Deployments")
 
     except Exception as e:
         error(f"Error listing deployments: {str(e)}")

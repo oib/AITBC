@@ -19,15 +19,14 @@ def load_module_from_path(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-alerting = load_module_from_path(
-    "aitbc.alerting",
-    Path("/opt/aitbc/aitbc/alerting.py")
-)
+
+alerting = load_module_from_path("aitbc.alerting", Path("/opt/aitbc/aitbc/alerting.py"))
 
 
 # ============================================================================
 # Enum Tests
 # ============================================================================
+
 
 class TestAlertSeverity:
     """Test AlertSeverity enum"""
@@ -52,6 +51,7 @@ class TestAlertStatus:
 # Alert Dataclass Tests
 # ============================================================================
 
+
 class TestAlert:
     """Test Alert dataclass"""
 
@@ -61,7 +61,7 @@ class TestAlert:
             severity=alerting.AlertSeverity.ERROR,
             title="Test Alert",
             message="Test message",
-            source="test-source"
+            source="test-source",
         )
         assert alert.id == "test-1"
         assert alert.severity == alerting.AlertSeverity.ERROR
@@ -78,7 +78,7 @@ class TestAlert:
             title="Test Alert",
             message="Test message",
             source="test-source",
-            metadata={"key": "value"}
+            metadata={"key": "value"},
         )
         assert alert.metadata == {"key": "value"}
 
@@ -88,7 +88,7 @@ class TestAlert:
             severity=alerting.AlertSeverity.ERROR,
             title="Test Alert",
             message="Test message",
-            source="test-source"
+            source="test-source",
         )
         result = alert.to_dict()
         assert result["id"] == "test-1"
@@ -105,7 +105,7 @@ class TestAlert:
             message="Test message",
             source="test-source",
             acknowledged_by="user1",
-            acknowledged_at=datetime.utcnow()
+            acknowledged_at=datetime.utcnow(),
         )
         result = alert.to_dict()
         assert result["acknowledged_by"] == "user1"
@@ -118,7 +118,7 @@ class TestAlert:
             title="Test Alert",
             message="Test message",
             source="test-source",
-            resolved_at=datetime.utcnow()
+            resolved_at=datetime.utcnow(),
         )
         result = alert.to_dict()
         assert result["resolved_at"] is not None
@@ -128,19 +128,20 @@ class TestAlert:
 # Alert Channel Tests
 # ============================================================================
 
+
 class TestAlertChannel:
     """Test AlertChannel base class"""
 
     def test_alert_channel_not_implemented(self):
         channel = alerting.AlertChannel()
         with pytest.raises(NotImplementedError):
-            asyncio.run(channel.send(alerting.Alert(
-                id="test",
-                severity=alerting.AlertSeverity.INFO,
-                title="Test",
-                message="Test",
-                source="test"
-            )))
+            asyncio.run(
+                channel.send(
+                    alerting.Alert(
+                        id="test", severity=alerting.AlertSeverity.INFO, title="Test", message="Test", source="test"
+                    )
+                )
+            )
 
 
 class TestLogAlertChannel:
@@ -149,11 +150,7 @@ class TestLogAlertChannel:
     def test_log_alert_channel_info(self):
         channel = alerting.LogAlertChannel()
         alert = alerting.Alert(
-            id="test-1",
-            severity=alerting.AlertSeverity.INFO,
-            title="Info Alert",
-            message="Info message",
-            source="test"
+            id="test-1", severity=alerting.AlertSeverity.INFO, title="Info Alert", message="Info message", source="test"
         )
         result = asyncio.run(channel.send(alert))
         assert result is True
@@ -165,7 +162,7 @@ class TestLogAlertChannel:
             severity=alerting.AlertSeverity.WARNING,
             title="Warning Alert",
             message="Warning message",
-            source="test"
+            source="test",
         )
         result = asyncio.run(channel.send(alert))
         assert result is True
@@ -173,11 +170,7 @@ class TestLogAlertChannel:
     def test_log_alert_channel_error(self):
         channel = alerting.LogAlertChannel()
         alert = alerting.Alert(
-            id="test-1",
-            severity=alerting.AlertSeverity.ERROR,
-            title="Error Alert",
-            message="Error message",
-            source="test"
+            id="test-1", severity=alerting.AlertSeverity.ERROR, title="Error Alert", message="Error message", source="test"
         )
         result = asyncio.run(channel.send(alert))
         assert result is True
@@ -189,7 +182,7 @@ class TestLogAlertChannel:
             severity=alerting.AlertSeverity.CRITICAL,
             title="Critical Alert",
             message="Critical message",
-            source="test"
+            source="test",
         )
         result = asyncio.run(channel.send(alert))
         assert result is True
@@ -215,18 +208,14 @@ class TestWebhookAlertChannel:
         except ImportError:
             pytest.skip("httpx not available")
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_response = AsyncMock()
             mock_response.raise_for_status = Mock()
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
 
             channel = alerting.WebhookAlertChannel("https://example.com/webhook")
             alert = alerting.Alert(
-                id="test-1",
-                severity=alerting.AlertSeverity.ERROR,
-                title="Test Alert",
-                message="Test message",
-                source="test"
+                id="test-1", severity=alerting.AlertSeverity.ERROR, title="Test Alert", message="Test message", source="test"
             )
             result = asyncio.run(channel.send(alert))
             assert result is True
@@ -238,16 +227,12 @@ class TestWebhookAlertChannel:
         except ImportError:
             pytest.skip("httpx not available")
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(side_effect=Exception("Network error"))
 
             channel = alerting.WebhookAlertChannel("https://example.com/webhook")
             alert = alerting.Alert(
-                id="test-1",
-                severity=alerting.AlertSeverity.ERROR,
-                title="Test Alert",
-                message="Test message",
-                source="test"
+                id="test-1", severity=alerting.AlertSeverity.ERROR, title="Test Alert", message="Test message", source="test"
             )
             result = asyncio.run(channel.send(alert))
             assert result is False
@@ -256,6 +241,7 @@ class TestWebhookAlertChannel:
 # ============================================================================
 # Alert Rule Tests
 # ============================================================================
+
 
 class TestAlertRule:
     """Test AlertRule class"""
@@ -268,7 +254,7 @@ class TestAlertRule:
             severity=alerting.AlertSeverity.WARNING,
             title_template="Test Alert",
             message_template="Test message",
-            source="test-source"
+            source="test-source",
         )
         assert rule.name == "test-rule"
         assert rule.condition == condition
@@ -288,7 +274,7 @@ class TestAlertRule:
             message_template="Test message",
             source="test-source",
             check_interval=30,
-            cooldown=600
+            cooldown=600,
         )
         assert rule.check_interval == 30
         assert rule.cooldown == 600
@@ -300,7 +286,7 @@ class TestAlertRule:
             severity=alerting.AlertSeverity.WARNING,
             title_template="Test Alert",
             message_template="Test message",
-            source="test-source"
+            source="test-source",
         )
         assert rule.should_fire() is True
 
@@ -311,7 +297,7 @@ class TestAlertRule:
             severity=alerting.AlertSeverity.WARNING,
             title_template="Test Alert",
             message_template="Test message",
-            source="test-source"
+            source="test-source",
         )
         assert rule.should_fire() is False
 
@@ -322,7 +308,7 @@ class TestAlertRule:
             severity=alerting.AlertSeverity.WARNING,
             title_template="Test Alert",
             message_template="Test message",
-            source="test-source"
+            source="test-source",
         )
         rule.enabled = False
         assert rule.should_fire() is False
@@ -335,7 +321,7 @@ class TestAlertRule:
             title_template="Test Alert",
             message_template="Test message",
             source="test-source",
-            cooldown=60
+            cooldown=60,
         )
         rule.last_fired = datetime.utcnow()
         assert rule.should_fire() is False
@@ -348,10 +334,11 @@ class TestAlertRule:
             title_template="Test Alert",
             message_template="Test message",
             source="test-source",
-            cooldown=0.01
+            cooldown=0.01,
         )
         rule.last_fired = datetime.utcnow()
         import time
+
         time.sleep(0.02)
         assert rule.should_fire() is True
 
@@ -362,7 +349,7 @@ class TestAlertRule:
             severity=alerting.AlertSeverity.ERROR,
             title_template="Test Alert",
             message_template="Test message",
-            source="test-source"
+            source="test-source",
         )
         alert = rule.fire()
         assert alert.severity == alerting.AlertSeverity.ERROR
@@ -376,6 +363,7 @@ class TestAlertRule:
 # ============================================================================
 # Alert Manager Tests
 # ============================================================================
+
 
 class TestAlertManager:
     """Test AlertManager class"""
@@ -396,7 +384,7 @@ class TestAlertManager:
             severity=alerting.AlertSeverity.WARNING,
             title_template="Test",
             message_template="Test",
-            source="test"
+            source="test",
         )
         manager.add_rule(rule)
         assert "test-rule" in manager.rules
@@ -410,7 +398,7 @@ class TestAlertManager:
             severity=alerting.AlertSeverity.WARNING,
             title_template="Test",
             message_template="Test",
-            source="test"
+            source="test",
         )
         manager.add_rule(rule)
         manager.remove_rule("test-rule")
@@ -433,13 +421,7 @@ class TestAlertManager:
         channel = alerting.LogAlertChannel()
         manager.add_channel(channel)
 
-        alert = alerting.Alert(
-            id="test-1",
-            severity=alerting.AlertSeverity.INFO,
-            title="Test",
-            message="Test",
-            source="test"
-        )
+        alert = alerting.Alert(id="test-1", severity=alerting.AlertSeverity.INFO, title="Test", message="Test", source="test")
         asyncio.run(manager.send_alert(alert))
 
         assert "test-1" in manager.active_alerts
@@ -453,11 +435,7 @@ class TestAlertManager:
         # Add more than 1000 alerts
         for i in range(1005):
             alert = alerting.Alert(
-                id=f"test-{i}",
-                severity=alerting.AlertSeverity.INFO,
-                title="Test",
-                message="Test",
-                source="test"
+                id=f"test-{i}", severity=alerting.AlertSeverity.INFO, title="Test", message="Test", source="test"
             )
             asyncio.run(manager.send_alert(alert))
 
@@ -466,13 +444,7 @@ class TestAlertManager:
 
     def test_acknowledge_alert(self):
         manager = alerting.AlertManager()
-        alert = alerting.Alert(
-            id="test-1",
-            severity=alerting.AlertSeverity.INFO,
-            title="Test",
-            message="Test",
-            source="test"
-        )
+        alert = alerting.Alert(id="test-1", severity=alerting.AlertSeverity.INFO, title="Test", message="Test", source="test")
         manager.active_alerts["test-1"] = alert
 
         result = asyncio.run(manager.acknowledge_alert("test-1", "user1"))
@@ -488,13 +460,7 @@ class TestAlertManager:
 
     def test_resolve_alert(self):
         manager = alerting.AlertManager()
-        alert = alerting.Alert(
-            id="test-1",
-            severity=alerting.AlertSeverity.INFO,
-            title="Test",
-            message="Test",
-            source="test"
-        )
+        alert = alerting.Alert(id="test-1", severity=alerting.AlertSeverity.INFO, title="Test", message="Test", source="test")
         manager.active_alerts["test-1"] = alert
 
         result = asyncio.run(manager.resolve_alert("test-1"))
@@ -510,19 +476,9 @@ class TestAlertManager:
 
     def test_get_active_alerts(self):
         manager = alerting.AlertManager()
-        alert1 = alerting.Alert(
-            id="test-1",
-            severity=alerting.AlertSeverity.INFO,
-            title="Test",
-            message="Test",
-            source="test"
-        )
+        alert1 = alerting.Alert(id="test-1", severity=alerting.AlertSeverity.INFO, title="Test", message="Test", source="test")
         alert2 = alerting.Alert(
-            id="test-2",
-            severity=alerting.AlertSeverity.WARNING,
-            title="Test",
-            message="Test",
-            source="test"
+            id="test-2", severity=alerting.AlertSeverity.WARNING, title="Test", message="Test", source="test"
         )
         manager.active_alerts["test-1"] = alert1
         manager.active_alerts["test-2"] = alert2
@@ -536,11 +492,7 @@ class TestAlertManager:
         manager = alerting.AlertManager()
         for i in range(10):
             alert = alerting.Alert(
-                id=f"test-{i}",
-                severity=alerting.AlertSeverity.INFO,
-                title="Test",
-                message="Test",
-                source="test"
+                id=f"test-{i}", severity=alerting.AlertSeverity.INFO, title="Test", message="Test", source="test"
             )
             manager.alert_history.append(alert)
 
@@ -551,11 +503,7 @@ class TestAlertManager:
         manager = alerting.AlertManager()
         for i in range(10):
             alert = alerting.Alert(
-                id=f"test-{i}",
-                severity=alerting.AlertSeverity.INFO,
-                title="Test",
-                message="Test",
-                source="test"
+                id=f"test-{i}", severity=alerting.AlertSeverity.INFO, title="Test", message="Test", source="test"
             )
             manager.alert_history.append(alert)
 
@@ -594,7 +542,7 @@ class TestAlertManager:
             severity=alerting.AlertSeverity.WARNING,
             title_template="Test",
             message_template="Test",
-            source="test"
+            source="test",
         )
         manager.add_rule(rule)
 
@@ -606,6 +554,7 @@ class TestAlertManager:
 # ============================================================================
 # Global Functions Tests
 # ============================================================================
+
 
 class TestGlobalFunctions:
     """Test global alerting functions"""
@@ -631,8 +580,7 @@ class TestGlobalFunctions:
     def test_setup_alerting_with_webhook(self):
         alerting._alert_manager = None
         manager = alerting.setup_alerting(
-            webhook_url="https://example.com/webhook",
-            webhook_headers={"Authorization": "Bearer token"}
+            webhook_url="https://example.com/webhook", webhook_headers={"Authorization": "Bearer token"}
         )
         assert len(manager.channels) == 2
         assert isinstance(manager.channels[1], alerting.WebhookAlertChannel)

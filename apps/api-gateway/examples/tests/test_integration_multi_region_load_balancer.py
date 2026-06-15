@@ -65,7 +65,7 @@ def test_create_load_balancing_rule():
         weights={"us-east-1": 1.0},
         health_check_path="/health",
         failover_enabled=True,
-        session_affinity=False
+        session_affinity=False,
     )
     response = client.post("/api/v1/rules/create", json=rule.model_dump())
     assert response.status_code == 200
@@ -86,7 +86,7 @@ def test_create_duplicate_rule():
         weights={"us-east-1": 1.0},
         health_check_path="/health",
         failover_enabled=True,
-        session_affinity=False
+        session_affinity=False,
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
 
@@ -117,7 +117,7 @@ def test_get_load_balancing_rule():
         weights={"us-east-1": 1.0},
         health_check_path="/health",
         failover_enabled=True,
-        session_affinity=False
+        session_affinity=False,
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
 
@@ -147,7 +147,7 @@ def test_update_rule_weights():
         weights={"us-east-1": 0.5, "eu-west-1": 0.5},
         health_check_path="/health",
         failover_enabled=True,
-        session_affinity=False
+        session_affinity=False,
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
 
@@ -180,7 +180,7 @@ def test_update_rule_weights_zero_total():
         weights={"us-east-1": 1.0},
         health_check_path="/health",
         failover_enabled=True,
-        session_affinity=False
+        session_affinity=False,
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
 
@@ -199,9 +199,9 @@ def test_register_region_health():
         response_time_ms=45.5,
         success_rate=0.99,
         active_connections=100,
-        last_check=datetime.now(UTC)
+        last_check=datetime.now(UTC),
     )
-    response = client.post("/api/v1/health/register", json=health.model_dump(mode='json'))
+    response = client.post("/api/v1/health/register", json=health.model_dump(mode="json"))
     assert response.status_code == 200
     data = response.json()
     assert data["region_id"] == "us-east-1"
@@ -222,11 +222,7 @@ def test_create_geographic_rule():
     """Test creating geographic rule"""
     client = TestClient(app)
     rule = GeographicRule(
-        rule_id="geo_123",
-        source_regions=["us-east"],
-        target_regions=["us-east-1"],
-        priority=1,
-        latency_threshold_ms=50.0
+        rule_id="geo_123", source_regions=["us-east"], target_regions=["us-east-1"], priority=1, latency_threshold_ms=50.0
     )
     response = client.post("/api/v1/geographic-rules/create", json=rule.model_dump())
     assert response.status_code == 200
@@ -240,11 +236,7 @@ def test_create_duplicate_geographic_rule():
     """Test creating duplicate geographic rule"""
     client = TestClient(app)
     rule = GeographicRule(
-        rule_id="geo_123",
-        source_regions=["us-east"],
-        target_regions=["us-east-1"],
-        priority=1,
-        latency_threshold_ms=50.0
+        rule_id="geo_123", source_regions=["us-east"], target_regions=["us-east-1"], priority=1, latency_threshold_ms=50.0
     )
     client.post("/api/v1/geographic-rules/create", json=rule.model_dump())
 
@@ -276,7 +268,7 @@ def test_get_optimal_region_with_rule():
         weights={"us-east-1": 1.0},
         health_check_path="/health",
         failover_enabled=True,
-        session_affinity=False
+        session_affinity=False,
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
 
@@ -297,9 +289,9 @@ def test_record_balancing_metrics():
         requests_per_region={"us-east-1": 500},
         average_response_time=50.5,
         error_rate=0.001,
-        throughput=100.0
+        throughput=100.0,
     )
-    response = client.post("/api/v1/metrics/record", json=metrics.model_dump(mode='json'))
+    response = client.post("/api/v1/metrics/record", json=metrics.model_dump(mode="json"))
     assert response.status_code == 200
     data = response.json()
     assert data["metrics_id"]
@@ -319,7 +311,7 @@ def test_get_balancing_metrics():
         weights={"us-east-1": 1.0},
         health_check_path="/health",
         failover_enabled=True,
-        session_affinity=False
+        session_affinity=False,
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
 

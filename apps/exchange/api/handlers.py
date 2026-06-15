@@ -19,46 +19,46 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         """Handle GET requests"""
-        if not self.path or self.path.startswith(('//', '\\\\', '..')):
+        if not self.path or self.path.startswith(("//", "\\\\", "..")):
             self.send_error(400, "Invalid path")
             return
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
-        if path == '/health' or path == '/api/health':
+        if path == "/health" or path == "/api/health":
             self.health_check()
-        elif path.startswith('/api/trades/recent'):
+        elif path.startswith("/api/trades/recent"):
             self.get_recent_trades(parsed)
-        elif path.startswith('/api/orders/orderbook'):
+        elif path.startswith("/api/orders/orderbook"):
             self.get_orderbook()
-        elif path.startswith('/api/wallet/balance'):
+        elif path.startswith("/api/wallet/balance"):
             self.handle_wallet_balance()
-        elif path == '/api/total-supply':
+        elif path == "/api/total-supply":
             self.handle_total_supply()
-        elif path == '/api/treasury-balance':
+        elif path == "/api/treasury-balance":
             self.handle_treasury_balance()
-        elif path == '/v1/marketplace/offers':
+        elif path == "/v1/marketplace/offers":
             self.handle_marketplace_offers(parsed)
-        elif path.startswith('/v1/marketplace/offers/'):
+        elif path.startswith("/v1/marketplace/offers/"):
             self.handle_marketplace_offer(path)
-        elif path == '/v1/marketplace/orders':
+        elif path == "/v1/marketplace/orders":
             self.handle_marketplace_orders(parsed)
-        elif path == '/metrics':
+        elif path == "/metrics":
             self.handle_metrics()
-        elif path == '/v1/bridge/price':
+        elif path == "/v1/bridge/price":
             self.handle_bridge_price(parsed)
-        elif path == '/v1/bridge/status':
+        elif path == "/v1/bridge/status":
             self.handle_bridge_status(None)
-        elif path.startswith('/v1/bridge/status/'):
-            self.handle_bridge_status(path.split('/')[-1])
-        elif path == '/v1/bridge/deposits':
+        elif path.startswith("/v1/bridge/status/"):
+            self.handle_bridge_status(path.split("/")[-1])
+        elif path == "/v1/bridge/deposits":
             self.handle_bridge_deposits(parsed)
-        elif path.startswith('/v1/bridge/deposit/'):
-            self.handle_bridge_deposit_detail(path.split('/')[-1])
-        elif path == '/v1/exchange/history':
+        elif path.startswith("/v1/bridge/deposit/"):
+            self.handle_bridge_deposit_detail(path.split("/")[-1])
+        elif path == "/v1/exchange/history":
             self.handle_exchange_history(parsed)
-        elif path == '/exchange/price.json':
+        elif path == "/exchange/price.json":
             self.handle_exchange_price_json()
         else:
             self.send_error(404, "Not Found")
@@ -68,19 +68,19 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
-        if path == '/api/orders':
+        if path == "/api/orders":
             self.handle_place_order()
-        elif path == '/api/wallet/connect':
+        elif path == "/api/wallet/connect":
             self.handle_wallet_connect()
-        elif path == '/v1/marketplace/offers':
+        elif path == "/v1/marketplace/offers":
             self.handle_marketplace_create_offer()
-        elif path.startswith('/v1/marketplace/offers/') and path.endswith('/book'):
+        elif path.startswith("/v1/marketplace/offers/") and path.endswith("/book"):
             self.handle_marketplace_book_offer(path)
-        elif path == '/v1/bridge/deposit':
+        elif path == "/v1/bridge/deposit":
             self.handle_bridge_deposit()
-        elif path == '/v1/bridge/withdraw':
+        elif path == "/v1/bridge/withdraw":
             self.handle_bridge_withdraw()
-        elif path == '/v1/bridge/estimate':
+        elif path == "/v1/bridge/estimate":
             self.handle_bridge_estimate()
         else:
             self.send_error(404, "Not Found")
@@ -91,11 +91,11 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
 
     def get_recent_trades(self, parsed):
         """Get recent trades"""
-        limit = int(parsed.query.split('limit=')[1].split('&')[0]) if 'limit=' in parsed.query else 10
+        limit = int(parsed.query.split("limit=")[1].split("&")[0]) if "limit=" in parsed.query else 10
         db_path = get_db_path()
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute(f'SELECT * FROM trades ORDER BY created_at DESC LIMIT {limit}')
+        cursor.execute(f"SELECT * FROM trades ORDER BY created_at DESC LIMIT {limit}")
         trades = cursor.fetchall()
         conn.close()
         self.send_json_response({"trades": trades})
@@ -163,6 +163,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
     def handle_wallet_connect(self):
         """Handle wallet connect"""
         import secrets
+
         mock_address = "aitbc" + secrets.token_hex(20)
         self.send_json_response({"address": mock_address, "status": "connected"})
 
@@ -189,19 +190,19 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
     def send_json_response(self, data, status=200):
         """Send JSON response"""
         self.send_response(status)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(json.dumps(data, default=str).encode())
 
     def do_OPTIONS(self):
         """Handle OPTIONS requests for CORS"""
         self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
 
@@ -210,46 +211,41 @@ class WalletAPIHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         """Handle GET requests"""
-        if self.path.startswith('/api/wallet/balance'):
+        if self.path.startswith("/api/wallet/balance"):
             from urllib.parse import parse_qs, urlparse
+
             parsed = urlparse(self.path)
             params = parse_qs(parsed.query)
-            address = params.get('address', [''])[0]
+            address = params.get("address", [""])[0]
 
-            self.send_json_response({
-                "btc": "0.12345678",
-                "aitbc": "1000.50",
-                "address": address or "unknown"
-            })
+            self.send_json_response({"btc": "0.12345678", "aitbc": "1000.50", "address": address or "unknown"})
         else:
             self.send_error(404)
 
     def do_POST(self):
         """Handle POST requests"""
-        if self.path == '/wallet/connect':
+        if self.path == "/wallet/connect":
             import secrets
+
             mock_address = "aitbc" + secrets.token_hex(20)
-            self.send_json_response({
-                "address": mock_address,
-                "status": "connected"
-            })
+            self.send_json_response({"address": mock_address, "status": "connected"})
         else:
             self.send_error(404)
 
     def send_json_response(self, data, status=200):
         """Send JSON response"""
         self.send_response(status)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(json.dumps(data, default=str).encode())
 
     def do_OPTIONS(self):
         """Handle OPTIONS requests for CORS"""
         self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()

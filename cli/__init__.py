@@ -19,5 +19,5 @@ _CLI_MODULE = importlib.util.module_from_spec(_CLI_SPEC)
 _CLI_SPEC.loader.exec_module(_CLI_MODULE)
 main = _CLI_MODULE.main
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

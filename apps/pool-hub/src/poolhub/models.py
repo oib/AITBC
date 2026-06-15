@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -19,7 +19,7 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
-class ServiceType(str, Enum):
+class ServiceType(StrEnum):
     """Supported service types"""
 
     WHISPER = "whisper"
@@ -38,9 +38,7 @@ class Miner(Base):
 
     miner_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     api_key_hash: Mapped[str] = mapped_column(String(128), nullable=False)
-    created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.now(dt.UTC)
-    )
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
     last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     addr: Mapped[str] = mapped_column(String(256))
     proto: Mapped[str] = mapped_column(String(32))
@@ -55,20 +53,14 @@ class Miner(Base):
     trust_score: Mapped[float] = mapped_column(Float, default=0.5)
     region: Mapped[str | None] = mapped_column(String(64))
 
-    status: Mapped[MinerStatus] = relationship(
-        back_populates="miner", cascade="all, delete-orphan", uselist=False
-    )
-    feedback: Mapped[list[Feedback]] = relationship(
-        back_populates="miner", cascade="all, delete-orphan"
-    )
+    status: Mapped[MinerStatus] = relationship(back_populates="miner", cascade="all, delete-orphan", uselist=False)
+    feedback: Mapped[list[Feedback]] = relationship(back_populates="miner", cascade="all, delete-orphan")
 
 
 class MinerStatus(Base):
     __tablename__ = "miner_status"
 
-    miner_id: Mapped[str] = mapped_column(
-        ForeignKey("miners.miner_id", ondelete="CASCADE"), primary_key=True
-    )
+    miner_id: Mapped[str] = mapped_column(ForeignKey("miners.miner_id", ondelete="CASCADE"), primary_key=True)
     queue_len: Mapped[int] = mapped_column(Integer, default=0)
     busy: Mapped[bool] = mapped_column(Boolean, default=False)
     avg_latency_ms: Mapped[int | None] = mapped_column(Integer)
@@ -86,40 +78,28 @@ class MinerStatus(Base):
 class MatchRequest(Base):
     __tablename__ = "match_requests"
 
-    id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=uuid4
-    )
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     job_id: Mapped[str] = mapped_column(String(64), nullable=False)
     requirements: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
     hints: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
     top_k: Mapped[int] = mapped_column(Integer, default=1)
-    created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.now(dt.UTC)
-    )
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
 
-    results: Mapped[list[MatchResult]] = relationship(
-        back_populates="request", cascade="all, delete-orphan"
-    )
+    results: Mapped[list[MatchResult]] = relationship(back_populates="request", cascade="all, delete-orphan")
 
 
 class MatchResult(Base):
     __tablename__ = "match_results"
 
-    id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=uuid4
-    )
-    request_id: Mapped[UUID] = mapped_column(
-        ForeignKey("match_requests.id", ondelete="CASCADE"), index=True
-    )
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    request_id: Mapped[UUID] = mapped_column(ForeignKey("match_requests.id", ondelete="CASCADE"), index=True)
     miner_id: Mapped[str] = mapped_column(String(64))
     score: Mapped[float] = mapped_column(Float)
     explain: Mapped[str | None] = mapped_column(Text)
     eta_ms: Mapped[int | None] = mapped_column(Integer)
     price: Mapped[float | None] = mapped_column(Float)
 
-    created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.now(dt.UTC)
-    )
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
 
     request: Mapped[MatchRequest] = relationship(back_populates="results")
 
@@ -127,20 +107,14 @@ class MatchResult(Base):
 class Feedback(Base):
     __tablename__ = "feedback"
 
-    id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=uuid4
-    )
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     job_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    miner_id: Mapped[str] = mapped_column(
-        ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False
-    )
+    miner_id: Mapped[str] = mapped_column(ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False)
     outcome: Mapped[str] = mapped_column(String(32), nullable=False)
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     fail_code: Mapped[str | None] = mapped_column(String(64))
     tokens_spent: Mapped[float | None] = mapped_column(Float)
-    created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.now(dt.UTC)
-    )
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
 
     miner: Mapped[Miner] = relationship(back_populates="feedback")
 
@@ -150,21 +124,15 @@ class ServiceConfig(Base):
 
     __tablename__ = "service_configs"
 
-    id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=uuid4
-    )
-    miner_id: Mapped[str] = mapped_column(
-        ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False
-    )
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    miner_id: Mapped[str] = mapped_column(ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False)
     service_type: Mapped[str] = mapped_column(String(32), nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     pricing: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     capabilities: Mapped[list[str]] = mapped_column(JSON, default=list)
     max_concurrent: Mapped[int] = mapped_column(Integer, default=1)
-    created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.now(dt.UTC)
-    )
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=dt.datetime.now(dt.UTC), onupdate=dt.datetime.now(dt.UTC)
     )
@@ -180,19 +148,13 @@ class SLAMetric(Base):
 
     __tablename__ = "sla_metrics"
 
-    id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=uuid4
-    )
-    miner_id: Mapped[str] = mapped_column(
-        ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False
-    )
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    miner_id: Mapped[str] = mapped_column(ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False)
     metric_type: Mapped[str] = mapped_column(String(32), nullable=False)  # uptime, response_time, completion_rate, capacity
     metric_value: Mapped[float] = mapped_column(Float, nullable=False)
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
     is_violation: Mapped[bool] = mapped_column(Boolean, default=False)
-    timestamp: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.now(dt.UTC)
-    )
+    timestamp: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
     meta_data: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
 
     miner: Mapped[Miner] = relationship(backref="sla_metrics")
@@ -203,21 +165,15 @@ class SLAViolation(Base):
 
     __tablename__ = "sla_violations"
 
-    id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=uuid4
-    )
-    miner_id: Mapped[str] = mapped_column(
-        ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False
-    )
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    miner_id: Mapped[str] = mapped_column(ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False)
     violation_type: Mapped[str] = mapped_column(String(32), nullable=False)
     severity: Mapped[str] = mapped_column(String(16), nullable=False)  # critical, high, medium, low
     metric_value: Mapped[float] = mapped_column(Float, nullable=False)
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
     violation_duration_ms: Mapped[int | None] = mapped_column(Integer)
     resolved_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.now(dt.UTC)
-    )
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
     meta_data: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
 
     miner: Mapped[Miner] = relationship(backref="sla_violations")
@@ -228,9 +184,7 @@ class CapacitySnapshot(Base):
 
     __tablename__ = "capacity_snapshots"
 
-    id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=uuid4
-    )
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     total_miners: Mapped[int] = mapped_column(Integer, nullable=False)
     active_miners: Mapped[int] = mapped_column(Integer, nullable=False)
     total_parallel_capacity: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -239,7 +193,5 @@ class CapacitySnapshot(Base):
     forecast_capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     recommended_scaling: Mapped[str] = mapped_column(String(32), nullable=False)
     scaling_reason: Mapped[str] = mapped_column(Text)
-    timestamp: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.now(dt.UTC)
-    )
+    timestamp: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
     meta_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)

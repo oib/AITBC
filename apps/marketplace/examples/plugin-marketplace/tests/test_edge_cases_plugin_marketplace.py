@@ -1,6 +1,5 @@
 """Edge case and error handling tests for plugin marketplace service"""
 
-
 import pytest
 from fastapi.testclient import TestClient
 from main import DeveloperApplication, MarketplaceReview, PluginPurchase, app, developer_applications, purchases, reviews
@@ -22,11 +21,7 @@ def reset_state():
 def test_marketplace_review_out_of_range_rating():
     """Test MarketplaceReview with out of range rating"""
     review = MarketplaceReview(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        rating=10,
-        title="Great plugin",
-        content="Excellent"
+        plugin_id="plugin_123", user_id="user_123", rating=10, title="Great plugin", content="Excellent"
     )
     assert review.rating == 10
 
@@ -34,39 +29,21 @@ def test_marketplace_review_out_of_range_rating():
 @pytest.mark.unit
 def test_marketplace_review_zero_rating():
     """Test MarketplaceReview with zero rating"""
-    review = MarketplaceReview(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        rating=0,
-        title="Bad plugin",
-        content="Poor"
-    )
+    review = MarketplaceReview(plugin_id="plugin_123", user_id="user_123", rating=0, title="Bad plugin", content="Poor")
     assert review.rating == 0
 
 
 @pytest.mark.unit
 def test_marketplace_review_negative_rating():
     """Test MarketplaceReview with negative rating"""
-    review = MarketplaceReview(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        rating=-5,
-        title="Terrible",
-        content="Worst"
-    )
+    review = MarketplaceReview(plugin_id="plugin_123", user_id="user_123", rating=-5, title="Terrible", content="Worst")
     assert review.rating == -5
 
 
 @pytest.mark.unit
 def test_marketplace_review_empty_fields():
     """Test MarketplaceReview with empty fields"""
-    review = MarketplaceReview(
-        plugin_id="",
-        user_id="",
-        rating=3,
-        title="",
-        content=""
-    )
+    review = MarketplaceReview(plugin_id="", user_id="", rating=3, title="", content="")
     assert review.plugin_id == ""
     assert review.title == ""
 
@@ -74,24 +51,14 @@ def test_marketplace_review_empty_fields():
 @pytest.mark.unit
 def test_plugin_purchase_zero_price():
     """Test PluginPurchase with zero price"""
-    purchase = PluginPurchase(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        price=0.0,
-        payment_method="free"
-    )
+    purchase = PluginPurchase(plugin_id="plugin_123", user_id="user_123", price=0.0, payment_method="free")
     assert purchase.price == 0.0
 
 
 @pytest.mark.unit
 def test_developer_application_empty_fields():
     """Test DeveloperApplication with empty fields"""
-    application = DeveloperApplication(
-        developer_name="",
-        email="",
-        experience="",
-        description=""
-    )
+    application = DeveloperApplication(developer_name="", email="", experience="", description="")
     assert application.developer_name == ""
     assert application.email == ""
 
@@ -122,13 +89,7 @@ def test_create_multiple_reviews():
     client = TestClient(app)
 
     for i in range(3):
-        review = MarketplaceReview(
-            plugin_id="plugin_123",
-            user_id=f"user_{i}",
-            rating=5,
-            title="Great",
-            content="Excellent"
-        )
+        review = MarketplaceReview(plugin_id="plugin_123", user_id=f"user_{i}", rating=5, title="Great", content="Excellent")
         client.post("/api/v1/reviews", json=review.model_dump())
 
     response = client.get("/api/v1/reviews/plugin_123")
@@ -143,12 +104,7 @@ def test_create_multiple_purchases():
     client = TestClient(app)
 
     for i in range(3):
-        purchase = PluginPurchase(
-            plugin_id="plugin_123",
-            user_id=f"user_{i}",
-            price=99.99,
-            payment_method="credit_card"
-        )
+        purchase = PluginPurchase(plugin_id="plugin_123", user_id=f"user_{i}", price=99.99, payment_method="credit_card")
         client.post("/api/v1/purchases", json=purchase.model_dump())
 
     response = client.get("/api/v1/revenue/revenue_sharing")
@@ -160,11 +116,7 @@ def test_developer_application_with_company():
     """Test developer application with company"""
     client = TestClient(app)
     application = DeveloperApplication(
-        developer_name="Dev Name",
-        email="dev@example.com",
-        company="Dev Corp",
-        experience="5 years",
-        description="Experienced"
+        developer_name="Dev Name", email="dev@example.com", company="Dev Corp", experience="5 years", description="Experienced"
     )
     response = client.post("/api/v1/developers/apply", json=application.model_dump())
     assert response.status_code == 200

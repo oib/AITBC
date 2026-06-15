@@ -2,6 +2,7 @@
 Advanced Analytics Platform - Comprehensive Trading Analytics
 Real-time analytics dashboard, market insights, and performance metrics
 """
+
 import asyncio
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
@@ -16,40 +17,48 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+
 class MetricType(StrEnum):
     """Types of analytics metrics"""
-    PRICE_METRICS = 'price_metrics'
-    VOLUME_METRICS = 'volume_metrics'
-    VOLATILITY_METRICS = 'volatility_metrics'
-    PERFORMANCE_METRICS = 'performance_metrics'
-    RISK_METRICS = 'risk_metrics'
-    MARKET_SENTIMENT = 'market_sentiment'
-    LIQUIDITY_METRICS = 'liquidity_metrics'
+
+    PRICE_METRICS = "price_metrics"
+    VOLUME_METRICS = "volume_metrics"
+    VOLATILITY_METRICS = "volatility_metrics"
+    PERFORMANCE_METRICS = "performance_metrics"
+    RISK_METRICS = "risk_metrics"
+    MARKET_SENTIMENT = "market_sentiment"
+    LIQUIDITY_METRICS = "liquidity_metrics"
+
 
 class Timeframe(StrEnum):
     """Analytics timeframes"""
-    REAL_TIME = 'real_time'
-    ONE_MINUTE = '1m'
-    FIVE_MINUTES = '5m'
-    FIFTEEN_MINUTES = '15m'
-    ONE_HOUR = '1h'
-    FOUR_HOURS = '4h'
-    ONE_DAY = '1d'
-    ONE_WEEK = '1w'
-    ONE_MONTH = '1m'
+
+    REAL_TIME = "real_time"
+    ONE_MINUTE = "1m"
+    FIVE_MINUTES = "5m"
+    FIFTEEN_MINUTES = "15m"
+    ONE_HOUR = "1h"
+    FOUR_HOURS = "4h"
+    ONE_DAY = "1d"
+    ONE_WEEK = "1w"
+    ONE_MONTH = "1m"
+
 
 @dataclass
 class MarketMetric:
     """Market metric data point"""
+
     timestamp: datetime
     symbol: str
     metric_type: MetricType
     value: float
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class AnalyticsAlert:
     """Analytics alert configuration"""
+
     alert_id: str
     name: str
     metric_type: MetricType
@@ -61,9 +70,11 @@ class AnalyticsAlert:
     last_triggered: datetime | None = None
     trigger_count: int = 0
 
+
 @dataclass
 class PerformanceReport:
     """Performance analysis report"""
+
     report_id: str
     symbol: str
     start_date: datetime
@@ -78,6 +89,7 @@ class PerformanceReport:
     var_95: float
     beta: float | None = None
     alpha: float | None = None
+
 
 class AdvancedAnalytics:
     """Advanced analytics platform for trading insights"""
@@ -94,11 +106,11 @@ class AdvancedAnalytics:
     async def start_monitoring(self, symbols: list[str]) -> None:
         """Start real-time analytics monitoring"""
         if self.is_monitoring:
-            logger.warning('⚠️  Analytics monitoring already running')
+            logger.warning("⚠️  Analytics monitoring already running")
             return
         self.is_monitoring = True
         self.monitoring_task = asyncio.create_task(self._monitor_loop(symbols))  # type: ignore[assignment]
-        logger.info('📊 Analytics monitoring started for %s symbols', len(symbols))
+        logger.info("📊 Analytics monitoring started for %s symbols", len(symbols))
 
     async def stop_monitoring(self) -> None:
         """Stop analytics monitoring"""
@@ -109,7 +121,7 @@ class AdvancedAnalytics:
                 await self.monitoring_task
             except asyncio.CancelledError:
                 pass
-        logger.info('📊 Analytics monitoring stopped')
+        logger.info("📊 Analytics monitoring stopped")
 
     async def _monitor_loop(self, symbols: list[str]) -> None:
         """Main monitoring loop"""
@@ -122,7 +134,7 @@ class AdvancedAnalytics:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error('❌ Monitoring error: %s', e)
+                logger.error("❌ Monitoring error: %s", e)
                 await asyncio.sleep(10)
 
     async def _update_metrics(self, symbol: str) -> None:
@@ -145,18 +157,18 @@ class AdvancedAnalytics:
             self.current_metrics[symbol].update(volume_metrics)
             self.current_metrics[symbol].update(volatility_metrics)
         except Exception as e:
-            logger.error('❌ Metrics update failed for %s: %s', symbol, e)
+            logger.error("❌ Metrics update failed for %s: %s", symbol, e)
 
     def _store_metric(self, symbol: str, metric_type: MetricType, value: float, timestamp: datetime) -> None:
         """Store a metric value"""
         metric = MarketMetric(timestamp=timestamp, symbol=symbol, metric_type=metric_type, value=value)
-        key = f'{symbol}_{metric_type.value}'
+        key = f"{symbol}_{metric_type.value}"
         self.metrics_history[key].append(metric)
 
     def _calculate_price_metrics(self, data: dict[str, Any]) -> dict[MetricType, float]:
         """Calculate price-related metrics"""
-        current_price = data.get('price', 0)
-        volume = data.get('volume', 0)
+        current_price = data.get("price", 0)
+        volume = data.get("volume", 0)
         key = f"{data['symbol']}_price_metrics"
         history = list(self.metrics_history.get(key, []))
         if len(history) < 2:
@@ -170,11 +182,15 @@ class AdvancedAnalytics:
         current_price / sma_5 - 1 if sma_5 > 0 else 0
         current_price / sma_20 - 1 if sma_20 > 0 else 0
         self._calculate_rsi(recent_prices)
-        return {MetricType.PRICE_METRICS: current_price, MetricType.VOLUME_METRICS: volume, MetricType.VOLATILITY_METRICS: np.std(recent_prices) / np.mean(recent_prices) if np.mean(recent_prices) > 0 else 0}
+        return {
+            MetricType.PRICE_METRICS: current_price,
+            MetricType.VOLUME_METRICS: volume,
+            MetricType.VOLATILITY_METRICS: np.std(recent_prices) / np.mean(recent_prices) if np.mean(recent_prices) > 0 else 0,
+        }
 
     def _calculate_volume_metrics(self, data: dict[str, Any]) -> dict[MetricType, float]:
         """Calculate volume-related metrics"""
-        current_volume = data.get('volume', 0)
+        current_volume = data.get("volume", 0)
         key = f"{data['symbol']}_volume_metrics"
         history = list(self.metrics_history.get(key, []))
         if len(history) < 2:
@@ -187,7 +203,7 @@ class AdvancedAnalytics:
 
     def _calculate_volatility_metrics(self, symbol: str) -> dict[MetricType, float]:
         """Calculate volatility metrics"""
-        key = f'{symbol}_price_metrics'
+        key = f"{symbol}_price_metrics"
         history = list(self.metrics_history.get(key, []))
         if len(history) < 20:
             return {}
@@ -206,7 +222,7 @@ class AdvancedAnalytics:
         past = values[-(periods + 1)]
         return (current - past) / past if past > 0 else 0
 
-    def _calculate_rsi(self, prices: list[float], period: int=14) -> float:
+    def _calculate_rsi(self, prices: list[float], period: int = 14) -> float:
         """Calculate RSI indicator"""
         if len(prices) < period + 1:
             return 50
@@ -219,15 +235,16 @@ class AdvancedAnalytics:
             return 100
         rs = avg_gain / avg_loss
         rsi = 100 - 100 / (1 + rs)
-        return rsi # type: ignore[return-value]
+        return rsi  # type: ignore[return-value]
 
     async def _get_current_market_data(self, symbol: str) -> dict[str, Any] | None:
         """Get current market data (mock implementation)"""
         import random
-        base_price = 50000 if symbol == 'BTC/USDT' else 3000
+
+        base_price = 50000 if symbol == "BTC/USDT" else 3000
         price = base_price * (1 + random.uniform(-0.02, 0.02))
         volume = random.uniform(1000, 10000)
-        return {'symbol': symbol, 'price': price, 'volume': volume, 'timestamp': datetime.now()}
+        return {"symbol": symbol, "price": price, "volume": volume, "timestamp": datetime.now()}
 
     async def _check_alerts(self) -> None:
         """Check configured alerts"""
@@ -242,18 +259,18 @@ class AdvancedAnalytics:
                 if triggered:
                     await self._trigger_alert(alert, current_value)
             except Exception as e:
-                logger.error('❌ Alert check failed for %s: %s', alert_id, e)
+                logger.error("❌ Alert check failed for %s: %s", alert_id, e)
 
     def _evaluate_alert_condition(self, alert: AnalyticsAlert, current_value: float) -> bool:
         """Evaluate if alert condition is met"""
-        if alert.condition == 'gt':
+        if alert.condition == "gt":
             return current_value > alert.threshold
-        elif alert.condition == 'lt':
+        elif alert.condition == "lt":
             return current_value < alert.threshold
-        elif alert.condition == 'eq':
+        elif alert.condition == "eq":
             return abs(current_value - alert.threshold) < 0.001
-        elif alert.condition == 'change_percent':
-            key = f'{alert.symbol}_{alert.metric_type.value}'
+        elif alert.condition == "change_percent":
+            key = f"{alert.symbol}_{alert.metric_type.value}"
             history = list(self.metrics_history.get(key, []))
             if len(history) >= 2:
                 old_value = history[-1].value
@@ -265,19 +282,29 @@ class AdvancedAnalytics:
         """Trigger an alert"""
         alert.last_triggered = datetime.now()
         alert.trigger_count += 1
-        logger.warning('🚨 Alert triggered: %s', alert.name)
-        logger.warning('   Symbol: %s', alert.symbol)
-        logger.warning('   Metric: %s', alert.metric_type.value)
-        logger.warning('   Current Value: %s', current_value)
-        logger.warning('   Threshold: %s', alert.threshold)
-        logger.warning('   Trigger Count: %s', alert.trigger_count)
+        logger.warning("🚨 Alert triggered: %s", alert.name)
+        logger.warning("   Symbol: %s", alert.symbol)
+        logger.warning("   Metric: %s", alert.metric_type.value)
+        logger.warning("   Current Value: %s", current_value)
+        logger.warning("   Threshold: %s", alert.threshold)
+        logger.warning("   Trigger Count: %s", alert.trigger_count)
 
-    def create_alert(self, name: str, symbol: str, metric_type: MetricType, condition: str, threshold: float, timeframe: Timeframe) -> str:
+    def create_alert(
+        self, name: str, symbol: str, metric_type: MetricType, condition: str, threshold: float, timeframe: Timeframe
+    ) -> str:
         """Create a new analytics alert"""
         alert_id = f"alert_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        alert = AnalyticsAlert(alert_id=alert_id, name=name, metric_type=metric_type, symbol=symbol, condition=condition, threshold=threshold, timeframe=timeframe)
+        alert = AnalyticsAlert(
+            alert_id=alert_id,
+            name=name,
+            metric_type=metric_type,
+            symbol=symbol,
+            condition=condition,
+            threshold=threshold,
+            timeframe=timeframe,
+        )
         self.alerts[alert_id] = alert
-        logger.info('✅ Alert created: %s', name)
+        logger.info("✅ Alert created: %s", name)
         return alert_id
 
     def get_real_time_dashboard(self, symbol: str) -> dict[str, Any]:
@@ -285,47 +312,56 @@ class AdvancedAnalytics:
         current_metrics = self.current_metrics.get(symbol, {})
         price_history = []
         volume_history = []
-        price_key = f'{symbol}_price_metrics'
-        volume_key = f'{symbol}_volume_metrics'
+        price_key = f"{symbol}_price_metrics"
+        volume_key = f"{symbol}_volume_metrics"
         for metric in list(self.metrics_history.get(price_key, []))[-100:]:
-            price_history.append({'timestamp': metric.timestamp.isoformat(), 'value': metric.value})
+            price_history.append({"timestamp": metric.timestamp.isoformat(), "value": metric.value})
         for metric in list(self.metrics_history.get(volume_key, []))[-100:]:
-            volume_history.append({'timestamp': metric.timestamp.isoformat(), 'value': metric.value})
+            volume_history.append({"timestamp": metric.timestamp.isoformat(), "value": metric.value})
         indicators = self._calculate_technical_indicators(symbol)
-        return {'symbol': symbol, 'timestamp': datetime.now().isoformat(), 'current_metrics': current_metrics, 'price_history': price_history, 'volume_history': volume_history, 'technical_indicators': indicators, 'alerts': [a for a in self.alerts.values() if a.symbol == symbol and a.active], 'market_status': self._get_market_status(symbol)}
+        return {
+            "symbol": symbol,
+            "timestamp": datetime.now().isoformat(),
+            "current_metrics": current_metrics,
+            "price_history": price_history,
+            "volume_history": volume_history,
+            "technical_indicators": indicators,
+            "alerts": [a for a in self.alerts.values() if a.symbol == symbol and a.active],
+            "market_status": self._get_market_status(symbol),
+        }
 
     def _calculate_technical_indicators(self, symbol: str) -> dict[str, Any]:
         """Calculate technical indicators"""
-        price_key = f'{symbol}_price_metrics'
+        price_key = f"{symbol}_price_metrics"
         history = list(self.metrics_history.get(price_key, []))
         if len(history) < 20:
             return {}
         prices = [m.value for m in history[-100:]]
         indicators = {}
         if len(prices) >= 5:
-            indicators['sma_5'] = np.mean(prices[-5:])
+            indicators["sma_5"] = np.mean(prices[-5:])
         if len(prices) >= 20:
-            indicators['sma_20'] = np.mean(prices[-20:])
+            indicators["sma_20"] = np.mean(prices[-20:])
         if len(prices) >= 50:
-            indicators['sma_50'] = np.mean(prices[-50:])
-        indicators['rsi'] = self._calculate_rsi(prices)
+            indicators["sma_50"] = np.mean(prices[-50:])
+        indicators["rsi"] = self._calculate_rsi(prices)
         if len(prices) >= 20:
-            sma_20 = indicators['sma_20']
+            sma_20 = indicators["sma_20"]
             std_20 = np.std(prices[-20:])
-            indicators['bb_upper'] = sma_20 + 2 * std_20
-            indicators['bb_lower'] = sma_20 - 2 * std_20
-            indicators['bb_width'] = (indicators['bb_upper'] - indicators['bb_lower']) / sma_20
+            indicators["bb_upper"] = sma_20 + 2 * std_20
+            indicators["bb_lower"] = sma_20 - 2 * std_20
+            indicators["bb_width"] = (indicators["bb_upper"] - indicators["bb_lower"]) / sma_20
         if len(prices) >= 26:
             ema_12 = self._calculate_ema(prices, 12)
             ema_26 = self._calculate_ema(prices, 26)
-            indicators['macd'] = ema_12 - ema_26
-            indicators['macd_signal'] = self._calculate_ema([indicators['macd']], 9)
+            indicators["macd"] = ema_12 - ema_26
+            indicators["macd_signal"] = self._calculate_ema([indicators["macd"]], 9)
         return indicators
 
     def _calculate_ema(self, values: list[float], period: int) -> float:
         """Calculate Exponential Moving Average"""
         if len(values) < period:
-            return np.mean(values) # type: ignore[return-value]
+            return np.mean(values)  # type: ignore[return-value]
         multiplier = 2 / (period + 1)
         ema = values[0]
         for value in values[1:]:
@@ -335,20 +371,20 @@ class AdvancedAnalytics:
     def _get_market_status(self, symbol: str) -> str:
         """Get overall market status"""
         current_metrics = self.current_metrics.get(symbol, {})
-        rsi = current_metrics.get('rsi', 50)  # type: ignore[call-overload]
+        rsi = current_metrics.get("rsi", 50)  # type: ignore[call-overload]
         if rsi > 70:
-            return 'overbought'
+            return "overbought"
         elif rsi < 30:
-            return 'oversold'
+            return "oversold"
         else:
-            return 'neutral'
+            return "neutral"
 
     def generate_performance_report(self, symbol: str, start_date: datetime, end_date: datetime) -> PerformanceReport:
         """Generate comprehensive performance report"""
-        price_key = f'{symbol}_price_metrics'
+        price_key = f"{symbol}_price_metrics"
         history = [m for m in self.metrics_history.get(price_key, []) if start_date <= m.timestamp <= end_date]
         if len(history) < 2:
-            raise ValueError('Insufficient data for performance analysis')
+            raise ValueError("Insufficient data for performance analysis")
         prices = [m.value for m in history]
         returns = np.diff(prices) / prices[:-1]
         total_return = (prices[-1] - prices[0]) / prices[0]
@@ -359,53 +395,91 @@ class AdvancedAnalytics:
         max_drawdown = np.max(drawdown)
         win_rate = 0.5
         var_95 = np.percentile(returns, 5)
-        report = PerformanceReport(report_id=f"perf_{symbol}_{datetime.now().strftime('%Y%m%d_%H%M%S')}", symbol=symbol, start_date=start_date, end_date=end_date, total_return=total_return, volatility=volatility, sharpe_ratio=sharpe_ratio, max_drawdown=max_drawdown, win_rate=win_rate, profit_factor=1.5, calmar_ratio=total_return / max_drawdown if max_drawdown > 0 else 0, var_95=var_95)
+        report = PerformanceReport(
+            report_id=f"perf_{symbol}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date,
+            total_return=total_return,
+            volatility=volatility,
+            sharpe_ratio=sharpe_ratio,
+            max_drawdown=max_drawdown,
+            win_rate=win_rate,
+            profit_factor=1.5,
+            calmar_ratio=total_return / max_drawdown if max_drawdown > 0 else 0,
+            var_95=var_95,
+        )
         self.performance_cache[report.report_id] = report
         return report
 
     def get_analytics_summary(self) -> dict[str, Any]:
         """Get overall analytics summary"""
-        summary = {'monitoring_active': self.is_monitoring, 'total_alerts': len(self.alerts), 'active_alerts': len([a for a in self.alerts.values() if a.active]), 'tracked_symbols': len(self.current_metrics), 'total_metrics_stored': sum(len(history) for history in self.metrics_history.values()), 'performance_reports': len(self.performance_cache)}
+        summary = {
+            "monitoring_active": self.is_monitoring,
+            "total_alerts": len(self.alerts),
+            "active_alerts": len([a for a in self.alerts.values() if a.active]),
+            "tracked_symbols": len(self.current_metrics),
+            "total_metrics_stored": sum(len(history) for history in self.metrics_history.values()),
+            "performance_reports": len(self.performance_cache),
+        }
         for symbol, metrics in self.current_metrics.items():
-            summary[f'{symbol}_metrics'] = len(metrics)
+            summary[f"{symbol}_metrics"] = len(metrics)
         return summary
+
+
 advanced_analytics = AdvancedAnalytics()
+
 
 async def start_analytics_monitoring(symbols: list[str]) -> bool:
     """Start analytics monitoring"""
     await advanced_analytics.start_monitoring(symbols)
     return True
 
+
 async def stop_analytics_monitoring() -> bool:
     """Stop analytics monitoring"""
     await advanced_analytics.stop_monitoring()
     return True
 
+
 def get_dashboard_data(symbol: str) -> dict[str, Any]:
     """Get dashboard data for symbol"""
     return advanced_analytics.get_real_time_dashboard(symbol)
 
+
 def create_analytics_alert(name: str, symbol: str, metric_type: str, condition: str, threshold: float, timeframe: str) -> str:
     """Create analytics alert"""
     from advanced_analytics import MetricType, Timeframe  # type: ignore[import-not-found]
-    return advanced_analytics.create_alert(name=name, symbol=symbol, metric_type=MetricType(metric_type), condition=condition, threshold=threshold, timeframe=Timeframe(timeframe))
+
+    return advanced_analytics.create_alert(
+        name=name,
+        symbol=symbol,
+        metric_type=MetricType(metric_type),
+        condition=condition,
+        threshold=threshold,
+        timeframe=Timeframe(timeframe),
+    )
+
 
 def get_analytics_summary() -> dict[str, Any]:
     """Get analytics summary"""
     return advanced_analytics.get_analytics_summary()
 
+
 async def test_advanced_analytics() -> None:
     """Test advanced analytics platform"""
-    logger.info('Testing Advanced Analytics Platform')
-    await start_analytics_monitoring(['BTC/USDT', 'ETH/USDT'])
-    logger.info('Analytics monitoring started')
+    logger.info("Testing Advanced Analytics Platform")
+    await start_analytics_monitoring(["BTC/USDT", "ETH/USDT"])
+    logger.info("Analytics monitoring started")
     await asyncio.sleep(5)
-    dashboard = get_dashboard_data('BTC/USDT')
-    logger.info('Dashboard data retrieved', field_count=len(dashboard))  # type: ignore[call-arg]
+    dashboard = get_dashboard_data("BTC/USDT")
+    logger.info("Dashboard data retrieved", field_count=len(dashboard))  # type: ignore[call-arg]
     summary = get_analytics_summary()
-    logger.info('Analytics summary', summary=summary)  # type: ignore[call-arg]  # type: ignore[call-arg]
+    logger.info("Analytics summary", summary=summary)  # type: ignore[call-arg]  # type: ignore[call-arg]
     await stop_analytics_monitoring()
-    logger.info('Analytics monitoring stopped')
-    logger.info('Advanced Analytics test complete')
-if __name__ == '__main__':
+    logger.info("Analytics monitoring stopped")
+    logger.info("Advanced Analytics test complete")
+
+
+if __name__ == "__main__":
     asyncio.run(test_advanced_analytics())

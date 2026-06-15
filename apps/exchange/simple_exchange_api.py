@@ -16,10 +16,12 @@ from aitbc.constants import DATA_DIR
 
 logger = get_logger(__name__)
 
+
 # Database setup
 def get_db_path():
     """Get database path and ensure directory exists"""
     import os
+
     db_path = os.getenv("EXCHANGE_DATABASE_URL", f"sqlite:///{DATA_DIR}/data/exchange/exchange.db").replace("sqlite://///", "")
 
     # Create directory if it doesn't exist
@@ -29,6 +31,7 @@ def get_db_path():
 
     return db_path
 
+
 def init_db():
     """Initialize SQLite database"""
     db_path = get_db_path()
@@ -36,7 +39,7 @@ def init_db():
     cursor = conn.cursor()
 
     # Create tables
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             amount REAL NOT NULL,
@@ -44,9 +47,9 @@ def init_db():
             total REAL NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    ''')
+    """)
 
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             order_type TEXT NOT NULL CHECK(order_type IN ('BUY', 'SELL')),
@@ -60,9 +63,9 @@ def init_db():
             user_address TEXT,
             tx_hash TEXT
         )
-    ''')
+    """)
 
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS marketplace_offers (
             id TEXT PRIMARY KEY,
             item TEXT NOT NULL,
@@ -73,9 +76,9 @@ def init_db():
             description TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    ''')
+    """)
 
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS marketplace_orders (
             id TEXT PRIMARY KEY,
             order_type TEXT NOT NULL,
@@ -85,21 +88,22 @@ def init_db():
             status TEXT DEFAULT 'open',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    ''')
+    """)
 
     # Add columns if they don't exist (for existing databases)
     try:
-        cursor.execute('ALTER TABLE orders ADD COLUMN user_address TEXT')
+        cursor.execute("ALTER TABLE orders ADD COLUMN user_address TEXT")
     except Exception:
         pass
 
     try:
-        cursor.execute('ALTER TABLE orders ADD COLUMN tx_hash TEXT')
+        cursor.execute("ALTER TABLE orders ADD COLUMN tx_hash TEXT")
     except Exception:
         pass
 
     conn.commit()
     conn.close()
+
 
 def create_mock_trades():
     """Create some mock trades"""
@@ -108,71 +112,75 @@ def create_mock_trades():
     cursor = conn.cursor()
 
     # Check if we have trades
-    cursor.execute('SELECT COUNT(*) FROM trades')
+    cursor.execute("SELECT COUNT(*) FROM trades")
     if cursor.fetchone()[0] > 0:
         conn.close()
         return
 
     # Create mock trades
     now = datetime.now(UTC)
-    for i in range(20):
+    for _i in range(20):
         amount = random.uniform(10, 500)
         price = random.uniform(0.000009, 0.000012)
         total = amount * price
         created_at = now - timedelta(minutes=random.randint(0, 60))
 
-        cursor.execute('''
+        cursor.execute(
+            """
             INSERT INTO trades (amount, price, total, created_at)
             VALUES (?, ?, ?, ?)
-        ''', (amount, price, total, created_at))
+        """,
+            (amount, price, total, created_at),
+        )
 
     conn.commit()
     conn.close()
+
 
 class ExchangeAPIHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Handle GET requests"""
         # Validate path to prevent SSRF
-        if not self.path or self.path.startswith(('//', '\\\\', '..')):
+        if not self.path or self.path.startswith(("//", "\\\\", "..")):
             self.send_error(400, "Invalid path")
             return
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
-        if path == '/health' or path == '/api/health':
+        if path == "/health" or path == "/api/health":
             self.health_check()
-        elif path.startswith('/api/trades/recent'):
+        elif path.startswith("/api/trades/recent"):
             self.get_recent_trades(parsed)
-        elif path.startswith('/api/orders/orderbook'):
+        elif path.startswith("/api/orders/orderbook"):
             self.get_orderbook()
-        elif path.startswith('/api/wallet/balance'):
+        elif path.startswith("/api/wallet/balance"):
             self.handle_wallet_balance()
-        elif path == '/api/total-supply':
+        elif path == "/api/total-supply":
             self.handle_total_supply()
-        elif path == '/api/treasury-balance':
+        elif path == "/api/treasury-balance":
             self.handle_treasury_balance()
-        elif path == '/v1/marketplace/offers':
+        elif path == "/v1/marketplace/offers":
             self.handle_marketplace_offers(parsed)
-        elif path.startswith('/v1/marketplace/offers/'):
+        elif path.startswith("/v1/marketplace/offers/"):
             self.handle_marketplace_offer(path)
-        elif path == '/v1/marketplace/orders':
+        elif path == "/v1/marketplace/orders":
             self.handle_marketplace_orders(parsed)
-        elif path == '/metrics':
+        elif path == "/metrics":
             self.handle_metrics()
-        elif path == '/v1/bridge/price':
+        elif path == "/v1/bridge/price":
             self.handle_bridge_price(parsed)
-        elif path == '/v1/bridge/status':
+        elif path == "/v1/bridge/status":
             self.handle_bridge_status(None)
-        elif path.startswith('/v1/bridge/status/'):
-            self.handle_bridge_status(path.split('/')[-1])
-        elif path == '/v1/bridge/deposits':
+        elif path.startswith("/v1/bridge/status/"):
+            self.handle_bridge_status(path.split("/")[-1])
+        elif path == "/v1/bridge/deposits":
             self.handle_bridge_deposits(parsed)
-        elif path.startswith('/v1/bridge/deposit/'):
-            self.handle_bridge_deposit_detail(path.split('/')[-1])
-        elif path == '/v1/exchange/history':
+        elif path.startswith("/v1/bridge/deposit/"):
+            self.handle_bridge_deposit_detail(path.split("/")[-1])
+        elif path == "/v1/exchange/history":
             self.handle_exchange_history(parsed)
-        elif path == '/exchange/price.json':
+        elif path == "/exchange/price.json":
             self.handle_exchange_price_json()
         else:
             self.send_error(404, "Not Found")
@@ -182,19 +190,19 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
-        if path == '/api/orders':
+        if path == "/api/orders":
             self.handle_place_order()
-        elif path == '/api/wallet/connect':
+        elif path == "/api/wallet/connect":
             self.handle_wallet_connect()
-        elif path == '/v1/marketplace/offers':
+        elif path == "/v1/marketplace/offers":
             self.handle_marketplace_create_offer()
-        elif path.startswith('/v1/marketplace/offers/') and path.endswith('/book'):
+        elif path.startswith("/v1/marketplace/offers/") and path.endswith("/book"):
             self.handle_marketplace_book_offer(path)
-        elif path == '/v1/bridge/deposit':
+        elif path == "/v1/bridge/deposit":
             self.handle_bridge_deposit()
-        elif path == '/v1/bridge/withdraw':
+        elif path == "/v1/bridge/withdraw":
             self.handle_bridge_withdraw()
-        elif path == '/v1/bridge/estimate':
+        elif path == "/v1/bridge/estimate":
             self.handle_bridge_estimate()
         else:
             self.send_error(404, "Not Found")
@@ -203,21 +211,21 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
-        if path.startswith('/v1/marketplace/orders/'):
+        if path.startswith("/v1/marketplace/orders/"):
             self.handle_marketplace_delete_order(path)
-        elif path.startswith('/v1/marketplace/offers/'):
+        elif path.startswith("/v1/marketplace/offers/"):
             self.handle_marketplace_delete_offer(path)
         else:
             self.send_error(404, "Not Found")
 
     def _read_json_body(self):
-        content_length = int(self.headers.get('Content-Length', 0))
+        content_length = int(self.headers.get("Content-Length", 0))
         if content_length <= 0:
             return {}
         post_data = self.rfile.read(content_length)
         if not post_data:
             return {}
-        return json.loads(post_data.decode('utf-8'))
+        return json.loads(post_data.decode("utf-8"))
 
     def _new_marketplace_id(self, prefix):
         return f"{prefix}_{int(datetime.now(UTC).timestamp() * 1000)}{random.randint(100, 999)}"
@@ -251,37 +259,43 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
 
     def handle_marketplace_offers(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)
-        status_filter = query.get('status', [None])[0]
+        status_filter = query.get("status", [None])[0]
         db_path = get_db_path()
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         if status_filter:
-            cursor.execute('''
+            cursor.execute(
+                """
                 SELECT id, item, item_type, price, wallet, status, description, created_at
                 FROM marketplace_offers
                 WHERE status = ?
                 ORDER BY created_at DESC
-            ''', (status_filter,))
+            """,
+                (status_filter,),
+            )
         else:
-            cursor.execute('''
+            cursor.execute("""
                 SELECT id, item, item_type, price, wallet, status, description, created_at
                 FROM marketplace_offers
                 ORDER BY created_at DESC
-            ''')
+            """)
         offers = [self._marketplace_offer_row(row) for row in cursor.fetchall()]
         conn.close()
         self.send_json_response(offers)
 
     def handle_marketplace_offer(self, path):
-        offer_id = urllib.parse.unquote(path.rsplit('/', 1)[-1])
+        offer_id = urllib.parse.unquote(path.rsplit("/", 1)[-1])
         db_path = get_db_path()
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute(
+            """
             SELECT id, item, item_type, price, wallet, status, description, created_at
             FROM marketplace_offers
             WHERE id = ?
-        ''', (offer_id,))
+        """,
+            (offer_id,),
+        )
         row = cursor.fetchone()
         conn.close()
         if row:
@@ -292,30 +306,39 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
     def handle_marketplace_create_offer(self):
         try:
             data = self._read_json_body()
-            item = data.get('item') or data.get('item_type') or 'service'
-            item_type = data.get('item_type') or item
-            price = float(data.get('price') or data.get('price_per_hour') or 0)
-            wallet = data.get('wallet')
-            description = data.get('description', '')
-            offer_id = self._new_marketplace_id('offer')
-            order_id = self._new_marketplace_id('order')
+            item = data.get("item") or data.get("item_type") or "service"
+            item_type = data.get("item_type") or item
+            price = float(data.get("price") or data.get("price_per_hour") or 0)
+            wallet = data.get("wallet")
+            description = data.get("description", "")
+            offer_id = self._new_marketplace_id("offer")
+            order_id = self._new_marketplace_id("order")
             db_path = get_db_path()
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute(
+                """
                 INSERT INTO marketplace_offers (id, item, item_type, price, wallet, status, description)
                 VALUES (?, ?, ?, ?, ?, 'active', ?)
-            ''', (offer_id, item, item_type, price, wallet, description))
-            cursor.execute('''
+            """,
+                (offer_id, item, item_type, price, wallet, description),
+            )
+            cursor.execute(
+                """
                 INSERT INTO marketplace_orders (id, order_type, item, price, wallet, status)
                 VALUES (?, 'SELL', ?, ?, ?, 'open')
-            ''', (order_id, item, price, wallet))
+            """,
+                (order_id, item, price, wallet),
+            )
             conn.commit()
-            cursor.execute('''
+            cursor.execute(
+                """
                 SELECT id, item, item_type, price, wallet, status, description, created_at
                 FROM marketplace_offers
                 WHERE id = ?
-            ''', (offer_id,))
+            """,
+                (offer_id,),
+            )
             offer = self._marketplace_offer_row(cursor.fetchone())
             conn.close()
             offer["order_id"] = order_id
@@ -325,31 +348,40 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
 
     def handle_marketplace_book_offer(self, path):
         try:
-            offer_id = urllib.parse.unquote(path[len('/v1/marketplace/offers/'): -len('/book')])
+            offer_id = urllib.parse.unquote(path[len("/v1/marketplace/offers/") : -len("/book")])
             data = self._read_json_body()
-            wallet = data.get('wallet')
+            wallet = data.get("wallet")
             db_path = get_db_path()
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute(
+                """
                 SELECT item, price
                 FROM marketplace_offers
                 WHERE id = ? OR item = ?
-            ''', (offer_id, offer_id))
+            """,
+                (offer_id, offer_id),
+            )
             row = cursor.fetchone()
             item = row[0] if row else offer_id
-            price = float(data.get('price') or (row[1] if row else 0) or 0)
-            order_id = self._new_marketplace_id('order')
-            cursor.execute('''
+            price = float(data.get("price") or (row[1] if row else 0) or 0)
+            order_id = self._new_marketplace_id("order")
+            cursor.execute(
+                """
                 INSERT INTO marketplace_orders (id, order_type, item, price, wallet, status)
                 VALUES (?, 'BUY', ?, ?, ?, 'open')
-            ''', (order_id, item, price, wallet))
+            """,
+                (order_id, item, price, wallet),
+            )
             conn.commit()
-            cursor.execute('''
+            cursor.execute(
+                """
                 SELECT id, order_type, item, price, wallet, status, created_at
                 FROM marketplace_orders
                 WHERE id = ?
-            ''', (order_id,))
+            """,
+                (order_id,),
+            )
             order = self._marketplace_order_row(cursor.fetchone())
             conn.close()
             self.send_json_response({"success": True, "order": order, "order_id": order_id}, status=201)
@@ -358,29 +390,32 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
 
     def handle_marketplace_orders(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)
-        wallet = query.get('wallet', [None])[0]
+        wallet = query.get("wallet", [None])[0]
         db_path = get_db_path()
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         if wallet:
-            cursor.execute('''
+            cursor.execute(
+                """
                 SELECT id, order_type, item, price, wallet, status, created_at
                 FROM marketplace_orders
                 WHERE wallet = ?
                 ORDER BY created_at DESC
-            ''', (wallet,))
+            """,
+                (wallet,),
+            )
         else:
-            cursor.execute('''
+            cursor.execute("""
                 SELECT id, order_type, item, price, wallet, status, created_at
                 FROM marketplace_orders
                 ORDER BY created_at DESC
-            ''')
+            """)
         orders = [self._marketplace_order_row(row) for row in cursor.fetchall()]
         conn.close()
         self.send_json_response({"orders": orders})
 
     def handle_marketplace_delete_order(self, path):
-        order_id = urllib.parse.unquote(path.rsplit('/', 1)[-1])
+        order_id = urllib.parse.unquote(path.rsplit("/", 1)[-1])
         db_path = get_db_path()
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -391,7 +426,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         self.send_json_response({"success": True, "order_id": order_id, "deleted": deleted})
 
     def handle_marketplace_delete_offer(self, path):
-        offer_id = urllib.parse.unquote(path.rsplit('/', 1)[-1])
+        offer_id = urllib.parse.unquote(path.rsplit("/", 1)[-1])
         db_path = get_db_path()
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -404,28 +439,25 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
     def get_recent_trades(self, parsed):
         """Get recent trades"""
         query = urllib.parse.parse_qs(parsed.query)
-        limit = int(query.get('limit', [20])[0])
+        limit = int(query.get("limit", [20])[0])
 
         db_path = get_db_path()
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        cursor.execute('''
+        cursor.execute(
+            """
             SELECT id, amount, price, total, created_at
             FROM trades
             ORDER BY created_at DESC
             LIMIT ?
-        ''', (limit,))
+        """,
+            (limit,),
+        )
 
         trades = []
         for row in cursor.fetchall():
-            trades.append({
-                'id': row[0],
-                'amount': row[1],
-                'price': row[2],
-                'total': row[3],
-                'created_at': row[4]
-            })
+            trades.append({"id": row[0], "amount": row[1], "price": row[2], "total": row[3], "created_at": row[4]})
 
         conn.close()
 
@@ -438,72 +470,76 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         cursor = conn.cursor()
 
         # Get sell orders
-        cursor.execute('''
+        cursor.execute("""
             SELECT id, order_type, amount, price, total, filled, remaining, status, created_at
             FROM orders
             WHERE order_type = 'SELL' AND status = 'open'
             ORDER BY price ASC
             LIMIT 20
-        ''')
+        """)
 
         sells = []
         for row in cursor.fetchall():
-            sells.append({
-                'id': row[0],
-                'order_type': row[1],
-                'amount': row[2],
-                'price': row[3],
-                'total': row[4],
-                'filled': row[5],
-                'remaining': row[6],
-                'status': row[7],
-                'created_at': row[8]
-            })
+            sells.append(
+                {
+                    "id": row[0],
+                    "order_type": row[1],
+                    "amount": row[2],
+                    "price": row[3],
+                    "total": row[4],
+                    "filled": row[5],
+                    "remaining": row[6],
+                    "status": row[7],
+                    "created_at": row[8],
+                }
+            )
 
         # Get buy orders
-        cursor.execute('''
+        cursor.execute("""
             SELECT id, order_type, amount, price, total, filled, remaining, status, created_at
             FROM orders
             WHERE order_type = 'BUY' AND status = 'open'
             ORDER BY price DESC
             LIMIT 20
-        ''')
+        """)
 
         buys = []
         for row in cursor.fetchall():
-            buys.append({
-                'id': row[0],
-                'order_type': row[1],
-                'amount': row[2],
-                'price': row[3],
-                'total': row[4],
-                'filled': row[5],
-                'remaining': row[6],
-                'status': row[7],
-                'created_at': row[8]
-            })
+            buys.append(
+                {
+                    "id": row[0],
+                    "order_type": row[1],
+                    "amount": row[2],
+                    "price": row[3],
+                    "total": row[4],
+                    "filled": row[5],
+                    "remaining": row[6],
+                    "status": row[7],
+                    "created_at": row[8],
+                }
+            )
 
         conn.close()
 
-        self.send_json_response({'buys': buys, 'sells': sells})
+        self.send_json_response({"buys": buys, "sells": sells})
 
     def handle_place_order(self):
         """Place a new order on the blockchain"""
-        content_length = int(self.headers.get('Content-Length', 0))
+        content_length = int(self.headers.get("Content-Length", 0))
         post_data = self.rfile.read(content_length)
 
         try:
-            data = json.loads(post_data.decode('utf-8'))
-            order_type = data.get('order_type')
-            amount = data.get('amount')
-            price = data.get('price')
-            user_address = data.get('user_address')
+            data = json.loads(post_data.decode("utf-8"))
+            order_type = data.get("order_type")
+            amount = data.get("amount")
+            price = data.get("price")
+            user_address = data.get("user_address")
 
             if not all([order_type, amount, price, user_address]):
                 self.send_error(400, "Missing required fields")
                 return
 
-            if order_type not in ['BUY', 'SELL']:
+            if order_type not in ["BUY", "SELL"]:
                 self.send_error(400, "Invalid order type")
                 return
 
@@ -519,17 +555,15 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                     "order_type": order_type,
                     "amount": str(amount),
                     "price": str(price),
-                    "nonce": 0  # Would get actual nonce from wallet
+                    "nonce": 0,  # Would get actual nonce from wallet
                 }
 
                 # Send transaction to blockchain
                 tx_url = "http://localhost:9080/rpc/sendTx"
-                encoded_data = urllib.parse.urlencode(tx_data).encode('utf-8')
+                encoded_data = urllib.parse.urlencode(tx_data).encode("utf-8")
 
                 req = urllib.request.Request(
-                    tx_url,
-                    data=encoded_data,
-                    headers={'Content-Type': 'application/x-www-form-urlencoded'}
+                    tx_url, data=encoded_data, headers={"Content-Type": "application/x-www-form-urlencoded"}
                 )
 
                 with urllib.request.urlopen(req) as response:
@@ -542,30 +576,33 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
 
-                cursor.execute('''
+                cursor.execute(
+                    """
                     INSERT INTO orders (order_type, amount, price, total, remaining, user_address, tx_hash)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (order_type, amount, price, total, amount, user_address, tx_result.get('tx_hash', '')))
+                """,
+                    (order_type, amount, price, total, amount, user_address, tx_result.get("tx_hash", "")),
+                )
 
                 order_id = cursor.lastrowid
                 conn.commit()
 
                 # Get the created order
-                cursor.execute('SELECT * FROM orders WHERE id = ?', (order_id,))
+                cursor.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
                 row = cursor.fetchone()
 
                 order = {
-                    'id': row[0],
-                    'order_type': row[1],
-                    'amount': row[2],
-                    'price': row[3],
-                    'total': row[4],
-                    'filled': row[5],
-                    'remaining': row[6],
-                    'status': row[7],
-                    'created_at': row[8],
-                    'user_address': row[9],
-                    'tx_hash': row[10]
+                    "id": row[0],
+                    "order_type": row[1],
+                    "amount": row[2],
+                    "price": row[3],
+                    "total": row[4],
+                    "filled": row[5],
+                    "remaining": row[6],
+                    "status": row[7],
+                    "created_at": row[8],
+                    "user_address": row[9],
+                    "tx_hash": row[10],
                 }
 
                 conn.close()
@@ -583,29 +620,32 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
 
-                cursor.execute('''
+                cursor.execute(
+                    """
                     INSERT INTO orders (order_type, amount, price, total, remaining, user_address)
                     VALUES (?, ?, ?, ?, ?, ?)
-                ''', (order_type, amount, price, total, amount, user_address))
+                """,
+                    (order_type, amount, price, total, amount, user_address),
+                )
 
                 order_id = cursor.lastrowid
                 conn.commit()
 
                 # Get the created order
-                cursor.execute('SELECT * FROM orders WHERE id = ?', (order_id,))
+                cursor.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
                 row = cursor.fetchone()
 
                 order = {
-                    'id': row[0],
-                    'order_type': row[1],
-                    'amount': row[2],
-                    'price': row[3],
-                    'total': row[4],
-                    'filled': row[5],
-                    'remaining': row[6],
-                    'status': row[7],
-                    'created_at': row[8],
-                    'user_address': row[9] if len(row) > 9 else None
+                    "id": row[0],
+                    "order_type": row[1],
+                    "amount": row[2],
+                    "price": row[3],
+                    "total": row[4],
+                    "filled": row[5],
+                    "remaining": row[6],
+                    "status": row[7],
+                    "created_at": row[8],
+                    "user_address": row[9] if len(row) > 9 else None,
                 }
 
                 conn.close()
@@ -617,13 +657,15 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
 
         except Exception as e:
             # Fallback to hardcoded values if blockchain is down
-            self.send_json_response({
-                "total_supply": "21000000",
-                "circulating_supply": "1000000",
-                "treasury_balance": "0",
-                "source": "fallback",
-                "error": str(e)
-            })
+            self.send_json_response(
+                {
+                    "total_supply": "21000000",
+                    "circulating_supply": "1000000",
+                    "treasury_balance": "0",
+                    "source": "fallback",
+                    "error": str(e),
+                }
+            )
 
     def handle_treasury_balance(self):
         """Get exchange treasury balance from blockchain"""
@@ -638,41 +680,43 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             try:
                 with urllib.request.urlopen(blockchain_url) as response:
                     balance_data = json.loads(response.read().decode())
-                    treasury_balance = balance_data.get('balance', 0)
+                    treasury_balance = balance_data.get("balance", 0)
 
-                self.send_json_response({
-                    "address": treasury_address,
-                    "balance": str(treasury_balance),
-                    "available_for_sale": str(treasury_balance),  # All treasury tokens available
-                    "source": "blockchain"
-                })
+                self.send_json_response(
+                    {
+                        "address": treasury_address,
+                        "balance": str(treasury_balance),
+                        "available_for_sale": str(treasury_balance),  # All treasury tokens available
+                        "source": "blockchain",
+                    }
+                )
             except Exception:
                 # If blockchain query fails, show the genesis amount
-                self.send_json_response({
-                    "address": treasury_address,
-                    "balance": "10000000000000",  # 10 million in smallest units
-                    "available_for_sale": "10000000000000",
-                    "source": "genesis",
-                    "note": "Genesis amount - blockchain may need restart"
-                })
+                self.send_json_response(
+                    {
+                        "address": treasury_address,
+                        "balance": "10000000000000",  # 10 million in smallest units
+                        "available_for_sale": "10000000000000",
+                        "source": "genesis",
+                        "note": "Genesis amount - blockchain may need restart",
+                    }
+                )
 
         except Exception as e:
             self.send_error(500, str(e))
 
     def health_check(self):
         """Health check"""
-        self.send_json_response({
-            'status': 'ok',
-            'timestamp': datetime.now(UTC).isoformat()
-        })
+        self.send_json_response({"status": "ok", "timestamp": datetime.now(UTC).isoformat()})
 
     def handle_metrics(self):
         """Prometheus metrics endpoint"""
         try:
             from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
             output = generate_latest()
             self.send_response(200)
-            self.send_header('Content-Type', CONTENT_TYPE_LATEST)
+            self.send_header("Content-Type", CONTENT_TYPE_LATEST)
             self.end_headers()
             self.wfile.write(output)
         except Exception as e:
@@ -682,13 +726,14 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         """GET /v1/exchange/history — return current ETH prices for USD and EUR"""
         try:
             import sys
-            sys.path.insert(0, '/opt/aitbc')
+
+            sys.path.insert(0, "/opt/aitbc")
             from aitbc.oracles.price_oracle import get_price_oracle
 
             oracle = get_price_oracle()
-            eth_usd = oracle.get_price('ETH', 'USD')
-            eth_eur = oracle.get_price('ETH', 'EUR')
-            ait_usd = oracle.get_price('AIT', 'USD')
+            eth_usd = oracle.get_price("ETH", "USD")
+            eth_eur = oracle.get_price("ETH", "EUR")
+            ait_usd = oracle.get_price("AIT", "USD")
 
             # Calculate AIT/EUR from ETH prices
             ait_eur_price = None
@@ -698,104 +743,115 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             # Calculate ETH/AIT rate
             eth_ait_rate = (eth_usd.price / ait_usd.price) if eth_usd and ait_usd else 0
 
-            self.send_json_response({
-                'success': True,
-                'current': {
-                    'eth_usd': eth_usd.price if eth_usd else None,
-                    'ait_usd': ait_usd.price if ait_usd else None,
-                    'eth_eur': eth_eur.price if eth_eur else None,
-                    'ait_eur': ait_eur_price,
-                    'eth_ait_rate_usd': eth_ait_rate,
-                    'timestamp': eth_usd.timestamp if eth_usd else None
-                },
-                'history': []
-            })
+            self.send_json_response(
+                {
+                    "success": True,
+                    "current": {
+                        "eth_usd": eth_usd.price if eth_usd else None,
+                        "ait_usd": ait_usd.price if ait_usd else None,
+                        "eth_eur": eth_eur.price if eth_eur else None,
+                        "ait_eur": ait_eur_price,
+                        "eth_ait_rate_usd": eth_ait_rate,
+                        "timestamp": eth_usd.timestamp if eth_usd else None,
+                    },
+                    "history": [],
+                }
+            )
         except Exception as e:
-            self.send_json_response({'success': False, 'error': str(e)}, status=500)
+            self.send_json_response({"success": False, "error": str(e)}, status=500)
 
     def handle_exchange_price_json(self):
         """GET /exchange/price.json — return simple AIT price in USD"""
         try:
             import sys
-            sys.path.insert(0, '/opt/aitbc')
+
+            sys.path.insert(0, "/opt/aitbc")
             from aitbc.oracles.price_oracle import get_price_oracle
 
             oracle = get_price_oracle()
-            ait_usd = oracle.get_price('AIT', 'USD')
+            ait_usd = oracle.get_price("AIT", "USD")
 
             if ait_usd:
-                self.send_json_response({
-                    'price': ait_usd.price,
-                    'currency': 'USD',
-                    'timestamp': ait_usd.timestamp
-                })
+                self.send_json_response({"price": ait_usd.price, "currency": "USD", "timestamp": ait_usd.timestamp})
             else:
                 # Fallback to fixed price from config
                 import os
-                fixed_price = os.getenv('AIT_USD_FIXED_PRICE', '0.01')
-                self.send_json_response({
-                    'price': float(fixed_price),
-                    'currency': 'USD',
-                    'timestamp': datetime.now(UTC).isoformat(),
-                    'source': 'fixed'
-                })
-        except Exception as e:
-            self.send_json_response({'error': str(e)}, status=500)
 
+                fixed_price = os.getenv("AIT_USD_FIXED_PRICE", "0.01")
+                self.send_json_response(
+                    {
+                        "price": float(fixed_price),
+                        "currency": "USD",
+                        "timestamp": datetime.now(UTC).isoformat(),
+                        "source": "fixed",
+                    }
+                )
+        except Exception as e:
+            self.send_json_response({"error": str(e)}, status=500)
 
     def handle_bridge_price(self, parsed):
         """GET /v1/bridge/price?base=ETH&quote=USD — oracle price feed"""
         import sys
-        sys.path.insert(0, '/opt/aitbc')
+
+        sys.path.insert(0, "/opt/aitbc")
         params = urllib.parse.parse_qs(parsed.query)
-        base = params.get('base', ['ETH'])[0].upper()
-        quote = params.get('quote', ['USD'])[0].upper()
+        base = params.get("base", ["ETH"])[0].upper()
+        quote = params.get("quote", ["USD"])[0].upper()
         try:
             from aitbc.oracles.price_oracle import get_price_oracle
+
             result = get_price_oracle().get_price(base, quote)
             if result:
-                self.send_json_response({
-                    'pair': f'{result.base}/{result.quote}',
-                    'price': result.price,
-                    'source': result.source,
-                    'timestamp': result.timestamp,
-                })
+                self.send_json_response(
+                    {
+                        "pair": f"{result.base}/{result.quote}",
+                        "price": result.price,
+                        "source": result.source,
+                        "timestamp": result.timestamp,
+                    }
+                )
             else:
-                self.send_json_response({'error': f'No price available for {base}/{quote}'}, status=404)
+                self.send_json_response({"error": f"No price available for {base}/{quote}"}, status=404)
         except Exception as e:
-            self.send_json_response({'error': str(e)}, status=500)
+            self.send_json_response({"error": str(e)}, status=500)
 
     def handle_bridge_status(self, tx_id):
         """GET /v1/bridge/status[/{tx_id}]"""
         import os
-        bridge_addr = os.getenv('BRIDGE_CONTRACT_ADDRESS')
+
+        bridge_addr = os.getenv("BRIDGE_CONTRACT_ADDRESS")
         if tx_id:
-            self.send_json_response({'tx_id': tx_id, 'status': 'pending', 'message': 'Bridge contract not yet deployed on-chain'})
+            self.send_json_response(
+                {"tx_id": tx_id, "status": "pending", "message": "Bridge contract not yet deployed on-chain"}
+            )
         else:
             if bridge_addr:
-                status = 'deployed'
-                msg = 'Bridge contract deployed on-chain'
+                status = "deployed"
+                msg = "Bridge contract deployed on-chain"
             else:
-                status = 'configured'
-                msg = 'Deploy bridge contract with: npx hardhat run contracts/scripts/deploy-bridge.js --network sepolia'
-            deposit_addr = os.getenv('BRIDGE_ETH_ADDRESS')
-            self.send_json_response({
-                'bridge': 'CrossChainBridge',
-                'status': status,
-                'direction': 'ETH → AIT (deposits only)',
-                'supported_chains': ['ethereum', 'aitbc'],
-                'deposit_address': deposit_addr,
-                'withdraw_address': None,
-                'withdraw_enabled': False,
-                'fee_rate': 0.005,
-                'contract_address': bridge_addr,
-                'message': msg,
-                'note': 'Withdrawals (AIT → ETH) are currently disabled. Only ETH deposits to AIT are supported.'
-            })
+                status = "configured"
+                msg = "Deploy bridge contract with: npx hardhat run contracts/scripts/deploy-bridge.js --network sepolia"
+            deposit_addr = os.getenv("BRIDGE_ETH_ADDRESS")
+            self.send_json_response(
+                {
+                    "bridge": "CrossChainBridge",
+                    "status": status,
+                    "direction": "ETH → AIT (deposits only)",
+                    "supported_chains": ["ethereum", "aitbc"],
+                    "deposit_address": deposit_addr,
+                    "withdraw_address": None,
+                    "withdraw_enabled": False,
+                    "fee_rate": 0.005,
+                    "contract_address": bridge_addr,
+                    "message": msg,
+                    "note": "Withdrawals (AIT → ETH) are currently disabled. Only ETH deposits to AIT are supported.",
+                }
+            )
 
     def _read_json_body(self):
         import json
-        length = int(self.headers.get('Content-Length', 0))
+
+        length = int(self.headers.get("Content-Length", 0))
         return json.loads(self.rfile.read(length)) if length else {}
 
     def handle_bridge_deposit(self):
@@ -803,38 +859,38 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         try:
             import os
             import sys
-            sys.path.insert(0, '/opt/aitbc')
+
+            sys.path.insert(0, "/opt/aitbc")
             from aitbc.oracles.price_oracle import get_price_oracle
 
             body = self._read_json_body()
-            eth_amount = float(body.get('eth_amount', 0))
-            ait_address = body.get('ait_address', '')
+            eth_amount = float(body.get("eth_amount", 0))
+            ait_address = body.get("ait_address", "")
 
             if not eth_amount or not ait_address:
-                self.send_json_response({'error': 'eth_amount and ait_address required'}, status=400)
+                self.send_json_response({"error": "eth_amount and ait_address required"}, status=400)
                 return
 
             # Get bridge configuration
-            bridge_eth_address = os.getenv('BRIDGE_ETH_ADDRESS')
-            min_eth_deposit = float(os.getenv('MIN_ETH_DEPOSIT', '0.001'))
-            eth_network = os.getenv('ETH_NETWORK', 'sepolia')
+            bridge_eth_address = os.getenv("BRIDGE_ETH_ADDRESS")
+            min_eth_deposit = float(os.getenv("MIN_ETH_DEPOSIT", "0.001"))
+            eth_network = os.getenv("ETH_NETWORK", "sepolia")
 
             if not bridge_eth_address:
-                self.send_json_response({'error': 'Bridge not configured - BRIDGE_ETH_ADDRESS not set'}, status=500)
+                self.send_json_response({"error": "Bridge not configured - BRIDGE_ETH_ADDRESS not set"}, status=500)
                 return
 
             # Validate minimum deposit
             if eth_amount < min_eth_deposit:
-                self.send_json_response({
-                    'error': f'Minimum deposit is {min_eth_deposit} ETH',
-                    'min_deposit': min_eth_deposit
-                }, status=400)
+                self.send_json_response(
+                    {"error": f"Minimum deposit is {min_eth_deposit} ETH", "min_deposit": min_eth_deposit}, status=400
+                )
                 return
 
             # Get prices for estimate
             oracle = get_price_oracle()
-            eth_usd = oracle.get_price('ETH', 'USD')
-            ait_usd = oracle.get_price('AIT', 'USD')
+            eth_usd = oracle.get_price("ETH", "USD")
+            ait_usd = oracle.get_price("AIT", "USD")
 
             # Calculate AIT amount
             ait_amount = None
@@ -845,73 +901,81 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             fee_eth = eth_amount * 0.005
             net_eth = eth_amount - fee_eth
 
-            self.send_json_response({
-                'status': 'ready',
-                'message': 'Send ETH to the bridge address with your AIT address in transaction data',
-                'instructions': {
-                    'send_eth_to': bridge_eth_address,
-                    'network': eth_network,
-                    'amount_eth': eth_amount,
-                    'transaction_data': ait_address,
-                    'min_deposit': min_eth_deposit
+            self.send_json_response(
+                {
+                    "status": "ready",
+                    "message": "Send ETH to the bridge address with your AIT address in transaction data",
+                    "instructions": {
+                        "send_eth_to": bridge_eth_address,
+                        "network": eth_network,
+                        "amount_eth": eth_amount,
+                        "transaction_data": ait_address,
+                        "min_deposit": min_eth_deposit,
+                    },
+                    "estimate": {
+                        "eth_amount": eth_amount,
+                        "fee_eth": round(fee_eth, 8),
+                        "net_eth": round(net_eth, 8),
+                        "estimated_ait_amount": round(ait_amount, 6) if ait_amount else None,
+                        "eth_usd_price": eth_usd.price if eth_usd else None,
+                        "ait_usd_price": ait_usd.price if ait_usd else None,
+                        "ait_recipient": ait_address,
+                    },
                 },
-                'estimate': {
-                    'eth_amount': eth_amount,
-                    'fee_eth': round(fee_eth, 8),
-                    'net_eth': round(net_eth, 8),
-                    'estimated_ait_amount': round(ait_amount, 6) if ait_amount else None,
-                    'eth_usd_price': eth_usd.price if eth_usd else None,
-                    'ait_usd_price': ait_usd.price if ait_usd else None,
-                    'ait_recipient': ait_address
-                }
-            }, status=200)
+                status=200,
+            )
         except Exception as e:
-            self.send_json_response({'error': str(e)}, status=500)
+            self.send_json_response({"error": str(e)}, status=500)
 
     def handle_bridge_withdraw(self):
         """POST /v1/bridge/withdraw — initiate AIT→ETH bridge withdrawal (DISABLED)"""
         try:
             import sys
-            sys.path.insert(0, '/opt/aitbc')
+
+            sys.path.insert(0, "/opt/aitbc")
 
             body = self._read_json_body()
-            ait_amount = float(body.get('ait_amount', 0))
-            eth_address = body.get('eth_address', '')
+            ait_amount = float(body.get("ait_amount", 0))
+            eth_address = body.get("eth_address", "")
 
             if not ait_amount or not eth_address:
-                self.send_json_response({'error': 'ait_amount and eth_address required'}, status=400)
+                self.send_json_response({"error": "ait_amount and eth_address required"}, status=400)
                 return
 
             # Feature is disabled
-            self.send_json_response({
-                'status': 'disabled',
-                'message': 'AIT→ETH withdrawals are currently disabled. Only ETH→AIT deposits are supported.',
-                'reason': 'Withdrawal functionality not yet enabled',
-                'supported_direction': 'ETH → AIT (deposits only)',
-                'deposit_endpoint': '/v1/bridge/deposit'
-            }, status=503)
+            self.send_json_response(
+                {
+                    "status": "disabled",
+                    "message": "AIT→ETH withdrawals are currently disabled. Only ETH→AIT deposits are supported.",
+                    "reason": "Withdrawal functionality not yet enabled",
+                    "supported_direction": "ETH → AIT (deposits only)",
+                    "deposit_endpoint": "/v1/bridge/deposit",
+                },
+                status=503,
+            )
         except Exception as e:
-            self.send_json_response({'error': str(e)}, status=500)
+            self.send_json_response({"error": str(e)}, status=500)
 
     def handle_bridge_deposits(self, parsed):
         """GET /v1/bridge/deposits — list bridge deposits"""
         try:
             import sys
             from urllib.parse import parse_qs
-            sys.path.insert(0, '/opt/aitbc/apps/bridge-monitor/src')
+
+            sys.path.insert(0, "/opt/aitbc/apps/bridge-monitor/src")
             from bridge_monitor.storage import BridgeDepositStatus, count_deposits, get_deposits
 
             params = parse_qs(parsed.query)
-            status_filter = params.get('status', [None])[0]
-            limit = int(params.get('limit', [50])[0])
-            offset = int(params.get('offset', [0])[0])
+            status_filter = params.get("status", [None])[0]
+            limit = int(params.get("limit", [50])[0])
+            offset = int(params.get("offset", [0])[0])
 
             status = None
             if status_filter:
                 try:
                     status = BridgeDepositStatus(status_filter)
                 except ValueError:
-                    self.send_json_response({'error': f'Invalid status: {status_filter}'}, status=400)
+                    self.send_json_response({"error": f"Invalid status: {status_filter}"}, status=400)
                     return
 
             deposits = get_deposits(status=status, limit=limit, offset=offset)
@@ -926,86 +990,89 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                     # sqlite3.Row object
                     deposits_list.append(dict(d))
 
-            self.send_json_response({
-                'deposits': deposits_list,
-                'count': len(deposits_list),
-                'total': total,
-                'limit': limit,
-                'offset': offset,
-            })
+            self.send_json_response(
+                {
+                    "deposits": deposits_list,
+                    "count": len(deposits_list),
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
         except Exception as e:
-            self.send_json_response({'error': str(e)}, status=500)
+            self.send_json_response({"error": str(e)}, status=500)
 
     def handle_bridge_deposit_detail(self, tx_hash):
         """GET /v1/bridge/deposit/{tx_hash} — get deposit details"""
         try:
             import sys
-            sys.path.insert(0, '/opt/aitbc/apps/bridge-monitor/src')
+
+            sys.path.insert(0, "/opt/aitbc/apps/bridge-monitor/src")
             from bridge_monitor.storage import get_deposit
 
             deposit = get_deposit(tx_hash)
             if not deposit:
-                self.send_json_response({'error': 'Deposit not found'}, status=404)
+                self.send_json_response({"error": "Deposit not found"}, status=404)
                 return
 
             self.send_json_response(deposit)
         except Exception as e:
-            self.send_json_response({'error': str(e)}, status=500)
+            self.send_json_response({"error": str(e)}, status=500)
 
     def handle_bridge_estimate(self):
         """POST /v1/bridge/estimate — estimate AIT amount for ETH"""
         try:
             body = self._read_json_body()
-            eth_amount = float(body.get('eth_amount', 0))
+            eth_amount = float(body.get("eth_amount", 0))
 
             if eth_amount <= 0:
-                self.send_json_response({'error': 'eth_amount must be positive'}, status=400)
+                self.send_json_response({"error": "eth_amount must be positive"}, status=400)
                 return
 
             import sys
-            sys.path.insert(0, '/opt/aitbc')
+
+            sys.path.insert(0, "/opt/aitbc")
             from aitbc.oracles.price_oracle import get_price_oracle
 
             oracle = get_price_oracle()
-            eth_usd_result = oracle.get_price('ETH', 'USD')
-            ait_usd_result = oracle.get_price('AIT', 'USD')
+            eth_usd_result = oracle.get_price("ETH", "USD")
+            ait_usd_result = oracle.get_price("AIT", "USD")
 
             if not eth_usd_result or not ait_usd_result:
-                self.send_json_response({'error': 'Cannot get oracle prices'}, status=503)
+                self.send_json_response({"error": "Cannot get oracle prices"}, status=503)
                 return
 
             eth_usd = eth_usd_result.price
             ait_usd = ait_usd_result.price
 
             if ait_usd == 0:
-                self.send_json_response({'error': 'AIT/USD price is zero'}, status=503)
+                self.send_json_response({"error": "AIT/USD price is zero"}, status=503)
                 return
 
             ait_amount = (eth_amount * eth_usd) / ait_usd
 
-            self.send_json_response({
-                'eth_amount': eth_amount,
-                'eth_usd_price': eth_usd,
-                'ait_usd_price': ait_usd,
-                'ait_amount': round(ait_amount, 6),
-                'exchange_rate': round(ait_amount / eth_amount, 2),
-            })
+            self.send_json_response(
+                {
+                    "eth_amount": eth_amount,
+                    "eth_usd_price": eth_usd,
+                    "ait_usd_price": ait_usd,
+                    "ait_amount": round(ait_amount, 6),
+                    "exchange_rate": round(ait_amount / eth_amount, 2),
+                }
+            )
         except Exception as e:
-            self.send_json_response({'error': str(e)}, status=500)
+            self.send_json_response({"error": str(e)}, status=500)
 
     def handle_wallet_balance(self):
         """Handle wallet balance request"""
         from urllib.parse import parse_qs, urlparse
+
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
-        address = params.get('address', [''])[0]
+        address = params.get("address", [""])[0]
 
         if not address:
-            self.send_json_response({
-                "btc": "0.00000000",
-                "aitbc": "0.00",
-                "address": "unknown"
-            })
+            self.send_json_response({"btc": "0.00000000", "aitbc": "0.00", "address": "unknown"})
             return
 
         try:
@@ -1022,108 +1089,102 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             # In production, you'd integrate with a real Bitcoin node API
             btc_balance = "0.00000000"  # Placeholder - would query real Bitcoin network
 
-            self.send_json_response({
-                "btc": btc_balance,
-                "aitbc": str(balance_data.get('balance', 0)),
-                "address": address,
-                "nonce": balance_data.get('nonce', 0)
-            })
+            self.send_json_response(
+                {
+                    "btc": btc_balance,
+                    "aitbc": str(balance_data.get("balance", 0)),
+                    "address": address,
+                    "nonce": balance_data.get("nonce", 0),
+                }
+            )
         except Exception:
             # Fallback to error if blockchain is down
-            self.send_json_response({
-                "btc": "0.00000000",
-                "aitbc": "0.00",
-                "address": address,
-                "error": "Failed to fetch balance from blockchain"
-            })
+            self.send_json_response(
+                {"btc": "0.00000000", "aitbc": "0.00", "address": address, "error": "Failed to fetch balance from blockchain"}
+            )
 
     def handle_wallet_connect(self):
         """Handle wallet connection request"""
         import secrets
-        content_length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(content_length)
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        self.rfile.read(content_length)
 
         mock_address = "aitbc" + secrets.token_hex(20)
-        self.send_json_response({
-            "address": mock_address,
-            "status": "connected"
-        })
+        self.send_json_response({"address": mock_address, "status": "connected"})
 
     def send_json_response(self, data, status=200):
         """Send JSON response"""
         self.send_response(status)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(json.dumps(data, default=str).encode())
 
     def do_OPTIONS(self):
         """Handle OPTIONS requests for CORS"""
         self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
+
 
 class WalletAPIHandler(BaseHTTPRequestHandler):
     """Handle wallet API requests"""
 
     def do_GET(self):
         """Handle GET requests"""
-        if self.path.startswith('/api/wallet/balance'):
+        if self.path.startswith("/api/wallet/balance"):
             # Parse address from query params
             from urllib.parse import parse_qs, urlparse
+
             parsed = urlparse(self.path)
             params = parse_qs(parsed.query)
-            address = params.get('address', [''])[0]
+            address = params.get("address", [""])[0]
 
             # Return mock balance for now
-            self.send_json_response({
-                "btc": "0.12345678",
-                "aitbc": "1000.50",
-                "address": address or "unknown"
-            })
+            self.send_json_response({"btc": "0.12345678", "aitbc": "1000.50", "address": address or "unknown"})
         else:
             self.send_error(404)
 
     def do_POST(self):
         """Handle POST requests"""
-        if self.path == '/wallet/connect':
+        if self.path == "/wallet/connect":
             import secrets
+
             mock_address = "aitbc" + secrets.token_hex(20)
-            self.send_json_response({
-                "address": mock_address,
-                "status": "connected"
-            })
+            self.send_json_response({"address": mock_address, "status": "connected"})
         else:
             self.send_error(404)
 
     def send_json_response(self, data, status=200):
         """Send JSON response"""
         self.send_response(status)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(json.dumps(data, default=str).encode())
 
     def do_OPTIONS(self):
         """Handle OPTIONS requests for CORS"""
         self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
+
 
 def run_server(port=8106):
     """Run the server"""
     init_db()
     # Removed mock trades - now using only real blockchain data
 
-    server = HTTPServer(('localhost', port), ExchangeAPIHandler)
+    server = HTTPServer(("localhost", port), ExchangeAPIHandler)
     logger.info("AITBC Exchange API Server started", port=port, url=f"http://localhost:{port}")
 
     try:
@@ -1133,8 +1194,9 @@ def run_server(port=8106):
         server.shutdown()
         server.server_close()
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='AITBC Exchange API Server')
-    parser.add_argument('--port', type=int, default=8106, help='Port to run the server on')
+    parser = argparse.ArgumentParser(description="AITBC Exchange API Server")
+    parser.add_argument("--port", type=int, default=8106, help="Port to run the server on")
     args = parser.parse_args()
     run_server(port=args.port)

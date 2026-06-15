@@ -65,10 +65,7 @@ class TestMultiModalTransformer:
         batch_size = 4
         seq_len = 10
 
-        modal_inputs = {
-            "text": torch.randn(batch_size, seq_len, 768),
-            "image": torch.randn(batch_size, seq_len, 2048)
-        }
+        modal_inputs = {"text": torch.randn(batch_size, seq_len, 768), "image": torch.randn(batch_size, seq_len, 2048)}
 
         output = transformer(modal_inputs)
 

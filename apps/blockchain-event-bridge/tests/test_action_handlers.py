@@ -59,12 +59,7 @@ async def test_agent_daemon_handler_handle_transaction():
     """Test agent daemon handler handling a transaction."""
     handler = AgentDaemonHandler("http://localhost:8006")
 
-    tx_data = {
-        "hash": "0x123",
-        "type": "agent_message",
-        "to": "agent_address",
-        "payload": {"trigger": "process"}
-    }
+    tx_data = {"hash": "0x123", "type": "agent_message", "to": "agent_address", "payload": {"trigger": "process"}}
 
     with patch.object(handler, "_notify_agent_daemon", new_callable=AsyncMock) as mock_notify:
         await handler.handle_transaction(tx_data)

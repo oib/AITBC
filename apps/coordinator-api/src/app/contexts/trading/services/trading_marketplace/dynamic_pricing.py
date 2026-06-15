@@ -2,6 +2,7 @@
 Dynamic Pricing Engine for AITBC Marketplace
 Implements sophisticated pricing algorithms based on real-time market conditions
 """
+
 import asyncio
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -14,34 +15,42 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+
 class PricingStrategy(StrEnum):
     """Dynamic pricing strategy types"""
-    AGGRESSIVE_GROWTH = 'aggressive_growth'
-    PROFIT_MAXIMIZATION = 'profit_maximization'
-    MARKET_BALANCE = 'market_balance'
-    COMPETITIVE_RESPONSE = 'competitive_response'
-    DEMAND_ELASTICITY = 'demand_elasticity'
-    TIME_BASED = 'time_based'
-    REPUTATION_BASED = 'reputation_based'
-    MULTI_FACTOR = 'multi_factor'
-    PREDICTIVE = 'predictive'
+
+    AGGRESSIVE_GROWTH = "aggressive_growth"
+    PROFIT_MAXIMIZATION = "profit_maximization"
+    MARKET_BALANCE = "market_balance"
+    COMPETITIVE_RESPONSE = "competitive_response"
+    DEMAND_ELASTICITY = "demand_elasticity"
+    TIME_BASED = "time_based"
+    REPUTATION_BASED = "reputation_based"
+    MULTI_FACTOR = "multi_factor"
+    PREDICTIVE = "predictive"
+
 
 class ResourceType(StrEnum):
     """Resource types for pricing"""
-    GPU = 'gpu'
-    SERVICE = 'service'
-    STORAGE = 'storage'
+
+    GPU = "gpu"
+    SERVICE = "service"
+    STORAGE = "storage"
+
 
 class PriceTrend(StrEnum):
     """Price trend indicators"""
-    INCREASING = 'increasing'
-    DECREASING = 'decreasing'
-    STABLE = 'stable'
-    VOLATILE = 'volatile'
+
+    INCREASING = "increasing"
+    DECREASING = "decreasing"
+    STABLE = "stable"
+    VOLATILE = "volatile"
+
 
 @dataclass
 class PricingFactors:
     """Factors that influence dynamic pricing"""
+
     base_price: float
     demand_multiplier: float = 1.0
     supply_multiplier: float = 1.0
@@ -59,18 +68,22 @@ class PricingFactors:
     utilization_rate: float = 0.5
     historical_performance: float = 1.0
 
+
 @dataclass
 class PriceConstraints:
     """Constraints for pricing calculations"""
+
     min_price: float | None = None
     max_price: float | None = None
     max_change_percent: float = 0.5
     min_change_interval: int = 300
     strategy_lock_period: int = 3600
 
+
 @dataclass
 class PricePoint:
     """Single price point in time series"""
+
     timestamp: datetime
     price: float
     demand_level: float
@@ -78,9 +91,11 @@ class PricePoint:
     confidence: float
     strategy_used: str
 
+
 @dataclass
 class MarketConditions:
     """Current market conditions snapshot"""
+
     region: str
     resource_type: ResourceType
     demand_level: float
@@ -92,9 +107,11 @@ class MarketConditions:
     market_sentiment: float = 0.0
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
+
 @dataclass
 class PricingResult:
     """Result of dynamic pricing calculation"""
+
     resource_id: str
     resource_type: ResourceType
     current_price: float
@@ -106,6 +123,7 @@ class PricingResult:
     next_update: datetime
     strategy_used: PricingStrategy
 
+
 class DynamicPricingEngine:
     """Core dynamic pricing engine with advanced algorithms"""
 
@@ -115,32 +133,102 @@ class DynamicPricingEngine:
         self.market_conditions_cache: dict[str, MarketConditions] = {}
         self.provider_strategies: dict[str, PricingStrategy] = {}
         self.price_constraints: dict[str, PriceConstraints] = {}
-        self.strategy_configs = {PricingStrategy.AGGRESSIVE_GROWTH: {'base_multiplier': 0.85, 'demand_sensitivity': 0.3, 'competition_weight': 0.4, 'growth_priority': 0.8}, PricingStrategy.PROFIT_MAXIMIZATION: {'base_multiplier': 1.25, 'demand_sensitivity': 0.7, 'competition_weight': 0.2, 'growth_priority': 0.2}, PricingStrategy.MARKET_BALANCE: {'base_multiplier': 1.0, 'demand_sensitivity': 0.5, 'competition_weight': 0.3, 'growth_priority': 0.5}, PricingStrategy.COMPETITIVE_RESPONSE: {'base_multiplier': 0.95, 'demand_sensitivity': 0.4, 'competition_weight': 0.6, 'growth_priority': 0.4}, PricingStrategy.DEMAND_ELASTICITY: {'base_multiplier': 1.0, 'demand_sensitivity': 0.8, 'competition_weight': 0.3, 'growth_priority': 0.6}, PricingStrategy.TIME_BASED: {'base_multiplier': 1.0, 'peak_hours_multiplier': 1.3, 'off_peak_multiplier': 0.8, 'weekend_multiplier': 0.9, 'hourly_sensitivity': 0.5}, PricingStrategy.REPUTATION_BASED: {'base_multiplier': 1.0, 'reputation_weight': 0.6, 'performance_weight': 0.3, 'history_weight': 0.1}, PricingStrategy.MULTI_FACTOR: {'base_multiplier': 1.0, 'demand_weight': 0.25, 'supply_weight': 0.2, 'time_weight': 0.15, 'reputation_weight': 0.15, 'competition_weight': 0.15, 'regional_weight': 0.1}, PricingStrategy.PREDICTIVE: {'base_multiplier': 1.0, 'forecast_weight': 0.5, 'current_weight': 0.3, 'trend_weight': 0.2, 'ml_confidence_threshold': 0.7}}
-        self.min_price = config.get('min_price', 0.001)
-        self.max_price = config.get('max_price', 1000.0)
-        self.update_interval = config.get('update_interval', 300)
-        self.forecast_horizon = config.get('forecast_horizon', 72)
-        self.max_volatility_threshold = config.get('max_volatility_threshold', 0.3)
-        self.circuit_breaker_threshold = config.get('circuit_breaker_threshold', 0.5)
+        self.strategy_configs = {
+            PricingStrategy.AGGRESSIVE_GROWTH: {
+                "base_multiplier": 0.85,
+                "demand_sensitivity": 0.3,
+                "competition_weight": 0.4,
+                "growth_priority": 0.8,
+            },
+            PricingStrategy.PROFIT_MAXIMIZATION: {
+                "base_multiplier": 1.25,
+                "demand_sensitivity": 0.7,
+                "competition_weight": 0.2,
+                "growth_priority": 0.2,
+            },
+            PricingStrategy.MARKET_BALANCE: {
+                "base_multiplier": 1.0,
+                "demand_sensitivity": 0.5,
+                "competition_weight": 0.3,
+                "growth_priority": 0.5,
+            },
+            PricingStrategy.COMPETITIVE_RESPONSE: {
+                "base_multiplier": 0.95,
+                "demand_sensitivity": 0.4,
+                "competition_weight": 0.6,
+                "growth_priority": 0.4,
+            },
+            PricingStrategy.DEMAND_ELASTICITY: {
+                "base_multiplier": 1.0,
+                "demand_sensitivity": 0.8,
+                "competition_weight": 0.3,
+                "growth_priority": 0.6,
+            },
+            PricingStrategy.TIME_BASED: {
+                "base_multiplier": 1.0,
+                "peak_hours_multiplier": 1.3,
+                "off_peak_multiplier": 0.8,
+                "weekend_multiplier": 0.9,
+                "hourly_sensitivity": 0.5,
+            },
+            PricingStrategy.REPUTATION_BASED: {
+                "base_multiplier": 1.0,
+                "reputation_weight": 0.6,
+                "performance_weight": 0.3,
+                "history_weight": 0.1,
+            },
+            PricingStrategy.MULTI_FACTOR: {
+                "base_multiplier": 1.0,
+                "demand_weight": 0.25,
+                "supply_weight": 0.2,
+                "time_weight": 0.15,
+                "reputation_weight": 0.15,
+                "competition_weight": 0.15,
+                "regional_weight": 0.1,
+            },
+            PricingStrategy.PREDICTIVE: {
+                "base_multiplier": 1.0,
+                "forecast_weight": 0.5,
+                "current_weight": 0.3,
+                "trend_weight": 0.2,
+                "ml_confidence_threshold": 0.7,
+            },
+        }
+        self.min_price = config.get("min_price", 0.001)
+        self.max_price = config.get("max_price", 1000.0)
+        self.update_interval = config.get("update_interval", 300)
+        self.forecast_horizon = config.get("forecast_horizon", 72)
+        self.max_volatility_threshold = config.get("max_volatility_threshold", 0.3)
+        self.circuit_breaker_threshold = config.get("circuit_breaker_threshold", 0.5)
         self.circuit_breakers: dict[str, bool] = {}
 
     async def initialize(self) -> None:
         """Initialize the dynamic pricing engine"""
-        logger.info('Initializing Dynamic Pricing Engine')
+        logger.info("Initializing Dynamic Pricing Engine")
         await self._load_pricing_history()
         await self._load_provider_strategies()
         asyncio.create_task(self._update_market_conditions())
         asyncio.create_task(self._monitor_price_volatility())
         asyncio.create_task(self._optimize_strategies())
-        logger.info('Dynamic Pricing Engine initialized')
+        logger.info("Dynamic Pricing Engine initialized")
 
-    async def calculate_dynamic_price(self, resource_id: str, resource_type: ResourceType, base_price: float, strategy: PricingStrategy | None=None, constraints: PriceConstraints | None=None, region: str='global') -> PricingResult:
+    async def calculate_dynamic_price(
+        self,
+        resource_id: str,
+        resource_type: ResourceType,
+        base_price: float,
+        strategy: PricingStrategy | None = None,
+        constraints: PriceConstraints | None = None,
+        region: str = "global",
+    ) -> PricingResult:
         """Calculate dynamic price for a resource"""
         try:
             if strategy is None:
                 strategy = self.provider_strategies.get(resource_id, PricingStrategy.MARKET_BALANCE)
             market_conditions = await self._get_market_conditions(resource_type, region)
-            factors = await self._calculate_pricing_factors(resource_id, resource_type, base_price, strategy, market_conditions)
+            factors = await self._calculate_pricing_factors(
+                resource_id, resource_type, base_price, strategy, market_conditions
+            )
             strategy_price = await self._apply_strategy_pricing(base_price, factors, strategy, market_conditions)
             final_price = await self._apply_constraints_and_risk(resource_id, strategy_price, constraints, factors)
             price_trend = await self._determine_price_trend(resource_id, final_price)
@@ -148,14 +236,25 @@ class DynamicPricingEngine:
             confidence = await self._calculate_confidence_score(factors, market_conditions)
             next_update = datetime.now(UTC) + timedelta(seconds=self.update_interval)
             await self._store_price_point(resource_id, final_price, factors, strategy)
-            result = PricingResult(resource_id=resource_id, resource_type=resource_type, current_price=base_price, recommended_price=final_price, price_trend=price_trend, confidence_score=confidence, factors_exposed=asdict(factors), reasoning=reasoning, next_update=next_update, strategy_used=strategy)
-            logger.info('Calculated dynamic price for %s: %s (was %s)', resource_id, final_price, base_price)
+            result = PricingResult(
+                resource_id=resource_id,
+                resource_type=resource_type,
+                current_price=base_price,
+                recommended_price=final_price,
+                price_trend=price_trend,
+                confidence_score=confidence,
+                factors_exposed=asdict(factors),
+                reasoning=reasoning,
+                next_update=next_update,
+                strategy_used=strategy,
+            )
+            logger.info("Calculated dynamic price for %s: %s (was %s)", resource_id, final_price, base_price)
             return result
         except Exception as e:
-            logger.error('Failed to calculate dynamic price for %s: %s', resource_id, e)
+            logger.error("Failed to calculate dynamic price for %s: %s", resource_id, e)
             raise
 
-    async def get_price_forecast(self, resource_id: str, hours_ahead: int=24) -> list[PricePoint]:
+    async def get_price_forecast(self, resource_id: str, hours_ahead: int = 24) -> list[PricePoint]:
         """Generate price forecast for the specified horizon"""
         try:
             if resource_id not in self.pricing_history:
@@ -178,33 +277,51 @@ class DynamicPricingEngine:
                 supply_adjusted = demand_adjusted * (1 + (0.5 - supply_forecast) * 0.2)
                 forecast_price = max(self.min_price, min(supply_adjusted, self.max_price))
                 confidence = max(0.3, 0.9 - hour / hours_ahead * 0.6)
-                forecast_point = PricePoint(timestamp=datetime.now(UTC) + timedelta(hours=hour), price=forecast_price, demand_level=demand_forecast, supply_level=supply_forecast, confidence=confidence, strategy_used='forecast')
+                forecast_point = PricePoint(
+                    timestamp=datetime.now(UTC) + timedelta(hours=hour),
+                    price=forecast_price,
+                    demand_level=demand_forecast,
+                    supply_level=supply_forecast,
+                    confidence=confidence,
+                    strategy_used="forecast",
+                )
                 forecast_points.append(forecast_point)
             return forecast_points
         except Exception as e:
-            logger.error('Failed to generate price forecast for %s: %s', resource_id, e)
+            logger.error("Failed to generate price forecast for %s: %s", resource_id, e)
             return []
 
-    async def set_provider_strategy(self, provider_id: str, strategy: PricingStrategy, constraints: PriceConstraints | None=None) -> bool:
+    async def set_provider_strategy(
+        self, provider_id: str, strategy: PricingStrategy, constraints: PriceConstraints | None = None
+    ) -> bool:
         """Set pricing strategy for a provider"""
         try:
             self.provider_strategies[provider_id] = strategy
             if constraints:
                 self.price_constraints[provider_id] = constraints
-            logger.info('Set strategy %s for provider %s', strategy.value, provider_id)
+            logger.info("Set strategy %s for provider %s", strategy.value, provider_id)
             return True
         except Exception as e:
-            logger.error('Failed to set strategy for provider %s: %s', provider_id, e)
+            logger.error("Failed to set strategy for provider %s: %s", provider_id, e)
             return False
 
-    async def _calculate_pricing_factors(self, resource_id: str, resource_type: ResourceType, base_price: float, strategy: PricingStrategy, market_conditions: MarketConditions) -> PricingFactors:
+    async def _calculate_pricing_factors(
+        self,
+        resource_id: str,
+        resource_type: ResourceType,
+        base_price: float,
+        strategy: PricingStrategy,
+        market_conditions: MarketConditions,
+    ) -> PricingFactors:
         """Calculate all pricing factors"""
         factors = PricingFactors(base_price=base_price)
         factors.demand_multiplier = self._calculate_demand_multiplier(market_conditions.demand_level, strategy)
         factors.supply_multiplier = self._calculate_supply_multiplier(market_conditions.supply_level, strategy)
         factors.time_multiplier = self._calculate_time_multiplier()
         factors.performance_multiplier = await self._calculate_performance_multiplier(resource_id)
-        factors.competition_multiplier = self._calculate_competition_multiplier(base_price, market_conditions.competitor_prices, strategy)
+        factors.competition_multiplier = self._calculate_competition_multiplier(
+            base_price, market_conditions.competitor_prices, strategy
+        )
         factors.sentiment_multiplier = self._calculate_sentiment_multiplier(market_conditions.market_sentiment)
         factors.regional_multiplier = self._calculate_regional_multiplier(market_conditions.region, resource_type)
         factors.demand_level = market_conditions.demand_level
@@ -212,7 +329,9 @@ class DynamicPricingEngine:
         factors.market_volatility = market_conditions.price_volatility
         return factors
 
-    async def _apply_strategy_pricing(self, base_price: float, factors: PricingFactors, strategy: PricingStrategy, market_conditions: MarketConditions) -> float:
+    async def _apply_strategy_pricing(
+        self, base_price: float, factors: PricingFactors, strategy: PricingStrategy, market_conditions: MarketConditions
+    ) -> float:
         """Apply strategy-specific pricing logic"""
         config = self.strategy_configs[strategy]
         price = base_price
@@ -224,26 +343,28 @@ class DynamicPricingEngine:
             return await self._calculate_multi_factor_price(base_price, factors, config)
         elif strategy == PricingStrategy.PREDICTIVE:
             return await self._calculate_predictive_price(base_price, factors, config, market_conditions)
-        price *= config['base_multiplier']
-        demand_adjustment = (factors.demand_level - 0.5) * config['demand_sensitivity']
+        price *= config["base_multiplier"]
+        demand_adjustment = (factors.demand_level - 0.5) * config["demand_sensitivity"]
         price *= 1 + demand_adjustment
         if market_conditions.competitor_prices:
             avg_competitor_price = np.mean(market_conditions.competitor_prices)
             competition_ratio = avg_competitor_price / base_price
-            competition_adjustment = (competition_ratio - 1) * config['competition_weight']
+            competition_adjustment = (competition_ratio - 1) * config["competition_weight"]
             price = float(price * (1 + competition_adjustment))
         price *= factors.time_multiplier
         price *= factors.performance_multiplier
         price *= factors.sentiment_multiplier
         price *= factors.regional_multiplier
-        if config['growth_priority'] > 0.5:
-            price *= 1 - (config['growth_priority'] - 0.5) * 0.2
+        if config["growth_priority"] > 0.5:
+            price *= 1 - (config["growth_priority"] - 0.5) * 0.2
         return max(price, self.min_price)  # type: ignore[no-any-return]
 
-    async def _apply_constraints_and_risk(self, resource_id: str, price: float, constraints: PriceConstraints | None, factors: PricingFactors) -> float:
+    async def _apply_constraints_and_risk(
+        self, resource_id: str, price: float, constraints: PriceConstraints | None, factors: PricingFactors
+    ) -> float:
         """Apply pricing constraints and risk management"""
         if self.circuit_breakers.get(resource_id, False):
-            logger.warning('Circuit breaker active for %s, using last price', resource_id)
+            logger.warning("Circuit breaker active for %s, using last price", resource_id)
             if resource_id in self.pricing_history and self.pricing_history[resource_id]:
                 return self.pricing_history[resource_id][-1].price
         if constraints:
@@ -258,10 +379,10 @@ class DynamicPricingEngine:
             max_change = last_price * 0.5
             if abs(price - last_price) > max_change:
                 price = last_price + (max_change if price > last_price else -max_change)
-                logger.info('Applied max change constraint for %s', resource_id)
+                logger.info("Applied max change constraint for %s", resource_id)
         if factors.market_volatility > self.circuit_breaker_threshold:
             self.circuit_breakers[resource_id] = True
-            logger.warning('Triggered circuit breaker for %s due to high volatility', resource_id)
+            logger.warning("Triggered circuit breaker for %s due to high volatility", resource_id)
             asyncio.create_task(self._reset_circuit_breaker(resource_id, 3600))
         return price
 
@@ -320,7 +441,9 @@ class DynamicPricingEngine:
         else:
             return 1.0
 
-    def _calculate_competition_multiplier(self, base_price: float, competitor_prices: list[float], strategy: PricingStrategy) -> float:
+    def _calculate_competition_multiplier(
+        self, base_price: float, competitor_prices: list[float], strategy: PricingStrategy
+    ) -> float:
         """Calculate competition-based multiplier"""
         if not competitor_prices:
             return 1.0
@@ -349,7 +472,13 @@ class DynamicPricingEngine:
 
     def _calculate_regional_multiplier(self, region: str, resource_type: ResourceType) -> float:
         """Calculate regional price multiplier"""
-        regional_adjustments = {'us_west': {'gpu': 1.1, 'service': 1.05, 'storage': 1.0}, 'us_east': {'gpu': 1.2, 'service': 1.1, 'storage': 1.05}, 'europe': {'gpu': 1.15, 'service': 1.08, 'storage': 1.02}, 'asia': {'gpu': 0.9, 'service': 0.95, 'storage': 0.9}, 'global': {'gpu': 1.0, 'service': 1.0, 'storage': 1.0}}
+        regional_adjustments = {
+            "us_west": {"gpu": 1.1, "service": 1.05, "storage": 1.0},
+            "us_east": {"gpu": 1.2, "service": 1.1, "storage": 1.05},
+            "europe": {"gpu": 1.15, "service": 1.08, "storage": 1.02},
+            "asia": {"gpu": 0.9, "service": 0.95, "storage": 0.9},
+            "global": {"gpu": 1.0, "service": 1.0, "storage": 1.0},
+        }
         return regional_adjustments.get(region, {}).get(resource_type.value, 1.0)
 
     async def _determine_price_trend(self, resource_id: str, current_price: float) -> PriceTrend:
@@ -373,33 +502,35 @@ class DynamicPricingEngine:
         else:
             return PriceTrend.STABLE
 
-    async def _generate_pricing_reasoning(self, factors: PricingFactors, strategy: PricingStrategy, market_conditions: MarketConditions, trend: PriceTrend) -> list[str]:
+    async def _generate_pricing_reasoning(
+        self, factors: PricingFactors, strategy: PricingStrategy, market_conditions: MarketConditions, trend: PriceTrend
+    ) -> list[str]:
         """Generate reasoning for pricing decisions"""
         reasoning = []
-        reasoning.append(f'Strategy: {strategy.value} applied')
+        reasoning.append(f"Strategy: {strategy.value} applied")
         if factors.demand_level > 0.8:
-            reasoning.append('High demand increases prices')
+            reasoning.append("High demand increases prices")
         elif factors.demand_level < 0.3:
-            reasoning.append('Low demand allows competitive pricing')
+            reasoning.append("Low demand allows competitive pricing")
         if factors.supply_level < 0.3:
-            reasoning.append('Limited supply justifies premium pricing')
+            reasoning.append("Limited supply justifies premium pricing")
         elif factors.supply_level > 0.8:
-            reasoning.append('High supply enables competitive pricing')
+            reasoning.append("High supply enables competitive pricing")
         hour = datetime.now(UTC).hour
         if 8 <= hour <= 20:
-            reasoning.append('Business hours premium applied')
+            reasoning.append("Business hours premium applied")
         elif 2 <= hour <= 6:
-            reasoning.append('Late night discount applied')
+            reasoning.append("Late night discount applied")
         if factors.performance_multiplier > 1.05:
-            reasoning.append('High performance justifies premium')
+            reasoning.append("High performance justifies premium")
         elif factors.performance_multiplier < 0.95:
-            reasoning.append('Performance issues require discount')
+            reasoning.append("Performance issues require discount")
         if factors.competition_multiplier != 1.0:
             if factors.competition_multiplier < 1.0:
-                reasoning.append('Competitive pricing applied')
+                reasoning.append("Competitive pricing applied")
             else:
-                reasoning.append('Premium pricing over competitors')
-        reasoning.append(f'Price trend: {trend.value}')
+                reasoning.append("Premium pricing over competitors")
+        reasoning.append(f"Price trend: {trend.value}")
         return reasoning
 
     async def _calculate_confidence_score(self, factors: PricingFactors, market_conditions: MarketConditions) -> float:
@@ -415,23 +546,42 @@ class DynamicPricingEngine:
             confidence *= 0.9
         return max(0.3, min(0.95, confidence))
 
-    async def _store_price_point(self, resource_id: str, price: float, factors: PricingFactors, strategy: PricingStrategy) -> None:
+    async def _store_price_point(
+        self, resource_id: str, price: float, factors: PricingFactors, strategy: PricingStrategy
+    ) -> None:
         """Store price point in history"""
         if resource_id not in self.pricing_history:
             self.pricing_history[resource_id] = []
-        price_point = PricePoint(timestamp=datetime.now(UTC), price=price, demand_level=factors.demand_level, supply_level=factors.supply_level, confidence=factors.confidence_score, strategy_used=strategy.value)
+        price_point = PricePoint(
+            timestamp=datetime.now(UTC),
+            price=price,
+            demand_level=factors.demand_level,
+            supply_level=factors.supply_level,
+            confidence=factors.confidence_score,
+            strategy_used=strategy.value,
+        )
         self.pricing_history[resource_id].append(price_point)
         if len(self.pricing_history[resource_id]) > 1000:
             self.pricing_history[resource_id] = self.pricing_history[resource_id][-1000:]
 
     async def _get_market_conditions(self, resource_type: ResourceType, region: str) -> MarketConditions:
         """Get current market conditions"""
-        cache_key = f'{region}_{resource_type.value}'
+        cache_key = f"{region}_{resource_type.value}"
         if cache_key in self.market_conditions_cache:
             cached = self.market_conditions_cache[cache_key]
             if (datetime.now(UTC) - cached.timestamp).total_seconds() < 300:
                 return cached
-        conditions = MarketConditions(region=region, resource_type=resource_type, demand_level=0.6 + np.random.normal(0, 0.1), supply_level=0.7 + np.random.normal(0, 0.1), average_price=0.05 + np.random.normal(0, 0.01), price_volatility=0.1 + np.random.normal(0, 0.05), utilization_rate=0.65 + np.random.normal(0, 0.1), competitor_prices=[0.045, 0.055, 0.048, 0.052], market_sentiment=np.random.normal(0.1, 0.2))
+        conditions = MarketConditions(
+            region=region,
+            resource_type=resource_type,
+            demand_level=0.6 + np.random.normal(0, 0.1),
+            supply_level=0.7 + np.random.normal(0, 0.1),
+            average_price=0.05 + np.random.normal(0, 0.01),
+            price_volatility=0.1 + np.random.normal(0, 0.05),
+            utilization_rate=0.65 + np.random.normal(0, 0.1),
+            competitor_prices=[0.045, 0.055, 0.048, 0.052],
+            market_sentiment=np.random.normal(0.1, 0.2),
+        )
         self.market_conditions_cache[cache_key] = conditions
         return conditions
 
@@ -450,7 +600,7 @@ class DynamicPricingEngine:
                 self.market_conditions_cache.clear()
                 await asyncio.sleep(300)
             except Exception as e:
-                logger.error('Error updating market conditions: %s', e)
+                logger.error("Error updating market conditions: %s", e)
                 await asyncio.sleep(60)
 
     async def _monitor_price_volatility(self) -> None:
@@ -462,10 +612,10 @@ class DynamicPricingEngine:
                         recent_prices = [p.price for p in history[-10:]]
                         volatility = np.std(recent_prices) / np.mean(recent_prices) if np.mean(recent_prices) > 0 else 0
                         if volatility > self.max_volatility_threshold:
-                            logger.warning('High volatility detected for %s: %s', resource_id, volatility)
+                            logger.warning("High volatility detected for %s: %s", resource_id, volatility)
                 await asyncio.sleep(600)
             except Exception as e:
-                logger.error('Error monitoring volatility: %s', e)
+                logger.error("Error monitoring volatility: %s", e)
                 await asyncio.sleep(120)
 
     async def _optimize_strategies(self) -> None:
@@ -474,14 +624,14 @@ class DynamicPricingEngine:
             try:
                 await asyncio.sleep(3600)
             except Exception as e:
-                logger.error('Error optimizing strategies: %s', e)
+                logger.error("Error optimizing strategies: %s", e)
                 await asyncio.sleep(300)
 
     async def _reset_circuit_breaker(self, resource_id: str, delay: int) -> None:
         """Reset circuit breaker after delay"""
         await asyncio.sleep(delay)
         self.circuit_breakers[resource_id] = False
-        logger.info('Reset circuit breaker for %s', resource_id)
+        logger.info("Reset circuit breaker for %s", resource_id)
 
     def _calculate_price_trend(self, prices: list[float]) -> float:
         """Calculate simple price trend"""
@@ -528,40 +678,42 @@ class DynamicPricingEngine:
         hour = datetime.now(UTC).hour
         day_of_week = datetime.now(UTC).weekday()
         if 8 <= hour <= 20 and day_of_week < 5:
-            time_mult = config.get('peak_hours_multiplier', 1.3)
+            time_mult = config.get("peak_hours_multiplier", 1.3)
         elif day_of_week >= 5:
-            time_mult = config.get('weekend_multiplier', 0.9)
+            time_mult = config.get("weekend_multiplier", 0.9)
         else:
-            time_mult = config.get('off_peak_multiplier', 0.8)
-        price = base_price * config['base_multiplier'] * time_mult
+            time_mult = config.get("off_peak_multiplier", 0.8)
+        price = base_price * config["base_multiplier"] * time_mult
         return max(price, self.min_price)  # type: ignore[no-any-return]
 
-    async def _calculate_reputation_based_price(self, base_price: float, factors: PricingFactors, config: dict[str, Any]) -> float:
+    async def _calculate_reputation_based_price(
+        self, base_price: float, factors: PricingFactors, config: dict[str, Any]
+    ) -> float:
         """Calculate reputation-based pricing"""
-        reputation_weight = config.get('reputation_weight', 0.6)
-        performance_weight = config.get('performance_weight', 0.3)
-        history_weight = config.get('history_weight', 0.1)
+        reputation_weight = config.get("reputation_weight", 0.6)
+        performance_weight = config.get("performance_weight", 0.3)
+        history_weight = config.get("history_weight", 0.1)
         reputation_mult = 1.0 + (factors.provider_reputation - 1.0) * reputation_weight
         performance_mult = factors.performance_multiplier * performance_weight + 1.0 * (1 - performance_weight)
         history_mult = factors.historical_performance * history_weight + 1.0 * (1 - history_weight)
-        price = base_price * config['base_multiplier'] * reputation_mult * performance_mult * history_mult
+        price = base_price * config["base_multiplier"] * reputation_mult * performance_mult * history_mult
         return max(price, self.min_price)  # type: ignore[no-any-return]
 
     async def _calculate_multi_factor_price(self, base_price: float, factors: PricingFactors, config: dict[str, Any]) -> float:
         """Calculate multi-factor pricing with weighted combination"""
-        demand_weight = config.get('demand_weight', 0.25)
-        supply_weight = config.get('supply_weight', 0.2)
-        time_weight = config.get('time_weight', 0.15)
-        reputation_weight = config.get('reputation_weight', 0.15)
-        competition_weight = config.get('competition_weight', 0.15)
-        regional_weight = config.get('regional_weight', 0.1)
+        demand_weight = config.get("demand_weight", 0.25)
+        supply_weight = config.get("supply_weight", 0.2)
+        time_weight = config.get("time_weight", 0.15)
+        reputation_weight = config.get("reputation_weight", 0.15)
+        competition_weight = config.get("competition_weight", 0.15)
+        regional_weight = config.get("regional_weight", 0.1)
         demand_mult = 1.0 + (factors.demand_multiplier - 1.0) * demand_weight
         supply_mult = 1.0 + (factors.supply_multiplier - 1.0) * supply_weight
         time_mult = 1.0 + (factors.time_multiplier - 1.0) * time_weight
         reputation_mult = 1.0 + (factors.provider_reputation - 1.0) * reputation_weight
         competition_mult = 1.0 + (factors.competition_multiplier - 1.0) * competition_weight
         regional_mult = 1.0 + (factors.regional_multiplier - 1.0) * regional_weight
-        price = base_price * config['base_multiplier']
+        price = base_price * config["base_multiplier"]
         price *= demand_mult
         price *= supply_mult
         price *= time_mult
@@ -570,12 +722,14 @@ class DynamicPricingEngine:
         price *= regional_mult
         return max(price, self.min_price)  # type: ignore[no-any-return]
 
-    async def _calculate_predictive_price(self, base_price: float, factors: PricingFactors, config: dict[str, Any], market_conditions: MarketConditions) -> float:
+    async def _calculate_predictive_price(
+        self, base_price: float, factors: PricingFactors, config: dict[str, Any], market_conditions: MarketConditions
+    ) -> float:
         """Calculate predictive pricing using ML-based forecasting"""
-        forecast_weight = config.get('forecast_weight', 0.5)
-        current_weight = config.get('current_weight', 0.3)
-        trend_weight = config.get('trend_weight', 0.2)
-        ml_confidence_threshold = config.get('ml_confidence_threshold', 0.7)
+        forecast_weight = config.get("forecast_weight", 0.5)
+        current_weight = config.get("current_weight", 0.3)
+        trend_weight = config.get("trend_weight", 0.2)
+        ml_confidence_threshold = config.get("ml_confidence_threshold", 0.7)
         forecast_price = base_price * (1 + (factors.demand_level - 0.5) * 0.3)
         current_price = base_price * factors.demand_multiplier * factors.supply_multiplier
         if market_conditions.price_volatility > 0.2:
@@ -584,8 +738,16 @@ class DynamicPricingEngine:
             trend_adjustment = 1.0
         confidence = factors.confidence_score
         if confidence >= ml_confidence_threshold:
-            weighted_price = forecast_price * forecast_weight + current_price * current_weight + base_price * trend_weight * trend_adjustment
+            weighted_price = (
+                forecast_price * forecast_weight
+                + current_price * current_weight
+                + base_price * trend_weight * trend_adjustment
+            )
         else:
-            weighted_price = forecast_price * forecast_weight * 0.5 + current_price * (current_weight + forecast_weight * 0.5) + base_price * trend_weight * trend_adjustment
-        price = weighted_price * config['base_multiplier']
+            weighted_price = (
+                forecast_price * forecast_weight * 0.5
+                + current_price * (current_weight + forecast_weight * 0.5)
+                + base_price * trend_weight * trend_adjustment
+            )
+        price = weighted_price * config["base_multiplier"]
         return max(price, self.min_price)  # type: ignore[no-any-return]

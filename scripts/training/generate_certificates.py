@@ -128,9 +128,9 @@ def generate_html_certificate(stage_num: int, cert_data: dict) -> str:
     <div class="certificate">
         <div class="header">🏆 Certificate of Completion</div>
         <div class="subtitle">AITBC Agent Training Program</div>
-        
+
         <div class="stage-name">Stage {stage_num}: {stage_name}</div>
-        
+
         <div class="details">
             <div class="detail-row">
                 <span class="detail-label">Certificate ID:</span> {cert_id}
@@ -145,15 +145,15 @@ def generate_html_certificate(stage_num: int, cert_data: dict) -> str:
                 <span class="detail-label">Training Program:</span> hermes AITBC Mastery Training
             </div>
         </div>
-        
+
         <div>
             <span class="badge">✓ Stage Completed</span>
             <span class="badge">✓ Hands-On Training</span>
             <span class="badge">✓ Blockchain Verified</span>
         </div>
-        
+
         <div class="footer">
-            Generated on {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}
+            Generated on {datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")}
         </div>
     </div>
 </body>
@@ -237,17 +237,17 @@ def generate_summary_certificate(completed_stages: list) -> str:
     <div class="certificate">
         <div class="header">🎓 Mastery Certificate</div>
         <div class="subtitle">AITBC Agent Training Program</div>
-        
+
         <div class="achievement">
             Congratulations! You have completed all {len(completed_stages)} training stages
         </div>
-        
+
         <div class="stages">
 {stages_html}
         </div>
-        
+
         <div class="footer">
-            Generated on {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}<br>
+            Generated on {datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")}<br>
             Total Stages Completed: {len(completed_stages)} / 11
         </div>
     </div>
@@ -293,13 +293,13 @@ def main():
             # Generate markdown badge
             badge_md = generate_markdown_badge(i, cert)
             badge_file = BADGE_DIR / f"stage{i}_badge.md"
-            with open(badge_file, 'w') as f:
+            with open(badge_file, "w") as f:
                 f.write(badge_md)
 
             # Generate HTML certificate
             html = generate_html_certificate(i, cert)
             html_file = HTML_DIR / f"stage{i}_certificate.html"
-            with open(html_file, 'w') as f:
+            with open(html_file, "w") as f:
                 f.write(html)
 
             print(f"✓ Generated badge and HTML certificate for Stage {i}")
@@ -308,7 +308,7 @@ def main():
     if len(completed_stages) == 11:
         summary_html = generate_summary_certificate(completed_stages)
         summary_file = HTML_DIR / "mastery_certificate.html"
-        with open(summary_file, 'w') as f:
+        with open(summary_file, "w") as f:
             f.write(summary_html)
         print(f"✓ Generated Mastery Certificate: {summary_file}")
 
@@ -316,7 +316,7 @@ def main():
     if completed_stages:
         md_summary = generate_markdown_summary(completed_stages)
         summary_md_file = BADGE_DIR / "training_summary.md"
-        with open(summary_md_file, 'w') as f:
+        with open(summary_md_file, "w") as f:
             f.write(md_summary)
         print(f"✓ Generated Markdown summary: {summary_md_file}")
 

@@ -42,7 +42,7 @@ def test_load_balancing_rule_empty_target_regions():
         weights={},
         health_check_path="/health",
         failover_enabled=False,
-        session_affinity=False
+        session_affinity=False,
     )
     assert rule.target_regions == []
 
@@ -56,7 +56,7 @@ def test_region_health_negative_success_rate():
         response_time_ms=45.5,
         success_rate=-0.5,
         active_connections=100,
-        last_check=datetime.now(UTC)
+        last_check=datetime.now(UTC),
     )
     assert health.success_rate == -0.5
 
@@ -70,7 +70,7 @@ def test_region_health_negative_connections():
         response_time_ms=45.5,
         success_rate=0.99,
         active_connections=-100,
-        last_check=datetime.now(UTC)
+        last_check=datetime.now(UTC),
     )
     assert health.active_connections == -100
 
@@ -85,7 +85,7 @@ def test_load_balancing_metrics_negative_requests():
         requests_per_region={},
         average_response_time=50.5,
         error_rate=0.001,
-        throughput=100.0
+        throughput=100.0,
     )
     assert metrics.total_requests == -1000
 
@@ -100,7 +100,7 @@ def test_load_balancing_metrics_negative_response_time():
         requests_per_region={},
         average_response_time=-50.5,
         error_rate=0.001,
-        throughput=100.0
+        throughput=100.0,
     )
     assert metrics.average_response_time == -50.5
 
@@ -109,11 +109,7 @@ def test_load_balancing_metrics_negative_response_time():
 def test_geographic_rule_empty_source_regions():
     """Test GeographicRule with empty source regions"""
     rule = GeographicRule(
-        rule_id="geo_123",
-        source_regions=[],
-        target_regions=["us-east-1"],
-        priority=1,
-        latency_threshold_ms=50.0
+        rule_id="geo_123", source_regions=[], target_regions=["us-east-1"], priority=1, latency_threshold_ms=50.0
     )
     assert rule.source_regions == []
 
@@ -122,11 +118,7 @@ def test_geographic_rule_empty_source_regions():
 def test_geographic_rule_negative_priority():
     """Test GeographicRule with negative priority"""
     rule = GeographicRule(
-        rule_id="geo_123",
-        source_regions=["us-east"],
-        target_regions=["us-east-1"],
-        priority=-5,
-        latency_threshold_ms=50.0
+        rule_id="geo_123", source_regions=["us-east"], target_regions=["us-east-1"], priority=-5, latency_threshold_ms=50.0
     )
     assert rule.priority == -5
 
@@ -135,11 +127,7 @@ def test_geographic_rule_negative_priority():
 def test_geographic_rule_negative_latency_threshold():
     """Test GeographicRule with negative latency threshold"""
     rule = GeographicRule(
-        rule_id="geo_123",
-        source_regions=["us-east"],
-        target_regions=["us-east-1"],
-        priority=1,
-        latency_threshold_ms=-50.0
+        rule_id="geo_123", source_regions=["us-east"], target_regions=["us-east-1"], priority=1, latency_threshold_ms=-50.0
     )
     assert rule.latency_threshold_ms == -50.0
 
@@ -177,7 +165,7 @@ def test_get_balancing_metrics_hours_parameter():
         weights={"us-east-1": 1.0},
         health_check_path="/health",
         failover_enabled=True,
-        session_affinity=False
+        session_affinity=False,
     )
     client.post("/api/v1/rules/create", json=rule.model_dump())
 

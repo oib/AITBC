@@ -22,7 +22,7 @@ def test_plugin_usage_model():
         user_id="user_123",
         action="install",
         timestamp=datetime.now(UTC),
-        metadata={"source": "marketplace"}
+        metadata={"source": "marketplace"},
     )
     assert usage.plugin_id == "plugin_123"
     assert usage.user_id == "user_123"
@@ -33,12 +33,7 @@ def test_plugin_usage_model():
 @pytest.mark.unit
 def test_plugin_usage_defaults():
     """Test PluginUsage with default metadata"""
-    usage = PluginUsage(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        action="use",
-        timestamp=datetime.now(UTC)
-    )
+    usage = PluginUsage(plugin_id="plugin_123", user_id="user_123", action="use", timestamp=datetime.now(UTC))
     assert usage.metadata == {}
 
 
@@ -53,7 +48,7 @@ def test_plugin_performance_model():
         response_time=0.123,
         error_rate=0.001,
         uptime=99.9,
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
     assert perf.plugin_id == "plugin_123"
     assert perf.version == "1.0.0"
@@ -68,11 +63,7 @@ def test_plugin_performance_model():
 def test_plugin_rating_model():
     """Test PluginRating model"""
     rating = PluginRating(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        rating=5,
-        review="Great plugin!",
-        timestamp=datetime.now(UTC)
+        plugin_id="plugin_123", user_id="user_123", rating=5, review="Great plugin!", timestamp=datetime.now(UTC)
     )
     assert rating.plugin_id == "plugin_123"
     assert rating.rating == 5
@@ -82,12 +73,7 @@ def test_plugin_rating_model():
 @pytest.mark.unit
 def test_plugin_rating_defaults():
     """Test PluginRating with default review"""
-    rating = PluginRating(
-        plugin_id="plugin_123",
-        user_id="user_123",
-        rating=4,
-        timestamp=datetime.now(UTC)
-    )
+    rating = PluginRating(plugin_id="plugin_123", user_id="user_123", rating=4, timestamp=datetime.now(UTC))
     assert rating.review is None
 
 
@@ -95,11 +81,7 @@ def test_plugin_rating_defaults():
 def test_plugin_event_model():
     """Test PluginEvent model"""
     event = PluginEvent(
-        event_type="error",
-        plugin_id="plugin_123",
-        user_id="user_123",
-        data={"error": "timeout"},
-        timestamp=datetime.now(UTC)
+        event_type="error", plugin_id="plugin_123", user_id="user_123", data={"error": "timeout"}, timestamp=datetime.now(UTC)
     )
     assert event.event_type == "error"
     assert event.plugin_id == "plugin_123"
@@ -110,10 +92,6 @@ def test_plugin_event_model():
 @pytest.mark.unit
 def test_plugin_event_defaults():
     """Test PluginEvent with default values"""
-    event = PluginEvent(
-        event_type="info",
-        plugin_id="plugin_123",
-        timestamp=datetime.now(UTC)
-    )
+    event = PluginEvent(event_type="info", plugin_id="plugin_123", timestamp=datetime.now(UTC))
     assert event.user_id is None
     assert event.data == {}

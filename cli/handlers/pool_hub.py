@@ -7,11 +7,11 @@ from aitbc import AITBCHTTPClient, NetworkError
 logger = logging.getLogger(__name__)
 
 
-
 def handle_pool_hub_sla_metrics(args):
     """Get SLA metrics for a miner or all miners."""
     try:
         from commands.legacy.pool_hub import get_config as get_pool_hub_config
+
         config = get_pool_hub_config()
 
         if args.test_mode:
@@ -37,10 +37,13 @@ def handle_pool_hub_sla_metrics(args):
         logger.error("❌ Failed to get SLA metrics: %s", e)
     except Exception as e:
         logger.error("❌ Error getting SLA metrics: %s", e)
+
+
 def handle_pool_hub_sla_violations(args):
     """Get SLA violations across all miners."""
     try:
         from commands.legacy.pool_hub import get_config as get_pool_hub_config
+
         config = get_pool_hub_config()
 
         if args.test_mode:
@@ -59,10 +62,13 @@ def handle_pool_hub_sla_violations(args):
         logger.error("❌ Failed to get violations: %s", e)
     except Exception as e:
         logger.error("❌ Error getting violations: %s", e)
+
+
 def handle_pool_hub_capacity_snapshots(args):
     """Get capacity planning snapshots."""
     try:
         from commands.legacy.pool_hub import get_config as get_pool_hub_config
+
         config = get_pool_hub_config()
 
         if args.test_mode:
@@ -82,10 +88,13 @@ def handle_pool_hub_capacity_snapshots(args):
         logger.error("❌ Failed to get snapshots: %s", e)
     except Exception as e:
         logger.error("❌ Error getting snapshots: %s", e)
+
+
 def handle_pool_hub_capacity_forecast(args):
     """Get capacity forecast."""
     try:
         from commands.legacy.pool_hub import get_config as get_pool_hub_config
+
         config = get_pool_hub_config()
 
         if args.test_mode:
@@ -105,10 +114,13 @@ def handle_pool_hub_capacity_forecast(args):
         logger.error("❌ Failed to get forecast: %s", e)
     except Exception as e:
         logger.error("❌ Error getting forecast: %s", e)
+
+
 def handle_pool_hub_capacity_recommendations(args):
     """Get scaling recommendations."""
     try:
         from commands.legacy.pool_hub import get_config as get_pool_hub_config
+
         config = get_pool_hub_config()
 
         if args.test_mode:
@@ -128,10 +140,13 @@ def handle_pool_hub_capacity_recommendations(args):
         logger.error("❌ Failed to get recommendations: %s", e)
     except Exception as e:
         logger.error("❌ Error getting recommendations: %s", e)
+
+
 def handle_pool_hub_billing_usage(args):
     """Get billing usage data."""
     try:
         from commands.legacy.pool_hub import get_config as get_pool_hub_config
+
         config = get_pool_hub_config()
 
         if args.test_mode:
@@ -151,10 +166,13 @@ def handle_pool_hub_billing_usage(args):
         logger.error("❌ Failed to get billing usage: %s", e)
     except Exception as e:
         logger.error("❌ Error getting billing usage: %s", e)
+
+
 def handle_pool_hub_billing_sync(args):
     """Trigger billing sync with coordinator-api."""
     try:
         from commands.legacy.pool_hub import get_config as get_pool_hub_config
+
         config = get_pool_hub_config()
 
         if args.test_mode:
@@ -167,15 +185,18 @@ def handle_pool_hub_billing_sync(args):
         result = http_client.post("/v1/sla/billing/sync")
 
         logger.info("🔄 Billing sync triggered")
-        logger.info("✅ %s", result.get('message', 'Success'))
+        logger.info("✅ %s", result.get("message", "Success"))
     except NetworkError as e:
         logger.error("❌ Billing sync failed: %s", e)
     except Exception as e:
         logger.error("❌ Error triggering billing sync: %s", e)
+
+
 def handle_pool_hub_collect_metrics(args):
     """Trigger SLA metrics collection."""
     try:
         from commands.legacy.pool_hub import get_config as get_pool_hub_config
+
         config = get_pool_hub_config()
 
         if args.test_mode:
@@ -188,7 +209,7 @@ def handle_pool_hub_collect_metrics(args):
         result = http_client.post("/v1/sla/metrics/collect")
 
         logger.info("📊 SLA metrics collection triggered")
-        logger.info("✅ %s", result.get('message', 'Success'))
+        logger.info("✅ %s", result.get("message", "Success"))
     except NetworkError as e:
         logger.error("❌ Metrics collection failed: %s", e)
     except Exception as e:

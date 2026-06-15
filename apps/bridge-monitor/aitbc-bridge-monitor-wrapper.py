@@ -14,4 +14,5 @@ os.environ.setdefault("DATA_DIR", "/var/lib/aitbc")
 
 if __name__ == "__main__":
     from bridge_monitor.main import main
+
     main()

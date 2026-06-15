@@ -22,7 +22,7 @@ def test_signature_generation_and_verification():
 
     # Create test message
     message = {"type": "test", "data": "hello"}
-    message_bytes = json.dumps(message, sort_keys=True).encode('utf-8')
+    message_bytes = json.dumps(message, sort_keys=True).encode("utf-8")
 
     # Sign message
     signature = private_key.sign(message_bytes)
@@ -47,14 +47,14 @@ def test_signature_verification_with_wrong_key():
 
     # Generate two different keypairs
     private_key1 = ed25519.Ed25519PrivateKey.generate()
-    public_key1 = private_key1.public_key()
+    private_key1.public_key()
 
     private_key2 = ed25519.Ed25519PrivateKey.generate()
     public_key2 = private_key2.public_key()
 
     # Sign with key1
     message = {"type": "test", "data": "hello"}
-    message_bytes = json.dumps(message, sort_keys=True).encode('utf-8')
+    message_bytes = json.dumps(message, sort_keys=True).encode("utf-8")
     signature = private_key1.sign(message_bytes)
 
     # Try to verify with key2
@@ -80,12 +80,12 @@ def test_signature_verification_with_tampered_message():
 
     # Sign original message
     original_message = {"type": "test", "data": "hello"}
-    original_bytes = json.dumps(original_message, sort_keys=True).encode('utf-8')
+    original_bytes = json.dumps(original_message, sort_keys=True).encode("utf-8")
     signature = private_key.sign(original_bytes)
 
     # Tamper with message
     tampered_message = {"type": "test", "data": "goodbye"}
-    tampered_bytes = json.dumps(tampered_message, sort_keys=True).encode('utf-8')
+    tampered_bytes = json.dumps(tampered_message, sort_keys=True).encode("utf-8")
 
     # Try to verify tampered message
     try:
@@ -105,10 +105,7 @@ async def test_fetch_public_key_from_coordinator():
     print("=" * 40)
 
     # Mock coordinator API response
-    mock_response = {
-        "agent_id": "test_agent",
-        "public_key": "test_public_key_hex"
-    }
+    mock_response = {"agent_id": "test_agent", "public_key": "test_public_key_hex"}
 
     # Test the fetch function (mock implementation)
     async def mock_fetch_public_key(sender_id: str, coordinator_url: str):
@@ -147,19 +144,12 @@ async def test_receive_message_with_signature():
     # Generate keypair
     private_key = ed25519.Ed25519PrivateKey.generate()
     public_key = private_key.public_key()
-    public_key_hex = public_key.public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw
-    ).hex()
+    public_key_hex = public_key.public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw).hex()
 
     # Create and sign message
-    message = {
-        "from": "sender_agent",
-        "type": "test",
-        "data": "hello"
-    }
+    message = {"from": "sender_agent", "type": "test", "data": "hello"}
     message_copy = message.copy()
-    message_bytes = json.dumps(message_copy, sort_keys=True).encode('utf-8')
+    message_bytes = json.dumps(message_copy, sort_keys=True).encode("utf-8")
     signature = private_key.sign(message_bytes)
 
     # Add signature to message
@@ -196,7 +186,7 @@ async def test_receive_message_with_signature():
 
         message_to_verify = message_with_sig.copy()
         message_to_verify.pop("signature", None)
-        message_bytes = json.dumps(message_to_verify, sort_keys=True).encode('utf-8')
+        message_bytes = json.dumps(message_to_verify, sort_keys=True).encode("utf-8")
 
         public_key.verify(signature_bytes, message_bytes)
         print("✅ Signature verified successfully")

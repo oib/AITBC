@@ -23,7 +23,7 @@ class TestStageRunner:
             "stage": 1,
             "title": "Test",
             "commands": [{"cmd": "echo", "args": ["hello"]}],
-            "expected": {"ok": {"type": "value", "value": True}}
+            "expected": {"ok": {"type": "value", "value": True}},
         }
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(data, f)
@@ -96,7 +96,7 @@ class TestStageRunner:
         runner = StageRunner()
         conditions = {
             "ok": ExpectedCondition(type="value", value=True),
-            "match": ExpectedCondition(type="regex", value="test")
+            "match": ExpectedCondition(type="regex", value="test"),
         }
         result = runner.validate_conditions(conditions)
         assert result["ok"]["passed"] is True
@@ -110,7 +110,7 @@ class TestStageRunner:
                 stage=1,
                 title="Test",
                 commands=[Command(cmd="echo", args=["hello"])],
-                expected={"ok": ExpectedCondition(type="value", value=True)}
+                expected={"ok": ExpectedCondition(type="value", value=True)},
             )
             result = runner.run_stage(stage)
         assert result["success"] is True
@@ -118,12 +118,7 @@ class TestStageRunner:
 
     def test_run_stage_failure(self):
         runner = StageRunner()
-        stage = StageDefinition(
-            stage=1,
-            title="Test",
-            commands=[Command(cmd="false", args=[])],
-            expected={}
-        )
+        stage = StageDefinition(stage=1, title="Test", commands=[Command(cmd="false", args=[])], expected={})
         result = runner.run_stage(stage)
         assert result["success"] is False
 

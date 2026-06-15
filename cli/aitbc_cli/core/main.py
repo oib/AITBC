@@ -85,69 +85,46 @@ def version():
     click.echo("FHS Compliance: ✅")
     click.echo("New Features: ✅")
 
+
 @click.group()
 @click.version_option(version=__version__, prog_name="aitbc")
-@click.option(
-    "--url",
-    default=None,
-    help="Coordinator API URL (overrides config)"
-)
-@click.option(
-    "--api-key",
-    default=None,
-    help="API key for authentication"
-)
-@click.option(
-    "--chain-id",
-    default=None,
-    help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)"
-)
-@click.option(
-    "--output",
-    default="table",
-    type=click.Choice(["table", "json", "yaml", "csv"]),
-    help="Output format"
-)
-@click.option(
-    "--verbose",
-    "-v",
-    count=True,
-    help="Increase verbosity (can be used multiple times)"
-)
-@click.option(
-    "--debug",
-    is_flag=True,
-    help="Enable debug mode"
-)
+@click.option("--url", default=None, help="Coordinator API URL (overrides config)")
+@click.option("--api-key", default=None, help="API key for authentication")
+@click.option("--chain-id", default=None, help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+@click.option("--output", default="table", type=click.Choice(["table", "json", "yaml", "csv"]), help="Output format")
+@click.option("--verbose", "-v", count=True, help="Increase verbosity (can be used multiple times)")
+@click.option("--debug", is_flag=True, help="Enable debug mode")
 @click.pass_context
 def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     """AITBC CLI - Command Line Interface for AITBC Network
-    
+
     Manage jobs, mining, wallets, blockchain operations, marketplaces, and AI
     services.
-    
+
     SYSTEM ARCHITECTURE COMMANDS:
     system          System management commands
     system architect    System architecture analysis
     system audit         Audit system compliance
     system check         Check service configuration
-    
+
     Examples:
     aitbc system architect
     aitbc system audit
     aitbc system check --service marketplace
     """
     ctx.ensure_object(dict)
-    ctx.obj['url'] = url
-    ctx.obj['api_key'] = api_key
-    ctx.obj['output'] = output
-    ctx.obj['verbose'] = verbose
-    ctx.obj['debug'] = debug
+    ctx.obj["url"] = url
+    ctx.obj["api_key"] = api_key
+    ctx.obj["output"] = output
+    ctx.obj["verbose"] = verbose
+    ctx.obj["debug"] = debug
 
     # Handle chain_id with auto-detection
     from aitbc_cli.utils.chain_id import get_chain_id
-    default_rpc_url = url.replace('/api', '') if url else 'http://localhost:8202'
-    ctx.obj['chain_id'] = get_chain_id(default_rpc_url, override=chain_id)
+
+    default_rpc_url = url.replace("/api", "") if url else "http://localhost:8202"
+    ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
+
 
 # Add commands to CLI
 cli.add_command(system)
@@ -199,10 +176,11 @@ cli.add_command(compliance)
 cli.add_command(hermes_training)
 cli.add_command(coin_requests)
 
+
 def main(argv=None):
     """Entry point for console scripts and compatibility wrappers."""
     return cli.main(args=argv, prog_name="aitbc", standalone_mode=False)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())

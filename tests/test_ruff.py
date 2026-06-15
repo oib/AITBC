@@ -103,7 +103,7 @@ class TestRuffLinting:
         if ruff_cmd is None:
             pytest.skip("ruff not installed")
 
-        result = subprocess.run(
+        subprocess.run(
             ruff_cmd + ["check", "tests/test_ruff.py"], capture_output=True, text=True, cwd=Path(__file__).parent.parent
         )
         # Allow ruff to find issues (we're testing the tool, not the code)
@@ -115,7 +115,7 @@ class TestRuffLinting:
         if ruff_cmd is None:
             pytest.skip("ruff not installed")
 
-        result = subprocess.run(
+        subprocess.run(
             ruff_cmd + ["format", "--check", "tests/test_ruff.py"],
             capture_output=True,
             text=True,
@@ -212,7 +212,7 @@ class TestRuffPerformance:
         import time
 
         start_time = time.time()
-        result = subprocess.run(
+        subprocess.run(
             ruff_cmd + ["check", "aitbc/testing.py"], capture_output=True, text=True, cwd=Path(__file__).parent.parent
         )
         elapsed = time.time() - start_time
@@ -229,7 +229,7 @@ class TestRuffPerformance:
         import time
 
         start_time = time.time()
-        result = subprocess.run(
+        subprocess.run(
             ruff_cmd + ["format", "--check", "aitbc/testing.py"],
             capture_output=True,
             text=True,

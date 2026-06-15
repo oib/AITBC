@@ -23,7 +23,7 @@ def derive_key(password: str, salt: bytes = b"") -> bytes:
     if not salt:
         salt = secrets.token_bytes(16)
     # Use PBKDF2 for secure key derivation (100,000 iterations for security)
-    dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000, dklen=32)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000, dklen=32)
     return base64.urlsafe_b64encode(dk), salt
 
 
@@ -41,7 +41,9 @@ def encrypt_private_key(private_key_hex: str, password: str) -> dict:
     }
 
 
-def create_keystore(address: str, password: str, keystore_dir: Path | str = "/var/lib/aitbc/keystore", force: bool = False) -> Path:
+def create_keystore(
+    address: str, password: str, keystore_dir: Path | str = "/var/lib/aitbc/keystore", force: bool = False
+) -> Path:
     """Create encrypted keystore file and return its path."""
     keystore_dir = Path(keystore_dir)
     keystore_dir.mkdir(parents=True, exist_ok=True)

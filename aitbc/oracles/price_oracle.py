@@ -23,8 +23,8 @@ logger = get_logger(__name__)
 
 # ── Chainlink feed addresses (Ethereum mainnet) ───────────────────────────────
 CHAINLINK_FEEDS_MAINNET: dict[str, str] = {
-    "ETH/USD":  "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
-    "BTC/USD":  "0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c",
+    "ETH/USD": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
+    "BTC/USD": "0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c",
     "LINK/USD": "0x2c1d072e956AFFC0D435Cb7AC308d97936Ed4a28",
     "USDT/USD": "0x3E7d1eAB13ad0104d2750B8863b489D65364e32D",
 }
@@ -55,13 +55,13 @@ _CHAINLINK_ABI = [
 
 # CoinGecko coin ID mapping
 _COINGECKO_IDS: dict[str, str] = {
-    "ETH":  "ethereum",
-    "BTC":  "bitcoin",
+    "ETH": "ethereum",
+    "BTC": "bitcoin",
     "LINK": "chainlink",
     "USDT": "tether",
     "USDC": "usd-coin",
-    "BNB":  "binancecoin",
-    "AIT":  "aitbc",
+    "BNB": "binancecoin",
+    "AIT": "aitbc",
 }
 
 _COINGECKO_BASE = "https://api.coingecko.com/api/v3"
@@ -94,12 +94,13 @@ class ChainlinkOracle:
             return None
         try:
             from aitbc.ethereum_rpc import get_ethereum_client
+
             client = get_ethereum_client()
             decimals = client.call_contract(feed_addr, _CHAINLINK_ABI, "decimals")
             round_data = client.call_contract(feed_addr, _CHAINLINK_ABI, "latestRoundData")
             answer = round_data[1]
             updated_at = round_data[3]
-            price = answer / (10 ** decimals)
+            price = answer / (10**decimals)
             return PriceResult(
                 base=base,
                 quote=quote,
@@ -134,6 +135,7 @@ class CoinGeckoOracle:
         try:
             import json
             import urllib.request
+
             url = f"{_COINGECKO_BASE}/simple/price?ids={coin_id}&vs_currencies={vs_currency}&include_last_updated_at=true"
             req = urllib.request.Request(url, headers={"User-Agent": "aitbc-oracle/1.0"})
             with urllib.request.urlopen(req, timeout=10) as resp:

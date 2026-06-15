@@ -66,7 +66,9 @@ WEBHOOKS_DB: dict[str, Any] = {}
 
 @router.post("/partners/register", response_model=PartnerResponse)
 @rate_limit(rate=10, per=60)
-async def register_partner(partner: PartnerRegister, request: Request, session: Annotated[Session, Depends(get_session)]) -> PartnerResponse:
+async def register_partner(
+    partner: PartnerRegister, request: Request, session: Annotated[Session, Depends(get_session)]
+) -> PartnerResponse:
     """Register a new partner application"""
 
     # Generate credentials
@@ -109,7 +111,9 @@ async def register_partner(partner: PartnerRegister, request: Request, session: 
 
 @router.get("/partners/{partner_id}")
 @rate_limit(rate=50, per=60)
-async def get_partner(partner_id: str, request: Request, session: Annotated[Session, Depends(get_session)], api_key: str) -> dict[str, Any]:
+async def get_partner(
+    partner_id: str, request: Request, session: Annotated[Session, Depends(get_session)], api_key: str
+) -> dict[str, Any]:
     """Get partner information"""
 
     # Verify API key
@@ -181,7 +185,9 @@ async def create_webhook(
 
 @router.get("/partners/webhooks")
 @rate_limit(rate=50, per=60)
-async def list_webhooks(request: Request, session: Annotated[Session, Depends(get_session)], api_key: str) -> list[WebhookResponse]:
+async def list_webhooks(
+    request: Request, session: Annotated[Session, Depends(get_session)], api_key: str
+) -> list[WebhookResponse]:
     """List partner webhooks"""
 
     # Verify partner
@@ -208,7 +214,9 @@ async def list_webhooks(request: Request, session: Annotated[Session, Depends(ge
 
 @router.delete("/partners/webhooks/{webhook_id}")
 @rate_limit(rate=20, per=60)
-async def delete_webhook(webhook_id: str, request: Request, session: Annotated[Session, Depends(get_session)], api_key: str) -> dict[str, str]:
+async def delete_webhook(
+    webhook_id: str, request: Request, session: Annotated[Session, Depends(get_session)], api_key: str
+) -> dict[str, str]:
     """Delete a webhook"""
 
     # Verify partner

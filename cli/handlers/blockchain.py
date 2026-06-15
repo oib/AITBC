@@ -10,7 +10,6 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-
 def handle_blockchain_info(args, get_chain_info, render_mapping):
     """Handle blockchain info command."""
     chain_info = get_chain_info(rpc_url=args.rpc_url)
@@ -23,6 +22,8 @@ def handle_blockchain_height(args, get_chain_info):
     """Handle blockchain height command."""
     chain_info = get_chain_info(rpc_url=args.rpc_url)
     print(chain_info.get("height", 0) if chain_info else 0)
+
+
 def handle_blockchain_block(args, default_rpc_url):
     """Handle blockchain block command."""
     if args.number is None:
@@ -30,20 +31,20 @@ def handle_blockchain_block(args, default_rpc_url):
         sys.exit(1)
 
     rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
-    chain_id = getattr(args, 'chain_id', None) or os.getenv('CHAIN_ID', None)
-    print("Querying block #%s from %s (chain: %s)...", args.number, rpc_url, chain_id or 'default')
+    chain_id = getattr(args, "chain_id", None) or os.getenv("CHAIN_ID", None)
+    print("Querying block #%s from %s (chain: %s)...", args.number, rpc_url, chain_id or "default")
     try:
         params = {}
         if chain_id:
-            params['chain_id'] = chain_id
+            params["chain_id"] = chain_id
         response = requests.get(f"{rpc_url}/rpc/blocks/{args.number}", params=params, timeout=10)
         if response.status_code == 200:
             data = response.json()
             print("Block #%s:", args.number)
-            print("  Hash: %s", data.get('hash', 'N/A'))
-            print("  Timestamp: %s", data.get('timestamp', 'N/A'))
-            print("  Transactions: %s", data.get('tx_count', len(data.get('transactions', []))))
-            print("  Miner: %s", data.get('proposer', 'N/A'))
+            print("  Hash: %s", data.get("hash", "N/A"))
+            print("  Timestamp: %s", data.get("timestamp", "N/A"))
+            print("  Transactions: %s", data.get("tx_count", len(data.get("transactions", []))))
+            print("  Miner: %s", data.get("proposer", "N/A"))
         else:
             print("Failed to get block: %s", response.status_code)
             sys.exit(1)
@@ -62,8 +63,8 @@ def handle_blockchain_init(args, default_rpc_url):
         if response.status_code == 200:
             data = response.json()
             logger.info("Blockchain already initialized")
-            logger.info("Genesis block hash: %s", data.get('hash', 'N/A'))
-            logger.info("Block number: %s", data.get('number', 0))
+            logger.info("Genesis block hash: %s", data.get("hash", "N/A"))
+            logger.info("Block number: %s", data.get("number", 0))
             if args.force:
                 logger.info("Force flag ignored - blockchain already initialized")
         else:
@@ -87,9 +88,9 @@ def handle_blockchain_genesis(args, default_rpc_url):
             if response.status_code == 200:
                 data = response.json()
                 logger.info("Genesis block already exists")
-                logger.info("Block hash: %s", data.get('hash', 'N/A'))
-                logger.info("Block number: %s", data.get('number', 0))
-                logger.info("Timestamp: %s", data.get('timestamp', 'N/A'))
+                logger.info("Block hash: %s", data.get("hash", "N/A"))
+                logger.info("Block number: %s", data.get("number", 0))
+                logger.info("Timestamp: %s", data.get("timestamp", "N/A"))
                 logger.info("Skipping genesis block creation")
                 return
             else:
@@ -107,11 +108,11 @@ def handle_blockchain_genesis(args, default_rpc_url):
             if response.status_code == 200:
                 data = response.json()
                 logger.info("Genesis block information:")
-                logger.info("  Hash: %s", data.get('hash', 'N/A'))
-                logger.info("  Number: %s", data.get('number', 0))
-                logger.info("  Timestamp: %s", data.get('timestamp', 'N/A'))
-                logger.info("  Miner: %s", data.get('miner', 'N/A'))
-                logger.info("  Reward: %s AIT", data.get('reward', 'N/A'))
+                logger.info("  Hash: %s", data.get("hash", "N/A"))
+                logger.info("  Number: %s", data.get("number", 0))
+                logger.info("  Timestamp: %s", data.get("timestamp", "N/A"))
+                logger.info("  Miner: %s", data.get("miner", "N/A"))
+                logger.info("  Reward: %s AIT", data.get("reward", "N/A"))
             else:
                 logger.error("Failed to get genesis block: %s", response.status_code)
                 sys.exit(1)
@@ -232,10 +233,10 @@ def handle_blockchain_blocks_range(args, default_rpc_url, output_format):
             if output_format(args) == "json":
                 logger.info(json.dumps(blocks_data, indent=2))
             else:
-                logger.info("Blocks range: %s to %s", args.start or 'head', args.end or 'limit ' + str(args.limit))
+                logger.info("Blocks range: %s to %s", args.start or "head", args.end or "limit " + str(args.limit))
                 if isinstance(blocks_data, list):
                     for block in blocks_data:
-                        logger.info("  - Block #%s: %s", block.get('height', 'N/A'), block.get('hash', 'N/A'))
+                        logger.info("  - Block #%s: %s", block.get("height", "N/A"), block.get("hash", "N/A"))
                 else:
                     logger.info(json.dumps(blocks_data, indent=2))
         else:
@@ -269,11 +270,11 @@ def handle_blockchain_transactions(args, default_rpc_url):
             transactions = response.json()
             if isinstance(transactions, list):
                 logger.info("Transactions: %s found", len(transactions))
-                for tx in transactions[:args.limit]:
-                    logger.info("  - Hash: %s", tx.get('hash', 'N/A'))
-                    logger.info("    From: %s", tx.get('from', 'N/A'))
-                    logger.info("    To: %s", tx.get('to', 'N/A'))
-                    logger.info("    Amount: %s AIT", tx.get('value', 0))
+                for tx in transactions[: args.limit]:
+                    logger.info("  - Hash: %s", tx.get("hash", "N/A"))
+                    logger.info("    From: %s", tx.get("from", "N/A"))
+                    logger.info("    To: %s", tx.get("to", "N/A"))
+                    logger.info("    Amount: %s AIT", tx.get("value", 0))
             else:
                 logger.info(json.dumps(transactions, indent=2))
         else:
@@ -302,9 +303,9 @@ def handle_blockchain_mempool(args, default_rpc_url):
             if isinstance(mempool, list):
                 logger.info("Pending transactions: %s", len(mempool))
                 for tx in mempool:
-                    logger.info("  - Hash: %s", tx.get('hash', 'N/A'))
-                    logger.info("    From: %s", tx.get('from', 'N/A'))
-                    logger.info("    Amount: %s AIT", tx.get('value', 0))
+                    logger.info("  - Hash: %s", tx.get("hash", "N/A"))
+                    logger.info("    From: %s", tx.get("from", "N/A"))
+                    logger.info("    Amount: %s AIT", tx.get("value", 0))
             else:
                 logger.info(json.dumps(mempool, indent=2))
         else:

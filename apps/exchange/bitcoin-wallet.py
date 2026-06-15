@@ -19,18 +19,20 @@ import requests
 @dataclass
 class BitcoinWallet:
     """Bitcoin wallet configuration"""
+
     address: str
     private_key: str | None = None
     testnet: bool = True
+
 
 class BitcoinProcessor:
     """Bitcoin payment processor"""
 
     def __init__(self, config: dict):
         self.config = config
-        self.testnet = config.get('testnet', True)
-        self.api_key = config.get('api_key')
-        self.webhook_secret = config.get('webhook_secret')
+        self.testnet = config.get("testnet", True)
+        self.api_key = config.get("api_key")
+        self.webhook_secret = config.get("webhook_secret")
 
     def generate_payment_address(self, user_id: str, amount_btc: float) -> str:
         """Generate a unique payment address for each transaction"""
@@ -39,12 +41,11 @@ class BitcoinProcessor:
 
         # Create payment hash
         payment_data = f"{user_id}:{amount_btc}:{int(time.time())}"
-        hash_bytes = hashlib.sha256(payment_data.encode()).hexdigest()
-
+        hashlib.sha256(payment_data.encode()).hexdigest()
 
         # For demo, return the main wallet address
         # In production, generate unique address from HD wallet
-        return self.config['main_address']
+        return self.config["main_address"]
 
     def check_payment(self, address: str, amount_btc: float) -> tuple[bool, float]:
         """Check if payment has been received"""
@@ -62,7 +63,7 @@ class BitcoinProcessor:
         try:
             response = requests.get(api_url, timeout=5)
             if response.status_code == 200:
-                data = response.json()
+                response.json()
                 # Check recent transactions
                 # In production, implement proper transaction verification
                 return False, 0.0
@@ -76,13 +77,10 @@ class BitcoinProcessor:
         if not self.webhook_secret:
             return True  # Skip verification if no secret
 
-        expected_signature = hmac.new(
-            self.webhook_secret.encode(),
-            payload.encode(),
-            hashlib.sha256
-        ).hexdigest()
+        expected_signature = hmac.new(self.webhook_secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
         return hmac.compare_digest(expected_signature, signature)
+
 
 class WalletManager:
     """Manages Bitcoin wallet operations"""
@@ -94,27 +92,27 @@ class WalletManager:
     def load_config(self) -> dict:
         """Load wallet configuration"""
         return {
-            'testnet': os.getenv('BITCOIN_TESTNET', 'true').lower() == 'true',
-            'main_address': os.getenv('BITCOIN_ADDRESS', 'tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'),
-            'private_key': os.getenv('BITCOIN_PRIVATE_KEY'),
-            'api_key': os.getenv('BLOCKCHAIN_API_KEY'),
-            'webhook_secret': os.getenv('WEBHOOK_SECRET'),
-            'min_confirmations': int(os.getenv('MIN_CONFIRMATIONS', '1')),
-            'exchange_rate': float(os.getenv('BTC_TO_AITBC_RATE', '100000'))  # 1 BTC = 100,000 AITBC
+            "testnet": os.getenv("BITCOIN_TESTNET", "true").lower() == "true",
+            "main_address": os.getenv("BITCOIN_ADDRESS", "tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"),
+            "private_key": os.getenv("BITCOIN_PRIVATE_KEY"),
+            "api_key": os.getenv("BLOCKCHAIN_API_KEY"),
+            "webhook_secret": os.getenv("WEBHOOK_SECRET"),
+            "min_confirmations": int(os.getenv("MIN_CONFIRMATIONS", "1")),
+            "exchange_rate": float(os.getenv("BTC_TO_AITBC_RATE", "100000")),  # 1 BTC = 100,000 AITBC
         }
 
     def create_payment_request(self, user_id: str, aitbc_amount: float) -> dict:
         """Create a new payment request"""
-        btc_amount = aitbc_amount / self.config['exchange_rate']
+        btc_amount = aitbc_amount / self.config["exchange_rate"]
 
         payment_request = {
-            'user_id': user_id,
-            'aitbc_amount': aitbc_amount,
-            'btc_amount': btc_amount,
-            'payment_address': self.processor.generate_payment_address(user_id, btc_amount),
-            'created_at': int(time.time()),
-            'status': 'pending',
-            'expires_at': int(time.time()) + 3600  # 1 hour expiry
+            "user_id": user_id,
+            "aitbc_amount": aitbc_amount,
+            "btc_amount": btc_amount,
+            "payment_address": self.processor.generate_payment_address(user_id, btc_amount),
+            "created_at": int(time.time()),
+            "status": "pending",
+            "expires_at": int(time.time()) + 3600,  # 1 hour expiry
         }
 
         # Save payment request
@@ -124,7 +122,7 @@ class WalletManager:
 
     def save_payment_request(self, request: dict):
         """Save payment request to storage"""
-        payments_file = 'payments.json'
+        payments_file = "payments.json"
         payments = []
 
         if os.path.exists(payments_file):
@@ -133,12 +131,12 @@ class WalletManager:
 
         payments.append(request)
 
-        with open(payments_file, 'w') as f:
+        with open(payments_file, "w") as f:
             json.dump(payments, f, indent=2)
 
     def get_payment_status(self, payment_id: str) -> dict | None:
         """Get payment status"""
-        payments_file = 'payments.json'
+        payments_file = "payments.json"
 
         if not os.path.exists(payments_file):
             return None
@@ -147,14 +145,14 @@ class WalletManager:
             payments = json.load(f)
 
         for payment in payments:
-            if payment.get('payment_id') == payment_id:
+            if payment.get("payment_id") == payment_id:
                 return payment
 
         return None
 
     def update_payment_status(self, payment_id: str, status: str, tx_hash: str = None):
         """Update payment status"""
-        payments_file = 'payments.json'
+        payments_file = "payments.json"
 
         if not os.path.exists(payments_file):
             return False
@@ -163,17 +161,18 @@ class WalletManager:
             payments = json.load(f)
 
         for payment in payments:
-            if payment.get('payment_id') == payment_id:
-                payment['status'] = status
-                payment['updated_at'] = int(time.time())
+            if payment.get("payment_id") == payment_id:
+                payment["status"] = status
+                payment["updated_at"] = int(time.time())
                 if tx_hash:
-                    payment['tx_hash'] = tx_hash
+                    payment["tx_hash"] = tx_hash
 
-                with open(payments_file, 'w') as f:
+                with open(payments_file, "w") as f:
                     json.dump(payments, f, indent=2)
                 return True
 
         return False
+
 
 # Global wallet manager
 wallet_manager = WalletManager()

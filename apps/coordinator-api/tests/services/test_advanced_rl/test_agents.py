@@ -2,7 +2,6 @@
 Tests for advanced RL agent modules
 """
 
-
 import pytest
 import torch
 

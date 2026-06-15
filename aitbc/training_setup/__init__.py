@@ -9,8 +9,8 @@ from .environment import TrainingEnvironment
 from .exceptions import FundingError, MessagingError, TrainingSetupError
 
 __all__ = [
-    'TrainingEnvironment',
-    'TrainingSetupError',
-    'FundingError',
-    'MessagingError',
+    "TrainingEnvironment",
+    "TrainingSetupError",
+    "FundingError",
+    "MessagingError",
 ]

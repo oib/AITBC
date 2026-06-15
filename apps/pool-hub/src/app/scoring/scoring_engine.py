@@ -9,10 +9,11 @@ from typing import Any
 @dataclass
 class ScoreComponents:
     """Breakdown of miner score components"""
+
     reliability: float  # Based on uptime and success rate
     performance: float  # Based on response time and throughput
-    capacity: float     # Based on GPU specs and availability
-    reputation: float   # Based on historical performance
+    capacity: float  # Based on GPU specs and availability
+    reputation: float  # Based on historical performance
     total: float
 
 
@@ -47,18 +48,14 @@ class ScoringEngine:
         reputation = self._calculate_reputation(miner)
 
         total = (
-            reliability * self.WEIGHT_RELIABILITY +
-            performance * self.WEIGHT_PERFORMANCE +
-            capacity * self.WEIGHT_CAPACITY +
-            reputation * self.WEIGHT_REPUTATION
+            reliability * self.WEIGHT_RELIABILITY
+            + performance * self.WEIGHT_PERFORMANCE
+            + capacity * self.WEIGHT_CAPACITY
+            + reputation * self.WEIGHT_REPUTATION
         )
 
         return ScoreComponents(
-            reliability=reliability,
-            performance=performance,
-            capacity=capacity,
-            reputation=reputation,
-            total=total
+            reliability=reliability, performance=performance, capacity=capacity, reputation=reputation, total=total
         )
 
     def _calculate_reliability(self, miner: Any) -> float:
@@ -100,7 +97,7 @@ class ScoringEngine:
         # Jobs per hour (if we had timing data)
         throughput_score = min(100, miner.jobs_completed / max(1, self._get_hours_active(miner)) * 10)
 
-        return (utilization_score * 0.6 + throughput_score * 0.4)  # type: ignore[no-any-return]
+        return utilization_score * 0.6 + throughput_score * 0.4  # type: ignore[no-any-return]
 
     def _calculate_capacity(self, miner: Any) -> float:
         """Calculate capacity score (0-100)."""
@@ -115,12 +112,11 @@ class ScoringEngine:
 
         # Current availability
         if miner.current_jobs < miner.max_concurrent_jobs:
-            availability = ((miner.max_concurrent_jobs - miner.current_jobs) /
-                          miner.max_concurrent_jobs) * 100
+            availability = ((miner.max_concurrent_jobs - miner.current_jobs) / miner.max_concurrent_jobs) * 100
         else:
             availability = 0
 
-        return (memory_score * 0.4 + capacity_score * 0.3 + availability * 0.3)  # type: ignore[no-any-return]
+        return memory_score * 0.4 + capacity_score * 0.3 + availability * 0.3  # type: ignore[no-any-return]
 
     def _calculate_reputation(self, miner: Any) -> float:
         """Calculate reputation score (0-100)."""
@@ -176,7 +172,7 @@ class ScoringEngine:
             score = await self.calculate_score(miner)
 
             # Bonus for matching capabilities
-            if job and hasattr(job, 'model'):
+            if job and hasattr(job, "model"):
                 if job.model in miner.capabilities:
                     score += 5
 
@@ -201,11 +197,7 @@ class ScoringEngine:
         if miner_id not in self._history:
             self._history[miner_id] = []
 
-        self._history[miner_id].append({
-            "timestamp": datetime.now(UTC),
-            "success": True,
-            "metrics": metrics or {}
-        })
+        self._history[miner_id].append({"timestamp": datetime.now(UTC), "success": True, "metrics": metrics or {}})
 
         # Keep last 1000 records
         if len(self._history[miner_id]) > 1000:
@@ -216,11 +208,7 @@ class ScoringEngine:
         if miner_id not in self._history:
             self._history[miner_id] = []
 
-        self._history[miner_id].append({
-            "timestamp": datetime.now(UTC),
-            "success": False,
-            "error": error
-        })
+        self._history[miner_id].append({"timestamp": datetime.now(UTC), "success": False, "error": error})
 
     async def update_rankings(self, miners: list[Any]) -> None:
         """Update global rankings for all miners."""

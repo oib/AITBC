@@ -19,21 +19,13 @@ def load_module_from_path(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
+
 # Load the modules
-caching = load_module_from_path(
-    "aitbc.caching",
-    Path("/opt/aitbc/aitbc/caching.py")
-)
+caching = load_module_from_path("aitbc.caching", Path("/opt/aitbc/aitbc/caching.py"))
 
-queue_manager = load_module_from_path(
-    "aitbc.queue_manager",
-    Path("/opt/aitbc/aitbc/queue_manager.py")
-)
+queue_manager = load_module_from_path("aitbc.queue_manager", Path("/opt/aitbc/aitbc/queue_manager.py"))
 
-database = load_module_from_path(
-    "aitbc.database",
-    Path("/opt/aitbc/aitbc/database.py")
-)
+database = load_module_from_path("aitbc.database", Path("/opt/aitbc/aitbc/database.py"))
 
 # Note: Async tests use @pytest.mark.asyncio decorator individually
 
@@ -41,6 +33,7 @@ database = load_module_from_path(
 # ============================================================================
 # Caching Module Tests
 # ============================================================================
+
 
 class TestCacheEntry:
     """Test CacheEntry dataclass"""
@@ -319,6 +312,7 @@ class TestGlobalCaches:
 # Queue Manager Module Tests
 # ============================================================================
 
+
 class TestJob:
     """Test Job dataclass"""
 
@@ -326,11 +320,7 @@ class TestJob:
         def dummy_func():
             return "result"
 
-        job = queue_manager.Job(
-            priority=1,
-            func=dummy_func,
-            job_id="test-id"
-        )
+        job = queue_manager.Job(priority=1, func=dummy_func, job_id="test-id")
         assert job.priority == 1
         assert job.func == dummy_func
         assert job.job_id == "test-id"
@@ -424,7 +414,7 @@ class TestTaskQueue:
 
             job_id1 = await queue.enqueue(dummy_func)
             await queue.cancel_job(job_id1)
-            job_id2 = await queue.enqueue(dummy_func)
+            await queue.enqueue(dummy_func)
 
             pending_jobs = await queue.get_jobs_by_status(queue_manager.JobStatus.PENDING)
             cancelled_jobs = await queue.get_jobs_by_status(queue_manager.JobStatus.CANCELLED)
@@ -610,15 +600,13 @@ class TestDecorators:
 # Database Module Tests
 # ============================================================================
 
+
 class TestQueryMetrics:
     """Test query metrics"""
 
     def test_query_metrics_creation(self):
         metrics = database.QueryMetrics(
-            query="SELECT * FROM test",
-            execution_time_ms=100.0,
-            timestamp=datetime.now(),
-            success=True
+            query="SELECT * FROM test", execution_time_ms=100.0, timestamp=datetime.now(), success=True
         )
         assert metrics.query == "SELECT * FROM test"
         assert metrics.execution_time_ms == 100.0
@@ -635,12 +623,7 @@ class TestDatabaseMetrics:
 
     def test_add_query(self):
         metrics = database.DatabaseMetrics()
-        query_metrics = database.QueryMetrics(
-            query="SELECT 1",
-            execution_time_ms=50.0,
-            timestamp=datetime.now(),
-            success=True
-        )
+        query_metrics = database.QueryMetrics(query="SELECT 1", execution_time_ms=50.0, timestamp=datetime.now(), success=True)
         metrics.add_query(query_metrics)
         assert metrics.total_queries == 1
         assert metrics.total_errors == 0
@@ -656,21 +639,13 @@ class TestQueryMonitor:
 
     def test_record_query(self):
         monitor = database.QueryMonitor()
-        monitor.record_query(
-            query="SELECT 1",
-            execution_time_ms=50.0,
-            success=True
-        )
+        monitor.record_query(query="SELECT 1", execution_time_ms=50.0, success=True)
         stats = monitor.get_stats()
         assert stats["total_queries"] == 1
 
     def test_record_slow_query(self):
         monitor = database.QueryMonitor(slow_query_threshold_ms=100.0)
-        monitor.record_query(
-            query="SELECT * FROM large_table",
-            execution_time_ms=150.0,
-            success=True
-        )
+        monitor.record_query(query="SELECT * FROM large_table", execution_time_ms=150.0, success=True)
         slow_queries = monitor.get_slow_queries()
         assert len(slow_queries) == 1
 
@@ -864,10 +839,7 @@ class TestSQLAlchemyUtilities:
         assert engine is not None
 
     def test_create_pooled_engine_static_pool(self):
-        engine = database.create_pooled_engine(
-            "sqlite:///:memory:",
-            use_static_pool=True
-        )
+        engine = database.create_pooled_engine("sqlite:///:memory:", use_static_pool=True)
         assert engine is not None
 
     def test_create_pooled_sessionmaker(self):

@@ -216,11 +216,8 @@ class MinerRegistry:
             "total_earnings": pool.earnings_24h * 30,  # Estimate: 24h * 30 = monthly
             "earnings_24h": pool.earnings_24h,
             "avg_response_time_ms": sum(m.jobs_completed * 500 for m in miners)
-            / max(
-                sum(m.jobs_completed for m in miners), 1
-            ),  # Estimate: 500ms avg per job
-            "uptime_percent": sum(m.uptime_percent for m in miners)
-            / max(len(miners), 1),
+            / max(sum(m.jobs_completed for m in miners), 1),  # Estimate: 500ms avg per job
+            "uptime_percent": sum(m.uptime_percent for m in miners) / max(len(miners), 1),
         }
 
     async def update_pool(self, pool_id: str, updates: dict[str, Any]) -> None:
@@ -239,9 +236,7 @@ class MinerRegistry:
                 del self._pools[pool_id]
 
     # Job management
-    async def assign_job(
-        self, job_id: str, miner_id: str, deadline: datetime | None = None
-    ) -> JobAssignment:
+    async def assign_job(self, job_id: str, miner_id: str, deadline: datetime | None = None) -> JobAssignment:
         """Assign a job to a miner."""
         async with self._lock:
             miner = self._miners.get(miner_id)
@@ -264,9 +259,7 @@ class MinerRegistry:
 
             return assignment
 
-    async def complete_job(
-        self, job_id: str, miner_id: str, status: str, metrics: dict[str, Any] | None = None
-    ) -> None:
+    async def complete_job(self, job_id: str, miner_id: str, status: str, metrics: dict[str, Any] | None = None) -> None:
         """Mark a job as complete."""
         async with self._lock:
             if job_id in self._jobs:
@@ -290,9 +283,7 @@ class MinerRegistry:
         """Get job assignment."""
         return self._jobs.get(job_id)
 
-    async def get_pending_jobs(
-        self, pool_id: str | None = None, limit: int = 50
-    ) -> builtins.list[JobAssignment]:
+    async def get_pending_jobs(self, pool_id: str | None = None, limit: int = 50) -> builtins.list[JobAssignment]:
         """Get pending jobs."""
         jobs = [j for j in self._jobs.values() if j.status == "assigned"]
         if pool_id:

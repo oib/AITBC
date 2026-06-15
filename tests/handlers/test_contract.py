@@ -24,8 +24,8 @@ from handlers.contract import (
 class TestHandleContractList:
     """Test handle_contract_list function"""
 
-    @patch('handlers.contract.requests.get')
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.requests.get")
+    @patch("handlers.contract.logger")
     def test_handle_contract_list_success(self, mock_logger, mock_get):
         """Test successful contract list"""
         mock_response = Mock()
@@ -34,8 +34,8 @@ class TestHandleContractList:
             "success": True,
             "contracts": [
                 {"address": "0x123", "type": "zk-verifier", "deployed_at": "2024-01-01"},
-                {"address": "0x456", "type": "escrow", "deployed_at": "2024-01-02"}
-            ]
+                {"address": "0x456", "type": "escrow", "deployed_at": "2024-01-02"},
+            ],
         }
         mock_get.return_value = mock_response
 
@@ -47,16 +47,13 @@ class TestHandleContractList:
         mock_get.assert_called_once()
         mock_logger.info.assert_called()
 
-    @patch('handlers.contract.requests.get')
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.requests.get")
+    @patch("handlers.contract.logger")
     def test_handle_contract_list_empty(self, mock_logger, mock_get):
         """Test contract list with no contracts"""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "success": True,
-            "contracts": []
-        }
+        mock_response.json.return_value = {"success": True, "contracts": []}
         mock_get.return_value = mock_response
 
         args = Mock()
@@ -66,15 +63,13 @@ class TestHandleContractList:
 
         mock_logger.info.assert_called()
 
-    @patch('handlers.contract.requests.get')
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.requests.get")
+    @patch("handlers.contract.logger")
     def test_handle_contract_list_default_rpc(self, mock_logger, mock_get):
         """Test contract list with default RPC URL"""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "contracts": [{"address": "0x123", "type": "zk-verifier"}]
-        }
+        mock_response.json.return_value = {"contracts": [{"address": "0x123", "type": "zk-verifier"}]}
         mock_get.return_value = mock_response
 
         args = Mock()
@@ -84,8 +79,8 @@ class TestHandleContractList:
 
         mock_get.assert_called_once()
 
-    @patch('handlers.contract.requests.get')
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.requests.get")
+    @patch("handlers.contract.logger")
     def test_handle_contract_list_http_error(self, mock_logger, mock_get):
         """Test contract list with HTTP error"""
         mock_response = Mock()
@@ -99,8 +94,8 @@ class TestHandleContractList:
 
         mock_logger.error.assert_called()
 
-    @patch('handlers.contract.requests.get')
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.requests.get")
+    @patch("handlers.contract.logger")
     def test_handle_contract_list_exception(self, mock_logger, mock_get):
         """Test contract list with exception"""
         mock_get.side_effect = Exception("Connection error")
@@ -116,8 +111,8 @@ class TestHandleContractList:
 class TestHandleContractDeploy:
     """Test handle_contract_deploy function"""
 
-    @patch('handlers.contract.requests.post')
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.requests.post")
+    @patch("handlers.contract.logger")
     def test_handle_contract_deploy_success(self, mock_logger, mock_post):
         """Test successful contract deployment"""
         mock_response = Mock()
@@ -141,7 +136,7 @@ class TestHandleContractDeploy:
 
         mock_post.assert_called_once()
 
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.logger")
     def test_handle_contract_deploy_missing_name(self, mock_logger):
         """Test contract deployment with missing name"""
         args = Mock()
@@ -159,7 +154,7 @@ class TestHandleContractDeploy:
 
         mock_logger.error.assert_called()
 
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.logger")
     def test_handle_contract_deploy_missing_password(self, mock_logger):
         """Test contract deployment with missing password"""
         args = Mock()
@@ -177,8 +172,8 @@ class TestHandleContractDeploy:
 
         mock_logger.error.assert_called()
 
-    @patch('handlers.contract.requests.post')
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.requests.post")
+    @patch("handlers.contract.logger")
     def test_handle_contract_deploy_http_error(self, mock_logger, mock_post):
         """Test contract deployment with HTTP error"""
         mock_response = Mock()
@@ -205,8 +200,8 @@ class TestHandleContractDeploy:
 class TestHandleContractCall:
     """Test handle_contract_call function"""
 
-    @patch('handlers.contract.requests.post')
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.requests.post")
+    @patch("handlers.contract.logger")
     def test_handle_contract_call_success(self, mock_logger, mock_post):
         """Test successful contract call"""
         mock_response = Mock()
@@ -229,7 +224,7 @@ class TestHandleContractCall:
         mock_post.assert_called_once()
         mock_logger.info.assert_called()
 
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.logger")
     def test_handle_contract_call_missing_address(self, mock_logger):
         """Test contract call with missing address"""
         args = Mock()
@@ -244,7 +239,7 @@ class TestHandleContractCall:
 
         mock_logger.error.assert_called()
 
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.logger")
     def test_handle_contract_call_missing_method(self, mock_logger):
         """Test contract call with missing method"""
         args = Mock()
@@ -259,8 +254,8 @@ class TestHandleContractCall:
 
         mock_logger.error.assert_called()
 
-    @patch('handlers.contract.requests.post')
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.requests.post")
+    @patch("handlers.contract.logger")
     def test_handle_contract_call_with_params(self, mock_logger, mock_post):
         """Test contract call with parameters"""
         mock_response = Mock()
@@ -286,16 +281,13 @@ class TestHandleContractCall:
 class TestHandleContractVerify:
     """Test handle_contract_verify function"""
 
-    @patch('handlers.contract.requests.post')
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.requests.post")
+    @patch("handlers.contract.logger")
     def test_handle_contract_verify_success(self, mock_logger, mock_post):
         """Test successful contract verification"""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "success": True,
-            "result": {"valid": True, "receipt_hash": "0xxyz"}
-        }
+        mock_response.json.return_value = {"success": True, "result": {"valid": True, "receipt_hash": "0xxyz"}}
         mock_post.return_value = mock_response
 
         args = Mock()
@@ -312,7 +304,7 @@ class TestHandleContractVerify:
         mock_post.assert_called_once()
         mock_logger.info.assert_called()
 
-    @patch('handlers.contract.logger')
+    @patch("handlers.contract.logger")
     def test_handle_contract_verify_missing_address(self, mock_logger):
         """Test contract verification with missing address"""
         args = Mock()

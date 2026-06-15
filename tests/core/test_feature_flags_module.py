@@ -17,25 +17,20 @@ def load_module_from_path(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-feature_flags = load_module_from_path(
-    "aitbc.feature_flags",
-    Path("/opt/aitbc/aitbc/feature_flags.py")
-)
+
+feature_flags = load_module_from_path("aitbc.feature_flags", Path("/opt/aitbc/aitbc/feature_flags.py"))
 
 
 # ============================================================================
 # Feature Flag Dataclass Tests
 # ============================================================================
 
+
 class TestFeatureFlag:
     """Test FeatureFlag dataclass"""
 
     def test_feature_flag_initialization(self):
-        flag = feature_flags.FeatureFlag(
-            name="test_feature",
-            enabled=True,
-            description="Test feature"
-        )
+        flag = feature_flags.FeatureFlag(name="test_feature", enabled=True, description="Test feature")
         assert flag.name == "test_feature"
         assert flag.enabled is True
         assert flag.description == "Test feature"
@@ -46,45 +41,32 @@ class TestFeatureFlag:
 
     def test_feature_flag_with_rollout_percentage(self):
         flag = feature_flags.FeatureFlag(
-            name="test_feature",
-            enabled=True,
-            description="Test feature",
-            rollout_percentage=50.0
+            name="test_feature", enabled=True, description="Test feature", rollout_percentage=50.0
         )
         assert flag.rollout_percentage == 50.0
 
     def test_feature_flag_with_whitelist(self):
         flag = feature_flags.FeatureFlag(
-            name="test_feature",
-            enabled=True,
-            description="Test feature",
-            whitelisted_users={"user1", "user2"}
+            name="test_feature", enabled=True, description="Test feature", whitelisted_users={"user1", "user2"}
         )
         assert flag.whitelisted_users == {"user1", "user2"}
 
     def test_feature_flag_with_blacklist(self):
         flag = feature_flags.FeatureFlag(
-            name="test_feature",
-            enabled=True,
-            description="Test feature",
-            blacklisted_users={"user1", "user2"}
+            name="test_feature", enabled=True, description="Test feature", blacklisted_users={"user1", "user2"}
         )
         assert flag.blacklisted_users == {"user1", "user2"}
 
     def test_feature_flag_with_enabled_since(self):
         ts = datetime.now()
-        flag = feature_flags.FeatureFlag(
-            name="test_feature",
-            enabled=True,
-            description="Test feature",
-            enabled_since=ts
-        )
+        flag = feature_flags.FeatureFlag(name="test_feature", enabled=True, description="Test feature", enabled_since=ts)
         assert flag.enabled_since == ts
 
 
 # ============================================================================
 # Feature Flag Manager Tests
 # ============================================================================
+
 
 class TestFeatureFlagManager:
     """Test FeatureFlagManager class"""
@@ -106,10 +88,10 @@ class TestFeatureFlagManager:
                     "rollout_percentage": 100.0,
                     "whitelisted_users": [],
                     "blacklisted_users": [],
-                    "enabled_since": "2024-01-01T00:00:00"
+                    "enabled_since": "2024-01-01T00:00:00",
                 }
             }
-            with open(config_file, 'w') as f:
+            with open(config_file, "w") as f:
                 json.dump(data, f)
 
             manager = feature_flags.FeatureFlagManager(config_file)
@@ -119,7 +101,7 @@ class TestFeatureFlagManager:
     def test_manager_initialization_invalid_json(self):
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "feature_flags.json"
-            with open(config_file, 'w') as f:
+            with open(config_file, "w") as f:
                 f.write("invalid json")
 
             manager = feature_flags.FeatureFlagManager(config_file)
@@ -131,11 +113,7 @@ class TestFeatureFlagManager:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
 
-            manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=True,
-                description="Test"
-            )
+            manager._flags["test"] = feature_flags.FeatureFlag(name="test", enabled=True, description="Test")
             manager.save_flags()
 
             assert config_file.exists()
@@ -155,11 +133,7 @@ class TestFeatureFlagManager:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
-            manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=False,
-                description="Test"
-            )
+            manager._flags["test"] = feature_flags.FeatureFlag(name="test", enabled=False, description="Test")
             result = manager.is_enabled("test")
             assert result is False
 
@@ -167,11 +141,7 @@ class TestFeatureFlagManager:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
-            manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=True,
-                description="Test"
-            )
+            manager._flags["test"] = feature_flags.FeatureFlag(name="test", enabled=True, description="Test")
             result = manager.is_enabled("test")
             assert result is True
 
@@ -180,10 +150,7 @@ class TestFeatureFlagManager:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
             manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=True,
-                description="Test",
-                blacklisted_users={"user1"}
+                name="test", enabled=True, description="Test", blacklisted_users={"user1"}
             )
             result = manager.is_enabled("test", user_id="user1")
             assert result is False
@@ -193,10 +160,7 @@ class TestFeatureFlagManager:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
             manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=True,
-                description="Test",
-                whitelisted_users={"user1"}
+                name="test", enabled=True, description="Test", whitelisted_users={"user1"}
             )
             result = manager.is_enabled("test", user_id="user1")
             assert result is True
@@ -206,10 +170,7 @@ class TestFeatureFlagManager:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
             manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=True,
-                description="Test",
-                rollout_percentage=50.0
+                name="test", enabled=True, description="Test", rollout_percentage=50.0
             )
             # user_hash % 100 = 45, which is < 50
             result = manager.is_enabled("test", user_hash=45)
@@ -220,10 +181,7 @@ class TestFeatureFlagManager:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
             manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=True,
-                description="Test",
-                rollout_percentage=50.0
+                name="test", enabled=True, description="Test", rollout_percentage=50.0
             )
             # user_hash % 100 = 75, which is >= 50
             result = manager.is_enabled("test", user_hash=75)
@@ -234,10 +192,7 @@ class TestFeatureFlagManager:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
             manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=True,
-                description="Test",
-                rollout_percentage=50.0
+                name="test", enabled=True, description="Test", rollout_percentage=50.0
             )
             # No user_hash provided, should default to enabled
             result = manager.is_enabled("test")
@@ -258,11 +213,7 @@ class TestFeatureFlagManager:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
-            manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=False,
-                description="Test"
-            )
+            manager._flags["test"] = feature_flags.FeatureFlag(name="test", enabled=False, description="Test")
             manager.enable_feature("test", rollout_percentage=50.0)
 
             assert manager._flags["test"].enabled is True
@@ -272,11 +223,7 @@ class TestFeatureFlagManager:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
-            manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=True,
-                description="Test"
-            )
+            manager._flags["test"] = feature_flags.FeatureFlag(name="test", enabled=True, description="Test")
             manager.disable_feature("test")
 
             assert manager._flags["test"].enabled is False
@@ -301,11 +248,7 @@ class TestFeatureFlagManager:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
-            manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=True,
-                description="Test"
-            )
+            manager._flags["test"] = feature_flags.FeatureFlag(name="test", enabled=True, description="Test")
             manager.add_whitelisted_user("test", "user1")
 
             assert "user1" in manager._flags["test"].whitelisted_users
@@ -323,11 +266,7 @@ class TestFeatureFlagManager:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
-            manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=True,
-                description="Test"
-            )
+            manager._flags["test"] = feature_flags.FeatureFlag(name="test", enabled=True, description="Test")
             manager.add_blacklisted_user("test", "user1")
 
             assert "user1" in manager._flags["test"].blacklisted_users
@@ -336,11 +275,7 @@ class TestFeatureFlagManager:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
-            manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=True,
-                description="Test"
-            )
+            manager._flags["test"] = feature_flags.FeatureFlag(name="test", enabled=True, description="Test")
 
             flags = manager.get_all_flags()
             assert "test" in flags
@@ -350,11 +285,7 @@ class TestFeatureFlagManager:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.FeatureFlagManager(config_file)
-            manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=True,
-                description="Test"
-            )
+            manager._flags["test"] = feature_flags.FeatureFlag(name="test", enabled=True, description="Test")
 
             flag = manager.get_flag_status("test")
             assert flag is not None
@@ -372,6 +303,7 @@ class TestFeatureFlagManager:
 # ============================================================================
 # Global Functions Tests
 # ============================================================================
+
 
 class TestGlobalFunctions:
     """Test global feature flag functions"""
@@ -394,11 +326,7 @@ class TestGlobalFunctions:
         with TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "feature_flags.json"
             manager = feature_flags.get_feature_flag_manager(config_file)
-            manager._flags["test"] = feature_flags.FeatureFlag(
-                name="test",
-                enabled=True,
-                description="Test"
-            )
+            manager._flags["test"] = feature_flags.FeatureFlag(name="test", enabled=True, description="Test")
 
             result = feature_flags.is_feature_enabled("test")
             assert result is True

@@ -34,17 +34,11 @@ def mock_ctx_obj(monkeypatch):
 
     def patched_invoke(self, cli, args, **kwargs):
         # Ensure obj is set with default context values
-        if 'obj' not in kwargs or kwargs['obj'] is None:
-            kwargs['obj'] = {
-                'output': 'table',
-                'url': None,
-                'api_key': None,
-                'verbose': 0,
-                'debug': False
-            }
+        if "obj" not in kwargs or kwargs["obj"] is None:
+            kwargs["obj"] = {"output": "table", "url": None, "api_key": None, "verbose": 0, "debug": False}
         return original_invoke(self, cli, args, **kwargs)
 
-    monkeypatch.setattr(CliRunner, 'invoke', patched_invoke)
+    monkeypatch.setattr(CliRunner, "invoke", patched_invoke)
 
 
 @pytest.fixture(scope="session")
@@ -79,7 +73,7 @@ def training_env_mock():
         mock_result.stderr = ""
         return mock_result
 
-    with patch('subprocess.run', side_effect=mock_subprocess_run):
+    with patch("subprocess.run", side_effect=mock_subprocess_run):
         yield env
 
 
@@ -91,7 +85,7 @@ def mock_faucet_response():
         "address": "ait1testaddress",
         "amount": 1000,
         "transaction_id": "tx_test123",
-        "timestamp": "2026-05-05T12:00:00"
+        "timestamp": "2026-05-05T12:00:00",
     }
 
 
@@ -105,14 +99,10 @@ def training_stage_data():
             "prerequisites": {
                 "description": "Test prerequisites",
                 "setup_script": "/opt/aitbc/scripts/training/setup_training_env.sh",
-                "requirements": ["AITBC node running", "Funded accounts"]
+                "requirements": ["AITBC node running", "Funded accounts"],
             },
             "operations": [
-                {
-                    "operation": "wallet_create",
-                    "parameters": {"name": "test-wallet"},
-                    "expected_result": {"status": "success"}
-                }
-            ]
-        }
+                {"operation": "wallet_create", "parameters": {"name": "test-wallet"}, "expected_result": {"status": "success"}}
+            ],
+        },
     }

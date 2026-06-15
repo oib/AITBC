@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 # Mock aiohttp before importing
-sys.modules['aiohttp'] = Mock()
+sys.modules["aiohttp"] = Mock()
 
 from main import ExchangeRegistration, OrderRequest, TradingPair, app
 
@@ -22,12 +22,7 @@ def test_app_initialization():
 @pytest.mark.unit
 def test_exchange_registration_model():
     """Test ExchangeRegistration model"""
-    registration = ExchangeRegistration(
-        name="TestExchange",
-        api_key="test_key_123",
-        sandbox=True,
-        description="Test exchange"
-    )
+    registration = ExchangeRegistration(name="TestExchange", api_key="test_key_123", sandbox=True, description="Test exchange")
     assert registration.name == "TestExchange"
     assert registration.api_key == "test_key_123"
     assert registration.sandbox is True
@@ -37,10 +32,7 @@ def test_exchange_registration_model():
 @pytest.mark.unit
 def test_exchange_registration_defaults():
     """Test ExchangeRegistration default values"""
-    registration = ExchangeRegistration(
-        name="TestExchange",
-        api_key="test_key_123"
-    )
+    registration = ExchangeRegistration(name="TestExchange", api_key="test_key_123")
     assert registration.name == "TestExchange"
     assert registration.api_key == "test_key_123"
     assert registration.sandbox is True
@@ -56,7 +48,7 @@ def test_trading_pair_model():
         quote_asset="BTC",
         min_order_size=0.001,
         price_precision=8,
-        quantity_precision=6
+        quantity_precision=6,
     )
     assert pair.symbol == "AITBC/BTC"
     assert pair.base_asset == "AITBC"
@@ -69,13 +61,7 @@ def test_trading_pair_model():
 @pytest.mark.unit
 def test_order_request_model():
     """Test OrderRequest model"""
-    order = OrderRequest(
-        symbol="AITBC/BTC",
-        side="buy",
-        type="limit",
-        quantity=100.0,
-        price=0.00001
-    )
+    order = OrderRequest(symbol="AITBC/BTC", side="buy", type="limit", quantity=100.0, price=0.00001)
     assert order.symbol == "AITBC/BTC"
     assert order.side == "buy"
     assert order.type == "limit"
@@ -86,12 +72,7 @@ def test_order_request_model():
 @pytest.mark.unit
 def test_order_request_market_order():
     """Test OrderRequest for market order"""
-    order = OrderRequest(
-        symbol="AITBC/BTC",
-        side="sell",
-        type="market",
-        quantity=50.0
-    )
+    order = OrderRequest(symbol="AITBC/BTC", side="sell", type="market", quantity=50.0)
     assert order.symbol == "AITBC/BTC"
     assert order.side == "sell"
     assert order.type == "market"

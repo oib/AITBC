@@ -18,8 +18,8 @@ import pytest
 class TestRunSubprocess:
     """Test run_subprocess function"""
 
-    @patch('aitbc_cli.utils.subprocess.subprocess.run')
-    @patch('aitbc_cli.utils.subprocess.error')
+    @patch("aitbc_cli.utils.subprocess.subprocess.run")
+    @patch("aitbc_cli.utils.subprocess.error")
     def test_run_subprocess_success_capture_output(self, mock_error, mock_run):
         """Test successful subprocess with captured output"""
         from aitbc_cli.utils.subprocess import run_subprocess
@@ -33,8 +33,8 @@ class TestRunSubprocess:
         assert result == "test output"
         mock_run.assert_called_once_with(["echo", "test"], check=True, capture_output=True, text=True, shell=False)
 
-    @patch('aitbc_cli.utils.subprocess.subprocess.run')
-    @patch('aitbc_cli.utils.subprocess.error')
+    @patch("aitbc_cli.utils.subprocess.subprocess.run")
+    @patch("aitbc_cli.utils.subprocess.error")
     def test_run_subprocess_success_no_capture(self, mock_error, mock_run):
         """Test successful subprocess without capturing output"""
         from aitbc_cli.utils.subprocess import run_subprocess
@@ -47,9 +47,9 @@ class TestRunSubprocess:
         assert result == mock_result
         mock_run.assert_called_once_with(["echo", "test"], check=True, capture_output=False, text=True, shell=False)
 
-    @patch('aitbc_cli.utils.subprocess.subprocess.run')
-    @patch('aitbc_cli.utils.subprocess.error')
-    @patch('aitbc_cli.utils.subprocess.sys.exit')
+    @patch("aitbc_cli.utils.subprocess.subprocess.run")
+    @patch("aitbc_cli.utils.subprocess.error")
+    @patch("aitbc_cli.utils.subprocess.sys.exit")
     def test_run_subprocess_called_process_error_check_true(self, mock_exit, mock_error, mock_run):
         """Test subprocess with CalledProcessError when check=True"""
         import subprocess
@@ -63,8 +63,8 @@ class TestRunSubprocess:
         mock_error.assert_called_once()
         mock_exit.assert_called_once_with(1)
 
-    @patch('aitbc_cli.utils.subprocess.subprocess.run')
-    @patch('aitbc_cli.utils.subprocess.error')
+    @patch("aitbc_cli.utils.subprocess.subprocess.run")
+    @patch("aitbc_cli.utils.subprocess.error")
     def test_run_subprocess_called_process_error_check_false(self, mock_error, mock_run):
         """Test subprocess with CalledProcessError when check=False"""
         import subprocess
@@ -78,9 +78,9 @@ class TestRunSubprocess:
         assert result is None
         mock_error.assert_called_once()
 
-    @patch('aitbc_cli.utils.subprocess.subprocess.run')
-    @patch('aitbc_cli.utils.subprocess.error')
-    @patch('aitbc_cli.utils.subprocess.sys.exit')
+    @patch("aitbc_cli.utils.subprocess.subprocess.run")
+    @patch("aitbc_cli.utils.subprocess.error")
+    @patch("aitbc_cli.utils.subprocess.sys.exit")
     def test_run_subprocess_generic_error_check_true(self, mock_exit, mock_error, mock_run):
         """Test subprocess with generic error when check=True"""
         from aitbc_cli.utils.subprocess import run_subprocess
@@ -92,8 +92,8 @@ class TestRunSubprocess:
         mock_error.assert_called_once()
         mock_exit.assert_called_once_with(1)
 
-    @patch('aitbc_cli.utils.subprocess.subprocess.run')
-    @patch('aitbc_cli.utils.subprocess.error')
+    @patch("aitbc_cli.utils.subprocess.subprocess.run")
+    @patch("aitbc_cli.utils.subprocess.error")
     def test_run_subprocess_generic_error_check_false(self, mock_error, mock_run):
         """Test subprocess with generic error when check=False"""
         from aitbc_cli.utils.subprocess import run_subprocess
@@ -105,8 +105,8 @@ class TestRunSubprocess:
         assert result is None
         mock_error.assert_called_once()
 
-    @patch('aitbc_cli.utils.subprocess.subprocess.run')
-    @patch('aitbc_cli.utils.subprocess.error')
+    @patch("aitbc_cli.utils.subprocess.subprocess.run")
+    @patch("aitbc_cli.utils.subprocess.error")
     def test_run_subprocess_shell_always_false(self, mock_error, mock_run):
         """Test that shell parameter is always forced to False for security"""
         from aitbc_cli.utils.subprocess import run_subprocess
@@ -120,7 +120,7 @@ class TestRunSubprocess:
 
         # Check that shell=False was actually used
         call_kwargs = mock_run.call_args[1]
-        assert call_kwargs['shell'] is False
+        assert call_kwargs["shell"] is False
 
 
 if __name__ == "__main__":

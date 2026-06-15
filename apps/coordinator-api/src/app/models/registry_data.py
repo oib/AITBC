@@ -2,7 +2,6 @@
 Data analytics service definitions
 """
 
-
 from .registry import (
     HardwareRequirement,
     ParameterDefinition,

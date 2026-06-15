@@ -58,7 +58,7 @@ def test_find_dependencies():
     test_file.write_text('include "dependency.circom"')
 
     dep_file = Path("/tmp/dependency.circom")
-    dep_file.write_text('pragma circom 2.0.0;')
+    dep_file.write_text("pragma circom 2.0.0;")
 
     try:
         deps = cache._find_dependencies(test_file)
@@ -75,7 +75,7 @@ def test_find_dependencies_none():
     cache = ZKCircuitCache()
 
     test_file = Path("/tmp/test_circuit_no_deps.circom")
-    test_file.write_text('pragma circom 2.0.0;')
+    test_file.write_text("pragma circom 2.0.0;")
 
     try:
         deps = cache._find_dependencies(test_file)
@@ -97,7 +97,7 @@ def test_find_dependencies_recursive():
     dep1.write_text('include "dep2.circom"')
 
     dep2 = Path("/tmp/dep2.circom")
-    dep2.write_text('pragma circom 2.0.0;')
+    dep2.write_text("pragma circom 2.0.0;")
 
     try:
         deps = cache._find_dependencies(test_file)
@@ -116,7 +116,7 @@ def test_get_cache_key():
     cache = ZKCircuitCache()
 
     test_file = Path("/tmp/test_circuit.circom")
-    test_file.write_text('pragma circom 2.0.0;')
+    test_file.write_text("pragma circom 2.0.0;")
 
     output_dir = Path("/tmp/build/test")
 
@@ -143,21 +143,21 @@ def test_save_and_load_cache_entry():
     cache = ZKCircuitCache()
 
     test_entry = {
-        'circuit_file': '/test.circom',
-        'output_dir': '/build',
-        'circuit_hash': 'abc123',
-        'dependencies': {},
-        'output_files': [],
-        'compilation_time': 1.5,
-        'cached_at': 1234567890
+        "circuit_file": "/test.circom",
+        "output_dir": "/build",
+        "circuit_hash": "abc123",
+        "dependencies": {},
+        "output_files": [],
+        "compilation_time": 1.5,
+        "cached_at": 1234567890,
     }
 
     cache._save_cache_entry("test_key", test_entry)
     loaded = cache._load_cache_entry("test_key")
 
     assert loaded is not None
-    assert loaded['circuit_file'] == '/test.circom'
-    assert loaded['compilation_time'] == 1.5
+    assert loaded["circuit_file"] == "/test.circom"
+    assert loaded["compilation_time"] == 1.5
 
 
 @pytest.mark.unit
@@ -166,8 +166,8 @@ def test_get_cache_stats_empty():
     cache = ZKCircuitCache()
     cache.clear_cache()  # Clear any existing entries
     stats = cache.get_cache_stats()
-    assert stats['entries'] == 0
-    assert stats['total_size_mb'] == 0
+    assert stats["entries"] == 0
+    assert stats["total_size_mb"] == 0
 
 
 @pytest.mark.unit
@@ -176,7 +176,7 @@ def test_clear_cache():
     cache = ZKCircuitCache()
 
     # Add a test entry
-    test_entry = {'circuit_file': '/test.circom'}
+    test_entry = {"circuit_file": "/test.circom"}
     cache._save_cache_entry("test_key", test_entry)
 
     # Clear cache
@@ -184,4 +184,4 @@ def test_clear_cache():
 
     # Verify cache is empty
     stats = cache.get_cache_stats()
-    assert stats['entries'] == 0
+    assert stats["entries"] == 0

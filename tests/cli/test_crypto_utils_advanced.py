@@ -21,12 +21,7 @@ class TestCreateSignatureChallenge:
         """Test basic signature challenge creation"""
         from aitbc_cli.utils.crypto_utils import create_signature_challenge
 
-        tx_data = {
-            "tx_id": "tx123",
-            "to": "0xabc",
-            "amount": 100,
-            "timestamp": "2024-01-01T00:00:00Z"
-        }
+        tx_data = {"tx_id": "tx123", "to": "0xabc", "amount": 100, "timestamp": "2024-01-01T00:00:00Z"}
         nonce = "nonce123"
 
         challenge = create_signature_challenge(tx_data, nonce)
@@ -38,13 +33,7 @@ class TestCreateSignatureChallenge:
         """Test challenge with all fields present"""
         from aitbc_cli.utils.crypto_utils import create_signature_challenge
 
-        tx_data = {
-            "tx_id": "tx123",
-            "to": "0xabc",
-            "amount": 100,
-            "timestamp": "2024-01-01T00:00:00Z",
-            "extra": "ignored"
-        }
+        tx_data = {"tx_id": "tx123", "to": "0xabc", "amount": 100, "timestamp": "2024-01-01T00:00:00Z", "extra": "ignored"}
         nonce = "nonce123"
 
         challenge = create_signature_challenge(tx_data, nonce)

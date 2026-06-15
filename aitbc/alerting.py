@@ -2,6 +2,7 @@
 AITBC Alerting Module
 Alerting and notification system for AITBC applications
 """
+
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -9,24 +10,31 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 from .aitbc_logging import get_logger
+
 logger = get_logger(__name__)
+
 
 class AlertSeverity(Enum):
     """Alert severity levels"""
-    INFO = 'info'
-    WARNING = 'warning'
-    ERROR = 'error'
-    CRITICAL = 'critical'
+
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+    CRITICAL = "critical"
+
 
 class AlertStatus(Enum):
     """Alert status"""
-    ACTIVE = 'active'
-    ACKNOWLEDGED = 'acknowledged'
-    RESOLVED = 'resolved'
+
+    ACTIVE = "active"
+    ACKNOWLEDGED = "acknowledged"
+    RESOLVED = "resolved"
+
 
 @dataclass
 class Alert:
     """Alert data structure"""
+
     id: str
     severity: AlertSeverity
     title: str
@@ -41,7 +49,20 @@ class Alert:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert alert to dictionary"""
-        return {'id': self.id, 'severity': self.severity.value, 'title': self.title, 'message': self.message, 'source': self.source, 'timestamp': self.timestamp.isoformat(), 'status': self.status.value, 'metadata': self.metadata, 'acknowledged_by': self.acknowledged_by, 'acknowledged_at': self.acknowledged_at.isoformat() if self.acknowledged_at else None, 'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None}
+        return {
+            "id": self.id,
+            "severity": self.severity.value,
+            "title": self.title,
+            "message": self.message,
+            "source": self.source,
+            "timestamp": self.timestamp.isoformat(),
+            "status": self.status.value,
+            "metadata": self.metadata,
+            "acknowledged_by": self.acknowledged_by,
+            "acknowledged_at": self.acknowledged_at.isoformat() if self.acknowledged_at else None,
+            "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
+        }
+
 
 class AlertChannel:
     """Base class for alert channels"""
@@ -58,23 +79,38 @@ class AlertChannel:
         """
         raise NotImplementedError
 
+
 class LogAlertChannel(AlertChannel):
     """Log-based alert channel"""
 
     async def send(self, alert: Alert) -> bool:
         """Send alert to logs"""
         try:
-            log_level = {AlertSeverity.INFO: logger.info, AlertSeverity.WARNING: logger.warning, AlertSeverity.ERROR: logger.error, AlertSeverity.CRITICAL: logger.critical}.get(alert.severity, logger.info)
-            log_level(f'Alert [{alert.severity.value.upper()}]: {alert.title}', extra={'alert_id': alert.id, 'severity': alert.severity.value, 'source': alert.source, 'metadata': alert.metadata})
+            log_level = {
+                AlertSeverity.INFO: logger.info,
+                AlertSeverity.WARNING: logger.warning,
+                AlertSeverity.ERROR: logger.error,
+                AlertSeverity.CRITICAL: logger.critical,
+            }.get(alert.severity, logger.info)
+            log_level(
+                f"Alert [{alert.severity.value.upper()}]: {alert.title}",
+                extra={
+                    "alert_id": alert.id,
+                    "severity": alert.severity.value,
+                    "source": alert.source,
+                    "metadata": alert.metadata,
+                },
+            )
             return True
         except Exception as e:
-            logger.error('Failed to send log alert: %s', e)
+            logger.error("Failed to send log alert: %s", e)
             return False
+
 
 class WebhookAlertChannel(AlertChannel):
     """Webhook-based alert channel"""
 
-    def __init__(self, url: str, headers: dict[str, str] | None=None):
+    def __init__(self, url: str, headers: dict[str, str] | None = None):
         """
         Initialize webhook channel
 
@@ -89,18 +125,31 @@ class WebhookAlertChannel(AlertChannel):
         """Send alert via webhook"""
         try:
             import httpx
+
             async with httpx.AsyncClient() as client:
                 response = await client.post(self.url, json=alert.to_dict(), headers=self.headers, timeout=10.0)
                 response.raise_for_status()
                 return True
         except Exception as e:
-            logger.error('Failed to send webhook alert: %s', e)
+            logger.error("Failed to send webhook alert: %s", e)
             return False
+
 
 class AlertRule:
     """Alert rule definition"""
 
-    def __init__(self, name: str, condition: Callable[[], bool], severity: AlertSeverity, title_template: str, message_template: str, source: str, check_interval: int=60, cooldown: int=300, metadata: dict[str, Any] | None=None):
+    def __init__(
+        self,
+        name: str,
+        condition: Callable[[], bool],
+        severity: AlertSeverity,
+        title_template: str,
+        message_template: str,
+        source: str,
+        check_interval: int = 60,
+        cooldown: int = 300,
+        metadata: dict[str, Any] | None = None,
+    ):
         """
         Initialize alert rule
 
@@ -140,7 +189,15 @@ class AlertRule:
     def fire(self) -> Alert:
         """Create alert from this rule"""
         self.last_fired = datetime.utcnow()
-        return Alert(id=f'{self.name}-{int(datetime.utcnow().timestamp())}', severity=self.severity, title=self.title_template, message=self.message_template, source=self.source, metadata=self.metadata)
+        return Alert(
+            id=f"{self.name}-{int(datetime.utcnow().timestamp())}",
+            severity=self.severity,
+            title=self.title_template,
+            message=self.message_template,
+            source=self.source,
+            metadata=self.metadata,
+        )
+
 
 class AlertManager:
     """Alert manager for handling alerts and rules"""
@@ -162,7 +219,7 @@ class AlertManager:
             rule: Alert rule to add
         """
         self.rules[rule.name] = rule
-        logger.info('Added alert rule: %s', rule.name)
+        logger.info("Added alert rule: %s", rule.name)
 
     def remove_rule(self, name: str) -> None:
         """
@@ -173,7 +230,7 @@ class AlertManager:
         """
         if name in self.rules:
             del self.rules[name]
-            logger.info('Removed alert rule: %s', name)
+            logger.info("Removed alert rule: %s", name)
 
     def add_channel(self, channel: AlertChannel) -> None:
         """
@@ -183,7 +240,7 @@ class AlertManager:
             channel: Alert channel to add
         """
         self.channels.append(channel)
-        logger.info('Added alert channel: %s', channel.__class__.__name__)
+        logger.info("Added alert channel: %s", channel.__class__.__name__)
 
     async def check_rules(self) -> None:
         """Check all alert rules and fire if needed"""
@@ -193,7 +250,7 @@ class AlertManager:
                     alert = rule.fire()
                     await self.send_alert(alert)
             except Exception as e:
-                logger.error('Error checking rule %s: %s', rule.name, e)
+                logger.error("Error checking rule %s: %s", rule.name, e)
 
     async def send_alert(self, alert: Alert) -> None:
         """
@@ -210,7 +267,7 @@ class AlertManager:
             try:
                 await channel.send(alert)
             except Exception as e:
-                logger.error('Failed to send alert through channel: %s', e)
+                logger.error("Failed to send alert through channel: %s", e)
 
     async def acknowledge_alert(self, alert_id: str, acknowledged_by: str) -> bool:
         """
@@ -228,7 +285,7 @@ class AlertManager:
             alert.status = AlertStatus.ACKNOWLEDGED
             alert.acknowledged_by = acknowledged_by
             alert.acknowledged_at = datetime.utcnow()
-            logger.info('Alert acknowledged: %s by %s', alert_id, acknowledged_by)
+            logger.info("Alert acknowledged: %s by %s", alert_id, acknowledged_by)
             return True
         return False
 
@@ -247,7 +304,7 @@ class AlertManager:
             alert.status = AlertStatus.RESOLVED
             alert.resolved_at = datetime.utcnow()
             del self.active_alerts[alert_id]
-            logger.info('Alert resolved: %s', alert_id)
+            logger.info("Alert resolved: %s", alert_id)
             return True
         return False
 
@@ -255,7 +312,7 @@ class AlertManager:
         """Get all active alerts"""
         return list(self.active_alerts.values())
 
-    def get_alert_history(self, limit: int=100) -> list[Alert]:
+    def get_alert_history(self, limit: int = 100) -> list[Alert]:
         """
         Get alert history
 
@@ -273,7 +330,7 @@ class AlertManager:
             return
         self._running = True
         self._task = asyncio.create_task(self._run_checks())
-        logger.info('Alert manager started')
+        logger.info("Alert manager started")
 
     async def stop(self) -> None:
         """Stop alert manager background task"""
@@ -286,7 +343,7 @@ class AlertManager:
                 await self._task
             except asyncio.CancelledError:
                 pass
-        logger.info('Alert manager stopped')
+        logger.info("Alert manager stopped")
 
     async def _run_checks(self) -> None:
         """Background task to check alert rules"""
@@ -298,9 +355,12 @@ class AlertManager:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error('Error in alert check loop: %s', e)
+                logger.error("Error in alert check loop: %s", e)
                 await asyncio.sleep(60)
+
+
 _alert_manager: AlertManager | None = None
+
 
 def get_alert_manager() -> AlertManager:
     """
@@ -315,7 +375,8 @@ def get_alert_manager() -> AlertManager:
         _alert_manager.add_channel(LogAlertChannel())
     return _alert_manager
 
-def setup_alerting(webhook_url: str | None=None, webhook_headers: dict[str, str] | None=None) -> AlertManager:
+
+def setup_alerting(webhook_url: str | None = None, webhook_headers: dict[str, str] | None = None) -> AlertManager:
     """
     Setup alerting system
 

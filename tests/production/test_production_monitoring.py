@@ -19,10 +19,7 @@ def _service_available(host: str = "localhost", port: int = 9001) -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(
-    not _service_available(),
-    reason="Agent coordinator service not running on localhost:9001"
-)
+pytestmark = pytest.mark.skipif(not _service_available(), reason="Agent coordinator service not running on localhost:9001")
 
 
 class TestPrometheusMetrics:
@@ -78,15 +75,12 @@ class TestPrometheusMetrics:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Use system status endpoint instead of metrics/health which has issues
-        response = requests.get(
-            f"{self.BASE_URL}/system/status",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/system/status", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -117,6 +111,7 @@ class TestPrometheusMetrics:
         assert perf["total_requests"] >= 5
         assert perf["uptime_seconds"] > 0
 
+
 class TestAlertingSystem:
     """Test alerting system functionality"""
 
@@ -127,7 +122,7 @@ class TestAlertingSystem:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         return response.json()["access_token"]
 
@@ -135,10 +130,7 @@ class TestAlertingSystem:
         """Test getting alerts"""
         token = self.get_admin_token()
 
-        response = requests.get(
-            f"{self.BASE_URL}/alerts",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/alerts", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -152,10 +144,7 @@ class TestAlertingSystem:
         """Test getting only active alerts"""
         token = self.get_admin_token()
 
-        response = requests.get(
-            f"{self.BASE_URL}/alerts?status=active",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/alerts?status=active", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -168,10 +157,7 @@ class TestAlertingSystem:
         """Test getting alert statistics"""
         token = self.get_admin_token()
 
-        response = requests.get(
-            f"{self.BASE_URL}/alerts/stats",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/alerts/stats", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -196,10 +182,7 @@ class TestAlertingSystem:
         """Test getting alert rules"""
         token = self.get_admin_token()
 
-        response = requests.get(
-            f"{self.BASE_URL}/alerts/rules",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/alerts/rules", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -227,10 +210,7 @@ class TestAlertingSystem:
         token = self.get_admin_token()
 
         # First get alerts to find one to resolve
-        response = requests.get(
-            f"{self.BASE_URL}/alerts",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/alerts", headers={"Authorization": f"Bearer {token}"})
 
         alerts = response.json()["alerts"]
         if alerts:
@@ -238,8 +218,7 @@ class TestAlertingSystem:
 
             # Resolve the alert
             response = requests.post(
-                f"{self.BASE_URL}/alerts/{alert_id}/resolve",
-                headers={"Authorization": f"Bearer {token}"}
+                f"{self.BASE_URL}/alerts/{alert_id}/resolve", headers={"Authorization": f"Bearer {token}"}
             )
 
             assert response.status_code == 200
@@ -251,6 +230,7 @@ class TestAlertingSystem:
             assert alert["status"] == "resolved"
             assert "resolved_at" in alert
 
+
 class TestSLAMonitoring:
     """Test SLA monitoring functionality"""
 
@@ -261,7 +241,7 @@ class TestSLAMonitoring:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         return response.json()["access_token"]
 
@@ -269,10 +249,7 @@ class TestSLAMonitoring:
         """Test getting SLA status"""
         token = self.get_admin_token()
 
-        response = requests.get(
-            f"{self.BASE_URL}/sla",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/sla", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -296,10 +273,7 @@ class TestSLAMonitoring:
         # Record a good SLA metric
         response = requests.post(
             f"{self.BASE_URL}/sla/response_time/record?value=0.5",  # 500ms response time
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
 
         assert response.status_code == 200
@@ -317,24 +291,17 @@ class TestSLAMonitoring:
         # Record some metrics first (use query parameter)
         requests.post(
             f"{self.BASE_URL}/sla/response_time/record?value=0.3",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
 
         requests.post(
             f"{self.BASE_URL}/sla/response_time/record?value=0.8",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json"
-            }
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
 
         # Get specific SLA status
         response = requests.get(
-            f"{self.BASE_URL}/sla/response_time/status?sla_id=response_time",
-            headers={"Authorization": f"Bearer {token}"}
+            f"{self.BASE_URL}/sla/response_time/status?sla_id=response_time", headers={"Authorization": f"Bearer {token}"}
         )
 
         # Handle case where SLA endpoints are not fully implemented
@@ -362,6 +329,7 @@ class TestSLAMonitoring:
             # SLA endpoints might not be fully implemented
             assert response.status_code in [404, 500]
 
+
 class TestSystemStatus:
     """Test comprehensive system status endpoint"""
 
@@ -372,7 +340,7 @@ class TestSystemStatus:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         return response.json()["access_token"]
 
@@ -380,10 +348,7 @@ class TestSystemStatus:
         """Test comprehensive system status"""
         token = self.get_admin_token()
 
-        response = requests.get(
-            f"{self.BASE_URL}/system/status",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/system/status", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         data = response.json()
@@ -434,6 +399,7 @@ class TestSystemStatus:
             assert service in services
             assert services[service] in ["running", "stopped"]
 
+
 class TestMonitoringIntegration:
     """Test monitoring system integration"""
 
@@ -447,7 +413,7 @@ class TestMonitoringIntegration:
         initial_metrics = response.json()
 
         # 2. Make some requests to generate activity
-        for i in range(10):
+        for _i in range(10):
             requests.get(f"{self.BASE_URL}/health")
             time.sleep(0.1)  # Small delay between requests
 
@@ -470,14 +436,11 @@ class TestMonitoringIntegration:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
-        response = requests.get(
-            f"{self.BASE_URL}/system/status",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/system/status", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
         status = response.json()
         # Handle different response structures
@@ -492,16 +455,13 @@ class TestMonitoringIntegration:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         token = response.json()["access_token"]
 
         # Get metrics from different endpoints
         summary_response = requests.get(f"{self.BASE_URL}/metrics/summary")
-        system_response = requests.get(
-            f"{self.BASE_URL}/system/status",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        system_response = requests.get(f"{self.BASE_URL}/system/status", headers={"Authorization": f"Bearer {token}"})
         metrics_response = requests.get(f"{self.BASE_URL}/metrics")
 
         assert summary_response.status_code == 200
@@ -516,12 +476,13 @@ class TestMonitoringIntegration:
         assert uptime_diff < 1.0, f"Uptime difference {uptime_diff} exceeds tolerance of 1.0 second"
 
         # Check timestamps are recent
-        summary_time = datetime.fromisoformat(summary["timestamp"].replace('Z', '+00:00')).replace(tzinfo=UTC)
-        system_time = datetime.fromisoformat(system["timestamp"].replace('Z', '+00:00')).replace(tzinfo=UTC)
+        summary_time = datetime.fromisoformat(summary["timestamp"].replace("Z", "+00:00")).replace(tzinfo=UTC)
+        system_time = datetime.fromisoformat(system["timestamp"].replace("Z", "+00:00")).replace(tzinfo=UTC)
 
         now = datetime.now(UTC)
         assert (now - summary_time).total_seconds() < 60  # Within last minute
         assert (now - system_time).total_seconds() < 60  # Within last minute
+
 
 class TestAlertingIntegration:
     """Test alerting system integration with metrics"""
@@ -533,7 +494,7 @@ class TestAlertingIntegration:
         response = requests.post(
             f"{self.BASE_URL}/auth/login",
             json={"username": "admin", "password": "admin123"},
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         return response.json()["access_token"]
 
@@ -542,22 +503,13 @@ class TestAlertingIntegration:
         token = self.get_admin_token()
 
         # Get alert rules
-        response = requests.get(
-            f"{self.BASE_URL}/alerts/rules",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/alerts/rules", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
 
         rules = response.json()["rules"]
 
         # Check for expected default rules
-        expected_rules = [
-            "high_error_rate",
-            "high_response_time",
-            "agent_count_low",
-            "memory_usage_high",
-            "cpu_usage_high"
-        ]
+        expected_rules = ["high_error_rate", "high_response_time", "agent_count_low", "memory_usage_high", "cpu_usage_high"]
 
         rule_ids = [rule["rule_id"] for rule in rules]
         for expected_rule in expected_rules:
@@ -575,10 +527,7 @@ class TestAlertingIntegration:
         token = self.get_admin_token()
 
         # Get alert rules
-        response = requests.get(
-            f"{self.BASE_URL}/alerts/rules",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        response = requests.get(f"{self.BASE_URL}/alerts/rules", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
 
         rules = response.json()["rules"]
@@ -593,5 +542,6 @@ class TestAlertingIntegration:
             for channel in channels:
                 assert channel in valid_channels, f"Invalid notification channel: {channel}"
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     pytest.main([__file__])

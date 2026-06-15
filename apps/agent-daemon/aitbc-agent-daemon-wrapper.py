@@ -19,7 +19,9 @@ from aitbc import DATA_DIR, ENV_FILE, KEYSTORE_DIR, LOG_DIR, NODE_ENV_FILE, REPO
 # Set up environment using aitbc constants
 os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)
 os.environ["AITBC_NODE_ENV_FILE"] = str(NODE_ENV_FILE)
-os.environ["PYTHONPATH"] = f"{REPO_DIR}:{REPO_DIR}/packages/py/aitbc-agent-sdk/src:{REPO_DIR}/apps/agent-coordinator/scripts:{REPO_DIR}"
+os.environ["PYTHONPATH"] = (
+    f"{REPO_DIR}:{REPO_DIR}/packages/py/aitbc-agent-sdk/src:{REPO_DIR}/apps/agent-coordinator/scripts:{REPO_DIR}"
+)
 os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
@@ -40,9 +42,12 @@ if enable_hermes and hermes_agent_ids:
         cmd = [
             "/opt/aitbc/venv/bin/python",
             hermes_daemon_script,
-            "--coordinator-url", hermes_coordinator_url,
-            "--agent-id", agent_id,
-            "--log-level", "INFO"
+            "--coordinator-url",
+            hermes_coordinator_url,
+            "--agent-id",
+            agent_id,
+            "--log-level",
+            "INFO",
         ]
         print(f"Starting Hermes polling daemon for agent: {agent_id}")
         proc = subprocess.Popen(cmd)
@@ -60,14 +65,22 @@ else:
 # Spawn daemon processes for each chain
 daemon_script = f"{REPO_DIR}/apps/agent-coordinator/scripts/agent_daemon.py"
 base_args = [
-    "--wallet", "my-agent-wallet",
-    "--address", "ait1f6a5b2afd6b3de3db048f5da204ec3c54c3b0201",
-    "--password-file", str(KEYSTORE_DIR / ".genesis_password"),
-    "--keystore-dir", str(KEYSTORE_DIR),
-    "--rpc-url", "http://localhost:8202",
-    "--poll-interval", "10",
-    "--reply-message", "pong",
-    "--trigger-message", "ping"
+    "--wallet",
+    "my-agent-wallet",
+    "--address",
+    "ait1f6a5b2afd6b3de3db048f5da204ec3c54c3b0201",
+    "--password-file",
+    str(KEYSTORE_DIR / ".genesis_password"),
+    "--keystore-dir",
+    str(KEYSTORE_DIR),
+    "--rpc-url",
+    "http://localhost:8202",
+    "--poll-interval",
+    "10",
+    "--reply-message",
+    "pong",
+    "--trigger-message",
+    "ping",
 ]
 
 # If we have Hermes daemons running or multiple chains, use subprocess mode
@@ -75,13 +88,7 @@ if processes or len(chains) > 1:
     # Spawn blockchain daemons as subprocesses
     for chain_id in chains:
         db_path = f"/var/lib/aitbc/data/{chain_id}/chain.db"
-        cmd = [
-            "/opt/aitbc/venv/bin/python",
-            daemon_script,
-            *base_args,
-            "--db-path", db_path,
-            "--chain-id", chain_id
-        ]
+        cmd = ["/opt/aitbc/venv/bin/python", daemon_script, *base_args, "--db-path", db_path, "--chain-id", chain_id]
         print(f"Starting blockchain agent daemon for chain: {chain_id} (db: {db_path})")
         proc = subprocess.Popen(cmd)
         processes.append(proc)
@@ -100,13 +107,7 @@ elif len(chains) == 1:
     # Single chain with no Hermes: exec directly (replaces wrapper process)
     chain_id = chains[0]
     db_path = f"/var/lib/aitbc/data/{chain_id}/chain.db"
-    exec_cmd = [
-        "/opt/aitbc/venv/bin/python",
-        daemon_script,
-        *base_args,
-        "--db-path", db_path,
-        "--chain-id", chain_id
-    ]
+    exec_cmd = ["/opt/aitbc/venv/bin/python", daemon_script, *base_args, "--db-path", db_path, "--chain-id", chain_id]
     print(f"Starting single-chain agent daemon for {chain_id} (db: {db_path})")
     os.execvp(exec_cmd[0], exec_cmd)
 else:

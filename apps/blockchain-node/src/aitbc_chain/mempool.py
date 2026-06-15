@@ -17,9 +17,7 @@ mempool_metadata = MetaData()
 
 class MempoolEntry(SQLModel, table=True):
     __tablename__ = "mempool"
-    __table_args__: Any = (
-        Index('idx_mempool_fee', 'fee', postgresql_ops={'fee': 'DESC'}),
-    )
+    __table_args__: Any = (Index("idx_mempool_fee", "fee", postgresql_ops={"fee": "DESC"}),)
 
     chain_id: str = Field(primary_key=True)
     tx_hash: str = Field(primary_key=True)
@@ -53,6 +51,7 @@ class InMemoryMempool:
 
     def __init__(self, max_size: int = 10_000, min_fee: int = 0, chain_id: str | None = None) -> None:
         from .config import settings
+
         self._lock = Lock()
         self._transactions: dict[str, dict[str, PendingTransaction]] = {}
         self._max_size = max_size
@@ -67,6 +66,7 @@ class InMemoryMempool:
 
     def add(self, tx: dict[str, Any], chain_id: str | None = None) -> str:
         from .config import settings
+
         if chain_id is None:
             chain_id = settings.chain_id
         fee = tx.get("fee", 0)
@@ -75,10 +75,7 @@ class InMemoryMempool:
 
         tx_hash = compute_tx_hash(tx)
         size_bytes = _estimate_size(tx)
-        entry = PendingTransaction(
-            tx_hash=tx_hash, content=tx, received_at=time.time(),
-            fee=fee, size_bytes=size_bytes
-        )
+        entry = PendingTransaction(tx_hash=tx_hash, content=tx, received_at=time.time(), fee=fee, size_bytes=size_bytes)
         with self._lock:
             chain_transactions = self._get_chain_transactions(chain_id)
             if tx_hash in chain_transactions:
@@ -92,6 +89,7 @@ class InMemoryMempool:
 
     def list_transactions(self, chain_id: str | None = None) -> list[PendingTransaction]:
         from .config import settings
+
         if chain_id is None:
             chain_id = settings.chain_id
         with self._lock:
@@ -99,15 +97,13 @@ class InMemoryMempool:
 
     def drain(self, max_count: int, max_bytes: int, chain_id: str | None = None) -> list[PendingTransaction]:
         from .config import settings
+
         if chain_id is None:
             chain_id = settings.chain_id
         """Drain transactions for block inclusion, prioritized by fee (highest first)."""
         with self._lock:
             chain_transactions = self._get_chain_transactions(chain_id)
-            sorted_txs = sorted(
-                chain_transactions.values(),
-                key=lambda t: (-t.fee, t.received_at)
-            )
+            sorted_txs = sorted(chain_transactions.values(), key=lambda t: (-t.fee, t.received_at))
             result: list[PendingTransaction] = []
             total_bytes = 0
             for tx in sorted_txs:
@@ -127,6 +123,7 @@ class InMemoryMempool:
 
     def remove(self, tx_hash: str, chain_id: str | None = None) -> bool:
         from .config import settings
+
         if chain_id is None:
             chain_id = settings.chain_id
         with self._lock:
@@ -137,6 +134,7 @@ class InMemoryMempool:
 
     def size(self, chain_id: str | None = None) -> int:
         from .config import settings
+
         if chain_id is None:
             chain_id = settings.chain_id
         with self._lock:
@@ -145,15 +143,13 @@ class InMemoryMempool:
     def get_pending_transactions(self, chain_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """Get pending transactions for RPC endpoint"""
         from .config import settings
+
         if chain_id is None:
             chain_id = settings.chain_id
 
         with self._lock:
             # Get transactions sorted by fee (highest first) and time
-            sorted_txs = sorted(
-                self._get_chain_transactions(chain_id).values(),
-                key=lambda t: (-t.fee, t.received_at)
-            )
+            sorted_txs = sorted(self._get_chain_transactions(chain_id).values(), key=lambda t: (-t.fee, t.received_at))
 
             # Return only the content, limited by the limit parameter
             return [tx.content for tx in sorted_txs[:limit]]
@@ -183,7 +179,8 @@ class DatabaseMempool:
         with self._lock:
             with Session(self._engine) as session:
                 # Create table manually using raw SQL to avoid chain table conflicts
-                session.exec(text("""
+                session.exec(
+                    text("""
                     CREATE TABLE IF NOT EXISTS mempool (
                         chain_id TEXT NOT NULL,
                         tx_hash TEXT NOT NULL,
@@ -193,12 +190,14 @@ class DatabaseMempool:
                         received_at REAL NOT NULL,
                         PRIMARY KEY (chain_id, tx_hash)
                     )
-                """))  # type: ignore[call-overload]
+                """)
+                )  # type: ignore[call-overload]
                 session.exec(text("CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee DESC)"))  # type: ignore[call-overload]
                 session.commit()
 
     def add(self, tx: dict[str, Any], chain_id: str | None = None) -> str:
         from .config import settings
+
         if chain_id is None:
             chain_id = settings.chain_id
         fee = tx.get("fee", 0)
@@ -213,10 +212,7 @@ class DatabaseMempool:
             with Session(self._engine) as session:
                 # Check duplicate
                 existing = session.exec(
-                    select(MempoolEntry).where(
-                        MempoolEntry.chain_id == chain_id,
-                        MempoolEntry.tx_hash == tx_hash
-                    )
+                    select(MempoolEntry).where(MempoolEntry.chain_id == chain_id, MempoolEntry.tx_hash == tx_hash)
                 ).first()
                 if existing:
                     return tx_hash
@@ -227,7 +223,8 @@ class DatabaseMempool:
                 ).one()
                 if count >= self._max_size:
                     to_evict = session.exec(
-                        select(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
+                        select(MempoolEntry)
+                        .where(MempoolEntry.chain_id == chain_id)
                         .order_by(cast(Any, MempoolEntry.fee).asc(), cast(Any, MempoolEntry.received_at).desc())
                         .limit(1)
                     ).first()
@@ -241,7 +238,7 @@ class DatabaseMempool:
                     content=content,
                     fee=fee,
                     size_bytes=size_bytes,
-                    received_at=time.time()
+                    received_at=time.time(),
                 )
                 session.add(entry)
                 session.commit()
@@ -251,29 +248,33 @@ class DatabaseMempool:
 
     def list_transactions(self, chain_id: str | None = None) -> list[PendingTransaction]:
         from .config import settings
+
         if chain_id is None:
             chain_id = settings.chain_id
         with self._lock:
             with Session(self._engine) as session:
                 entries = session.exec(
-                    select(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
+                    select(MempoolEntry)
+                    .where(MempoolEntry.chain_id == chain_id)
                     .order_by(cast(Any, MempoolEntry.fee).desc(), cast(Any, MempoolEntry.received_at).asc())
                 ).all()
         return [
             PendingTransaction(
-                tx_hash=e.tx_hash, content=json.loads(e.content),
-                fee=e.fee, size_bytes=e.size_bytes, received_at=e.received_at
-            ) for e in entries
+                tx_hash=e.tx_hash, content=json.loads(e.content), fee=e.fee, size_bytes=e.size_bytes, received_at=e.received_at
+            )
+            for e in entries
         ]
 
     def drain(self, max_count: int, max_bytes: int, chain_id: str | None = None) -> list[PendingTransaction]:
         from .config import settings
+
         if chain_id is None:
             chain_id = settings.chain_id
         with self._lock:
             with Session(self._engine) as session:
                 entries = session.exec(
-                    select(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
+                    select(MempoolEntry)
+                    .where(MempoolEntry.chain_id == chain_id)
                     .order_by(cast(Any, MempoolEntry.fee).desc(), cast(Any, MempoolEntry.received_at).asc())
                 ).all()
 
@@ -286,10 +287,15 @@ class DatabaseMempool:
                         break
                     if total_bytes + e.size_bytes > max_bytes:
                         continue
-                    result.append(PendingTransaction(
-                        tx_hash=e.tx_hash, content=json.loads(e.content),
-                        fee=e.fee, size_bytes=e.size_bytes, received_at=e.received_at
-                    ))
+                    result.append(
+                        PendingTransaction(
+                            tx_hash=e.tx_hash,
+                            content=json.loads(e.content),
+                            fee=e.fee,
+                            size_bytes=e.size_bytes,
+                            received_at=e.received_at,
+                        )
+                    )
                     total_bytes += e.size_bytes
                     hashes_to_remove.append(e.tx_hash)
 
@@ -297,8 +303,7 @@ class DatabaseMempool:
                     for hash_to_remove in hashes_to_remove:
                         entry = session.exec(
                             select(MempoolEntry).where(
-                                MempoolEntry.chain_id == chain_id,
-                                MempoolEntry.tx_hash == hash_to_remove
+                                MempoolEntry.chain_id == chain_id, MempoolEntry.tx_hash == hash_to_remove
                             )
                         ).first()
                         if entry:
@@ -311,15 +316,13 @@ class DatabaseMempool:
 
     def remove(self, tx_hash: str, chain_id: str | None = None) -> bool:
         from .config import settings
+
         if chain_id is None:
             chain_id = settings.chain_id
         with self._lock:
             with Session(self._engine) as session:
                 entry = session.exec(
-                    select(MempoolEntry).where(
-                        MempoolEntry.chain_id == chain_id,
-                        MempoolEntry.tx_hash == tx_hash
-                    )
+                    select(MempoolEntry).where(MempoolEntry.chain_id == chain_id, MempoolEntry.tx_hash == tx_hash)
                 ).first()
                 if entry:
                     session.delete(entry)
@@ -333,6 +336,7 @@ class DatabaseMempool:
 
     def size(self, chain_id: str | None = None) -> int:
         from .config import settings
+
         if chain_id is None:
             chain_id = settings.chain_id
         with self._lock:
@@ -345,13 +349,15 @@ class DatabaseMempool:
     def get_pending_transactions(self, chain_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """Get pending transactions for RPC endpoint"""
         from .config import settings
+
         if chain_id is None:
             chain_id = settings.chain_id
 
         with self._lock:
             with Session(self._engine) as session:
                 entries = session.exec(
-                    select(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
+                    select(MempoolEntry)
+                    .where(MempoolEntry.chain_id == chain_id)
                     .order_by(cast(Any, MempoolEntry.fee).desc(), cast(Any, MempoolEntry.received_at).asc())
                     .limit(limit)
                 ).all()
@@ -360,6 +366,7 @@ class DatabaseMempool:
 
     def _update_gauge(self, chain_id: str | None = None) -> None:
         from .config import settings
+
         if chain_id is None:
             chain_id = settings.chain_id
         count = self.size(chain_id)

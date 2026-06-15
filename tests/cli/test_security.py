@@ -189,11 +189,7 @@ class TestMigrateLegacyWallet:
         """Test successful wallet migration"""
         from utils.security import migrate_legacy_wallet
 
-        legacy_data = {
-            "encrypted": True,
-            "private_key": "0x1234567890abcdef",
-            "address": "0xabc"
-        }
+        legacy_data = {"encrypted": True, "private_key": "0x1234567890abcdef", "address": "0xabc"}
         new_password = "StrongP@ssw0rd123!"
 
         result = migrate_legacy_wallet(legacy_data, new_password)
@@ -207,9 +203,7 @@ class TestMigrateLegacyWallet:
         """Test migrating non-encrypted wallet"""
         from utils.security import migrate_legacy_wallet
 
-        legacy_data = {
-            "private_key": "0x1234567890abcdef"
-        }
+        legacy_data = {"private_key": "0x1234567890abcdef"}
 
         with pytest.raises(ValueError, match="Not a legacy encrypted wallet"):
             migrate_legacy_wallet(legacy_data, "password")
@@ -218,9 +212,7 @@ class TestMigrateLegacyWallet:
         """Test migrating wallet without private key"""
         from utils.security import migrate_legacy_wallet
 
-        legacy_data = {
-            "encrypted": True
-        }
+        legacy_data = {"encrypted": True}
 
         with pytest.raises(ValueError, match="Cannot migrate wallet without private key"):
             migrate_legacy_wallet(legacy_data, "password")
@@ -229,10 +221,7 @@ class TestMigrateLegacyWallet:
         """Test migrating mock wallet"""
         from utils.security import migrate_legacy_wallet
 
-        legacy_data = {
-            "encrypted": True,
-            "private_key": "[ENCRYPTED_MOCK]data"
-        }
+        legacy_data = {"encrypted": True, "private_key": "[ENCRYPTED_MOCK]data"}
 
         with pytest.raises(ValueError, match="Cannot migrate mock wallet"):
             migrate_legacy_wallet(legacy_data, "password")

@@ -12,17 +12,22 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 def log_info(msg: str) -> None:
     logger.info(msg)
+
 
 def log_error(msg: str) -> None:
     logger.error(msg)
 
+
 def log_warn(msg: str) -> None:
     logger.warning(msg)
 
+
 def log_debug(msg: str) -> None:
     logger.debug(msg)
+
 
 from .discovery import NodeStatus, P2PDiscovery
 from .health import PeerHealthMonitor
@@ -34,6 +39,7 @@ class PartitionState(Enum):
     RECOVERING = "recovering"
     ISOLATED = "isolated"
 
+
 @dataclass
 class PartitionInfo:
     partition_id: str
@@ -42,6 +48,7 @@ class PartitionInfo:
     size: int
     created_at: float
     last_seen: float
+
 
 class NetworkPartitionManager:
     """Manages network partition detection and recovery"""
@@ -123,7 +130,7 @@ class NetworkPartitionManager:
                 leader=None,
                 size=len(reachable_nodes),
                 created_at=time.time(),
-                last_seen=time.time()
+                last_seen=time.time(),
             )
 
             # Start recovery procedures
@@ -156,7 +163,7 @@ class NetworkPartitionManager:
             return
 
         # Update partition info
-        current_peers = set(peer.node_id for peer in self.discovery.get_peer_list())
+        current_peers = {peer.node_id for peer in self.discovery.get_peer_list()}
         partition.nodes = current_peers
         partition.last_seen = time.time()
         partition.size = len(current_peers)
@@ -173,7 +180,7 @@ class NetworkPartitionManager:
         recovery_tasks = [
             asyncio.create_task(self._attempt_reconnection()),
             asyncio.create_task(self._bootstrap_from_known_nodes()),
-            asyncio.create_task(self._coordinate_with_other_partitions())
+            asyncio.create_task(self._coordinate_with_other_partitions()),
         ]
 
         try:
@@ -293,18 +300,13 @@ class NetworkPartitionManager:
     def get_partition_status(self) -> dict[str, Any]:
         """Get current partition status"""
         return {
-            'state': self.current_state.value,
-            'local_partition_id': self.local_partition_id,
-            'partition_count': len(self.partitions),
-            'partitions': {
-                pid: {
-                    'size': info.size,
-                    'leader': info.leader,
-                    'created_at': info.created_at,
-                    'last_seen': info.last_seen
-                }
+            "state": self.current_state.value,
+            "local_partition_id": self.local_partition_id,
+            "partition_count": len(self.partitions),
+            "partitions": {
+                pid: {"size": info.size, "leader": info.leader, "created_at": info.created_at, "last_seen": info.last_seen}
                 for pid, info in self.partitions.items()
-            }
+            },
         }
 
     def is_partitioned(self) -> bool:
@@ -319,12 +321,15 @@ class NetworkPartitionManager:
         partition = self.partitions.get(self.local_partition_id)
         return partition.size if partition else 0
 
+
 # Global partition manager
 partition_manager: NetworkPartitionManager | None = None
+
 
 def get_partition_manager() -> NetworkPartitionManager | None:
     """Get global partition manager"""
     return partition_manager
+
 
 def create_partition_manager(discovery: P2PDiscovery, health_monitor: PeerHealthMonitor) -> NetworkPartitionManager:
     """Create and set global partition manager"""

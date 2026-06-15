@@ -3,7 +3,6 @@ Property-based tests for critical AITBC cryptographic functions using hypothesis
 Tests ensure that cryptographic operations maintain expected properties across random inputs.
 """
 
-
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -47,9 +46,9 @@ class TestCryptoProperties:
         address = derive_ethereum_address(private_key_hex)
 
         # Address should be 42 characters (0x + 40 hex chars) or handle AITBC format
-        if address.startswith('0x'):
+        if address.startswith("0x"):
             assert len(address) == 42
-            assert all(c in '0123456789abcdefABCDEF' for c in address[2:])
+            assert all(c in "0123456789abcdefABCDEF" for c in address[2:])
         else:
             # AITBC format may be different
             assert len(address) > 0
@@ -76,7 +75,7 @@ class TestCryptoProperties:
     def test_encrypt_decrypt_roundtrip(self, password, private_key):
         """Test that encryption and decryption are reversible"""
         # Ensure private key is valid hex
-        private_key_hex = private_key.encode('utf-8').hex()[:64].ljust(64, '0')
+        private_key_hex = private_key.encode("utf-8").hex()[:64].ljust(64, "0")
 
         # Encrypt
         encrypted = encrypt_private_key(private_key_hex, password)
@@ -133,7 +132,7 @@ class TestCryptoProperties:
 
         assert validate_ethereum_address(address)
 
-    @given(st.text(alphabet='0123456789abcdef', min_size=40, max_size=40))
+    @given(st.text(alphabet="0123456789abcdef", min_size=40, max_size=40))
     @settings(max_examples=50)
     def test_address_validation_format(self, hex_string):
         """Test address validation with various formats"""
@@ -145,8 +144,8 @@ class TestCryptoProperties:
 
         # Should be 64 or 66 characters (with or without 0x prefix)
         assert len(private_key) in [64, 66]
-        if private_key.startswith('0x'):
+        if private_key.startswith("0x"):
             assert len(private_key) == 66
         else:
             assert len(private_key) == 64
-        assert all(c in '0123456789abcdef' for c in private_key.replace('0x', ''))
+        assert all(c in "0123456789abcdef" for c in private_key.replace("0x", ""))

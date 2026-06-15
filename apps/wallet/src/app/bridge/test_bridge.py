@@ -97,7 +97,7 @@ def test_mock_deposit() -> bool:
     mock_tx = {
         "hash": "0x" + "2" * 64,
         "from": "0x" + "b" * 40,
-        "value": hex(int(0.5 * 1e18))  # 0.5 ETH in wei
+        "value": hex(int(0.5 * 1e18)),  # 0.5 ETH in wei
     }
 
     # Parse amount

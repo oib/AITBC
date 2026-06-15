@@ -21,8 +21,9 @@ class TestReputationCommands:
         """Test that reputation command group exists"""
         try:
             from aitbc_cli.commands.reputation import reputation
+
             assert reputation is not None
-            assert hasattr(reputation, 'name')
+            assert hasattr(reputation, "name")
         except ImportError as e:
             pytest.skip(f"Cannot import reputation commands: {e}")
 
@@ -30,6 +31,7 @@ class TestReputationCommands:
         """Test reputation group name"""
         try:
             from aitbc_cli.commands.reputation import reputation
+
             assert reputation.name == "reputation"
         except ImportError as e:
             pytest.skip(f"Cannot import reputation commands: {e}")

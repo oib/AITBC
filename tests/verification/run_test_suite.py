@@ -20,10 +20,10 @@ def resolve_test_path(test_path: str) -> str:
 
 def run_command(cmd, description):
     """Run a command and handle errors"""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Running: {description}")
     print(f"Command: {' '.join(cmd)}")
-    print('='*60)
+    print("=" * 60)
 
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
 
@@ -39,34 +39,13 @@ def run_command(cmd, description):
 def main():
     parser = argparse.ArgumentParser(description="AITBC Test Suite Runner")
     parser.add_argument(
-        "--suite",
-        choices=["unit", "integration", "e2e", "security", "all"],
-        default="all",
-        help="Test suite to run"
+        "--suite", choices=["unit", "integration", "e2e", "security", "all"], default="all", help="Test suite to run"
     )
-    parser.add_argument(
-        "--coverage",
-        action="store_true",
-        help="Generate coverage report"
-    )
-    parser.add_argument(
-        "--parallel",
-        action="store_true",
-        help="Run tests in parallel"
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Verbose output"
-    )
-    parser.add_argument(
-        "--marker",
-        help="Run tests with specific marker (e.g., unit, integration)"
-    )
-    parser.add_argument(
-        "--file",
-        help="Run specific test file"
-    )
+    parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
+    parser.add_argument("--parallel", action="store_true", help="Run tests in parallel")
+    parser.add_argument("--verbose", action="store_true", help="Verbose output")
+    parser.add_argument("--marker", help="Run tests with specific marker (e.g., unit, integration)")
+    parser.add_argument("--file", help="Run specific test file")
 
     args = parser.parse_args()
 
@@ -88,11 +67,7 @@ def main():
 
     # Add coverage if requested
     if args.coverage:
-        pytest_cmd.extend([
-            "--cov=apps",
-            "--cov-report=html:tests/htmlcov",
-            "--cov-report=term-missing"
-        ])
+        pytest_cmd.extend(["--cov=apps", "--cov-report=html:tests/htmlcov", "--cov-report=term-missing"])
 
     # Add parallel execution if requested
     if args.parallel:
@@ -122,11 +97,7 @@ def main():
     pytest_cmd.extend(test_paths)
 
     # Add pytest configuration
-    pytest_cmd.extend([
-        "--tb=short",
-        "--strict-markers",
-        "--disable-warnings"
-    ])
+    pytest_cmd.extend(["--tb=short", "--strict-markers", "--disable-warnings"])
 
     # Run the tests
     success = run_command(pytest_cmd, f"{args.suite.title()} Test Suite")

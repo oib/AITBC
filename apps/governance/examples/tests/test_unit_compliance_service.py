@@ -30,7 +30,7 @@ def test_kyc_request_model():
         email="john@example.com",
         document_type="passport",
         document_number="ABC123",
-        address={"street": "123 Main St", "city": "New York", "country": "USA"}
+        address={"street": "123 Main St", "city": "New York", "country": "USA"},
     )
     assert kyc.user_id == "user123"
     assert kyc.name == "John Doe"
@@ -47,7 +47,7 @@ def test_compliance_report_model():
         report_type="suspicious_activity",
         description="Suspicious transaction detected",
         severity="high",
-        details={"transaction_id": "tx123"}
+        details={"transaction_id": "tx123"},
     )
     assert report.report_type == "suspicious_activity"
     assert report.description == "Suspicious transaction detected"
@@ -64,7 +64,7 @@ def test_transaction_monitoring_model():
         amount=1000.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
     assert tx.transaction_id == "tx123"
     assert tx.user_id == "user123"
@@ -82,7 +82,7 @@ def test_calculate_transaction_risk_low():
         amount=50.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime(2026, 1, 1, 10, 0, 0)  # Business hours
+        timestamp=datetime(2026, 1, 1, 10, 0, 0),  # Business hours
     )
     risk = calculate_transaction_risk(tx)
     assert risk == "low"
@@ -97,7 +97,7 @@ def test_calculate_transaction_risk_medium():
         amount=5000.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime(2026, 1, 1, 10, 0, 0)
+        timestamp=datetime(2026, 1, 1, 10, 0, 0),
     )
     risk = calculate_transaction_risk(tx)
     assert risk == "medium"
@@ -112,7 +112,7 @@ def test_calculate_transaction_risk_high():
         amount=20000.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime(2026, 1, 1, 8, 0, 0)  # Outside business hours
+        timestamp=datetime(2026, 1, 1, 8, 0, 0),  # Outside business hours
     )
     risk = calculate_transaction_risk(tx)
     assert risk == "high"
@@ -127,7 +127,7 @@ def test_check_suspicious_patterns_high_value():
         amount=100000.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
     flags = check_suspicious_patterns(tx)
     assert "high_value_transaction" in flags
@@ -142,7 +142,7 @@ def test_check_suspicious_patterns_high_risk_counterparty():
         amount=1000.0,
         currency="BTC",
         counterparty="high_risk_entity_1",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
     flags = check_suspicious_patterns(tx)
     assert "high_risk_counterparty" in flags
@@ -157,7 +157,7 @@ def test_check_suspicious_patterns_none():
         amount=1000.0,
         currency="BTC",
         counterparty="safe_counterparty",
-        timestamp=datetime.now(UTC)
+        timestamp=datetime.now(UTC),
     )
     flags = check_suspicious_patterns(tx)
     assert len(flags) == 0

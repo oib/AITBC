@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 # Setup sys.path
-sys.path.insert(0, str(Path('/opt/aitbc/apps/blockchain-node/src')))
+sys.path.insert(0, str(Path("/opt/aitbc/apps/blockchain-node/src")))
 
 from aitbc_chain.config import settings
 from aitbc_chain.mempool import get_mempool, init_mempool
@@ -19,7 +19,7 @@ mempool = get_mempool()
 print(f"Mempool class: {mempool.__class__.__name__}")
 print(f"Mempool DB path: {mempool._db_path}")
 
-chain_id = 'ait-mainnet'
+chain_id = "ait-mainnet"
 rows = mempool._conn.execute("SELECT * FROM mempool WHERE chain_id = ?", (chain_id,)).fetchall()
 print(f"Found {len(rows)} raw rows in DB")
 for r in rows:

@@ -14,6 +14,7 @@ import httpx
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class OllamaPlugin:
     """Ollama plugin for AITBC - provides LLM inference services"""
 
@@ -41,18 +42,11 @@ class OllamaPlugin:
         prompt: str,
         system_prompt: str | None = None,
         temperature: float = 0.7,
-        max_tokens: int | None = None
+        max_tokens: int | None = None,
     ) -> dict[str, Any]:
         """Generate text using Ollama model"""
 
-        request_data = {
-            "model": model,
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "temperature": temperature
-            }
-        }
+        request_data = {"model": model, "prompt": prompt, "stream": False, "options": {"temperature": temperature}}
 
         if system_prompt:
             request_data["system"] = system_prompt
@@ -64,10 +58,7 @@ class OllamaPlugin:
             logger.info("Generating with model: %s", model)
             start_time = datetime.now()
 
-            response = await self.client.post(
-                f"{self.ollama_url}/api/generate",
-                json=request_data
-            )
+            response = await self.client.post(f"{self.ollama_url}/api/generate", json=request_data)
 
             if response.status_code == 200:
                 result = response.json()
@@ -82,39 +73,21 @@ class OllamaPlugin:
                     "completion_tokens": result.get("eval_count", 0),
                     "total_tokens": result.get("prompt_eval_count", 0) + result.get("eval_count", 0),
                     "duration_seconds": duration,
-                    "done": result.get("done", False)
+                    "done": result.get("done", False),
                 }
             else:
-                return {
-                    "success": False,
-                    "error": f"Ollama error: {response.status_code}",
-                    "details": response.text
-                }
+                return {"success": False, "error": f"Ollama error: {response.status_code}", "details": response.text}
 
         except Exception as e:
             logger.error("Generation failed: %s", e)
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
 
     async def chat(
-        self,
-        model: str,
-        messages: list,
-        temperature: float = 0.7,
-        max_tokens: int | None = None
+        self, model: str, messages: list, temperature: float = 0.7, max_tokens: int | None = None
     ) -> dict[str, Any]:
         """Chat with Ollama model"""
 
-        request_data = {
-            "model": model,
-            "messages": messages,
-            "stream": False,
-            "options": {
-                "temperature": temperature
-            }
-        }
+        request_data = {"model": model, "messages": messages, "stream": False, "options": {"temperature": temperature}}
 
         if max_tokens:
             request_data["options"]["num_predict"] = max_tokens
@@ -123,10 +96,7 @@ class OllamaPlugin:
             logger.info("Chat with model: %s", model)
             start_time = datetime.now()
 
-            response = await self.client.post(
-                f"{self.ollama_url}/api/chat",
-                json=request_data
-            )
+            response = await self.client.post(f"{self.ollama_url}/api/chat", json=request_data)
 
             if response.status_code == 200:
                 result = response.json()
@@ -141,29 +111,19 @@ class OllamaPlugin:
                     "completion_tokens": result.get("eval_count", 0),
                     "total_tokens": result.get("prompt_eval_count", 0) + result.get("eval_count", 0),
                     "duration_seconds": duration,
-                    "done": result.get("done", False)
+                    "done": result.get("done", False),
                 }
             else:
-                return {
-                    "success": False,
-                    "error": f"Ollama error: {response.status_code}",
-                    "details": response.text
-                }
+                return {"success": False, "error": f"Ollama error: {response.status_code}", "details": response.text}
 
         except Exception as e:
             logger.error("Chat failed: %s", e)
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
 
     async def get_model_info(self, model: str) -> dict[str, Any]:
         """Get detailed information about a model"""
         try:
-            response = await self.client.post(
-                f"{self.ollama_url}/api/show",
-                json={"name": model}
-            )
+            response = await self.client.post(f"{self.ollama_url}/api/show", json={"name": model})
 
             if response.status_code == 200:
                 return response.json()
@@ -188,15 +148,17 @@ class OllamaPlugin:
             "gemma3:4b": 0.02,
             "qwen2.5:1.5b": 0.01,
             "gemma3:1b": 0.01,
-            "lauchacarro/qwen2.5-translator:latest": 0.01
+            "lauchacarro/qwen2.5-translator:latest": 0.01,
         }
 
         price_per_million = pricing.get(model, 0.05)  # Default price
         cost = (tokens / 1_000_000) * price_per_million
         return round(cost, 6)
 
+
 # Service instance
 ollama_service = OllamaPlugin()
+
 
 # AITBC Plugin Interface
 async def handle_request(request: dict[str, Any]) -> dict[str, Any]:
@@ -206,10 +168,7 @@ async def handle_request(request: dict[str, Any]) -> dict[str, Any]:
 
     if action == "list_models":
         models = await ollama_service.get_models()
-        return {
-            "success": True,
-            "models": [{"name": m["name"], "size": m["size"]} for m in models]
-        }
+        return {"success": True, "models": [{"name": m["name"], "size": m["size"]} for m in models]}
 
     elif action == "generate":
         result = await ollama_service.generate(
@@ -217,15 +176,12 @@ async def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             prompt=request.get("prompt"),
             system_prompt=request.get("system_prompt"),
             temperature=request.get("temperature", 0.7),
-            max_tokens=request.get("max_tokens")
+            max_tokens=request.get("max_tokens"),
         )
 
         if result["success"]:
             # Add cost calculation
-            result["cost"] = ollama_service.calculate_cost(
-                result["model"],
-                result["total_tokens"]
-            )
+            result["cost"] = ollama_service.calculate_cost(result["model"], result["total_tokens"])
 
         return result
 
@@ -234,31 +190,23 @@ async def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             model=request.get("model"),
             messages=request.get("messages"),
             temperature=request.get("temperature", 0.7),
-            max_tokens=request.get("max_tokens")
+            max_tokens=request.get("max_tokens"),
         )
 
         if result["success"]:
             # Add cost calculation
-            result["cost"] = ollama_service.calculate_cost(
-                result["model"],
-                result["total_tokens"]
-            )
+            result["cost"] = ollama_service.calculate_cost(result["model"], result["total_tokens"])
 
         return result
 
     elif action == "model_info":
         model = request.get("model")
         info = await ollama_service.get_model_info(model)
-        return {
-            "success": True,
-            "info": info
-        }
+        return {"success": True, "info": info}
 
     else:
-        return {
-            "success": False,
-            "error": f"Unknown action: {action}"
-        }
+        return {"success": False, "error": f"Unknown action: {action}"}
+
 
 if __name__ == "__main__":
     # Test the service
@@ -269,11 +217,7 @@ if __name__ == "__main__":
 
         # Test generation
         if models:
-            result = await ollama_service.generate(
-                model=models[0]["name"],
-                prompt="What is AITBC?",
-                max_tokens=100
-            )
+            result = await ollama_service.generate(model=models[0]["name"], prompt="What is AITBC?", max_tokens=100)
             print(f"Generation result: {result}")
 
     asyncio.run(test())

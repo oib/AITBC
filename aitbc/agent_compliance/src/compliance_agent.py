@@ -15,13 +15,14 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Add parent directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 
 from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceBridge
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
+
 
 class ComplianceAgent:
     """Automated compliance agent"""
@@ -37,11 +38,14 @@ class ComplianceAgent:
     async def start(self) -> bool:
         """Start compliance agent"""
         try:
-            success = await self.bridge.start_agent(self.agent_id, {
-                "type": "compliance",
-                "capabilities": ["kyc_check", "aml_screening", "regulatory_reporting"],
-                "endpoint": "http://localhost:8006"
-            })
+            success = await self.bridge.start_agent(
+                self.agent_id,
+                {
+                    "type": "compliance",
+                    "capabilities": ["kyc_check", "aml_screening", "regulatory_reporting"],
+                    "endpoint": "http://localhost:8006",
+                },
+            )
 
             if success:
                 self.is_running = True
@@ -81,7 +85,7 @@ class ComplianceAgent:
                 "type": "compliance_check",
                 "user_id": entity_id,
                 "check_type": "full",
-                "monitored_activities": ["trading", "transfers", "wallet_creation"]
+                "monitored_activities": ["trading", "transfers", "wallet_creation"],
             }
 
             result = await self.bridge.execute_agent_task(self.agent_id, compliance_task)
@@ -115,7 +119,7 @@ class ComplianceAgent:
             "alert_type": "compliance_failure",
             "severity": "high",
             "details": result,
-            "timestamp": datetime.now(UTC).isoformat()
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         # In a real implementation, this would send to alert system
@@ -128,13 +132,14 @@ class ComplianceAgent:
         status["check_interval"] = self.check_interval
         return status
 
+
 # Main execution
 async def main():
     """Main compliance agent execution"""
     agent_id = "compliance-agent-001"
     config = {
         "check_interval": 60,  # 1 minute for testing
-        "monitored_entities": ["user001", "user002", "user003"]
+        "monitored_entities": ["user001", "user002", "user003"],
     }
 
     agent = ComplianceAgent(agent_id, config)
@@ -150,6 +155,7 @@ async def main():
             await agent.stop()
     else:
         logger.error("Failed to start compliance agent")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

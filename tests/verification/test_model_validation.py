@@ -16,6 +16,7 @@ class TransactionData(BaseModel):
     recipient: str
     payload: dict[str, Any] = Field(default_factory=dict)
 
+
 class BlockImportRequest(BaseModel):
     height: int = Field(gt=0)
     hash: str
@@ -26,6 +27,7 @@ class BlockImportRequest(BaseModel):
     state_root: str | None = None
     transactions: list[TransactionData] = Field(default_factory=list)
 
+
 # Test creating the request
 test_data = {
     "height": 1,
@@ -34,12 +36,7 @@ test_data = {
     "proposer": "test",
     "timestamp": "2026-01-29T10:20:00",
     "tx_count": 1,
-    "transactions": [{
-        "tx_hash": "0xtx123",
-        "sender": "0xsender",
-        "recipient": "0xrecipient",
-        "payload": {"test": "data"}
-    }]
+    "transactions": [{"tx_hash": "0xtx123", "sender": "0xsender", "recipient": "0xrecipient", "payload": {"test": "data"}}],
 }
 
 print("Test data:")
@@ -66,4 +63,5 @@ try:
 except Exception as e:
     print(f"\n❌ Validation failed: {e}")
     import traceback
+
     traceback.print_exc()

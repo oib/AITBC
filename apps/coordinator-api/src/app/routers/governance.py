@@ -24,6 +24,7 @@ router = APIRouter(prefix="/governance", tags=["governance"])
 
 class CreateProposalRequest(BaseModel):
     """Request to create a proposal"""
+
     title: str = Field(..., min_length=1, max_length=200)
     description: str = Field(..., min_length=10)
     proposer: str
@@ -33,6 +34,7 @@ class CreateProposalRequest(BaseModel):
 
 class CastVoteRequest(BaseModel):
     """Request to cast a vote"""
+
     proposal_id: str
     voter: str
     choice: str = Field(..., pattern="^(for|against|abstain)$")
@@ -41,19 +43,17 @@ class CastVoteRequest(BaseModel):
 
 class ExecuteProposalRequest(BaseModel):
     """Request to execute a proposal"""
+
     proposal_id: str
     executor: str
 
 
 @router.post("/proposals", summary="Create governance proposal")
 @rate_limit(rate=5, per=3600)
-async def create_proposal(
-    request: Request,
-    req: CreateProposalRequest
-) -> dict[str, Any]:
+async def create_proposal(request: Request, req: CreateProposalRequest) -> dict[str, Any]:
     """
     Create a new governance proposal.
-    
+
     Requires minimum stake to create proposals.
     """
     try:
@@ -64,23 +64,17 @@ async def create_proposal(
         # Verify proposer has minimum stake
         proposer_power = service.get_voting_power(req.proposer)
         if proposer_power < service.MIN_PROPOSAL_STAKE:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Insufficient stake: {proposer_power} < {service.MIN_PROPOSAL_STAKE}"
-            )
+            raise HTTPException(status_code=400, detail=f"Insufficient stake: {proposer_power} < {service.MIN_PROPOSAL_STAKE}")
 
         proposal = service.create_proposal(
             title=req.title,
             description=req.description,
             proposer=req.proposer,
             proposal_type=req.proposal_type,
-            call_data=req.call_data
+            call_data=req.call_data,
         )
 
-        return {
-            "success": True,
-            **proposal.to_dict()
-        }
+        return {"success": True, **proposal.to_dict()}
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -92,10 +86,7 @@ async def create_proposal(
 
 @router.post("/vote", summary="Cast vote on proposal")
 @rate_limit(rate=20, per=60)
-async def cast_vote(
-    request: Request,
-    req: CastVoteRequest
-) -> dict[str, Any]:
+async def cast_vote(request: Request, req: CastVoteRequest) -> dict[str, Any]:
     """Cast a vote on an active proposal"""
     try:
         service = get_governance_service()
@@ -105,16 +96,10 @@ async def cast_vote(
         # Verify voting power matches
         actual_power = service.get_voting_power(req.voter)
         if req.voting_power > actual_power:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Insufficient voting power: {actual_power} < {req.voting_power}"
-            )
+            raise HTTPException(status_code=400, detail=f"Insufficient voting power: {actual_power} < {req.voting_power}")
 
         success = service.cast_vote(
-            proposal_id=req.proposal_id,
-            voter=req.voter,
-            choice=req.choice,
-            voting_power=req.voting_power
+            proposal_id=req.proposal_id, voter=req.voter, choice=req.choice, voting_power=req.voting_power
         )
 
         return {
@@ -122,7 +107,7 @@ async def cast_vote(
             "proposal_id": req.proposal_id,
             "voter": req.voter,
             "choice": req.choice,
-            "power": req.voting_power
+            "power": req.voting_power,
         }
 
     except ValueError as e:
@@ -135,10 +120,7 @@ async def cast_vote(
 
 @router.post("/execute", summary="Execute passed proposal")
 @rate_limit(rate=10, per=60)
-async def execute_proposal(
-    request: Request,
-    req: ExecuteProposalRequest
-) -> dict[str, Any]:
+async def execute_proposal(request: Request, req: ExecuteProposalRequest) -> dict[str, Any]:
     """Execute a proposal that has passed voting"""
     try:
         service = get_governance_service()
@@ -151,9 +133,7 @@ async def execute_proposal(
             "success": success,
             "proposal_id": req.proposal_id,
             "executor": req.executor,
-            "executed_at": __import__('datetime').datetime.now(
-                __import__('datetime').timezone.utc
-            ).isoformat()
+            "executed_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
         }
 
     except ValueError as e:
@@ -166,10 +146,7 @@ async def execute_proposal(
 
 @router.get("/proposals/{proposal_id}", summary="Get proposal details")
 @rate_limit(rate=100, per=60)
-async def get_proposal(
-    request: Request,
-    proposal_id: str
-) -> dict[str, Any]:
+async def get_proposal(request: Request, proposal_id: str) -> dict[str, Any]:
     """Get detailed information about a specific proposal"""
     try:
         service = get_governance_service()
@@ -190,11 +167,7 @@ async def get_proposal(
 
 @router.get("/proposals", summary="List proposals")
 @rate_limit(rate=50, per=60)
-async def list_proposals(
-    request: Request,
-    status: str | None = None,
-    proposer: str | None = None
-) -> dict[str, Any]:
+async def list_proposals(request: Request, status: str | None = None, proposer: str | None = None) -> dict[str, Any]:
     """List governance proposals with optional filters"""
     try:
         service = get_governance_service()
@@ -206,10 +179,7 @@ async def list_proposals(
         return {
             "proposals": [p.to_dict() for p in proposals],
             "count": len(proposals),
-            "filters": {
-                "status": status,
-                "proposer": proposer
-            }
+            "filters": {"status": status, "proposer": proposer},
         }
 
     except Exception as e:
@@ -218,10 +188,7 @@ async def list_proposals(
 
 @router.get("/proposals/{proposal_id}/votes", summary="Get proposal votes")
 @rate_limit(rate=50, per=60)
-async def get_votes(
-    request: Request,
-    proposal_id: str
-) -> dict[str, Any]:
+async def get_votes(request: Request, proposal_id: str) -> dict[str, Any]:
     """Get all votes cast on a proposal"""
     try:
         service = get_governance_service()
@@ -233,15 +200,9 @@ async def get_votes(
         return {
             "proposal_id": proposal_id,
             "votes": [
-                {
-                    "voter": v.voter,
-                    "choice": v.choice,
-                    "power": v.power,
-                    "timestamp": v.timestamp.isoformat()
-                }
-                for v in votes
+                {"voter": v.voter, "choice": v.choice, "power": v.power, "timestamp": v.timestamp.isoformat()} for v in votes
             ],
-            "count": len(votes)
+            "count": len(votes),
         }
 
     except Exception as e:
@@ -265,10 +226,7 @@ async def get_params(request: Request) -> dict[str, Any]:
 
 @router.get("/voting-power/{address}", summary="Get voting power")
 @rate_limit(rate=100, per=60)
-async def get_voting_power(
-    request: Request,
-    address: str
-) -> dict[str, Any]:
+async def get_voting_power(request: Request, address: str) -> dict[str, Any]:
     """Get stake-weighted voting power for an address"""
     try:
         service = get_governance_service()
@@ -277,11 +235,7 @@ async def get_voting_power(
 
         power = service.get_voting_power(address)
 
-        return {
-            "address": address,
-            "voting_power": power,
-            "can_create_proposal": power >= service.MIN_PROPOSAL_STAKE
-        }
+        return {"address": address, "voting_power": power, "can_create_proposal": power >= service.MIN_PROPOSAL_STAKE}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get voting power: {str(e)}")
@@ -300,11 +254,8 @@ async def health_check(request: Request) -> dict[str, Any]:
         return {
             "status": "healthy",
             "total_proposals": params["total_proposals"],
-            "active_proposals": params["active_proposals"]
+            "active_proposals": params["active_proposals"],
         }
 
     except Exception as e:
-        return {
-            "status": "unhealthy",
-            "error": str(e)
-        }
+        return {"status": "unhealthy", "error": str(e)}

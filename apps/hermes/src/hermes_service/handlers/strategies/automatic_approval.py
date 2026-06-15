@@ -17,7 +17,7 @@ class AutomaticApprovalStrategy(ApprovalStrategy):
     def approve(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Approve automatically if amount is under threshold and sender is island member.
-        
+
         Returns:
             Dictionary with approval decision.
         """
@@ -28,22 +28,14 @@ class AutomaticApprovalStrategy(ApprovalStrategy):
         if amount > self.max_auto_amount:
             reason = f"Amount {amount} exceeds auto-approval threshold {self.max_auto_amount}"
             self.log_decision(request, approved=False, reason=reason)
-            return {
-                "approved": False,
-                "reason": reason,
-                "signed_transaction": None
-            }
+            return {"approved": False, "reason": reason, "signed_transaction": None}
 
         # Check if sender is island member
         island_members = get_island_members()
         if sender not in island_members:
             reason = f"Sender {sender} is not a trusted island member"
             self.log_decision(request, approved=False, reason=reason)
-            return {
-                "approved": False,
-                "reason": reason,
-                "signed_transaction": None
-            }
+            return {"approved": False, "reason": reason, "signed_transaction": None}
 
         # Auto-approve
         reason = f"Auto-approved: amount {amount} <= {self.max_auto_amount} and sender is island member"
@@ -52,5 +44,5 @@ class AutomaticApprovalStrategy(ApprovalStrategy):
         return {
             "approved": True,
             "reason": reason,
-            "signed_transaction": None  # Will be generated later
+            "signed_transaction": None,  # Will be generated later
         }

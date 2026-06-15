@@ -15,6 +15,7 @@ from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
 
+
 @click.group()
 @click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
 @click.pass_context
@@ -24,20 +25,22 @@ def marketplace(ctx, chain_id: str | None):
 
     # Handle chain_id with auto-detection
     from ..utils.chain_id import get_chain_id
+
     config = load_multichain_config()
-    default_rpc_url = config.blockchain_rpc_url if hasattr(config, 'blockchain_rpc_url') else 'http://localhost:8006'
-    ctx.obj['chain_id'] = get_chain_id(default_rpc_url, override=chain_id)
+    default_rpc_url = config.blockchain_rpc_url if hasattr(config, "blockchain_rpc_url") else "http://localhost:8006"
+    ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
+
 
 @marketplace.command()
-@click.argument('chain_id')
-@click.argument('chain_name')
-@click.argument('chain_type')
-@click.argument('description')
-@click.argument('seller_id')
-@click.argument('price')
-@click.option('--currency', default='ETH', help='Currency for pricing')
-@click.option('--specs', help='Chain specifications (JSON string)')
-@click.option('--metadata', help='Additional metadata (JSON string)')
+@click.argument("chain_id")
+@click.argument("chain_name")
+@click.argument("chain_type")
+@click.argument("description")
+@click.argument("seller_id")
+@click.argument("price")
+@click.option("--currency", default="ETH", help="Currency for pricing")
+@click.option("--specs", help="Chain specifications (JSON string)")
+@click.option("--metadata", help="Additional metadata (JSON string)")
 @click.pass_context
 def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, currency, specs, metadata):
     """List a chain for sale in the marketplace"""
@@ -47,7 +50,7 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
 
         # Parse chain type
         try:
-            chain_type_enum = ChainType(chain_type)
+            _ = ChainType(chain_type)
         except ValueError:
             error(f"Invalid chain type: {chain_type}")
             error(f"Valid types: {[t.value for t in ChainType]}")
@@ -55,7 +58,7 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
 
         # Parse price
         try:
-            price_decimal = Decimal(price)
+            _ = Decimal(price)
         except (ValueError, TypeError):
             error("Invalid price format")
             raise click.Abort()
@@ -81,26 +84,26 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
         # Create listing transaction
         listing_id = f"chain_listing_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         listing_data = {
-            'type': 'marketplace',
-            'action': 'list',
-            'listing_id': listing_id,
-            'chain_id': chain_id,
-            'chain_name': chain_name,
-            'chain_type': chain_type,
-            'description': description,
-            'seller_id': seller_id,
-            'price': float(price),
-            'currency': currency,
-            'specs': chain_specs,
-            'metadata': metadata_dict,
-            'status': 'active',
-            'created_at': datetime.now().isoformat()
+            "type": "marketplace",
+            "action": "list",
+            "listing_id": listing_id,
+            "chain_id": chain_id,
+            "chain_name": chain_name,
+            "chain_type": chain_type,
+            "description": description,
+            "seller_id": seller_id,
+            "price": float(price),
+            "currency": currency,
+            "specs": chain_specs,
+            "metadata": metadata_dict,
+            "status": "active",
+            "created_at": datetime.now().isoformat(),
         }
 
         # Submit transaction to marketplace service
         try:
             http_client = AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
-            result = http_client.post("/v1/transactions", json=listing_data)
+            _ = http_client.post("/v1/transactions", json=listing_data)
             success(f"Chain listed successfully! Listing ID: {listing_id}")
 
             listing_info = {
@@ -111,10 +114,10 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
                 "Price": f"{price} {currency}",
                 "Seller": seller_id,
                 "Status": "active",
-                "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
-            output(listing_info, ctx.obj.get('output_format', 'table'))
+            output(listing_info, ctx.obj.get("output_format", "table"))
         except Exception as e:
             error(f"Error submitting transaction: {e}")
             raise click.Abort()
@@ -123,10 +126,11 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
         error(f"Error creating listing: {str(e)}")
         raise click.Abort()
 
+
 @marketplace.command()
-@click.argument('listing_id')
-@click.argument('buyer_id')
-@click.option('--payment', default='crypto', help='Payment method')
+@click.argument("listing_id")
+@click.argument("buyer_id")
+@click.option("--payment", default="crypto", help="Payment method")
 @click.pass_context
 def buy(ctx, listing_id, buyer_id, payment):
     """Purchase a chain from the marketplace"""
@@ -146,10 +150,10 @@ def buy(ctx, listing_id, buyer_id, payment):
                 "Buyer": buyer_id,
                 "Payment Method": payment,
                 "Status": "pending",
-                "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
-            output(transaction_data, ctx.obj.get('output_format', 'table'))
+            output(transaction_data, ctx.obj.get("output_format", "table"))
         else:
             error("Failed to purchase chain")
             raise click.Abort()
@@ -158,9 +162,10 @@ def buy(ctx, listing_id, buyer_id, payment):
         error(f"Error purchasing chain: {str(e)}")
         raise click.Abort()
 
+
 @marketplace.command()
-@click.argument('transaction_id')
-@click.argument('transaction_hash')
+@click.argument("transaction_id")
+@click.argument("transaction_hash")
 @click.pass_context
 def complete(ctx, transaction_id, transaction_hash):
     """Complete a marketplace transaction"""
@@ -178,10 +183,10 @@ def complete(ctx, transaction_id, transaction_hash):
                 "Transaction ID": transaction_id,
                 "Transaction Hash": transaction_hash,
                 "Status": "completed",
-                "Completed": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "Completed": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
-            output(transaction_data, ctx.obj.get('output_format', 'table'))
+            output(transaction_data, ctx.obj.get("output_format", "table"))
         else:
             error(f"Failed to complete transaction {transaction_id}")
             raise click.Abort()
@@ -190,13 +195,14 @@ def complete(ctx, transaction_id, transaction_hash):
         error(f"Error completing transaction: {str(e)}")
         raise click.Abort()
 
+
 @marketplace.command()
-@click.option('--type', help='Filter by chain type')
-@click.option('--min-price', help='Minimum price')
-@click.option('--max-price', help='Maximum price')
-@click.option('--seller', help='Filter by seller ID')
-@click.option('--status', help='Filter by listing status')
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.option("--type", help="Filter by chain type")
+@click.option("--min-price", help="Minimum price")
+@click.option("--max-price", help="Maximum price")
+@click.option("--seller", help="Filter by seller ID")
+@click.option("--status", help="Filter by listing status")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def search(ctx, type, min_price, max_price, seller, status, format):
     """Search chain listings in the marketplace"""
@@ -238,12 +244,10 @@ def search(ctx, type, min_price, max_price, seller, status, format):
                 raise click.Abort()
 
         # Search listings
-        listings = asyncio.run(marketplace.search_listings(
-            chain_type, min_price_dec, max_price_dec, seller, listing_status
-        ))
+        listings = asyncio.run(marketplace.search_listings(chain_type, min_price_dec, max_price_dec, seller, listing_status))
 
         if not listings:
-            output("No listings found matching your criteria", ctx.obj.get('output_format', 'table'))
+            output("No listings found matching your criteria", ctx.obj.get("output_format", "table"))
             return
 
         # Format output
@@ -257,20 +261,21 @@ def search(ctx, type, min_price, max_price, seller, status, format):
                 "Seller": listing.seller_id,
                 "Status": listing.status.value,
                 "Created": listing.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                "Expires": listing.expires_at.strftime("%Y-%m-%d %H:%M:%S")
+                "Expires": listing.expires_at.strftime("%Y-%m-%d %H:%M:%S"),
             }
             for listing in listings
         ]
 
-        output(listing_data, ctx.obj.get('output_format', format), title="Marketplace Listings")
+        output(listing_data, ctx.obj.get("output_format", format), title="Marketplace Listings")
 
     except Exception as e:
         error(f"Error searching listings: {str(e)}")
         raise click.Abort()
 
+
 @marketplace.command()
-@click.argument('chain_id')
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.argument("chain_id")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def economy(ctx, chain_id, format):
     """Get economic metrics for a specific chain"""
@@ -296,19 +301,20 @@ def economy(ctx, chain_id, format):
             {"Metric": "Agent Count", "Value": economy.agent_count},
             {"Metric": "Governance Tokens", "Value": f"{economy.governance_tokens}"},
             {"Metric": "Staking Rewards", "Value": f"{economy.staking_rewards}"},
-            {"Metric": "Last Updated", "Value": economy.last_updated.strftime("%Y-%m-%d %H:%M:%S")}
+            {"Metric": "Last Updated", "Value": economy.last_updated.strftime("%Y-%m-%d %H:%M:%S")},
         ]
 
-        output(economy_data, ctx.obj.get('output_format', format), title=f"Chain Economy: {chain_id}")
+        output(economy_data, ctx.obj.get("output_format", format), title=f"Chain Economy: {chain_id}")
 
     except Exception as e:
         error(f"Error getting chain economy: {str(e)}")
         raise click.Abort()
 
+
 @marketplace.command()
-@click.argument('user_id')
-@click.option('--role', type=click.Choice(['buyer', 'seller', 'both']), default='both', help='User role')
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.argument("user_id")
+@click.option("--role", type=click.Choice(["buyer", "seller", "both"]), default="both", help="User role")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def transactions(ctx, user_id, role, format):
     """Get transactions for a specific user"""
@@ -320,7 +326,7 @@ def transactions(ctx, user_id, role, format):
         transactions = asyncio.run(marketplace.get_user_transactions(user_id, role))
 
         if not transactions:
-            output(f"No transactions found for user {user_id}", ctx.obj.get('output_format', 'table'))
+            output(f"No transactions found for user {user_id}", ctx.obj.get("output_format", "table"))
             return
 
         # Format output
@@ -334,19 +340,20 @@ def transactions(ctx, user_id, role, format):
                 "Counterparty": transaction.seller_id if transaction.buyer_id == user_id else transaction.buyer_id,
                 "Status": transaction.status.value,
                 "Created": transaction.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                "Completed": transaction.completed_at.strftime("%Y-%m-%d %H:%M:%S") if transaction.completed_at else "N/A"
+                "Completed": transaction.completed_at.strftime("%Y-%m-%d %H:%M:%S") if transaction.completed_at else "N/A",
             }
             for transaction in transactions
         ]
 
-        output(transaction_data, ctx.obj.get('output_format', format), title=f"Transactions for {user_id}")
+        output(transaction_data, ctx.obj.get("output_format", format), title=f"Transactions for {user_id}")
 
     except Exception as e:
         error(f"Error getting user transactions: {str(e)}")
         raise click.Abort()
 
+
 @marketplace.command()
-@click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def overview(ctx, format):
     """Get comprehensive marketplace overview"""
@@ -370,44 +377,35 @@ def overview(ctx, format):
                 {"Metric": "Total Transactions", "Value": metrics["total_transactions"]},
                 {"Metric": "Total Volume", "Value": f"{metrics['total_volume']} ETH"},
                 {"Metric": "Average Price", "Value": f"{metrics['average_price']} ETH"},
-                {"Metric": "Market Sentiment", "Value": f"{metrics['market_sentiment']:.2f}"}
+                {"Metric": "Market Sentiment", "Value": f"{metrics['market_sentiment']:.2f}"},
             ]
 
-            output(metrics_data, ctx.obj.get('output_format', format), title="Marketplace Metrics")
+            output(metrics_data, ctx.obj.get("output_format", format), title="Marketplace Metrics")
 
         # Volume 24h
         if "volume_24h" in overview:
-            volume_data = [
-                {"Metric": "24h Volume", "Value": f"{overview['volume_24h']} ETH"}
-            ]
+            volume_data = [{"Metric": "24h Volume", "Value": f"{overview['volume_24h']} ETH"}]
 
-            output(volume_data, ctx.obj.get('output_format', format), title="24-Hour Volume")
+            output(volume_data, ctx.obj.get("output_format", format), title="24-Hour Volume")
 
         # Top performing chains
         if "top_performing_chains" in overview:
             chains = overview["top_performing_chains"]
             if chains:
                 chain_data = [
-                    {
-                        "Chain ID": chain["chain_id"],
-                        "Volume": f"{chain['volume']} ETH",
-                        "Transactions": chain["transactions"]
-                    }
+                    {"Chain ID": chain["chain_id"], "Volume": f"{chain['volume']} ETH", "Transactions": chain["transactions"]}
                     for chain in chains[:5]  # Top 5
                 ]
 
-                output(chain_data, ctx.obj.get('output_format', format), title="Top Performing Chains")
+                output(chain_data, ctx.obj.get("output_format", format), title="Top Performing Chains")
 
         # Chain types distribution
         if "chain_types_distribution" in overview:
             distribution = overview["chain_types_distribution"]
             if distribution:
-                dist_data = [
-                    {"Chain Type": chain_type, "Count": count}
-                    for chain_type, count in distribution.items()
-                ]
+                dist_data = [{"Chain Type": chain_type, "Count": count} for chain_type, count in distribution.items()]
 
-                output(dist_data, ctx.obj.get('output_format', format), title="Chain Types Distribution")
+                output(dist_data, ctx.obj.get("output_format", format), title="Chain Types Distribution")
 
         # User activity
         if "user_activity" in overview:
@@ -416,10 +414,10 @@ def overview(ctx, format):
                 {"Metric": "Active Buyers (7d)", "Value": activity["active_buyers_7d"]},
                 {"Metric": "Active Sellers (7d)", "Value": activity["active_sellers_7d"]},
                 {"Metric": "Total Unique Users", "Value": activity["total_unique_users"]},
-                {"Metric": "Average Reputation", "Value": f"{activity['average_reputation']:.3f}"}
+                {"Metric": "Average Reputation", "Value": f"{activity['average_reputation']:.3f}"},
             ]
 
-            output(activity_data, ctx.obj.get('output_format', format), title="User Activity")
+            output(activity_data, ctx.obj.get("output_format", format), title="User Activity")
 
         # Escrow summary
         if "escrow_summary" in overview:
@@ -428,18 +426,19 @@ def overview(ctx, format):
                 {"Metric": "Active Escrows", "Value": escrow["active_escrows"]},
                 {"Metric": "Released Escrows", "Value": escrow["released_escrows"]},
                 {"Metric": "Total Escrow Value", "Value": f"{escrow['total_escrow_value']} ETH"},
-                {"Metric": "Escrow Fees Collected", "Value": f"{escrow['escrow_fee_collected']} ETH"}
+                {"Metric": "Escrow Fees Collected", "Value": f"{escrow['escrow_fee_collected']} ETH"},
             ]
 
-            output(escrow_data, ctx.obj.get('output_format', format), title="Escrow Summary")
+            output(escrow_data, ctx.obj.get("output_format", format), title="Escrow Summary")
 
     except Exception as e:
         error(f"Error getting marketplace overview: {str(e)}")
         raise click.Abort()
 
+
 @marketplace.command()
-@click.option('--realtime', is_flag=True, help='Real-time monitoring')
-@click.option('--interval', default=30, help='Update interval in seconds')
+@click.option("--realtime", is_flag=True, help="Real-time monitoring")
+@click.option("--interval", default=30, help="Update interval in seconds")
 @click.pass_context
 def monitor(ctx, realtime, interval):
     """Monitor marketplace activity"""
@@ -499,22 +498,26 @@ def monitor(ctx, realtime, interval):
 
             if "marketplace_metrics" in overview:
                 metrics = overview["marketplace_metrics"]
-                monitor_data.extend([
-                    {"Metric": "Total Listings", "Value": metrics["total_listings"]},
-                    {"Metric": "Active Listings", "Value": metrics["active_listings"]},
-                    {"Metric": "Total Transactions", "Value": metrics["total_transactions"]},
-                    {"Metric": "Total Volume", "Value": f"{metrics['total_volume']} ETH"},
-                    {"Metric": "Market Sentiment", "Value": f"{metrics['market_sentiment']:.2f}"}
-                ])
+                monitor_data.extend(
+                    [
+                        {"Metric": "Total Listings", "Value": metrics["total_listings"]},
+                        {"Metric": "Active Listings", "Value": metrics["active_listings"]},
+                        {"Metric": "Total Transactions", "Value": metrics["total_transactions"]},
+                        {"Metric": "Total Volume", "Value": f"{metrics['total_volume']} ETH"},
+                        {"Metric": "Market Sentiment", "Value": f"{metrics['market_sentiment']:.2f}"},
+                    ]
+                )
 
             if "volume_24h" in overview:
                 monitor_data.append({"Metric": "24h Volume", "Value": f"{overview['volume_24h']} ETH"})
 
             if "user_activity" in overview:
                 activity = overview["user_activity"]
-                monitor_data.append({"Metric": "Active Users (7d)", "Value": activity["active_buyers_7d"] + activity["active_sellers_7d"]})
+                monitor_data.append(
+                    {"Metric": "Active Users (7d)", "Value": activity["active_buyers_7d"] + activity["active_sellers_7d"]}
+                )
 
-            output(monitor_data, ctx.obj.get('output_format', 'table'), title="Marketplace Monitor")
+            output(monitor_data, ctx.obj.get("output_format", "table"), title="Marketplace Monitor")
 
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
@@ -522,9 +525,9 @@ def monitor(ctx, realtime, interval):
 
 
 @marketplace.command()
-@click.argument('price', type=float)
-@click.argument('quantity', type=float)
-@click.option('--market', help='Market identifier')
+@click.argument("price", type=float)
+@click.argument("quantity", type=float)
+@click.option("--market", help="Market identifier")
 @click.pass_context
 def bid(ctx, price: float, quantity: float, market: str | None):
     """Place a bid in the marketplace"""
@@ -532,11 +535,7 @@ def bid(ctx, price: float, quantity: float, market: str | None):
 
     try:
         http_client = AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
-        bid_data = {
-            "price": price,
-            "quantity": quantity,
-            "market": market or "default"
-        }
+        bid_data = {"price": price, "quantity": quantity, "market": market or "default"}
         result = http_client.post("/marketplace/bid", json=bid_data)
         success(f"Bid placed: {quantity} @ {price}")
         output(result, ctx.obj.get("output_format", "table"))
@@ -547,8 +546,8 @@ def bid(ctx, price: float, quantity: float, market: str | None):
 
 
 @marketplace.command()
-@click.option('--market', help='Filter by market')
-@click.option('--limit', type=int, default=20, help='Number of bids to return')
+@click.option("--market", help="Filter by market")
+@click.option("--limit", type=int, default=20, help="Number of bids to return")
 @click.pass_context
 def bids(ctx, market: str | None, limit: int):
     """List bids from the marketplace"""
@@ -570,9 +569,9 @@ def bids(ctx, market: str | None, limit: int):
 
 
 @marketplace.command()
-@click.argument('price', type=float)
-@click.argument('quantity', type=float)
-@click.option('--market', help='Market identifier')
+@click.argument("price", type=float)
+@click.argument("quantity", type=float)
+@click.option("--market", help="Market identifier")
 @click.pass_context
 def ask(ctx, price: float, quantity: float, market: str | None):
     """Place an ask in the marketplace"""
@@ -580,11 +579,7 @@ def ask(ctx, price: float, quantity: float, market: str | None):
 
     try:
         http_client = AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
-        ask_data = {
-            "price": price,
-            "quantity": quantity,
-            "market": market or "default"
-        }
+        ask_data = {"price": price, "quantity": quantity, "market": market or "default"}
         result = http_client.post("/marketplace/ask", json=ask_data)
         success(f"Ask placed: {quantity} @ {price}")
         output(result, ctx.obj.get("output_format", "table"))
@@ -595,8 +590,8 @@ def ask(ctx, price: float, quantity: float, market: str | None):
 
 
 @marketplace.command()
-@click.option('--market', help='Filter by market')
-@click.option('--limit', type=int, default=20, help='Number of asks to return')
+@click.option("--market", help="Filter by market")
+@click.option("--limit", type=int, default=20, help="Number of asks to return")
 @click.pass_context
 def asks(ctx, market: str | None, limit: int):
     """List asks from the marketplace"""
@@ -615,4 +610,3 @@ def asks(ctx, market: str | None, limit: int):
         error(f"Network error: {e}")
     except Exception as e:
         error(f"Error fetching asks: {e}")
-

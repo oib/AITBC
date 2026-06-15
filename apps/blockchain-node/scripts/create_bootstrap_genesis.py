@@ -45,7 +45,7 @@ GENESIS_CONFIG = {
             "address": "aitbecosystem000000000000000000000000000000000",
             "balance": 3_000_000_000_000,  # 3 million AITBC
             "nonce": 0,
-        }
+        },
     ],
     "authorities": [
         {
@@ -54,6 +54,7 @@ GENESIS_CONFIG = {
         }
     ],
 }
+
 
 def create_genesis_with_bootstrap():
     """Create genesis file with initial token distribution"""
@@ -85,16 +86,18 @@ def create_genesis_with_bootstrap():
 
     return GENESIS_CONFIG
 
+
 def write_genesis_file(genesis_data, output_path="data/genesis_with_bootstrap.json"):
     """Write genesis to file"""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         json.dump(genesis_data, f, indent=2, sort_keys=True)
 
     print(f"\nGenesis file written to: {path}")
     return path
+
 
 if __name__ == "__main__":
     # Create genesis with bootstrap distribution

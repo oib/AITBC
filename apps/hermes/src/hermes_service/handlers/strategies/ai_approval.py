@@ -24,35 +24,21 @@ class AIApprovalStrategy(ApprovalStrategy):
         cutoff = datetime.utcnow() - timedelta(days=days)
 
         with get_db_session() as session:
-            requests = session.query(CoinRequest).filter(
-                CoinRequest.sender == sender,
-                CoinRequest.created_at >= cutoff
-            ).all()
+            requests = session.query(CoinRequest).filter(CoinRequest.sender == sender, CoinRequest.created_at >= cutoff).all()
 
-            return [
-                {
-                    "amount": r.amount,
-                    "status": r.status.value,
-                    "created_at": r.created_at.isoformat()
-                }
-                for r in requests
-            ]
+            return [{"amount": r.amount, "status": r.status.value, "created_at": r.created_at.isoformat()} for r in requests]
 
     def approve(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Use AI to evaluate and approve/reject request.
-        
+
         Returns:
             Dictionary with AI approval decision.
         """
         if not self.enabled:
             reason = "AI approval is disabled"
             self.log_decision(request, approved=False, reason=reason)
-            return {
-                "approved": False,
-                "reason": reason,
-                "signed_transaction": None
-            }
+            return {"approved": False, "reason": reason, "signed_transaction": None}
 
         sender = request.get("sender", "")
         amount = request.get("amount", 0)
@@ -67,23 +53,13 @@ class AIApprovalStrategy(ApprovalStrategy):
         try:
             # Query Ollama
             response = requests.post(
-                f"{self.ollama_url}/api/generate",
-                json={
-                    "model": self.model,
-                    "prompt": prompt,
-                    "stream": False
-                },
-                timeout=30
+                f"{self.ollama_url}/api/generate", json={"model": self.model, "prompt": prompt, "stream": False}, timeout=30
             )
 
             if response.status_code != 200:
                 reason = f"Ollama API error: {response.status_code}"
                 self.log_decision(request, approved=False, reason=reason)
-                return {
-                    "approved": False,
-                    "reason": reason,
-                    "signed_transaction": None
-                }
+                return {"approved": False, "reason": reason, "signed_transaction": None}
 
             result = response.json()
             ai_response = result.get("response", "").strip().lower()
@@ -94,27 +70,20 @@ class AIApprovalStrategy(ApprovalStrategy):
 
             self.log_decision(request, approved=approved, reason=reason)
 
-            return {
-                "approved": approved,
-                "reason": reason,
-                "signed_transaction": None
-            }
+            return {"approved": approved, "reason": reason, "signed_transaction": None}
 
         except Exception as e:
             reason = f"AI approval error: {str(e)}"
             self.log_decision(request, approved=False, reason=reason)
-            return {
-                "approved": False,
-                "reason": reason,
-                "signed_transaction": None
-            }
+            return {"approved": False, "reason": reason, "signed_transaction": None}
 
     def _build_prompt(self, sender: str, amount: int, wallet_address: str, history: list[Any]) -> str:
         """Build prompt for AI evaluation."""
-        history_text = "\n".join([
-            f"- {h['amount']} AIT, status: {h['status']}, at {h['created_at']}"
-            for h in history
-        ]) if history else "No recent requests"
+        history_text = (
+            "\n".join([f"- {h['amount']} AIT, status: {h['status']}, at {h['created_at']}" for h in history])
+            if history
+            else "No recent requests"
+        )
 
         prompt = f"""You are an AI assistant for approving coin transfer requests in a blockchain network.
 
