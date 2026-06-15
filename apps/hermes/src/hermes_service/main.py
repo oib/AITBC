@@ -15,7 +15,7 @@ from .handlers import HandlerRegistry  # type: ignore[import-not-found]
 from .services.transaction_service import TransactionService  # type: ignore
 from .storage import CoinRequest, CoinRequestStatus, get_db_session, init_db  # type: ignore
 
-logging.basicConfig(level=logging.INFO, format="%(filename)s - %(levelname)s - %(message)s")
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 app = FastAPI(title="AITBC Hermes Service", description="Agent orchestration and edge computing service", version="1.0.0")
