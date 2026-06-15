@@ -1,6 +1,6 @@
 import re
 from datetime import UTC, datetime
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import field_validator
 from sqlalchemy import BigInteger, Column, UniqueConstraint
@@ -88,7 +88,7 @@ class Transaction(SQLModel, table=True):
     )
     sender: str
     recipient: str
-    payload: dict = Field(
+    payload: dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False),
     )
@@ -130,15 +130,15 @@ class Receipt(SQLModel, table=True):
         default=None,
         index=True,
     )
-    payload: dict = Field(
+    payload: dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False),
     )
-    miner_signature: dict = Field(
+    miner_signature: dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False),
     )
-    coordinator_attestations: list = Field(
+    coordinator_attestations: list[Any] = Field(
         default_factory=list,
         sa_column=Column(JSON, nullable=False),
     )
@@ -233,7 +233,7 @@ class AgentIdentity(SQLModel, table=True):
     agent_address: str = Field(index=True)
     display_name: str | None = None
     agent_type: str = Field(default="general")  # general, provider, consumer
-    capabilities: dict = Field(
+    capabilities: dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False),
     )
@@ -266,7 +266,7 @@ class GovernanceProposal(SQLModel, table=True):
     votes_abstain: int = Field(default=0)
     quorum_required: int = Field(default=0)
     passing_threshold: float = Field(default=0.5)
-    execution_payload: dict = Field(
+    execution_payload: dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False),
     )

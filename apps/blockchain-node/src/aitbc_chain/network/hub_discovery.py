@@ -5,7 +5,10 @@ DNS-based hub discovery for federated mesh with hardcoded fallback
 import asyncio
 import socket
 from dataclasses import dataclass
+from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 @dataclass
@@ -73,7 +76,7 @@ class HubDiscovery:
         """Get hardcoded fallback hubs"""
         return [HubEndpoint(address=address, port=port, source='fallback') for address, port in self.FALLBACK_HUBS]
 
-    async def register_hub(self, hub_info: dict, discovery_url: str | None=None) -> bool:
+    async def register_hub(self, hub_info: dict[str, Any], discovery_url: str | None=None) -> bool:
         """
         Register this node as a hub with DNS discovery service
 
@@ -139,7 +142,7 @@ class HubDiscovery:
         self.cache_time = 0
         logger.debug('Cleared hub discovery cache')
 
-    def get_cache_info(self) -> dict:
+    def get_cache_info(self) -> dict[str, Any]:
         """Get cache information"""
         current_time = asyncio.get_event_loop().time()
         cache_age = current_time - self.cache_time if self.cache_time else 0

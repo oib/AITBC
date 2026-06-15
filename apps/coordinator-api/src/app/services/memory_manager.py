@@ -3,13 +3,17 @@ Memory Manager Service for Agent Memory Operations
 Handles memory lifecycle management, versioning, and optimization
 """
 import asyncio
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 from .ipfs_storage_service import IPFSStorageService, IPFSUploadResult
+
 
 class MemoryType(StrEnum):
     """Types of agent memories"""
@@ -203,7 +207,7 @@ class MemoryManager:
                 else:
                     memories = list(self.memory_records.values())
                 total_memories = len(memories)
-                total_size = sum((m.size for m in memories))
+                total_size = sum(m.size for m in memories)
                 by_type: dict[str, int] = {}
                 for memory in memories:
                     memory_type = memory.memory_type.value
@@ -212,7 +216,7 @@ class MemoryManager:
                 for memory in memories:
                     priority = memory.priority.value
                     by_priority[priority] = by_priority.get(priority, 0) + 1
-                total_access = sum((m.access_count for m in memories))
+                total_access = sum(m.access_count for m in memories)
                 avg_access = total_access / total_memories if total_memories > 0 else 0
                 return {'total_memories': total_memories, 'total_size_bytes': total_size, 'total_size_mb': total_size / (1024 * 1024), 'by_type': by_type, 'by_priority': by_priority, 'total_access_count': total_access, 'average_access_count': avg_access, 'agent_count': len(self.agent_memories) if not agent_id else 1}
             except Exception as e:

@@ -1,9 +1,12 @@
 """Transaction event subscriber for gossip broker."""
 import asyncio
 from typing import TYPE_CHECKING
+
 from aitbc.aitbc_logging import get_logger
+
 from ..config import Settings
 from ..metrics import event_queue_size, gossip_subscribers_total
+
 if TYPE_CHECKING:
     from ..bridge import BlockchainEventBridge
 logger = get_logger(__name__)

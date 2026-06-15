@@ -5,14 +5,19 @@ import asyncio
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
+
 import numpy as np
 import torch
 import torch.nn as nn
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select
+
 from ...domain.agent_performance import FusionModel  # type: ignore[import-not-found]
 from .neural_modules import AdaptiveModalityWeighting, CrossModalAttention, MultiModalTransformer
+
 
 class MultiModalFusionEngine:
     """Advanced multi-modal agent fusion system - Enhanced Implementation"""
@@ -118,7 +123,7 @@ class MultiModalFusionEngine:
                 fused_output = fusion_model(batch_data)
                 output_variance = torch.var(fused_output).item()
                 output_mean = torch.mean(fused_output).item()
-            return {'output_variance': output_variance, 'output_mean': output_mean, 'model_complexity': sum((p.numel() for p in fusion_model.parameters())), 'fusion_quality': 1.0 / (1.0 + output_variance)}
+            return {'output_variance': output_variance, 'output_mean': output_mean, 'model_complexity': sum(p.numel() for p in fusion_model.parameters()), 'fusion_quality': 1.0 / (1.0 + output_variance)}
         return {'error': 'Unsupported fusion strategy for evaluation'}  # type: ignore[dict-item]
 
     async def adaptive_fusion_selection(self, modal_data: dict[str, Any], performance_requirements: dict[str, float]) -> dict[str, Any]:

@@ -1,16 +1,26 @@
 from sqlalchemy.orm import Session
+
 '\nEnhanced Marketplace API Router - Simplified Version\nREST API endpoints for enhanced marketplace features\n'
 from typing import Annotated, Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlmodel import Session
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
-from ..contexts.marketplace.services.marketplace_enhanced_simple import EnhancedMarketplaceService, LicenseType, VerificationType
+
+from ..contexts.marketplace.services.marketplace_enhanced_simple import (
+    EnhancedMarketplaceService,
+    LicenseType,
+    VerificationType,
+)
 from ..deps import require_admin_key
 from ..storage import get_session
+
 router = APIRouter(prefix='/marketplace/enhanced', tags=['Marketplace Enhanced'])
 
 class RoyaltyDistributionRequest(BaseModel):

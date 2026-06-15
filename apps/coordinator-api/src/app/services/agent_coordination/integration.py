@@ -9,16 +9,21 @@ After migration is complete, duplicated code will be removed.
 import asyncio
 import os
 import subprocess
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
+
 from sqlmodel import JSON, Column, Field, Session, SQLModel, select
+
 from ...domain.agent import AgentExecution, AgentStepExecution, VerificationLevel
 from .agent_service import AIAgentOrchestrator
 from .security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel
+
 
 class ZKProofService:
     """Mock ZK proof service for testing"""

@@ -1,17 +1,22 @@
 from __future__ import annotations
+
 from datetime import UTC, datetime
 from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from sqlmodel import select
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 from ..config import settings
 from ..deps import require_admin_key
 from ..services import JobService, MinerService
 from ..storage import get_session
 from ..utils.cache import cached, get_cache_config
+
 logger = get_logger(__name__)
 router = APIRouter(prefix='/admin', tags=['admin'])
 
@@ -29,6 +34,7 @@ async def create_test_miner(request: Request, session: Annotated[Session, Depend
     """Create a test miner for debugging marketplace sync"""
     try:
         from uuid import uuid4
+
         from ..domain import Miner
         miner_id = 'debug-test-miner'
         session_token = uuid4().hex
@@ -73,12 +79,13 @@ async def get_stats(request: Request, session: Annotated[Session, Depends(get_se
     logger.debug('API key validation successful!')
     JobService(session)
     from sqlmodel import func, select
+
     from ..domain import Job
     total_jobs = session.execute(select(func.count()).select_from(Job)).one()
     active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(['QUEUED', 'RUNNING']))).one()  # type: ignore[attr-defined]
     miner_service = MinerService(session)
     miners = miner_service.list_records()
-    avg_job_duration = sum((miner.average_job_duration_ms for miner in miners if miner.average_job_duration_ms)) / max(len(miners), 1)
+    avg_job_duration = sum(miner.average_job_duration_ms for miner in miners if miner.average_job_duration_ms) / max(len(miners), 1)
     return {'total_jobs': int(total_jobs or 0), 'active_jobs': int(active_jobs or 0), 'online_miners': miner_service.online_count(), 'avg_miner_job_duration_ms': avg_job_duration}
 
 @router.get('/jobs', summary='List jobs')
@@ -92,6 +99,7 @@ async def list_jobs(request: Request, session: Annotated[Session, Depends(get_se
 @rate_limit(rate=100, per=60)
 async def list_miners(request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str=Depends(require_admin_key())) -> dict[str, list[dict]]:
     from sqlmodel import select
+
     from ..domain import Miner
     miners = session.execute(select(Miner)).scalars().all()
     miner_list = [{'miner_id': miner.id, 'status': miner.status, 'inflight': miner.inflight, 'concurrency': miner.concurrency, 'region': miner.region, 'last_heartbeat': miner.last_heartbeat.isoformat(), 'average_job_duration_ms': miner.average_job_duration_ms, 'jobs_completed': miner.jobs_completed, 'jobs_failed': miner.jobs_failed, 'last_receipt_id': miner.last_receipt_id} for miner in miners]
@@ -104,6 +112,7 @@ async def get_system_status(request: Request, session: Annotated[Session, Depend
     try:
         JobService(session)
         from sqlmodel import func, select
+
         from ..domain import Job
         total_jobs = session.execute(select(func.count()).select_from(Job)).one()
         active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(['QUEUED', 'RUNNING']))).one()  # type: ignore[attr-defined]
@@ -112,9 +121,10 @@ async def get_system_status(request: Request, session: Annotated[Session, Depend
         miner_service = MinerService(session)
         miners = miner_service.list_records()
         online_miners = miner_service.online_count()
-        avg_job_duration = sum((miner.average_job_duration_ms for miner in miners if miner.average_job_duration_ms)) / max(len(miners), 1)
+        avg_job_duration = sum(miner.average_job_duration_ms for miner in miners if miner.average_job_duration_ms) / max(len(miners), 1)
         import sys
         from datetime import datetime
+
         import psutil
         system_info = {'cpu_percent': psutil.cpu_percent(interval=1), 'memory_percent': psutil.virtual_memory().percent, 'disk_percent': psutil.disk_usage('/').percent, 'python_version': f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}', 'timestamp': datetime.now(UTC).isoformat()}
         return {'jobs': {'total': int(total_jobs or 0), 'active': int(active_jobs or 0), 'completed': int(completed_jobs or 0), 'failed': int(failed_jobs or 0)}, 'miners': {'total': len(miners), 'online': online_miners, 'offline': len(miners) - online_miners, 'avg_job_duration_ms': avg_job_duration}, 'system': system_info, 'status': 'healthy' if online_miners > 0 else 'degraded'}

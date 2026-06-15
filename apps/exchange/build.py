@@ -5,6 +5,7 @@ Combines CSS and HTML for production deployment
 import logging
 import os
 import shutil
+
 logger = logging.getLogger(__name__)
 
 def build_html():

@@ -1,11 +1,26 @@
 from __future__ import annotations
+
 from collections import defaultdict, deque
 from datetime import datetime
+
 from sqlmodel import Session, select
+
 from aitbc import AITBCHTTPClient, NetworkError, get_logger
+
 from ..config import settings
 from ..domain import Job, JobReceipt
-from ..schemas import AddressListResponse, AddressSummary, BlockListResponse, BlockSummary, JobState, ReceiptListResponse, ReceiptSummary, TransactionListResponse, TransactionSummary
+from ..schemas import (
+    AddressListResponse,
+    AddressSummary,
+    BlockListResponse,
+    BlockSummary,
+    JobState,
+    ReceiptListResponse,
+    ReceiptSummary,
+    TransactionListResponse,
+    TransactionSummary,
+)
+
 logger = get_logger(__name__)
 _STATUS_LABELS = {JobState.queued: 'Queued', JobState.running: 'Running', JobState.completed: 'Succeeded', JobState.failed: 'Failed', JobState.canceled: 'Canceled', JobState.expired: 'Expired'}
 _DEFAULT_HEIGHT_BASE = 100000

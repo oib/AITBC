@@ -78,7 +78,7 @@ async def match_endpoint(
 def _select_candidates(
     requirements: dict[str, Any],
     hints: dict[str, Any],
-    active_miners: list[tuple],
+    active_miners: list[tuple[Any, ...]],
     top_k: int,
 ) -> list[dict[str, Any]]:
     min_vram = float(requirements.get("min_vram_gb", 0))

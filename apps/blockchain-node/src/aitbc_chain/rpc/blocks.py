@@ -6,15 +6,19 @@ import json
 import re
 import time
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
+
 from fastapi import HTTPException, Request, status
 from sqlmodel import delete, select
+
 from aitbc.rate_limiting import rate_limit
+
 from ..database import session_scope
 from ..logger import get_logger
 from ..metrics import metrics_registry
 from ..models import Block, Transaction
 from .utils import get_chain_id
+
 _logger = get_logger(__name__)
 _last_import_time = 0.0
 _import_lock = asyncio.Lock()
@@ -94,7 +98,7 @@ async def get_blocks_range(request: Request, start: int = 0, end: int = 10, incl
         return {'success': True, 'blocks': result_blocks, 'count': len(blocks)}
 
 @rate_limit(rate=50, per=60)
-async def import_block(request: Request, block_data: dict) -> dict[str, Any]:
+async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str, Any]:
     """Import a block into the blockchain"""
     global _last_import_time
     async with _import_lock:

@@ -6,6 +6,7 @@ lock-mint/burn-release pattern for secure value transfer
 between islands (blockchain shards).
 """
 from __future__ import annotations
+
 import hashlib
 import json
 import time
@@ -13,9 +14,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
+
 from sqlmodel import select
+
 from ..logger import get_logger
 from ..models import Account, CrossChainTransfer, Transaction
+
 logger = get_logger(__name__)
 
 class BridgeStatus(Enum):
@@ -168,7 +172,7 @@ class CrossChainBridge:
             return False
         return True
 
-    def _build_transfer_from_record(self, record: CrossChainTransfer, proof: dict | None=None) -> BridgeTransfer:
+    def _build_transfer_from_record(self, record: CrossChainTransfer, proof: dict[str, Any] | None=None) -> BridgeTransfer:
         """Build BridgeTransfer from database record"""
         return BridgeTransfer(transfer_id=record.transfer_id, source_chain=record.source_chain, target_chain=record.target_chain, sender=record.sender, recipient=record.recipient, amount=record.amount, asset=record.asset, status=BridgeStatus(record.status), source_tx_hash=record.source_tx_hash, target_tx_hash=record.target_tx_hash, lock_time=record.lock_time, confirm_time=record.confirm_time, proof=proof)
 _bridge_instance: CrossChainBridge | None = None

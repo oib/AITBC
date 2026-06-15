@@ -1,6 +1,7 @@
 """Job distribution routes for Pool Hub"""
 
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -18,7 +19,7 @@ class JobRequest(BaseModel):
     job_id: str
     prompt: str
     model: str
-    params: dict = {}
+    params: dict[str, Any] = {}
     priority: int = 0
     deadline: datetime | None = None
     reward: float = 0.0
@@ -40,7 +41,7 @@ class JobResult(BaseModel):
     status: str  # completed, failed
     result: str | None = None
     error: str | None = None
-    metrics: dict = {}
+    metrics: dict[str, Any] = {}
 
 
 def get_registry() -> MinerRegistry:
@@ -132,7 +133,7 @@ async def get_pending_jobs(
     pool_id: str | None = Query(None),
     limit: int = Query(50, le=100),
     registry: MinerRegistry = Depends(get_registry)
-) -> list:
+) -> list[dict[str, Any]]:
     """Get pending jobs waiting for assignment."""
     return await registry.get_pending_jobs(pool_id=pool_id, limit=limit)  # type: ignore[no-any-return]
 

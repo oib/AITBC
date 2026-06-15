@@ -8,9 +8,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
+
 import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class MetricType(StrEnum):
@@ -362,7 +365,7 @@ class AdvancedAnalytics:
 
     def get_analytics_summary(self) -> dict[str, Any]:
         """Get overall analytics summary"""
-        summary = {'monitoring_active': self.is_monitoring, 'total_alerts': len(self.alerts), 'active_alerts': len([a for a in self.alerts.values() if a.active]), 'tracked_symbols': len(self.current_metrics), 'total_metrics_stored': sum((len(history) for history in self.metrics_history.values())), 'performance_reports': len(self.performance_cache)}
+        summary = {'monitoring_active': self.is_monitoring, 'total_alerts': len(self.alerts), 'active_alerts': len([a for a in self.alerts.values() if a.active]), 'tracked_symbols': len(self.current_metrics), 'total_metrics_stored': sum(len(history) for history in self.metrics_history.values()), 'performance_reports': len(self.performance_cache)}
         for symbol, metrics in self.current_metrics.items():
             summary[f'{symbol}_metrics'] = len(metrics)
         return summary

@@ -4,6 +4,8 @@ Fetches ETH price from CoinGecko and calculates AIT exchange rate.
 """
 
 
+from typing import Any
+
 import requests
 
 # Fixed AIT price in USD (for simplicity in MVP)
@@ -67,7 +69,7 @@ def calculate_ait_amount(eth_amount: float, eth_price_usd: float | None = None) 
     return (eth_amount * eth_price_usd) / AIT_USD_PRICE
 
 
-def get_exchange_rate() -> dict:
+def get_exchange_rate() -> dict[str, Any]:
     """
     Get current ETH-AIT exchange rate information for USD and EUR.
     """

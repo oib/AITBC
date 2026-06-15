@@ -8,6 +8,7 @@ import logging
 import random
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +220,7 @@ class NetworkTopology:
                 f"Clustering: {self.clustering_coefficient:.2f}, "
                 f"Efficiency: {self.network_efficiency:.2f}")
 
-    async def _identify_improvements(self) -> list[dict]:
+    async def _identify_improvements(self) -> list[dict[str, Any]]:
         """Identify topology improvements"""
         improvements = []
 
@@ -258,7 +259,7 @@ class NetworkTopology:
 
         return improvements
 
-    async def _apply_improvement(self, improvement: dict) -> None:
+    async def _apply_improvement(self, improvement: dict[str, Any]) -> None:
         """Apply topology improvement"""
         improvement_type = improvement['type']
 
@@ -404,7 +405,7 @@ class NetworkTopology:
         except Exception as e:
             log_error(f"Failed to remove connection between {node1_id} and {node2_id}: {e}")
 
-    def get_topology_metrics(self) -> dict:
+    def get_topology_metrics(self) -> dict[str, Any]:
         """Get current topology metrics"""
         return {
             'node_count': len(self.graph.nodes()),
@@ -417,7 +418,7 @@ class NetworkTopology:
             'strategy': self.strategy.value
         }
 
-    def get_visualization_data(self) -> dict:
+    def get_visualization_data(self) -> dict[str, Any]:
         """Get data for network visualization"""
         nodes = []
         edges = []

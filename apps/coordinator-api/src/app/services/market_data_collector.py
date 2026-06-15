@@ -9,9 +9,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 import websockets
 from websockets.server import WebSocketServerProtocol  # type: ignore[attr-defined]
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class DataSource(StrEnum):
@@ -324,7 +327,7 @@ class MarketDataCollector:
                     price_values.extend(point.metadata['competitor_prices'])
         if len(price_values) >= 2:
             mean_price = sum(price_values) / len(price_values)
-            variance = sum(((p - mean_price) ** 2 for p in price_values)) / len(price_values)
+            variance = sum((p - mean_price) ** 2 for p in price_values) / len(price_values)
             volatility = variance ** 0.5 / mean_price if mean_price > 0 else 0
             return min(1.0, volatility)
         else:
@@ -368,12 +371,12 @@ class MarketDataCollector:
         freshness_scores = []
         for _source, points in source_data.items():
             if points:
-                latest_time = max((point.timestamp for point in points))
+                latest_time = max(point.timestamp for point in points)
                 age_minutes = (now - latest_time).total_seconds() / 60
                 freshness_score = max(0.0, 1.0 - age_minutes / 60)
                 freshness_scores.append(freshness_score)
         freshness_confidence = sum(freshness_scores) / len(freshness_scores) if freshness_scores else 0.5
-        total_points = sum((len(points) for points in source_data.values()))
+        total_points = sum(len(points) for points in source_data.values())
         volume_confidence = min(1.0, total_points / 20.0)
         overall_confidence = source_confidence * 0.4 + freshness_confidence * 0.4 + volume_confidence * 0.2
         return max(0.1, min(0.95, overall_confidence))

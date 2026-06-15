@@ -7,8 +7,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any
+
 from real_exchange_integration import ExchangeHealth, ExchangeStatus, exchange_manager
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class FailoverStrategy(str, Enum):
@@ -140,9 +143,9 @@ class ExchangeHealthMonitor:
         for exchange_name, history in self.health_history.items():
             if history:
                 total_checks = len(history)
-                successful_checks = sum((1 for h in history if h.status == ExchangeStatus.CONNECTED))
+                successful_checks = sum(1 for h in history if h.status == ExchangeStatus.CONNECTED)
                 uptime_pct = successful_checks / total_checks * 100 if total_checks > 0 else 0
-                avg_latency = sum((h.latency_ms for h in history if h.status == ExchangeStatus.CONNECTED)) / successful_checks if successful_checks > 0 else 0
+                avg_latency = sum(h.latency_ms for h in history if h.status == ExchangeStatus.CONNECTED) / successful_checks if successful_checks > 0 else 0
                 summary['exchange_health'][exchange_name] = {'status': history[-1].status.value if history else 'unknown', 'last_check': history[-1].last_check.strftime('%H:%M:%S') if history else None, 'avg_latency_ms': round(avg_latency, 2), 'total_checks': total_checks, 'successful_checks': successful_checks, 'uptime_percentage': round(uptime_pct, 2)}
         return summary
 

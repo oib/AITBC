@@ -6,13 +6,16 @@ import asyncio
 import json
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
+
 from aitbc import get_logger
+
 from .config import settings
 from .mempool import compute_tx_hash, get_mempool
 from .network.hub_manager import HubManager
 from .network.island_manager import IslandManager
 from .network.nat_traversal import NATTraversalService
+
 logger = get_logger('aitbc_chain.p2p_network')
 if os.getenv('INVOCATION_ID'):
     for handler in logging.getLogger().handlers:
@@ -30,7 +33,7 @@ def set_p2p_network(service: Any) -> None:
 
 class P2PNetworkService:
 
-    def __init__(self, host: str, port: int, node_id: str, peers: str='', stun_servers: Optional[list[str]]=None, island_id: str='', island_name: str='default', is_hub: bool=False, island_chain_id: str='', chain_id: str='') -> None:
+    def __init__(self, host: str, port: int, node_id: str, peers: str='', stun_servers: list[str] | None=None, island_id: str='', island_name: str='default', is_hub: bool=False, island_chain_id: str='', chain_id: str='') -> None:
         self.host = host
         self.port = port
         self.node_id = node_id
@@ -57,7 +60,7 @@ class P2PNetworkService:
             self.nat_traversal = NATTraversalService(stun_servers)
         self.island_manager: IslandManager | None = None
         self.hub_manager: HubManager | None = None
-        self._background_tasks: list[asyncio.Task] = []
+        self._background_tasks: list[asyncio.Task[Any]] = []
 
     async def start(self) -> None:
         """Start P2P network service"""
@@ -298,7 +301,7 @@ class P2PNetworkService:
             logger.error('Error handling inbound connection from %s: %s', addr, e)
             writer.close()
 
-    async def _listen_to_stream(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, endpoint: tuple[str, int], outbound: bool, peer_id: Optional[str]=None) -> None:
+    async def _listen_to_stream(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, endpoint: tuple[str, int], outbound: bool, peer_id: str | None=None) -> None:
         """Read loop for an established TCP stream (both inbound and outbound)"""
         addr = endpoint
         try:
@@ -421,7 +424,7 @@ class P2PNetworkService:
             logger.error('Error getting GPU count: %s', e)
             return 0
 
-    def _get_gpu_specs(self) -> dict:
+    def _get_gpu_specs(self) -> dict[str, Any]:
         """Get GPU specifications for this node"""
         try:
             import os
@@ -435,7 +438,7 @@ class P2PNetworkService:
             logger.error('Error getting GPU specs: %s', e)
             return {}
 
-    async def send_join_request(self, hub_address: str, hub_port: int, island_id: str, island_name: str, node_id: str, public_key_pem: str) -> dict | None:
+    async def send_join_request(self, hub_address: str, hub_port: int, island_id: str, island_name: str, node_id: str, public_key_pem: str) -> dict[str, Any] | None:
         """
         Send join request to a hub and wait for response
 

@@ -1,17 +1,22 @@
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from sqlmodel import select
+
 '\nReward System API Endpoints\nREST API for agent rewards, incentives, and performance-based earnings\n'
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from ....domain.rewards import AgentRewardProfile, RewardTier, RewardType
 from ....storage import get_session
 from ..services.reward_service import RewardEngine
+
 router = APIRouter(prefix='/rewards', tags=['rewards'])
 
 class RewardProfileResponse(BaseModel):

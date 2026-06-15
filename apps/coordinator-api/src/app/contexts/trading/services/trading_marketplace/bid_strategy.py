@@ -3,12 +3,15 @@ Bid Strategy Engine for hermes Autonomous Economics
 Implements intelligent bidding algorithms for GPU rental negotiations
 """
 import asyncio
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 
 class BidStrategy(StrEnum):
     """Bidding strategy types"""

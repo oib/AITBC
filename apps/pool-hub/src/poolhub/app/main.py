@@ -1,5 +1,5 @@
-from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
@@ -8,9 +8,9 @@ from ..redis_cache import close_redis, create_redis
 from ..settings import settings
 from .routers import health_router, match_router, metrics_router
 from .routers.services import router as services_router
+from .routers.sla import router as sla_router
 from .routers.ui import router as ui_router
 from .routers.validation import router as validation_router
-from .routers.sla import router as sla_router
 
 
 @asynccontextmanager

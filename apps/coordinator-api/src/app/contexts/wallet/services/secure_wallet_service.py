@@ -3,14 +3,19 @@ Secure Wallet Service - Fixed Version
 Implements proper Ethereum cryptography and secure key storage
 """
 from __future__ import annotations
+
 from datetime import UTC, datetime
 from typing import Any
+
 from sqlalchemy import select
 from sqlmodel import Session
+
 from aitbc import get_logger
+
 from ....domain.wallet import AgentWallet, TokenBalance, TransactionStatus, WalletTransaction
 from ....schemas.wallet import TransactionRequest, WalletCreate
 from .wallet_crypto import encrypt_private_key, generate_ethereum_keypair, recover_wallet, verify_keypair_consistency
+
 logger = get_logger(__name__)
 
 class SecureWalletService:

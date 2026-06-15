@@ -8,7 +8,9 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 try:
     import pycuda.driver as cuda  # type: ignore[import-not-found]
     cuda.init()
@@ -120,7 +122,7 @@ class MarketplaceGPUOptimizer:
                     block['size'] -= size
                 self._recalculate_fragmentation(gpu_id)
                 return {'success': True, 'blocks': allocated_blocks}
-        if sum((b['size'] for b in pool['free_blocks'])) >= size:
+        if sum(b['size'] for b in pool['free_blocks']) >= size:
             blocks_to_remove = []
             for i, block in enumerate(pool['free_blocks']):
                 if remaining_size <= 0:
@@ -195,11 +197,11 @@ class MarketplaceGPUOptimizer:
         if not pool['free_blocks']:
             pool['fragmentation'] = 0.0
             return
-        total_free = sum((b['size'] for b in pool['free_blocks']))
+        total_free = sum(b['size'] for b in pool['free_blocks'])
         if total_free == 0:
             pool['fragmentation'] = 0.0
             return
-        max_block = max((b['size'] for b in pool['free_blocks']))
+        max_block = max(b['size'] for b in pool['free_blocks'])
         pool['fragmentation'] = 1.0 - max_block / total_free
 
     async def _attempt_memory_defragmentation(self) -> bool:
@@ -209,7 +211,7 @@ class MarketplaceGPUOptimizer:
             if pool['fragmentation'] > self.config['memory_fragmentation_threshold']:
                 logger.info('Defragmenting GPU %s (frag: %s)', gpu_id, pool['fragmentation'])
                 await asyncio.sleep(0.1)
-                total_allocated = sum((b['size'] for b in pool['allocated_blocks']))
+                total_allocated = sum(b['size'] for b in pool['allocated_blocks'])
                 new_allocated = []
                 current_ptr = 0
                 for block in pool['allocated_blocks']:
@@ -299,7 +301,7 @@ class MarketplaceGPUOptimizer:
             self.resource_metrics['compute_utilization'] = total_util / n_gpus
             self.resource_metrics['memory_utilization'] = total_mem_util / n_gpus
             self.resource_metrics['total_utilization'] = (self.resource_metrics['compute_utilization'] + self.resource_metrics['memory_utilization']) / 2
-            total_power = sum((g['power_draw'] for g in self.gpu_devices))
+            total_power = sum(g['power_draw'] for g in self.gpu_devices)
             if total_power > 0:
                 self.resource_metrics['energy_efficiency'] = self.resource_metrics['compute_utilization'] * 100 / total_power
 

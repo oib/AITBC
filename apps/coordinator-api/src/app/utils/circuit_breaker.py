@@ -7,7 +7,9 @@ from datetime import datetime, timedelta
 from enum import Enum
 from functools import wraps
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class CircuitState(Enum):

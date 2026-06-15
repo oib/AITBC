@@ -4,17 +4,21 @@ REST API for AI agent bounty system with ZK-proof verification
 """
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from ....domain.bounty import BountyStatus, BountyTier, SubmissionStatus
 from ....routers.users import get_current_user
 from ....services.bounty_service import BountyService
 from ....storage import get_session
 from ...blockchain.services.blockchain import BlockchainService
+
 router = APIRouter()
 
 class BountyCreateRequest(BaseModel):

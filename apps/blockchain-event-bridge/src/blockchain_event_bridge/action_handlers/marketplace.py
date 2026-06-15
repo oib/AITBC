@@ -1,8 +1,10 @@
 """Marketplace action handler for triggering marketplace state updates."""
 from typing import Any
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network.http_client import AsyncAITBCHTTPClient
+
 logger = get_logger(__name__)
 
 class MarketplaceHandler:
@@ -43,7 +45,7 @@ class MarketplaceHandler:
             if tx_type in ['marketplace', 'listing', 'purchase', 'service']:
                 marketplace_txs.append(tx)
             elif isinstance(payload, dict):
-                if any((key in payload for key in ['listing_id', 'service_id', 'marketplace'])):
+                if any(key in payload for key in ['listing_id', 'service_id', 'marketplace']):
                     marketplace_txs.append(tx)
         return marketplace_txs
 

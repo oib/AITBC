@@ -8,6 +8,7 @@ import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from .discovery import NodeStatus, P2PDiscovery, PeerNode
 
@@ -37,7 +38,7 @@ class PeerEvent:
     node_id: str
     timestamp: float
     reason: str
-    metadata: dict
+    metadata: dict[str, Any]
 
 class DynamicPeerManager:
     """Manages dynamic peer connections and lifecycle"""
@@ -112,7 +113,7 @@ class DynamicPeerManager:
             health = self.health_monitor.get_health_status(peer.node_id)
             health_score = health.health_score if health else 0.0
             return (health_score, peer.reputation)
-        
+
         sorted_peers = sorted(peers, key=get_peer_sort_key)
 
         # Remove lowest quality peers
@@ -292,7 +293,7 @@ class DynamicPeerManager:
             log_error(f"Error demoting peer {node_id}: {e}")
             return False
 
-    def _record_peer_event(self, action: PeerAction, node_id: str, reason: str, metadata: dict | None = None) -> None:
+    def _record_peer_event(self, action: PeerAction, node_id: str, reason: str, metadata: dict[str, Any] | None = None) -> None:
         """Record peer management event"""
         event = PeerEvent(
             action=action,
@@ -317,7 +318,7 @@ class DynamicPeerManager:
 
         return events[-limit:]
 
-    def get_peer_statistics(self) -> dict:
+    def get_peer_statistics(self) -> dict[str, Any]:
         """Get peer management statistics"""
         peers = self.discovery.get_peer_list()
         health_status = self.health_monitor.get_all_health_status()

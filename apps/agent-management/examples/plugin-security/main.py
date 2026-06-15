@@ -7,9 +7,12 @@ import os
 import tempfile
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 app = FastAPI(title='AITBC Plugin Security Service', description='Security validation and vulnerability scanning for AITBC plugins', version='1.0.0')
 
@@ -66,7 +69,7 @@ async def initiate_security_scan(scan: SecurityScan):
 @app.get('/api/v1/security/scan/{scan_id}')
 async def get_scan_status(scan_id: str):
     """Get scan status and results"""
-    if scan_id not in scan_reports and (not any((s['scan_id'] == scan_id for s in scan_queue))):
+    if scan_id not in scan_reports and (not any(s['scan_id'] == scan_id for s in scan_queue)):
         raise HTTPException(status_code=404, detail='Scan not found')
     for scan_record in scan_queue:
         if scan_record['scan_id'] == scan_id:
@@ -197,7 +200,7 @@ async def scan_python_file(file_path: str) -> list[dict]:
             for pattern, description in suspicious_patterns.items():
                 if pattern in line:
                     vulnerabilities.append({'severity': 'medium', 'title': 'Suspicious Code Pattern', 'description': description, 'affected_file': file_path, 'line_number': i, 'recommendation': f'Review usage of {pattern} and consider safer alternatives'})
-        if any(('password' in line.lower() or 'secret' in line.lower() or 'key' in line.lower() for line in lines)):
+        if any('password' in line.lower() or 'secret' in line.lower() or 'key' in line.lower() for line in lines):
             vulnerabilities.append({'severity': 'high', 'title': 'Potential Hardcoded Credentials', 'description': 'Possible hardcoded sensitive information detected', 'affected_file': file_path, 'recommendation': 'Use environment variables or secure configuration management'})
     except Exception as e:
         logger.error('Error scanning Python file: %s', str(e))
@@ -212,7 +215,7 @@ async def scan_zip_file(file_path: str) -> list[dict]:
             for file_info in zip_file.filelist:
                 filename = file_info.filename.lower()
                 suspicious_extensions = ['.exe', '.bat', '.cmd', '.scr', '.dll', '.so']
-                if any((filename.endswith(ext) for ext in suspicious_extensions)):
+                if any(filename.endswith(ext) for ext in suspicious_extensions):
                     vulnerabilities.append({'severity': 'high', 'title': 'Suspicious File Type', 'description': f'Suspicious file found in archive: {filename}', 'affected_file': file_path, 'recommendation': 'Review file contents and ensure they are safe'})
                 if file_info.file_size > 100 * 1024 * 1024:
                     vulnerabilities.append({'severity': 'medium', 'title': 'Large File Detected', 'description': f'Large file detected: {filename} ({file_info.file_size} bytes)', 'affected_file': file_path, 'recommendation': 'Verify file contents and necessity'})

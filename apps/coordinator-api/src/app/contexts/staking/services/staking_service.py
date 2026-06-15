@@ -4,10 +4,14 @@ Business logic for AI agent staking system with reputation-based yield farming
 """
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
+
 from ....domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
+
 logger = get_logger(__name__)
 
 class StakingService:

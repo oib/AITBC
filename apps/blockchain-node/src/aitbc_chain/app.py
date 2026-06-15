@@ -1,15 +1,19 @@
 from __future__ import annotations
+
 import asyncio
 import os
 import time
 from collections import defaultdict
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Optional
+from typing import Any
+
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
+
 from .config import settings
 from .database import init_db, session_scope
 from .gossip import create_backend, gossip_broker
@@ -22,7 +26,8 @@ from .rpc.escrow_routes import router as escrow_router
 from .rpc.router import router as rpc_router
 from .rpc.utils import set_poa_proposer
 from .rpc.websocket import router as websocket_router
-marketplace_router: Optional[APIRouter]
+
+marketplace_router: APIRouter | None
 try:
     from .rpc.marketplace import router as marketplace_router
 except ImportError:
@@ -164,7 +169,7 @@ def create_app() -> FastAPI:
         return PlainTextResponse(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     @metrics_router.get('/health', tags=['health'], summary='Health check')
-    async def health() -> dict:
+    async def health() -> dict[str, Any]:
         return {'status': 'ok', 'supported_chains': [c.strip() for c in settings.supported_chains.split(',') if c.strip()], 'proposer_id': settings.proposer_id}
     app.include_router(metrics_router)
     return app

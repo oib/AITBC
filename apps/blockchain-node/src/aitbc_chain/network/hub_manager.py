@@ -10,8 +10,11 @@ import time
 from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, cast
+
 from aitbc import DATA_DIR, KEYSTORE_DIR, get_logger
+
 from ..config import settings
+
 logger = get_logger(__name__)
 
 class HubStatus(Enum):
@@ -163,7 +166,7 @@ class HubManager:
             logger.error('Failed to get blockchain credentials: %s', e)
             return {}
 
-    async def handle_join_request(self, join_request: dict) -> dict | None:
+    async def handle_join_request(self, join_request: dict[str, Any]) -> dict[str, Any] | None:
         """
         Handle island join request from a new node
 

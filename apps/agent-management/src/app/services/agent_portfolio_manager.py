@@ -5,17 +5,40 @@ Advanced portfolio management for autonomous AI agents in the AITBC ecosystem.
 Provides portfolio creation, rebalancing, risk assessment, and trading strategy execution.
 """
 from __future__ import annotations
+
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlmodel import Session
-from app.domain.agent_portfolio import AgentPortfolio, PortfolioAsset, PortfolioStrategy, PortfolioTrade, RiskMetrics, TradeStatus  # type: ignore[import-not-found]
+
+from app.domain.agent_portfolio import (  # type: ignore[import-not-found]
+    AgentPortfolio,
+    PortfolioAsset,
+    PortfolioStrategy,
+    PortfolioTrade,
+    RiskMetrics,
+    TradeStatus,
+)
+
 from ..blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
 from ..marketdata.price_service import PriceService  # type: ignore[import-not-found]
 from ..ml.strategy_optimizer import StrategyOptimizer  # type: ignore[import-not-found]
 from ..risk.risk_calculator import RiskCalculator  # type: ignore[import-not-found]
-from ..schemas.portfolio import PortfolioCreate, PortfolioResponse, RebalanceRequest, RebalanceResponse, RiskAssessmentResponse, StrategyCreate, StrategyResponse, TradeRequest, TradeResponse  # type: ignore[import-not-found]
+from ..schemas.portfolio import (  # type: ignore[import-not-found]
+    PortfolioCreate,
+    PortfolioResponse,
+    RebalanceRequest,
+    RebalanceResponse,
+    RiskAssessmentResponse,
+    StrategyCreate,
+    StrategyResponse,
+    TradeRequest,
+    TradeResponse,
+)
+
 logger = logging.getLogger(__name__)
 
 class AgentPortfolioManager:
@@ -135,7 +158,7 @@ class AgentPortfolioManager:
             logger.error('Error in risk assessment: %s', str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def get_portfolio_performance(self, agent_address: str, period: str='30d') -> dict:
+    async def get_portfolio_performance(self, agent_address: str, period: str='30d') -> dict[str, Any]:
         """Get portfolio performance metrics"""
         try:
             portfolio = self._get_agent_portfolio(agent_address)
@@ -171,7 +194,7 @@ class AgentPortfolioManager:
 
     def _is_valid_address(self, address: str) -> bool:
         """Validate Ethereum address"""
-        return address.startswith('0x') and len(address) == 42 and all((c in '0123456789abcdefABCDEF' for c in address[2:]))
+        return address.startswith('0x') and len(address) == 42 and all(c in '0123456789abcdefABCDEF' for c in address[2:])
 
     async def _initialize_portfolio_assets(self, portfolio: AgentPortfolio, strategy: PortfolioStrategy) -> None:
         """Initialize portfolio assets based on strategy allocations"""
@@ -280,7 +303,7 @@ class AgentPortfolioManager:
                             break
         return trades
 
-    async def _calculate_performance_metrics(self, portfolio: AgentPortfolio, period: str) -> dict:
+    async def _calculate_performance_metrics(self, portfolio: AgentPortfolio, period: str) -> dict[str, Any]:
         """Calculate portfolio performance metrics"""
         trades = self.session.execute(select(PortfolioTrade).where(PortfolioTrade.portfolio_id == portfolio.id).order_by(PortfolioTrade.executed_at.desc())).all()
         current_value = await self._calculate_portfolio_value(portfolio)

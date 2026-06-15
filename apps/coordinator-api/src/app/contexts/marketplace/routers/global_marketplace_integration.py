@@ -4,9 +4,12 @@ REST API endpoints for integrated global marketplace with cross-chain capabiliti
 """
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from ....agent_identity.manager import AgentIdentityManager
 from ....reputation.engine import CrossChainReputationEngine
@@ -15,6 +18,7 @@ from ....storage.db import get_session
 from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol
 from ..domain.global_marketplace import GlobalMarketplaceOffer
 from ..services.global_marketplace_integration import GlobalMarketplaceIntegrationService, IntegrationStatus
+
 router = APIRouter(prefix='/global-marketplace-integration', tags=['Global Marketplace Integration'])
 
 def get_integration_service(session: Session=Depends(get_session)) -> GlobalMarketplaceIntegrationService:

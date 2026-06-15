@@ -1,16 +1,23 @@
 from typing import Annotated
+
 from sqlalchemy.orm import Session
+
 '\nhermes Enhanced API Router - Simplified Version\nREST API endpoints for hermes integration features\n'
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlmodel import Session
+
 from aitbc.rate_limiting import rate_limit
+
 from ....deps import require_admin_key
 from ....storage import get_session
 from ..services.hermes_enhanced_simple import SkillType, hermesEnhancedService
+
 router = APIRouter(prefix='/hermes/enhanced', tags=['hermes Enhanced'])
 
 class SkillRoutingRequest(BaseModel):

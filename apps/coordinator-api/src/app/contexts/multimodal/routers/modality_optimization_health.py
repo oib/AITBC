@@ -1,15 +1,20 @@
 from typing import Annotated
+
 '\nModality Optimization Service Health Check Router\nProvides health monitoring for specialized modality optimization strategies\n'
 import sys
 from datetime import UTC, datetime
 from typing import Any
+
 import psutil
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from ....storage import get_session
+
 router = APIRouter()
 
 @router.get('/health', tags=['health'], summary='Modality Optimization Service Health')
@@ -53,7 +58,7 @@ async def modality_optimization_deep_health(request: Request, session: Annotated
             optimization_tests['video'] = {'status': 'pass', 'compression_ratio': '0.25', 'speedup': '220x', 'accuracy_retention': '93%'}
         except Exception:
             optimization_tests['video'] = {'status': 'fail', 'error': 'Test failed'}
-        return {'status': 'healthy', 'service': 'modality-optimization', 'port': 8004, 'timestamp': datetime.now(UTC).isoformat(), 'optimization_tests': optimization_tests, 'overall_health': 'pass' if all((test.get('status') == 'pass' for test in optimization_tests.values())) else 'degraded'}
+        return {'status': 'healthy', 'service': 'modality-optimization', 'port': 8004, 'timestamp': datetime.now(UTC).isoformat(), 'optimization_tests': optimization_tests, 'overall_health': 'pass' if all(test.get('status') == 'pass' for test in optimization_tests.values()) else 'degraded'}
     except Exception as e:
         logger.error('Deep Modality Optimization health check failed: %s', e)
         return {'status': 'unhealthy', 'service': 'modality-optimization', 'port': 8004, 'timestamp': datetime.now(UTC).isoformat(), 'error': 'Deep health check failed'}

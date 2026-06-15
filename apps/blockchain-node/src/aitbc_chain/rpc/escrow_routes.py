@@ -3,17 +3,21 @@ Escrow RPC endpoints for the blockchain node.
 Provides create/release/refund/get endpoints backed by EscrowManager and Escrow DB model.
 """
 from __future__ import annotations
+
 import hashlib
 import os
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
+
 import httpx
 from fastapi import APIRouter, HTTPException
+
 from ..contracts.escrow import get_escrow_manager
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Escrow
+
 _HUB_RPC_URL = os.getenv('HUB_RPC_URL', 'http://localhost:8202')
 _CHAIN_ID = os.getenv('CHAIN_ID', os.getenv('SUPPORTED_CHAINS', 'ait-hub.aitbc.bubuit.net'))
 _NODE_WALLET = os.getenv('NODE_WALLET_ADDRESS', os.getenv('GENESIS_WALLET_ADDRESS', ''))

@@ -9,11 +9,15 @@ Aggregates:
 - Total portfolio value
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+
 import httpx
+
 from aitbc.aitbc_logging import get_logger
+
 logger = get_logger(__name__)
 
 @dataclass

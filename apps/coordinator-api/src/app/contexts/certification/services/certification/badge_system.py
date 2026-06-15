@@ -4,11 +4,14 @@ Badge System - Achievement and recognition badge system
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from app.domain.certification import AchievementBadge, AgentBadge, BadgeType  # type: ignore[import-not-found]
 from app.domain.reputation import AgentReputation  # type: ignore[import-not-found]
 from sqlmodel import Session, and_, select
+
 
 class BadgeSystem:
     """Achievement and recognition badge system"""

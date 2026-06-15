@@ -3,11 +3,13 @@ Task Decomposition Service for hermes Autonomous Economics
 Implements intelligent task splitting and sub-task management
 """
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
+
 
 class TaskType(StrEnum):
     """Types of tasks"""
@@ -341,7 +343,7 @@ class TaskDecompositionEngine:
             ready_tasks = []
             for task_id in remaining_tasks:
                 dependencies = dependency_graph[task_id]
-                if all((dep in completed_tasks for dep in dependencies)):
+                if all(dep in completed_tasks for dep in dependencies):
                     ready_tasks.append(task_id)
             if not ready_tasks:
                 logger.warning('Circular dependency detected in task decomposition')

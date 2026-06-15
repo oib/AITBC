@@ -1,17 +1,24 @@
 from typing import Annotated
+
 from fastapi import Depends
 from sqlalchemy.orm import Session
+
 '\nGPU-Accelerated Multi-Modal Processing - Enhanced Implementation\nAdvanced GPU optimization for cross-modal attention mechanisms\nPhase 5.2: System Optimization and Performance Enhancement\n'
 import torch
 import torch.nn.functional as F
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 import time
 from datetime import UTC, datetime
 from typing import Any
+
 import numpy as np
+
 from ..storage import get_session
 from .multimodal_agent import ModalityType  # type: ignore[import-not-found]
+
 
 class CUDAKernelOptimizer:
     """Custom CUDA kernel optimization for GPU operations"""
@@ -309,7 +316,7 @@ class GPUAcceleratedMultiModal:
 
     def _calculate_gpu_performance_metrics(self, modality_features: dict[str, np.ndarray], processing_time: float) -> dict[str, Any]:
         """Calculate GPU performance metrics"""
-        total_memory_mb = sum((features.nbytes / (1024 * 1024) for features in modality_features.values()))
+        total_memory_mb = sum(features.nbytes / (1024 * 1024) for features in modality_features.values())
         gpu_utilization = min(0.95, total_memory_mb / 1000)
         memory_bandwidth_gbps = 900
         compute_tflops = 82.6
@@ -395,7 +402,7 @@ class GPUAttentionOptimizerV2:
 
     def _generate_cache_key(self, modality_types: list[ModalityType], feature_dimensions: dict[str, int]) -> str:
         """Generate cache key for optimization configuration"""
-        modality_str = '_'.join(sorted((m.value for m in modality_types)))
+        modality_str = '_'.join(sorted(m.value for m in modality_types))
         dim_str = '_'.join((f'{k}:{v}' for k, v in sorted(feature_dimensions.items())))
         return f'{modality_str}_{dim_str}'
 
@@ -439,5 +446,5 @@ class GPUFeatureCacheV2:
         """Get cache statistics"""
         total_requests = self._cache_stats['hits'] + self._cache_stats['misses']
         hit_rate = self._cache_stats['hits'] / total_requests if total_requests > 0 else 0
-        total_memory_mb = sum((item['size_mb'] for item in self._cache.values()))
+        total_memory_mb = sum(item['size_mb'] for item in self._cache.values())
         return {**self._cache_stats, 'hit_rate': hit_rate, 'cache_size': len(self._cache), 'total_memory_mb': total_memory_mb}

@@ -9,11 +9,14 @@ Provides:
 - Failover handling
 """
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
+
 from aitbc.aitbc_logging import get_logger
+
 logger = get_logger(__name__)
 
 class NodeStatus(Enum):
@@ -182,7 +185,7 @@ class SwarmService:
                 node.status = NodeStatus.offline
                 continue
             if required_capabilities:
-                if not all((cap in node.capabilities for cap in required_capabilities)):
+                if not all(cap in node.capabilities for cap in required_capabilities):
                     continue
             candidates.append(node)
         if not candidates:
@@ -308,7 +311,7 @@ class SwarmService:
         completed_tasks = len([t for t in self._tasks.values() if t.status == TaskStatus.completed])
         failed_tasks = len([t for t in self._tasks.values() if t.status == TaskStatus.failed])
         pending_tasks = len([t for t in self._tasks.values() if t.status == TaskStatus.pending])
-        return {'nodes': {'total': len(self._nodes), 'online': online_nodes, 'offline': len(self._nodes) - online_nodes}, 'tasks': {'total': total_tasks, 'completed': completed_tasks, 'failed': failed_tasks, 'pending': pending_tasks}, 'clusters': len(self._clusters), 'avg_load': sum((n.load_percentage for n in self._nodes.values())) / len(self._nodes) if self._nodes else 0}
+        return {'nodes': {'total': len(self._nodes), 'online': online_nodes, 'offline': len(self._nodes) - online_nodes}, 'tasks': {'total': total_tasks, 'completed': completed_tasks, 'failed': failed_tasks, 'pending': pending_tasks}, 'clusters': len(self._clusters), 'avg_load': sum(n.load_percentage for n in self._nodes.values()) / len(self._nodes) if self._nodes else 0}
 _swarm_service: SwarmService | None = None
 
 def get_swarm_service() -> SwarmService:

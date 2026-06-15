@@ -1,5 +1,6 @@
 """Island service for Edge API Service"""
 
+from typing import Any
 
 from ..clients.blockchain_rpc import BlockchainRPCClient
 from ..schemas.island import BridgeRequest, IslandMembership, IslandStatus
@@ -12,7 +13,7 @@ class IslandService:
     def __init__(self) -> None:
         self.rpc_client = BlockchainRPCClient()
 
-    async def join_island(self, island_id: str, island_name: str, chain_id: str, role: str = "compute-provider", is_hub: bool = False) -> dict:
+    async def join_island(self, island_id: str, island_name: str, chain_id: str, role: str = "compute-provider", is_hub: bool = False) -> dict[str, Any]:
         """Join an island via blockchain RPC"""
         # Call blockchain RPC to join island
         result = await self.rpc_client.join_island(island_id, island_name, chain_id, role, is_hub)
@@ -42,7 +43,7 @@ class IslandService:
 
         return result
 
-    async def leave_island(self, island_id: str) -> dict:
+    async def leave_island(self, island_id: str) -> dict[str, Any]:
         """Leave an island via blockchain RPC"""
         # Call blockchain RPC to leave island
         result = await self.rpc_client.leave_island(island_id)
@@ -57,18 +58,18 @@ class IslandService:
 
         return result
 
-    async def list_islands(self) -> list[dict]:
+    async def list_islands(self) -> list[dict[str, Any]]:
         """List all islands via blockchain RPC"""
         result = await self.rpc_client.list_islands()
         islands = result.get("islands", [])
         return islands if isinstance(islands, list) else []
 
-    async def get_island(self, island_id: str) -> dict | None:
+    async def get_island(self, island_id: str) -> dict[str, Any] | None:
         """Get island details via blockchain RPC"""
         result = await self.rpc_client.get_island_info(island_id)
         return result
 
-    async def request_bridge(self, target_island_id: str) -> dict:
+    async def request_bridge(self, target_island_id: str) -> dict[str, Any]:
         """Request bridge to another island via blockchain RPC"""
         result = await self.rpc_client.request_bridge(target_island_id)
 

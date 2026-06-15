@@ -7,11 +7,15 @@ import json
 import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from ....schemas import KeyPair, KeyRotationLog
+
 
 class KeyManager:
     """Manages encryption keys for confidential transactions"""
@@ -107,7 +111,7 @@ class KeyManager:
             if datetime.now(UTC) > expires_at:
                 return False
             required_fields = ['issuer', 'subject', 'expires_at', 'signature']
-            return all((field in auth_json for field in required_fields))
+            return all(field in auth_json for field in required_fields)
         except Exception as e:
             logger.error('Failed to verify audit authorization: %s', e)
             return False

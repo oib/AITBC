@@ -3,8 +3,11 @@ Cache management utilities for endpoints
 """
 import asyncio
 from typing import Any
+
 from aitbc import get_logger
+
 from ..utils.cache import cache_manager
+
 logger = get_logger(__name__)
 
 def invalidate_cache_pattern(pattern: str) -> int:
@@ -122,6 +125,7 @@ class CacheWarmer:
         """Warm admin statistics cache"""
         try:
             from sqlmodel import func, select
+
             from ..domain import Job
             from ..services import JobService, MinerService
             JobService(self.session)

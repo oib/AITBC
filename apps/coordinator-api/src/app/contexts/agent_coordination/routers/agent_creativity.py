@@ -1,15 +1,26 @@
 from typing import Annotated
+
 from sqlalchemy.orm import Session
+
 '\nAgent Creativity API Endpoints\nREST API for agent creativity enhancement, ideation, and cross-domain synthesis\n'
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import select
+
 from ....domain.agent_performance import CreativeCapability
 from ....storage import get_session
-from ..services.creative_capabilities_service import CreativityEnhancementEngine, CrossDomainCreativeIntegrator, IdeationAlgorithm
+from ..services.creative_capabilities_service import (
+    CreativityEnhancementEngine,
+    CrossDomainCreativeIntegrator,
+    IdeationAlgorithm,
+)
+
 router = APIRouter(prefix='/v1/agent-creativity', tags=['agent-creativity'])
 
 class CreativeCapabilityCreate(BaseModel):

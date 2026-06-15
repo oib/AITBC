@@ -7,10 +7,20 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select
-from ..contexts.agent_identity.domain.agent_identity import AgentIdentity, ChainType, CrossChainMapping, IdentityVerification, VerificationType
+
+from ..contexts.agent_identity.domain.agent_identity import (
+    AgentIdentity,
+    ChainType,
+    CrossChainMapping,
+    IdentityVerification,
+    VerificationType,
+)
+
 
 class CrossChainRegistry:
     """Registry for cross-chain agent identity mapping and synchronization"""

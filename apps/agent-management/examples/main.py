@@ -6,9 +6,12 @@ import asyncio
 import os
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 app = FastAPI(title='AITBC Plugin Registry', description='Production plugin registry for AITBC ecosystem', version='1.0.0')
 
@@ -54,7 +57,7 @@ async def root():
 
 @app.get('/health')
 async def health_check():
-    return {'status': 'healthy', 'total_plugins': len(plugins), 'total_versions': sum((len(versions) for versions in plugin_versions.values())), 'security_scans': len(security_scans), 'downloads_today': len([d for downloads_list in downloads.values() for d in downloads_list if datetime.fromisoformat(d['timestamp']).date() == datetime.now(UTC).date()])}
+    return {'status': 'healthy', 'total_plugins': len(plugins), 'total_versions': sum(len(versions) for versions in plugin_versions.values()), 'security_scans': len(security_scans), 'downloads_today': len([d for downloads_list in downloads.values() for d in downloads_list if datetime.fromisoformat(d['timestamp']).date() == datetime.now(UTC).date()])}
 
 @app.post('/api/v1/plugins/register')
 async def register_plugin(plugin: PluginRegistration):
@@ -155,7 +158,7 @@ async def create_security_scan(plugin_id: str, scan: SecurityScan):
     """Create a security scan record for a plugin version"""
     if plugin_id not in plugins:
         raise HTTPException(status_code=404, detail='Plugin not found')
-    version_exists = any((v['version'] == scan.version for v in plugin_versions.get(plugin_id, [])))
+    version_exists = any(v['version'] == scan.version for v in plugin_versions.get(plugin_id, []))
     if not version_exists:
         raise HTTPException(status_code=404, detail='Version not found')
     security_scans[scan.scan_id] = {'scan_id': scan.scan_id, 'plugin_id': plugin_id, 'version': scan.version, 'scan_date': scan.scan_date.isoformat(), 'vulnerabilities': scan.vulnerabilities, 'risk_score': scan.risk_score, 'passed': scan.passed, 'created_at': datetime.now(UTC).isoformat()}
@@ -214,8 +217,8 @@ async def get_recent_plugins(limit: int=10):
 async def get_analytics_dashboard():
     """Get registry analytics dashboard"""
     total_plugins = len(plugins)
-    total_versions = sum((len(versions) for versions in plugin_versions.values()))
-    total_downloads = sum((plugin['download_count'] for plugin in plugins.values()))
+    total_versions = sum(len(versions) for versions in plugin_versions.values())
+    total_downloads = sum(plugin['download_count'] for plugin in plugins.values())
     category_stats = {}
     for plugin in plugins.values():
         category = plugin['category']

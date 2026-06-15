@@ -11,7 +11,9 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class CDNProvider(StrEnum):
@@ -176,7 +178,7 @@ class EdgeCache:
         total_entries = len(self.cache)
         hit_rate = 0.0
         if total_entries > 0:
-            total_accesses = sum((entry.access_count for entry in self.cache.values()))
+            total_accesses = sum(entry.access_count for entry in self.cache.values())
             hit_rate = total_accesses / (total_accesses + 1)
         return {'location_id': self.location_id, 'total_entries': total_entries, 'cache_size_bytes': self.cache_size_bytes, 'cache_size_gb': self.cache_size_bytes / 1024 ** 3, 'hit_rate': hit_rate, 'utilization_percent': self.cache_size_bytes / self.max_size_bytes * 100}
 
@@ -285,7 +287,7 @@ class CDNManager:
         if not self.config.compression_enabled:
             return CompressionType.NONE
         compressible_types = ['text/html', 'text/css', 'text/javascript', 'application/json', 'application/xml', 'text/plain', 'text/csv']
-        if not any((ct in content_type for ct in compressible_types)):
+        if not any(ct in content_type for ct in compressible_types):
             return CompressionType.NONE
         if len(content) < 1024:
             return CompressionType.NONE
@@ -418,13 +420,13 @@ class EdgeComputingManager:
     async def get_edge_computing_stats(self) -> dict[str, Any]:
         """Get edge computing statistics"""
         total_functions = len(self.edge_functions)
-        total_executions = sum((len(executions) for executions in self.function_executions.values()))
+        total_executions = sum(len(executions) for executions in self.function_executions.values())
         all_executions = []
         for executions in self.function_executions.values():
             all_executions.extend(executions)
         avg_execution_time = 0.0
         if all_executions:
-            avg_execution_time = sum((exec['execution_time_ms'] for exec in all_executions)) / len(all_executions)
+            avg_execution_time = sum(exec['execution_time_ms'] for exec in all_executions) / len(all_executions)
         return {'total_functions': total_functions, 'total_executions': total_executions, 'average_execution_time_ms': avg_execution_time, 'active_functions': len([f for f in self.edge_functions.values() if f['status'] == 'active']), 'edge_locations': len(self.cdn_manager.edge_caches), 'timestamp': datetime.now(UTC).isoformat()}
 
 class GlobalCDNIntegration:

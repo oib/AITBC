@@ -9,20 +9,28 @@ from typing import Any
 from aitbc_agent_core.protocols.database import ISessionProvider
 from aitbc_agent_core.protocols.domain import (
     AgentStatus as ProtocolAgentStatus,
+)
+from aitbc_agent_core.protocols.domain import (
     IAgentExecution,
     IAgentStepExecution,
+)
+from aitbc_agent_core.protocols.domain import (
     StepType as ProtocolStepType,
+)
+from aitbc_agent_core.protocols.domain import (
     VerificationLevel as ProtocolVerificationLevel,
 )
 from aitbc_agent_core.protocols.orchestrator import IAgentOrchestrator
 from aitbc_agent_core.protocols.security import IAuditor, ISecurityManager
 from aitbc_agent_core.protocols.zk_proof import IZKProofService
+
 # Import from coordinator-api domain (shared via symlink)
 from app.domain.agent import (
     AgentExecution,
     AgentStepExecution,
 )
 from app.services.agent_coordination.agent_service import AIAgentOrchestrator  # type: ignore[import-not-found]
+
 # Import from coordinator-api services
 from app.services.agent_coordination.security import (  # type: ignore[import-not-found]
     AgentAuditor,

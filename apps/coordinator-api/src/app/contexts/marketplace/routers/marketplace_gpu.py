@@ -1,19 +1,24 @@
 from typing import Annotated
+
 '\nGPU marketplace endpoints backed by persistent SQLModel tables.\n'
 import statistics
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlmodel import col, func, select
+
 from aitbc import get_logger
+
 from ....services.market_data_collector import MarketDataCollector
 from ....storage.db import get_session
 from ...trading.services.trading_marketplace.dynamic_pricing import DynamicPricingEngine, PricingStrategy, ResourceType
 from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
+
 logger = get_logger(__name__)
 router = APIRouter(tags=['marketplace-gpu'])
 pricing_engine = None
@@ -161,6 +166,7 @@ async def buy_gpu(request: GPUBuyRequest, session: Annotated[Session, Depends(ge
     payment_status = None
     try:
         from sqlmodel import Session as SQLModelSession
+
         from ....contexts.payments.services.payments import PaymentService
         from ....custom_types import Constraints
         from ....schemas import JobCreate, JobPaymentCreate
@@ -375,7 +381,7 @@ async def get_pricing(model: str, session: Annotated[Session, Depends(get_sessio
             market_analysis = {'demand_level': market_data.demand_level, 'supply_level': market_data.supply_level, 'market_volatility': market_data.price_volatility, 'utilization_rate': market_data.utilization_rate, 'market_sentiment': market_data.market_sentiment, 'confidence_score': market_data.confidence_score}
     except Exception:
         market_analysis = None
-    return {'model': model, 'static_pricing': {'min_price': min(static_prices), 'max_price': max(static_prices), 'average_price': sum(static_prices) / len(static_prices), 'available_gpus': len([g for g in compatible if g.status == 'available']), 'total_gpus': len(compatible), 'recommended_gpu': cheapest.id}, 'dynamic_pricing': {'min_price': min(dynamic_price_values), 'max_price': max(dynamic_price_values), 'average_price': avg_dynamic_price, 'price_volatility': statistics.stdev(dynamic_price_values) if len(dynamic_price_values) > 1 else 0, 'avg_confidence': sum((dp['confidence'] for dp in dynamic_prices)) / len(dynamic_prices), 'recommended_gpu': best_value_gpu['gpu_id'], 'recommended_price': best_value_gpu['dynamic_price']}, 'price_comparison': {'avg_price_change': avg_dynamic_price - sum(static_prices) / len(static_prices), 'avg_price_change_percent': (avg_dynamic_price - sum(static_prices) / len(static_prices)) / (sum(static_prices) / len(static_prices)) * 100, 'gpus_with_price_increase': len([dp for dp in dynamic_prices if dp['price_change'] > 0]), 'gpus_with_price_decrease': len([dp for dp in dynamic_prices if dp['price_change'] < 0])}, 'individual_gpu_pricing': dynamic_prices, 'market_analysis': market_analysis, 'pricing_timestamp': datetime.now(UTC).isoformat() + 'Z'} # type: ignore[operator, type-var, misc]
+    return {'model': model, 'static_pricing': {'min_price': min(static_prices), 'max_price': max(static_prices), 'average_price': sum(static_prices) / len(static_prices), 'available_gpus': len([g for g in compatible if g.status == 'available']), 'total_gpus': len(compatible), 'recommended_gpu': cheapest.id}, 'dynamic_pricing': {'min_price': min(dynamic_price_values), 'max_price': max(dynamic_price_values), 'average_price': avg_dynamic_price, 'price_volatility': statistics.stdev(dynamic_price_values) if len(dynamic_price_values) > 1 else 0, 'avg_confidence': sum(dp['confidence'] for dp in dynamic_prices) / len(dynamic_prices), 'recommended_gpu': best_value_gpu['gpu_id'], 'recommended_price': best_value_gpu['dynamic_price']}, 'price_comparison': {'avg_price_change': avg_dynamic_price - sum(static_prices) / len(static_prices), 'avg_price_change_percent': (avg_dynamic_price - sum(static_prices) / len(static_prices)) / (sum(static_prices) / len(static_prices)) * 100, 'gpus_with_price_increase': len([dp for dp in dynamic_prices if dp['price_change'] > 0]), 'gpus_with_price_decrease': len([dp for dp in dynamic_prices if dp['price_change'] < 0])}, 'individual_gpu_pricing': dynamic_prices, 'market_analysis': market_analysis, 'pricing_timestamp': datetime.now(UTC).isoformat() + 'Z'} # type: ignore[operator, type-var, misc]
 
 @router.post('/marketplace/gpu/bid')
 async def bid_gpu(request: dict[str, Any], session: Session=Depends(get_session)) -> dict[str, Any]:

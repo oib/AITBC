@@ -1,13 +1,16 @@
 """Plugin Service — real registry for AITBC software marketplace plugins."""
 from __future__ import annotations
+
 import json
 import logging
 import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
 import httpx
 from fastapi import FastAPI, HTTPException
+
 logger = logging.getLogger(__name__)
 _REGISTRY_PATH = Path(os.getenv('DATA_DIR', '/var/lib/aitbc')) / 'plugins.json'
 _HUB_RPC = os.getenv('HUB_RPC_URL', 'https://hub.aitbc.bubuit.net/rpc')
@@ -121,7 +124,7 @@ async def analytics() -> dict[str, Any]:
     for p in registry.values():
         t = p.get('service_type', 'unknown')
         by_type[t] = by_type.get(t, 0) + 1
-    return {'total_plugins': len(registry), 'by_service_type': by_type, 'active': sum((1 for p in registry.values() if p.get('status') == 'active'))}
+    return {'total_plugins': len(registry), 'by_service_type': by_type, 'active': sum(1 for p in registry.values() if p.get('status') == 'active')}
 if __name__ == '__main__':
     import uvicorn
     uvicorn.run(app, host='0.0.0.0', port=int(os.getenv('PLUGIN_PORT', '8016')))

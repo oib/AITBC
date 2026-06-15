@@ -21,7 +21,7 @@ class ConnectionManager:
         self.active_connections: dict[str, WebSocket] = {}
         self.topic_subscriptions: dict[str, set[str]] = {}
         self.agent_topics: dict[str, set[str]] = {}
-        self.message_handlers: dict[str, list[Callable]] = {}
+        self.message_handlers: dict[str, list[Callable[[dict[str, Any], ConnectionManager, WebSocket], Any]]] = {}
         self.agent_inboxes: dict[str, list[dict[str, Any]]] = {}
 
     async def connect(self, websocket: WebSocket, agent_id: str) -> None:
@@ -94,7 +94,7 @@ class ConnectionManager:
         """Get subscribers for a topic"""
         return self.topic_subscriptions.get(topic, set())
 
-    def register_handler(self, message_type: str, handler: Callable) -> None:
+    def register_handler(self, message_type: str, handler: Callable[[dict[str, Any], 'ConnectionManager', WebSocket], Any]) -> None:
         """Register a message handler for specific message type"""
         if message_type not in self.message_handlers:
             self.message_handlers[message_type] = []

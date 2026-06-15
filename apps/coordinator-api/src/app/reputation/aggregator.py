@@ -4,11 +4,15 @@ Aggregates reputation data from multiple blockchains and normalizes scores
 """
 from datetime import UTC, datetime
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select
+
 from ..domain.cross_chain_reputation import CrossChainReputationAggregation, CrossChainReputationConfig
 from ..domain.reputation import AgentReputation, ReputationEvent
+
 
 class CrossChainReputationAggregator:
     """Aggregates reputation data from multiple blockchains"""
@@ -145,14 +149,14 @@ class CrossChainReputationAggregator:
             if not reputations:
                 return {'chain_id': chain_id, 'total_agents': 0, 'average_reputation': 0.0, 'reputation_distribution': {}, 'total_transactions': 0, 'success_rate': 0.0}
             total_agents = len(reputations)
-            total_reputation = sum((rep.trust_score for rep in reputations))
+            total_reputation = sum(rep.trust_score for rep in reputations)
             average_reputation = total_reputation / total_agents / 1000.0
             distribution: dict[str, int] = {}
             for reputation in reputations:
                 level = reputation.reputation_level.value
                 distribution[level] = distribution.get(level, 0) + 1
-            total_transactions = sum((getattr(rep, 'transaction_count', 0) for rep in reputations))
-            successful_transactions = sum((getattr(rep, 'transaction_count', 0) * getattr(rep, 'success_rate', 0) / 100.0 for rep in reputations))
+            total_transactions = sum(getattr(rep, 'transaction_count', 0) for rep in reputations)
+            successful_transactions = sum(getattr(rep, 'transaction_count', 0) * getattr(rep, 'success_rate', 0) / 100.0 for rep in reputations)
             success_rate = successful_transactions / max(total_transactions, 1)
             return {'chain_id': chain_id, 'total_agents': total_agents, 'average_reputation': average_reputation, 'reputation_distribution': distribution, 'total_transactions': total_transactions, 'success_rate': success_rate, 'last_updated': datetime.now(UTC)}
         except Exception as e:
@@ -209,7 +213,7 @@ class CrossChainReputationAggregator:
             await self.apply_chain_weighting(chain_scores)
             if chain_scores:
                 avg_score = sum(chain_scores.values()) / len(chain_scores)
-                variance = sum(((score - avg_score) ** 2 for score in chain_scores.values())) / len(chain_scores)
+                variance = sum((score - avg_score) ** 2 for score in chain_scores.values()) / len(chain_scores)
                 score_range = max(chain_scores.values()) - min(chain_scores.values())
                 consistency_score = max(0.0, 1.0 - variance / 0.25)
             else:

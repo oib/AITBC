@@ -10,7 +10,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class ReportType(StrEnum):
@@ -86,14 +88,14 @@ class RegulatoryReporter:
         """Generate Suspicious Activity Report"""
         try:
             report_id = f"sar_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            total_amount = sum((activity.amount for activity in activities))
+            total_amount = sum(activity.amount for activity in activities)
             unique_users = list({activity.user_id for activity in activities})
             activity_types: dict[str, list[Any]] = {}
             for activity in activities:
                 if activity.activity_type not in activity_types:
                     activity_types[activity.activity_type] = []
                 activity_types[activity.activity_type].append(activity)
-            sar_content = {'filing_institution': 'AITBC Exchange', 'reporting_date': datetime.now().isoformat(), 'suspicious_activity_date': min((activity.timestamp for activity in activities)).isoformat(), 'suspicious_activity_type': list(activity_types.keys()), 'amount_involved': total_amount, 'currency': activities[0].currency if activities else 'USD', 'number_of_suspicious_activities': len(activities), 'unique_subjects': len(unique_users), 'subject_information': [{'user_id': user_id, 'activities': [a for a in activities if a.user_id == user_id], 'total_amount': sum((a.amount for a in activities if a.user_id == user_id)), 'risk_score': max((a.risk_score for a in activities if a.user_id == user_id))} for user_id in unique_users], 'suspicion_reason': self._generate_suspicion_reason(activity_types), 'supporting_evidence': {'transaction_patterns': self._analyze_transaction_patterns(activities), 'timing_analysis': self._analyze_timing_patterns(activities), 'risk_indicators': self._extract_risk_indicators(activities)}, 'regulatory_references': {'bank_secrecy_act': '31 USC 5311', 'patriot_act': '31 USC 5318', 'aml_regulations': '31 CFR 1030'}}
+            sar_content = {'filing_institution': 'AITBC Exchange', 'reporting_date': datetime.now().isoformat(), 'suspicious_activity_date': min(activity.timestamp for activity in activities).isoformat(), 'suspicious_activity_type': list(activity_types.keys()), 'amount_involved': total_amount, 'currency': activities[0].currency if activities else 'USD', 'number_of_suspicious_activities': len(activities), 'unique_subjects': len(unique_users), 'subject_information': [{'user_id': user_id, 'activities': [a for a in activities if a.user_id == user_id], 'total_amount': sum(a.amount for a in activities if a.user_id == user_id), 'risk_score': max(a.risk_score for a in activities if a.user_id == user_id)} for user_id in unique_users], 'suspicion_reason': self._generate_suspicion_reason(activity_types), 'supporting_evidence': {'transaction_patterns': self._analyze_transaction_patterns(activities), 'timing_analysis': self._analyze_timing_patterns(activities), 'risk_indicators': self._extract_risk_indicators(activities)}, 'regulatory_references': {'bank_secrecy_act': '31 USC 5311', 'patriot_act': '31 USC 5318', 'aml_regulations': '31 CFR 1030'}}
             report = RegulatoryReport(report_id=report_id, report_type=ReportType.SAR, regulatory_body=RegulatoryBody.FINCEN, status=ReportStatus.DRAFT, generated_at=datetime.now(), expires_at=datetime.now() + timedelta(days=30), content=sar_content, metadata={'total_activities': len(activities), 'total_amount': total_amount, 'unique_subjects': len(unique_users), 'generation_time': datetime.now().isoformat()})
             self.reports.append(report)
             logger.info('✅ SAR report generated: %s', report_id)
@@ -110,9 +112,9 @@ class RegulatoryReporter:
             if not threshold_transactions:
                 logger.info('ℹ️  No transactions over $10,000 threshold for CTR')
                 return None # type: ignore[return-value]
-            total_amount = sum((tx['amount'] for tx in threshold_transactions))
+            total_amount = sum(tx['amount'] for tx in threshold_transactions)
             unique_customers = list({tx.get('customer_id') for tx in threshold_transactions})
-            ctr_content = {'filing_institution': 'AITBC Exchange', 'reporting_period': {'start_date': min((tx['timestamp'] for tx in threshold_transactions)).isoformat(), 'end_date': max((tx['timestamp'] for tx in threshold_transactions)).isoformat()}, 'total_transactions': len(threshold_transactions), 'total_amount': total_amount, 'currency': 'USD', 'transaction_types': list({tx.get('transaction_type') for tx in threshold_transactions}), 'subject_information': [{'customer_id': customer_id, 'transaction_count': len([tx for tx in threshold_transactions if tx.get('customer_id') == customer_id]), 'total_amount': sum((tx['amount'] for tx in threshold_transactions if tx.get('customer_id') == customer_id)), 'average_transaction': sum((tx['amount'] for tx in threshold_transactions if tx.get('customer_id') == customer_id)) / len([tx for tx in threshold_transactions if tx.get('customer_id') == customer_id])} for customer_id in unique_customers], 'location_data': self._aggregate_location_data(threshold_transactions), 'compliance_notes': {'threshold_met': True, 'threshold_amount': 10000, 'reporting_requirement': '31 CFR 1030.311'}}
+            ctr_content = {'filing_institution': 'AITBC Exchange', 'reporting_period': {'start_date': min(tx['timestamp'] for tx in threshold_transactions).isoformat(), 'end_date': max(tx['timestamp'] for tx in threshold_transactions).isoformat()}, 'total_transactions': len(threshold_transactions), 'total_amount': total_amount, 'currency': 'USD', 'transaction_types': list({tx.get('transaction_type') for tx in threshold_transactions}), 'subject_information': [{'customer_id': customer_id, 'transaction_count': len([tx for tx in threshold_transactions if tx.get('customer_id') == customer_id]), 'total_amount': sum(tx['amount'] for tx in threshold_transactions if tx.get('customer_id') == customer_id), 'average_transaction': sum(tx['amount'] for tx in threshold_transactions if tx.get('customer_id') == customer_id) / len([tx for tx in threshold_transactions if tx.get('customer_id') == customer_id])} for customer_id in unique_customers], 'location_data': self._aggregate_location_data(threshold_transactions), 'compliance_notes': {'threshold_met': True, 'threshold_amount': 10000, 'reporting_requirement': '31 CFR 1030.311'}}
             report = RegulatoryReport(report_id=report_id, report_type=ReportType.CTR, regulatory_body=RegulatoryBody.FINCEN, status=ReportStatus.DRAFT, generated_at=datetime.now(), expires_at=datetime.now() + timedelta(days=15), content=ctr_content, metadata={'threshold_transactions': len(threshold_transactions), 'total_amount': total_amount, 'unique_customers': len(unique_customers)})
             self.reports.append(report)
             logger.info('✅ CTR report generated: %s', report_id)
@@ -220,7 +222,7 @@ class RegulatoryReporter:
 
     def _analyze_transaction_patterns(self, activities: list[SuspiciousActivity]) -> dict[str, Any]:
         """Analyze transaction patterns"""
-        return {'frequency_analysis': len(activities), 'amount_distribution': {'min': min((a.amount for a in activities)), 'max': max((a.amount for a in activities)), 'avg': sum((a.amount for a in activities)) / len(activities)}, 'temporal_patterns': 'Irregular timing patterns detected'}
+        return {'frequency_analysis': len(activities), 'amount_distribution': {'min': min(a.amount for a in activities), 'max': max(a.amount for a in activities), 'avg': sum(a.amount for a in activities) / len(activities)}, 'temporal_patterns': 'Irregular timing patterns detected'}
 
     def _analyze_timing_patterns(self, activities: list[SuspiciousActivity]) -> dict[str, Any]:
         """Analyze timing patterns"""

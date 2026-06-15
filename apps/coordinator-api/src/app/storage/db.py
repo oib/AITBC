@@ -4,17 +4,22 @@ Unified database configuration for AITBC Coordinator API
 Provides SQLite and PostgreSQL support with connection pooling.
 """
 from __future__ import annotations
+
 from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager, contextmanager
+
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import QueuePool
 from sqlmodel import SQLModel
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from ..config import settings
+
 _engine = None
 _async_engine = None
 

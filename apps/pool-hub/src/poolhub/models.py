@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 from enum import Enum
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy import (
     JSON,
@@ -86,7 +86,7 @@ class MinerStatus(Base):
 class MatchRequest(Base):
     __tablename__ = "match_requests"
 
-    id: Mapped[PGUUID] = mapped_column(
+    id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     job_id: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -105,10 +105,10 @@ class MatchRequest(Base):
 class MatchResult(Base):
     __tablename__ = "match_results"
 
-    id: Mapped[PGUUID] = mapped_column(
+    id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid4
     )
-    request_id: Mapped[PGUUID] = mapped_column(
+    request_id: Mapped[UUID] = mapped_column(
         ForeignKey("match_requests.id", ondelete="CASCADE"), index=True
     )
     miner_id: Mapped[str] = mapped_column(String(64))
@@ -127,7 +127,7 @@ class MatchResult(Base):
 class Feedback(Base):
     __tablename__ = "feedback"
 
-    id: Mapped[PGUUID] = mapped_column(
+    id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     job_id: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -150,7 +150,7 @@ class ServiceConfig(Base):
 
     __tablename__ = "service_configs"
 
-    id: Mapped[PGUUID] = mapped_column(
+    id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     miner_id: Mapped[str] = mapped_column(
@@ -180,7 +180,7 @@ class SLAMetric(Base):
 
     __tablename__ = "sla_metrics"
 
-    id: Mapped[PGUUID] = mapped_column(
+    id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     miner_id: Mapped[str] = mapped_column(
@@ -203,7 +203,7 @@ class SLAViolation(Base):
 
     __tablename__ = "sla_violations"
 
-    id: Mapped[PGUUID] = mapped_column(
+    id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     miner_id: Mapped[str] = mapped_column(
@@ -228,7 +228,7 @@ class CapacitySnapshot(Base):
 
     __tablename__ = "capacity_snapshots"
 
-    id: Mapped[PGUUID] = mapped_column(
+    id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     total_miners: Mapped[int] = mapped_column(Integer, nullable=False)

@@ -1,6 +1,8 @@
 """PING message handler."""
 from typing import Any
+
 from .base_handler import BaseHandler
+
 
 class PingHandler(BaseHandler):
     """Handler for PING messages - responds with PONG."""

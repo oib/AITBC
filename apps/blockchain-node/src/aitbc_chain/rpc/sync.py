@@ -6,13 +6,17 @@ import json
 from datetime import UTC, datetime
 from typing import Any, cast
 from urllib.parse import urlparse
+
 from fastapi import HTTPException, Request
-from sqlmodel import delete, select, Session
+from sqlmodel import Session, delete, select
+
 from aitbc.rate_limiting import rate_limit
+
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Block, Transaction
 from .utils import get_chain_id
+
 _logger = get_logger(__name__)
 _last_import_time = 0
 _import_lock = asyncio.Lock()
@@ -96,7 +100,7 @@ async def export_chain(request: Request, chain_id: str | None = None) -> dict[st
         raise HTTPException(status_code=500, detail=f'Failed to export chain: {str(e)}')
 
 @rate_limit(rate=50, per=60)
-async def import_chain(request: Request, import_data: dict) -> dict[str, Any]:
+async def import_chain(request: Request, import_data: dict[str, Any]) -> dict[str, Any]:
     """Import chain state from JSON for manual synchronization"""
     async with _import_lock:
         try:
@@ -161,7 +165,7 @@ async def import_chain(request: Request, import_data: dict) -> dict[str, Any]:
             raise HTTPException(status_code=500, detail=f'Failed to import chain: {str(e)}')
 
 @rate_limit(rate=50, per=60)
-async def force_sync(request: Request, peer_data: dict) -> dict[str, Any]:
+async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, Any]:
     """Force blockchain reorganization to sync with specified peer"""
     try:
         peer_url = peer_data.get('peer_url')

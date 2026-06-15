@@ -1,10 +1,13 @@
 """Contract event subscriber for smart contract event monitoring."""
 import asyncio
 from typing import TYPE_CHECKING, Any
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network.http_client import AsyncAITBCHTTPClient
+
 from ..config import Settings
+
 if TYPE_CHECKING:
     from ..bridge import BlockchainEventBridge
 logger = get_logger(__name__)

@@ -4,13 +4,17 @@ DAO Governance Service
 Service for managing multi-jurisdictional DAOs, regional councils, and global treasuries.
 """
 from __future__ import annotations
+
 import logging
 from datetime import UTC, datetime, timedelta
+
 from fastapi import HTTPException
 from sqlmodel import Session, select
+
 from ....domain.dao_governance import DAOMember, DAOProposal, ProposalState, ProposalType, TreasuryAllocation, Vote
 from ....schemas.dao_governance import AllocationCreate, MemberCreate, ProposalCreate, VoteCreate
 from ...blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
+
 logger = logging.getLogger(__name__)
 
 class DAOGovernanceService:

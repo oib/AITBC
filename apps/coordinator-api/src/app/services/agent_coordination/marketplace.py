@@ -3,7 +3,9 @@ AI Agent Service Marketplace Service
 Implements a sophisticated marketplace where agents can offer specialized services
 """
 import asyncio
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 import hashlib
 import json
@@ -11,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+
 
 class ServiceStatus(StrEnum):
     """Service status types"""
@@ -385,11 +388,11 @@ class AgentServiceMarketplace:
                     continue
                 if min_rating and service.average_rating < min_rating:
                     continue
-                if tags and (not any((tag in service.tags for tag in tags))):
+                if tags and (not any(tag in service.tags for tag in tags)):
                     continue
                 if query:
                     query_lower = query.lower()
-                    if query_lower not in service.name.lower() and query_lower not in service.description.lower() and (not any((query_lower in tag.lower() for tag in service.tags))):
+                    if query_lower not in service.name.lower() and query_lower not in service.description.lower() and (not any(query_lower in tag.lower() for tag in service.tags)):
                         continue
                 results.append(service)
             results.sort(key=lambda x: (x.average_rating, x.reputation), reverse=True)
@@ -434,7 +437,7 @@ class AgentServiceMarketplace:
             total_requests = len(self.service_requests)
             pending_requests = len([r for r in self.service_requests.values() if r.status == RequestStatus.PENDING])
             total_guilds = len(self.guilds)
-            total_volume = sum((service.total_earnings for service in self.services.values()))
+            total_volume = sum(service.total_earnings for service in self.services.values())
             active_service_prices = [service.base_price for service in self.services.values() if service.status == ServiceStatus.ACTIVE]
             average_price = sum(active_service_prices) / len(active_service_prices) if active_service_prices else 0
             category_counts: dict[str, int] = {}

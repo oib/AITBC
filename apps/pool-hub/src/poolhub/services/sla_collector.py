@@ -5,10 +5,14 @@ Collects and tracks SLA metrics for miners including uptime, response time, job 
 import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
+
 from ..models import CapacitySnapshot, Feedback, MatchResult, Miner, MinerStatus, SLAMetric, SLAViolation
+
 logger = get_logger(__name__)
 
 class SLACollector:
@@ -69,7 +73,7 @@ class SLACollector:
         feedback_records = (await self.db.execute(stmt)).scalars().all()  # type: ignore[misc]
         if not feedback_records:
             return None
-        successful = sum((1 for f in feedback_records if f.outcome == 'success'))
+        successful = sum(1 for f in feedback_records if f.outcome == 'success')
         completion_rate = successful / len(feedback_records) * 100.0
         await self.record_sla_metric(miner_id, 'completion_rate_pct', completion_rate, {'method': 'feedback', 'sample_size': str(len(feedback_records))})
         return completion_rate
@@ -81,9 +85,9 @@ class SLACollector:
         if not miner_statuses:
             return {'total_miners': 0, 'active_miners': 0, 'capacity_availability_pct': 0.0}
         total_miners = len(miner_statuses)
-        active_miners = sum((1 for ms in miner_statuses if not ms.busy))
+        active_miners = sum(1 for ms in miner_statuses if not ms.busy)
         capacity_availability_pct = active_miners / total_miners * 100.0
-        snapshot = CapacitySnapshot(total_miners=total_miners, active_miners=active_miners, total_parallel_capacity=sum((m.max_parallel for m in (await self.db.execute(select(Miner))).scalars().all())), total_queue_length=sum((ms.queue_len for ms in miner_statuses)), capacity_utilization_pct=100.0 - capacity_availability_pct, forecast_capacity=total_miners, recommended_scaling='stable', scaling_reason='Capacity within normal range', timestamp=datetime.now(UTC), meta_data={'method': 'real_time_collection'})  # type: ignore[misc]
+        snapshot = CapacitySnapshot(total_miners=total_miners, active_miners=active_miners, total_parallel_capacity=sum(m.max_parallel for m in (await self.db.execute(select(Miner))).scalars().all()), total_queue_length=sum(ms.queue_len for ms in miner_statuses), capacity_utilization_pct=100.0 - capacity_availability_pct, forecast_capacity=total_miners, recommended_scaling='stable', scaling_reason='Capacity within normal range', timestamp=datetime.now(UTC), meta_data={'method': 'real_time_collection'})  # type: ignore[misc]
         self.db.add(snapshot)
         await self.db.commit()  # type: ignore[misc, func-returns-value]
         logger.info('Capacity snapshot: total=%s, active=%s, availability=%s%', total_miners, active_miners, capacity_availability_pct)

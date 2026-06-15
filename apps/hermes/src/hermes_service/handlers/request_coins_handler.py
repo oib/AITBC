@@ -3,11 +3,13 @@ import json
 import os
 import re
 from datetime import datetime, timedelta
-from typing import Any, Union
+from typing import Any
+
 from ..services import TransactionService  # type: ignore
 from ..storage import CoinRequest, CoinRequestStatus, get_db_session, init_db  # type: ignore
 from .base_handler import BaseHandler
 from .strategies import AIApprovalStrategy, AutomaticApprovalStrategy, ManualApprovalStrategy
+
 
 class RequestCoinsHandler(BaseHandler):
     """Handler for REQUEST_COINS messages with approval workflow."""
@@ -17,7 +19,7 @@ class RequestCoinsHandler(BaseHandler):
         init_db()
         self.transaction_service = TransactionService()
         self.approval_mode = os.getenv('COIN_APPROVAL_MODE', 'manual').lower()
-        self.strategy: Union[AutomaticApprovalStrategy, AIApprovalStrategy, ManualApprovalStrategy]
+        self.strategy: AutomaticApprovalStrategy | AIApprovalStrategy | ManualApprovalStrategy
         if self.approval_mode == 'automatic':
             self.strategy = AutomaticApprovalStrategy(coordinator_url, agent_id)
         elif self.approval_mode == 'ai':
