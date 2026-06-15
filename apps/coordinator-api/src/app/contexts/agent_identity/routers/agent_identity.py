@@ -349,9 +349,9 @@ async def export_agent_wallet(
 
         # Get wallet from database
         stmt = select(AgentWallet).where(
-            AgentWallet.agent_id == agent_id,
-            AgentWallet.chain_id == chain_id,
-            AgentWallet.is_active,  # type: ignore[arg-type]
+            AgentWallet.agent_id == agent_id,  # type: ignore[arg-type]
+            AgentWallet.chain_id == chain_id,  # type: ignore[arg-type]
+            AgentWallet.is_active == True,  # type: ignore[arg-type]  # noqa: E712
         )
         wallet = manager.session.execute(stmt).scalars().first()
 
@@ -389,9 +389,9 @@ async def delete_agent_wallet(
 
         # Get wallet from database
         stmt = select(AgentWallet).where(
-            AgentWallet.agent_id == agent_id,
-            AgentWallet.chain_id == chain_id,
-            AgentWallet.is_active,  # type: ignore[arg-type]
+            AgentWallet.agent_id == agent_id,  # type: ignore[arg-type]
+            AgentWallet.chain_id == chain_id,  # type: ignore[arg-type]
+            AgentWallet.is_active == True,  # type: ignore[arg-type]  # noqa: E712
         )
         wallet = manager.session.execute(stmt).scalars().first()
 
@@ -428,9 +428,9 @@ async def sign_message(
 
         # Get wallet from database
         stmt = select(AgentWallet).where(
-            AgentWallet.agent_id == agent_id,
-            AgentWallet.chain_id == chain_id,
-            AgentWallet.is_active,  # type: ignore[arg-type]
+            AgentWallet.agent_id == agent_id,  # type: ignore[arg-type]
+            AgentWallet.chain_id == chain_id,  # type: ignore[arg-type]
+            AgentWallet.is_active == True,  # type: ignore[arg-type]  # noqa: E712
         )
         wallet = manager.session.execute(stmt).scalars().first()
 
@@ -544,8 +544,8 @@ async def get_supported_chains(manager: AgentIdentityManager = Depends(get_ident
 @router.post("/identities/{agent_id}/export", response_model=dict[str, Any])
 async def export_agent_identity(
     agent_id: str,
-    request: dict[str, Any] = None,
-    manager: AgentIdentityManager = Depends(get_identity_manager),  # type: ignore[assignment]
+    request: dict[str, Any] | None = None,
+    manager: AgentIdentityManager = Depends(get_identity_manager),
 ) -> dict[str, Any]:
     """Export agent identity data for backup or migration"""
     try:

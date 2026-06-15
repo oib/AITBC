@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column, Numeric
@@ -41,7 +42,7 @@ class JobPayment(SQLModel, table=True):
     expires_at: datetime | None = None
 
     # Additional metadata
-    meta_data: dict | None = Field(default=None, sa_column=Column(JSON))
+    meta_data: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 
     # Relationships
     # jobs: Mapped[List["Job"]] = relationship(back_populates="payment")

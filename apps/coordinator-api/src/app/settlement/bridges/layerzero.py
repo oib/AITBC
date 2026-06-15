@@ -3,8 +3,9 @@ LayerZero bridge adapter implementation
 """
 
 import json
+from typing import Any
 
-from eth_utils import to_checksum_address
+from eth_utils.address import to_checksum_address
 from web3 import Web3
 from web3.contract import Contract
 
@@ -249,7 +250,7 @@ class LayerZeroAdapter(BridgeAdapter):
         # For now, return a placeholder
         return "0x..."
 
-    async def _load_abi(self, contract_name: str) -> list[dict]:
+    async def _load_abi(self, contract_name: str) -> list[dict[str, Any]]:
         """Load contract ABI from file or registry"""
         # This would load the ABI from a file or contract registry
         # For now, return empty list

@@ -7,11 +7,11 @@ import asyncio
 from typing import Any
 
 import uvicorn
-from aitbc_chain.app import create_app  # type: ignore
-from aitbc_chain.config import settings  # type: ignore
-from aitbc_chain.main import _run as run_node  # type: ignore
 
 from aitbc import get_logger
+from aitbc_chain.app import create_app
+from aitbc_chain.config import settings
+from aitbc_chain.main import _run as run_node
 
 logger = get_logger(__name__)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlmodel import Session, select
@@ -38,7 +39,7 @@ class MinerService:
         self.session.refresh(miner)
         return miner
 
-    def heartbeat(self, miner_id: str, payload: MinerHeartbeat | dict) -> Miner:
+    def heartbeat(self, miner_id: str, payload: MinerHeartbeat | dict[str, Any]) -> Miner:
         if not isinstance(payload, MinerHeartbeat):
             payload = MinerHeartbeat.model_validate(payload)
         miner = self.session.get(Miner, miner_id)
