@@ -223,9 +223,13 @@ async def buy_gpu(
     start_time = datetime.now(UTC)
     end_time = start_time + timedelta(hours=request.duration_hours)
     try:
-        dynamic_result = await engine.calculate_price(
-            base_price=gpu.price_per_hour, strategy=PricingStrategy.MARKET_BALANCE, region=gpu.region
-        )  # type: ignore[attr-defined]
+        dynamic_result = await engine.calculate_dynamic_price(
+            resource_id=gpu.id,
+            resource_type=ResourceType.GPU,
+            base_price=gpu.price_per_hour,
+            strategy=PricingStrategy.MARKET_BALANCE,
+            region=gpu.region,
+        )
         current_price = dynamic_result.recommended_price
     except Exception:
         current_price = gpu.price_per_hour
@@ -398,8 +402,8 @@ async def book_gpu(
         "base_price": gpu.price_per_hour,
         "dynamic_price": current_price,
         "price_per_hour": current_price,
-        "start_time": booking.start_time.isoformat() + "Z",
-        "end_time": booking.end_time.isoformat() + "Z",
+        "start_time": booking.start_time.isoformat() + "Z" if booking.start_time else None,
+        "end_time": booking.end_time.isoformat() + "Z" if booking.end_time else None,
         "pricing_factors": dynamic_result.factors_exposed if "dynamic_result" in locals() else {},
         "confidence_score": dynamic_result.confidence_score if "dynamic_result" in locals() else 0.8,
     }
