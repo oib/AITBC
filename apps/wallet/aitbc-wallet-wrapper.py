@@ -23,5 +23,16 @@ if wallet_dir:
     os.environ["WALLET_DIR"] = wallet_dir
 
 # Execute the actual service
-exec_cmd = ["/opt/aitbc/venv/bin/python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8108"]
+exec_cmd = [
+    "/opt/aitbc/venv/bin/python",
+    "-m",
+    "uvicorn",
+    "app.main:app",
+    "--host",
+    "0.0.0.0",
+    "--port",
+    "8108",
+    "--log-level",
+    "warning",
+]
 os.execvp(exec_cmd[0], exec_cmd)
