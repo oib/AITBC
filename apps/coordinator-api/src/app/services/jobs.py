@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta
 from typing import Any
 
 from sqlmodel import Session, select
 
+from aitbc import get_logger
+
 from ..contexts.payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner
 from ..schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class JobService:
@@ -124,13 +125,11 @@ class JobService:
                     self.session.refresh(job)
                     return job
                 except Exception as e:
-                    logger = logging.getLogger(__name__)
                     logger.warning("Error checking job %s: %s", job.id, e)
                     self.session.rollback()
                     continue
             return None
         except Exception as e:
-            logger = logging.getLogger(__name__)
             logger.error("Error acquiring next job: %s", e)
             raise
 

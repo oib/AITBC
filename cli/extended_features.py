@@ -1,12 +1,12 @@
 import json
-import logging
 import os
 import time
 import uuid
 
+from aitbc import get_logger
 from aitbc.utils.paths import get_data_path
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 STATE_FILE = str(get_data_path("data/cli_extended_state.json"))
 
 

@@ -5,17 +5,19 @@ Centralized logging utilities for the AITBC project
 
 import json
 import logging
+import logging.handlers
 import os
 import sys
 from contextlib import contextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 
 class BlockchainTextFormatter(logging.Formatter):
     """Compact bracketed formatter that appends blockchain-specific extra fields."""
 
-    BLOCKCHAIN_FIELDS = ("chain_id", "supported_chains", "height", "hash", "proposer", "error")
+    BLOCKCHAIN_FIELDS = ("chain_id", "supported_chains", "height", "hash", "proposer", "error", "request_id", "node_id")
 
     def format(self, record: logging.LogRecord) -> str:
         message = record.getMessage()
@@ -27,6 +29,20 @@ class BlockchainTextFormatter(logging.Formatter):
 
 class StructuredFormatter(logging.Formatter):
     """Structured JSON formatter for log aggregation"""
+
+    BLOCKCHAIN_FIELDS = (
+        "chain_id",
+        "supported_chains",
+        "height",
+        "hash",
+        "proposer",
+        "error",
+        "request_id",
+        "node_id",
+        "service",
+        "environment",
+        "version",
+    )
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as structured JSON"""
@@ -40,6 +56,11 @@ class StructuredFormatter(logging.Formatter):
             "line": record.lineno,
         }
 
+        # Add standard fields
+        for f in self.BLOCKCHAIN_FIELDS:
+            if hasattr(record, f):
+                log_entry[f] = getattr(record, f)
+
         # Add extra fields if present
         if hasattr(record, "extra"):
             log_entry.update(record.extra)
@@ -51,23 +72,72 @@ class StructuredFormatter(logging.Formatter):
         return json.dumps(log_entry)
 
 
-def setup_logger(name: str, level: str = "INFO", format_string: str | None = None, structured: bool = False) -> logging.Logger:
-    """Setup a logger with consistent formatting"""
+def _get_log_level() -> int:
+    """Get log level from environment"""
+    return getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper())  # type: ignore[no-any-return]
+
+
+def _get_log_format() -> str:
+    """Get log format from environment: 'json' or 'text'"""
+    return os.getenv("LOG_FORMAT", "text").lower()
+
+
+def _get_log_file_path(service_name: str) -> Path | None:
+    """Get log file path from environment"""
+    log_dir = os.getenv("LOG_DIR")
+    if not log_dir:
+        return None
+    log_path = Path(log_dir) / service_name
+    log_path.mkdir(parents=True, exist_ok=True)
+    return log_path / f"{service_name}.log"
+
+
+def setup_logger(
+    name: str,
+    level: str = "INFO",
+    format_string: str | None = None,
+    structured: bool = False,
+    service_name: str | None = None,
+    to_file: bool = False,
+    rotation: str = "daily",
+    max_files: int = 7,
+) -> logging.Logger:
+    """Setup a logger with consistent formatting and optional file rotation"""
     logger = logging.getLogger(name)
     logger.setLevel(getattr(logging, level.upper()))
 
     if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
+        # Console handler
+        console_handler = logging.StreamHandler(sys.stdout)
 
-        if structured:
+        if structured or _get_log_format() == "json":
             formatter: logging.Formatter = StructuredFormatter()
         else:
             if format_string is None:
                 format_string = "[%(levelname)s] %(message)s"
             formatter = logging.Formatter(format_string)
 
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+
+        # File handler with rotation
+        if to_file and service_name:
+            log_file = _get_log_file_path(service_name)
+            if log_file:
+                file_handler: logging.Handler
+                if rotation == "daily":
+                    file_handler = logging.handlers.TimedRotatingFileHandler(
+                        log_file, when="midnight", interval=1, backupCount=max_files, encoding="utf-8"
+                    )
+                elif rotation == "size":
+                    file_handler = logging.handlers.RotatingFileHandler(
+                        log_file, maxBytes=10 * 1024 * 1024, backupCount=max_files, encoding="utf-8"
+                    )
+                else:
+                    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+
+                file_handler.setFormatter(StructuredFormatter())
+                logger.addHandler(file_handler)
 
     return logger
 
@@ -81,7 +151,7 @@ def get_blockchain_logger(name: str) -> logging.Logger:
     """Get a logger with blockchain-specific extra field formatting."""
     logger = logging.getLogger(name)
     if not logger.handlers:
-        level = logging.getLevelName(os.getenv("LOG_LEVEL", "INFO").upper())
+        level = _get_log_level()
         logger.setLevel(level)
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(BlockchainTextFormatter())
@@ -89,26 +159,37 @@ def get_blockchain_logger(name: str) -> logging.Logger:
     return logger
 
 
-def configure_logging(level: str = "INFO", structured: bool = False) -> None:
-    """Configure root logging level"""
+def configure_logging(
+    level: str = "INFO",
+    structured: bool = False,
+    service_name: str | None = None,
+    to_file: bool = False,
+) -> None:
+    """Configure root logging level and format"""
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, level.upper()))
 
-    if structured:
-        # Remove existing handlers
-        for handler in root_logger.handlers[:]:
-            root_logger.removeHandler(handler)
+    # Clear existing handlers for clean configuration
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
 
-        # Add structured handler
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(StructuredFormatter())
-        root_logger.addHandler(handler)
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    if structured or _get_log_format() == "json":
+        console_handler.setFormatter(StructuredFormatter())
     else:
-        # Ensure root logger has a handler with compact bracketed format
-        if not root_logger.handlers:
-            handler = logging.StreamHandler(sys.stdout)
-            handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
-            root_logger.addHandler(handler)
+        console_handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+    root_logger.addHandler(console_handler)
+
+    # File handler with rotation
+    if to_file and service_name:
+        log_file = _get_log_file_path(service_name)
+        if log_file:
+            file_handler = logging.handlers.TimedRotatingFileHandler(
+                log_file, when="midnight", interval=1, backupCount=7, encoding="utf-8"
+            )
+            file_handler.setFormatter(StructuredFormatter())
+            root_logger.addHandler(file_handler)
 
 
 @contextmanager

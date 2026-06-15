@@ -7,7 +7,6 @@ Listens for blockchain transactions addressed to an agent wallet and autonomousl
 import argparse
 import hashlib
 import json
-import logging
 import sys
 import time
 from pathlib import Path
@@ -19,10 +18,10 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+from aitbc import get_logger
 from aitbc.constants import DATA_DIR, KEYSTORE_DIR
 
-logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Default configuration
 DEFAULT_KEYSTORE_DIR = KEYSTORE_DIR

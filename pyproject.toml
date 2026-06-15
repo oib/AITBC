@@ -177,6 +177,8 @@ select = [
     "C4", # flake8-comprehensions
     "UP", # pyupgrade
     "E722", # bare except (explicitly enforce)
+    "G001", # logging statement uses f-string
+    "G002", # logging statement uses .format() or % formatting
 ]
 ignore = [
     "E501",  # line too long, handled by black

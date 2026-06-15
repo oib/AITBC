@@ -1,9 +1,10 @@
 """Performance command handlers for AITBC CLI."""
 
 import json
-import logging
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 def handle_performance_benchmark(args, output_format, render_mapping):

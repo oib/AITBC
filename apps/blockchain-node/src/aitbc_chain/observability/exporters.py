@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Iterable
 from typing import Any
 
+from aitbc import get_logger
+
 REGISTERED_EXPORTERS: list[str] = []
 _exporter_instances: dict[str, Any] = {}
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def register_exporters(exporters: Iterable[str]) -> None:

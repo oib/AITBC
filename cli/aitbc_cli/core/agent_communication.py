@@ -3,7 +3,6 @@ Cross-chain agent communication system
 """
 
 import json
-import logging
 import uuid
 from collections import defaultdict
 from dataclasses import asdict, dataclass
@@ -14,7 +13,9 @@ from typing import Any
 from aitbc_cli.core.config import MultiChainConfig
 from aitbc_cli.core.node_client import NodeClient
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class MessageType(Enum):
