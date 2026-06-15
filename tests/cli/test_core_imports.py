@@ -3,7 +3,6 @@ Core Imports Tests
 Tests for core imports module
 """
 
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest

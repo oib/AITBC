@@ -3,6 +3,7 @@ Main CLI Tests
 Tests for main CLI entry point
 """
 
+import sys
 from unittest.mock import patch
 
 import pytest
