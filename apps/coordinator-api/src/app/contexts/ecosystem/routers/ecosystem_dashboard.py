@@ -4,15 +4,19 @@ REST API for developer ecosystem metrics and analytics
 """
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from ....routers.users import get_current_user
 from ....services.ecosystem_service import EcosystemService
 from ....storage import get_session
+
 router = APIRouter()
 
 class DeveloperEarningsResponse(BaseModel):

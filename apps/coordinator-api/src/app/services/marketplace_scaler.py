@@ -7,7 +7,9 @@ import math
 import time
 from datetime import UTC, datetime
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class ScalingPolicy:

@@ -6,6 +6,7 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
+
 import httpx
 from fastapi import BackgroundTasks, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,11 +14,21 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+
 BLOCKCHAIN_RPC_URL = os.getenv('BLOCKCHAIN_RPC_URL', 'http://localhost:8202')
-from aitbc import ErrorHandlerMiddleware, PerformanceLoggingMiddleware, RequestIDMiddleware, RequestValidationMiddleware, configure_logging, get_logger
+from aitbc import (
+    ErrorHandlerMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestIDMiddleware,
+    RequestValidationMiddleware,
+    configure_logging,
+    get_logger,
+)
+
 from .services.marketplace_service import MarketplaceService
 from .services.matching_service import MatchingService
 from .storage import get_session, init_db
+
 configure_logging(level='INFO')
 logger = get_logger(__name__)
 
@@ -119,7 +130,7 @@ async def _create_escrow_bg(job_id: str, buyer: str, provider: str, amount: floa
         logger.warning('Escrow creation skipped (non-fatal): %s', e)
 
 @app.post('/v1/marketplace/offers/{offer_id}/book')
-async def book_offer(offer_id: str, booking_data: dict, background_tasks: BackgroundTasks, svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
+async def book_offer(offer_id: str, booking_data: dict[str, Any], background_tasks: BackgroundTasks, svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
     """Book/purchase a marketplace offer"""
     try:
         logger.info('POST /v1/marketplace/offers/%s/book called with data keys: %s', offer_id, booking_data.keys())
@@ -138,7 +149,7 @@ async def book_offer(offer_id: str, booking_data: dict, background_tasks: Backgr
         raise
 
 @app.post('/v1/marketplace/offers')
-async def create_offer(offer_data: dict, svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
+async def create_offer(offer_data: dict[str, Any], svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
     """Create a new marketplace offer"""
     try:
         logger.info('POST /v1/marketplace/offers called with data keys: %s', offer_data.keys())
@@ -169,9 +180,9 @@ async def get_marketplace_overview(svc: MarketplaceService=Depends(get_marketpla
     active_offers = [o for o in offers if o.get('status') == 'active']
     avg_price = 0
     if active_offers:
-        total_price = sum((o.get('price_per_hour', 0) for o in active_offers))
+        total_price = sum(o.get('price_per_hour', 0) for o in active_offers)
         avg_price = total_price / len(active_offers)
-    return {'status': 'operational', 'total_offers': len(offers), 'active_offers': len(active_offers), 'average_price_per_hour': avg_price, 'regions': list(set((o.get('region', 'unknown') for o in active_offers))), 'service_types': list(set((o.get('service_type', 'unknown') for o in active_offers))), 'timestamp': svc.get_current_timestamp()}
+    return {'status': 'operational', 'total_offers': len(offers), 'active_offers': len(active_offers), 'average_price_per_hour': avg_price, 'regions': list(set(o.get('region', 'unknown') for o in active_offers)), 'service_types': list(set(o.get('service_type', 'unknown') for o in active_offers)), 'timestamp': svc.get_current_timestamp()}
 
 @app.get('/v1/marketplace/offers/{offer_id}/history')
 async def get_offer_history(offer_id: str, svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
@@ -232,7 +243,7 @@ async def get_plugins(plugin_type: str | None=None, status: str='approved') -> A
     return {'plugins': [{'id': 'ollama-integration', 'name': 'Ollama Integration', 'version': '1.0.0', 'description': 'Integrate Ollama for local LLM inference', 'author': 'AITBC Team', 'status': 'active', 'downloads': 1250}, {'id': 'ipfs-storage', 'name': 'IPFS Storage', 'version': '1.2.0', 'description': 'Decentralized storage using IPFS', 'author': 'AITBC Team', 'status': 'active', 'downloads': 890}, {'id': 'gpu-optimizer', 'name': 'GPU Optimizer', 'version': '0.9.0', 'description': 'Optimize GPU utilization for ML workloads', 'author': 'Community', 'status': 'beta', 'downloads': 450}], 'total': 3}
 
 @app.post('/v1/marketplace/plugins')
-async def register_plugin(plugin_data: dict, svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
+async def register_plugin(plugin_data: dict[str, Any], svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
     """Register a new plugin"""
     try:
         logger.info('POST /v1/marketplace/plugins called with data keys: %s', plugin_data.keys())
@@ -270,7 +281,7 @@ async def get_software_offer(plugin_id: str, svc: MarketplaceService=Depends(get
         raise
 
 @app.post('/v1/marketplace/offer')
-async def register_offer(service_data: dict, svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
+async def register_offer(service_data: dict[str, Any], svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
     """Register or update a marketplace offer"""
     try:
         logger.info('POST /v1/marketplace/offer called with data keys: %s', service_data.keys())
@@ -294,7 +305,7 @@ async def unregister_offer(plugin_id: str, svc: MarketplaceService=Depends(get_m
         raise
 
 @app.post('/v1/knowledge-graph')
-async def create_graph(graph_data: dict, svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
+async def create_graph(graph_data: dict[str, Any], svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
     """Create a new knowledge graph"""
     try:
         logger.info('POST /v1/knowledge-graph called with data keys: %s', graph_data.keys())
@@ -306,7 +317,7 @@ async def create_graph(graph_data: dict, svc: MarketplaceService=Depends(get_mar
         raise
 
 @app.post('/v1/knowledge-graph/{graph_id}/nodes')
-async def add_node(graph_id: str, node_data: dict, svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
+async def add_node(graph_id: str, node_data: dict[str, Any], svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
     """Add a node to a knowledge graph"""
     try:
         node_data['graph_id'] = graph_id
@@ -319,7 +330,7 @@ async def add_node(graph_id: str, node_data: dict, svc: MarketplaceService=Depen
         raise
 
 @app.post('/v1/knowledge-graph/{graph_id}/edges')
-async def add_edge(graph_id: str, edge_data: dict, svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
+async def add_edge(graph_id: str, edge_data: dict[str, Any], svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
     """Add an edge to a knowledge graph"""
     try:
         edge_data['graph_id'] = graph_id
@@ -402,7 +413,7 @@ async def get_unsynced_ratings(limit: int=100, svc: MarketplaceService=Depends(g
         raise
 
 @app.post('/v1/marketplace/ratings/sync')
-async def sync_ratings(ratings: list[dict], svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
+async def sync_ratings(ratings: list[dict[str, Any]], svc: MarketplaceService=Depends(get_marketplace_service)) -> Any:
     """Sync ratings from remote node"""
     try:
         logger.info('POST /v1/marketplace/ratings/sync called with %s ratings', len(ratings))
@@ -424,7 +435,7 @@ async def mark_ratings_synced(rating_ids: list[str], svc: MarketplaceService=Dep
         raise
 
 @app.post('/v1/transactions')
-async def submit_transaction(transaction_data: dict, session: AsyncSession=Depends(get_session_dep)) -> Any:
+async def submit_transaction(transaction_data: dict[str, Any], session: AsyncSession=Depends(get_session_dep)) -> Any:
     """Submit marketplace transaction"""
     from .domain.marketplace import MarketplaceOffer
     transaction_type = transaction_data.get('type')
@@ -448,6 +459,7 @@ async def submit_transaction(transaction_data: dict, session: AsyncSession=Depen
 async def get_transactions(transaction_type: str | None=None, action: str | None=None, status: str | None=None, island_id: str | None=None, session: AsyncSession=Depends(get_session_dep)) -> Any:
     """Query marketplace transactions"""
     from sqlalchemy import select
+
     from .domain.marketplace import MarketplaceOffer
     try:
         transactions = []

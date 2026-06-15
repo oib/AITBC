@@ -19,7 +19,7 @@ class AIApprovalStrategy(ApprovalStrategy):
         self.model = os.getenv("OLLAMA_MODEL", "nemotron-3-super:cloud")
         self.enabled = os.getenv("ENABLE_AI_APPROVAL", "false").lower() == "true"
 
-    def get_request_history(self, sender: str, days: int = 1) -> list:
+    def get_request_history(self, sender: str, days: int = 1) -> list[Any]:
         """Get request history for sender from last N days."""
         cutoff = datetime.utcnow() - timedelta(days=days)
 
@@ -109,7 +109,7 @@ class AIApprovalStrategy(ApprovalStrategy):
                 "signed_transaction": None
             }
 
-    def _build_prompt(self, sender: str, amount: int, wallet_address: str, history: list) -> str:
+    def _build_prompt(self, sender: str, amount: int, wallet_address: str, history: list[Any]) -> str:
         """Build prompt for AI evaluation."""
         history_text = "\n".join([
             f"- {h['amount']} AIT, status: {h['status']}, at {h['created_at']}"

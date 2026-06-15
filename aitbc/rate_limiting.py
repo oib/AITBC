@@ -3,16 +3,15 @@ Rate limiting utilities for FastAPI applications
 Provides decorators and middleware for API rate limiting
 """
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Awaitable
 from functools import wraps
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 from fastapi import HTTPException, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 from .aitbc_logging import get_logger
 from .security_hardening import RateLimiter
 logger = get_logger(__name__)
-F = TypeVar('F', bound=Callable[..., Any])
 _rate_limiters: dict[str, RateLimiter] = {}
 
 def get_rate_limiter(name: str, rate: int=100, per: int=60) -> RateLimiter:
@@ -31,7 +30,7 @@ def get_rate_limiter(name: str, rate: int=100, per: int=60) -> RateLimiter:
         _rate_limiters[name] = RateLimiter(rate=rate, per=per)
     return _rate_limiters[name]
 
-def rate_limit(rate: int=100, per: int=60, key_func: Callable[[Request], str] | None=None, error_message: str='Rate limit exceeded') -> Callable[[F], F]:
+def rate_limit(rate: int=100, per: int=60, key_func: Callable[[Request], str] | None=None, error_message: str='Rate limit exceeded') -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator for rate limiting FastAPI endpoints
 
@@ -47,7 +46,7 @@ def rate_limit(rate: int=100, per: int=60, key_func: Callable[[Request], str] | 
     from typing import ParamSpec
     P = ParamSpec('P')
 
-    def decorator(func: Callable[P, Any]) -> Callable[P, Any]:  # type: ignore[misc]
+    def decorator(func: Callable[P, Any]) -> Callable[P, Any]:
         limiter = RateLimiter(rate=rate, per=per)
         is_async = asyncio.iscoroutinefunction(func)
 
@@ -59,11 +58,16 @@ def rate_limit(rate: int=100, per: int=60, key_func: Callable[[Request], str] | 
                     request = arg
                     break
             if request is None:
-                request = kwargs.get('request')
-                if is_async:
-                    return await func(*args, **kwargs)
-                else:
-                    return func(*args, **kwargs)
+                for key in ('request', 'request_http', 'http_request'):
+                    val = kwargs.get(key)
+                    if isinstance(val, Request):
+                        request = val
+                        break
+                if request is None:
+                    if is_async:
+                        return await func(*args, **kwargs)
+                    else:
+                        return func(*args, **kwargs)
             if key_func:
                 key = key_func(request)
             else:
@@ -75,7 +79,7 @@ def rate_limit(rate: int=100, per: int=60, key_func: Callable[[Request], str] | 
                 return await func(*args, **kwargs)
             else:
                 return func(*args, **kwargs)
-        return cast(F, wrapper)
+        return wrapper
     return decorator
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -103,7 +107,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.error_message = error_message
         self._limiter = RateLimiter(rate=rate, per=per)
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         """
         Process request with rate limiting
 
@@ -121,7 +125,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if not self._limiter.is_allowed(key):
             logger.warning('Rate limit exceeded for %s on %s', key, request.url.path, stacklevel=2)
             return Response(content=f'{{"detail": "{self.error_message}"}}', status_code=429, media_type='application/json', headers={'Retry-After': str(self.per)})
-        return await call_next(request)
+        response = await call_next(request)
+        return response
 
 def get_rate_limit_headers(request: Request, limiter_name: str) -> dict[str, str]:
     """

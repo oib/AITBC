@@ -2,9 +2,12 @@
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import SQLModel
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite+aiosqlite:///var/lib/aitbc/data/edge.db')
 if DATABASE_URL.startswith('sqlite'):

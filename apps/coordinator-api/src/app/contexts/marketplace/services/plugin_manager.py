@@ -1,10 +1,14 @@
 """Plugin Manager for marketplace extensibility."""
 from __future__ import annotations
+
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
+
 from aitbc import get_logger
+
 from ..domain.gpu_marketplace import Plugin
+
 logger = get_logger(__name__)
 _plugin_manager = None
 

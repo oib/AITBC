@@ -10,7 +10,9 @@ import uuid
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class TaskStatus(str, Enum):
@@ -318,13 +320,13 @@ class DistributedProcessingCoordinator:
     def get_cluster_status(self) -> dict[str, Any]:
         """Get the overall status of the distributed cluster"""
         total_workers = len(self.workers)
-        active_workers = sum((1 for w in self.workers.values() if w.status != WorkerStatus.OFFLINE))
-        gpu_workers = sum((1 for w in self.workers.values() if w.has_gpu and w.status != WorkerStatus.OFFLINE))
-        pending_tasks = sum((1 for t in self.tasks.values() if t.status == TaskStatus.PENDING))
-        processing_tasks = sum((1 for t in self.tasks.values() if t.status in [TaskStatus.SCHEDULED, TaskStatus.PROCESSING]))
-        completed_tasks = sum((1 for t in self.tasks.values() if t.status == TaskStatus.COMPLETED))
-        failed_tasks = sum((1 for t in self.tasks.values() if t.status in [TaskStatus.FAILED, TaskStatus.TIMEOUT]))
-        total_capacity = sum((w.max_concurrent_tasks for w in self.workers.values() if w.status != WorkerStatus.OFFLINE))
-        current_load = sum((len(w.active_tasks) for w in self.workers.values() if w.status != WorkerStatus.OFFLINE))
+        active_workers = sum(1 for w in self.workers.values() if w.status != WorkerStatus.OFFLINE)
+        gpu_workers = sum(1 for w in self.workers.values() if w.has_gpu and w.status != WorkerStatus.OFFLINE)
+        pending_tasks = sum(1 for t in self.tasks.values() if t.status == TaskStatus.PENDING)
+        processing_tasks = sum(1 for t in self.tasks.values() if t.status in [TaskStatus.SCHEDULED, TaskStatus.PROCESSING])
+        completed_tasks = sum(1 for t in self.tasks.values() if t.status == TaskStatus.COMPLETED)
+        failed_tasks = sum(1 for t in self.tasks.values() if t.status in [TaskStatus.FAILED, TaskStatus.TIMEOUT])
+        total_capacity = sum(w.max_concurrent_tasks for w in self.workers.values() if w.status != WorkerStatus.OFFLINE)
+        current_load = sum(len(w.active_tasks) for w in self.workers.values() if w.status != WorkerStatus.OFFLINE)
         utilization = current_load / total_capacity * 100 if total_capacity > 0 else 0
         return {'cluster_health': 'healthy' if active_workers > 0 else 'offline', 'nodes': {'total': total_workers, 'active': active_workers, 'with_gpu': gpu_workers}, 'tasks': {'pending': pending_tasks, 'processing': processing_tasks, 'completed': completed_tasks, 'failed': failed_tasks}, 'performance': {'utilization_percent': round(utilization, 2), 'cache_size': len(self.result_cache)}, 'timestamp': datetime.now(UTC).isoformat()}

@@ -1,16 +1,32 @@
 from datetime import UTC, datetime
 from typing import Annotated, Any
+
 from sqlalchemy.orm import Session
+
 '\nAgent Security API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for security management and auditing\n'
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select
+
 from ....deps import require_admin_key
 from ....domain.agent import AIAgentWorkflow
-from ....services.agent_coordination.security import AgentAuditLog, AgentAuditor, AgentSandboxManager, AgentSecurityManager, AgentSecurityPolicy, AgentTrustManager, AgentTrustScore, AuditEventType, SecurityLevel
+from ....services.agent_coordination.security import (
+    AgentAuditLog,
+    AgentAuditor,
+    AgentSandboxManager,
+    AgentSecurityManager,
+    AgentSecurityPolicy,
+    AgentTrustManager,
+    AgentTrustScore,
+    AuditEventType,
+    SecurityLevel,
+)
 from ....storage import get_session
+
 router = APIRouter(prefix='/agents/security', tags=['Agent Security'])
 
 @router.post('/policies', response_model=AgentSecurityPolicy)
@@ -284,7 +300,7 @@ async def get_security_dashboard(request: Request, session: Session=Depends(Anno
         recent_audits = session.execute(select(AgentAuditLog).order_by(AgentAuditLog.timestamp.desc()).limit(50)).all()
         high_risk_events = session.execute(select(AgentAuditLog).where(AgentAuditLog.requires_investigation).order_by(AgentAuditLog.timestamp.desc()).limit(10)).all()
         trust_scores = session.execute(select(AgentTrustScore)).all()
-        avg_trust_score = sum((ts.trust_score for ts in trust_scores)) / len(trust_scores) if trust_scores else 0
+        avg_trust_score = sum(ts.trust_score for ts in trust_scores) / len(trust_scores) if trust_scores else 0
         active_sandboxes = session.execute(select(AgentSandboxConfig).where(AgentSandboxConfig.is_active)).all()
         total_audits = session.execute(select(AgentAuditLog)).count()  # type: ignore[attr-defined]
         high_risk_count = session.execute(select(AgentAuditLog).where(AgentAuditLog.requires_investigation)).count()  # type: ignore[attr-defined]
@@ -329,7 +345,7 @@ async def get_security_statistics(request: Request, session: Session=Depends(Ann
                 trust_score_distribution['high'] += 1
             else:
                 trust_score_distribution['very_high'] += 1
-        return {'audit_statistics': {'total_audits': total_audits, 'event_type_counts': event_type_counts, 'risk_score_distribution': risk_score_distribution}, 'trust_statistics': {'total_entities': len(trust_scores), 'average_trust_score': sum((ts.trust_score for ts in trust_scores)) / len(trust_scores) if trust_scores else 0, 'trust_score_distribution': trust_score_distribution}, 'security_health': {'high_risk_rate': (risk_score_distribution['high'] + risk_score_distribution['critical']) / total_audits * 100 if total_audits > 0 else 0, 'average_risk_score': sum((audit.risk_score for audit in all_audits)) / len(all_audits) if all_audits else 0, 'security_violation_rate': event_type_counts.get('security_violation', 0) / total_audits * 100 if total_audits > 0 else 0}}
+        return {'audit_statistics': {'total_audits': total_audits, 'event_type_counts': event_type_counts, 'risk_score_distribution': risk_score_distribution}, 'trust_statistics': {'total_entities': len(trust_scores), 'average_trust_score': sum(ts.trust_score for ts in trust_scores) / len(trust_scores) if trust_scores else 0, 'trust_score_distribution': trust_score_distribution}, 'security_health': {'high_risk_rate': (risk_score_distribution['high'] + risk_score_distribution['critical']) / total_audits * 100 if total_audits > 0 else 0, 'average_risk_score': sum(audit.risk_score for audit in all_audits) / len(all_audits) if all_audits else 0, 'security_violation_rate': event_type_counts.get('security_violation', 0) / total_audits * 100 if total_audits > 0 else 0}}
     except Exception as e:
         logger.error('Failed to get security statistics: %s', e)
         raise HTTPException(status_code=500, detail=str(e))

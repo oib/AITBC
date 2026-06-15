@@ -13,8 +13,10 @@ import asyncio
 import json
 import logging
 from datetime import datetime
+
 import asyncpg
 from aitbc.logging import get_logger
+
 logging.basicConfig(level=logging.INFO)
 logger = get_logger(__name__)
 

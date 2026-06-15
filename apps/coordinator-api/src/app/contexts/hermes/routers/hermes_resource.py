@@ -1,13 +1,26 @@
 """Router for Hermes autonomous resource management API."""
 from typing import Annotated, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from ....deps import require_admin_key
-from ....schemas.hermes_resource import PricingAdjustment, Resource, ResourceAllocationRequest, ResourceAllocationResponse, ResourcePool, ResourceReleaseRequest, ResourceReleaseResponse, ResourceType
+from ....schemas.hermes_resource import (
+    PricingAdjustment,
+    Resource,
+    ResourceAllocationRequest,
+    ResourceAllocationResponse,
+    ResourcePool,
+    ResourceReleaseRequest,
+    ResourceReleaseResponse,
+    ResourceType,
+)
 from ....storage import get_session
 from ..services.resource_service_db import resource_service
+
 router = APIRouter(prefix='/hermes/resource', tags=['hermes Resource Management'])
 
 @router.post('/register')

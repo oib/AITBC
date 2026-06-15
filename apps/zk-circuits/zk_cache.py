@@ -9,7 +9,9 @@ import json
 import logging
 import time
 from pathlib import Path
+
 import click
+
 logger = logging.getLogger(__name__)
 
 class ZKCircuitCache:

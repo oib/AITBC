@@ -4,6 +4,7 @@ import os
 import sqlite3
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 DATA_DIR = os.getenv("DATA_DIR", "/var/lib/aitbc")
 DB_PATH = os.path.join(DATA_DIR, "bridge_deposits.db")
@@ -140,7 +141,7 @@ def update_deposit(
     return False
 
 
-def get_deposit(eth_tx_hash: str) -> dict | None:
+def get_deposit(eth_tx_hash: str) -> dict[str, Any] | None:
     """Get deposit by transaction hash."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -158,7 +159,7 @@ def get_deposits(
     status: BridgeDepositStatus | None = None,
     limit: int = 50,
     offset: int = 0
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Get deposits with optional status filter."""
     conn = get_db_connection()
     cursor = conn.cursor()

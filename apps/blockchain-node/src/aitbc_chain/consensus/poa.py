@@ -5,17 +5,21 @@ import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import ContextManager
+from typing import Any, ContextManager
+
 from sqlmodel import Session, select
+
 from ..gossip import gossip_broker
 from ..lease_tracker import lease_tracker
 from ..logger import get_logger
 from ..state.merkle_patricia_trie import StateManager
+
 logger = get_logger(__name__)
 from ..config import ProposerConfig
 from ..metrics import metrics_registry
 from ..models import Account, Block
 from ..state.state_transition import get_state_transition
+
 _METRIC_KEY_SANITIZE = re.compile('[^a-zA-Z0-9_]')
 
 def _sanitize_metric_suffix(value: str) -> str:
@@ -34,6 +38,7 @@ def _compute_state_root(session: Session, chain_id: str) -> str | None:
         logger.warning('Failed to compute state root: %s', e)
         return None
 import time
+
 
 class CircuitBreaker:
 
@@ -378,7 +383,7 @@ class PoAProposer:
         except Exception as e:
             self._logger.warning('RPC bootstrap failed for chain %s: %s, skipping account initialization', self._config.chain_id, e)
 
-    def _load_genesis_data_from_file(self) -> dict:
+    def _load_genesis_data_from_file(self) -> dict[str, Any]:
         """Load complete genesis data from local file."""
         genesis_paths = [Path(f'/var/lib/aitbc/data/{self._config.chain_id}/genesis.json')]
         genesis_path = None
@@ -396,11 +401,11 @@ class PoAProposer:
             self._logger.warning('Failed to load genesis file: %s', e)
             return {}
 
-    def _load_genesis_allocations_for_metadata(self) -> list:
+    def _load_genesis_allocations_for_metadata(self) -> list[Any]:
         """Load genesis allocations from file for embedding in genesis block metadata."""
         return []
 
-    async def _load_genesis_block_from_rpc(self) -> dict | None:
+    async def _load_genesis_block_from_rpc(self) -> dict[str, Any] | None:
         """Load genesis block data from trusted peer via RPC.
         
         Returns:
@@ -430,7 +435,7 @@ class PoAProposer:
         self._logger.error('RPC bootstrap for genesis block failed for all peers')
         return None
 
-    async def _load_genesis_allocations_from_rpc(self) -> tuple[list, str | None]:
+    async def _load_genesis_allocations_from_rpc(self) -> tuple[list[Any], str | None]:
         """Load genesis allocations and state_root from trusted peer via RPC.
         
         Returns:
@@ -468,7 +473,7 @@ class PoAProposer:
         self._logger.error('RPC bootstrap failed for all peers')
         return ([], None)
 
-    def _create_accounts_from_allocations(self, session: Session, allocations: list) -> None:
+    def _create_accounts_from_allocations(self, session: Session, allocations: list[Any]) -> None:
         """Create Account entries from allocation data."""
         created = 0
         for alloc in allocations:
@@ -484,7 +489,7 @@ class PoAProposer:
         session.commit()
         self._logger.info('Created %s accounts from genesis allocations', created)
 
-    def _compute_block_hash(self, height: int, parent_hash: str, timestamp: datetime, transactions: list | None = None) -> str:
+    def _compute_block_hash(self, height: int, parent_hash: str, timestamp: datetime, transactions: list[Any] | None = None) -> str:
         tx_hashes = []
         if transactions:
             tx_hashes = [tx.tx_hash for tx in transactions]

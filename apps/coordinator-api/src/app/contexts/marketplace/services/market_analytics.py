@@ -1,11 +1,16 @@
 """Market Analytics Service for real-time metrics and trend analysis."""
 from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
 from statistics import mean
 from typing import Any
+
 from sqlmodel import Session, select
+
 from aitbc import get_logger
+
 from ..domain.gpu_marketplace import GPUBooking, GPURegistry
+
 logger = get_logger(__name__)
 
 class MarketAnalytics:
@@ -22,9 +27,9 @@ class MarketAnalytics:
             available_gpus = [g for g in gpus if g.status == 'available']
             booked_gpus = [g for g in gpus if g.status == 'booked']
             offline_gpus = [g for g in gpus if g.status == 'offline']
-            total_capacity = sum((g.capacity for g in gpus))
-            available_capacity = sum((g.capacity for g in available_gpus))
-            allocated_capacity = sum((g.allocated for g in gpus))
+            total_capacity = sum(g.capacity for g in gpus)
+            available_capacity = sum(g.capacity for g in available_gpus)
+            allocated_capacity = sum(g.allocated for g in gpus)
             available_prices = [g.price_per_hour for g in available_gpus if g.price_per_hour]
             avg_price = mean(available_prices) if available_prices else 0.0
             min_price = min(available_prices) if available_prices else 0.0

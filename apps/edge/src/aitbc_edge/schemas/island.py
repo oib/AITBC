@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column, String
@@ -36,7 +37,7 @@ class IslandMembership(SQLModel, table=True):
     peer_count: int = Field(default=0)
 
     # Additional metadata
-    extra_data: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
+    extra_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
 
 
 class BridgeRequest(SQLModel, table=True):

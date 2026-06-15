@@ -1,10 +1,22 @@
 """Service for Hermes self-healing and health monitoring."""
 import uuid
 from datetime import datetime
+
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
-from ....schemas.hermes_health import ErrorReport, ErrorSeverity, ErrorType, HealthCheck, HealthStatus, RecoveryAction, RecoveryResult
+from ....schemas.hermes_health import (
+    ErrorReport,
+    ErrorSeverity,
+    ErrorType,
+    HealthCheck,
+    HealthStatus,
+    RecoveryAction,
+    RecoveryResult,
+)
+
 
 class HealthService:
     """Service for monitoring agent health and executing self-healing actions."""

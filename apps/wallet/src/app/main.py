@@ -1,16 +1,21 @@
 from __future__ import annotations
+
 import base64
 import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI
+
 from aitbc.rate_limiting import RateLimitMiddleware
+
 from .api_jsonrpc import router as jsonrpc_router
 from .api_rest import router as receipts_router
 from .bridge import init_db, start_monitoring
 from .settings import settings
+
 logger = logging.getLogger(__name__)
 
 async def _import_genesis_wallet_from_env() -> None:
@@ -54,6 +59,7 @@ async def _import_file_wallets() -> None:
     """Auto-import wallets from wallet directory into daemon on startup."""
     import json
     from pathlib import Path
+
     import httpx
     wallet_dir = Path(os.getenv('WALLET_DIR', '/root/.aitbc/wallets'))
     if not wallet_dir.exists():
@@ -106,7 +112,7 @@ async def _import_file_wallets() -> None:
             return
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     init_db()
     start_monitoring()
     import asyncio

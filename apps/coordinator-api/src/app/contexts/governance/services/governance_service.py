@@ -6,10 +6,23 @@ Enhanced with multi-jurisdictional support and regional governance
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from sqlmodel import Session, select
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
-from ....domain.governance import DaoTreasury, GovernanceProfile, GovernanceRole, Proposal, ProposalStatus, TransparencyReport, Vote, VoteType
+from ....domain.governance import (
+    DaoTreasury,
+    GovernanceProfile,
+    GovernanceRole,
+    Proposal,
+    ProposalStatus,
+    TransparencyReport,
+    Vote,
+    VoteType,
+)
+
 
 class GovernanceService:
     """Core service for managing DAO operations and voting"""
@@ -167,7 +180,7 @@ class GovernanceService:
         total_proposals = len(proposals)
         passed_proposals = len([p for p in proposals if p.status in [ProposalStatus.SUCCEEDED, ProposalStatus.EXECUTED]])
         active_voters = len([p for p in profiles if p.total_votes_cast > 0])
-        total_power = sum((p.voting_power for p in profiles))
+        total_power = sum(p.voting_power for p in profiles)
         treasury_inflow = treasury.total_balance if treasury else 0.0
         treasury_outflow = treasury.allocated_funds if treasury else 0.0
         report = TransparencyReport(period=period, total_proposals=total_proposals, passed_proposals=passed_proposals, active_voters=active_voters, total_voting_power_participated=total_power, treasury_inflow=treasury_inflow, treasury_outflow=treasury_outflow, metrics={'voter_participation_rate': active_voters / len(profiles) if profiles else 0, 'proposal_success_rate': passed_proposals / total_proposals if total_proposals else 0})
@@ -243,8 +256,8 @@ class GovernanceService:
         total_proposals = len(proposals)
         active_proposals = len([p for p in proposals if p.status == ProposalStatus.ACTIVE])
         passed_proposals = len([p for p in proposals if p.status in [ProposalStatus.SUCCEEDED, ProposalStatus.EXECUTED]])
-        total_votes_cast = sum((p.total_votes_cast for p in profiles))
-        total_voting_power = sum((p.voting_power for p in profiles))
+        total_votes_cast = sum(p.total_votes_cast for p in profiles)
+        total_voting_power = sum(p.voting_power for p in profiles)
         return {'time_period_days': time_period_days, 'proposals': {'total': total_proposals, 'still_active': active_proposals, 'passed': passed_proposals, 'defeated': total_proposals - passed_proposals}, 'voting': {'total_votes_cast': total_votes_cast, 'total_voting_power': total_voting_power, 'average_voter_participation': 75.0}, 'regional_councils': {'total_councils': 3, 'active_councils': 3}, 'treasury': {'total_allocations': 2500000.0, 'utilization_rate': 25.0}, 'staking': {'active_pools': 5, 'total_staked': 1000000.0, 'average_apy': 7.5}}
 
     async def get_regional_governance_health(self, region: str) -> dict[str, Any]:

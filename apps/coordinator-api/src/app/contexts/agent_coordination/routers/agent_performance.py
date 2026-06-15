@@ -1,18 +1,38 @@
 from typing import Annotated
 from uuid import uuid4
+
 from sqlalchemy.orm import Session
 from sqlmodel import select
+
 '\nAdvanced Agent Performance API Endpoints\nREST API for meta-learning, resource optimization, and performance enhancement\n'
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
-from ....domain.agent_performance import AgentCapability, AgentPerformanceProfile, LearningStrategy, MetaLearningModel, OptimizationTarget, PerformanceMetric, PerformanceOptimization, ResourceAllocation
-from ....services.agent_coordination.performance import AgentPerformanceService, MetaLearningEngine, PerformanceOptimizer, ResourceManager
+from ....domain.agent_performance import (
+    AgentCapability,
+    AgentPerformanceProfile,
+    LearningStrategy,
+    MetaLearningModel,
+    OptimizationTarget,
+    PerformanceMetric,
+    PerformanceOptimization,
+    ResourceAllocation,
+)
+from ....services.agent_coordination.performance import (
+    AgentPerformanceService,
+    MetaLearningEngine,
+    PerformanceOptimizer,
+    ResourceManager,
+)
 from ....storage import get_session
+
 router = APIRouter(prefix='/v1/agent-performance', tags=['agent-performance'])
 
 class PerformanceProfileRequest(BaseModel):

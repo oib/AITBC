@@ -5,7 +5,9 @@ Scaling strategies and implementation for enterprise workloads
 import asyncio
 from enum import Enum
 from typing import Any
+
 from aitbc.logging import get_logger
+
 logger = get_logger(__name__)
 
 class ScalingStrategy(str, Enum):

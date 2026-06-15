@@ -8,6 +8,7 @@ This module provides the GPUWorker class that:
 4. Manages GPU resources and health
 """
 from __future__ import annotations
+
 import asyncio
 import hashlib
 import json
@@ -16,8 +17,11 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+
 import httpx
+
 from aitbc.aitbc_logging import get_logger
+
 logger = get_logger(__name__)
 
 @dataclass

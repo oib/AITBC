@@ -8,10 +8,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
+
 import deepl  # type: ignore[import-not-found]
 import google.cloud.translate_v2 as translate  # type: ignore[import-untyped]
 import openai  # type: ignore[import-not-found]
+
 from aitbc import get_logger
+
 if TYPE_CHECKING:
     from .translation_cache import TranslationCache
 logger = get_logger(__name__)
@@ -143,7 +146,7 @@ class TranslationEngine:
     def __init__(self, config: dict):
         self.config = config
         self.translators = self._initialize_translators()
-        self.cache: 'TranslationCache | None' = None
+        self.cache: TranslationCache | None = None
         self.quality_checker = None
 
     def _initialize_translators(self) -> dict[TranslationProvider, BaseTranslator]:

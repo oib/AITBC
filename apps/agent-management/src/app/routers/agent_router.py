@@ -1,16 +1,31 @@
 from typing import Annotated
+
 '\nAI Agent API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for agent workflow management and execution\n'
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select
-from app.domain.agent import AgentExecutionRequest, AgentExecutionResponse, AgentExecutionStatus, AgentStatus, AgentWorkflowCreate, AgentWorkflowUpdate, AIAgentWorkflow
+
+from app.domain.agent import (
+    AgentExecutionRequest,
+    AgentExecutionResponse,
+    AgentExecutionStatus,
+    AgentStatus,
+    AgentWorkflowCreate,
+    AgentWorkflowUpdate,
+    AIAgentWorkflow,
+)
+
 from ..deps import require_admin_key
 from ..services.agent_service import AIAgentOrchestrator
 from ..storage import get_session
+
 router = APIRouter(tags=['AI Agents'])
 
 @router.post('/workflows', response_model=AIAgentWorkflow)
@@ -195,6 +210,7 @@ async def cancel_execution(request: Request, execution_id: str, session: Annotat
     """Cancel an ongoing execution"""
     try:
         from app.domain.agent import AgentExecution
+
         from ..services.agent_service import AgentStateManager
         execution = session.get(AgentExecution, execution_id)
         if not execution:
@@ -243,9 +259,9 @@ async def test_endpoint(request: Request) -> dict[str, str]:
     """Test endpoint to verify router is working"""
     return {'message': 'Agent router is working', 'timestamp': datetime.now(UTC).isoformat()}
 
-@router.post('/networks', response_model=dict, status_code=201)
+@router.post('/networks', response_model=dict[str, Any], status_code=201)
 @rate_limit(rate=50, per=60)
-async def create_agent_network(request: Request, network_data: dict, session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, Any]:
+async def create_agent_network(request: Request, network_data: dict[str, Any], session: Annotated[Session, Depends(get_session)] = Depends(), current_user: Annotated[str, Depends(require_admin_key())] = Depends()) -> dict[str, Any]:
     """Create a new agent network for collaborative processing"""
     try:
         if not network_data.get('name'):

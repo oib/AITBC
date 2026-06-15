@@ -1,17 +1,32 @@
 from typing import Annotated
+
 from sqlalchemy.orm import Session
+
 '\nAI Agent API Router for Verifiable AI Agent Orchestration\nProvides REST API endpoints for agent workflow management and execution\n'
 from datetime import UTC, datetime
 from typing import Any
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select
+
 from ....deps import require_admin_key
-from ....domain.agent import AgentExecutionRequest, AgentExecutionResponse, AgentExecutionStatus, AgentStatus, AgentWorkflowCreate, AgentWorkflowUpdate, AIAgentWorkflow
+from ....domain.agent import (
+    AgentExecutionRequest,
+    AgentExecutionResponse,
+    AgentExecutionStatus,
+    AgentStatus,
+    AgentWorkflowCreate,
+    AgentWorkflowUpdate,
+    AIAgentWorkflow,
+)
 from ....services.agent_coordination.agent_service import AIAgentOrchestrator
 from ....storage import get_session
+
 router = APIRouter(tags=['AI Agents'])
 
 @router.post('/workflows', response_model=AIAgentWorkflow)
@@ -134,8 +149,8 @@ async def execute_workflow(workflow_id: str, execution_request: AgentExecutionRe
 async def get_execution_status(execution_id: str, session: Session=Depends(Annotated[Session, Depends(get_session)]), current_user: str=Depends(require_admin_key())) -> AgentExecutionStatus: # type: ignore[arg-type]
     """Get execution status"""
     try:
-        from app.services.agent_coordination.coordinator_client import CoordinatorClient
         from app.services.agent_coordination.agent_service import AIAgentOrchestrator  # type: ignore[import-not-found]
+        from app.services.agent_coordination.coordinator_client import CoordinatorClient
         coordinator_client = CoordinatorClient()
         orchestrator = AIAgentOrchestrator(session, coordinator_client)
         status = await orchestrator.get_execution_status(execution_id)

@@ -6,13 +6,16 @@ import json
 import os
 from datetime import UTC, datetime
 from typing import Any
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class KeyManager:

@@ -4,11 +4,15 @@ Core reputation calculation and aggregation engine for multi-chain agent reputat
 """
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select
+
 from ..domain.cross_chain_reputation import CrossChainReputationAggregation, CrossChainReputationConfig
 from ..domain.reputation import AgentReputation, ReputationEvent, ReputationLevel
+
 
 class CrossChainReputationEngine:
     """Core reputation calculation and aggregation engine"""
@@ -177,7 +181,7 @@ class CrossChainReputationEngine:
         try:
             if chain_scores:
                 avg_score = sum(chain_scores.values()) / len(chain_scores)
-                variance = sum(((score - avg_score) ** 2 for score in chain_scores.values())) / len(chain_scores)
+                variance = sum((score - avg_score) ** 2 for score in chain_scores.values()) / len(chain_scores)
                 score_range = max(chain_scores.values()) - min(chain_scores.values())
                 consistency_score = max(0.0, 1.0 - variance / 0.25)
             else:

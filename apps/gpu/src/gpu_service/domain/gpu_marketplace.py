@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column
@@ -33,7 +34,7 @@ class GPURegistry(SQLModel, table=True):
     region: str = Field(default="", index=True)
     price_per_hour: float = Field(default=0.0)
     status: str = Field(default="available", index=True)  # available, booked, offline
-    capabilities: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    capabilities: list[Any] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     average_rating: float = Field(default=0.0)
     total_reviews: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.now, nullable=False, index=True)
@@ -75,9 +76,9 @@ class ConsumerGPUProfile(SQLModel, table=True):
     thermal_throttling_resistance: float | None = Field(default=None)
 
     # Compatibility flags
-    supported_cuda_versions: list = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
-    supported_tensorrt_versions: list = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
-    supported_ollama_models: list = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
+    supported_cuda_versions: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
+    supported_tensorrt_versions: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
+    supported_ollama_models: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
 
     # Pricing and availability
     market_price_usd: float | None = Field(default=None)

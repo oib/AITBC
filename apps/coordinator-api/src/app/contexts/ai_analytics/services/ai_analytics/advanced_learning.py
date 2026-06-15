@@ -3,14 +3,18 @@ Advanced Learning Service for AI-Powered Agent Features
 Implements meta-learning, federated learning, and continuous model improvement
 """
 import asyncio
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 import json
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
+
 import numpy as np
+
 
 class LearningType(StrEnum):
     """Types of learning approaches"""

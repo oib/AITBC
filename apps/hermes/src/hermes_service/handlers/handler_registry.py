@@ -3,7 +3,9 @@ import importlib
 import logging
 import pkgutil
 from typing import Any
+
 from .base_handler import BaseHandler
+
 
 class HandlerRegistry:
     """Registry for managing and loading message handlers."""

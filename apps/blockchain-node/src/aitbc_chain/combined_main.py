@@ -4,17 +4,20 @@ Runs both the main blockchain node, P2P placeholder service, and HTTP RPC server
 """
 import asyncio
 from typing import Any
+
 import uvicorn
 from aitbc_chain.app import create_app  # type: ignore
 from aitbc_chain.config import settings  # type: ignore
 from aitbc_chain.main import _run as run_node  # type: ignore
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 
 class CombinedService:
 
     def __init__(self) -> None:
-        self._tasks: list[asyncio.Task] = []
+        self._tasks: list[asyncio.Task[Any]] = []
         self._http_server: Any = None
 
     async def start(self) -> None:

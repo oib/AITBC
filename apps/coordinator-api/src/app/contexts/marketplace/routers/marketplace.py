@@ -1,17 +1,22 @@
 from __future__ import annotations
+
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
+
 from aitbc import get_logger
+
 from ....config import settings
 from ....metrics import marketplace_errors_total, marketplace_requests_total
 from ....schemas import MarketplaceOfferView, MarketplaceStatsView
 from ....storage import get_session
 from ....utils.cache import cached, get_cache_config
 from ..services import MarketplaceService
+
 logger = get_logger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(tags=['marketplace'])

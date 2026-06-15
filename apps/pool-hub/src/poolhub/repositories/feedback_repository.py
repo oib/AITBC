@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-from typing import Any
 
 from aitbc.logging import get_logger  # type: ignore
 from redis.asyncio import Redis

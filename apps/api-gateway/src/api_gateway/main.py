@@ -7,11 +7,21 @@ import hmac
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from aitbc import ErrorHandlerMiddleware, PerformanceLoggingMiddleware, RequestIDMiddleware, RequestValidationMiddleware, configure_logging, get_logger
+
+from aitbc import (
+    ErrorHandlerMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestIDMiddleware,
+    RequestValidationMiddleware,
+    configure_logging,
+    get_logger,
+)
+
 try:
     from slowapi import Limiter
     from slowapi.errors import RateLimitExceeded

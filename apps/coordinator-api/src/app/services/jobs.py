@@ -1,12 +1,16 @@
 from __future__ import annotations
+
 import logging
 from datetime import datetime, timedelta
 from typing import Any
+
 from sqlmodel import Session, select
+
 logger = logging.getLogger(__name__)
 from ..contexts.payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner
-from ..schemas import AssignedJob, Constraints, JobCreate, JobResult, JobState, JobView
+from ..schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
+
 
 class JobService:
 
@@ -139,7 +143,7 @@ class JobService:
                 return False
         if constraints.min_vram_gb:
             required_mb = constraints.min_vram_gb * 1024
-            if not any(((gpu.get('memory_mb') or 0) >= required_mb for gpu in gpu_specs)):
+            if not any((gpu.get('memory_mb') or 0) >= required_mb for gpu in gpu_specs):
                 return False
         if constraints.cuda:
             cuda_info = capabilities.get('cuda')

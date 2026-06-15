@@ -3,10 +3,14 @@ Marketplace service for managing marketplace operations
 """
 import time
 from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
+
 from aitbc import get_logger
+
 from ..domain.marketplace import MarketplaceOffer, ServiceRating, SoftwareService
+
 logger = get_logger(__name__)
 
 class MarketplaceService:
@@ -14,7 +18,7 @@ class MarketplaceService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def list_offers(self, status: str | None=None, region: str | None=None, gpu_model: str | None=None) -> list[dict]:
+    async def list_offers(self, status: str | None=None, region: str | None=None, gpu_model: str | None=None) -> list[dict[str, Any]]:
         """List marketplace offers"""
         try:
             logger.info('list_offers called with filters: status=%s, region=%s, gpu_model=%s', status, region, gpu_model)
@@ -52,7 +56,7 @@ class MarketplaceService:
             logger.error('Error in get_offer: %s: %s', type(e).__name__, str(e))
             raise
 
-    async def book_offer(self, offer_id: str, booking_data: dict) -> dict:
+    async def book_offer(self, offer_id: str, booking_data: dict[str, Any]) -> dict[str, Any]:
         """Book/purchase a marketplace offer"""
         try:
             logger.info('book_offer called with offer_id=%s, data keys: %s', offer_id, booking_data.keys())
@@ -68,7 +72,7 @@ class MarketplaceService:
             logger.error('Error in book_offer: %s: %s', type(e).__name__, str(e))
             raise
 
-    async def create_offer(self, offer_data: dict) -> MarketplaceOffer:
+    async def create_offer(self, offer_data: dict[str, Any]) -> MarketplaceOffer:
         """Create a new marketplace offer"""
         try:
             logger.info('create_offer called with data keys: %s', offer_data.keys())
@@ -99,9 +103,10 @@ class MarketplaceService:
         total_capacity = capacity_result.scalar() or 0
         return {'period_type': period_type, 'total_offers': total_offers, 'total_capacity': total_capacity, 'average_price': round(float(avg_price), 2)}
 
-    async def list_plugins(self, plugin_type: str | None=None, status: str='approved') -> list[dict]:
+    async def list_plugins(self, plugin_type: str | None=None, status: str='approved') -> list[dict[str, Any]]:
         """List plugins from database"""
         from sqlalchemy import select
+
         from ..domain.marketplace import Plugin
         try:
             stmt = select(Plugin)
@@ -117,7 +122,7 @@ class MarketplaceService:
             logger.error('Error in list_plugins: %s: %s', e.__class__.__name__, e)
             raise
 
-    async def register_plugin(self, plugin_data: dict) -> dict:
+    async def register_plugin(self, plugin_data: dict[str, Any]) -> dict[str, Any]:
         """Register a new plugin"""
         from ..domain.marketplace import Plugin
         try:
@@ -131,9 +136,10 @@ class MarketplaceService:
             logger.error('Error in register_plugin: %s: %s', type(e).__name__, str(e))
             raise
 
-    async def list_software_services(self, service_type: str | None=None, status: str | None=None) -> list:
+    async def list_software_services(self, service_type: str | None=None, status: str | None=None) -> list[dict[str, Any]]:
         """List software services with optional filters"""
         from sqlalchemy import select
+
         from ..domain.marketplace import SoftwareService
         try:
             query = select(SoftwareService)
@@ -148,9 +154,10 @@ class MarketplaceService:
             logger.error('Error in list_software_services: %s: %s', type(e).__name__, str(e))
             raise
 
-    async def get_software_service(self, plugin_id: str) -> dict | None:
+    async def get_software_service(self, plugin_id: str) -> dict[str, Any] | None:
         """Get a specific software service"""
         from sqlalchemy import select
+
         from ..domain.marketplace import SoftwareService
         try:
             query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)
@@ -163,10 +170,12 @@ class MarketplaceService:
             logger.error('Error in get_software_service: %s: %s', type(e).__name__, str(e))
             raise
 
-    async def register_software_service(self, data: dict) -> dict:
+    async def register_software_service(self, data: dict[str, Any]) -> dict[str, Any]:
         """Register or update a software service"""
         from datetime import datetime
+
         from sqlalchemy import select
+
         from ..domain.marketplace import SoftwareService
         try:
             plugin_id = data.get('plugin_id')
@@ -201,6 +210,7 @@ class MarketplaceService:
     async def unregister_software_service(self, plugin_id: str) -> Any:
         """Unregister a software service"""
         from sqlalchemy import select
+
         from ..domain.marketplace import SoftwareService
         try:
             query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)
@@ -216,7 +226,7 @@ class MarketplaceService:
             logger.error('Error in unregister_software_service: %s: %s', type(e).__name__, str(e))
             raise
 
-    async def create_graph(self, graph_data: dict) -> dict:
+    async def create_graph(self, graph_data: dict[str, Any]) -> dict[str, Any]:
         """Create a new knowledge graph"""
         from ..domain.marketplace import KnowledgeGraph
         try:
@@ -230,7 +240,7 @@ class MarketplaceService:
             logger.error('Error in create_graph: %s: %s', type(e).__name__, str(e))
             raise
 
-    async def add_node(self, node_data: dict) -> dict:
+    async def add_node(self, node_data: dict[str, Any]) -> dict[str, Any]:
         """Add a node to a knowledge graph"""
         from ..domain.marketplace import GraphNode
         try:
@@ -244,7 +254,7 @@ class MarketplaceService:
             logger.error('Error in add_node: %s: %s', type(e).__name__, str(e))
             raise
 
-    async def add_edge(self, edge_data: dict) -> dict:
+    async def add_edge(self, edge_data: dict[str, Any]) -> dict[str, Any]:
         """Add an edge to a knowledge graph"""
         from ..domain.marketplace import GraphEdge
         try:
@@ -258,9 +268,10 @@ class MarketplaceService:
             logger.error('Error in add_edge: %s: %s', type(e).__name__, str(e))
             raise
 
-    async def query_graph(self, graph_id: str) -> dict:
+    async def query_graph(self, graph_id: str) -> dict[str, Any]:
         """Query a knowledge graph (get all nodes and edges)"""
         from sqlalchemy import select
+
         from ..domain.marketplace import GraphEdge, GraphNode
         try:
             node_stmt = select(GraphNode).where(GraphNode.graph_id == graph_id)
@@ -310,7 +321,7 @@ class MarketplaceService:
             logger.error('Error in add_service_rating: %s: %s', type(e).__name__, str(e))
             raise
 
-    async def get_service_ratings(self, service_id: str, limit: int=50, offset: int=0) -> list[dict]:
+    async def get_service_ratings(self, service_id: str, limit: int=50, offset: int=0) -> list[dict[str, Any]]:
         """Get ratings for a specific service"""
         try:
             from sqlalchemy import select
@@ -324,7 +335,7 @@ class MarketplaceService:
             logger.error('Error in get_service_ratings: %s: %s', type(e).__name__, str(e))
             raise
 
-    async def get_unsynced_ratings(self, limit: int=100) -> list[dict]:
+    async def get_unsynced_ratings(self, limit: int=100) -> list[dict[str, Any]]:
         """Get ratings that haven't been synced yet"""
         try:
             from sqlalchemy import select
@@ -340,6 +351,7 @@ class MarketplaceService:
         """Mark ratings as synced"""
         try:
             from datetime import datetime
+
             from sqlalchemy import select
             stmt = select(ServiceRating).where(ServiceRating.id.in_(rating_ids))
             result = await self.session.execute(stmt)
@@ -353,10 +365,11 @@ class MarketplaceService:
             logger.error('Error in mark_ratings_synced: %s: %s', type(e).__name__, str(e))
             raise
 
-    async def sync_ratings_from_remote(self, remote_ratings: list[dict]) -> dict:
+    async def sync_ratings_from_remote(self, remote_ratings: list[dict[str, Any]]) -> dict[str, Any]:
         """Sync ratings from remote node"""
         try:
             from datetime import datetime
+
             from sqlalchemy import select
             synced_count = 0
             updated_count = 0
@@ -411,7 +424,7 @@ class MarketplaceService:
             logger.error('Error in _update_service_rating: %s: %s', type(e).__name__, str(e))
             raise
 
-    async def get_service_by_offer_id(self, offer_id: str) -> dict | None:
+    async def get_service_by_offer_id(self, offer_id: str) -> dict[str, Any] | None:
         """Get a software service by offer_id"""
         from sqlalchemy import select
         try:

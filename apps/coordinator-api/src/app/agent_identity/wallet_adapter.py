@@ -7,10 +7,14 @@ from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
+
 from aitbc import get_logger
+
 logger = get_logger(__name__)
 from sqlmodel import Session, select
+
 from ..contexts.agent_identity.domain.agent_identity import AgentWallet, AgentWalletUpdate, ChainType
+
 
 class WalletAdapter(ABC):
     """Abstract base class for blockchain-specific wallet adapters"""
