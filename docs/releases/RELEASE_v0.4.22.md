@@ -2,7 +2,7 @@
 
 **Date**: 2026-06-15
 **Status**: ✅ **COMPLETE**
-**Scope**: Blockchain-node MyPy Type Safety Completion & Quality Improvements
+**Scope**: Blockchain-node MyPy Type Safety Completion, Quality Improvements, and Import Path Cleanup
 
 ## 🎯 Overview
 
@@ -13,6 +13,7 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 3. **Enable stricter MyPy options** ✅ **HIGH PRIORITY**
 4. **Improve test coverage** to 30%+ ✅ **TARGET**
 5. **Address linting and formatting issues**
+6. **Remove sys.path hacks and fix E402 import order violations** ✅ **ADDED**
 
 ## 📋 Decisions Made
 
@@ -228,6 +229,62 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 - **Time**: 2 hours
 - **Complexity**: Low
 
+### Phase 8: sys.path Hack Removal & E402 Import Order Fixes (Priority 8)
+
+#### Problem Identified
+- ~319 files used `sys.path.insert()` or `sys.path.append()` to manipulate Python's import path
+- This caused ~1,123 ruff E402 (import order) violations due to imports appearing after non-import statements
+- Root cause: Missing `.pth` files for key packages (`aitbc-sdk`, `aitbc-agent-sdk`) and improper package installation
+
+#### Fixes Implemented
+
+1. **Added missing .pth files** for proper package installation:
+   - `aitbc-sdk.pth` → `/opt/aitbc/aitbc/agent_sdk/src`
+   - `aitbc-agent-sdk.pth` → `/opt/aitbc/aitbc/agent_sdk/src`
+   - Verified: `aitbc_chain`, `bridge_monitor`, `hermes_service` already covered
+
+2. **Removed sys.path hacks from production app files**:
+   - `apps/coordinator-api/src/app/main.py` - reordered imports and logger initialization
+   - `apps/blockchain-node/src/aitbc_chain/consensus/poa.py` - fixed logger placement
+   - `apps/blockchain-node/src/aitbc_chain/rpc/router.py` - fixed logger placement
+   - `aitbc/agent_compliance/src/compliance_agent.py` - fixed logger placement
+   - `aitbc/agent_trading/src/trading_agent.py` - fixed logger placement
+   - Multiple `*-wrapper.py` scripts - removed redundant `/opt/aitbc` sys.path additions
+
+3. **Refactored CLI static sys.path.insert() calls**:
+   - `cli/aitbc_cli/core/main.py` - replaced with normal package imports
+   - `cli/aitbc_cli/core/chain_manager.py` - replaced with normal package imports
+   - `cli/utils/__init__.py` - replaced with normal package imports
+
+4. **Refactored CLI dynamic exchange_path plugin loading**:
+   - `cli/aitbc_cli/core/exchange.py` - replaced `sys.path.append(exchange_path)` with `importlib` dynamic import
+   - Maintains plugin loading capability without path manipulation
+
+5. **Fixed test infrastructure**:
+   - Added `pythonpath` configuration to `pytest.ini` and `pyproject.toml`
+   - Removed boilerplate `sys.path.insert()` from 100+ test files
+   - Test categories cleaned: `cli/`, `handlers/`, `contract_tests/`, `fixtures/`, `integration/`, `security/`, `services/`, `verification/`, `coordinator/`, `agent/`, `api/`, app-level `conftest.py` files
+
+6. **Fixed misplaced docstrings and logger-before-imports patterns** (30+ files):
+   - Moved module docstrings to the top of files (before imports)
+   - Consolidated duplicate imports (e.g., multiple `from aitbc import get_logger`)
+   - Moved `logger = get_logger(__name__)` after all imports
+   - Removed all `# noqa: E402` comments that are no longer needed
+   - Fixed in coordinator-api routers (analytics, certification, community, governance, reputation, rewards, trading, security, hermes, ai_analytics, multimodal, payments, gpu_multimodal)
+   - Fixed in agent-management routers (agent_creativity, agent_integration, agent_performance, agent_router, agent_security)
+   - Fixed in agent-coordination routers (same 5 router files as agent-management)
+   - Fixed `apps/coordinator-api/src/app/contexts/marketplace/services/global_marketplace.py` (syntax error from logger inserted inside import block)
+
+7. **Added missing imports**:
+   - `apps/blockchain-node/scripts/load_genesis.py` - added `import sys` and `from pathlib import Path`
+   - `tests/handlers/test_pool_hub.py` - added `import sys`
+
+#### Estimated Effort
+- **Time**: 6-8 hours
+- **Complexity**: Medium (distributed across 1023 files)
+- **Files changed**: 1,023 files
+- **Lines changed**: +14,089 / -15,626
+
 ## 🎯 Success Criteria
 
 ### Minimum Viable v0.4.22
@@ -244,6 +301,8 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 - [x] Pre-commit hooks implemented ✅ **ADDED**
 - [x] Multi-node deployment bind fixes ✅ **ADDED**
 - [x] Environment variable standardization ✅ **ADDED**
+- [x] sys.path hacks removed ✅ **ADDED** (~319 instances eliminated)
+- [x] E402 import order violations fixed ✅ **ADDED** (~1,123 → 0 errors)
 
 ## 📅 Timeline Estimate
 
@@ -256,7 +315,8 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 | Phase 5: Documentation | 30 minutes | Low | ✅ Complete |
 | Phase 6: Service config drift | 1 hour | Low | ✅ Complete |
 | Phase 7: Pre-commit & Multi-node | 2 hours | Low | ✅ Complete |
-| **Total** | **13.5-20.5 hours** | - | ✅ **ALL COMPLETE** |
+| Phase 8: sys.path hacks & E402 | 6-8 hours | Medium | ✅ Complete |
+| **Total** | **19.5-28.5 hours** | - | ✅ **ALL COMPLETE** |
 
 ### Execution Order
 1. ✅ **Phase 1**: Complete blockchain-node MyPy fixes (required)
@@ -266,6 +326,7 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 5. ✅ **Phase 5**: Update documentation
 6. ✅ **Phase 6**: Fix service configuration drift (added during execution)
 7. ✅ **Phase 7**: Pre-commit hooks & multi-node deployment fixes (added during execution)
+8. ✅ **Phase 8**: Remove sys.path hacks and fix E402 import order violations (added during execution)
 
 ## 🔧 Technical Considerations
 
@@ -306,7 +367,9 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 5. ✅ **Phase 4 complete** - Test coverage improved to 29%
 6. ✅ **Phase 5 complete** - Documentation updated
 7. ✅ **Phase 6 complete** - Service configuration drift fixed
-8. **Release complete** - All phases finished successfully
+8. ✅ **Phase 7 complete** - Pre-commit hooks & multi-node deployment fixes
+9. ✅ **Phase 8 complete** - sys.path hacks removed and E402 violations fixed
+10. **Release complete** - All phases finished successfully
 
 ### Phase 1 Execution Strategy
 - Focus on error categories from easiest to hardest
@@ -333,6 +396,8 @@ AITBC v0.4.22 will focus on completing the MyPy type safety work for the blockch
 - ✅ **Ruff linting**: Zero errors (1,689 issues resolved)
 - ✅ **Ruff formatting**: Zero formatting issues
 - ✅ **Exception chaining**: 3,212 `raise ... from` patterns added
+- ✅ **E402 import order**: Zero errors (~1,123 violations resolved)
+- ✅ **sys.path hacks**: ~319 instances removed across production, CLI, and test files
 
 ### Configuration
 - ✅ **Service drift fixed**: 9 configuration issues resolved
@@ -353,6 +418,8 @@ v0.4.22 successfully achieved all primary goals and stretch goals:
 - Improved test coverage (29%)
 - Fixed service configuration drift
 - Comprehensive documentation updates
+- Removed ~319 sys.path hacks across the codebase
+- Fixed ~1,123 E402 import order violations (ruff E402: 1123 → 0)
 
 **Release Manager**: Development Team
 **Reviewers**: Development Team
