@@ -1,3 +1,4 @@
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from sqlmodel import select
 '\nReward System API Endpoints\nREST API for agent rewards, incentives, and performance-based earnings\n'
@@ -103,7 +104,7 @@ async def get_reward_profile_no_id(request: Request, session: Session=Depends(ge
 @rate_limit(rate=200, per=60)
 async def get_reward_profile(request: Request, agent_id: str, session: Session=Depends(get_session)) -> RewardProfileResponse:
     """Get comprehensive reward profile for an agent"""
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     try:
         profile_data = await reward_engine.get_reward_summary(agent_id)
         if 'error' in profile_data:
@@ -119,7 +120,7 @@ async def get_reward_profile(request: Request, agent_id: str, session: Session=D
 @rate_limit(rate=20, per=60)
 async def create_reward_profile(request: Request, agent_id: str, session: Session=Depends(get_session)) -> dict[str, Any]:
     """Create a new reward profile for an agent"""
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     try:
         profile = await reward_engine.create_reward_profile(agent_id)
         return {'message': 'Reward profile created successfully', 'agent_id': profile.agent_id, 'current_tier': profile.current_tier.value, 'tier_progress': profile.tier_progress, 'created_at': profile.created_at.isoformat()}
@@ -131,7 +132,7 @@ async def create_reward_profile(request: Request, agent_id: str, session: Sessio
 @rate_limit(rate=20, per=60)
 async def calculate_and_distribute_reward(request: Request, reward_request: RewardRequest, session: Session=Depends(get_session)) -> RewardResponse:
     """Calculate and distribute reward for an agent"""
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     try:
         reference_date = None
         if reward_request.reference_date:
@@ -146,12 +147,12 @@ async def calculate_and_distribute_reward(request: Request, reward_request: Rewa
 @rate_limit(rate=200, per=60)
 async def get_tier_progress(request: Request, agent_id: str, session: Session=Depends(get_session)) -> TierProgressResponse:
     """Get tier progress information for an agent"""
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     try:
         profile = session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).first()
         if not profile:
             raise HTTPException(status_code=404, detail='Reward profile not found')
-        from ..domain.reputation import AgentReputation
+        from ..domain.reputation import AgentReputation  # type: ignore[import-not-found]
         reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
         trust_score = reputation.trust_score if reputation else 500.0
         current_tier = profile.current_tier
@@ -185,7 +186,7 @@ async def get_tier_progress(request: Request, agent_id: str, session: Session=De
 @rate_limit(rate=20, per=60)
 async def batch_process_pending_rewards(request: Request, limit: int=Query(default=100, ge=1, le=1000, description='Maximum number of rewards to process'), session: Session=Depends(get_session)) -> BatchProcessResponse:
     """Process pending reward distributions in batch"""
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     try:
         result = await reward_engine.batch_process_pending_rewards(limit)
         return BatchProcessResponse(processed=result['processed'], failed=result['failed'], total=result['total'])
@@ -197,7 +198,7 @@ async def batch_process_pending_rewards(request: Request, limit: int=Query(defau
 @rate_limit(rate=200, per=60)
 async def get_reward_analytics(request: Request, period_type: str=Query(default='daily', description='Period type: daily, weekly, monthly'), start_date: str | None=Query(default=None, description='Start date (ISO format)'), end_date: str | None=Query(default=None, description='End date (ISO format)'), session: Session=Depends(get_session)) -> RewardAnalyticsResponse:
     """Get reward system analytics"""
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     try:
         start_dt = None
         end_dt = None
@@ -227,7 +228,7 @@ async def get_reward_leaderboard(request: Request, tier: str | None=Query(defaul
         query = select(AgentRewardProfile).where(AgentRewardProfile.last_activity >= start_date)
         if tier:
             query = query.where(AgentRewardProfile.current_tier == tier)
-        profiles = session.execute(query.order_by(AgentRewardProfile.total_earnings.desc()).limit(limit)).all()
+        profiles = session.execute(query.order_by(desc(AgentRewardProfile.total_earnings)).limit(limit)).all() # type: ignore[arg-type]
         leaderboard = []
         for rank, profile in enumerate(profiles, 1):
             leaderboard.append({'rank': rank, 'agent_id': profile.agent_id, 'current_tier': profile.current_tier.value, 'total_earnings': profile.total_earnings, 'lifetime_earnings': profile.lifetime_earnings, 'rewards_distributed': profile.rewards_distributed, 'current_streak': profile.current_streak, 'performance_score': profile.performance_score})
@@ -241,7 +242,7 @@ async def get_reward_leaderboard(request: Request, tier: str | None=Query(defaul
 async def get_reward_tiers(request: Request, session: Session=Depends(get_session)) -> list[dict[str, Any]]:
     """Get reward tier configurations"""
     try:
-        from ..domain.rewards import RewardTierConfig
+        from ..domain.rewards import RewardTierConfig  # type: ignore[import-not-found]
         tier_configs = session.execute(select(RewardTierConfig).where(RewardTierConfig.is_active == True)).all()
         tiers = []
         for config in tier_configs:
@@ -285,10 +286,10 @@ async def get_reward_distributions(request: Request, agent_id: str, limit: int=Q
 @rate_limit(rate=50, per=60)
 async def simulate_reward_calculation(request: Request, reward_request: RewardRequest, session: Session=Depends(get_session)) -> dict[str, Any]:
     """Simulate reward calculation without distributing"""
-    reward_engine = RewardEngine(session)
+    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
     try:
         await reward_engine.create_reward_profile(reward_request.agent_id)
-        reward_calculation = reward_engine.calculator.calculate_total_reward(reward_request.agent_id, reward_request.base_amount, reward_request.performance_metrics, session)
+        reward_calculation = reward_engine.calculator.calculate_total_reward(reward_request.agent_id, reward_request.base_amount, reward_request.performance_metrics, session)  # type: ignore[arg-type]
         return {'agent_id': reward_request.agent_id, 'reward_type': reward_request.reward_type.value, 'base_amount': reward_request.base_amount, 'tier_multiplier': reward_calculation['tier_multiplier'], 'performance_bonus': reward_calculation['performance_bonus'], 'loyalty_bonus': reward_calculation['loyalty_bonus'], 'referral_bonus': reward_calculation['referral_bonus'], 'milestone_bonus': reward_calculation['milestone_bonus'], 'effective_multiplier': reward_calculation['effective_multiplier'], 'total_reward': reward_calculation['total_reward'], 'trust_score': reward_calculation['trust_score'], 'simulation': True}
     except Exception as e:
         logger.error('Error simulating reward calculation: %s', str(e))

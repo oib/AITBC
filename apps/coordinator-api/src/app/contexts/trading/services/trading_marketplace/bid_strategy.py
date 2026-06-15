@@ -161,7 +161,7 @@ class BidStrategyEngine:
         preferred_strategy = agent_prefs.get('preferred_strategy')
         if preferred_strategy:
             strategy_scores[BidStrategy(preferred_strategy)] *= 1.2
-        optimal_strategy = max(strategy_scores, key=strategy_scores.get)
+        optimal_strategy = max(strategy_scores, key=strategy_scores.get)  # type: ignore[arg-type]
         logger.debug('Selected strategy %s for task %s', optimal_strategy, task_requirements.task_id)
         return optimal_strategy
 

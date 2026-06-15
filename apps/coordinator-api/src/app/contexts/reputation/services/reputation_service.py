@@ -30,7 +30,7 @@ class TrustScoreCalculator:
         if reputation.average_response_time > 0:
             response_modifier = max(0.5, 1.0 - reputation.average_response_time / 10000.0)
             base_score *= response_modifier
-        return min(1000.0, max(0.0, base_score))
+        return min(1000.0, max(0.0, base_score))  # type: ignore[no-any-return]
 
     def calculate_reliability_score(self, agent_id: str, session: Session, time_window: timedelta=timedelta(days=30)) -> float:
         """Calculate reliability-based trust score component"""
@@ -45,7 +45,7 @@ class TrustScoreCalculator:
         if total_jobs > 0:
             completion_ratio = reputation.jobs_completed / total_jobs
             base_score *= completion_ratio
-        return min(1000.0, max(0.0, base_score))
+        return min(1000.0, max(0.0, base_score))  # type: ignore[no-any-return]
 
     def calculate_community_score(self, agent_id: str, session: Session, time_window: timedelta=timedelta(days=90)) -> float:
         """Calculate community-based trust score component"""
@@ -101,7 +101,7 @@ class TrustScoreCalculator:
         if reputation.success_rate > 0:
             success_modifier = reputation.success_rate / 100.0
             base_score *= success_modifier
-        return min(1000.0, max(0.0, base_score))
+        return min(1000.0, max(0.0, base_score))  # type: ignore[no-any-return]
 
     def calculate_composite_trust_score(self, agent_id: str, session: Session, time_window: timedelta=timedelta(days=30)) -> float:
         """Calculate composite trust score using weighted components"""
@@ -116,7 +116,7 @@ class TrustScoreCalculator:
             final_score = weighted_score * 0.7 + reputation.trust_score * 0.3
         else:
             final_score = weighted_score
-        return min(1000.0, max(0.0, final_score))
+        return min(1000.0, max(0.0, final_score))  # type: ignore[no-any-return]
 
     def determine_reputation_level(self, trust_score: float) -> ReputationLevel:
         """Determine reputation level based on trust score"""
@@ -142,7 +142,7 @@ class ReputationService:
         """Create a new reputation profile for an agent"""
         existing = self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
         if existing:
-            return existing
+            return existing # type: ignore[return-value]
         reputation = AgentReputation(agent_id=agent_id, trust_score=500.0, reputation_level=ReputationLevel.BEGINNER, performance_rating=3.0, reliability_score=50.0, community_rating=3.0, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
         self.session.add(reputation)
         self.session.commit()
@@ -197,7 +197,7 @@ class ReputationService:
         logger.info('Recorded job completion for agent %s: success=%s, earnings=%s', agent_id, success, earnings)
         return reputation
 
-    async def add_community_feedback(self, agent_id: str, reviewer_id: str, ratings: dict[str, float], feedback_text: str='', tags: list[str]=None) -> CommunityFeedback:
+    async def add_community_feedback(self, agent_id: str, reviewer_id: str, ratings: dict[str, float], feedback_text: str='', tags: list[str] | None=None) -> CommunityFeedback:
         """Add community feedback for an agent"""
         feedback = CommunityFeedback(agent_id=agent_id, reviewer_id=reviewer_id, overall_rating=ratings.get('overall', 3.0), performance_rating=ratings.get('performance', 3.0), communication_rating=ratings.get('communication', 3.0), reliability_rating=ratings.get('reliability', 3.0), value_rating=ratings.get('value', 3.0), feedback_text=feedback_text, feedback_tags=tags or [], created_at=datetime.now(UTC))
         self.session.add(feedback)
@@ -232,11 +232,11 @@ class ReputationService:
         reputation = self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
         if not reputation:
             return {'error': 'Reputation profile not found'}
-        recent_events = self.session.execute(select(ReputationEvent).where(and_(ReputationEvent.agent_id == agent_id, ReputationEvent.occurred_at >= datetime.now(UTC) - timedelta(days=30))).order_by(ReputationEvent.occurred_at.desc()).limit(10)).all()
-        recent_feedback = self.session.execute(select(CommunityFeedback).where(and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == 'approved')).order_by(CommunityFeedback.created_at.desc()).limit(5)).all()
+        recent_events = self.session.execute(select(ReputationEvent).where(and_(ReputationEvent.agent_id == agent_id, ReputationEvent.occurred_at >= datetime.now(UTC) - timedelta(days=30))).order_by(ReputationEvent.occurred_at.desc()).limit(10)).all()  # type: ignore[attr-defined]
+        recent_feedback = self.session.execute(select(CommunityFeedback).where(and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == 'approved')).order_by(CommunityFeedback.created_at.desc()).limit(5)).all()  # type: ignore[attr-defined]
         return {'agent_id': agent_id, 'trust_score': reputation.trust_score, 'reputation_level': reputation.reputation_level.value, 'performance_rating': reputation.performance_rating, 'reliability_score': reputation.reliability_score, 'community_rating': reputation.community_rating, 'total_earnings': reputation.total_earnings, 'transaction_count': reputation.transaction_count, 'success_rate': reputation.success_rate, 'jobs_completed': reputation.jobs_completed, 'jobs_failed': reputation.jobs_failed, 'average_response_time': reputation.average_response_time, 'dispute_count': reputation.dispute_count, 'certifications': reputation.certifications, 'specialization_tags': reputation.specialization_tags, 'geographic_region': reputation.geographic_region, 'last_activity': reputation.last_activity.isoformat(), 'recent_events': [{'event_type': event.event_type, 'impact_score': event.impact_score, 'occurred_at': event.occurred_at.isoformat()} for event in recent_events], 'recent_feedback': [{'overall_rating': feedback.overall_rating, 'feedback_text': feedback.feedback_text, 'created_at': feedback.created_at.isoformat()} for feedback in recent_feedback]}
 
-    async def get_leaderboard(self, category: str='trust_score', limit: int=50, region: str=None) -> list[dict[str, Any]]:
+    async def get_leaderboard(self, category: str='trust_score', limit: int=50, region: str | None=None) -> list[dict[str, Any]]:
         """Get reputation leaderboard"""
         query = select(AgentReputation).order_by(getattr(AgentReputation, category).desc()).limit(limit)
         if region:

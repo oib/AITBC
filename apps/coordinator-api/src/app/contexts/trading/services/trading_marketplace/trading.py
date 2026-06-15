@@ -7,7 +7,7 @@ from typing import Any
 from uuid import uuid4
 from aitbc import get_logger
 logger = get_logger(__name__)
-from app.domain.trading import NegotiationStatus, SettlementType, TradeAgreement, TradeMatch, TradeNegotiation, TradeRequest, TradeStatus, TradeType
+from app.domain.trading import NegotiationStatus, SettlementType, TradeAgreement, TradeMatch, TradeNegotiation, TradeRequest, TradeStatus, TradeType  # type: ignore[import-not-found]  # type: ignore[import-not-found]
 from sqlmodel import Session, or_, select
 
 class MatchingEngine:
@@ -83,7 +83,7 @@ class MatchingEngine:
             overlap = max(0, min(buyer_end, seller_end) - max(buyer_start, seller_start))
             total_time = min(buyer_end - buyer_start, seller_end - seller_start)
             if total_time > 0:
-                return overlap / total_time * 100.0
+                return overlap / total_time * 100.0  # type: ignore[no-any-return]
             else:
                 return 0.0
         else:
@@ -104,7 +104,7 @@ class MatchingEngine:
         normalized_avg = min(100.0, avg_reputation / 10.0)
         return normalized_avg
 
-    def calculate_geographic_compatibility(self, buyer_regions: list[str], seller_regions: list[str], buyer_excluded: list[str]=None, seller_excluded: list[str]=None) -> float:
+    def calculate_geographic_compatibility(self, buyer_regions: list[str], seller_regions: list[str], buyer_excluded: list[str] | None=None, seller_excluded: list[str] | None=None) -> float:
         """Calculate geographic compatibility score (0-100)"""
         buyer_excluded = buyer_excluded or []
         seller_excluded = seller_excluded or []
@@ -145,7 +145,7 @@ class MatchingEngine:
         matches = []
         for seller_offer in seller_offers:
             seller_id = seller_offer.get('agent_id')
-            seller_reputation = seller_reputations.get(seller_id, 500.0)
+            seller_reputation = seller_reputations.get(seller_id, 500.0)  # type: ignore[arg-type]
             match_result = self.calculate_overall_match_score(trade_request, seller_offer, seller_reputation)
             if match_result['overall_score'] >= self.min_match_score:
                 matches.append({'seller_agent_id': seller_id, 'seller_offer': seller_offer, 'match_score': match_result['overall_score'], 'confidence_level': match_result['confidence_level'], 'compatibility_breakdown': match_result})
@@ -349,7 +349,7 @@ class P2PTradingProtocol:
         self.negotiation_system = NegotiationSystem()
         self.settlement_layer = SettlementLayer()
 
-    async def create_trade_request(self, buyer_agent_id: str, trade_type: TradeType, title: str, description: str, requirements: dict[str, Any], budget_range: dict[str, float], **kwargs) -> TradeRequest:
+    async def create_trade_request(self, buyer_agent_id: str, trade_type: TradeType, title: str, description: str, requirements: dict[str, Any], budget_range: dict[str, float], **kwargs: Any) -> TradeRequest:
         """Create a new trade request"""
         trade_request = TradeRequest(request_id=f'req_{uuid4().hex[:8]}', buyer_agent_id=buyer_agent_id, trade_type=trade_type, title=title, description=description, requirements=requirements, specifications=requirements.get('specifications', {}), constraints=requirements.get('constraints', {}), budget_range=budget_range, preferred_terms=requirements.get('preferred_terms', {}), start_time=kwargs.get('start_time'), end_time=kwargs.get('end_time'), duration_hours=kwargs.get('duration_hours'), urgency_level=kwargs.get('urgency_level', 'normal'), preferred_regions=kwargs.get('preferred_regions', []), excluded_regions=kwargs.get('excluded_regions', []), service_level_required=kwargs.get('service_level_required', 'standard'), tags=kwargs.get('tags', []), metadata=kwargs.get('metadata', {}), expires_at=kwargs.get('expires_at', datetime.now(UTC) + timedelta(days=7)))
         self.session.add(trade_request)

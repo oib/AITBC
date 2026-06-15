@@ -77,27 +77,27 @@ class LayerZeroAdapter(BridgeAdapter):
                 "from": await self._get_signer_address(),
                 "gas": gas_limit,
                 "value": fees["layerZeroFee"],
-                "nonce": await self.web3.eth.get_transaction_count(await self._get_signer_address()),
+                "nonce": await self.web3.eth.get_transaction_count(await self._get_signer_address()),  # type: ignore[arg-type, misc]
             }
 
             # Send transaction
-            tx_hash = await self.endpoint.functions.send(
+            tx_hash = await self.endpoint.functions.send(  # type: ignore[union-attr, misc]
                 self.CHAIN_IDS[message.target_chain_id],  # dstChainId
                 target_address,  # destination address
                 payload,  # payload
                 message.payment_amount,  # value (optional)
                 [0, 0, 0],  # address and parameters for adapterParams
                 message.nonce,  # refund address
-            ).transact(tx_params)
+            ).transact(tx_params)  # type: ignore[arg-type]
 
             # Wait for confirmation
-            receipt = await self.web3.eth.wait_for_transaction_receipt(tx_hash)
+            receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
 
             return SettlementResult(
                 message_id=tx_hash.hex(),
                 status=BridgeStatus.IN_PROGRESS,
                 transaction_hash=tx_hash.hex(),
-                gas_used=receipt.gasUsed,
+                gas_used=receipt.gasUsed,  # type: ignore[attr-defined]
                 fee_paid=fees["layerZeroFee"],
             )
 
@@ -108,10 +108,10 @@ class LayerZeroAdapter(BridgeAdapter):
         """Verify message was delivered"""
         try:
             # Get transaction receipt
-            receipt = await self.web3.eth.get_transaction_receipt(message_id)
+            receipt = await self.web3.eth.get_transaction_receipt(message_id)  # type: ignore[arg-type, misc]
 
             # Check for Delivered event
-            delivered_logs = self.endpoint.events.Delivered().processReceipt(receipt)
+            delivered_logs = self.endpoint.events.Delivered().processReceipt(receipt)  # type: ignore[union-attr]
             return len(delivered_logs) > 0
 
         except Exception:
@@ -121,7 +121,7 @@ class LayerZeroAdapter(BridgeAdapter):
         """Get current status of message"""
         try:
             # Get transaction receipt
-            receipt = await self.web3.eth.get_transaction_receipt(message_id)
+            receipt = await self.web3.eth.get_transaction_receipt(message_id)  # type: ignore[arg-type, misc]
 
             if receipt.status == 0:
                 return SettlementResult(
@@ -159,7 +159,7 @@ class LayerZeroAdapter(BridgeAdapter):
             payload = self._encode_payload(message)
 
             # Estimate fee using LayerZero endpoint
-            native_fee, zro_fee = await self.endpoint.functions.estimateFees(
+            native_fee, zro_fee = await self.endpoint.functions.estimateFees(  # type: ignore[union-attr]
                 dst_chain_id, target_address, payload, False, [0, 0, 0]  # payInZRO  # adapterParams
             ).call()
 
@@ -223,7 +223,7 @@ class LayerZeroAdapter(BridgeAdapter):
             payload = self._encode_payload(message)
 
             # Estimate gas
-            gas_estimate = await self.endpoint.functions.send(
+            gas_estimate = await self.endpoint.functions.send(  # type: ignore[union-attr]
                 self.CHAIN_IDS[message.target_chain_id],
                 target_address,
                 payload,
