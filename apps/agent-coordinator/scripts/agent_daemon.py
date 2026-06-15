@@ -7,6 +7,7 @@ Listens for blockchain transactions addressed to an agent wallet and autonomousl
 import argparse
 import hashlib
 import json
+import logging
 import sys
 import time
 from pathlib import Path
@@ -19,6 +20,9 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from aitbc.constants import DATA_DIR, KEYSTORE_DIR
+
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
 
 # Default configuration
 DEFAULT_KEYSTORE_DIR = KEYSTORE_DIR
@@ -133,22 +137,22 @@ def main():
     elif args.password:
         password = args.password
     else:
-        print("Error: password or password-file is required")
+        logger.error("Error: password or password-file is required")
         sys.exit(1)
 
     # Setup paths
     keystore_path = Path(args.keystore_dir) / f"{args.wallet}.json"
 
-    print(f"Agent daemon started. Listening for messages to {args.address}...")
-    print(f"Trigger message: '{args.trigger_message}'")
-    print(f"Reply message: '{args.reply_message}'")
+    logger.info("Agent daemon started. Listening for messages to %s", args.address)
+    logger.info("Trigger message: '%s'", args.trigger_message)
+    logger.info("Reply message: '%s'", args.reply_message)
 
     # Decrypt wallet
     try:
         priv_bytes = decrypt_wallet(keystore_path, password)
-        print("Wallet unlocked successfully.")
+        logger.info("Wallet unlocked successfully")
     except Exception as e:
-        print(f"Failed to unlock wallet: {e}")
+        logger.error("Failed to unlock wallet: %s", e)
         sys.exit(1)
 
     sys.stdout.flush()
@@ -161,10 +165,10 @@ def main():
         from sqlmodel import Session, create_engine, select
 
         engine = create_engine(f"sqlite:///{args.db_path}")
-        print(f"Connected to database: {args.db_path}")
+        logger.info("Connected to database: %s", args.db_path)
     except ImportError as e:
-        print(f"Error importing sqlmodel: {e}")
-        print("Make sure sqlmodel is installed in the virtual environment")
+        logger.error("Error importing sqlmodel: %s", e)
+        logger.error("Make sure sqlmodel is installed in the virtual environment")
         sys.exit(1)
 
     sys.stdout.flush()
@@ -201,22 +205,22 @@ def main():
 
                     # Check if message matches trigger
                     if sender != args.address and args.trigger_message in str(data):
-                        print(f"Received '{data}' from {sender}! Sending '{args.reply_message}'...")
+                        logger.info("Received '%s' from %s! Sending '%s'", data, sender, args.reply_message)
                         reply_tx = create_tx(priv_bytes, args.address, sender, 0, 10, args.reply_message, args.chain_id)
 
                         try:
                             res = requests.post(f"{args.rpc_url}/rpc/transaction", json=reply_tx, timeout=10)
                             if res.status_code == 200:
-                                print(f"Reply sent successfully: {res.json()}")
+                                logger.info("Reply sent successfully: %s", res.json())
                             else:
-                                print(f"Failed to send reply: {res.text}")
+                                logger.error("Failed to send reply: %s", res.text)
                         except requests.RequestException as e:
-                            print(f"Network error sending reply: {e}")
+                            logger.error("Network error sending reply: %s", e)
 
                     sys.stdout.flush()
 
         except Exception as e:
-            print(f"Error querying database: {e}")
+            logger.error("Error querying database: %s", e)
             sys.stdout.flush()
 
         time.sleep(args.poll_interval)
