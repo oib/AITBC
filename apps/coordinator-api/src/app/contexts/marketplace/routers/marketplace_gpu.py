@@ -402,7 +402,7 @@ async def book_gpu(
         "end_time": booking.end_time.isoformat() + "Z",
         "pricing_factors": dynamic_result.factors_exposed if "dynamic_result" in locals() else {},
         "confidence_score": dynamic_result.confidence_score if "dynamic_result" in locals() else 0.8,
-    }  # type: ignore[union-attr]
+    }
 
 
 @router.post("/marketplace/gpu/{gpu_id}/release")
@@ -517,10 +517,10 @@ async def get_gpu_reviews(
     """Get GPU reviews."""
     gpu = _get_gpu_or_404(session, gpu_id)
     reviews = (
-        session.execute(select(GPUReview).where(GPUReview.gpu_id == gpu_id).order_by(GPUReview.created_at.desc()))
+        session.execute(select(GPUReview).where(GPUReview.gpu_id == gpu_id).order_by(GPUReview.created_at.desc()))  # type: ignore[attr-defined]
         .scalars()
         .all()
-    )  # type: ignore[attr-defined]
+    )
     return {
         "gpu_id": gpu_id,
         "average_rating": gpu.average_rating,
@@ -698,11 +698,11 @@ async def get_pricing(
             "recommended_gpu": cheapest.id,
         },
         "dynamic_pricing": {
-            "min_price": min(dynamic_price_values),
-            "max_price": max(dynamic_price_values),
+            "min_price": min(dynamic_price_values),  # type: ignore[type-var]
+            "max_price": max(dynamic_price_values),  # type: ignore[type-var]
             "average_price": avg_dynamic_price,
-            "price_volatility": statistics.stdev(dynamic_price_values) if len(dynamic_price_values) > 1 else 0,
-            "avg_confidence": sum(dp["confidence"] for dp in dynamic_prices) / len(dynamic_prices),
+            "price_volatility": statistics.stdev(dynamic_price_values) if len(dynamic_price_values) > 1 else 0,  # type: ignore[type-var]
+            "avg_confidence": sum(dp["confidence"] for dp in dynamic_prices) / len(dynamic_prices),  # type: ignore[misc]
             "recommended_gpu": best_value_gpu["gpu_id"],
             "recommended_price": best_value_gpu["dynamic_price"],
         },
@@ -711,13 +711,13 @@ async def get_pricing(
             "avg_price_change_percent": (avg_dynamic_price - sum(static_prices) / len(static_prices))
             / (sum(static_prices) / len(static_prices))
             * 100,
-            "gpus_with_price_increase": len([dp for dp in dynamic_prices if dp["price_change"] > 0]),
-            "gpus_with_price_decrease": len([dp for dp in dynamic_prices if dp["price_change"] < 0]),
+            "gpus_with_price_increase": len([dp for dp in dynamic_prices if float(dp["price_change"]) > 0]),  # type: ignore[arg-type]
+            "gpus_with_price_decrease": len([dp for dp in dynamic_prices if float(dp["price_change"]) < 0]),  # type: ignore[arg-type]
         },
         "individual_gpu_pricing": dynamic_prices,
         "market_analysis": market_analysis,
         "pricing_timestamp": datetime.now(UTC).isoformat() + "Z",
-    }  # type: ignore[operator, type-var, misc]
+    }
 
 
 @router.post("/marketplace/gpu/bid")
