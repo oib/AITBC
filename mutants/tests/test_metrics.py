@@ -5,7 +5,6 @@ Tests for AITBC metrics module
 from unittest.mock import Mock
 
 import pytest
-
 from aitbc.metrics import (
     block_height,
     block_processing_duration,

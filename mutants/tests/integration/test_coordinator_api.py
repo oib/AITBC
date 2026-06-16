@@ -4,9 +4,10 @@ Tests the complete API functionality without requiring running services
 Note: Some endpoints require database setup and are marked as expected to fail
 """
 
+import os
+
 import pytest
 from starlette.testclient import TestClient
-import os
 
 
 class TestCoordinatorAPI:
@@ -16,7 +17,8 @@ class TestCoordinatorAPI:
     def client(self):
         """Create test client for coordinator API"""
         import sys
-        sys.path.insert(0, '/opt/aitbc/apps/coordinator-api/src')
+
+        sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
         # Set required env vars
         os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
         os.environ.setdefault("COORDINATOR_API_BIND_HOST", "127.0.0.1")
@@ -26,6 +28,7 @@ class TestCoordinatorAPI:
         os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long")
         os.environ.setdefault("TEST_ADMIN_PASSWORD", "test-admin-password")
         from app.main import app
+
         return TestClient(app)
 
     def test_health_endpoint(self, client: TestClient):
@@ -59,13 +62,15 @@ class TestCoordinatorAPIErrorHandling:
     def client(self):
         """Create test client for coordinator API"""
         import sys
-        sys.path.insert(0, '/opt/aitbc/apps/coordinator-api/src')
+
+        sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
         os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
         os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
         os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
         os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long")
         os.environ.setdefault("TEST_ADMIN_PASSWORD", "test-admin-password")
         from app.main import app
+
         return TestClient(app)
 
     def test_nonexistent_endpoint(self, client: TestClient):
@@ -86,23 +91,22 @@ class TestCoordinatorAPIPerformance:
     def client(self):
         """Create test client for coordinator API"""
         import sys
-        sys.path.insert(0, '/opt/aitbc/apps/coordinator-api/src')
+
+        sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
         os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
         os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
         os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
         os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long")
         os.environ.setdefault("TEST_ADMIN_PASSWORD", "test-admin-password")
         from app.main import app
+
         return TestClient(app)
 
     def test_healthy_endpoints_response_times(self, client: TestClient):
         """Test API response times for healthy endpoints"""
         import time
 
-        endpoints = [
-            "/health",
-            "/metrics/"
-        ]
+        endpoints = ["/health", "/metrics/"]
 
         for endpoint in endpoints:
             start_time = time.time()

@@ -4,7 +4,6 @@ Tests for AITBC middleware performance
 """
 
 import pytest
-
 from aitbc.middleware.performance import PerformanceLoggingMiddleware
 
 

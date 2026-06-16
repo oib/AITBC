@@ -5,7 +5,6 @@ Tests for async helpers utilities
 import asyncio
 
 import pytest
-
 from aitbc.async_helpers import (
     async_to_sync,
     batch_process,

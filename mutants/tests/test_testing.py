@@ -4,7 +4,6 @@ Tests for AITBC testing utilities
 """
 
 import pytest
-
 from aitbc.testing import (
     MockCache,
     MockDatabase,

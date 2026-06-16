@@ -8,9 +8,6 @@ from .auth.middleware import security_headers
 from .monitoring.prometheus_metrics import performance_monitor
 
 
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
-
-
 def register_middleware(app: Any) -> None:
     @app.middleware("http")  # type: ignore[untyped-decorator]
     async def metrics_middleware(request: Request, call_next: RequestResponseEndpoint) -> Response:

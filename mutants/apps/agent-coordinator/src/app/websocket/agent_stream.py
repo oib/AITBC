@@ -9,14 +9,15 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import WebSocket, WebSocketDisconnect
-
 from aitbc import get_logger
+from fastapi import WebSocket, WebSocketDisconnect
 
 logger = get_logger(__name__)
 
 
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
+from mutmut.mutation.trampoline import MutantDict
+from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated
+
 mutants_xǁConnectionManagerǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁConnectionManagerǁconnect__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁConnectionManagerǁdisconnect__mutmut: MutantDict = {}  # type: ignore
@@ -219,7 +220,9 @@ class ConnectionManager:
         self.active_connections[agent_id] = websocket
         self.agent_topics[agent_id] = set()
         self.agent_inboxes[agent_id] = []
-        logger.info("Agent %s connected via WebSocket", )
+        logger.info(
+            "Agent %s connected via WebSocket",
+        )
         await websocket.send_json(
             {
                 "type": "connection_established",
@@ -284,9 +287,7 @@ class ConnectionManager:
         self.agent_topics[agent_id] = set()
         self.agent_inboxes[agent_id] = []
         logger.info("Agent %s connected via WebSocket", agent_id)
-        await websocket.send_json(
-            None
-        )
+        await websocket.send_json(None)
 
     async def xǁConnectionManagerǁconnect__mutmut_12(self, websocket: WebSocket, agent_id: str) -> None:
         """Accept a WebSocket connection from an agent"""
@@ -621,7 +622,9 @@ class ConnectionManager:
                 if topic in self.topic_subscriptions:
                     self.topic_subscriptions[topic].discard(agent_id)
             del self.agent_topics[agent_id]
-        logger.info("Agent %s disconnected from WebSocket", )
+        logger.info(
+            "Agent %s disconnected from WebSocket",
+        )
 
     def xǁConnectionManagerǁdisconnect__mutmut_9(self, agent_id: str) -> None:
         """Remove agent connection"""
@@ -768,7 +771,7 @@ class ConnectionManager:
                 websocket = self.active_connections[agent_id]
                 await websocket.send_json(message)
                 return True
-            except Exception as e:
+            except Exception:
                 logger.error("Error sending message to %s: %s", agent_id, None)
                 self.disconnect(agent_id)
                 return False
@@ -807,8 +810,11 @@ class ConnectionManager:
                 websocket = self.active_connections[agent_id]
                 await websocket.send_json(message)
                 return True
-            except Exception as e:
-                logger.error("Error sending message to %s: %s", agent_id, )
+            except Exception:
+                logger.error(
+                    "Error sending message to %s: %s",
+                    agent_id,
+                )
                 self.disconnect(agent_id)
                 return False
         return False
@@ -961,7 +967,9 @@ class ConnectionManager:
     async def xǁConnectionManagerǁbroadcast__mutmut_5(self, message: dict[str, Any], topic: str | None = None) -> None:
         """Broadcast message to all agents or topic subscribers"""
         if topic:
-            recipients = self.topic_subscriptions.get(topic, )
+            recipients = self.topic_subscriptions.get(
+                topic,
+            )
         else:
             recipients = set(self.active_connections.keys())
         for agent_id in recipients:
@@ -1043,7 +1051,9 @@ class ConnectionManager:
             recipients = set(self.active_connections.keys())
         for agent_id in recipients:
             if agent_id in self.active_connections:
-                await self.send_personal_message(message, )
+                await self.send_personal_message(
+                    message,
+                )
         logger.info("Broadcast message to %s agents (topic: %s)", len(recipients), topic)
 
     async def xǁConnectionManagerǁbroadcast__mutmut_13(self, message: dict[str, Any], topic: str | None = None) -> None:
@@ -1110,7 +1120,10 @@ class ConnectionManager:
         for agent_id in recipients:
             if agent_id in self.active_connections:
                 await self.send_personal_message(message, agent_id)
-        logger.info("Broadcast message to %s agents (topic: %s)", len(recipients), )
+        logger.info(
+            "Broadcast message to %s agents (topic: %s)",
+            len(recipients),
+        )
 
     async def xǁConnectionManagerǁbroadcast__mutmut_19(self, message: dict[str, Any], topic: str | None = None) -> None:
         """Broadcast message to all agents or topic subscribers"""
@@ -1284,7 +1297,10 @@ class ConnectionManager:
             self.topic_subscriptions[topic] = set()
         self.agent_topics[agent_id].add(topic)
         self.topic_subscriptions[topic].add(agent_id)
-        logger.info("Agent %s subscribed to topic %s", agent_id, )
+        logger.info(
+            "Agent %s subscribed to topic %s",
+            agent_id,
+        )
 
     async def xǁConnectionManagerǁsubscribe__mutmut_13(self, agent_id: str, topic: str) -> None:
         """Subscribe agent to topic"""
@@ -1411,7 +1427,10 @@ class ConnectionManager:
             self.agent_topics[agent_id].discard(topic)
         if topic in self.topic_subscriptions:
             self.topic_subscriptions[topic].discard(agent_id)
-        logger.info("Agent %s unsubscribed from topic %s", agent_id, )
+        logger.info(
+            "Agent %s unsubscribed from topic %s",
+            agent_id,
+        )
 
     async def xǁConnectionManagerǁunsubscribe__mutmut_11(self, agent_id: str, topic: str) -> None:
         """Unsubscribe agent from topic"""
@@ -1473,7 +1492,9 @@ class ConnectionManager:
 
     def xǁConnectionManagerǁget_topic_subscribers__mutmut_4(self, topic: str) -> set[str]:
         """Get subscribers for a topic"""
-        return self.topic_subscriptions.get(topic, )
+        return self.topic_subscriptions.get(
+            topic,
+        )
 
     @_mutmut_mutated(mutants_xǁConnectionManagerǁregister_handler__mutmut)
     def register_handler(
@@ -1555,7 +1576,9 @@ class ConnectionManager:
         if message_type not in self.message_handlers:
             self.message_handlers[message_type] = []
         self.message_handlers[message_type].append(handler)
-        logger.info("Registered handler for message type: %s", )
+        logger.info(
+            "Registered handler for message type: %s",
+        )
 
     def xǁConnectionManagerǁregister_handler__mutmut_8(
         self, message_type: str, handler: Callable[[dict[str, Any], "ConnectionManager", WebSocket], Any]
@@ -1606,7 +1629,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_orig(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_orig(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -1627,7 +1652,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_1(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_1(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = None
         message_type = "unknown"
@@ -1648,7 +1675,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_2(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_2(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get(None, "")
         message_type = "unknown"
@@ -1669,7 +1698,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_3(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_3(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", None)
         message_type = "unknown"
@@ -1690,7 +1721,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_4(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_4(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("")
         message_type = "unknown"
@@ -1711,9 +1744,13 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_5(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_5(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
-        content = message.get("content", )
+        content = message.get(
+            "content",
+        )
         message_type = "unknown"
         if "PING" in content.upper():
             message_type = "PING"
@@ -1732,7 +1769,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_6(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_6(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("XXcontentXX", "")
         message_type = "unknown"
@@ -1753,7 +1792,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_7(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_7(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("CONTENT", "")
         message_type = "unknown"
@@ -1774,7 +1815,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_8(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_8(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "XXXX")
         message_type = "unknown"
@@ -1795,7 +1838,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_9(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_9(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = None
@@ -1816,7 +1861,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_10(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_10(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "XXunknownXX"
@@ -1837,7 +1884,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_11(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_11(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "UNKNOWN"
@@ -1858,7 +1907,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_12(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_12(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -1879,7 +1930,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_13(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_13(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -1900,7 +1953,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_14(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_14(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -1921,7 +1976,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_15(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_15(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -1942,7 +1999,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_16(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_16(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -1963,7 +2022,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_17(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_17(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -1984,7 +2045,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_18(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_18(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2005,7 +2068,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_19(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_19(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2026,7 +2091,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_20(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_20(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2047,7 +2114,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_21(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_21(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2068,7 +2137,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_22(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_22(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2089,7 +2160,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_23(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_23(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2110,7 +2183,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_24(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_24(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2131,7 +2206,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_25(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_25(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2152,7 +2229,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_26(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_26(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2173,7 +2252,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_27(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_27(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2194,7 +2275,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_28(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_28(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2215,7 +2298,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_29(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_29(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2236,7 +2321,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_30(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_30(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2257,7 +2344,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_31(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_31(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2278,7 +2367,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_32(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_32(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2299,7 +2390,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_33(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_33(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2320,7 +2413,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_34(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_34(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2341,7 +2436,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_35(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_35(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2362,7 +2459,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_36(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_36(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2383,7 +2482,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_37(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_37(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2393,7 +2494,9 @@ class ConnectionManager:
             message_type = "REQUEST_COINS"
         elif "HELLO" in content.upper():
             message_type = "HELLO"
-        handlers = self.message_handlers.get(message_type, )
+        handlers = self.message_handlers.get(
+            message_type,
+        )
         results = []
         for handler in handlers:
             try:
@@ -2404,7 +2507,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_38(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_38(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2425,7 +2530,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_39(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_39(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2446,7 +2553,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_40(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_40(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2467,7 +2576,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_41(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_41(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2488,7 +2599,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_42(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_42(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2509,7 +2622,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_43(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_43(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2530,7 +2645,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_44(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_44(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2551,7 +2668,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_45(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_45(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2565,14 +2684,19 @@ class ConnectionManager:
         results = []
         for handler in handlers:
             try:
-                result = await handler(message, self, )
+                result = await handler(
+                    message,
+                    self,
+                )
                 results.append({"handler": handler.__name__, "result": result, "success": True})
             except Exception as e:
                 logger.error("Handler error: %s", e)
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_46(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_46(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2586,14 +2710,16 @@ class ConnectionManager:
         results = []
         for handler in handlers:
             try:
-                result = await handler(message, self, websocket)
+                await handler(message, self, websocket)
                 results.append(None)
             except Exception as e:
                 logger.error("Handler error: %s", e)
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_47(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_47(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2614,7 +2740,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_48(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_48(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2635,7 +2763,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_49(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_49(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2656,7 +2786,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_50(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_50(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2677,7 +2809,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_51(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_51(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2698,7 +2832,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_52(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_52(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2719,7 +2855,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_53(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_53(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2740,7 +2878,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_54(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_54(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2761,7 +2901,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_55(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_55(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2782,7 +2924,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_56(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_56(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2803,7 +2947,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_57(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_57(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2820,11 +2966,15 @@ class ConnectionManager:
                 result = await handler(message, self, websocket)
                 results.append({"handler": handler.__name__, "result": result, "success": True})
             except Exception as e:
-                logger.error("Handler error: %s", )
+                logger.error(
+                    "Handler error: %s",
+                )
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_58(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_58(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2845,7 +2995,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_59(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_59(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2866,7 +3018,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_60(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_60(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2887,7 +3041,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_61(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_61(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2908,7 +3064,9 @@ class ConnectionManager:
                 results.append(None)
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_62(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_62(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2929,7 +3087,9 @@ class ConnectionManager:
                 results.append({"XXhandlerXX": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_63(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_63(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2950,7 +3110,9 @@ class ConnectionManager:
                 results.append({"HANDLER": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_64(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_64(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2971,7 +3133,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "XXerrorXX": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_65(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_65(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -2992,7 +3156,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "ERROR": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_66(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_66(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -3013,7 +3179,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(None), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_67(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_67(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -3034,7 +3202,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "XXsuccessXX": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_68(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_68(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -3055,7 +3225,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "SUCCESS": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_69(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_69(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -3076,7 +3248,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": True})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_70(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_70(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -3097,7 +3271,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"XXmessage_typeXX": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_71(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_71(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -3118,7 +3294,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"MESSAGE_TYPE": message_type, "handlers_triggered": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_72(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_72(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -3139,7 +3317,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "XXhandlers_triggeredXX": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_73(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_73(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -3160,7 +3340,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "HANDLERS_TRIGGERED": len(handlers), "results": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_74(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_74(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -3181,7 +3363,9 @@ class ConnectionManager:
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "XXresultsXX": results}
 
-    async def xǁConnectionManagerǁtrigger_handlers__mutmut_75(self, message: dict[str, Any], websocket: WebSocket) -> dict[str, Any]:
+    async def xǁConnectionManagerǁtrigger_handlers__mutmut_75(
+        self, message: dict[str, Any], websocket: WebSocket
+    ) -> dict[str, Any]:
         """Trigger all registered handlers for the message type"""
         content = message.get("content", "")
         message_type = "unknown"
@@ -3253,7 +3437,7 @@ class ConnectionManager:
         if agent_id in self.agent_inboxes and self.agent_inboxes[agent_id]:
             queued_messages = self.agent_inboxes[agent_id].copy()
             self.agent_inboxes[agent_id].clear()
-            for message in queued_messages:
+            for _message in queued_messages:
                 await self.send_personal_message(None, agent_id)
             logger.info("Delivered %s queued messages to %s", len(queued_messages), agent_id)
 
@@ -3271,7 +3455,7 @@ class ConnectionManager:
         if agent_id in self.agent_inboxes and self.agent_inboxes[agent_id]:
             queued_messages = self.agent_inboxes[agent_id].copy()
             self.agent_inboxes[agent_id].clear()
-            for message in queued_messages:
+            for _message in queued_messages:
                 await self.send_personal_message(agent_id)
             logger.info("Delivered %s queued messages to %s", len(queued_messages), agent_id)
 
@@ -3281,7 +3465,9 @@ class ConnectionManager:
             queued_messages = self.agent_inboxes[agent_id].copy()
             self.agent_inboxes[agent_id].clear()
             for message in queued_messages:
-                await self.send_personal_message(message, )
+                await self.send_personal_message(
+                    message,
+                )
             logger.info("Delivered %s queued messages to %s", len(queued_messages), agent_id)
 
     async def xǁConnectionManagerǁdeliver_queued_messages__mutmut_8(self, agent_id: str) -> None:
@@ -3336,7 +3522,10 @@ class ConnectionManager:
             self.agent_inboxes[agent_id].clear()
             for message in queued_messages:
                 await self.send_personal_message(message, agent_id)
-            logger.info("Delivered %s queued messages to %s", len(queued_messages), )
+            logger.info(
+                "Delivered %s queued messages to %s",
+                len(queued_messages),
+            )
 
     async def xǁConnectionManagerǁdeliver_queued_messages__mutmut_14(self, agent_id: str) -> None:
         """Deliver queued messages when agent connects"""
@@ -3365,241 +3554,680 @@ class ConnectionManager:
                 await self.send_personal_message(message, agent_id)
             logger.info("DELIVERED %S QUEUED MESSAGES TO %S", len(queued_messages), agent_id)
 
-mutants_xǁConnectionManagerǁ__init____mutmut['_mutmut_orig'] = ConnectionManager.xǁConnectionManagerǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁ__init____mutmut['xǁConnectionManagerǁ__init____mutmut_1'] = ConnectionManager.xǁConnectionManagerǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁ__init____mutmut['xǁConnectionManagerǁ__init____mutmut_2'] = ConnectionManager.xǁConnectionManagerǁ__init____mutmut_2 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁ__init____mutmut['xǁConnectionManagerǁ__init____mutmut_3'] = ConnectionManager.xǁConnectionManagerǁ__init____mutmut_3 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁ__init____mutmut['xǁConnectionManagerǁ__init____mutmut_4'] = ConnectionManager.xǁConnectionManagerǁ__init____mutmut_4 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁ__init____mutmut['xǁConnectionManagerǁ__init____mutmut_5'] = ConnectionManager.xǁConnectionManagerǁ__init____mutmut_5 # type: ignore # mutmut generated
 
-mutants_xǁConnectionManagerǁconnect__mutmut['_mutmut_orig'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_1'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_2'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_3'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_4'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_5'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_6'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_7'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_8'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_9'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_10'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_11'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_12'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_13'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_14'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_15'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_16'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_17'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_18'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_19'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_20'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_21'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_22'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_23'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_24'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁconnect__mutmut['xǁConnectionManagerǁconnect__mutmut_25'] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_25 # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁ__init____mutmut["_mutmut_orig"] = ConnectionManager.xǁConnectionManagerǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁ__init____mutmut["xǁConnectionManagerǁ__init____mutmut_1"] = (
+    ConnectionManager.xǁConnectionManagerǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁ__init____mutmut["xǁConnectionManagerǁ__init____mutmut_2"] = (
+    ConnectionManager.xǁConnectionManagerǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁ__init____mutmut["xǁConnectionManagerǁ__init____mutmut_3"] = (
+    ConnectionManager.xǁConnectionManagerǁ__init____mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁ__init____mutmut["xǁConnectionManagerǁ__init____mutmut_4"] = (
+    ConnectionManager.xǁConnectionManagerǁ__init____mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁ__init____mutmut["xǁConnectionManagerǁ__init____mutmut_5"] = (
+    ConnectionManager.xǁConnectionManagerǁ__init____mutmut_5
+)  # type: ignore # mutmut generated
 
-mutants_xǁConnectionManagerǁdisconnect__mutmut['_mutmut_orig'] = ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdisconnect__mutmut['xǁConnectionManagerǁdisconnect__mutmut_1'] = ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdisconnect__mutmut['xǁConnectionManagerǁdisconnect__mutmut_2'] = ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdisconnect__mutmut['xǁConnectionManagerǁdisconnect__mutmut_3'] = ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdisconnect__mutmut['xǁConnectionManagerǁdisconnect__mutmut_4'] = ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdisconnect__mutmut['xǁConnectionManagerǁdisconnect__mutmut_5'] = ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdisconnect__mutmut['xǁConnectionManagerǁdisconnect__mutmut_6'] = ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdisconnect__mutmut['xǁConnectionManagerǁdisconnect__mutmut_7'] = ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdisconnect__mutmut['xǁConnectionManagerǁdisconnect__mutmut_8'] = ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdisconnect__mutmut['xǁConnectionManagerǁdisconnect__mutmut_9'] = ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdisconnect__mutmut['xǁConnectionManagerǁdisconnect__mutmut_10'] = ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdisconnect__mutmut['xǁConnectionManagerǁdisconnect__mutmut_11'] = ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_11 # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["_mutmut_orig"] = ConnectionManager.xǁConnectionManagerǁconnect__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_1"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_2"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_3"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_4"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_5"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_6"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_7"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_8"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_9"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_10"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_11"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_12"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_13"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_14"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_15"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_16"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_17"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_18"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_19"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_20"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_21"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_22"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_23"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_24"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁconnect__mutmut["xǁConnectionManagerǁconnect__mutmut_25"] = (
+    ConnectionManager.xǁConnectionManagerǁconnect__mutmut_25
+)  # type: ignore # mutmut generated
 
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['_mutmut_orig'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_1'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_2'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_3'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_4'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_5'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_6'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_7'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_8'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_9'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_10'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_11'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_12'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_13'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_14'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_15'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsend_personal_message__mutmut['xǁConnectionManagerǁsend_personal_message__mutmut_16'] = ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_16 # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdisconnect__mutmut["_mutmut_orig"] = ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdisconnect__mutmut["xǁConnectionManagerǁdisconnect__mutmut_1"] = (
+    ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdisconnect__mutmut["xǁConnectionManagerǁdisconnect__mutmut_2"] = (
+    ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdisconnect__mutmut["xǁConnectionManagerǁdisconnect__mutmut_3"] = (
+    ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdisconnect__mutmut["xǁConnectionManagerǁdisconnect__mutmut_4"] = (
+    ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdisconnect__mutmut["xǁConnectionManagerǁdisconnect__mutmut_5"] = (
+    ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdisconnect__mutmut["xǁConnectionManagerǁdisconnect__mutmut_6"] = (
+    ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdisconnect__mutmut["xǁConnectionManagerǁdisconnect__mutmut_7"] = (
+    ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdisconnect__mutmut["xǁConnectionManagerǁdisconnect__mutmut_8"] = (
+    ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdisconnect__mutmut["xǁConnectionManagerǁdisconnect__mutmut_9"] = (
+    ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdisconnect__mutmut["xǁConnectionManagerǁdisconnect__mutmut_10"] = (
+    ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdisconnect__mutmut["xǁConnectionManagerǁdisconnect__mutmut_11"] = (
+    ConnectionManager.xǁConnectionManagerǁdisconnect__mutmut_11
+)  # type: ignore # mutmut generated
 
-mutants_xǁConnectionManagerǁbroadcast__mutmut['_mutmut_orig'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_1'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_2'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_3'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_4'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_5'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_6'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_7'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_8'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_9'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_10'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_11'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_12'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_13'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_14'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_15'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_16'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_17'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_18'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_19'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_20'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁbroadcast__mutmut['xǁConnectionManagerǁbroadcast__mutmut_21'] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_21 # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["_mutmut_orig"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_1"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_2"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_3"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_4"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_5"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_6"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_7"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_8"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_9"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_10"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_11"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_12"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_13"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_14"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_15"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsend_personal_message__mutmut["xǁConnectionManagerǁsend_personal_message__mutmut_16"] = (
+    ConnectionManager.xǁConnectionManagerǁsend_personal_message__mutmut_16
+)  # type: ignore # mutmut generated
 
-mutants_xǁConnectionManagerǁsubscribe__mutmut['_mutmut_orig'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_1'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_2'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_3'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_4'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_5'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_6'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_7'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_8'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_9'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_10'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_11'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_12'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_13'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_14'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁsubscribe__mutmut['xǁConnectionManagerǁsubscribe__mutmut_15'] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_15 # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["_mutmut_orig"] = ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_1"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_2"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_3"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_4"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_5"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_6"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_7"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_8"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_9"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_10"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_11"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_12"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_13"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_14"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_15"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_16"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_17"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_18"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_19"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_20"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁbroadcast__mutmut["xǁConnectionManagerǁbroadcast__mutmut_21"] = (
+    ConnectionManager.xǁConnectionManagerǁbroadcast__mutmut_21
+)  # type: ignore # mutmut generated
 
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['_mutmut_orig'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['xǁConnectionManagerǁunsubscribe__mutmut_1'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['xǁConnectionManagerǁunsubscribe__mutmut_2'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['xǁConnectionManagerǁunsubscribe__mutmut_3'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['xǁConnectionManagerǁunsubscribe__mutmut_4'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['xǁConnectionManagerǁunsubscribe__mutmut_5'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['xǁConnectionManagerǁunsubscribe__mutmut_6'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['xǁConnectionManagerǁunsubscribe__mutmut_7'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['xǁConnectionManagerǁunsubscribe__mutmut_8'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['xǁConnectionManagerǁunsubscribe__mutmut_9'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['xǁConnectionManagerǁunsubscribe__mutmut_10'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['xǁConnectionManagerǁunsubscribe__mutmut_11'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['xǁConnectionManagerǁunsubscribe__mutmut_12'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁunsubscribe__mutmut['xǁConnectionManagerǁunsubscribe__mutmut_13'] = ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_13 # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["_mutmut_orig"] = ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_1"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_2"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_3"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_4"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_5"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_6"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_7"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_8"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_9"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_10"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_11"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_12"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_13"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_14"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁsubscribe__mutmut["xǁConnectionManagerǁsubscribe__mutmut_15"] = (
+    ConnectionManager.xǁConnectionManagerǁsubscribe__mutmut_15
+)  # type: ignore # mutmut generated
 
-mutants_xǁConnectionManagerǁget_connected_agents__mutmut['_mutmut_orig'] = ConnectionManager.xǁConnectionManagerǁget_connected_agents__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁget_connected_agents__mutmut['xǁConnectionManagerǁget_connected_agents__mutmut_1'] = ConnectionManager.xǁConnectionManagerǁget_connected_agents__mutmut_1 # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["_mutmut_orig"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["xǁConnectionManagerǁunsubscribe__mutmut_1"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["xǁConnectionManagerǁunsubscribe__mutmut_2"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["xǁConnectionManagerǁunsubscribe__mutmut_3"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["xǁConnectionManagerǁunsubscribe__mutmut_4"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["xǁConnectionManagerǁunsubscribe__mutmut_5"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["xǁConnectionManagerǁunsubscribe__mutmut_6"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["xǁConnectionManagerǁunsubscribe__mutmut_7"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["xǁConnectionManagerǁunsubscribe__mutmut_8"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["xǁConnectionManagerǁunsubscribe__mutmut_9"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["xǁConnectionManagerǁunsubscribe__mutmut_10"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["xǁConnectionManagerǁunsubscribe__mutmut_11"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["xǁConnectionManagerǁunsubscribe__mutmut_12"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁunsubscribe__mutmut["xǁConnectionManagerǁunsubscribe__mutmut_13"] = (
+    ConnectionManager.xǁConnectionManagerǁunsubscribe__mutmut_13
+)  # type: ignore # mutmut generated
 
-mutants_xǁConnectionManagerǁget_topic_subscribers__mutmut['_mutmut_orig'] = ConnectionManager.xǁConnectionManagerǁget_topic_subscribers__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁget_topic_subscribers__mutmut['xǁConnectionManagerǁget_topic_subscribers__mutmut_1'] = ConnectionManager.xǁConnectionManagerǁget_topic_subscribers__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁget_topic_subscribers__mutmut['xǁConnectionManagerǁget_topic_subscribers__mutmut_2'] = ConnectionManager.xǁConnectionManagerǁget_topic_subscribers__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁget_topic_subscribers__mutmut['xǁConnectionManagerǁget_topic_subscribers__mutmut_3'] = ConnectionManager.xǁConnectionManagerǁget_topic_subscribers__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁget_topic_subscribers__mutmut['xǁConnectionManagerǁget_topic_subscribers__mutmut_4'] = ConnectionManager.xǁConnectionManagerǁget_topic_subscribers__mutmut_4 # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁget_connected_agents__mutmut["_mutmut_orig"] = (
+    ConnectionManager.xǁConnectionManagerǁget_connected_agents__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁget_connected_agents__mutmut["xǁConnectionManagerǁget_connected_agents__mutmut_1"] = (
+    ConnectionManager.xǁConnectionManagerǁget_connected_agents__mutmut_1
+)  # type: ignore # mutmut generated
 
-mutants_xǁConnectionManagerǁregister_handler__mutmut['_mutmut_orig'] = ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁregister_handler__mutmut['xǁConnectionManagerǁregister_handler__mutmut_1'] = ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁregister_handler__mutmut['xǁConnectionManagerǁregister_handler__mutmut_2'] = ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁregister_handler__mutmut['xǁConnectionManagerǁregister_handler__mutmut_3'] = ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁregister_handler__mutmut['xǁConnectionManagerǁregister_handler__mutmut_4'] = ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁregister_handler__mutmut['xǁConnectionManagerǁregister_handler__mutmut_5'] = ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁregister_handler__mutmut['xǁConnectionManagerǁregister_handler__mutmut_6'] = ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁregister_handler__mutmut['xǁConnectionManagerǁregister_handler__mutmut_7'] = ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁregister_handler__mutmut['xǁConnectionManagerǁregister_handler__mutmut_8'] = ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁregister_handler__mutmut['xǁConnectionManagerǁregister_handler__mutmut_9'] = ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁregister_handler__mutmut['xǁConnectionManagerǁregister_handler__mutmut_10'] = ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_10 # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁget_topic_subscribers__mutmut["_mutmut_orig"] = (
+    ConnectionManager.xǁConnectionManagerǁget_topic_subscribers__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁget_topic_subscribers__mutmut["xǁConnectionManagerǁget_topic_subscribers__mutmut_1"] = (
+    ConnectionManager.xǁConnectionManagerǁget_topic_subscribers__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁget_topic_subscribers__mutmut["xǁConnectionManagerǁget_topic_subscribers__mutmut_2"] = (
+    ConnectionManager.xǁConnectionManagerǁget_topic_subscribers__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁget_topic_subscribers__mutmut["xǁConnectionManagerǁget_topic_subscribers__mutmut_3"] = (
+    ConnectionManager.xǁConnectionManagerǁget_topic_subscribers__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁget_topic_subscribers__mutmut["xǁConnectionManagerǁget_topic_subscribers__mutmut_4"] = (
+    ConnectionManager.xǁConnectionManagerǁget_topic_subscribers__mutmut_4
+)  # type: ignore # mutmut generated
 
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['_mutmut_orig'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_1'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_2'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_3'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_4'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_5'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_6'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_7'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_8'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_9'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_10'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_11'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_12'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_13'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_14'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_15'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_16'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_17'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_18'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_19'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_20'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_21'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_22'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_23'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_24'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_25'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_26'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_27'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_28'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_29'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_30'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_31'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_32'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_33'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_34'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_35'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_36'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_37'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_38'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_39'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_40'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_41'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_42'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_43'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_44'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_45'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_46'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_47'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_48'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_49'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_50'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_51'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_52'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_53'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_54'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_55'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_56'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_57'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_58'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_59'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_60'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_61'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_62'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_63'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_64'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_65'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_66'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_67'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_68'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_69'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_70'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_71'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_71 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_72'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_72 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_73'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_73 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_74'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_74 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁtrigger_handlers__mutmut['xǁConnectionManagerǁtrigger_handlers__mutmut_75'] = ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_75 # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁregister_handler__mutmut["_mutmut_orig"] = (
+    ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁregister_handler__mutmut["xǁConnectionManagerǁregister_handler__mutmut_1"] = (
+    ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁregister_handler__mutmut["xǁConnectionManagerǁregister_handler__mutmut_2"] = (
+    ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁregister_handler__mutmut["xǁConnectionManagerǁregister_handler__mutmut_3"] = (
+    ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁregister_handler__mutmut["xǁConnectionManagerǁregister_handler__mutmut_4"] = (
+    ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁregister_handler__mutmut["xǁConnectionManagerǁregister_handler__mutmut_5"] = (
+    ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁregister_handler__mutmut["xǁConnectionManagerǁregister_handler__mutmut_6"] = (
+    ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁregister_handler__mutmut["xǁConnectionManagerǁregister_handler__mutmut_7"] = (
+    ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁregister_handler__mutmut["xǁConnectionManagerǁregister_handler__mutmut_8"] = (
+    ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁregister_handler__mutmut["xǁConnectionManagerǁregister_handler__mutmut_9"] = (
+    ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁregister_handler__mutmut["xǁConnectionManagerǁregister_handler__mutmut_10"] = (
+    ConnectionManager.xǁConnectionManagerǁregister_handler__mutmut_10
+)  # type: ignore # mutmut generated
 
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['_mutmut_orig'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_1'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_2'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_3'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_4'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_5'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_6'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_7'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_8'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_9'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_10'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_11'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_12'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_13'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_14'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_15'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut['xǁConnectionManagerǁdeliver_queued_messages__mutmut_16'] = ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_16 # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["_mutmut_orig"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_1"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_2"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_3"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_4"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_5"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_6"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_7"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_8"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_9"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_10"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_11"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_12"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_13"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_14"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_15"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_16"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_17"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_18"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_19"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_20"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_21"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_22"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_23"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_24"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_25"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_26"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_27"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_28"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_29"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_30"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_31"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_32"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_33"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_34"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_35"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_36"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_37"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_38"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_39"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_40"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_41"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_42"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_43"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_44"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_45"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_46"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_47"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_48"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_49"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_50"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_51"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_52"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_53"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_54"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_55"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_56"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_57"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_58"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_59"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_60"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_61"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_62"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_63"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_64"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_65"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_66"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_67"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_68"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_68
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_69"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_69
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_70"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_70
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_71"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_71
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_72"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_72
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_73"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_73
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_74"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_74
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁtrigger_handlers__mutmut["xǁConnectionManagerǁtrigger_handlers__mutmut_75"] = (
+    ConnectionManager.xǁConnectionManagerǁtrigger_handlers__mutmut_75
+)  # type: ignore # mutmut generated
+
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["_mutmut_orig"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_1"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_2"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_3"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_4"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_5"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_6"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_7"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_8"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_9"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_10"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_11"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_12"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_13"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_14"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_15"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁConnectionManagerǁdeliver_queued_messages__mutmut["xǁConnectionManagerǁdeliver_queued_messages__mutmut_16"] = (
+    ConnectionManager.xǁConnectionManagerǁdeliver_queued_messages__mutmut_16
+)  # type: ignore # mutmut generated
 mutants_xǁAgentStreamHandlerǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut: MutantDict = {}  # type: ignore
@@ -3966,7 +4594,9 @@ class AgentStreamHandler:
 
     async def xǁAgentStreamHandlerǁhandle_message_stream__mutmut_4(self, websocket: WebSocket, agent_id: str) -> None:
         """Handle WebSocket message stream for an agent"""
-        await self.connection_manager.connect(websocket, )
+        await self.connection_manager.connect(
+            websocket,
+        )
         await self.connection_manager.deliver_queued_messages(agent_id)
         try:
             while True:
@@ -4523,7 +5153,9 @@ class AgentStreamHandler:
         try:
             while True:
                 data = await websocket.receive_json()
-                message_type = data.get("type", )
+                message_type = data.get(
+                    "type",
+                )
                 payload = data.get("payload", {})
                 if message_type == "subscribe":
                     topic = payload.get("topic")
@@ -5145,7 +5777,9 @@ class AgentStreamHandler:
             while True:
                 data = await websocket.receive_json()
                 message_type = data.get("type", "message")
-                payload = data.get("payload", )
+                payload = data.get(
+                    "payload",
+                )
                 if message_type == "subscribe":
                     topic = payload.get("topic")
                     if topic:
@@ -6046,7 +6680,9 @@ class AgentStreamHandler:
                 if message_type == "subscribe":
                     topic = payload.get("topic")
                     if topic:
-                        await self.connection_manager.subscribe(agent_id, )
+                        await self.connection_manager.subscribe(
+                            agent_id,
+                        )
                         await websocket.send_json(
                             {"type": "subscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
                         )
@@ -6116,9 +6752,7 @@ class AgentStreamHandler:
                     topic = payload.get("topic")
                     if topic:
                         await self.connection_manager.subscribe(agent_id, topic)
-                        await websocket.send_json(
-                            None
-                        )
+                        await websocket.send_json(None)
                 elif message_type == "unsubscribe":
                     topic = payload.get("topic")
                     if topic:
@@ -7502,7 +8136,9 @@ class AgentStreamHandler:
                 elif message_type == "unsubscribe":
                     topic = payload.get("topic")
                     if topic:
-                        await self.connection_manager.unsubscribe(agent_id, )
+                        await self.connection_manager.unsubscribe(
+                            agent_id,
+                        )
                         await websocket.send_json(
                             {"type": "unsubscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
                         )
@@ -7572,9 +8208,7 @@ class AgentStreamHandler:
                     topic = payload.get("topic")
                     if topic:
                         await self.connection_manager.unsubscribe(agent_id, topic)
-                        await websocket.send_json(
-                            None
-                        )
+                        await websocket.send_json(None)
                 elif message_type == "message":
                     message_data = {
                         "sender_id": agent_id,
@@ -7642,7 +8276,11 @@ class AgentStreamHandler:
                     if topic:
                         await self.connection_manager.unsubscribe(agent_id, topic)
                         await websocket.send_json(
-                            {"XXtypeXX": "unsubscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
+                            {
+                                "XXtypeXX": "unsubscription_confirmed",
+                                "topic": topic,
+                                "timestamp": datetime.now(UTC).isoformat(),
+                            }
                         )
                 elif message_type == "message":
                     message_data = {
@@ -7780,7 +8418,11 @@ class AgentStreamHandler:
                     if topic:
                         await self.connection_manager.unsubscribe(agent_id, topic)
                         await websocket.send_json(
-                            {"type": "XXunsubscription_confirmedXX", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
+                            {
+                                "type": "XXunsubscription_confirmedXX",
+                                "topic": topic,
+                                "timestamp": datetime.now(UTC).isoformat(),
+                            }
                         )
                 elif message_type == "message":
                     message_data = {
@@ -7918,7 +8560,11 @@ class AgentStreamHandler:
                     if topic:
                         await self.connection_manager.unsubscribe(agent_id, topic)
                         await websocket.send_json(
-                            {"type": "unsubscription_confirmed", "XXtopicXX": topic, "timestamp": datetime.now(UTC).isoformat()}
+                            {
+                                "type": "unsubscription_confirmed",
+                                "XXtopicXX": topic,
+                                "timestamp": datetime.now(UTC).isoformat(),
+                            }
                         )
                 elif message_type == "message":
                     message_data = {
@@ -8056,7 +8702,11 @@ class AgentStreamHandler:
                     if topic:
                         await self.connection_manager.unsubscribe(agent_id, topic)
                         await websocket.send_json(
-                            {"type": "unsubscription_confirmed", "topic": topic, "XXtimestampXX": datetime.now(UTC).isoformat()}
+                            {
+                                "type": "unsubscription_confirmed",
+                                "topic": topic,
+                                "XXtimestampXX": datetime.now(UTC).isoformat(),
+                            }
                         )
                 elif message_type == "message":
                     message_data = {
@@ -9022,7 +9672,9 @@ class AgentStreamHandler:
                 elif message_type == "message":
                     message_data = {
                         "sender_id": agent_id,
-                        "content": payload.get("content", ),
+                        "content": payload.get(
+                            "content",
+                        ),
                         "recipient_id": payload.get("recipient_id"),
                         "timestamp": datetime.now(UTC).isoformat(),
                     }
@@ -9848,7 +10500,7 @@ class AgentStreamHandler:
                             {"type": "unsubscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
                         )
                 elif message_type == "message":
-                    message_data = {
+                    {
                         "sender_id": agent_id,
                         "content": payload.get("content", ""),
                         "recipient_id": payload.get("recipient_id"),
@@ -9917,7 +10569,7 @@ class AgentStreamHandler:
                             {"type": "unsubscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
                         )
                 elif message_type == "message":
-                    message_data = {
+                    {
                         "sender_id": agent_id,
                         "content": payload.get("content", ""),
                         "recipient_id": payload.get("recipient_id"),
@@ -10055,7 +10707,7 @@ class AgentStreamHandler:
                             {"type": "unsubscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
                         )
                 elif message_type == "message":
-                    message_data = {
+                    {
                         "sender_id": agent_id,
                         "content": payload.get("content", ""),
                         "recipient_id": payload.get("recipient_id"),
@@ -10130,7 +10782,9 @@ class AgentStreamHandler:
                         "recipient_id": payload.get("recipient_id"),
                         "timestamp": datetime.now(UTC).isoformat(),
                     }
-                    handler_results = await self.connection_manager.trigger_handlers(message_data, )
+                    handler_results = await self.connection_manager.trigger_handlers(
+                        message_data,
+                    )
                     await websocket.send_json(
                         {
                             "type": "handler_acknowledgment",
@@ -10199,10 +10853,8 @@ class AgentStreamHandler:
                         "recipient_id": payload.get("recipient_id"),
                         "timestamp": datetime.now(UTC).isoformat(),
                     }
-                    handler_results = await self.connection_manager.trigger_handlers(message_data, websocket)
-                    await websocket.send_json(
-                        None
-                    )
+                    await self.connection_manager.trigger_handlers(message_data, websocket)
+                    await websocket.send_json(None)
                     recipient_id = payload.get("recipient_id")
                     if recipient_id:
                         forward_data = {
@@ -12683,7 +13335,7 @@ class AgentStreamHandler:
                     )
                     recipient_id = payload.get("recipient_id")
                     if recipient_id:
-                        forward_data = {
+                        {
                             "type": "message",
                             "sender_id": agent_id,
                             "recipient_id": recipient_id,
@@ -12821,7 +13473,7 @@ class AgentStreamHandler:
                     )
                     recipient_id = payload.get("recipient_id")
                     if recipient_id:
-                        forward_data = {
+                        {
                             "type": "message",
                             "sender_id": agent_id,
                             "recipient_id": recipient_id,
@@ -12897,7 +13549,9 @@ class AgentStreamHandler:
                             "content": payload.get("content"),
                             "timestamp": datetime.now(UTC).isoformat(),
                         }
-                        await self.connection_manager.send_personal_message(forward_data, )
+                        await self.connection_manager.send_personal_message(
+                            forward_data,
+                        )
                 elif message_type == "broadcast":
                     topic = payload.get("topic")
                     broadcast_data = {
@@ -14619,7 +15273,7 @@ class AgentStreamHandler:
                         await self.connection_manager.send_personal_message(forward_data, recipient_id)
                 elif message_type == "broadcast":
                     topic = payload.get("topic")
-                    broadcast_data = {
+                    {
                         "type": "broadcast",
                         "sender_id": agent_id,
                         "content": payload.get("content"),
@@ -14757,7 +15411,7 @@ class AgentStreamHandler:
                         await self.connection_manager.send_personal_message(forward_data, recipient_id)
                 elif message_type == "broadcast":
                     topic = payload.get("topic")
-                    broadcast_data = {
+                    {
                         "type": "broadcast",
                         "sender_id": agent_id,
                         "content": payload.get("content"),
@@ -14833,7 +15487,9 @@ class AgentStreamHandler:
                         "topic": topic,
                         "timestamp": datetime.now(UTC).isoformat(),
                     }
-                    await self.connection_manager.broadcast(broadcast_data, )
+                    await self.connection_manager.broadcast(
+                        broadcast_data,
+                    )
                 elif message_type == "heartbeat":
                     await websocket.send_json({"type": "heartbeat_ack", "timestamp": datetime.now(UTC).isoformat()})
                 else:
@@ -15872,7 +16528,9 @@ class AgentStreamHandler:
                 elif message_type == "heartbeat":
                     await websocket.send_json({"type": "heartbeat_ack", "timestamp": datetime.now(UTC).isoformat()})
                 else:
-                    logger.warning("Unknown message type: %s", )
+                    logger.warning(
+                        "Unknown message type: %s",
+                    )
         except WebSocketDisconnect:
             self.connection_manager.disconnect(agent_id)
         except Exception as e:
@@ -16358,7 +17016,7 @@ class AgentStreamHandler:
                     logger.warning("Unknown message type: %s", message_type)
         except WebSocketDisconnect:
             self.connection_manager.disconnect(agent_id)
-        except Exception as e:
+        except Exception:
             logger.error("Error in message stream for %s: %s", agent_id, None)
             self.connection_manager.disconnect(agent_id)
 
@@ -16565,8 +17223,11 @@ class AgentStreamHandler:
                     logger.warning("Unknown message type: %s", message_type)
         except WebSocketDisconnect:
             self.connection_manager.disconnect(agent_id)
-        except Exception as e:
-            logger.error("Error in message stream for %s: %s", agent_id, )
+        except Exception:
+            logger.error(
+                "Error in message stream for %s: %s",
+                agent_id,
+            )
             self.connection_manager.disconnect(agent_id)
 
     async def xǁAgentStreamHandlerǁhandle_message_stream__mutmut_187(self, websocket: WebSocket, agent_id: str) -> None:
@@ -17083,7 +17744,9 @@ class AgentStreamHandler:
 
     async def xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_4(self, websocket: WebSocket, agent_id: str) -> None:
         """Handle WebSocket presence stream for an agent"""
-        await self.connection_manager.connect(websocket, )
+        await self.connection_manager.connect(
+            websocket,
+        )
         try:
             await websocket.send_json(
                 {
@@ -17132,9 +17795,7 @@ class AgentStreamHandler:
         """Handle WebSocket presence stream for an agent"""
         await self.connection_manager.connect(websocket, agent_id)
         try:
-            await websocket.send_json(
-                None
-            )
+            await websocket.send_json(None)
             while True:
                 data = await websocket.receive_json()
                 message_type = data.get("type", "presence")
@@ -18171,7 +18832,9 @@ class AgentStreamHandler:
             )
             while True:
                 data = await websocket.receive_json()
-                message_type = data.get("type", )
+                message_type = data.get(
+                    "type",
+                )
                 if message_type == "presence":
                     presence_data = {
                         "type": "presence_update",
@@ -19111,7 +19774,9 @@ class AgentStreamHandler:
                     presence_data = {
                         "type": "presence_update",
                         "agent_id": agent_id,
-                        "status": data.get("status", ),
+                        "status": data.get(
+                            "status",
+                        ),
                         "timestamp": datetime.now(UTC).isoformat(),
                     }
                     await self.connection_manager.broadcast(presence_data)
@@ -19484,7 +20149,7 @@ class AgentStreamHandler:
                 data = await websocket.receive_json()
                 message_type = data.get("type", "presence")
                 if message_type == "presence":
-                    presence_data = {
+                    {
                         "type": "presence_update",
                         "agent_id": agent_id,
                         "status": data.get("status", "online"),
@@ -19680,9 +20345,7 @@ class AgentStreamHandler:
                     }
                     await self.connection_manager.broadcast(presence_data)
                 elif message_type == "get_agents":
-                    await websocket.send_json(
-                        None
-                    )
+                    await websocket.send_json(None)
                 elif message_type == "heartbeat":
                     await websocket.send_json({"type": "heartbeat_ack", "timestamp": datetime.now(UTC).isoformat()})
         except WebSocketDisconnect:
@@ -21374,7 +22037,7 @@ class AgentStreamHandler:
                     await websocket.send_json({"type": "heartbeat_ack", "timestamp": datetime.now(UTC).isoformat()})
         except WebSocketDisconnect:
             self.connection_manager.disconnect(agent_id)
-            offline_data = {
+            {
                 "type": "presence_update",
                 "agent_id": agent_id,
                 "status": "offline",
@@ -21522,7 +22185,7 @@ class AgentStreamHandler:
                 "timestamp": datetime.now(UTC).isoformat(),
             }
             await self.connection_manager.broadcast(offline_data)
-        except Exception as e:
+        except Exception:
             logger.error("Error in presence stream for %s: %s", agent_id, None)
             self.connection_manager.disconnect(agent_id)
 
@@ -21663,8 +22326,11 @@ class AgentStreamHandler:
                 "timestamp": datetime.now(UTC).isoformat(),
             }
             await self.connection_manager.broadcast(offline_data)
-        except Exception as e:
-            logger.error("Error in presence stream for %s: %s", agent_id, )
+        except Exception:
+            logger.error(
+                "Error in presence stream for %s: %s",
+                agent_id,
+            )
             self.connection_manager.disconnect(agent_id)
 
     async def xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_102(self, websocket: WebSocket, agent_id: str) -> None:
@@ -21855,307 +22521,904 @@ class AgentStreamHandler:
             logger.error("Error in presence stream for %s: %s", agent_id, e)
             self.connection_manager.disconnect(None)
 
-mutants_xǁAgentStreamHandlerǁ__init____mutmut['_mutmut_orig'] = AgentStreamHandler.xǁAgentStreamHandlerǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁ__init____mutmut['xǁAgentStreamHandlerǁ__init____mutmut_1'] = AgentStreamHandler.xǁAgentStreamHandlerǁ__init____mutmut_1 # type: ignore # mutmut generated
 
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['_mutmut_orig'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_1'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_2'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_3'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_4'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_5'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_6'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_7'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_8'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_9'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_10'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_11'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_12'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_13'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_14'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_15'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_16'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_17'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_18'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_19'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_20'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_21'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_22'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_23'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_24'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_25'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_26'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_27'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_28'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_29'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_30'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_31'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_32'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_33'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_34'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_35'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_36'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_37'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_38'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_39'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_40'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_41'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_42'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_43'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_44'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_45'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_46'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_47'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_48'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_49'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_50'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_51'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_52'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_53'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_54'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_55'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_56'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_57'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_58'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_59'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_60'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_61'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_62'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_63'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_64'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_65'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_66'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_67'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_68'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_69'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_70'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_71'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_71 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_72'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_72 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_73'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_73 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_74'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_74 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_75'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_75 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_76'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_76 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_77'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_77 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_78'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_78 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_79'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_79 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_80'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_80 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_81'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_81 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_82'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_82 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_83'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_83 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_84'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_84 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_85'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_85 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_86'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_86 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_87'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_87 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_88'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_88 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_89'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_89 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_90'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_90 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_91'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_91 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_92'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_92 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_93'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_93 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_94'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_94 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_95'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_95 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_96'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_96 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_97'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_97 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_98'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_98 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_99'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_99 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_100'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_100 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_101'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_101 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_102'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_102 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_103'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_103 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_104'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_104 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_105'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_105 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_106'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_106 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_107'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_107 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_108'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_108 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_109'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_109 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_110'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_110 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_111'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_111 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_112'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_112 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_113'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_113 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_114'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_114 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_115'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_115 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_116'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_116 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_117'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_117 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_118'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_118 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_119'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_119 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_120'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_120 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_121'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_121 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_122'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_122 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_123'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_123 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_124'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_124 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_125'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_125 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_126'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_126 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_127'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_127 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_128'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_128 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_129'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_129 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_130'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_130 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_131'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_131 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_132'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_132 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_133'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_133 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_134'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_134 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_135'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_135 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_136'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_136 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_137'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_137 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_138'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_138 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_139'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_139 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_140'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_140 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_141'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_141 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_142'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_142 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_143'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_143 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_144'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_144 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_145'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_145 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_146'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_146 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_147'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_147 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_148'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_148 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_149'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_149 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_150'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_150 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_151'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_151 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_152'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_152 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_153'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_153 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_154'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_154 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_155'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_155 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_156'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_156 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_157'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_157 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_158'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_158 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_159'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_159 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_160'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_160 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_161'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_161 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_162'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_162 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_163'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_163 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_164'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_164 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_165'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_165 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_166'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_166 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_167'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_167 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_168'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_168 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_169'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_169 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_170'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_170 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_171'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_171 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_172'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_172 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_173'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_173 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_174'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_174 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_175'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_175 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_176'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_176 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_177'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_177 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_178'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_178 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_179'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_179 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_180'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_180 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_181'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_181 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_182'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_182 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_183'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_183 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_184'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_184 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_185'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_185 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_186'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_186 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_187'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_187 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_188'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_188 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_189'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_189 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut['xǁAgentStreamHandlerǁhandle_message_stream__mutmut_190'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_190 # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁ__init____mutmut["_mutmut_orig"] = AgentStreamHandler.xǁAgentStreamHandlerǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁ__init____mutmut["xǁAgentStreamHandlerǁ__init____mutmut_1"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['_mutmut_orig'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_1'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_2'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_3'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_4'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_5'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_6'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_7'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_8'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_9'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_10'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_11'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_12'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_13'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_14'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_15'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_16'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_17'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_18'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_19'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_20'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_21'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_22'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_23'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_24'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_25'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_26'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_27'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_28'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_29'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_30'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_31'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_32'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_33'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_34'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_35'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_36'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_37'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_38'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_39'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_40'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_41'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_42'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_43'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_44'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_45'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_46'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_47'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_48'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_49'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_50'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_51'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_52'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_53'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_54'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_55'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_56'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_57'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_58'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_59'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_60'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_61'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_62'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_63'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_64'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_65'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_66'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_67'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_68'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_69'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_70'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_71'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_71 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_72'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_72 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_73'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_73 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_74'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_74 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_75'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_75 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_76'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_76 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_77'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_77 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_78'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_78 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_79'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_79 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_80'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_80 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_81'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_81 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_82'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_82 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_83'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_83 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_84'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_84 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_85'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_85 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_86'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_86 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_87'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_87 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_88'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_88 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_89'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_89 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_90'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_90 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_91'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_91 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_92'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_92 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_93'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_93 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_94'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_94 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_95'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_95 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_96'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_96 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_97'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_97 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_98'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_98 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_99'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_99 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_100'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_100 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_101'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_101 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_102'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_102 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_103'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_103 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_104'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_104 # type: ignore # mutmut generated
-mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut['xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_105'] = AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_105 # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["_mutmut_orig"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_1"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_2"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_3"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_4"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_5"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_6"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_7"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_8"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_9"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_10"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_11"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_12"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_13"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_14"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_15"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_16"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_17"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_18"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_19"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_20"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_21"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_22"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_23"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_24"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_25"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_26"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_27"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_28"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_29"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_30"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_31"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_32"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_33"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_34"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_35"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_36"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_37"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_38"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_39"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_40"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_41"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_42"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_43"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_44"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_45"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_46"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_47"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_48"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_49"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_50"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_51"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_52"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_53"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_54"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_55"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_56"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_57"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_58"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_59"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_60"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_61"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_62"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_63"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_64"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_65"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_66"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_67"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_68"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_68
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_69"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_69
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_70"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_70
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_71"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_71
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_72"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_72
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_73"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_73
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_74"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_74
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_75"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_75
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_76"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_76
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_77"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_77
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_78"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_78
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_79"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_79
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_80"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_80
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_81"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_81
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_82"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_82
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_83"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_83
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_84"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_84
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_85"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_85
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_86"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_86
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_87"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_87
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_88"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_88
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_89"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_89
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_90"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_90
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_91"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_91
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_92"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_92
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_93"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_93
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_94"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_94
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_95"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_95
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_96"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_96
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_97"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_97
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_98"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_98
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_99"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_99
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_100"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_100
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_101"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_101
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_102"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_102
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_103"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_103
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_104"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_104
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_105"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_105
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_106"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_106
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_107"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_107
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_108"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_108
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_109"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_109
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_110"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_110
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_111"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_111
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_112"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_112
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_113"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_113
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_114"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_114
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_115"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_115
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_116"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_116
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_117"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_117
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_118"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_118
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_119"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_119
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_120"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_120
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_121"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_121
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_122"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_122
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_123"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_123
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_124"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_124
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_125"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_125
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_126"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_126
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_127"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_127
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_128"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_128
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_129"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_129
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_130"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_130
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_131"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_131
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_132"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_132
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_133"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_133
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_134"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_134
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_135"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_135
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_136"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_136
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_137"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_137
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_138"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_138
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_139"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_139
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_140"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_140
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_141"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_141
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_142"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_142
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_143"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_143
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_144"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_144
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_145"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_145
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_146"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_146
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_147"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_147
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_148"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_148
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_149"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_149
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_150"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_150
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_151"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_151
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_152"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_152
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_153"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_153
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_154"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_154
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_155"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_155
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_156"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_156
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_157"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_157
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_158"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_158
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_159"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_159
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_160"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_160
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_161"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_161
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_162"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_162
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_163"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_163
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_164"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_164
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_165"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_165
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_166"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_166
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_167"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_167
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_168"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_168
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_169"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_169
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_170"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_170
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_171"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_171
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_172"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_172
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_173"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_173
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_174"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_174
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_175"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_175
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_176"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_176
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_177"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_177
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_178"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_178
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_179"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_179
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_180"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_180
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_181"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_181
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_182"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_182
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_183"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_183
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_184"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_184
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_185"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_185
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_186"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_186
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_187"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_187
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_188"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_188
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_189"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_189
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_message_stream__mutmut["xǁAgentStreamHandlerǁhandle_message_stream__mutmut_190"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_message_stream__mutmut_190
+)  # type: ignore # mutmut generated
+
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["_mutmut_orig"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_1"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_2"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_3"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_4"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_5"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_6"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_7"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_8"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_9"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_10"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_11"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_12"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_13"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_14"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_15"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_16"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_17"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_18"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_19"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_20"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_21"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_22"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_23"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_24"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_25"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_26"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_27"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_28"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_29"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_30"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_31"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_32"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_33"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_34"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_35"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_36"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_37"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_38"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_39"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_40"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_41"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_42"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_43"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_44"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_45"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_46"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_47"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_48"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_49"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_50"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_51"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_52"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_53"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_54"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_55"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_56"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_57"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_58"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_59"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_60"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_61"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_62"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_63"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_64"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_65"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_66"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_67"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_68"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_68
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_69"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_69
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_70"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_70
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_71"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_71
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_72"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_72
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_73"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_73
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_74"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_74
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_75"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_75
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_76"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_76
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_77"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_77
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_78"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_78
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_79"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_79
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_80"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_80
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_81"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_81
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_82"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_82
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_83"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_83
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_84"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_84
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_85"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_85
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_86"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_86
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_87"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_87
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_88"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_88
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_89"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_89
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_90"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_90
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_91"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_91
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_92"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_92
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_93"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_93
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_94"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_94
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_95"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_95
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_96"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_96
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_97"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_97
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_98"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_98
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_99"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_99
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_100"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_100
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_101"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_101
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_102"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_102
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_103"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_103
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_104"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_104
+)  # type: ignore # mutmut generated
+mutants_xǁAgentStreamHandlerǁhandle_presence_stream__mutmut["xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_105"] = (
+    AgentStreamHandler.xǁAgentStreamHandlerǁhandle_presence_stream__mutmut_105
+)  # type: ignore # mutmut generated
 
 
 _connection_manager: ConnectionManager | None = None
@@ -22207,10 +23470,11 @@ def x_get_connection_manager__mutmut_3() -> ConnectionManager:
         _register_builtin_handlers(None)
     return _connection_manager
 
-mutants_x_get_connection_manager__mutmut['_mutmut_orig'] = x_get_connection_manager__mutmut_orig # type: ignore # mutmut generated
-mutants_x_get_connection_manager__mutmut['x_get_connection_manager__mutmut_1'] = x_get_connection_manager__mutmut_1 # type: ignore # mutmut generated
-mutants_x_get_connection_manager__mutmut['x_get_connection_manager__mutmut_2'] = x_get_connection_manager__mutmut_2 # type: ignore # mutmut generated
-mutants_x_get_connection_manager__mutmut['x_get_connection_manager__mutmut_3'] = x_get_connection_manager__mutmut_3 # type: ignore # mutmut generated
+
+mutants_x_get_connection_manager__mutmut["_mutmut_orig"] = x_get_connection_manager__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_get_connection_manager__mutmut["x_get_connection_manager__mutmut_1"] = x_get_connection_manager__mutmut_1  # type: ignore # mutmut generated
+mutants_x_get_connection_manager__mutmut["x_get_connection_manager__mutmut_2"] = x_get_connection_manager__mutmut_2  # type: ignore # mutmut generated
+mutants_x_get_connection_manager__mutmut["x_get_connection_manager__mutmut_3"] = x_get_connection_manager__mutmut_3  # type: ignore # mutmut generated
 mutants_x_ping_handler__mutmut: MutantDict = {}  # type: ignore
 
 
@@ -22232,7 +23496,9 @@ async def ping_handler(message: dict[str, Any], connection_manager: ConnectionMa
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_orig(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_orig(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22249,7 +23515,9 @@ async def x_ping_handler__mutmut_orig(message: dict[str, Any], connection_manage
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_1(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_1(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = None
     recipient = message.get("recipient_id", "unknown")
@@ -22266,7 +23534,9 @@ async def x_ping_handler__mutmut_1(message: dict[str, Any], connection_manager: 
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_2(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_2(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get(None, "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22283,7 +23553,9 @@ async def x_ping_handler__mutmut_2(message: dict[str, Any], connection_manager: 
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_3(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_3(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", None)
     recipient = message.get("recipient_id", "unknown")
@@ -22300,7 +23572,9 @@ async def x_ping_handler__mutmut_3(message: dict[str, Any], connection_manager: 
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_4(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_4(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22317,9 +23591,13 @@ async def x_ping_handler__mutmut_4(message: dict[str, Any], connection_manager: 
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_5(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_5(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
-    sender = message.get("sender_id", )
+    sender = message.get(
+        "sender_id",
+    )
     recipient = message.get("recipient_id", "unknown")
     logger.info("PING received from %s, triggering PONG", sender)
     pong_message = {
@@ -22334,7 +23612,9 @@ async def x_ping_handler__mutmut_5(message: dict[str, Any], connection_manager: 
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_6(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_6(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("XXsender_idXX", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22351,7 +23631,9 @@ async def x_ping_handler__mutmut_6(message: dict[str, Any], connection_manager: 
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_7(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_7(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("SENDER_ID", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22368,7 +23650,9 @@ async def x_ping_handler__mutmut_7(message: dict[str, Any], connection_manager: 
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_8(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_8(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "XXunknownXX")
     recipient = message.get("recipient_id", "unknown")
@@ -22385,7 +23669,9 @@ async def x_ping_handler__mutmut_8(message: dict[str, Any], connection_manager: 
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_9(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_9(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "UNKNOWN")
     recipient = message.get("recipient_id", "unknown")
@@ -22402,7 +23688,9 @@ async def x_ping_handler__mutmut_9(message: dict[str, Any], connection_manager: 
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_10(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_10(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = None
@@ -22419,7 +23707,9 @@ async def x_ping_handler__mutmut_10(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_11(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_11(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get(None, "unknown")
@@ -22436,7 +23726,9 @@ async def x_ping_handler__mutmut_11(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_12(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_12(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", None)
@@ -22453,7 +23745,9 @@ async def x_ping_handler__mutmut_12(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_13(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_13(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("unknown")
@@ -22470,10 +23764,14 @@ async def x_ping_handler__mutmut_13(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_14(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_14(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
-    recipient = message.get("recipient_id", )
+    recipient = message.get(
+        "recipient_id",
+    )
     logger.info("PING received from %s, triggering PONG", sender)
     pong_message = {
         "type": "PONG",
@@ -22487,7 +23785,9 @@ async def x_ping_handler__mutmut_14(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_15(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_15(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("XXrecipient_idXX", "unknown")
@@ -22504,7 +23804,9 @@ async def x_ping_handler__mutmut_15(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_16(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_16(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("RECIPIENT_ID", "unknown")
@@ -22521,7 +23823,9 @@ async def x_ping_handler__mutmut_16(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_17(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_17(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "XXunknownXX")
@@ -22538,7 +23842,9 @@ async def x_ping_handler__mutmut_17(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_18(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_18(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "UNKNOWN")
@@ -22555,7 +23861,9 @@ async def x_ping_handler__mutmut_18(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_19(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_19(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22572,7 +23880,9 @@ async def x_ping_handler__mutmut_19(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_20(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_20(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22589,7 +23899,9 @@ async def x_ping_handler__mutmut_20(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_21(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_21(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22606,11 +23918,15 @@ async def x_ping_handler__mutmut_21(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_22(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_22(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
-    logger.info("PING received from %s, triggering PONG", )
+    logger.info(
+        "PING received from %s, triggering PONG",
+    )
     pong_message = {
         "type": "PONG",
         "sender": recipient,
@@ -22623,7 +23939,9 @@ async def x_ping_handler__mutmut_22(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_23(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_23(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22640,7 +23958,9 @@ async def x_ping_handler__mutmut_23(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_24(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_24(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22657,7 +23977,9 @@ async def x_ping_handler__mutmut_24(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_25(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_25(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22674,17 +23996,21 @@ async def x_ping_handler__mutmut_25(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_26(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_26(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
-    recipient = message.get("recipient_id", "unknown")
+    message.get("recipient_id", "unknown")
     logger.info("PING received from %s, triggering PONG", sender)
     pong_message = None
     await connection_manager.send_personal_message(pong_message, sender)
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_27(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_27(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22701,7 +24027,9 @@ async def x_ping_handler__mutmut_27(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_28(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_28(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22718,7 +24046,9 @@ async def x_ping_handler__mutmut_28(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_29(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_29(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22735,7 +24065,9 @@ async def x_ping_handler__mutmut_29(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_30(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_30(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22752,7 +24084,9 @@ async def x_ping_handler__mutmut_30(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_31(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_31(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22769,7 +24103,9 @@ async def x_ping_handler__mutmut_31(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_32(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_32(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22786,7 +24122,9 @@ async def x_ping_handler__mutmut_32(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_33(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_33(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22803,7 +24141,9 @@ async def x_ping_handler__mutmut_33(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_34(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_34(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22820,7 +24160,9 @@ async def x_ping_handler__mutmut_34(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_35(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_35(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22837,7 +24179,9 @@ async def x_ping_handler__mutmut_35(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_36(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_36(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22854,7 +24198,9 @@ async def x_ping_handler__mutmut_36(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_37(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_37(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22871,7 +24217,9 @@ async def x_ping_handler__mutmut_37(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_38(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_38(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22888,7 +24236,9 @@ async def x_ping_handler__mutmut_38(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_39(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_39(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22905,7 +24255,9 @@ async def x_ping_handler__mutmut_39(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_40(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_40(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22922,7 +24274,9 @@ async def x_ping_handler__mutmut_40(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_41(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_41(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22939,7 +24293,9 @@ async def x_ping_handler__mutmut_41(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_42(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_42(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22956,7 +24312,9 @@ async def x_ping_handler__mutmut_42(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_43(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_43(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22973,7 +24331,9 @@ async def x_ping_handler__mutmut_43(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_44(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_44(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -22990,12 +24350,14 @@ async def x_ping_handler__mutmut_44(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_45(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_45(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
     logger.info("PING received from %s, triggering PONG", sender)
-    pong_message = {
+    {
         "type": "PONG",
         "sender": recipient,
         "recipient": sender,
@@ -23007,7 +24369,9 @@ async def x_ping_handler__mutmut_45(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_46(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_46(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -23024,12 +24388,14 @@ async def x_ping_handler__mutmut_46(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_47(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_47(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
     logger.info("PING received from %s, triggering PONG", sender)
-    pong_message = {
+    {
         "type": "PONG",
         "sender": recipient,
         "recipient": sender,
@@ -23041,7 +24407,9 @@ async def x_ping_handler__mutmut_47(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_48(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_48(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -23054,11 +24422,15 @@ async def x_ping_handler__mutmut_48(message: dict[str, Any], connection_manager:
         "timestamp": datetime.now(UTC).isoformat(),
         "original_message_id": message.get("id"),
     }
-    await connection_manager.send_personal_message(pong_message, )
+    await connection_manager.send_personal_message(
+        pong_message,
+    )
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_49(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_49(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -23075,7 +24447,9 @@ async def x_ping_handler__mutmut_49(message: dict[str, Any], connection_manager:
     return {"XXactionXX": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_50(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_50(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -23092,7 +24466,9 @@ async def x_ping_handler__mutmut_50(message: dict[str, Any], connection_manager:
     return {"ACTION": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_51(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_51(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -23109,7 +24485,9 @@ async def x_ping_handler__mutmut_51(message: dict[str, Any], connection_manager:
     return {"action": "XXpong_sentXX", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_52(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_52(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -23126,7 +24504,9 @@ async def x_ping_handler__mutmut_52(message: dict[str, Any], connection_manager:
     return {"action": "PONG_SENT", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_53(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_53(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -23143,7 +24523,9 @@ async def x_ping_handler__mutmut_53(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "XXrecipientXX": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_54(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_54(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -23160,7 +24542,9 @@ async def x_ping_handler__mutmut_54(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "RECIPIENT": sender, "original_ping": message.get("id")}
 
 
-async def x_ping_handler__mutmut_55(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_55(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -23177,7 +24561,9 @@ async def x_ping_handler__mutmut_55(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "XXoriginal_pingXX": message.get("id")}
 
 
-async def x_ping_handler__mutmut_56(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_56(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -23194,7 +24580,9 @@ async def x_ping_handler__mutmut_56(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "ORIGINAL_PING": message.get("id")}
 
 
-async def x_ping_handler__mutmut_57(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_57(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -23211,7 +24599,9 @@ async def x_ping_handler__mutmut_57(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get(None)}
 
 
-async def x_ping_handler__mutmut_58(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_58(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -23228,7 +24618,9 @@ async def x_ping_handler__mutmut_58(message: dict[str, Any], connection_manager:
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("XXidXX")}
 
 
-async def x_ping_handler__mutmut_59(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
+async def x_ping_handler__mutmut_59(
+    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
+) -> dict[str, Any]:
     """Handle PING messages with automatic PONG response"""
     sender = message.get("sender_id", "unknown")
     recipient = message.get("recipient_id", "unknown")
@@ -23244,66 +24636,67 @@ async def x_ping_handler__mutmut_59(message: dict[str, Any], connection_manager:
     await connection_manager.send_personal_message(pong_message, sender)
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("ID")}
 
-mutants_x_ping_handler__mutmut['_mutmut_orig'] = x_ping_handler__mutmut_orig # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_1'] = x_ping_handler__mutmut_1 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_2'] = x_ping_handler__mutmut_2 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_3'] = x_ping_handler__mutmut_3 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_4'] = x_ping_handler__mutmut_4 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_5'] = x_ping_handler__mutmut_5 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_6'] = x_ping_handler__mutmut_6 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_7'] = x_ping_handler__mutmut_7 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_8'] = x_ping_handler__mutmut_8 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_9'] = x_ping_handler__mutmut_9 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_10'] = x_ping_handler__mutmut_10 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_11'] = x_ping_handler__mutmut_11 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_12'] = x_ping_handler__mutmut_12 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_13'] = x_ping_handler__mutmut_13 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_14'] = x_ping_handler__mutmut_14 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_15'] = x_ping_handler__mutmut_15 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_16'] = x_ping_handler__mutmut_16 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_17'] = x_ping_handler__mutmut_17 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_18'] = x_ping_handler__mutmut_18 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_19'] = x_ping_handler__mutmut_19 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_20'] = x_ping_handler__mutmut_20 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_21'] = x_ping_handler__mutmut_21 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_22'] = x_ping_handler__mutmut_22 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_23'] = x_ping_handler__mutmut_23 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_24'] = x_ping_handler__mutmut_24 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_25'] = x_ping_handler__mutmut_25 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_26'] = x_ping_handler__mutmut_26 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_27'] = x_ping_handler__mutmut_27 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_28'] = x_ping_handler__mutmut_28 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_29'] = x_ping_handler__mutmut_29 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_30'] = x_ping_handler__mutmut_30 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_31'] = x_ping_handler__mutmut_31 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_32'] = x_ping_handler__mutmut_32 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_33'] = x_ping_handler__mutmut_33 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_34'] = x_ping_handler__mutmut_34 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_35'] = x_ping_handler__mutmut_35 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_36'] = x_ping_handler__mutmut_36 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_37'] = x_ping_handler__mutmut_37 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_38'] = x_ping_handler__mutmut_38 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_39'] = x_ping_handler__mutmut_39 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_40'] = x_ping_handler__mutmut_40 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_41'] = x_ping_handler__mutmut_41 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_42'] = x_ping_handler__mutmut_42 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_43'] = x_ping_handler__mutmut_43 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_44'] = x_ping_handler__mutmut_44 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_45'] = x_ping_handler__mutmut_45 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_46'] = x_ping_handler__mutmut_46 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_47'] = x_ping_handler__mutmut_47 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_48'] = x_ping_handler__mutmut_48 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_49'] = x_ping_handler__mutmut_49 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_50'] = x_ping_handler__mutmut_50 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_51'] = x_ping_handler__mutmut_51 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_52'] = x_ping_handler__mutmut_52 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_53'] = x_ping_handler__mutmut_53 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_54'] = x_ping_handler__mutmut_54 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_55'] = x_ping_handler__mutmut_55 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_56'] = x_ping_handler__mutmut_56 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_57'] = x_ping_handler__mutmut_57 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_58'] = x_ping_handler__mutmut_58 # type: ignore # mutmut generated
-mutants_x_ping_handler__mutmut['x_ping_handler__mutmut_59'] = x_ping_handler__mutmut_59 # type: ignore # mutmut generated
+
+mutants_x_ping_handler__mutmut["_mutmut_orig"] = x_ping_handler__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_1"] = x_ping_handler__mutmut_1  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_2"] = x_ping_handler__mutmut_2  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_3"] = x_ping_handler__mutmut_3  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_4"] = x_ping_handler__mutmut_4  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_5"] = x_ping_handler__mutmut_5  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_6"] = x_ping_handler__mutmut_6  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_7"] = x_ping_handler__mutmut_7  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_8"] = x_ping_handler__mutmut_8  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_9"] = x_ping_handler__mutmut_9  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_10"] = x_ping_handler__mutmut_10  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_11"] = x_ping_handler__mutmut_11  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_12"] = x_ping_handler__mutmut_12  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_13"] = x_ping_handler__mutmut_13  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_14"] = x_ping_handler__mutmut_14  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_15"] = x_ping_handler__mutmut_15  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_16"] = x_ping_handler__mutmut_16  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_17"] = x_ping_handler__mutmut_17  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_18"] = x_ping_handler__mutmut_18  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_19"] = x_ping_handler__mutmut_19  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_20"] = x_ping_handler__mutmut_20  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_21"] = x_ping_handler__mutmut_21  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_22"] = x_ping_handler__mutmut_22  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_23"] = x_ping_handler__mutmut_23  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_24"] = x_ping_handler__mutmut_24  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_25"] = x_ping_handler__mutmut_25  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_26"] = x_ping_handler__mutmut_26  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_27"] = x_ping_handler__mutmut_27  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_28"] = x_ping_handler__mutmut_28  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_29"] = x_ping_handler__mutmut_29  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_30"] = x_ping_handler__mutmut_30  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_31"] = x_ping_handler__mutmut_31  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_32"] = x_ping_handler__mutmut_32  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_33"] = x_ping_handler__mutmut_33  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_34"] = x_ping_handler__mutmut_34  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_35"] = x_ping_handler__mutmut_35  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_36"] = x_ping_handler__mutmut_36  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_37"] = x_ping_handler__mutmut_37  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_38"] = x_ping_handler__mutmut_38  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_39"] = x_ping_handler__mutmut_39  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_40"] = x_ping_handler__mutmut_40  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_41"] = x_ping_handler__mutmut_41  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_42"] = x_ping_handler__mutmut_42  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_43"] = x_ping_handler__mutmut_43  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_44"] = x_ping_handler__mutmut_44  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_45"] = x_ping_handler__mutmut_45  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_46"] = x_ping_handler__mutmut_46  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_47"] = x_ping_handler__mutmut_47  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_48"] = x_ping_handler__mutmut_48  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_49"] = x_ping_handler__mutmut_49  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_50"] = x_ping_handler__mutmut_50  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_51"] = x_ping_handler__mutmut_51  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_52"] = x_ping_handler__mutmut_52  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_53"] = x_ping_handler__mutmut_53  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_54"] = x_ping_handler__mutmut_54  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_55"] = x_ping_handler__mutmut_55  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_56"] = x_ping_handler__mutmut_56  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_57"] = x_ping_handler__mutmut_57  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_58"] = x_ping_handler__mutmut_58  # type: ignore # mutmut generated
+mutants_x_ping_handler__mutmut["x_ping_handler__mutmut_59"] = x_ping_handler__mutmut_59  # type: ignore # mutmut generated
 mutants_x_hello_handler__mutmut: MutantDict = {}  # type: ignore
 
 
@@ -23366,7 +24759,9 @@ async def x_hello_handler__mutmut_5(
     message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
 ) -> dict[str, Any]:
     """Handle HELLO messages"""
-    sender = message.get("sender_id", )
+    sender = message.get(
+        "sender_id",
+    )
     logger.info("HELLO received from %s", sender)
     return {"action": "hello_acknowledged", "sender": sender}
 
@@ -23439,7 +24834,9 @@ async def x_hello_handler__mutmut_13(
 ) -> dict[str, Any]:
     """Handle HELLO messages"""
     sender = message.get("sender_id", "unknown")
-    logger.info("HELLO received from %s", )
+    logger.info(
+        "HELLO received from %s",
+    )
     return {"action": "hello_acknowledged", "sender": sender}
 
 
@@ -23523,29 +24920,30 @@ async def x_hello_handler__mutmut_22(
     logger.info("HELLO received from %s", sender)
     return {"action": "hello_acknowledged", "SENDER": sender}
 
-mutants_x_hello_handler__mutmut['_mutmut_orig'] = x_hello_handler__mutmut_orig # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_1'] = x_hello_handler__mutmut_1 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_2'] = x_hello_handler__mutmut_2 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_3'] = x_hello_handler__mutmut_3 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_4'] = x_hello_handler__mutmut_4 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_5'] = x_hello_handler__mutmut_5 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_6'] = x_hello_handler__mutmut_6 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_7'] = x_hello_handler__mutmut_7 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_8'] = x_hello_handler__mutmut_8 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_9'] = x_hello_handler__mutmut_9 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_10'] = x_hello_handler__mutmut_10 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_11'] = x_hello_handler__mutmut_11 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_12'] = x_hello_handler__mutmut_12 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_13'] = x_hello_handler__mutmut_13 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_14'] = x_hello_handler__mutmut_14 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_15'] = x_hello_handler__mutmut_15 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_16'] = x_hello_handler__mutmut_16 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_17'] = x_hello_handler__mutmut_17 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_18'] = x_hello_handler__mutmut_18 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_19'] = x_hello_handler__mutmut_19 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_20'] = x_hello_handler__mutmut_20 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_21'] = x_hello_handler__mutmut_21 # type: ignore # mutmut generated
-mutants_x_hello_handler__mutmut['x_hello_handler__mutmut_22'] = x_hello_handler__mutmut_22 # type: ignore # mutmut generated
+
+mutants_x_hello_handler__mutmut["_mutmut_orig"] = x_hello_handler__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_1"] = x_hello_handler__mutmut_1  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_2"] = x_hello_handler__mutmut_2  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_3"] = x_hello_handler__mutmut_3  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_4"] = x_hello_handler__mutmut_4  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_5"] = x_hello_handler__mutmut_5  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_6"] = x_hello_handler__mutmut_6  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_7"] = x_hello_handler__mutmut_7  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_8"] = x_hello_handler__mutmut_8  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_9"] = x_hello_handler__mutmut_9  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_10"] = x_hello_handler__mutmut_10  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_11"] = x_hello_handler__mutmut_11  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_12"] = x_hello_handler__mutmut_12  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_13"] = x_hello_handler__mutmut_13  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_14"] = x_hello_handler__mutmut_14  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_15"] = x_hello_handler__mutmut_15  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_16"] = x_hello_handler__mutmut_16  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_17"] = x_hello_handler__mutmut_17  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_18"] = x_hello_handler__mutmut_18  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_19"] = x_hello_handler__mutmut_19  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_20"] = x_hello_handler__mutmut_20  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_21"] = x_hello_handler__mutmut_21  # type: ignore # mutmut generated
+mutants_x_hello_handler__mutmut["x_hello_handler__mutmut_22"] = x_hello_handler__mutmut_22  # type: ignore # mutmut generated
 mutants_x_request_coins_handler__mutmut: MutantDict = {}  # type: ignore
 
 
@@ -23716,7 +25114,9 @@ async def x_request_coins_handler__mutmut_5(
     message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
 ) -> dict[str, Any]:
     """Handle REQUEST_COINS messages"""
-    sender = message.get("sender_id", )
+    sender = message.get(
+        "sender_id",
+    )
     content = message.get("content", "")
     logger.info("REQUEST_COINS received from %s: %s", sender, content)
     try:
@@ -23960,7 +25360,9 @@ async def x_request_coins_handler__mutmut_14(
 ) -> dict[str, Any]:
     """Handle REQUEST_COINS messages"""
     sender = message.get("sender_id", "unknown")
-    content = message.get("content", )
+    content = message.get(
+        "content",
+    )
     logger.info("REQUEST_COINS received from %s: %s", sender, content)
     try:
         if "{" in content:
@@ -24204,7 +25606,10 @@ async def x_request_coins_handler__mutmut_23(
     """Handle REQUEST_COINS messages"""
     sender = message.get("sender_id", "unknown")
     content = message.get("content", "")
-    logger.info("REQUEST_COINS received from %s: %s", sender, )
+    logger.info(
+        "REQUEST_COINS received from %s: %s",
+        sender,
+    )
     try:
         if "{" in content:
             data = json.loads(content)
@@ -24532,7 +25937,9 @@ async def x_request_coins_handler__mutmut_35(
     try:
         if "{" in content:
             data = json.loads(content)
-            amount = data.get("amount", )
+            amount = data.get(
+                "amount",
+            )
             wallet_address = data.get("wallet_address", "")
         else:
             amount = 100
@@ -24749,7 +26156,9 @@ async def x_request_coins_handler__mutmut_43(
         if "{" in content:
             data = json.loads(content)
             amount = data.get("amount", 0)
-            wallet_address = data.get("wallet_address", )
+            wallet_address = data.get(
+                "wallet_address",
+            )
         else:
             amount = 100
             wallet_address = sender
@@ -25077,7 +26486,10 @@ async def x_request_coins_handler__mutmut_55(
         else:
             amount = 100
             wallet_address = sender
-        logger.info("Coin request: %s AIT to %s", amount, )
+        logger.info(
+            "Coin request: %s AIT to %s",
+            amount,
+        )
         return {
             "action": "coin_request_received",
             "amount": amount,
@@ -25598,7 +27010,9 @@ async def x_request_coins_handler__mutmut_74(
             "status": "pending_approval",
         }
     except Exception as e:
-        logger.error("Failed to parse coin request: %s", )
+        logger.error(
+            "Failed to parse coin request: %s",
+        )
         return {"action": "coin_request_failed", "error": str(e)}
 
 
@@ -25871,91 +27285,92 @@ async def x_request_coins_handler__mutmut_84(
         logger.error("Failed to parse coin request: %s", e)
         return {"action": "coin_request_failed", "error": str(None)}
 
-mutants_x_request_coins_handler__mutmut['_mutmut_orig'] = x_request_coins_handler__mutmut_orig # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_1'] = x_request_coins_handler__mutmut_1 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_2'] = x_request_coins_handler__mutmut_2 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_3'] = x_request_coins_handler__mutmut_3 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_4'] = x_request_coins_handler__mutmut_4 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_5'] = x_request_coins_handler__mutmut_5 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_6'] = x_request_coins_handler__mutmut_6 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_7'] = x_request_coins_handler__mutmut_7 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_8'] = x_request_coins_handler__mutmut_8 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_9'] = x_request_coins_handler__mutmut_9 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_10'] = x_request_coins_handler__mutmut_10 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_11'] = x_request_coins_handler__mutmut_11 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_12'] = x_request_coins_handler__mutmut_12 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_13'] = x_request_coins_handler__mutmut_13 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_14'] = x_request_coins_handler__mutmut_14 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_15'] = x_request_coins_handler__mutmut_15 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_16'] = x_request_coins_handler__mutmut_16 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_17'] = x_request_coins_handler__mutmut_17 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_18'] = x_request_coins_handler__mutmut_18 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_19'] = x_request_coins_handler__mutmut_19 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_20'] = x_request_coins_handler__mutmut_20 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_21'] = x_request_coins_handler__mutmut_21 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_22'] = x_request_coins_handler__mutmut_22 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_23'] = x_request_coins_handler__mutmut_23 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_24'] = x_request_coins_handler__mutmut_24 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_25'] = x_request_coins_handler__mutmut_25 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_26'] = x_request_coins_handler__mutmut_26 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_27'] = x_request_coins_handler__mutmut_27 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_28'] = x_request_coins_handler__mutmut_28 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_29'] = x_request_coins_handler__mutmut_29 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_30'] = x_request_coins_handler__mutmut_30 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_31'] = x_request_coins_handler__mutmut_31 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_32'] = x_request_coins_handler__mutmut_32 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_33'] = x_request_coins_handler__mutmut_33 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_34'] = x_request_coins_handler__mutmut_34 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_35'] = x_request_coins_handler__mutmut_35 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_36'] = x_request_coins_handler__mutmut_36 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_37'] = x_request_coins_handler__mutmut_37 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_38'] = x_request_coins_handler__mutmut_38 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_39'] = x_request_coins_handler__mutmut_39 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_40'] = x_request_coins_handler__mutmut_40 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_41'] = x_request_coins_handler__mutmut_41 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_42'] = x_request_coins_handler__mutmut_42 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_43'] = x_request_coins_handler__mutmut_43 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_44'] = x_request_coins_handler__mutmut_44 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_45'] = x_request_coins_handler__mutmut_45 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_46'] = x_request_coins_handler__mutmut_46 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_47'] = x_request_coins_handler__mutmut_47 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_48'] = x_request_coins_handler__mutmut_48 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_49'] = x_request_coins_handler__mutmut_49 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_50'] = x_request_coins_handler__mutmut_50 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_51'] = x_request_coins_handler__mutmut_51 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_52'] = x_request_coins_handler__mutmut_52 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_53'] = x_request_coins_handler__mutmut_53 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_54'] = x_request_coins_handler__mutmut_54 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_55'] = x_request_coins_handler__mutmut_55 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_56'] = x_request_coins_handler__mutmut_56 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_57'] = x_request_coins_handler__mutmut_57 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_58'] = x_request_coins_handler__mutmut_58 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_59'] = x_request_coins_handler__mutmut_59 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_60'] = x_request_coins_handler__mutmut_60 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_61'] = x_request_coins_handler__mutmut_61 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_62'] = x_request_coins_handler__mutmut_62 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_63'] = x_request_coins_handler__mutmut_63 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_64'] = x_request_coins_handler__mutmut_64 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_65'] = x_request_coins_handler__mutmut_65 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_66'] = x_request_coins_handler__mutmut_66 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_67'] = x_request_coins_handler__mutmut_67 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_68'] = x_request_coins_handler__mutmut_68 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_69'] = x_request_coins_handler__mutmut_69 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_70'] = x_request_coins_handler__mutmut_70 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_71'] = x_request_coins_handler__mutmut_71 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_72'] = x_request_coins_handler__mutmut_72 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_73'] = x_request_coins_handler__mutmut_73 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_74'] = x_request_coins_handler__mutmut_74 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_75'] = x_request_coins_handler__mutmut_75 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_76'] = x_request_coins_handler__mutmut_76 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_77'] = x_request_coins_handler__mutmut_77 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_78'] = x_request_coins_handler__mutmut_78 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_79'] = x_request_coins_handler__mutmut_79 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_80'] = x_request_coins_handler__mutmut_80 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_81'] = x_request_coins_handler__mutmut_81 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_82'] = x_request_coins_handler__mutmut_82 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_83'] = x_request_coins_handler__mutmut_83 # type: ignore # mutmut generated
-mutants_x_request_coins_handler__mutmut['x_request_coins_handler__mutmut_84'] = x_request_coins_handler__mutmut_84 # type: ignore # mutmut generated
+
+mutants_x_request_coins_handler__mutmut["_mutmut_orig"] = x_request_coins_handler__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_1"] = x_request_coins_handler__mutmut_1  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_2"] = x_request_coins_handler__mutmut_2  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_3"] = x_request_coins_handler__mutmut_3  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_4"] = x_request_coins_handler__mutmut_4  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_5"] = x_request_coins_handler__mutmut_5  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_6"] = x_request_coins_handler__mutmut_6  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_7"] = x_request_coins_handler__mutmut_7  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_8"] = x_request_coins_handler__mutmut_8  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_9"] = x_request_coins_handler__mutmut_9  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_10"] = x_request_coins_handler__mutmut_10  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_11"] = x_request_coins_handler__mutmut_11  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_12"] = x_request_coins_handler__mutmut_12  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_13"] = x_request_coins_handler__mutmut_13  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_14"] = x_request_coins_handler__mutmut_14  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_15"] = x_request_coins_handler__mutmut_15  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_16"] = x_request_coins_handler__mutmut_16  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_17"] = x_request_coins_handler__mutmut_17  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_18"] = x_request_coins_handler__mutmut_18  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_19"] = x_request_coins_handler__mutmut_19  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_20"] = x_request_coins_handler__mutmut_20  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_21"] = x_request_coins_handler__mutmut_21  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_22"] = x_request_coins_handler__mutmut_22  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_23"] = x_request_coins_handler__mutmut_23  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_24"] = x_request_coins_handler__mutmut_24  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_25"] = x_request_coins_handler__mutmut_25  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_26"] = x_request_coins_handler__mutmut_26  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_27"] = x_request_coins_handler__mutmut_27  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_28"] = x_request_coins_handler__mutmut_28  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_29"] = x_request_coins_handler__mutmut_29  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_30"] = x_request_coins_handler__mutmut_30  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_31"] = x_request_coins_handler__mutmut_31  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_32"] = x_request_coins_handler__mutmut_32  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_33"] = x_request_coins_handler__mutmut_33  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_34"] = x_request_coins_handler__mutmut_34  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_35"] = x_request_coins_handler__mutmut_35  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_36"] = x_request_coins_handler__mutmut_36  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_37"] = x_request_coins_handler__mutmut_37  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_38"] = x_request_coins_handler__mutmut_38  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_39"] = x_request_coins_handler__mutmut_39  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_40"] = x_request_coins_handler__mutmut_40  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_41"] = x_request_coins_handler__mutmut_41  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_42"] = x_request_coins_handler__mutmut_42  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_43"] = x_request_coins_handler__mutmut_43  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_44"] = x_request_coins_handler__mutmut_44  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_45"] = x_request_coins_handler__mutmut_45  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_46"] = x_request_coins_handler__mutmut_46  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_47"] = x_request_coins_handler__mutmut_47  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_48"] = x_request_coins_handler__mutmut_48  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_49"] = x_request_coins_handler__mutmut_49  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_50"] = x_request_coins_handler__mutmut_50  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_51"] = x_request_coins_handler__mutmut_51  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_52"] = x_request_coins_handler__mutmut_52  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_53"] = x_request_coins_handler__mutmut_53  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_54"] = x_request_coins_handler__mutmut_54  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_55"] = x_request_coins_handler__mutmut_55  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_56"] = x_request_coins_handler__mutmut_56  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_57"] = x_request_coins_handler__mutmut_57  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_58"] = x_request_coins_handler__mutmut_58  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_59"] = x_request_coins_handler__mutmut_59  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_60"] = x_request_coins_handler__mutmut_60  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_61"] = x_request_coins_handler__mutmut_61  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_62"] = x_request_coins_handler__mutmut_62  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_63"] = x_request_coins_handler__mutmut_63  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_64"] = x_request_coins_handler__mutmut_64  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_65"] = x_request_coins_handler__mutmut_65  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_66"] = x_request_coins_handler__mutmut_66  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_67"] = x_request_coins_handler__mutmut_67  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_68"] = x_request_coins_handler__mutmut_68  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_69"] = x_request_coins_handler__mutmut_69  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_70"] = x_request_coins_handler__mutmut_70  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_71"] = x_request_coins_handler__mutmut_71  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_72"] = x_request_coins_handler__mutmut_72  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_73"] = x_request_coins_handler__mutmut_73  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_74"] = x_request_coins_handler__mutmut_74  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_75"] = x_request_coins_handler__mutmut_75  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_76"] = x_request_coins_handler__mutmut_76  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_77"] = x_request_coins_handler__mutmut_77  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_78"] = x_request_coins_handler__mutmut_78  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_79"] = x_request_coins_handler__mutmut_79  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_80"] = x_request_coins_handler__mutmut_80  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_81"] = x_request_coins_handler__mutmut_81  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_82"] = x_request_coins_handler__mutmut_82  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_83"] = x_request_coins_handler__mutmut_83  # type: ignore # mutmut generated
+mutants_x_request_coins_handler__mutmut["x_request_coins_handler__mutmut_84"] = x_request_coins_handler__mutmut_84  # type: ignore # mutmut generated
 mutants_x__register_builtin_handlers__mutmut: MutantDict = {}  # type: ignore
 
 
@@ -26002,7 +27417,9 @@ def x__register_builtin_handlers__mutmut_3(connection_manager: ConnectionManager
 
 def x__register_builtin_handlers__mutmut_4(connection_manager: ConnectionManager) -> None:
     """Register built-in message handlers"""
-    connection_manager.register_handler("PING", )
+    connection_manager.register_handler(
+        "PING",
+    )
     connection_manager.register_handler("HELLO", hello_handler)
     connection_manager.register_handler("REQUEST_COINS", request_coins_handler)
     logger.info("Built-in handlers registered: PING, HELLO, REQUEST_COINS")
@@ -26051,7 +27468,9 @@ def x__register_builtin_handlers__mutmut_9(connection_manager: ConnectionManager
 def x__register_builtin_handlers__mutmut_10(connection_manager: ConnectionManager) -> None:
     """Register built-in message handlers"""
     connection_manager.register_handler("PING", ping_handler)
-    connection_manager.register_handler("HELLO", )
+    connection_manager.register_handler(
+        "HELLO",
+    )
     connection_manager.register_handler("REQUEST_COINS", request_coins_handler)
     logger.info("Built-in handlers registered: PING, HELLO, REQUEST_COINS")
 
@@ -26100,7 +27519,9 @@ def x__register_builtin_handlers__mutmut_16(connection_manager: ConnectionManage
     """Register built-in message handlers"""
     connection_manager.register_handler("PING", ping_handler)
     connection_manager.register_handler("HELLO", hello_handler)
-    connection_manager.register_handler("REQUEST_COINS", )
+    connection_manager.register_handler(
+        "REQUEST_COINS",
+    )
     logger.info("Built-in handlers registered: PING, HELLO, REQUEST_COINS")
 
 
@@ -26151,26 +27572,53 @@ def x__register_builtin_handlers__mutmut_22(connection_manager: ConnectionManage
     connection_manager.register_handler("REQUEST_COINS", request_coins_handler)
     logger.info("BUILT-IN HANDLERS REGISTERED: PING, HELLO, REQUEST_COINS")
 
-mutants_x__register_builtin_handlers__mutmut['_mutmut_orig'] = x__register_builtin_handlers__mutmut_orig # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_1'] = x__register_builtin_handlers__mutmut_1 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_2'] = x__register_builtin_handlers__mutmut_2 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_3'] = x__register_builtin_handlers__mutmut_3 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_4'] = x__register_builtin_handlers__mutmut_4 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_5'] = x__register_builtin_handlers__mutmut_5 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_6'] = x__register_builtin_handlers__mutmut_6 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_7'] = x__register_builtin_handlers__mutmut_7 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_8'] = x__register_builtin_handlers__mutmut_8 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_9'] = x__register_builtin_handlers__mutmut_9 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_10'] = x__register_builtin_handlers__mutmut_10 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_11'] = x__register_builtin_handlers__mutmut_11 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_12'] = x__register_builtin_handlers__mutmut_12 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_13'] = x__register_builtin_handlers__mutmut_13 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_14'] = x__register_builtin_handlers__mutmut_14 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_15'] = x__register_builtin_handlers__mutmut_15 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_16'] = x__register_builtin_handlers__mutmut_16 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_17'] = x__register_builtin_handlers__mutmut_17 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_18'] = x__register_builtin_handlers__mutmut_18 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_19'] = x__register_builtin_handlers__mutmut_19 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_20'] = x__register_builtin_handlers__mutmut_20 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_21'] = x__register_builtin_handlers__mutmut_21 # type: ignore # mutmut generated
-mutants_x__register_builtin_handlers__mutmut['x__register_builtin_handlers__mutmut_22'] = x__register_builtin_handlers__mutmut_22 # type: ignore # mutmut generated
+
+mutants_x__register_builtin_handlers__mutmut["_mutmut_orig"] = x__register_builtin_handlers__mutmut_orig  # type: ignore # mutmut generated
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_1"] = x__register_builtin_handlers__mutmut_1  # type: ignore # mutmut generated
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_2"] = x__register_builtin_handlers__mutmut_2  # type: ignore # mutmut generated
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_3"] = x__register_builtin_handlers__mutmut_3  # type: ignore # mutmut generated
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_4"] = x__register_builtin_handlers__mutmut_4  # type: ignore # mutmut generated
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_5"] = x__register_builtin_handlers__mutmut_5  # type: ignore # mutmut generated
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_6"] = x__register_builtin_handlers__mutmut_6  # type: ignore # mutmut generated
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_7"] = x__register_builtin_handlers__mutmut_7  # type: ignore # mutmut generated
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_8"] = x__register_builtin_handlers__mutmut_8  # type: ignore # mutmut generated
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_9"] = x__register_builtin_handlers__mutmut_9  # type: ignore # mutmut generated
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_10"] = (
+    x__register_builtin_handlers__mutmut_10  # type: ignore # mutmut generated
+)
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_11"] = (
+    x__register_builtin_handlers__mutmut_11  # type: ignore # mutmut generated
+)
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_12"] = (
+    x__register_builtin_handlers__mutmut_12  # type: ignore # mutmut generated
+)
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_13"] = (
+    x__register_builtin_handlers__mutmut_13  # type: ignore # mutmut generated
+)
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_14"] = (
+    x__register_builtin_handlers__mutmut_14  # type: ignore # mutmut generated
+)
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_15"] = (
+    x__register_builtin_handlers__mutmut_15  # type: ignore # mutmut generated
+)
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_16"] = (
+    x__register_builtin_handlers__mutmut_16  # type: ignore # mutmut generated
+)
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_17"] = (
+    x__register_builtin_handlers__mutmut_17  # type: ignore # mutmut generated
+)
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_18"] = (
+    x__register_builtin_handlers__mutmut_18  # type: ignore # mutmut generated
+)
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_19"] = (
+    x__register_builtin_handlers__mutmut_19  # type: ignore # mutmut generated
+)
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_20"] = (
+    x__register_builtin_handlers__mutmut_20  # type: ignore # mutmut generated
+)
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_21"] = (
+    x__register_builtin_handlers__mutmut_21  # type: ignore # mutmut generated
+)
+mutants_x__register_builtin_handlers__mutmut["x__register_builtin_handlers__mutmut_22"] = (
+    x__register_builtin_handlers__mutmut_22  # type: ignore # mutmut generated
+)

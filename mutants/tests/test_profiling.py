@@ -6,7 +6,6 @@ import time
 from unittest.mock import patch
 
 import pytest
-
 from aitbc.profiling import (
     PerformanceProfiler,
     ProfilingResult,

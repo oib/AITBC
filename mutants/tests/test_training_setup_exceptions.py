@@ -4,7 +4,6 @@ Tests for AITBC training setup exceptions
 """
 
 import pytest
-
 from aitbc.training_setup.exceptions import TrainingSetupError
 
 
