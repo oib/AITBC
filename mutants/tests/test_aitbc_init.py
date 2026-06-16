@@ -3,9 +3,8 @@ AITBC Init Tests
 Tests for AITBC package initialization
 """
 
-import pytest
-
 import aitbc
+import pytest
 
 
 class TestAitbcInit:

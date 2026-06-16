@@ -4,7 +4,6 @@ Tests for AITBC middleware package initialization
 """
 
 import pytest
-
 from aitbc.middleware import __all__
 
 

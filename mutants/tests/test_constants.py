@@ -6,7 +6,6 @@ Tests for AITBC common constants
 from pathlib import Path
 
 import pytest
-
 from aitbc.constants import (
     AGENT_COORDINATOR_PORT,
     BLOCKCHAIN_DATA_DIR,

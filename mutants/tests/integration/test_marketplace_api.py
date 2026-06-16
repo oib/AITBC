@@ -4,9 +4,10 @@ Tests the complete API functionality without requiring running services
 Note: Some endpoints require database setup and are marked as expected to fail
 """
 
+import os
+
 import pytest
 from starlette.testclient import TestClient
-import os
 
 
 class TestMarketplaceAPI:
@@ -16,10 +17,12 @@ class TestMarketplaceAPI:
     def client(self):
         """Create test client for marketplace service"""
         import sys
-        sys.path.insert(0, '/opt/aitbc/apps/marketplace/src')
+
+        sys.path.insert(0, "/opt/aitbc/apps/marketplace/src")
         # Set required env vars
         os.environ.setdefault("MARKETPLACE_BIND_PORT", "8102")
         from marketplace_service.main import app
+
         return TestClient(app)
 
     def test_health_endpoint(self, client: TestClient):
@@ -79,9 +82,11 @@ class TestMarketplaceErrorHandling:
     def client(self):
         """Create test client for marketplace service"""
         import sys
-        sys.path.insert(0, '/opt/aitbc/apps/marketplace/src')
+
+        sys.path.insert(0, "/opt/aitbc/apps/marketplace/src")
         os.environ.setdefault("MARKETPLACE_BIND_PORT", "8102")
         from marketplace_service.main import app
+
         return TestClient(app)
 
     @pytest.mark.skip(reason="Requires database connection")
@@ -98,21 +103,18 @@ class TestMarketplacePerformance:
     def client(self):
         """Create test client for marketplace service"""
         import sys
-        sys.path.insert(0, '/opt/aitbc/apps/marketplace/src')
+
+        sys.path.insert(0, "/opt/aitbc/apps/marketplace/src")
         os.environ.setdefault("MARKETPLACE_BIND_PORT", "8102")
         from marketplace_service.main import app
+
         return TestClient(app)
 
     def test_response_times(self, client: TestClient):
         """Test API response times"""
         import time
 
-        endpoints = [
-            "/health",
-            "/ready",
-            "/live",
-            "/metrics"
-        ]
+        endpoints = ["/health", "/ready", "/live", "/metrics"]
 
         for endpoint in endpoints:
             start_time = time.time()

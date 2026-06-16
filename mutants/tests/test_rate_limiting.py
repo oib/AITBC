@@ -5,9 +5,6 @@ Tests for rate limiting utilities
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from fastapi import HTTPException, Request
-from starlette.responses import Response
-
 from aitbc.rate_limiting import (
     RateLimitMiddleware,
     get_rate_limit_headers,
@@ -15,6 +12,8 @@ from aitbc.rate_limiting import (
     rate_limit,
     reset_rate_limit,
 )
+from fastapi import HTTPException, Request
+from starlette.responses import Response
 
 
 class TestGetRateLimiter:
