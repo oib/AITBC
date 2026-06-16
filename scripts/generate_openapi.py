@@ -14,7 +14,7 @@ REPO_ROOT = Path("/opt/aitbc")
 sys.path.insert(0, str(REPO_ROOT))
 
 # Import constants
-from aitbc.constants import (  # noqa: E402
+from aitbc import (  # noqa: E402
     COORDINATOR_API_PORT,
     HERMES_PORT,
     MARKETPLACE_PORT,

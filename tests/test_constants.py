@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from aitbc.constants import (
+from aitbc import (
     AGENT_COORDINATOR_PORT,
     BLOCKCHAIN_DATA_DIR,
     BLOCKCHAIN_P2P_PORT,

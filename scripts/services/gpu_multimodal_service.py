@@ -6,6 +6,7 @@ Simple FastAPI service for AITBC GPU Multimodal (Port 8203)
 import os
 import sys
 
+sys.path.insert(0, "/opt/aitbc")
 sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
 
 import uvicorn
