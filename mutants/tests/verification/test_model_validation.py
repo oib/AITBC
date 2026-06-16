@@ -5,9 +5,8 @@ Test the BlockImportRequest model
 
 from typing import Any
 
-from pydantic import BaseModel, Field
-
 from aitbc import validate_address, validate_hash
+from pydantic import BaseModel, Field
 
 
 class TransactionData(BaseModel):

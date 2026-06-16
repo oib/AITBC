@@ -5,17 +5,13 @@ Provides WebSocket endpoints for real-time agent messaging and presence tracking
 
 from typing import Any
 
-from fastapi import APIRouter, Query, WebSocket
-
 from aitbc import get_logger
+from fastapi import APIRouter, Query, WebSocket
 
 from ..websocket import AgentStreamHandler, get_connection_manager
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/agent", tags=["websocket"])
-
-
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
 
 
 @router.websocket("/messages/stream")

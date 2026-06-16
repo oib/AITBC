@@ -4,7 +4,6 @@ Tests for AITBC API versioning utilities
 """
 
 import pytest
-
 from aitbc.api_versioning import APIVersion, DeprecatedAPIError, api_version
 
 

@@ -8,7 +8,6 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
-
 from aitbc.database import (
     DatabaseConnection,
     QueryMetrics,

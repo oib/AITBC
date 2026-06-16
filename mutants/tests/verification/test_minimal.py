@@ -6,7 +6,6 @@ Minimal test to debug transaction import
 import hashlib
 
 import requests
-
 from aitbc import AITBCHTTPClient
 
 BASE_URL = "https://hub.aitbc.bubuit.net/rpc"
