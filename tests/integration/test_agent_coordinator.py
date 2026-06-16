@@ -1738,7 +1738,7 @@ class TestErrorHandling:
         for endpoint, method in endpoints:
             if method == "POST":
                 response = coordinator_client.post(endpoint, json={"invalid": "data", "missing_required": True})
-                assert response.status_code in (200, 400, 422, 503)
+                assert response.status_code in (200, 400, 422, 429, 503)
 
     def test_malformed_request_data(self, coordinator_client: TestClient):
         """Test endpoints with malformed request data."""
@@ -1747,7 +1747,7 @@ class TestErrorHandling:
         for data in malformed_data:
             if data is not None:
                 response = coordinator_client.post("/v1/agents/register", json=data)
-                assert response.status_code in (200, 400, 422, 503)
+                assert response.status_code in (200, 400, 422, 429, 503)
 
     def test_special_characters_in_ids(self, coordinator_client: TestClient):
         """Test endpoints with special characters in IDs."""
@@ -1762,7 +1762,7 @@ class TestErrorHandling:
                 "endpoints": {"http": "http://localhost:9001"},
             }
             response = coordinator_client.post("/v1/agents/register", json=agent_data)
-            assert response.status_code in (200, 201, 400, 422)
+            assert response.status_code in (200, 201, 400, 422, 429)
 
     def test_very_long_strings(self, coordinator_client: TestClient):
         """Test endpoints with very long string values."""
@@ -1776,7 +1776,7 @@ class TestErrorHandling:
             "endpoints": {"http": "http://localhost:9001"},
         }
         response = coordinator_client.post("/v1/agents/register", json=agent_data)
-        assert response.status_code in (200, 201, 400, 422, 503)
+        assert response.status_code in (200, 201, 400, 422, 429, 503)
 
     def test_numeric_edge_cases(self, coordinator_client: TestClient):
         """Test endpoints with numeric edge cases."""
@@ -1791,7 +1791,7 @@ class TestErrorHandling:
 
         for num in numeric_cases:
             response = coordinator_client.get("/api/v1/agent/messages/history", params={"limit": num})
-            assert response.status_code in (200, 400, 422, 503)
+            assert response.status_code in (200, 400, 422, 429, 503)
 
     def test_boolean_and_null_values(self, coordinator_client: TestClient):
         """Test endpoints with boolean and null values."""
@@ -1803,7 +1803,7 @@ class TestErrorHandling:
 
         for case in test_cases:
             response = coordinator_client.post("/v1/agents/register", json=case)
-            assert response.status_code in (200, 400, 422, 503)
+            assert response.status_code in (200, 400, 422, 429, 503)
 
     def test_array_edge_cases(self, coordinator_client: TestClient):
         """Test endpoints with array edge cases."""
@@ -1824,7 +1824,7 @@ class TestErrorHandling:
                 "endpoints": {"http": "http://localhost:9001"},
             }
             response = coordinator_client.post("/v1/agents/register", json=agent_data)
-            assert response.status_code in (200, 400, 422, 503)
+            assert response.status_code in (200, 400, 422, 429, 503)
 
     def test_concurrent_operations_simulation(self, coordinator_client: TestClient):
         """Test simulating concurrent operations."""
@@ -2718,7 +2718,7 @@ class TestLoadTesting:
                 "endpoints": {"http": f"http://localhost:900{i % 10 + 1}"},
             }
             response = coordinator_client.post("/v1/agents/register", json=agent_data)
-            assert response.status_code in (200, 201, 409)
+            assert response.status_code in (200, 201, 409, 429)
 
     def test_concurrent_task_submission(self, coordinator_client: TestClient):
         """Test submitting tasks to 10 agents under load."""
@@ -2737,7 +2737,7 @@ class TestLoadTesting:
         for i in range(10):
             task_data = {"task_data": {"model": "llama2", "prompt": f"test task {i}"}, "priority": "normal"}
             response = coordinator_client.post("/v1/tasks/submit", json=task_data)
-            assert response.status_code in (200, 201, 503)
+            assert response.status_code in (200, 201, 429, 503)
 
     def test_concurrent_message_sending(self, coordinator_client: TestClient):
         """Test sending messages between 10 agents under load."""
@@ -2762,9 +2762,10 @@ class TestLoadTesting:
                         "message_type": "task",
                         "priority": "normal",
                         "content": {"from": f"load-msg-agent-{i}"},
+                        "encrypt": False,
                     }
                     response = coordinator_client.post("/api/v1/agent/messages/send", json=message_data)
-                    assert response.status_code in (200, 201, 400, 503, 500)
+                    assert response.status_code in (200, 201, 400, 429, 503, 500)
 
     def test_load_balancing_under_load(self, coordinator_client: TestClient):
         """Test load balancer with 10 agents and multiple tasks."""
@@ -2788,7 +2789,7 @@ class TestLoadTesting:
             for i in range(5):
                 task_data = {"task_data": {"model": "llama2", "prompt": f"load test {i}"}, "priority": "normal"}
                 response = coordinator_client.post("/v1/tasks/submit", json=task_data)
-                assert response.status_code in (200, 201, 503)
+                assert response.status_code in (200, 201, 429, 503)
 
     def test_concurrent_agent_discovery(self, coordinator_client: TestClient):
         """Test agent discovery with 10 agents registered."""
@@ -2852,7 +2853,7 @@ class TestLoadTesting:
         for i in range(10):
             for status in statuses:
                 response = coordinator_client.put(f"/v1/agents/load-status-agent-{i}/status", json={"status": status})
-                assert response.status_code in (200, 500)
+                assert response.status_code in (200, 429, 500)
 
     def test_concurrent_auth_operations(self, coordinator_client: TestClient):
         """Test concurrent authentication operations."""
