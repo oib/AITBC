@@ -6,6 +6,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from .config import settings
 from .consensus import PoAProposer, ProposerConfig
 from .database import init_db, session_scope
@@ -341,7 +343,7 @@ class BlockchainNode:
             asyncio.create_task(proposer.start())
 
     async def _periodic_sync_task(self, subscription_client: SubscriptionClient | None = None) -> None:
-        """Periodic pull sync task for follower nodes. Skips pull when WebSocket push is active."""
+        """Periodic pull sync task for follower nodes. Skips pull when WebSocket push is active, but forces pull if gap grows."""
         chains = self._supported_chains()
         sync_interval = settings.periodic_sync_interval
         source_url = settings.default_peer_rpc_url or settings.genesis_node  # type: ignore[attr-defined]
@@ -351,10 +353,49 @@ class BlockchainNode:
         logger.info("Starting periodic sync task (interval=%ss, source=%s)", sync_interval, source_url)
         while not self._stop_event.is_set():
             try:
+                # Check if we should force pull sync (gap threshold exceeded)
+                force_pull = False
                 if subscription_client and subscription_client.get_sync_mode() == "push":
-                    logger.debug("Skipping periodic pull: WebSocket push is active")
-                else:
-                    logger.info("Sync mode: pull (periodic, WebSocket push unavailable)")
+                    # Check if we're actually receiving blocks by comparing heights
+                    for chain_id in chains:
+                        try:
+
+                            def session_factory_for_check(cid: str = chain_id) -> Any:
+                                return session_scope(cid)
+
+                            sync = ChainSync(session_factory=session_factory_for_check, chain_id=chain_id)
+                            local_status = sync.get_sync_status()
+                            local_height = local_status.get("head_height", 0)
+
+                            # Get remote height via HTTP
+                            async with httpx.AsyncClient(timeout=10.0) as client:
+                                response = await client.get(f"{source_url}/rpc/height")
+                                response.raise_for_status()
+                                remote_data = response.json()
+                                remote_height = remote_data.get("height", 0)
+
+                            gap = remote_height - local_height
+                            if gap > 10:  # Force pull if gap exceeds 10 blocks
+                                logger.warning(
+                                    "Block gap too large (%s blocks), forcing pull sync despite push mode",
+                                    gap,
+                                    extra={"chain_id": chain_id, "local_height": local_height, "remote_height": remote_height},
+                                )
+                                force_pull = True
+                                break
+                        except Exception as e:
+                            logger.warning("Failed to check block gap, forcing pull sync: %s", e)
+                            force_pull = True
+                            break
+
+                if force_pull or not subscription_client or subscription_client.get_sync_mode() != "push":
+                    logger.info(
+                        "Sync mode: pull (periodic)",
+                        extra={
+                            "force_pull": force_pull,
+                            "sync_mode": subscription_client.get_sync_mode() if subscription_client else "no_client",
+                        },
+                    )
                     for chain_id in chains:
                         try:
 
@@ -364,11 +405,23 @@ class BlockchainNode:
                             sync = ChainSync(session_factory=session_factory_for_periodic, chain_id=chain_id)
                             imported = await sync.bulk_import_from(source_url)
                             if imported > 0:
-                                logger.info("Periodic sync imported %s blocks for chain %s", imported, chain_id)
+                                logger.info(
+                                    "Periodic sync imported %s blocks for chain %s",
+                                    imported,
+                                    chain_id,
+                                    extra={"chain_id": chain_id, "imported": imported},
+                                )
                         except Exception as e:
-                            logger.error("Periodic sync failed for chain %s: %s", chain_id, e)
+                            logger.error(
+                                "Periodic sync failed for chain %s",
+                                chain_id,
+                                extra={"chain_id": chain_id, "error": str(e)},
+                                exc_info=True,
+                            )
+                else:
+                    logger.debug("Skipping periodic pull: WebSocket push is active and gap is acceptable")
             except Exception as e:
-                logger.error("Periodic sync task error: %s", e)
+                logger.error("Periodic sync task error", extra={"error": str(e)}, exc_info=True)
             try:
                 await asyncio.wait_for(self._stop_event.wait(), timeout=sync_interval)
                 break

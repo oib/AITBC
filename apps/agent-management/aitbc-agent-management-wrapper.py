@@ -1,43 +1,46 @@
 #!/usr/bin/env python3
 """
-Wrapper script for aitbc-agent-management service
+Wrapper script for {service_name} service
 Uses centralized aitbc utilities for path configuration
 """
 
 import os
+from pathlib import Path
+from aitbc import DATA_DIR, ENV_FILE, LOG_DIR, NODE_ENV_FILE, REPO_DIR, KEYSTORE_DIR
 
-from aitbc.constants import DATA_DIR, LOG_DIR, REPO_DIR
+# Set up environment using aitbc constants
+os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)
+os.environ["AITBC_NODE_ENV_FILE"] = str(NODE_ENV_FILE)
+os.environ["PYTHONPATH"] = "{PYTHONPATH}"
+os.environ["DATA_DIR"] = str(DATA_DIR)
+os.environ["LOG_DIR"] = str(LOG_DIR)
 
-# Set up environment
-os.environ["PYTHONPATH"] = f"{REPO_DIR}:{REPO_DIR}/apps/agent-management/src:{REPO_DIR}/apps/coordinator-api/src"
-os.environ["DATA_DIR"] = str(DATA_DIR / "agent-management")
-os.environ["LOG_DIR"] = str(LOG_DIR / "agent-management")
+{wallet_env_code}
 
-# Create required directories
-from aitbc.utils.paths import ensure_dir
+{load_node_env_code}
 
-ensure_dir(DATA_DIR / "agent-management")
-ensure_dir(LOG_DIR / "agent-management")
+{db_path_code}
 
 log_level = os.getenv("LOG_LEVEL", "info").lower()
 access_log = os.getenv("ACCESS_LOG", "true").lower() in ("1", "true", "yes")
 
-# Agent Management bind configuration
-# Use AGENT_MANAGEMENT_BIND_HOST for bind address (default: 127.0.0.1)
-# Use AGENT_MANAGEMENT_PORT for port (default: 8012)
-bind_host = os.getenv("AGENT_MANAGEMENT_BIND_HOST", "127.0.0.1")
-bind_port = os.getenv("AGENT_MANAGEMENT_PORT", "8012")
+# {service_name} bind configuration
+# Use {bind_host_env} for bind address (default: {bind_host_default})
+# Use {port_env} for port (default: {port_default})
+bind_host = os.getenv("{bind_host_env}", "{bind_host_default}")
+bind_port = os.getenv("{port_env}", "{port_default}")
 
 # Execute the actual service
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
     "-m",
     "uvicorn",
-    "app.main:app",
+    "{module}",
     "--host",
     bind_host,
     "--port",
     bind_port,
+{workers_code}{extra_uvicorn_code}
     "--log-level",
     log_level,
 ]
