@@ -366,6 +366,15 @@ class ChainSync:
                 result = self.import_block(block_data, skip_state_root_validation=True)
                 if result.accepted:
                     imported += 1
+                    logger.info(
+                        "Block imported via pull sync",
+                        extra={
+                            "height": block_data.get("height"),
+                            "hash": block_data.get("hash"),
+                            "sync_mode": "pull",
+                            "progress": f"{imported}/{gap_size}",
+                        },
+                    )
                 else:
                     logger.warning(
                         "Block import failed during bulk at height %s: %s",
