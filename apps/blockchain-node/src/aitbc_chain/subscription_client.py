@@ -170,13 +170,26 @@ class SubscriptionClient:
                 now = time.time()
                 time_until_expiry = self._lease_expiry - now
                 if self._lease_expiry > 0:
+                    local_height = -1
+                    try:
+                        from .database import session_scope
+                        from .sync import ChainSync
+
+                        chain_id = self._chain_id
+                        sync = ChainSync(
+                            session_factory=lambda cid=chain_id: session_scope(cid),  # type: ignore[arg-type, return-value]
+                            chain_id=chain_id,
+                        )
+                        local_height = sync.get_sync_status().get("head_height", -1)
+                    except Exception as e:
+                        logger.debug("Failed to get local height for heartbeat: %s", e)
                     logger.info(
                         "Lease status",
                         extra={
                             "node_id": self._node_id,
-                            "lease_remaining_seconds": time_until_expiry,
+                            "local_height": local_height,
                             "sync_mode": self._sync_mode,
-                            "hub_url": self._hub_url,
+                            "lease_remaining_seconds": int(time_until_expiry),
                         },
                     )
                     metrics_registry.set_gauge("lease_remaining_seconds", time_until_expiry)
