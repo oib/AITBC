@@ -10,7 +10,7 @@ if [ -f "/etc/aitbc/.env.scenario" ]; then
     source /etc/aitbc/.env.scenario
     echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
-    # Fallback to defaults
+    # Fallback to defaults (ports match aitbc.constants: BLOCKCHAIN_RPC_PORT=8202)
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
     export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
