@@ -26,10 +26,10 @@ repos:
     hooks:
       - id: ruff
         args: [--fix, --unsafe-fixes, --exit-non-zero-on-fix]
-        exclude: cli/templates/.*|tests/cli/.*
+        exclude: cli/templates/.*|tests/cli/.*|mutants/.*
         stages: [pre-commit]
       - id: ruff-format
-        exclude: cli/templates/.*|tests/cli/.*
+        exclude: cli/templates/.*|tests/cli/.*|mutants/.*
         stages: [pre-commit]
 
   # MyPy type checking on the 12 clean apps
