@@ -8,9 +8,10 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/agent-management/src
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-management/aitbc-agent-registry-wrapper.py
+ExecStart=/opt/aitbc/venv/bin/python -m app.main
 Restart=always
 RestartSec=5
 StandardOutput=journal

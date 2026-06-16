@@ -7,7 +7,7 @@ import os
 from unittest.mock import Mock
 
 import pytest
-from aitbc.constants import DATA_DIR, LOG_DIR
+from aitbc import DATA_DIR, LOG_DIR
 from aitbc.testing import MockCache, MockDatabase, MockFactory, TestDataGenerator
 
 

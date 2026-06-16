@@ -131,11 +131,7 @@ class BlockchainNode:
 
     async def _ensure_genesis_for_chains(self) -> None:
         for chain_id in self._supported_chains():
-
-            def session_factory_for_chain(cid: str) -> Any:
-                return session_scope(cid)
-
-            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=session_factory_for_chain)  # type: ignore[arg-type]
+            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=lambda: session_scope(chain_id))  # type: ignore[arg-type]
             await proposer._ensure_genesis_block()
 
     async def _setup_gossip_subscribers(self) -> None:
@@ -190,10 +186,7 @@ class BlockchainNode:
                             logger.info("Received block from gossip for chain %s", chain_id_param)
                             logger.info("Importing block for chain %s: %s", chain_id_param, block_data.get("height"))
 
-                            def session_factory_for_sync(cid: str) -> Any:
-                                return session_scope(cid)
-
-                            sync = ChainSync(session_factory=session_factory_for_sync, chain_id=chain_id_param)  # type: ignore[arg-type]
+                            sync = ChainSync(session_factory=lambda: session_scope(chain_id_param), chain_id=chain_id_param)  # type: ignore[arg-type]
                             res = sync.import_block(block_data, transactions=block_data.get("transactions"))
                             logger.info("Import result: accepted=%s, reason=%s", res.accepted, res.reason)
                             if not res.accepted and "Gap detected" in res.reason and settings.auto_sync_enabled:
@@ -335,10 +328,7 @@ class BlockchainNode:
             if chain_id in self._proposers:
                 continue
 
-            def session_factory_for_proposer(cid: str) -> Any:
-                return session_scope(cid)
-
-            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=session_factory_for_proposer)  # type: ignore[arg-type]
+            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=lambda: session_scope(chain_id))  # type: ignore[arg-type]
             self._proposers[chain_id] = proposer
             asyncio.create_task(proposer.start())
 
@@ -359,11 +349,7 @@ class BlockchainNode:
                     # Check if we're actually receiving blocks by comparing heights
                     for chain_id in chains:
                         try:
-
-                            def session_factory_for_check(cid: str = chain_id) -> Any:
-                                return session_scope(cid)
-
-                            sync = ChainSync(session_factory=session_factory_for_check, chain_id=chain_id)
+                            sync = ChainSync(session_factory=lambda: session_scope(chain_id), chain_id=chain_id)
                             local_status = sync.get_sync_status()
                             local_height = local_status.get("head_height", 0)
 
@@ -398,11 +384,7 @@ class BlockchainNode:
                     )
                     for chain_id in chains:
                         try:
-
-                            def session_factory_for_periodic(cid: str = chain_id) -> Any:
-                                return session_scope(cid)
-
-                            sync = ChainSync(session_factory=session_factory_for_periodic, chain_id=chain_id)
+                            sync = ChainSync(session_factory=lambda: session_scope(chain_id), chain_id=chain_id)
                             imported = await sync.bulk_import_from(source_url)
                             if imported > 0:
                                 logger.info(

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException
@@ -18,12 +19,31 @@ from .storage import CoinRequest, CoinRequestStatus, get_db_session, init_db  # 
 
 configure_logging(level="INFO")
 logger = get_logger(__name__)
-app = FastAPI(title="AITBC Hermes Service", description="Agent orchestration and edge computing service", version="1.0.0")
+
 COORDINATOR_URL = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8011")
 HERMES_AGENT_ID = os.getenv("HERMES_AGENT_ID", "hermes-agent")
-handler_registry = HandlerRegistry(COORDINATOR_URL, HERMES_AGENT_ID)
-handler_registry.load_all_handlers()
-init_db()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup/shutdown events."""
+    # Startup
+    handler_registry = HandlerRegistry(COORDINATOR_URL, HERMES_AGENT_ID)
+    handler_registry.load_all_handlers()
+    init_db()
+    asyncio.create_task(expire_old_requests())
+    logger.info("Hermes service started")
+    yield
+    # Shutdown
+    logger.info("Hermes service stopped")
+
+
+app = FastAPI(
+    title="AITBC Hermes Service",
+    description="Agent orchestration and edge computing service",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
 
 async def expire_old_requests() -> None:
@@ -31,7 +51,7 @@ async def expire_old_requests() -> None:
     while True:
         try:
             with get_db_session() as session:
-                cutoff = datetime.utcnow() - timedelta(days=30)
+                cutoff = datetime.now(UTC) - timedelta(days=30)
                 expired_requests = (
                     session.query(CoinRequest)
                     .filter(CoinRequest.status == CoinRequestStatus.PENDING, CoinRequest.expires_at < cutoff)
@@ -39,19 +59,13 @@ async def expire_old_requests() -> None:
                 )
                 for req in expired_requests:
                     req.status = CoinRequestStatus.EXPIRED
-                    req.audit_log += f" | Auto-expired at {datetime.utcnow().isoformat()}"
+                    req.audit_log += f" | Auto-expired at {datetime.now(UTC).isoformat()}"
                     logger.info("Expired request %s from %s", req.id, req.sender)
                 if expired_requests:
                     logger.info("Expired %s old coin requests", len(expired_requests))
         except Exception as e:
             logger.error("Error expiring old requests: %s", e)
         await asyncio.sleep(3600)
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Start background tasks on startup."""
-    asyncio.create_task(expire_old_requests())
 
 
 def _check_db() -> bool:

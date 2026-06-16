@@ -7,8 +7,7 @@ import random
 import sqlite3
 from datetime import UTC, datetime, timedelta
 
-from aitbc import get_logger
-from aitbc.constants import DATA_DIR
+from aitbc import DATA_DIR, get_logger
 
 logger = get_logger(__name__)
 

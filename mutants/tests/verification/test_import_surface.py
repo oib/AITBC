@@ -8,7 +8,7 @@ import aitbc
 import aitbc_agent
 import aitbc_sdk
 from aitbc.aitbc_logging import get_logger as direct_get_logger
-from aitbc.constants import (
+from aitbc import (
     BLOCKCHAIN_RPC_PORT,
     DATA_DIR,
     ENV_FILE,

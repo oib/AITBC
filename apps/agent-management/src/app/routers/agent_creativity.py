@@ -11,18 +11,19 @@ from sqlmodel import Session, select
 
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
-from app.domain.agent_performance import CreativeCapability  # type: ignore[import-not-found]
+# from app.domain.agent_performance import CreativeCapability  # type: ignore[import-not-found]
 
-from ..services.creative_capabilities_service import (  # type: ignore[import-not-found]
-    CreativityEnhancementEngine,
-    CrossDomainCreativeIntegrator,
-    IdeationAlgorithm,
-)
-from ..storage import get_session
+# from ..services.creative_capabilities_service import (  # type: ignore[import-not-found]
+#     CreativityEnhancementEngine,
+#     CrossDomainCreativeIntegrator,
+#     IdeationAlgorithm,
+# )
+# from ..storage import get_session
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/v1/agent-creativity", tags=["agent-creativity"])
+# Temporarily disabled due to missing dependencies
+# router = APIRouter(prefix="/v1/agent-creativity", tags=["agent-creativity"])
 
 
 class CreativeCapabilityCreate(BaseModel):
