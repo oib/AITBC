@@ -4,9 +4,6 @@ Tests ensure that cryptographic operations maintain expected properties across r
 """
 
 import pytest
-from hypothesis import given, settings
-from hypothesis import strategies as st
-
 from aitbc.crypto.crypto import (
     decrypt_private_key,
     derive_ethereum_address,
@@ -19,6 +16,8 @@ from aitbc.crypto.crypto import (
     validate_ethereum_address,
     verify_signature,
 )
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 
 class TestCryptoProperties:

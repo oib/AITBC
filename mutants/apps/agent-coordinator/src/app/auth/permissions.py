@@ -12,7 +12,8 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 
 
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
+from mutmut.mutation.trampoline import MutantDict
+from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated
 
 
 class Permission(Enum):
@@ -84,6 +85,8 @@ class RolePermission:
     role: Role
     permissions: set[Permission]
     description: str
+
+
 mutants_xǁPermissionManagerǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁPermissionManagerǁassign_role__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁPermissionManagerǁget_user_role__mutmut: MutantDict = {}  # type: ignore
@@ -385,7 +388,9 @@ class PermissionManager:
         """Assign role to user"""
         try:
             self.user_roles[user_id] = role
-            self.user_permissions[user_id] = self.role_permissions.get(role, )
+            self.user_permissions[user_id] = self.role_permissions.get(
+                role,
+            )
             return {
                 "status": "success",
                 "user_id": user_id,
@@ -603,7 +608,9 @@ class PermissionManager:
                 "permissions": [perm.value for perm in self.user_permissions[user_id]],
             }
         except Exception as e:
-            logger.error("Error assigning role: %s", )
+            logger.error(
+                "Error assigning role: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     def xǁPermissionManagerǁassign_role__mutmut_21(self, user_id: str, role: Role) -> dict[str, Any]:
@@ -1040,7 +1047,9 @@ class PermissionManager:
                 return {"status": "error", "message": "User role not found"}
             return {"status": "success", "user_id": user_id, "role": role.value}
         except Exception as e:
-            logger.error("Error getting user role: %s", )
+            logger.error(
+                "Error getting user role: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     def xǁPermissionManagerǁget_user_role__mutmut_25(self, user_id: str) -> dict[str, Any]:
@@ -1265,7 +1274,9 @@ class PermissionManager:
     def xǁPermissionManagerǁget_user_permissions__mutmut_5(self, user_id: str) -> dict[str, Any]:
         """Get user's permissions"""
         try:
-            role_perms = self.user_permissions.get(user_id, )
+            role_perms = self.user_permissions.get(
+                user_id,
+            )
             custom_perms = self.custom_permissions.get(user_id, set())
             all_permissions = role_perms.union(custom_perms)
             return {
@@ -1356,7 +1367,9 @@ class PermissionManager:
         """Get user's permissions"""
         try:
             role_perms = self.user_permissions.get(user_id, set())
-            custom_perms = self.custom_permissions.get(user_id, )
+            custom_perms = self.custom_permissions.get(
+                user_id,
+            )
             all_permissions = role_perms.union(custom_perms)
             return {
                 "status": "success",
@@ -1727,7 +1740,9 @@ class PermissionManager:
                 "total_permissions": len(all_permissions),
             }
         except Exception as e:
-            logger.error("Error getting user permissions: %s", )
+            logger.error(
+                "Error getting user permissions: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     def xǁPermissionManagerǁget_user_permissions__mutmut_31(self, user_id: str) -> dict[str, Any]:
@@ -1974,7 +1989,9 @@ class PermissionManager:
     def xǁPermissionManagerǁhas_permission__mutmut_5(self, user_id: str, permission: Permission) -> bool:
         """Check if user has specific permission"""
         try:
-            user_perms = self.user_permissions.get(user_id, )
+            user_perms = self.user_permissions.get(
+                user_id,
+            )
             custom_perms = self.custom_permissions.get(user_id, set())
             return permission in user_perms or permission in custom_perms
         except Exception as e:
@@ -2025,7 +2042,9 @@ class PermissionManager:
         """Check if user has specific permission"""
         try:
             user_perms = self.user_permissions.get(user_id, set())
-            custom_perms = self.custom_permissions.get(user_id, )
+            custom_perms = self.custom_permissions.get(
+                user_id,
+            )
             return permission in user_perms or permission in custom_perms
         except Exception as e:
             logger.error("Error checking permission: %s", e)
@@ -2077,7 +2096,7 @@ class PermissionManager:
             user_perms = self.user_permissions.get(user_id, set())
             custom_perms = self.custom_permissions.get(user_id, set())
             return permission in user_perms or permission in custom_perms
-        except Exception as e:
+        except Exception:
             logger.error("Error checking permission: %s", None)
             return False
 
@@ -2097,8 +2116,10 @@ class PermissionManager:
             user_perms = self.user_permissions.get(user_id, set())
             custom_perms = self.custom_permissions.get(user_id, set())
             return permission in user_perms or permission in custom_perms
-        except Exception as e:
-            logger.error("Error checking permission: %s", )
+        except Exception:
+            logger.error(
+                "Error checking permission: %s",
+            )
             return False
 
     def xǁPermissionManagerǁhas_permission__mutmut_18(self, user_id: str, permission: Permission) -> bool:
@@ -2266,7 +2287,9 @@ class PermissionManager:
         try:
             results = {}
             for perm in permissions:
-                results[perm.value] = self.has_permission(user_id, )
+                results[perm.value] = self.has_permission(
+                    user_id,
+                )
             all_granted = all(results.values())
             return {
                 "status": "success",
@@ -2547,7 +2570,9 @@ class PermissionManager:
                 "permission_results": results,
             }
         except Exception as e:
-            logger.error("Error checking permissions: %s", )
+            logger.error(
+                "Error checking permissions: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     def xǁPermissionManagerǁhas_permissions__mutmut_23(self, user_id: str, permissions: list[Permission]) -> dict[str, Any]:
@@ -3022,7 +3047,9 @@ class PermissionManager:
                 "total_custom_permissions": len(self.custom_permissions[user_id]),
             }
         except Exception as e:
-            logger.error("Error granting custom permission: %s", )
+            logger.error(
+                "Error granting custom permission: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     def xǁPermissionManagerǁgrant_custom_permission__mutmut_18(self, user_id: str, permission: Permission) -> dict[str, Any]:
@@ -3203,7 +3230,9 @@ class PermissionManager:
             logger.error("Error revoking custom permission: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁPermissionManagerǁrevoke_custom_permission__mutmut_orig(self, user_id: str, permission: Permission) -> dict[str, Any]:
+    def xǁPermissionManagerǁrevoke_custom_permission__mutmut_orig(
+        self, user_id: str, permission: Permission
+    ) -> dict[str, Any]:
         """Revoke custom permission from user"""
         try:
             if user_id in self.custom_permissions:
@@ -3642,7 +3671,9 @@ class PermissionManager:
             else:
                 return {"status": "error", "message": "No custom permissions found for user"}
         except Exception as e:
-            logger.error("Error revoking custom permission: %s", )
+            logger.error(
+                "Error revoking custom permission: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     def xǁPermissionManagerǁrevoke_custom_permission__mutmut_26(self, user_id: str, permission: Permission) -> dict[str, Any]:
@@ -3903,7 +3934,9 @@ class PermissionManager:
     def xǁPermissionManagerǁget_role_permissions__mutmut_5(self, role: Role) -> dict[str, Any]:
         """Get all permissions for a role"""
         try:
-            permissions = self.role_permissions.get(role, )
+            permissions = self.role_permissions.get(
+                role,
+            )
             return {
                 "status": "success",
                 "role": role.value,
@@ -4107,7 +4140,9 @@ class PermissionManager:
                 "total_permissions": len(permissions),
             }
         except Exception as e:
-            logger.error("Error getting role permissions: %s", )
+            logger.error(
+                "Error getting role permissions: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     def xǁPermissionManagerǁget_role_permissions__mutmut_20(self, role: Role) -> dict[str, Any]:
@@ -4300,7 +4335,7 @@ class PermissionManager:
         """List all available roles and their permissions"""
         try:
             roles_data = {}
-            for role, permissions in self.role_permissions.items():
+            for role, _permissions in self.role_permissions.items():
                 roles_data[role.value] = None
             return {"status": "success", "total_roles": len(roles_data), "roles": roles_data}
         except Exception as e:
@@ -4589,7 +4624,9 @@ class PermissionManager:
                 }
             return {"status": "success", "total_roles": len(roles_data), "roles": roles_data}
         except Exception as e:
-            logger.error("Error listing roles: %s", )
+            logger.error(
+                "Error listing roles: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     def xǁPermissionManagerǁlist_all_roles__mutmut_22(self) -> dict[str, Any]:
@@ -5034,7 +5071,9 @@ class PermissionManager:
             Role.AGENT: "Agent-specific access for automated operations",
             Role.API_USER: "Limited API access for external integrations",
         }
-        return descriptions.get(role, )
+        return descriptions.get(
+            role,
+        )
 
     def xǁPermissionManagerǁ_get_role_description__mutmut_24(self, role: Role) -> str:
         """Get description for role"""
@@ -5311,7 +5350,7 @@ class PermissionManager:
                 "users_by_role": {},
                 "custom_permission_users": len(self.custom_permissions),
             }
-            for _user_id, role in self.user_roles.items():
+            for _user_id, _role in self.user_roles.items():
                 role_name = None
                 stats["users_by_role"][role_name] = stats["users_by_role"].get(role_name, 0) + 1
             return {"status": "success", "stats": stats}
@@ -5457,7 +5496,12 @@ class PermissionManager:
             }
             for _user_id, role in self.user_roles.items():
                 role_name = role.value
-                stats["users_by_role"][role_name] = stats["users_by_role"].get(role_name, ) + 1
+                stats["users_by_role"][role_name] = (
+                    stats["users_by_role"].get(
+                        role_name,
+                    )
+                    + 1
+                )
             return {"status": "success", "stats": stats}
         except Exception as e:
             logger.error("Error getting permission stats: %s", e)
@@ -5712,7 +5756,9 @@ class PermissionManager:
                 stats["users_by_role"][role_name] = stats["users_by_role"].get(role_name, 0) + 1
             return {"status": "success", "stats": stats}
         except Exception as e:
-            logger.error("Error getting permission stats: %s", )
+            logger.error(
+                "Error getting permission stats: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     def xǁPermissionManagerǁget_permission_stats__mutmut_35(self) -> dict[str, Any]:
@@ -5895,382 +5941,1111 @@ class PermissionManager:
             logger.error("Error getting permission stats: %s", e)
             return {"status": "error", "message": str(None)}
 
-mutants_xǁPermissionManagerǁ__init____mutmut['_mutmut_orig'] = PermissionManager.xǁPermissionManagerǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ__init____mutmut['xǁPermissionManagerǁ__init____mutmut_1'] = PermissionManager.xǁPermissionManagerǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ__init____mutmut['xǁPermissionManagerǁ__init____mutmut_2'] = PermissionManager.xǁPermissionManagerǁ__init____mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ__init____mutmut['xǁPermissionManagerǁ__init____mutmut_3'] = PermissionManager.xǁPermissionManagerǁ__init____mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ__init____mutmut['xǁPermissionManagerǁ__init____mutmut_4'] = PermissionManager.xǁPermissionManagerǁ__init____mutmut_4 # type: ignore # mutmut generated
 
-mutants_xǁPermissionManagerǁassign_role__mutmut['_mutmut_orig'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_1'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_2'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_3'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_4'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_5'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_6'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_7'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_8'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_9'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_10'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_11'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_12'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_13'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_14'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_15'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_16'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_17'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_18'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_19'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_20'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_21'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_22'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_23'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_24'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_25'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_26'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_27'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_28'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_29'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁassign_role__mutmut['xǁPermissionManagerǁassign_role__mutmut_30'] = PermissionManager.xǁPermissionManagerǁassign_role__mutmut_30 # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ__init____mutmut["_mutmut_orig"] = PermissionManager.xǁPermissionManagerǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ__init____mutmut["xǁPermissionManagerǁ__init____mutmut_1"] = (
+    PermissionManager.xǁPermissionManagerǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ__init____mutmut["xǁPermissionManagerǁ__init____mutmut_2"] = (
+    PermissionManager.xǁPermissionManagerǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ__init____mutmut["xǁPermissionManagerǁ__init____mutmut_3"] = (
+    PermissionManager.xǁPermissionManagerǁ__init____mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ__init____mutmut["xǁPermissionManagerǁ__init____mutmut_4"] = (
+    PermissionManager.xǁPermissionManagerǁ__init____mutmut_4
+)  # type: ignore # mutmut generated
 
-mutants_xǁPermissionManagerǁget_user_role__mutmut['_mutmut_orig'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_1'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_2'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_3'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_4'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_5'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_6'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_7'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_8'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_9'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_10'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_11'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_12'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_13'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_14'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_15'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_16'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_17'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_18'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_19'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_20'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_21'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_22'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_23'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_24'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_25'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_26'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_27'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_28'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_29'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_30'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_31'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_32'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_33'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_role__mutmut['xǁPermissionManagerǁget_user_role__mutmut_34'] = PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_34 # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["_mutmut_orig"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_1"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_2"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_3"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_4"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_5"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_6"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_7"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_8"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_9"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_10"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_11"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_12"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_13"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_14"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_15"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_16"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_17"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_18"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_19"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_20"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_21"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_22"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_23"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_24"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_25"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_26"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_27"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_28"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_29"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁassign_role__mutmut["xǁPermissionManagerǁassign_role__mutmut_30"] = (
+    PermissionManager.xǁPermissionManagerǁassign_role__mutmut_30
+)  # type: ignore # mutmut generated
 
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['_mutmut_orig'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_1'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_2'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_3'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_4'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_5'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_6'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_7'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_8'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_9'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_10'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_11'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_12'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_13'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_14'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_15'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_16'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_17'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_18'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_19'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_20'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_21'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_22'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_23'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_24'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_25'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_26'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_27'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_28'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_29'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_30'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_31'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_32'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_33'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_34'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_35'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_36'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_37'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_38'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_39'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_user_permissions__mutmut['xǁPermissionManagerǁget_user_permissions__mutmut_40'] = PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_40 # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["_mutmut_orig"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_1"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_2"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_3"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_4"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_5"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_6"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_7"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_8"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_9"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_10"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_11"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_12"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_13"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_14"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_15"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_16"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_17"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_18"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_19"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_20"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_21"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_22"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_23"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_24"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_25"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_26"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_27"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_28"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_29"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_30"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_31"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_32"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_33"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_role__mutmut["xǁPermissionManagerǁget_user_role__mutmut_34"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_role__mutmut_34
+)  # type: ignore # mutmut generated
 
-mutants_xǁPermissionManagerǁhas_permission__mutmut['_mutmut_orig'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_1'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_2'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_3'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_4'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_5'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_6'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_7'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_8'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_9'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_10'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_11'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_12'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_13'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_14'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_15'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_16'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_17'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_18'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_19'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_20'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permission__mutmut['xǁPermissionManagerǁhas_permission__mutmut_21'] = PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_21 # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["_mutmut_orig"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_1"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_2"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_3"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_4"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_5"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_6"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_7"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_8"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_9"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_10"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_11"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_12"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_13"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_14"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_15"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_16"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_17"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_18"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_19"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_20"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_21"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_22"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_23"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_24"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_25"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_26"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_27"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_28"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_29"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_30"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_31"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_32"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_33"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_34"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_35"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_36"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_37"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_38"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_39"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_user_permissions__mutmut["xǁPermissionManagerǁget_user_permissions__mutmut_40"] = (
+    PermissionManager.xǁPermissionManagerǁget_user_permissions__mutmut_40
+)  # type: ignore # mutmut generated
 
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['_mutmut_orig'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_1'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_2'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_3'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_4'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_5'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_6'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_7'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_8'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_9'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_10'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_11'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_12'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_13'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_14'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_15'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_16'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_17'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_18'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_19'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_20'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_21'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_22'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_23'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_24'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_25'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_26'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_27'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_28'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_29'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_30'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_31'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁhas_permissions__mutmut['xǁPermissionManagerǁhas_permissions__mutmut_32'] = PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_32 # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["_mutmut_orig"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_1"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_2"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_3"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_4"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_5"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_6"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_7"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_8"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_9"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_10"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_11"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_12"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_13"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_14"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_15"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_16"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_17"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_18"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_19"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_20"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permission__mutmut["xǁPermissionManagerǁhas_permission__mutmut_21"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permission__mutmut_21
+)  # type: ignore # mutmut generated
 
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['_mutmut_orig'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_1'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_2'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_3'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_4'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_5'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_6'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_7'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_8'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_9'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_10'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_11'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_12'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_13'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_14'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_15'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_16'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_17'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_18'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_19'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_20'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_21'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_22'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_23'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_24'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_25'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_26'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut['xǁPermissionManagerǁgrant_custom_permission__mutmut_27'] = PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_27 # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["_mutmut_orig"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_1"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_2"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_3"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_4"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_5"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_6"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_7"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_8"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_9"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_10"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_11"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_12"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_13"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_14"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_15"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_16"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_17"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_18"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_19"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_20"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_21"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_22"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_23"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_24"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_25"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_26"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_27"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_28"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_29"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_30"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_31"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁhas_permissions__mutmut["xǁPermissionManagerǁhas_permissions__mutmut_32"] = (
+    PermissionManager.xǁPermissionManagerǁhas_permissions__mutmut_32
+)  # type: ignore # mutmut generated
 
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['_mutmut_orig'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_1'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_2'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_3'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_4'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_5'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_6'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_7'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_8'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_9'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_10'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_11'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_12'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_13'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_14'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_15'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_16'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_17'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_18'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_19'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_20'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_21'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_22'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_23'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_24'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_25'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_26'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_27'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_28'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_29'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_30'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_31'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_32'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_33'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_34'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut['xǁPermissionManagerǁrevoke_custom_permission__mutmut_35'] = PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_35 # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["_mutmut_orig"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_1"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_2"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_3"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_4"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_5"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_6"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_7"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_8"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_9"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_10"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_11"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_12"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_13"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_14"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_15"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_16"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_17"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_18"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_19"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_20"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_21"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_22"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_23"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_24"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_25"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_26"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁgrant_custom_permission__mutmut["xǁPermissionManagerǁgrant_custom_permission__mutmut_27"] = (
+    PermissionManager.xǁPermissionManagerǁgrant_custom_permission__mutmut_27
+)  # type: ignore # mutmut generated
 
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['_mutmut_orig'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_1'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_2'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_3'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_4'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_5'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_6'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_7'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_8'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_9'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_10'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_11'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_12'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_13'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_14'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_15'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_16'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_17'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_18'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_19'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_20'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_21'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_22'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_23'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_24'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_25'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_26'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_27'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_28'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_role_permissions__mutmut['xǁPermissionManagerǁget_role_permissions__mutmut_29'] = PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_29 # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["_mutmut_orig"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_1"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_2"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_3"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_4"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_5"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_6"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_7"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_8"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_9"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_10"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_11"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_12"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_13"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_14"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_15"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_16"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_17"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_18"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_19"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_20"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_21"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_22"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_23"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_24"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_25"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_26"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_27"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_28"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_29"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_30"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_31"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_32"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_33"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_34"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁrevoke_custom_permission__mutmut["xǁPermissionManagerǁrevoke_custom_permission__mutmut_35"] = (
+    PermissionManager.xǁPermissionManagerǁrevoke_custom_permission__mutmut_35
+)  # type: ignore # mutmut generated
 
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['_mutmut_orig'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_1'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_2'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_3'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_4'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_5'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_6'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_7'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_8'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_9'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_10'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_11'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_12'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_13'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_14'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_15'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_16'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_17'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_18'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_19'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_20'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_21'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_22'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_23'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_24'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_25'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_26'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_27'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_28'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_29'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_30'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁlist_all_roles__mutmut['xǁPermissionManagerǁlist_all_roles__mutmut_31'] = PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_31 # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["_mutmut_orig"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_1"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_2"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_3"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_4"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_5"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_6"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_7"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_8"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_9"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_10"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_11"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_12"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_13"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_14"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_15"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_16"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_17"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_18"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_19"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_20"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_21"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_22"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_23"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_24"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_25"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_26"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_27"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_28"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_role_permissions__mutmut["xǁPermissionManagerǁget_role_permissions__mutmut_29"] = (
+    PermissionManager.xǁPermissionManagerǁget_role_permissions__mutmut_29
+)  # type: ignore # mutmut generated
 
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['_mutmut_orig'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_1'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_2'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_3'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_4'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_5'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_6'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_7'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_8'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_9'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_10'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_11'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_12'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_13'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_14'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_15'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_16'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_17'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_18'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_19'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_20'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_21'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_22'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_23'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_24'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_25'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁ_get_role_description__mutmut['xǁPermissionManagerǁ_get_role_description__mutmut_26'] = PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_26 # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["_mutmut_orig"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_1"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_2"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_3"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_4"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_5"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_6"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_7"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_8"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_9"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_10"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_11"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_12"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_13"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_14"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_15"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_16"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_17"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_18"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_19"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_20"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_21"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_22"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_23"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_24"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_25"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_26"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_27"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_28"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_29"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_30"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁlist_all_roles__mutmut["xǁPermissionManagerǁlist_all_roles__mutmut_31"] = (
+    PermissionManager.xǁPermissionManagerǁlist_all_roles__mutmut_31
+)  # type: ignore # mutmut generated
 
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['_mutmut_orig'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_1'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_2'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_3'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_4'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_5'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_6'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_7'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_8'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_9'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_10'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_11'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_12'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_13'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_14'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_15'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_16'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_17'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_18'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_19'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_20'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_21'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_22'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_23'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_24'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_25'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_26'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_27'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_28'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_29'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_30'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_31'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_32'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_33'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_34'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_35'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_36'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_37'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_38'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_39'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_40'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_41'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_42'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_43'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁPermissionManagerǁget_permission_stats__mutmut['xǁPermissionManagerǁget_permission_stats__mutmut_44'] = PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_44 # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["_mutmut_orig"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_1"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_2"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_3"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_4"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_5"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_6"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_7"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_8"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_9"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_10"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_11"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_12"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_13"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_14"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_15"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_16"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_17"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_18"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_19"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_20"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_21"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_22"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_23"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_24"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_25"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁ_get_role_description__mutmut["xǁPermissionManagerǁ_get_role_description__mutmut_26"] = (
+    PermissionManager.xǁPermissionManagerǁ_get_role_description__mutmut_26
+)  # type: ignore # mutmut generated
+
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["_mutmut_orig"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_1"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_2"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_3"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_4"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_5"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_6"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_7"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_8"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_9"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_10"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_11"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_12"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_13"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_14"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_15"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_16"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_17"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_18"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_19"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_20"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_21"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_22"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_23"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_24"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_25"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_26"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_27"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_28"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_29"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_30"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_31"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_32"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_33"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_34"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_35"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_36"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_37"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_38"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_39"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_40"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_41"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_42"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_43"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁPermissionManagerǁget_permission_stats__mutmut["xǁPermissionManagerǁget_permission_stats__mutmut_44"] = (
+    PermissionManager.xǁPermissionManagerǁget_permission_stats__mutmut_44
+)  # type: ignore # mutmut generated
 
 
 permission_manager = PermissionManager()

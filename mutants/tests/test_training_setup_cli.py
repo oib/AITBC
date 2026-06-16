@@ -4,7 +4,6 @@ Tests for AITBC training setup CLI utilities
 """
 
 import pytest
-
 from aitbc.training_setup.cli import cli
 
 

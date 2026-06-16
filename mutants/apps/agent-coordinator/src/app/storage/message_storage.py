@@ -11,7 +11,9 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 
 
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
+from mutmut.mutation.trampoline import MutantDict
+from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated
+
 mutants_xǁMessageStorageǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁMessageStorageǁstart__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁMessageStorageǁstop__mutmut: MutantDict = {}  # type: ignore
@@ -73,7 +75,6 @@ class MessageStorage:
 
     async def xǁMessageStorageǁstart__mutmut_1(self) -> None:
         """Connect to Redis"""
-        import redis.asyncio as redis
 
         self.redis = None
         logger.info("Message storage connected to Redis")
@@ -103,7 +104,9 @@ class MessageStorage:
         """Connect to Redis"""
         import redis.asyncio as redis
 
-        self.redis = await redis.from_url(self.redis_url, )
+        self.redis = await redis.from_url(
+            self.redis_url,
+        )
         logger.info("Message storage connected to Redis")
 
     async def xǁMessageStorageǁstart__mutmut_6(self) -> None:
@@ -399,7 +402,9 @@ class MessageStorage:
         """Store a message in Redis"""
         assert self.redis is not None, "Redis not connected"
         try:
-            await self.redis.hset(f"message:{message_id}", )  # type: ignore[arg-type]
+            await self.redis.hset(
+                f"message:{message_id}",
+            )  # type: ignore[arg-type]
             sender_id = message_data.get("sender")
             if sender_id:
                 await self.redis.sadd(f"messages:sender:{sender_id}", message_id)
@@ -594,7 +599,9 @@ class MessageStorage:
             await self.redis.hset(f"message:{message_id}", mapping=message_data)  # type: ignore[arg-type]
             sender_id = message_data.get("sender")
             if sender_id:
-                await self.redis.sadd(f"messages:sender:{sender_id}", )
+                await self.redis.sadd(
+                    f"messages:sender:{sender_id}",
+                )
             receiver_id = message_data.get("recipient")
             if receiver_id:
                 await self.redis.sadd(f"messages:receiver:{receiver_id}", message_id)
@@ -789,7 +796,9 @@ class MessageStorage:
                 await self.redis.sadd(f"messages:sender:{sender_id}", message_id)
             receiver_id = message_data.get("recipient")
             if receiver_id:
-                await self.redis.sadd(f"messages:receiver:{receiver_id}", )
+                await self.redis.sadd(
+                    f"messages:receiver:{receiver_id}",
+                )
             timestamp_str = message_data.get("timestamp", datetime.now(UTC).isoformat())
             try:
                 dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
@@ -910,7 +919,9 @@ class MessageStorage:
             receiver_id = message_data.get("recipient")
             if receiver_id:
                 await self.redis.sadd(f"messages:receiver:{receiver_id}", message_id)
-            timestamp_str = message_data.get("timestamp", )
+            timestamp_str = message_data.get(
+                "timestamp",
+            )
             try:
                 dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
                 timestamp_float = dt.timestamp()
@@ -1128,7 +1139,11 @@ class MessageStorage:
                 await self.redis.sadd(f"messages:receiver:{receiver_id}", message_id)
             timestamp_str = message_data.get("timestamp", datetime.now(UTC).isoformat())
             try:
-                dt = datetime.fromisoformat(timestamp_str.replace("Z", ))
+                dt = datetime.fromisoformat(
+                    timestamp_str.replace(
+                        "Z",
+                    )
+                )
                 timestamp_float = dt.timestamp()
             except Exception:
                 timestamp_float = float(timestamp_str)
@@ -1224,7 +1239,7 @@ class MessageStorage:
                 await self.redis.sadd(f"messages:receiver:{receiver_id}", message_id)
             timestamp_str = message_data.get("timestamp", datetime.now(UTC).isoformat())
             try:
-                dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
                 timestamp_float = None
             except Exception:
                 timestamp_float = float(timestamp_str)
@@ -1321,9 +1336,9 @@ class MessageStorage:
             timestamp_str = message_data.get("timestamp", datetime.now(UTC).isoformat())
             try:
                 dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-                timestamp_float = dt.timestamp()
+                dt.timestamp()
             except Exception:
-                timestamp_float = float(timestamp_str)
+                float(timestamp_str)
             await self.redis.zadd("messages:timestamp", None)
             logger.debug("Stored message %s in Redis", message_id)
             return True
@@ -1369,10 +1384,12 @@ class MessageStorage:
             timestamp_str = message_data.get("timestamp", datetime.now(UTC).isoformat())
             try:
                 dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-                timestamp_float = dt.timestamp()
+                dt.timestamp()
             except Exception:
-                timestamp_float = float(timestamp_str)
-            await self.redis.zadd("messages:timestamp", )
+                float(timestamp_str)
+            await self.redis.zadd(
+                "messages:timestamp",
+            )
             logger.debug("Stored message %s in Redis", message_id)
             return True
         except Exception as e:
@@ -1517,7 +1534,9 @@ class MessageStorage:
             except Exception:
                 timestamp_float = float(timestamp_str)
             await self.redis.zadd("messages:timestamp", {message_id: timestamp_float})
-            logger.debug("Stored message %s in Redis", )
+            logger.debug(
+                "Stored message %s in Redis",
+            )
             return True
         except Exception as e:
             logger.error("Error storing message %s: %s", message_id, e)
@@ -1687,7 +1706,7 @@ class MessageStorage:
             await self.redis.zadd("messages:timestamp", {message_id: timestamp_float})
             logger.debug("Stored message %s in Redis", message_id)
             return True
-        except Exception as e:
+        except Exception:
             logger.error("Error storing message %s: %s", message_id, None)
             return False
 
@@ -1759,8 +1778,11 @@ class MessageStorage:
             await self.redis.zadd("messages:timestamp", {message_id: timestamp_float})
             logger.debug("Stored message %s in Redis", message_id)
             return True
-        except Exception as e:
-            logger.error("Error storing message %s: %s", message_id, )
+        except Exception:
+            logger.error(
+                "Error storing message %s: %s",
+                message_id,
+            )
             return False
 
     async def xǁMessageStorageǁstore_message__mutmut_65(self, message_id: str, message_data: dict[str, Any]) -> bool:
@@ -1955,7 +1977,7 @@ class MessageStorage:
         assert self.redis is not None, "Redis not connected"
         try:
             return await self.redis.zcard("messages:timestamp")
-        except Exception as e:
+        except Exception:
             logger.error("Error getting message count: %s", None)
             return 0
 
@@ -1973,8 +1995,10 @@ class MessageStorage:
         assert self.redis is not None, "Redis not connected"
         try:
             return await self.redis.zcard("messages:timestamp")
-        except Exception as e:
-            logger.error("Error getting message count: %s", )
+        except Exception:
+            logger.error(
+                "Error getting message count: %s",
+            )
             return 0
 
     async def xǁMessageStorageǁget_message_count__mutmut_12(self) -> int:
@@ -2290,7 +2314,7 @@ class MessageStorage:
                     message_data["payload"] = json.loads(message_data["payload"])
                 return message_data
             return None
-        except Exception as e:
+        except Exception:
             logger.error("Error retrieving message %s: %s", message_id, None)
             return None
 
@@ -2332,8 +2356,11 @@ class MessageStorage:
                     message_data["payload"] = json.loads(message_data["payload"])
                 return message_data
             return None
-        except Exception as e:
-            logger.error("Error retrieving message %s: %s", message_id, )
+        except Exception:
+            logger.error(
+                "Error retrieving message %s: %s",
+                message_id,
+            )
             return None
 
     async def xǁMessageStorageǁget_message__mutmut_22(self, message_id: str) -> dict[str, Any] | None:
@@ -2396,7 +2423,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_orig(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_orig(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2413,7 +2442,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_1(self, sender_id: str, limit: int = 101, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_1(
+        self, sender_id: str, limit: int = 101, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2430,7 +2461,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_2(self, sender_id: str, limit: int = 100, offset: int = 1) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_2(
+        self, sender_id: str, limit: int = 100, offset: int = 1
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2447,7 +2480,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_3(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_3(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is None, "Redis not connected"
         try:
@@ -2464,7 +2499,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_4(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_4(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "XXRedis not connectedXX"
         try:
@@ -2481,7 +2518,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_5(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_5(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "redis not connected"
         try:
@@ -2498,7 +2537,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_6(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_6(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "REDIS NOT CONNECTED"
         try:
@@ -2515,7 +2556,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_7(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_7(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2532,7 +2575,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_8(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_8(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2549,11 +2594,13 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_9(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_9(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
-            raw_ids = await self.redis.smembers(f"messages:sender:{sender_id}")
+            await self.redis.smembers(f"messages:sender:{sender_id}")
             message_ids: list[str] = None
             message_ids = message_ids[offset : offset + limit]
             messages = []
@@ -2566,7 +2613,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_10(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_10(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2583,7 +2632,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_11(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_11(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2600,7 +2651,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_12(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_12(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2617,7 +2670,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_13(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_13(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2634,7 +2689,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_14(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_14(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2642,7 +2699,7 @@ class MessageStorage:
             message_ids: list[str] = [str(m) for m in raw_ids]
             message_ids = message_ids[offset : offset + limit]
             messages = []
-            for message_id in message_ids:
+            for _message_id in message_ids:
                 message_data = None
                 if message_data:
                     messages.append(message_data)
@@ -2651,7 +2708,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_15(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_15(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2659,7 +2718,7 @@ class MessageStorage:
             message_ids: list[str] = [str(m) for m in raw_ids]
             message_ids = message_ids[offset : offset + limit]
             messages = []
-            for message_id in message_ids:
+            for _message_id in message_ids:
                 message_data = await self.get_message(None)
                 if message_data:
                     messages.append(message_data)
@@ -2668,7 +2727,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_16(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_16(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2685,7 +2746,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_17(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_17(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2702,7 +2765,9 @@ class MessageStorage:
             logger.error(None, sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_18(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_18(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2719,7 +2784,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", None, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_19(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_19(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2732,11 +2799,13 @@ class MessageStorage:
                 if message_data:
                     messages.append(message_data)
             return messages
-        except Exception as e:
+        except Exception:
             logger.error("Error retrieving messages for sender %s: %s", sender_id, None)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_20(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_20(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2753,7 +2822,9 @@ class MessageStorage:
             logger.error(sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_21(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_21(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2770,7 +2841,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for sender %s: %s", e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_22(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_22(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2783,11 +2856,16 @@ class MessageStorage:
                 if message_data:
                     messages.append(message_data)
             return messages
-        except Exception as e:
-            logger.error("Error retrieving messages for sender %s: %s", sender_id, )
+        except Exception:
+            logger.error(
+                "Error retrieving messages for sender %s: %s",
+                sender_id,
+            )
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_23(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_23(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2804,7 +2882,9 @@ class MessageStorage:
             logger.error("XXError retrieving messages for sender %s: %sXX", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_24(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_24(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2821,7 +2901,9 @@ class MessageStorage:
             logger.error("error retrieving messages for sender %s: %s", sender_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_sender__mutmut_25(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_sender__mutmut_25(
+        self, sender_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2856,7 +2938,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_orig(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_orig(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2873,7 +2957,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_1(self, receiver_id: str, limit: int = 101, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_1(
+        self, receiver_id: str, limit: int = 101, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2890,7 +2976,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_2(self, receiver_id: str, limit: int = 100, offset: int = 1) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_2(
+        self, receiver_id: str, limit: int = 100, offset: int = 1
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2907,7 +2995,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_3(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_3(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is None, "Redis not connected"
         try:
@@ -2924,7 +3014,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_4(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_4(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "XXRedis not connectedXX"
         try:
@@ -2941,7 +3033,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_5(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_5(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "redis not connected"
         try:
@@ -2958,7 +3052,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_6(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_6(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "REDIS NOT CONNECTED"
         try:
@@ -2975,7 +3071,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_7(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_7(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -2992,7 +3090,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_8(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_8(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3009,11 +3109,13 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_9(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_9(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
-            raw_ids = await self.redis.smembers(f"messages:receiver:{receiver_id}")
+            await self.redis.smembers(f"messages:receiver:{receiver_id}")
             message_ids: list[str] = None
             message_ids = message_ids[offset : offset + limit]
             messages = []
@@ -3026,7 +3128,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_10(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_10(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3043,7 +3147,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_11(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_11(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3060,7 +3166,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_12(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_12(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3077,7 +3185,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_13(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_13(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3094,7 +3204,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_14(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_14(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3102,7 +3214,7 @@ class MessageStorage:
             message_ids: list[str] = [str(m) for m in raw_ids]
             message_ids = message_ids[offset : offset + limit]
             messages = []
-            for message_id in message_ids:
+            for _message_id in message_ids:
                 message_data = None
                 if message_data:
                     messages.append(message_data)
@@ -3111,7 +3223,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_15(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_15(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3119,7 +3233,7 @@ class MessageStorage:
             message_ids: list[str] = [str(m) for m in raw_ids]
             message_ids = message_ids[offset : offset + limit]
             messages = []
-            for message_id in message_ids:
+            for _message_id in message_ids:
                 message_data = await self.get_message(None)
                 if message_data:
                     messages.append(message_data)
@@ -3128,7 +3242,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_16(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_16(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3145,7 +3261,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_17(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_17(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3162,7 +3280,9 @@ class MessageStorage:
             logger.error(None, receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_18(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_18(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3179,7 +3299,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", None, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_19(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_19(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3192,11 +3314,13 @@ class MessageStorage:
                 if message_data:
                     messages.append(message_data)
             return messages
-        except Exception as e:
+        except Exception:
             logger.error("Error retrieving messages for receiver %s: %s", receiver_id, None)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_20(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_20(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3213,7 +3337,9 @@ class MessageStorage:
             logger.error(receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_21(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_21(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3230,7 +3356,9 @@ class MessageStorage:
             logger.error("Error retrieving messages for receiver %s: %s", e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_22(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_22(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3243,11 +3371,16 @@ class MessageStorage:
                 if message_data:
                     messages.append(message_data)
             return messages
-        except Exception as e:
-            logger.error("Error retrieving messages for receiver %s: %s", receiver_id, )
+        except Exception:
+            logger.error(
+                "Error retrieving messages for receiver %s: %s",
+                receiver_id,
+            )
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_23(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_23(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3264,7 +3397,9 @@ class MessageStorage:
             logger.error("XXError retrieving messages for receiver %s: %sXX", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_24(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_24(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3281,7 +3416,9 @@ class MessageStorage:
             logger.error("error retrieving messages for receiver %s: %s", receiver_id, e)
             return []
 
-    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_25(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    async def xǁMessageStorageǁget_messages_by_receiver__mutmut_25(
+        self, receiver_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -3527,7 +3664,10 @@ class MessageStorage:
         """Get all messages with pagination"""
         assert self.redis is not None, "Redis not connected"
         try:
-            message_ids_raw = await self.redis.zrevrange("messages:timestamp", offset, )
+            message_ids_raw = await self.redis.zrevrange(
+                "messages:timestamp",
+                offset,
+            )
             message_ids: list[str] = [str(m) for m in message_ids_raw]
             messages = []
             for message_id in message_ids:
@@ -3623,7 +3763,7 @@ class MessageStorage:
         """Get all messages with pagination"""
         assert self.redis is not None, "Redis not connected"
         try:
-            message_ids_raw = await self.redis.zrevrange("messages:timestamp", offset, offset + limit - 1)
+            await self.redis.zrevrange("messages:timestamp", offset, offset + limit - 1)
             message_ids: list[str] = None
             messages = []
             for message_id in message_ids:
@@ -3674,7 +3814,7 @@ class MessageStorage:
             message_ids_raw = await self.redis.zrevrange("messages:timestamp", offset, offset + limit - 1)
             message_ids: list[str] = [str(m) for m in message_ids_raw]
             messages = []
-            for message_id in message_ids:
+            for _message_id in message_ids:
                 message_data = None
                 if message_data:
                     messages.append(message_data)
@@ -3690,7 +3830,7 @@ class MessageStorage:
             message_ids_raw = await self.redis.zrevrange("messages:timestamp", offset, offset + limit - 1)
             message_ids: list[str] = [str(m) for m in message_ids_raw]
             messages = []
-            for message_id in message_ids:
+            for _message_id in message_ids:
                 message_data = await self.get_message(None)
                 if message_data:
                     messages.append(message_data)
@@ -3743,7 +3883,7 @@ class MessageStorage:
                 if message_data:
                     messages.append(message_data)
             return messages
-        except Exception as e:
+        except Exception:
             logger.error("Error retrieving all messages: %s", None)
             return []
 
@@ -3775,8 +3915,10 @@ class MessageStorage:
                 if message_data:
                     messages.append(message_data)
             return messages
-        except Exception as e:
-            logger.error("Error retrieving all messages: %s", )
+        except Exception:
+            logger.error(
+                "Error retrieving all messages: %s",
+            )
             return []
 
     async def xǁMessageStorageǁget_all_messages__mutmut_29(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
@@ -4194,7 +4336,9 @@ class MessageStorage:
                 return False
             sender_id = message_data.get("sender_id")
             if sender_id:
-                await self.redis.srem(f"messages:sender:{sender_id}", )
+                await self.redis.srem(
+                    f"messages:sender:{sender_id}",
+                )
             receiver_id = message_data.get("receiver_id")
             if receiver_id:
                 await self.redis.srem(f"messages:receiver:{receiver_id}", message_id)
@@ -4365,7 +4509,9 @@ class MessageStorage:
                 await self.redis.srem(f"messages:sender:{sender_id}", message_id)
             receiver_id = message_data.get("receiver_id")
             if receiver_id:
-                await self.redis.srem(f"messages:receiver:{receiver_id}", )
+                await self.redis.srem(
+                    f"messages:receiver:{receiver_id}",
+                )
             await self.redis.zrem("messages:timestamp", message_id)
             await self.redis.delete(f"message:{message_id}")
             logger.debug("Deleted message %s from Redis", message_id)
@@ -4450,7 +4596,9 @@ class MessageStorage:
             receiver_id = message_data.get("receiver_id")
             if receiver_id:
                 await self.redis.srem(f"messages:receiver:{receiver_id}", message_id)
-            await self.redis.zrem("messages:timestamp", )
+            await self.redis.zrem(
+                "messages:timestamp",
+            )
             await self.redis.delete(f"message:{message_id}")
             logger.debug("Deleted message %s from Redis", message_id)
             return True
@@ -4599,7 +4747,9 @@ class MessageStorage:
                 await self.redis.srem(f"messages:receiver:{receiver_id}", message_id)
             await self.redis.zrem("messages:timestamp", message_id)
             await self.redis.delete(f"message:{message_id}")
-            logger.debug("Deleted message %s from Redis", )
+            logger.debug(
+                "Deleted message %s from Redis",
+            )
             return True
         except Exception as e:
             logger.error("Error deleting message %s: %s", message_id, e)
@@ -4748,7 +4898,7 @@ class MessageStorage:
             await self.redis.delete(f"message:{message_id}")
             logger.debug("Deleted message %s from Redis", message_id)
             return True
-        except Exception as e:
+        except Exception:
             logger.error("Error deleting message %s: %s", message_id, None)
             return False
 
@@ -4811,8 +4961,11 @@ class MessageStorage:
             await self.redis.delete(f"message:{message_id}")
             logger.debug("Deleted message %s from Redis", message_id)
             return True
-        except Exception as e:
-            logger.error("Error deleting message %s: %s", message_id, )
+        except Exception:
+            logger.error(
+                "Error deleting message %s: %s",
+                message_id,
+            )
             return False
 
     async def xǁMessageStorageǁdelete_message__mutmut_46(self, message_id: str) -> bool:
@@ -4899,278 +5052,765 @@ class MessageStorage:
             logger.error("Error deleting message %s: %s", message_id, e)
             return True
 
-mutants_xǁMessageStorageǁ__init____mutmut['_mutmut_orig'] = MessageStorage.xǁMessageStorageǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁ__init____mutmut['xǁMessageStorageǁ__init____mutmut_1'] = MessageStorage.xǁMessageStorageǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁ__init____mutmut['xǁMessageStorageǁ__init____mutmut_2'] = MessageStorage.xǁMessageStorageǁ__init____mutmut_2 # type: ignore # mutmut generated
 
-mutants_xǁMessageStorageǁstart__mutmut['_mutmut_orig'] = MessageStorage.xǁMessageStorageǁstart__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstart__mutmut['xǁMessageStorageǁstart__mutmut_1'] = MessageStorage.xǁMessageStorageǁstart__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstart__mutmut['xǁMessageStorageǁstart__mutmut_2'] = MessageStorage.xǁMessageStorageǁstart__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstart__mutmut['xǁMessageStorageǁstart__mutmut_3'] = MessageStorage.xǁMessageStorageǁstart__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstart__mutmut['xǁMessageStorageǁstart__mutmut_4'] = MessageStorage.xǁMessageStorageǁstart__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstart__mutmut['xǁMessageStorageǁstart__mutmut_5'] = MessageStorage.xǁMessageStorageǁstart__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstart__mutmut['xǁMessageStorageǁstart__mutmut_6'] = MessageStorage.xǁMessageStorageǁstart__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstart__mutmut['xǁMessageStorageǁstart__mutmut_7'] = MessageStorage.xǁMessageStorageǁstart__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstart__mutmut['xǁMessageStorageǁstart__mutmut_8'] = MessageStorage.xǁMessageStorageǁstart__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstart__mutmut['xǁMessageStorageǁstart__mutmut_9'] = MessageStorage.xǁMessageStorageǁstart__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstart__mutmut['xǁMessageStorageǁstart__mutmut_10'] = MessageStorage.xǁMessageStorageǁstart__mutmut_10 # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁ__init____mutmut["_mutmut_orig"] = MessageStorage.xǁMessageStorageǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁ__init____mutmut["xǁMessageStorageǁ__init____mutmut_1"] = (
+    MessageStorage.xǁMessageStorageǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁ__init____mutmut["xǁMessageStorageǁ__init____mutmut_2"] = (
+    MessageStorage.xǁMessageStorageǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
 
-mutants_xǁMessageStorageǁstop__mutmut['_mutmut_orig'] = MessageStorage.xǁMessageStorageǁstop__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstop__mutmut['xǁMessageStorageǁstop__mutmut_1'] = MessageStorage.xǁMessageStorageǁstop__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstop__mutmut['xǁMessageStorageǁstop__mutmut_2'] = MessageStorage.xǁMessageStorageǁstop__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstop__mutmut['xǁMessageStorageǁstop__mutmut_3'] = MessageStorage.xǁMessageStorageǁstop__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstop__mutmut['xǁMessageStorageǁstop__mutmut_4'] = MessageStorage.xǁMessageStorageǁstop__mutmut_4 # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstart__mutmut["_mutmut_orig"] = MessageStorage.xǁMessageStorageǁstart__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstart__mutmut["xǁMessageStorageǁstart__mutmut_1"] = MessageStorage.xǁMessageStorageǁstart__mutmut_1  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstart__mutmut["xǁMessageStorageǁstart__mutmut_2"] = MessageStorage.xǁMessageStorageǁstart__mutmut_2  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstart__mutmut["xǁMessageStorageǁstart__mutmut_3"] = MessageStorage.xǁMessageStorageǁstart__mutmut_3  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstart__mutmut["xǁMessageStorageǁstart__mutmut_4"] = MessageStorage.xǁMessageStorageǁstart__mutmut_4  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstart__mutmut["xǁMessageStorageǁstart__mutmut_5"] = MessageStorage.xǁMessageStorageǁstart__mutmut_5  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstart__mutmut["xǁMessageStorageǁstart__mutmut_6"] = MessageStorage.xǁMessageStorageǁstart__mutmut_6  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstart__mutmut["xǁMessageStorageǁstart__mutmut_7"] = MessageStorage.xǁMessageStorageǁstart__mutmut_7  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstart__mutmut["xǁMessageStorageǁstart__mutmut_8"] = MessageStorage.xǁMessageStorageǁstart__mutmut_8  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstart__mutmut["xǁMessageStorageǁstart__mutmut_9"] = MessageStorage.xǁMessageStorageǁstart__mutmut_9  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstart__mutmut["xǁMessageStorageǁstart__mutmut_10"] = MessageStorage.xǁMessageStorageǁstart__mutmut_10  # type: ignore # mutmut generated
 
-mutants_xǁMessageStorageǁstore_message__mutmut['_mutmut_orig'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_1'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_2'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_3'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_4'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_5'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_6'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_7'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_8'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_9'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_10'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_11'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_12'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_13'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_14'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_15'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_16'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_17'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_18'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_19'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_20'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_21'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_22'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_23'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_24'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_25'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_26'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_27'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_28'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_29'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_30'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_31'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_32'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_33'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_34'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_35'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_36'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_37'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_38'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_39'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_40'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_41'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_42'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_43'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_44'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_45'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_46'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_47'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_48'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_49'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_50'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_51'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_52'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_53'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_54'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_55'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_56'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_57'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_58'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_59'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_60'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_61'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_62'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_63'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_64'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_65'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_66'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_67'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁstore_message__mutmut['xǁMessageStorageǁstore_message__mutmut_68'] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_68 # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstop__mutmut["_mutmut_orig"] = MessageStorage.xǁMessageStorageǁstop__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstop__mutmut["xǁMessageStorageǁstop__mutmut_1"] = MessageStorage.xǁMessageStorageǁstop__mutmut_1  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstop__mutmut["xǁMessageStorageǁstop__mutmut_2"] = MessageStorage.xǁMessageStorageǁstop__mutmut_2  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstop__mutmut["xǁMessageStorageǁstop__mutmut_3"] = MessageStorage.xǁMessageStorageǁstop__mutmut_3  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstop__mutmut["xǁMessageStorageǁstop__mutmut_4"] = MessageStorage.xǁMessageStorageǁstop__mutmut_4  # type: ignore # mutmut generated
 
-mutants_xǁMessageStorageǁget_message_count__mutmut['_mutmut_orig'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_1'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_2'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_3'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_4'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_5'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_6'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_7'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_8'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_9'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_10'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_11'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_12'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_13'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_14'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message_count__mutmut['xǁMessageStorageǁget_message_count__mutmut_15'] = MessageStorage.xǁMessageStorageǁget_message_count__mutmut_15 # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["_mutmut_orig"] = MessageStorage.xǁMessageStorageǁstore_message__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_1"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_2"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_3"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_4"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_5"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_6"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_7"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_8"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_9"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_10"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_11"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_12"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_13"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_14"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_15"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_16"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_17"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_18"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_19"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_20"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_21"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_22"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_23"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_24"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_25"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_26"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_27"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_28"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_29"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_30"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_31"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_32"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_33"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_34"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_35"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_36"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_37"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_38"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_39"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_40"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_41"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_42"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_43"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_44"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_45"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_46"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_47"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_48"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_49"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_50"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_51"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_52"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_53"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_54"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_55"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_56"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_57"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_58"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_59"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_60"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_61"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_62"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_63"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_64"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_65"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_66"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_67"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁstore_message__mutmut["xǁMessageStorageǁstore_message__mutmut_68"] = (
+    MessageStorage.xǁMessageStorageǁstore_message__mutmut_68
+)  # type: ignore # mutmut generated
 
-mutants_xǁMessageStorageǁget_message__mutmut['_mutmut_orig'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_1'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_2'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_3'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_4'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_5'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_6'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_7'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_8'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_9'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_10'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_11'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_12'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_13'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_14'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_15'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_16'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_17'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_18'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_19'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_20'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_21'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_22'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_23'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_message__mutmut['xǁMessageStorageǁget_message__mutmut_24'] = MessageStorage.xǁMessageStorageǁget_message__mutmut_24 # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["_mutmut_orig"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_1"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_2"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_3"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_4"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_5"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_6"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_7"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_8"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_9"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_10"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_11"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_12"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_13"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_14"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message_count__mutmut["xǁMessageStorageǁget_message_count__mutmut_15"] = (
+    MessageStorage.xǁMessageStorageǁget_message_count__mutmut_15
+)  # type: ignore # mutmut generated
 
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['_mutmut_orig'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_1'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_2'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_3'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_4'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_5'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_6'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_7'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_8'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_9'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_10'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_11'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_12'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_13'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_14'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_15'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_16'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_17'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_18'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_19'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_20'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_21'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_22'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_23'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_24'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_sender__mutmut['xǁMessageStorageǁget_messages_by_sender__mutmut_25'] = MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_25 # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["_mutmut_orig"] = MessageStorage.xǁMessageStorageǁget_message__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_1"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_2"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_3"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_4"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_5"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_6"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_7"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_8"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_9"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_10"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_11"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_12"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_13"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_14"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_15"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_16"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_17"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_18"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_19"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_20"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_21"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_22"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_23"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_message__mutmut["xǁMessageStorageǁget_message__mutmut_24"] = (
+    MessageStorage.xǁMessageStorageǁget_message__mutmut_24
+)  # type: ignore # mutmut generated
 
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['_mutmut_orig'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_1'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_2'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_3'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_4'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_5'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_6'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_7'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_8'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_9'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_10'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_11'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_12'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_13'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_14'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_15'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_16'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_17'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_18'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_19'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_20'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_21'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_22'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_23'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_24'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut['xǁMessageStorageǁget_messages_by_receiver__mutmut_25'] = MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_25 # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["_mutmut_orig"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_1"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_2"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_3"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_4"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_5"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_6"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_7"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_8"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_9"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_10"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_11"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_12"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_13"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_14"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_15"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_16"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_17"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_18"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_19"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_20"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_21"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_22"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_23"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_24"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_sender__mutmut["xǁMessageStorageǁget_messages_by_sender__mutmut_25"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_sender__mutmut_25
+)  # type: ignore # mutmut generated
 
-mutants_xǁMessageStorageǁget_all_messages__mutmut['_mutmut_orig'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_1'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_2'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_3'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_4'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_5'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_6'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_7'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_8'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_9'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_10'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_11'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_12'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_13'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_14'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_15'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_16'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_17'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_18'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_19'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_20'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_21'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_22'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_23'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_24'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_25'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_26'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_27'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_28'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_29'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_30'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁget_all_messages__mutmut['xǁMessageStorageǁget_all_messages__mutmut_31'] = MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_31 # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["_mutmut_orig"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_1"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_2"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_3"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_4"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_5"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_6"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_7"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_8"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_9"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_10"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_11"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_12"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_13"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_14"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_15"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_16"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_17"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_18"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_19"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_20"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_21"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_22"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_23"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_24"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_messages_by_receiver__mutmut["xǁMessageStorageǁget_messages_by_receiver__mutmut_25"] = (
+    MessageStorage.xǁMessageStorageǁget_messages_by_receiver__mutmut_25
+)  # type: ignore # mutmut generated
 
-mutants_xǁMessageStorageǁdelete_message__mutmut['_mutmut_orig'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_1'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_2'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_3'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_4'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_5'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_6'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_7'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_8'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_9'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_10'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_11'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_12'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_13'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_14'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_15'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_16'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_17'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_18'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_19'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_20'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_21'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_22'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_23'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_24'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_25'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_26'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_27'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_28'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_29'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_30'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_31'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_32'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_33'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_34'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_35'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_36'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_37'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_38'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_39'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_40'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_41'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_42'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_43'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_44'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_45'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_46'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_47'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_48'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁMessageStorageǁdelete_message__mutmut['xǁMessageStorageǁdelete_message__mutmut_49'] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_49 # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["_mutmut_orig"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_1"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_2"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_3"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_4"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_5"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_6"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_7"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_8"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_9"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_10"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_11"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_12"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_13"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_14"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_15"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_16"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_17"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_18"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_19"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_20"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_21"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_22"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_23"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_24"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_25"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_26"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_27"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_28"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_29"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_30"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁget_all_messages__mutmut["xǁMessageStorageǁget_all_messages__mutmut_31"] = (
+    MessageStorage.xǁMessageStorageǁget_all_messages__mutmut_31
+)  # type: ignore # mutmut generated
+
+mutants_xǁMessageStorageǁdelete_message__mutmut["_mutmut_orig"] = MessageStorage.xǁMessageStorageǁdelete_message__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_1"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_2"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_3"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_4"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_5"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_6"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_7"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_8"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_9"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_10"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_11"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_12"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_13"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_14"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_15"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_16"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_17"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_18"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_19"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_20"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_21"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_22"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_23"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_24"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_25"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_26"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_27"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_28"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_29"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_30"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_31"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_32"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_33"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_34"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_35"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_36"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_37"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_38"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_39"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_40"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_41"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_42"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_43"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_44"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_45"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_46"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_47"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_48"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁMessageStorageǁdelete_message__mutmut["xǁMessageStorageǁdelete_message__mutmut_49"] = (
+    MessageStorage.xǁMessageStorageǁdelete_message__mutmut_49
+)  # type: ignore # mutmut generated
 mutants_xǁPeerStorageǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁPeerStorageǁstart__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁPeerStorageǁstop__mutmut: MutantDict = {}  # type: ignore
@@ -5230,7 +5870,6 @@ class PeerStorage:
 
     async def xǁPeerStorageǁstart__mutmut_1(self) -> None:
         """Connect to Redis"""
-        import redis.asyncio as redis
 
         self.redis = None
         logger.info("Peer storage connected to Redis")
@@ -5260,7 +5899,9 @@ class PeerStorage:
         """Connect to Redis"""
         import redis.asyncio as redis
 
-        self.redis = await redis.from_url(self.redis_url, )
+        self.redis = await redis.from_url(
+            self.redis_url,
+        )
         logger.info("Peer storage connected to Redis")
 
     async def xǁPeerStorageǁstart__mutmut_6(self) -> None:
@@ -5349,7 +5990,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_orig(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_orig(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5362,7 +6005,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_1(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_1(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is None, "Redis not connected"
         try:
@@ -5375,7 +6020,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_2(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_2(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "XXRedis not connectedXX"
         try:
@@ -5388,7 +6035,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_3(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_3(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "redis not connected"
         try:
@@ -5401,7 +6050,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_4(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_4(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "REDIS NOT CONNECTED"
         try:
@@ -5414,7 +6065,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_5(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_5(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5427,7 +6080,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_6(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_6(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5440,7 +6095,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_7(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_7(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5453,11 +6110,15 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_8(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_8(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
-            await self.redis.sadd(f"peers:{agent_id}", )
+            await self.redis.sadd(
+                f"peers:{agent_id}",
+            )
             if metadata:
                 await self.redis.hset(f"peer_connection:{agent_id}:{peer_id}", mapping=metadata)  # type: ignore[arg-type]
             logger.debug("Added peer %s for agent %s", peer_id, agent_id)
@@ -5466,7 +6127,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_9(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_9(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5479,7 +6142,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_10(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_10(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5492,7 +6157,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_11(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_11(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5505,20 +6172,26 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_12(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_12(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
             await self.redis.sadd(f"peers:{agent_id}", peer_id)
             if metadata:
-                await self.redis.hset(f"peer_connection:{agent_id}:{peer_id}", )  # type: ignore[arg-type]
+                await self.redis.hset(
+                    f"peer_connection:{agent_id}:{peer_id}",
+                )  # type: ignore[arg-type]
             logger.debug("Added peer %s for agent %s", peer_id, agent_id)
             return True
         except Exception as e:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_13(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_13(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5531,7 +6204,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_14(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_14(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5544,7 +6219,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_15(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_15(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5557,7 +6234,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_16(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_16(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5570,7 +6249,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_17(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_17(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5583,20 +6264,27 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_18(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_18(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
             await self.redis.sadd(f"peers:{agent_id}", peer_id)
             if metadata:
                 await self.redis.hset(f"peer_connection:{agent_id}:{peer_id}", mapping=metadata)  # type: ignore[arg-type]
-            logger.debug("Added peer %s for agent %s", peer_id, )
+            logger.debug(
+                "Added peer %s for agent %s",
+                peer_id,
+            )
             return True
         except Exception as e:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_19(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_19(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5609,7 +6297,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_20(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_20(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5622,7 +6312,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_21(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_21(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5635,7 +6327,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_22(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_22(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5648,7 +6342,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_23(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_23(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5661,7 +6357,9 @@ class PeerStorage:
             logger.error(None, peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_24(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_24(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5674,7 +6372,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", None, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_25(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_25(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5687,7 +6387,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, None, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_26(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_26(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5696,11 +6398,13 @@ class PeerStorage:
                 await self.redis.hset(f"peer_connection:{agent_id}:{peer_id}", mapping=metadata)  # type: ignore[arg-type]
             logger.debug("Added peer %s for agent %s", peer_id, agent_id)
             return True
-        except Exception as e:
+        except Exception:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, None)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_27(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_27(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5713,7 +6417,9 @@ class PeerStorage:
             logger.error(peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_28(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_28(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5726,7 +6432,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_29(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_29(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5739,7 +6447,9 @@ class PeerStorage:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_30(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_30(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5748,11 +6458,17 @@ class PeerStorage:
                 await self.redis.hset(f"peer_connection:{agent_id}:{peer_id}", mapping=metadata)  # type: ignore[arg-type]
             logger.debug("Added peer %s for agent %s", peer_id, agent_id)
             return True
-        except Exception as e:
-            logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, )
+        except Exception:
+            logger.error(
+                "Error adding peer %s for agent %s: %s",
+                peer_id,
+                agent_id,
+            )
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_31(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_31(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5765,7 +6481,9 @@ class PeerStorage:
             logger.error("XXError adding peer %s for agent %s: %sXX", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_32(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_32(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5778,7 +6496,9 @@ class PeerStorage:
             logger.error("error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_33(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_33(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5791,7 +6511,9 @@ class PeerStorage:
             logger.error("ERROR ADDING PEER %S FOR AGENT %S: %S", peer_id, agent_id, e)
             return False
 
-    async def xǁPeerStorageǁadd_peer__mutmut_34(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def xǁPeerStorageǁadd_peer__mutmut_34(
+        self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         """Add a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
@@ -5917,7 +6639,9 @@ class PeerStorage:
         """Remove a peer connection for an agent"""
         assert self.redis is not None, "Redis not connected"
         try:
-            await self.redis.srem(f"peers:{agent_id}", )
+            await self.redis.srem(
+                f"peers:{agent_id}",
+            )
             await self.redis.delete(f"peer_connection:{agent_id}:{peer_id}")
             logger.debug("Removed peer %s for agent %s", peer_id, agent_id)
             return True
@@ -6003,7 +6727,10 @@ class PeerStorage:
         try:
             await self.redis.srem(f"peers:{agent_id}", peer_id)
             await self.redis.delete(f"peer_connection:{agent_id}:{peer_id}")
-            logger.debug("Removed peer %s for agent %s", peer_id, )
+            logger.debug(
+                "Removed peer %s for agent %s",
+                peer_id,
+            )
             return True
         except Exception as e:
             logger.error("Error removing peer %s for agent %s: %s", peer_id, agent_id, e)
@@ -6101,7 +6828,7 @@ class PeerStorage:
             await self.redis.delete(f"peer_connection:{agent_id}:{peer_id}")
             logger.debug("Removed peer %s for agent %s", peer_id, agent_id)
             return True
-        except Exception as e:
+        except Exception:
             logger.error("Error removing peer %s for agent %s: %s", peer_id, agent_id, None)
             return False
 
@@ -6149,8 +6876,12 @@ class PeerStorage:
             await self.redis.delete(f"peer_connection:{agent_id}:{peer_id}")
             logger.debug("Removed peer %s for agent %s", peer_id, agent_id)
             return True
-        except Exception as e:
-            logger.error("Error removing peer %s for agent %s: %s", peer_id, agent_id, )
+        except Exception:
+            logger.error(
+                "Error removing peer %s for agent %s: %s",
+                peer_id,
+                agent_id,
+            )
             return False
 
     async def xǁPeerStorageǁremove_peer__mutmut_28(self, agent_id: str, peer_id: str) -> bool:
@@ -6318,7 +7049,7 @@ class PeerStorage:
         try:
             peer_ids_raw = await self.redis.smembers(f"peers:{agent_id}")
             return [str(m) for m in peer_ids_raw]
-        except Exception as e:
+        except Exception:
             logger.error("Error retrieving peers for agent %s: %s", agent_id, None)
             return []
 
@@ -6348,8 +7079,11 @@ class PeerStorage:
         try:
             peer_ids_raw = await self.redis.smembers(f"peers:{agent_id}")
             return [str(m) for m in peer_ids_raw]
-        except Exception as e:
-            logger.error("Error retrieving peers for agent %s: %s", agent_id, )
+        except Exception:
+            logger.error(
+                "Error retrieving peers for agent %s: %s",
+                agent_id,
+            )
             return []
 
     async def xǁPeerStorageǁget_agent_peers__mutmut_14(self, agent_id: str) -> list[str]:
@@ -6499,7 +7233,7 @@ class PeerStorage:
         try:
             metadata_raw: dict[str, Any] = await self.redis.hgetall(f"peer_connection:{agent_id}:{peer_id}")  # type: ignore[assignment]
             return metadata_raw if metadata_raw else None
-        except Exception as e:
+        except Exception:
             logger.error("Error retrieving peer metadata for %s:%s: %s", agent_id, peer_id, None)
             return None
 
@@ -6539,8 +7273,12 @@ class PeerStorage:
         try:
             metadata_raw: dict[str, Any] = await self.redis.hgetall(f"peer_connection:{agent_id}:{peer_id}")  # type: ignore[assignment]
             return metadata_raw if metadata_raw else None
-        except Exception as e:
-            logger.error("Error retrieving peer metadata for %s:%s: %s", agent_id, peer_id, )
+        except Exception:
+            logger.error(
+                "Error retrieving peer metadata for %s:%s: %s",
+                agent_id,
+                peer_id,
+            )
             return None
 
     async def xǁPeerStorageǁget_peer_metadata__mutmut_15(self, agent_id: str, peer_id: str) -> dict[str, Any] | None:
@@ -6836,7 +7574,7 @@ class PeerStorage:
             peer_keys = await self.redis.keys("peers:*")
             connections = {}
             for key in peer_keys:
-                key_str = key.decode("utf-8") if isinstance(key, bytes) else key
+                key.decode("utf-8") if isinstance(key, bytes) else key
                 agent_id = None
                 peer_ids = await self.redis.smembers(key)
                 peer_list: list[str] = [pid.decode("utf-8") if isinstance(pid, bytes) else str(pid) for pid in peer_ids]
@@ -6905,7 +7643,9 @@ class PeerStorage:
             connections = {}
             for key in peer_keys:
                 key_str = key.decode("utf-8") if isinstance(key, bytes) else key
-                agent_id = key_str.replace("peers:", )
+                agent_id = key_str.replace(
+                    "peers:",
+                )
                 peer_ids = await self.redis.smembers(key)
                 peer_list: list[str] = [pid.decode("utf-8") if isinstance(pid, bytes) else str(pid) for pid in peer_ids]
                 connections[agent_id] = peer_list
@@ -7008,7 +7748,7 @@ class PeerStorage:
             for key in peer_keys:
                 key_str = key.decode("utf-8") if isinstance(key, bytes) else key
                 agent_id = key_str.replace("peers:", "")
-                peer_ids = await self.redis.smembers(key)
+                await self.redis.smembers(key)
                 peer_list: list[str] = None
                 connections[agent_id] = peer_list
             return connections
@@ -7094,7 +7834,7 @@ class PeerStorage:
                 key_str = key.decode("utf-8") if isinstance(key, bytes) else key
                 agent_id = key_str.replace("peers:", "")
                 peer_ids = await self.redis.smembers(key)
-                peer_list: list[str] = [pid.decode("utf-8") if isinstance(pid, bytes) else str(pid) for pid in peer_ids]
+                [pid.decode("utf-8") if isinstance(pid, bytes) else str(pid) for pid in peer_ids]
                 connections[agent_id] = None
             return connections
         except Exception as e:
@@ -7131,7 +7871,7 @@ class PeerStorage:
                 peer_list: list[str] = [pid.decode("utf-8") if isinstance(pid, bytes) else str(pid) for pid in peer_ids]
                 connections[agent_id] = peer_list
             return connections
-        except Exception as e:
+        except Exception:
             logger.error("Error retrieving all peer connections: %s", None)
             return {}
 
@@ -7165,8 +7905,10 @@ class PeerStorage:
                 peer_list: list[str] = [pid.decode("utf-8") if isinstance(pid, bytes) else str(pid) for pid in peer_ids]
                 connections[agent_id] = peer_list
             return connections
-        except Exception as e:
-            logger.error("Error retrieving all peer connections: %s", )
+        except Exception:
+            logger.error(
+                "Error retrieving all peer connections: %s",
+            )
             return {}
 
     async def xǁPeerStorageǁget_all_peer_connections__mutmut_34(self) -> dict[str, list[str]]:
@@ -7220,168 +7962,371 @@ class PeerStorage:
             logger.error("ERROR RETRIEVING ALL PEER CONNECTIONS: %S", e)
             return {}
 
-mutants_xǁPeerStorageǁ__init____mutmut['_mutmut_orig'] = PeerStorage.xǁPeerStorageǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁ__init____mutmut['xǁPeerStorageǁ__init____mutmut_1'] = PeerStorage.xǁPeerStorageǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁ__init____mutmut['xǁPeerStorageǁ__init____mutmut_2'] = PeerStorage.xǁPeerStorageǁ__init____mutmut_2 # type: ignore # mutmut generated
 
-mutants_xǁPeerStorageǁstart__mutmut['_mutmut_orig'] = PeerStorage.xǁPeerStorageǁstart__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstart__mutmut['xǁPeerStorageǁstart__mutmut_1'] = PeerStorage.xǁPeerStorageǁstart__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstart__mutmut['xǁPeerStorageǁstart__mutmut_2'] = PeerStorage.xǁPeerStorageǁstart__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstart__mutmut['xǁPeerStorageǁstart__mutmut_3'] = PeerStorage.xǁPeerStorageǁstart__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstart__mutmut['xǁPeerStorageǁstart__mutmut_4'] = PeerStorage.xǁPeerStorageǁstart__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstart__mutmut['xǁPeerStorageǁstart__mutmut_5'] = PeerStorage.xǁPeerStorageǁstart__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstart__mutmut['xǁPeerStorageǁstart__mutmut_6'] = PeerStorage.xǁPeerStorageǁstart__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstart__mutmut['xǁPeerStorageǁstart__mutmut_7'] = PeerStorage.xǁPeerStorageǁstart__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstart__mutmut['xǁPeerStorageǁstart__mutmut_8'] = PeerStorage.xǁPeerStorageǁstart__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstart__mutmut['xǁPeerStorageǁstart__mutmut_9'] = PeerStorage.xǁPeerStorageǁstart__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstart__mutmut['xǁPeerStorageǁstart__mutmut_10'] = PeerStorage.xǁPeerStorageǁstart__mutmut_10 # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁ__init____mutmut["_mutmut_orig"] = PeerStorage.xǁPeerStorageǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁ__init____mutmut["xǁPeerStorageǁ__init____mutmut_1"] = PeerStorage.xǁPeerStorageǁ__init____mutmut_1  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁ__init____mutmut["xǁPeerStorageǁ__init____mutmut_2"] = PeerStorage.xǁPeerStorageǁ__init____mutmut_2  # type: ignore # mutmut generated
 
-mutants_xǁPeerStorageǁstop__mutmut['_mutmut_orig'] = PeerStorage.xǁPeerStorageǁstop__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstop__mutmut['xǁPeerStorageǁstop__mutmut_1'] = PeerStorage.xǁPeerStorageǁstop__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstop__mutmut['xǁPeerStorageǁstop__mutmut_2'] = PeerStorage.xǁPeerStorageǁstop__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstop__mutmut['xǁPeerStorageǁstop__mutmut_3'] = PeerStorage.xǁPeerStorageǁstop__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁstop__mutmut['xǁPeerStorageǁstop__mutmut_4'] = PeerStorage.xǁPeerStorageǁstop__mutmut_4 # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstart__mutmut["_mutmut_orig"] = PeerStorage.xǁPeerStorageǁstart__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstart__mutmut["xǁPeerStorageǁstart__mutmut_1"] = PeerStorage.xǁPeerStorageǁstart__mutmut_1  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstart__mutmut["xǁPeerStorageǁstart__mutmut_2"] = PeerStorage.xǁPeerStorageǁstart__mutmut_2  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstart__mutmut["xǁPeerStorageǁstart__mutmut_3"] = PeerStorage.xǁPeerStorageǁstart__mutmut_3  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstart__mutmut["xǁPeerStorageǁstart__mutmut_4"] = PeerStorage.xǁPeerStorageǁstart__mutmut_4  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstart__mutmut["xǁPeerStorageǁstart__mutmut_5"] = PeerStorage.xǁPeerStorageǁstart__mutmut_5  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstart__mutmut["xǁPeerStorageǁstart__mutmut_6"] = PeerStorage.xǁPeerStorageǁstart__mutmut_6  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstart__mutmut["xǁPeerStorageǁstart__mutmut_7"] = PeerStorage.xǁPeerStorageǁstart__mutmut_7  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstart__mutmut["xǁPeerStorageǁstart__mutmut_8"] = PeerStorage.xǁPeerStorageǁstart__mutmut_8  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstart__mutmut["xǁPeerStorageǁstart__mutmut_9"] = PeerStorage.xǁPeerStorageǁstart__mutmut_9  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstart__mutmut["xǁPeerStorageǁstart__mutmut_10"] = PeerStorage.xǁPeerStorageǁstart__mutmut_10  # type: ignore # mutmut generated
 
-mutants_xǁPeerStorageǁadd_peer__mutmut['_mutmut_orig'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_1'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_2'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_3'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_4'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_5'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_6'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_7'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_8'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_9'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_10'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_11'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_12'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_13'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_14'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_15'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_16'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_17'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_18'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_19'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_20'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_21'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_22'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_23'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_24'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_25'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_26'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_27'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_28'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_29'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_30'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_31'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_32'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_33'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁadd_peer__mutmut['xǁPeerStorageǁadd_peer__mutmut_34'] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_34 # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstop__mutmut["_mutmut_orig"] = PeerStorage.xǁPeerStorageǁstop__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstop__mutmut["xǁPeerStorageǁstop__mutmut_1"] = PeerStorage.xǁPeerStorageǁstop__mutmut_1  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstop__mutmut["xǁPeerStorageǁstop__mutmut_2"] = PeerStorage.xǁPeerStorageǁstop__mutmut_2  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstop__mutmut["xǁPeerStorageǁstop__mutmut_3"] = PeerStorage.xǁPeerStorageǁstop__mutmut_3  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁstop__mutmut["xǁPeerStorageǁstop__mutmut_4"] = PeerStorage.xǁPeerStorageǁstop__mutmut_4  # type: ignore # mutmut generated
 
-mutants_xǁPeerStorageǁremove_peer__mutmut['_mutmut_orig'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_1'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_2'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_3'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_4'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_5'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_6'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_7'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_8'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_9'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_10'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_11'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_12'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_13'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_14'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_15'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_16'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_17'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_18'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_19'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_20'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_21'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_22'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_23'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_24'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_25'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_26'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_27'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_28'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_29'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_30'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁremove_peer__mutmut['xǁPeerStorageǁremove_peer__mutmut_31'] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_31 # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["_mutmut_orig"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_1"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_1  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_2"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_2  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_3"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_3  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_4"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_4  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_5"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_5  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_6"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_6  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_7"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_7  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_8"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_8  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_9"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_9  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_10"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_10  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_11"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_11  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_12"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_12  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_13"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_13  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_14"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_14  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_15"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_15  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_16"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_16  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_17"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_17  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_18"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_18  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_19"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_19  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_20"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_20  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_21"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_21  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_22"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_22  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_23"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_23  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_24"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_24  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_25"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_25  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_26"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_26  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_27"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_27  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_28"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_28  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_29"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_29  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_30"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_30  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_31"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_31  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_32"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_32  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_33"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_33  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁadd_peer__mutmut["xǁPeerStorageǁadd_peer__mutmut_34"] = PeerStorage.xǁPeerStorageǁadd_peer__mutmut_34  # type: ignore # mutmut generated
 
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['_mutmut_orig'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_1'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_2'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_3'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_4'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_5'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_6'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_7'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_8'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_9'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_10'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_11'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_12'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_13'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_14'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_15'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_agent_peers__mutmut['xǁPeerStorageǁget_agent_peers__mutmut_16'] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_16 # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["_mutmut_orig"] = PeerStorage.xǁPeerStorageǁremove_peer__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_1"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_2"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_3"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_4"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_5"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_6"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_7"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_8"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_9"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_10"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_11"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_12"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_13"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_14"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_15"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_16"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_17"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_18"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_19"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_20"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_21"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_22"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_23"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_24"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_25"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_26"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_27"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_28"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_29"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_30"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁremove_peer__mutmut["xǁPeerStorageǁremove_peer__mutmut_31"] = (
+    PeerStorage.xǁPeerStorageǁremove_peer__mutmut_31
+)  # type: ignore # mutmut generated
 
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['_mutmut_orig'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_1'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_2'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_3'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_4'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_5'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_6'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_7'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_8'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_9'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_10'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_11'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_12'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_13'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_14'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_15'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_16'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_peer_metadata__mutmut['xǁPeerStorageǁget_peer_metadata__mutmut_17'] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_17 # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["_mutmut_orig"] = PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_1"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_2"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_3"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_4"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_5"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_6"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_7"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_8"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_9"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_10"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_11"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_12"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_13"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_14"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_15"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_agent_peers__mutmut["xǁPeerStorageǁget_agent_peers__mutmut_16"] = (
+    PeerStorage.xǁPeerStorageǁget_agent_peers__mutmut_16
+)  # type: ignore # mutmut generated
 
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['_mutmut_orig'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_1'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_2'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_3'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_4'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_5'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_6'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_7'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_8'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_9'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_10'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_11'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_12'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_13'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_14'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_15'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_16'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_17'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_18'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_19'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_20'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_21'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_22'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_23'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_24'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_25'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_26'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_27'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_28'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_29'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_30'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_31'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_32'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_33'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_34'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_35'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁPeerStorageǁget_all_peer_connections__mutmut['xǁPeerStorageǁget_all_peer_connections__mutmut_36'] = PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_36 # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["_mutmut_orig"] = PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_1"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_2"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_3"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_4"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_5"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_6"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_7"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_8"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_9"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_10"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_11"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_12"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_13"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_14"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_15"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_16"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_peer_metadata__mutmut["xǁPeerStorageǁget_peer_metadata__mutmut_17"] = (
+    PeerStorage.xǁPeerStorageǁget_peer_metadata__mutmut_17
+)  # type: ignore # mutmut generated
+
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["_mutmut_orig"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_1"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_2"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_3"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_4"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_5"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_6"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_7"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_8"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_9"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_10"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_11"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_12"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_13"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_14"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_15"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_16"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_17"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_18"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_19"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_20"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_21"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_22"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_23"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_24"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_25"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_26"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_27"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_28"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_29"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_30"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_31"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_32"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_33"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_34"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_35"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁPeerStorageǁget_all_peer_connections__mutmut["xǁPeerStorageǁget_all_peer_connections__mutmut_36"] = (
+    PeerStorage.xǁPeerStorageǁget_all_peer_connections__mutmut_36
+)  # type: ignore # mutmut generated

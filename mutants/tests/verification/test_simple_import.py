@@ -6,7 +6,6 @@ Simple test for block import endpoint without transactions
 import hashlib
 
 import requests
-
 from aitbc import AITBCHTTPClient
 
 BASE_URL = "https://hub.aitbc.bubuit.net/rpc"

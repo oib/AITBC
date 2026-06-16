@@ -4,7 +4,6 @@ Tests for AITBC crypto security utilities
 """
 
 import pytest
-
 from aitbc.crypto.security import (
     APIKeyManager,
     SecretManager,

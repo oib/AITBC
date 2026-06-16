@@ -5,10 +5,9 @@ Tests for request validation middleware
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from aitbc.middleware.validation import RequestValidationMiddleware
 from fastapi import HTTPException, Request
 from starlette.responses import Response
-
-from aitbc.middleware.validation import RequestValidationMiddleware
 
 
 class TestRequestValidationMiddleware:

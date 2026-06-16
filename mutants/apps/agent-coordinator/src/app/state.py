@@ -17,6 +17,3 @@ communication_manager: CommunicationManager | None = None
 message_processor: MessageProcessor | None = None
 message_storage: MessageStorage | None = None
 peer_storage: PeerStorage | None = None
-
-
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict

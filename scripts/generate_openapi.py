@@ -13,10 +13,19 @@ from pathlib import Path
 REPO_ROOT = Path("/opt/aitbc")
 sys.path.insert(0, str(REPO_ROOT))
 
+# Import constants
+from aitbc.constants import (  # noqa: E402
+    COORDINATOR_API_PORT,
+    HERMES_PORT,
+    MARKETPLACE_PORT,
+    REDIS_PORT,
+    WALLET_PORT,
+)
+
 # Set required environment variables
 os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
-os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
+os.environ.setdefault("REDIS_URL", f"redis://localhost:{REDIS_PORT}/1")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long")
 os.environ.setdefault("TEST_ADMIN_PASSWORD", "test-admin-password")
 os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
@@ -34,57 +43,51 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 def generate_openapi(app_module, app_name, output_file):
     """Generate OpenAPI spec for a FastAPI app."""
     print(f"\nGenerating {app_name} OpenAPI spec...")
-    
+
     try:
         from importlib import import_module
+
         module = import_module(app_module)
-        app = getattr(module, 'app')
-        
+        app = module.app
+
         # Get OpenAPI spec
         openapi_spec = app.openapi()
-        
+
         # Add service info
         openapi_spec.setdefault("info", {})
         openapi_spec["info"]["title"] = f"AITBC {app_name.title()} Service"
         openapi_spec["info"]["version"] = "0.1.0"
         openapi_spec["info"]["description"] = f"API specification for AITBC {app_name} service"
-        
+
         # Add servers info
         openapi_spec["servers"] = [
-            {"url": "http://localhost:8203", "description": "Coordinator API (production)"},
-            {"url": "http://localhost:8102", "description": "Marketplace (production)"},
-            {"url": "http://localhost:8108", "description": "Wallet (production)"},
-            {"url": "http://localhost:8103", "description": "Hermes (production)"},
+            {"url": f"http://localhost:{COORDINATOR_API_PORT}", "description": "Coordinator API (production)"},
+            {"url": f"http://localhost:{MARKETPLACE_PORT}", "description": "Marketplace (production)"},
+            {"url": f"http://localhost:{WALLET_PORT}", "description": "Wallet (production)"},
+            {"url": f"http://localhost:{HERMES_PORT}", "description": "Hermes (production)"},
         ]
-        
+
         # Add common components
         if "components" not in openapi_spec:
             openapi_spec["components"] = {}
         if "securitySchemes" not in openapi_spec["components"]:
             openapi_spec["components"]["securitySchemes"] = {
-                "BearerAuth": {
-                    "type": "http",
-                    "scheme": "bearer",
-                    "bearerFormat": "JWT"
-                },
-                "ApiKeyAuth": {
-                    "type": "apiKey",
-                    "in": "header",
-                    "name": "X-API-Key"
-                }
+                "BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"},
+                "ApiKeyAuth": {"type": "apiKey", "in": "header", "name": "X-API-Key"},
             }
-        
+
         # Write to file
         output_path = OUTPUT_DIR / output_file
         with open(output_path, "w") as f:
             json.dump(openapi_spec, f, indent=2)
-        
+
         print(f"  ✓ Generated {output_path} ({len(openapi_spec.get('paths', {}))} paths)")
         return True
-        
+
     except Exception as e:
         print(f"  ✗ Failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -93,14 +96,14 @@ def main():
     print("=" * 60)
     print("AITBC OpenAPI Specification Generator")
     print("=" * 60)
-    
+
     services = [
         ("app.main", "coordinator-api", "coordinator-api.json"),
         ("marketplace_service.main", "marketplace", "marketplace.json"),
         ("app.main", "wallet", "wallet.json"),
         ("hermes_service.main", "hermes", "hermes.json"),
     ]
-    
+
     # Set paths for each service
     sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
     sys.path.insert(0, "/opt/aitbc/apps/marketplace/src")
@@ -127,14 +130,14 @@ def main():
     for app_module, app_name, output_file in services:
         result = generate_openapi(app_module, app_name, output_file)
         results.append((app_name, result))
-    
+
     print("\n" + "=" * 60)
     print("SUMMARY")
     print("=" * 60)
     for name, success in results:
         status = "✓" if success else "✗"
         print(f"  {status} {name}")
-    
+
     if all(r[1] for r in results):
         print(f"\nAll specs generated in: {OUTPUT_DIR}")
         return 0

@@ -11,9 +11,8 @@ import pytest
 @pytest.fixture
 def coordinator_client():
     """Create a test client for coordinator API"""
-    from fastapi.testclient import TestClient
-
     from aitbc.testing import MockResponse
+    from fastapi.testclient import TestClient
 
     try:
         # Import the coordinator app specifically

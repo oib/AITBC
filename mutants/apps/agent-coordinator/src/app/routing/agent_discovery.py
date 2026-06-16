@@ -28,7 +28,8 @@ except ImportError:
 logger = get_logger(__name__)
 
 
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
+from mutmut.mutation.trampoline import MutantDict
+from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated
 
 
 class AgentStatus(StrEnum):
@@ -97,6 +98,8 @@ class AgentInfo:
         data["registration_time"] = datetime.fromisoformat(data["registration_time"])
         data["tags"] = set(data.get("tags", []))
         return cls(**data)
+
+
 mutants_xǁAgentRegistryǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁAgentRegistryǁstart__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁAgentRegistryǁstop__mutmut: MutantDict = {}  # type: ignore
@@ -530,7 +533,9 @@ class AgentRegistry:
             self.agents[agent_info.agent_id] = agent_info
             self._update_indexes(agent_info)
             await self._save_agent_to_redis(agent_info)
-            await self._publish_agent_event("agent_registered", )
+            await self._publish_agent_event(
+                "agent_registered",
+            )
             logger.info("Agent %s registered successfully", agent_info.agent_id)
             return True
         except Exception as e:
@@ -609,7 +614,9 @@ class AgentRegistry:
             self._update_indexes(agent_info)
             await self._save_agent_to_redis(agent_info)
             await self._publish_agent_event("agent_registered", agent_info)
-            logger.info("Agent %s registered successfully", )
+            logger.info(
+                "Agent %s registered successfully",
+            )
             return True
         except Exception as e:
             logger.error("Error registering agent %s: %s", agent_info.agent_id, e)
@@ -702,7 +709,7 @@ class AgentRegistry:
             await self._publish_agent_event("agent_registered", agent_info)
             logger.info("Agent %s registered successfully", agent_info.agent_id)
             return True
-        except Exception as e:
+        except Exception:
             logger.error("Error registering agent %s: %s", agent_info.agent_id, None)
             return False
 
@@ -741,8 +748,11 @@ class AgentRegistry:
             await self._publish_agent_event("agent_registered", agent_info)
             logger.info("Agent %s registered successfully", agent_info.agent_id)
             return True
-        except Exception as e:
-            logger.error("Error registering agent %s: %s", agent_info.agent_id, )
+        except Exception:
+            logger.error(
+                "Error registering agent %s: %s",
+                agent_info.agent_id,
+            )
             return False
 
     async def xǁAgentRegistryǁregister_agent__mutmut_24(self, agent_info: AgentInfo) -> bool:
@@ -904,7 +914,9 @@ class AgentRegistry:
         """Unregister an agent"""
         try:
             if agent_id not in self.agents:
-                logger.warning("Agent %s not found for unregistration", )
+                logger.warning(
+                    "Agent %s not found for unregistration",
+                )
                 return False
             agent_info = self.agents[agent_id]
             del self.agents[agent_id]
@@ -1097,7 +1109,9 @@ class AgentRegistry:
             del self.agents[agent_id]
             self._remove_from_indexes(agent_info)
             await self._remove_agent_from_redis(agent_id)
-            await self._publish_agent_event("agent_unregistered", )
+            await self._publish_agent_event(
+                "agent_unregistered",
+            )
             logger.info("Agent %s unregistered successfully", agent_id)
             return True
         except Exception as e:
@@ -1200,7 +1214,9 @@ class AgentRegistry:
             self._remove_from_indexes(agent_info)
             await self._remove_agent_from_redis(agent_id)
             await self._publish_agent_event("agent_unregistered", agent_info)
-            logger.info("Agent %s unregistered successfully", )
+            logger.info(
+                "Agent %s unregistered successfully",
+            )
             return True
         except Exception as e:
             logger.error("Error unregistering agent %s: %s", agent_id, e)
@@ -1321,7 +1337,7 @@ class AgentRegistry:
             await self._publish_agent_event("agent_unregistered", agent_info)
             logger.info("Agent %s unregistered successfully", agent_id)
             return True
-        except Exception as e:
+        except Exception:
             logger.error("Error unregistering agent %s: %s", agent_id, None)
             return False
 
@@ -1372,8 +1388,11 @@ class AgentRegistry:
             await self._publish_agent_event("agent_unregistered", agent_info)
             logger.info("Agent %s unregistered successfully", agent_id)
             return True
-        except Exception as e:
-            logger.error("Error unregistering agent %s: %s", agent_id, )
+        except Exception:
+            logger.error(
+                "Error unregistering agent %s: %s",
+                agent_id,
+            )
             return False
 
     async def xǁAgentRegistryǁunregister_agent__mutmut_33(self, agent_id: str) -> bool:
@@ -1577,7 +1596,9 @@ class AgentRegistry:
         """Update agent status and metrics"""
         try:
             if agent_id not in self.agents:
-                logger.warning("Agent %s not found for status update", )
+                logger.warning(
+                    "Agent %s not found for status update",
+                )
                 return False
             agent_info = self.agents[agent_id]
             agent_info.status = status
@@ -1922,7 +1943,9 @@ class AgentRegistry:
                 agent_info.load_metrics.update(load_metrics)
             agent_info.health_score = self._calculate_health_score(agent_info)
             await self._save_agent_to_redis(agent_info)
-            await self._publish_agent_event("agent_status_updated", )
+            await self._publish_agent_event(
+                "agent_status_updated",
+            )
             return True
         except Exception as e:
             logger.error("Error updating agent status %s: %s", agent_id, e)
@@ -2050,7 +2073,7 @@ class AgentRegistry:
             await self._save_agent_to_redis(agent_info)
             await self._publish_agent_event("agent_status_updated", agent_info)
             return True
-        except Exception as e:
+        except Exception:
             logger.error("Error updating agent status %s: %s", agent_id, None)
             return False
 
@@ -2113,8 +2136,11 @@ class AgentRegistry:
             await self._save_agent_to_redis(agent_info)
             await self._publish_agent_event("agent_status_updated", agent_info)
             return True
-        except Exception as e:
-            logger.error("Error updating agent status %s: %s", agent_id, )
+        except Exception:
+            logger.error(
+                "Error updating agent status %s: %s",
+                agent_id,
+            )
             return False
 
     async def xǁAgentRegistryǁupdate_agent_status__mutmut_31(
@@ -2296,7 +2322,9 @@ class AgentRegistry:
         """Update agent heartbeat"""
         try:
             if agent_id not in self.agents:
-                logger.warning("Agent %s not found for heartbeat", )
+                logger.warning(
+                    "Agent %s not found for heartbeat",
+                )
                 return False
             agent_info = self.agents[agent_id]
             agent_info.last_heartbeat = datetime.now(UTC)
@@ -2513,7 +2541,7 @@ class AgentRegistry:
             agent_info.health_score = self._calculate_health_score(agent_info)
             await self._save_agent_to_redis(agent_info)
             return True
-        except Exception as e:
+        except Exception:
             logger.error("Error updating heartbeat for %s: %s", agent_id, None)
             return False
 
@@ -2558,8 +2586,11 @@ class AgentRegistry:
             agent_info.health_score = self._calculate_health_score(agent_info)
             await self._save_agent_to_redis(agent_info)
             return True
-        except Exception as e:
-            logger.error("Error updating heartbeat for %s: %s", agent_id, )
+        except Exception:
+            logger.error(
+                "Error updating heartbeat for %s: %s",
+                agent_id,
+            )
             return False
 
     async def xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_23(self, agent_id: str) -> bool:
@@ -3013,7 +3044,7 @@ class AgentRegistry:
         try:
             candidate_agents = list(self.agents.values())
             if "agent_type" in query:
-                agent_type = AgentType(query["agent_type"])
+                AgentType(query["agent_type"])
                 candidate_agents = None
             if "status" in query:
                 status = AgentStatus(query["status"])
@@ -3304,7 +3335,7 @@ class AgentRegistry:
                 agent_type = AgentType(query["agent_type"])
                 candidate_agents = [a for a in candidate_agents if a.agent_type == agent_type]
             if "status" in query:
-                status = AgentStatus(query["status"])
+                AgentStatus(query["status"])
                 candidate_agents = None
             if "capabilities" in query:
                 required_capabilities = set(query["capabilities"])
@@ -3595,7 +3626,7 @@ class AgentRegistry:
                 status = AgentStatus(query["status"])
                 candidate_agents = [a for a in candidate_agents if a.status == status]
             if "capabilities" in query:
-                required_capabilities = set(query["capabilities"])
+                set(query["capabilities"])
                 candidate_agents = None
             if "services" in query:
                 required_services = set(query["services"])
@@ -3886,7 +3917,7 @@ class AgentRegistry:
                 required_capabilities = set(query["capabilities"])
                 candidate_agents = [a for a in candidate_agents if required_capabilities.issubset(a.capabilities)]
             if "services" in query:
-                required_services = set(query["services"])
+                set(query["services"])
                 candidate_agents = None
             if "tags" in query:
                 required_tags = set(query["tags"])
@@ -4177,7 +4208,7 @@ class AgentRegistry:
                 required_services = set(query["services"])
                 candidate_agents = [a for a in candidate_agents if required_services.issubset(a.services)]
             if "tags" in query:
-                required_tags = set(query["tags"])
+                set(query["tags"])
                 candidate_agents = None
             if "min_health_score" in query:
                 min_score = query["min_health_score"]
@@ -4436,7 +4467,7 @@ class AgentRegistry:
                 required_tags = set(query["tags"])
                 candidate_agents = [a for a in candidate_agents if required_tags.issubset(a.tags)]
             if "min_health_score" in query:
-                min_score = query["min_health_score"]
+                query["min_health_score"]
                 candidate_agents = None
             results = sorted(candidate_agents, key=lambda a: a.health_score, reverse=True)
             if "limit" in query:
@@ -4694,7 +4725,10 @@ class AgentRegistry:
             if "min_health_score" in query:
                 min_score = query["min_health_score"]
                 candidate_agents = [a for a in candidate_agents if a.health_score >= min_score]
-            results = sorted(candidate_agents, key=lambda a: a.health_score, )
+            results = sorted(
+                candidate_agents,
+                key=lambda a: a.health_score,
+            )
             if "limit" in query:
                 results = results[: query["limit"]]
             logger.info("Discovered %s agents for query: %s", len(results), query)
@@ -5145,7 +5179,10 @@ class AgentRegistry:
             results = sorted(candidate_agents, key=lambda a: a.health_score, reverse=True)
             if "limit" in query:
                 results = results[: query["limit"]]
-            logger.info("Discovered %s agents for query: %s", len(results), )
+            logger.info(
+                "Discovered %s agents for query: %s",
+                len(results),
+            )
             return results
         except Exception as e:
             logger.error("Error discovering agents: %s", e)
@@ -5307,7 +5344,7 @@ class AgentRegistry:
                 results = results[: query["limit"]]
             logger.info("Discovered %s agents for query: %s", len(results), query)
             return results
-        except Exception as e:
+        except Exception:
             logger.error("Error discovering agents: %s", None)
             return []
 
@@ -5371,8 +5408,10 @@ class AgentRegistry:
                 results = results[: query["limit"]]
             logger.info("Discovered %s agents for query: %s", len(results), query)
             return results
-        except Exception as e:
-            logger.error("Error discovering agents: %s", )
+        except Exception:
+            logger.error(
+                "Error discovering agents: %s",
+            )
             return []
 
     async def xǁAgentRegistryǁdiscover_agents__mutmut_85(self, query: dict[str, Any]) -> list[AgentInfo]:
@@ -5517,7 +5556,9 @@ class AgentRegistry:
 
     async def xǁAgentRegistryǁget_agents_by_service__mutmut_5(self, service: str) -> list[AgentInfo]:
         """Get agents that provide a specific service"""
-        agent_ids = self.service_index.get(service, )
+        agent_ids = self.service_index.get(
+            service,
+        )
         return [self.agents[agent_id] for agent_id in agent_ids if agent_id in self.agents]
 
     async def xǁAgentRegistryǁget_agents_by_service__mutmut_6(self, service: str) -> list[AgentInfo]:
@@ -5558,7 +5599,9 @@ class AgentRegistry:
 
     async def xǁAgentRegistryǁget_agents_by_capability__mutmut_5(self, capability: str) -> list[AgentInfo]:
         """Get agents that have a specific capability"""
-        agent_ids = self.capability_index.get(capability, )
+        agent_ids = self.capability_index.get(
+            capability,
+        )
         return [self.agents[agent_id] for agent_id in agent_ids if agent_id in self.agents]
 
     async def xǁAgentRegistryǁget_agents_by_capability__mutmut_6(self, capability: str) -> list[AgentInfo]:
@@ -5599,7 +5642,9 @@ class AgentRegistry:
 
     async def xǁAgentRegistryǁget_agents_by_type__mutmut_5(self, agent_type: AgentType) -> list[AgentInfo]:
         """Get agents of a specific type"""
-        agent_ids = self.type_index.get(agent_type, )
+        agent_ids = self.type_index.get(
+            agent_type,
+        )
         return [self.agents[agent_id] for agent_id in agent_ids if agent_id in self.agents]
 
     async def xǁAgentRegistryǁget_agents_by_type__mutmut_6(self, agent_type: AgentType) -> list[AgentInfo]:
@@ -5824,7 +5869,12 @@ class AgentRegistry:
         type_counts: dict[str, int] = {}
         for agent_info in self.agents.values():
             status = agent_info.status.value
-            status_counts[status] = status_counts.get(status, ) + 1
+            status_counts[status] = (
+                status_counts.get(
+                    status,
+                )
+                + 1
+            )
             agent_type = agent_info.agent_type.value
             type_counts[agent_type] = type_counts.get(agent_type, 0) + 1
         return {
@@ -5997,7 +6047,12 @@ class AgentRegistry:
             status = agent_info.status.value
             status_counts[status] = status_counts.get(status, 0) + 1
             agent_type = agent_info.agent_type.value
-            type_counts[agent_type] = type_counts.get(agent_type, ) + 1
+            type_counts[agent_type] = (
+                type_counts.get(
+                    agent_type,
+                )
+                + 1
+            )
         return {
             "total_agents": total_agents,
             "status_counts": status_counts,
@@ -7646,7 +7701,9 @@ class AgentRegistry:
             base_score -= 0.5
         elif heartbeat_age > self.max_heartbeat_age / 2:
             base_score -= 0.2
-        return max(0.0, )
+        return max(
+            0.0,
+        )
 
     def xǁAgentRegistryǁ_calculate_health_score__mutmut_45(self, agent_info: AgentInfo) -> float:
         """Calculate agent health score"""
@@ -7756,7 +7813,12 @@ class AgentRegistry:
             base_score -= 0.5
         elif heartbeat_age > self.max_heartbeat_age / 2:
             base_score -= 0.2
-        return max(0.0, min(1.0, ))
+        return max(
+            0.0,
+            min(
+                1.0,
+            ),
+        )
 
     def xǁAgentRegistryǁ_calculate_health_score__mutmut_50(self, agent_info: AgentInfo) -> float:
         """Calculate agent health score"""
@@ -7813,7 +7875,6 @@ class AgentRegistry:
         """Save agent information to Redis"""
         if not self.redis_client:
             return
-        key = f"agent:{agent_info.agent_id}"
         await self.redis_client.set(None, json.dumps(agent_info.to_dict()), ex=timedelta(hours=24))
 
     async def xǁAgentRegistryǁ_save_agent_to_redis__mutmut_4(self, agent_info: AgentInfo) -> None:
@@ -7834,7 +7895,6 @@ class AgentRegistry:
         """Save agent information to Redis"""
         if not self.redis_client:
             return
-        key = f"agent:{agent_info.agent_id}"
         await self.redis_client.set(json.dumps(agent_info.to_dict()), ex=timedelta(hours=24))
 
     async def xǁAgentRegistryǁ_save_agent_to_redis__mutmut_7(self, agent_info: AgentInfo) -> None:
@@ -7849,7 +7909,10 @@ class AgentRegistry:
         if not self.redis_client:
             return
         key = f"agent:{agent_info.agent_id}"
-        await self.redis_client.set(key, json.dumps(agent_info.to_dict()), )
+        await self.redis_client.set(
+            key,
+            json.dumps(agent_info.to_dict()),
+        )
 
     async def xǁAgentRegistryǁ_save_agent_to_redis__mutmut_9(self, agent_info: AgentInfo) -> None:
         """Save agent information to Redis"""
@@ -7905,7 +7968,6 @@ class AgentRegistry:
         """Remove agent from Redis"""
         if not self.redis_client:
             return
-        key = f"agent:{agent_id}"
         await self.redis_client.delete(None)
 
     @_mutmut_mutated(mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut)
@@ -8027,7 +8089,7 @@ class AgentRegistry:
             return
         try:
             keys = await self.redis_client.keys("agent:*")
-            for key in keys:
+            for _key in keys:
                 data = None
                 if data:
                     agent_info = AgentInfo.from_dict(json.loads(data))
@@ -8043,7 +8105,7 @@ class AgentRegistry:
             return
         try:
             keys = await self.redis_client.keys("agent:*")
-            for key in keys:
+            for _key in keys:
                 data = await self.redis_client.get(None)
                 if data:
                     agent_info = AgentInfo.from_dict(json.loads(data))
@@ -8193,7 +8255,9 @@ class AgentRegistry:
                     agent_info = AgentInfo.from_dict(json.loads(data))
                     self.agents[agent_info.agent_id] = agent_info
                     self._update_indexes(agent_info)
-            logger.info("Loaded %s agents from Redis", )
+            logger.info(
+                "Loaded %s agents from Redis",
+            )
         except Exception as e:
             logger.error("Error loading agents from Redis: %s", e)
 
@@ -8274,7 +8338,7 @@ class AgentRegistry:
                     self.agents[agent_info.agent_id] = agent_info
                     self._update_indexes(agent_info)
             logger.info("Loaded %s agents from Redis", len(self.agents))
-        except Exception as e:
+        except Exception:
             logger.error("Error loading agents from Redis: %s", None)
 
     async def xǁAgentRegistryǁ_load_agents_from_redis__mutmut_22(self) -> None:
@@ -8306,8 +8370,10 @@ class AgentRegistry:
                     self.agents[agent_info.agent_id] = agent_info
                     self._update_indexes(agent_info)
             logger.info("Loaded %s agents from Redis", len(self.agents))
-        except Exception as e:
-            logger.error("Error loading agents from Redis: %s", )
+        except Exception:
+            logger.error(
+                "Error loading agents from Redis: %s",
+            )
 
     async def xǁAgentRegistryǁ_load_agents_from_redis__mutmut_24(self) -> None:
         """Load agents from Redis"""
@@ -8446,7 +8512,7 @@ class AgentRegistry:
         """Publish agent event to Redis"""
         if not self.redis_client:
             return
-        event = {"event_type": event_type, "timestamp": datetime.now(UTC).isoformat(), "agent_info": agent_info.to_dict()}
+        {"event_type": event_type, "timestamp": datetime.now(UTC).isoformat(), "agent_info": agent_info.to_dict()}
         await self.redis_client.publish("agent_events", None)
 
     async def xǁAgentRegistryǁ_publish_agent_event__mutmut_12(self, event_type: str, agent_info: AgentInfo) -> None:
@@ -8460,8 +8526,10 @@ class AgentRegistry:
         """Publish agent event to Redis"""
         if not self.redis_client:
             return
-        event = {"event_type": event_type, "timestamp": datetime.now(UTC).isoformat(), "agent_info": agent_info.to_dict()}
-        await self.redis_client.publish("agent_events", )
+        {"event_type": event_type, "timestamp": datetime.now(UTC).isoformat(), "agent_info": agent_info.to_dict()}
+        await self.redis_client.publish(
+            "agent_events",
+        )
 
     async def xǁAgentRegistryǁ_publish_agent_event__mutmut_14(self, event_type: str, agent_info: AgentInfo) -> None:
         """Publish agent event to Redis"""
@@ -8481,7 +8549,7 @@ class AgentRegistry:
         """Publish agent event to Redis"""
         if not self.redis_client:
             return
-        event = {"event_type": event_type, "timestamp": datetime.now(UTC).isoformat(), "agent_info": agent_info.to_dict()}
+        {"event_type": event_type, "timestamp": datetime.now(UTC).isoformat(), "agent_info": agent_info.to_dict()}
         await self.redis_client.publish("agent_events", json.dumps(None))
 
     @_mutmut_mutated(mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut)
@@ -8602,7 +8670,7 @@ class AgentRegistry:
         while True:
             try:
                 await asyncio.sleep(self.heartbeat_interval)
-                now = datetime.now(UTC)
+                datetime.now(UTC)
                 for agent_id, agent_info in list(self.agents.items()):
                     heartbeat_age = None
                     if heartbeat_age > self.max_heartbeat_age:
@@ -8719,7 +8787,9 @@ class AgentRegistry:
                     heartbeat_age = (now - agent_info.last_heartbeat).total_seconds()
                     if heartbeat_age > self.max_heartbeat_age:
                         if agent_info.status != AgentStatus.INACTIVE:
-                            await self.update_agent_status(agent_id, )
+                            await self.update_agent_status(
+                                agent_id,
+                            )
                             logger.warning("Agent %s marked as inactive due to old heartbeat", agent_id)
             except Exception as e:
                 logger.error("Error in heartbeat monitor: %s", e)
@@ -8784,7 +8854,9 @@ class AgentRegistry:
                     if heartbeat_age > self.max_heartbeat_age:
                         if agent_info.status != AgentStatus.INACTIVE:
                             await self.update_agent_status(agent_id, AgentStatus.INACTIVE)
-                            logger.warning("Agent %s marked as inactive due to old heartbeat", )
+                            logger.warning(
+                                "Agent %s marked as inactive due to old heartbeat",
+                            )
             except Exception as e:
                 logger.error("Error in heartbeat monitor: %s", e)
                 await asyncio.sleep(5)
@@ -8865,7 +8937,7 @@ class AgentRegistry:
                         if agent_info.status != AgentStatus.INACTIVE:
                             await self.update_agent_status(agent_id, AgentStatus.INACTIVE)
                             logger.warning("Agent %s marked as inactive due to old heartbeat", agent_id)
-            except Exception as e:
+            except Exception:
                 logger.error("Error in heartbeat monitor: %s", None)
                 await asyncio.sleep(5)
 
@@ -8897,8 +8969,10 @@ class AgentRegistry:
                         if agent_info.status != AgentStatus.INACTIVE:
                             await self.update_agent_status(agent_id, AgentStatus.INACTIVE)
                             logger.warning("Agent %s marked as inactive due to old heartbeat", agent_id)
-            except Exception as e:
-                logger.error("Error in heartbeat monitor: %s", )
+            except Exception:
+                logger.error(
+                    "Error in heartbeat monitor: %s",
+                )
                 await asyncio.sleep(5)
 
     async def xǁAgentRegistryǁ_heartbeat_monitor__mutmut_25(self) -> None:
@@ -9174,7 +9248,7 @@ class AgentRegistry:
         while True:
             try:
                 await asyncio.sleep(self.cleanup_interval)
-                now = datetime.now(UTC)
+                datetime.now(UTC)
                 max_inactive_age = timedelta(hours=1)
                 for agent_id, agent_info in list(self.agents.items()):
                     if agent_info.status == AgentStatus.INACTIVE:
@@ -9300,7 +9374,9 @@ class AgentRegistry:
                         inactive_age = now - agent_info.last_heartbeat
                         if inactive_age > max_inactive_age:
                             await self.unregister_agent(agent_id)
-                            logger.info("Removed inactive agent %s", )
+                            logger.info(
+                                "Removed inactive agent %s",
+                            )
             except Exception as e:
                 logger.error("Error in cleanup task: %s", e)
                 await asyncio.sleep(5)
@@ -9386,7 +9462,7 @@ class AgentRegistry:
                         if inactive_age > max_inactive_age:
                             await self.unregister_agent(agent_id)
                             logger.info("Removed inactive agent %s", agent_id)
-            except Exception as e:
+            except Exception:
                 logger.error("Error in cleanup task: %s", None)
                 await asyncio.sleep(5)
 
@@ -9420,8 +9496,10 @@ class AgentRegistry:
                         if inactive_age > max_inactive_age:
                             await self.unregister_agent(agent_id)
                             logger.info("Removed inactive agent %s", agent_id)
-            except Exception as e:
-                logger.error("Error in cleanup task: %s", )
+            except Exception:
+                logger.error(
+                    "Error in cleanup task: %s",
+                )
                 await asyncio.sleep(5)
 
     async def xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_25(self) -> None:
@@ -9509,520 +9587,1467 @@ class AgentRegistry:
                 logger.error("Error in cleanup task: %s", e)
                 await asyncio.sleep(6)
 
-mutants_xǁAgentRegistryǁ__init____mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_1'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_2'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_3'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_4'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_5'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_6'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_7'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_8'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_9'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_10'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_11'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_12'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_13'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ__init____mutmut['xǁAgentRegistryǁ__init____mutmut_14'] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_14 # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁstart__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁstart__mutmut['xǁAgentRegistryǁstart__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁstart__mutmut['xǁAgentRegistryǁstart__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁstart__mutmut['xǁAgentRegistryǁstart__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁstart__mutmut['xǁAgentRegistryǁstart__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁstart__mutmut['xǁAgentRegistryǁstart__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁstart__mutmut['xǁAgentRegistryǁstart__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁstart__mutmut['xǁAgentRegistryǁstart__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁstart__mutmut['xǁAgentRegistryǁstart__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_8 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["_mutmut_orig"] = AgentRegistry.xǁAgentRegistryǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_10"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_11"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_12"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_13"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ__init____mutmut["xǁAgentRegistryǁ__init____mutmut_14"] = (
+    AgentRegistry.xǁAgentRegistryǁ__init____mutmut_14
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁstop__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁstop__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁstop__mutmut['xǁAgentRegistryǁstop__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁstop__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁstop__mutmut['xǁAgentRegistryǁstop__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁstop__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁstop__mutmut['xǁAgentRegistryǁstop__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁstop__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁstop__mutmut['xǁAgentRegistryǁstop__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁstop__mutmut_4 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstart__mutmut["_mutmut_orig"] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstart__mutmut["xǁAgentRegistryǁstart__mutmut_1"] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_1  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstart__mutmut["xǁAgentRegistryǁstart__mutmut_2"] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_2  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstart__mutmut["xǁAgentRegistryǁstart__mutmut_3"] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_3  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstart__mutmut["xǁAgentRegistryǁstart__mutmut_4"] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_4  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstart__mutmut["xǁAgentRegistryǁstart__mutmut_5"] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_5  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstart__mutmut["xǁAgentRegistryǁstart__mutmut_6"] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_6  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstart__mutmut["xǁAgentRegistryǁstart__mutmut_7"] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_7  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstart__mutmut["xǁAgentRegistryǁstart__mutmut_8"] = AgentRegistry.xǁAgentRegistryǁstart__mutmut_8  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁregister_agent__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_10'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_11'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_12'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_13'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_14'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_15'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_16'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_17'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_18'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_19'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_20'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_21'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_22'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_23'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_24'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_25'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_26'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁregister_agent__mutmut['xǁAgentRegistryǁregister_agent__mutmut_27'] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_27 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstop__mutmut["_mutmut_orig"] = AgentRegistry.xǁAgentRegistryǁstop__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstop__mutmut["xǁAgentRegistryǁstop__mutmut_1"] = AgentRegistry.xǁAgentRegistryǁstop__mutmut_1  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstop__mutmut["xǁAgentRegistryǁstop__mutmut_2"] = AgentRegistry.xǁAgentRegistryǁstop__mutmut_2  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstop__mutmut["xǁAgentRegistryǁstop__mutmut_3"] = AgentRegistry.xǁAgentRegistryǁstop__mutmut_3  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁstop__mutmut["xǁAgentRegistryǁstop__mutmut_4"] = AgentRegistry.xǁAgentRegistryǁstop__mutmut_4  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_10'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_11'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_12'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_13'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_14'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_15'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_16'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_17'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_18'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_19'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_20'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_21'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_22'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_23'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_24'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_25'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_26'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_27'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_28'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_29'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_30'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_31'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_32'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_33'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_34'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_35'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁunregister_agent__mutmut['xǁAgentRegistryǁunregister_agent__mutmut_36'] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_36 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["_mutmut_orig"] = AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_10"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_11"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_12"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_13"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_14"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_15"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_16"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_17"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_18"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_19"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_20"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_21"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_22"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_23"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_24"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_25"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_26"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁregister_agent__mutmut["xǁAgentRegistryǁregister_agent__mutmut_27"] = (
+    AgentRegistry.xǁAgentRegistryǁregister_agent__mutmut_27
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_10'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_11'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_12'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_13'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_14'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_15'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_16'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_17'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_18'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_19'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_20'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_21'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_22'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_23'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_24'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_25'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_26'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_27'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_28'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_29'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_30'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_31'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_32'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_33'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_status__mutmut['xǁAgentRegistryǁupdate_agent_status__mutmut_34'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_34 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["_mutmut_orig"] = AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_10"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_11"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_12"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_13"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_14"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_15"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_16"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_17"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_18"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_19"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_20"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_21"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_22"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_23"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_24"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_25"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_26"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_27"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_28"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_29"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_30"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_31"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_32"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_33"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_34"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_35"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁunregister_agent__mutmut["xǁAgentRegistryǁunregister_agent__mutmut_36"] = (
+    AgentRegistry.xǁAgentRegistryǁunregister_agent__mutmut_36
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_10'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_11'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_12'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_13'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_14'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_15'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_16'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_17'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_18'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_19'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_20'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_21'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_22'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_23'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_24'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_25'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut['xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_26'] = AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_26 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_10"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_11"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_12"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_13"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_14"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_15"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_16"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_17"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_18"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_19"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_20"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_21"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_22"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_23"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_24"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_25"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_26"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_27"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_28"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_29"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_30"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_31"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_32"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_33"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_status__mutmut["xǁAgentRegistryǁupdate_agent_status__mutmut_34"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_status__mutmut_34
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_10'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_11'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_12'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_13'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_14'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_15'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_16'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_17'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_18'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_19'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_20'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_21'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_22'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_23'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_24'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_25'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_26'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_27'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_28'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_29'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_30'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_31'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_32'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_33'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_34'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_35'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_36'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_37'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_38'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_39'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_40'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_41'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_42'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_43'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_44'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_45'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_46'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_47'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_48'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_49'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_50'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_51'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_52'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_53'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_54'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_55'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_56'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_57'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_58'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_59'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_60'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_61'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_62'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_63'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_64'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_65'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_66'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_67'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_68'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_69'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_70'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_71'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_71 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_72'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_72 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_73'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_73 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_74'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_74 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_75'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_75 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_76'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_76 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_77'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_77 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_78'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_78 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_79'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_79 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_80'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_80 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_81'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_81 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_82'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_82 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_83'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_83 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_84'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_84 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_85'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_85 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_86'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_86 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁdiscover_agents__mutmut['xǁAgentRegistryǁdiscover_agents__mutmut_87'] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_87 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_10"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_11"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_12"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_13"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_14"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_15"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_16"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_17"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_18"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_19"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_20"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_21"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_22"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_23"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_24"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_25"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁupdate_agent_heartbeat__mutmut["xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_26"] = (
+    AgentRegistry.xǁAgentRegistryǁupdate_agent_heartbeat__mutmut_26
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁget_agent_by_id__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁget_agent_by_id__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agent_by_id__mutmut['xǁAgentRegistryǁget_agent_by_id__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁget_agent_by_id__mutmut_1 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["_mutmut_orig"] = AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_10"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_11"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_12"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_13"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_14"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_15"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_16"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_17"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_18"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_19"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_20"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_21"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_22"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_23"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_24"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_25"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_26"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_27"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_28"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_29"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_30"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_31"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_32"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_33"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_34"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_35"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_36"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_37"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_38"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_39"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_40"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_41"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_42"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_43"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_44"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_45"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_46"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_47"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_48"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_49"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_50"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_51"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_52"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_53"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_54"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_55"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_56"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_57"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_58"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_59"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_60"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_61"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_62"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_63"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_64"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_65"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_66"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_67"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_68"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_68
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_69"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_69
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_70"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_70
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_71"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_71
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_72"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_72
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_73"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_73
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_74"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_74
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_75"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_75
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_76"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_76
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_77"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_77
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_78"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_78
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_79"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_79
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_80"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_80
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_81"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_81
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_82"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_82
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_83"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_83
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_84"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_84
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_85"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_85
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_86"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_86
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁdiscover_agents__mutmut["xǁAgentRegistryǁdiscover_agents__mutmut_87"] = (
+    AgentRegistry.xǁAgentRegistryǁdiscover_agents__mutmut_87
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁget_agents_by_service__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_service__mutmut['xǁAgentRegistryǁget_agents_by_service__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_service__mutmut['xǁAgentRegistryǁget_agents_by_service__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_service__mutmut['xǁAgentRegistryǁget_agents_by_service__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_service__mutmut['xǁAgentRegistryǁget_agents_by_service__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_service__mutmut['xǁAgentRegistryǁget_agents_by_service__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_service__mutmut['xǁAgentRegistryǁget_agents_by_service__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_6 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agent_by_id__mutmut["_mutmut_orig"] = AgentRegistry.xǁAgentRegistryǁget_agent_by_id__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agent_by_id__mutmut["xǁAgentRegistryǁget_agent_by_id__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agent_by_id__mutmut_1
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut['xǁAgentRegistryǁget_agents_by_capability__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut['xǁAgentRegistryǁget_agents_by_capability__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut['xǁAgentRegistryǁget_agents_by_capability__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut['xǁAgentRegistryǁget_agents_by_capability__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut['xǁAgentRegistryǁget_agents_by_capability__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut['xǁAgentRegistryǁget_agents_by_capability__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_6 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_service__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_service__mutmut["xǁAgentRegistryǁget_agents_by_service__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_service__mutmut["xǁAgentRegistryǁget_agents_by_service__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_service__mutmut["xǁAgentRegistryǁget_agents_by_service__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_service__mutmut["xǁAgentRegistryǁget_agents_by_service__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_service__mutmut["xǁAgentRegistryǁget_agents_by_service__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_service__mutmut["xǁAgentRegistryǁget_agents_by_service__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_service__mutmut_6
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁget_agents_by_type__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_type__mutmut['xǁAgentRegistryǁget_agents_by_type__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_type__mutmut['xǁAgentRegistryǁget_agents_by_type__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_type__mutmut['xǁAgentRegistryǁget_agents_by_type__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_type__mutmut['xǁAgentRegistryǁget_agents_by_type__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_type__mutmut['xǁAgentRegistryǁget_agents_by_type__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_agents_by_type__mutmut['xǁAgentRegistryǁget_agents_by_type__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_6 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut["xǁAgentRegistryǁget_agents_by_capability__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut["xǁAgentRegistryǁget_agents_by_capability__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut["xǁAgentRegistryǁget_agents_by_capability__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut["xǁAgentRegistryǁget_agents_by_capability__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut["xǁAgentRegistryǁget_agents_by_capability__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_capability__mutmut["xǁAgentRegistryǁget_agents_by_capability__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_capability__mutmut_6
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_10'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_11'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_12'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_13'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_14'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_15'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_16'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_17'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_18'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_19'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_20'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_21'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_22'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_23'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_24'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_25'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_26'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_27'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_28'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_29'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_30'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_31'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_32'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_33'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁget_registry_stats__mutmut['xǁAgentRegistryǁget_registry_stats__mutmut_34'] = AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_34 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_type__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_type__mutmut["xǁAgentRegistryǁget_agents_by_type__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_type__mutmut["xǁAgentRegistryǁget_agents_by_type__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_type__mutmut["xǁAgentRegistryǁget_agents_by_type__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_type__mutmut["xǁAgentRegistryǁget_agents_by_type__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_type__mutmut["xǁAgentRegistryǁget_agents_by_type__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_agents_by_type__mutmut["xǁAgentRegistryǁget_agents_by_type__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁget_agents_by_type__mutmut_6
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁ_update_indexes__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_update_indexes__mutmut['xǁAgentRegistryǁ_update_indexes__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_update_indexes__mutmut['xǁAgentRegistryǁ_update_indexes__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_update_indexes__mutmut['xǁAgentRegistryǁ_update_indexes__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_update_indexes__mutmut['xǁAgentRegistryǁ_update_indexes__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_update_indexes__mutmut['xǁAgentRegistryǁ_update_indexes__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_update_indexes__mutmut['xǁAgentRegistryǁ_update_indexes__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_update_indexes__mutmut['xǁAgentRegistryǁ_update_indexes__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_update_indexes__mutmut['xǁAgentRegistryǁ_update_indexes__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_update_indexes__mutmut['xǁAgentRegistryǁ_update_indexes__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_9 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_10"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_11"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_12"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_13"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_14"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_15"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_16"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_17"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_18"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_19"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_20"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_21"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_22"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_23"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_24"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_25"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_26"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_27"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_28"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_29"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_30"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_31"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_32"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_33"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁget_registry_stats__mutmut["xǁAgentRegistryǁget_registry_stats__mutmut_34"] = (
+    AgentRegistry.xǁAgentRegistryǁget_registry_stats__mutmut_34
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut['xǁAgentRegistryǁ_remove_from_indexes__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut['xǁAgentRegistryǁ_remove_from_indexes__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut['xǁAgentRegistryǁ_remove_from_indexes__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut['xǁAgentRegistryǁ_remove_from_indexes__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut['xǁAgentRegistryǁ_remove_from_indexes__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut['xǁAgentRegistryǁ_remove_from_indexes__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut['xǁAgentRegistryǁ_remove_from_indexes__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut['xǁAgentRegistryǁ_remove_from_indexes__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut['xǁAgentRegistryǁ_remove_from_indexes__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_9 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_update_indexes__mutmut["_mutmut_orig"] = AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_update_indexes__mutmut["xǁAgentRegistryǁ_update_indexes__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_update_indexes__mutmut["xǁAgentRegistryǁ_update_indexes__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_update_indexes__mutmut["xǁAgentRegistryǁ_update_indexes__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_update_indexes__mutmut["xǁAgentRegistryǁ_update_indexes__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_update_indexes__mutmut["xǁAgentRegistryǁ_update_indexes__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_update_indexes__mutmut["xǁAgentRegistryǁ_update_indexes__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_update_indexes__mutmut["xǁAgentRegistryǁ_update_indexes__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_update_indexes__mutmut["xǁAgentRegistryǁ_update_indexes__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_update_indexes__mutmut["xǁAgentRegistryǁ_update_indexes__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁ_update_indexes__mutmut_9
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_10'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_11'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_12'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_13'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_14'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_15'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_16'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_17'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_18'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_19'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_20'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_21'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_22'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_23'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_24'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_25'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_26'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_27'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_28'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_29'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_30'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_31'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_32'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_33'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_34'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_35'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_36'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_37'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_38'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_39'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_40'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_41'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_42'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_43'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_44'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_45'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_46'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_47'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_48'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_49'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut['xǁAgentRegistryǁ_calculate_health_score__mutmut_50'] = AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_50 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut["xǁAgentRegistryǁ_remove_from_indexes__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut["xǁAgentRegistryǁ_remove_from_indexes__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut["xǁAgentRegistryǁ_remove_from_indexes__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut["xǁAgentRegistryǁ_remove_from_indexes__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut["xǁAgentRegistryǁ_remove_from_indexes__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut["xǁAgentRegistryǁ_remove_from_indexes__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut["xǁAgentRegistryǁ_remove_from_indexes__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut["xǁAgentRegistryǁ_remove_from_indexes__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_from_indexes__mutmut["xǁAgentRegistryǁ_remove_from_indexes__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_from_indexes__mutmut_9
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut['xǁAgentRegistryǁ_save_agent_to_redis__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut['xǁAgentRegistryǁ_save_agent_to_redis__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut['xǁAgentRegistryǁ_save_agent_to_redis__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut['xǁAgentRegistryǁ_save_agent_to_redis__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut['xǁAgentRegistryǁ_save_agent_to_redis__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut['xǁAgentRegistryǁ_save_agent_to_redis__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut['xǁAgentRegistryǁ_save_agent_to_redis__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut['xǁAgentRegistryǁ_save_agent_to_redis__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut['xǁAgentRegistryǁ_save_agent_to_redis__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut['xǁAgentRegistryǁ_save_agent_to_redis__mutmut_10'] = AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut['xǁAgentRegistryǁ_save_agent_to_redis__mutmut_11'] = AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_11 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_10"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_11"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_12"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_13"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_14"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_15"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_16"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_17"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_18"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_19"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_20"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_21"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_22"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_23"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_24"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_25"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_26"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_27"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_28"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_29"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_30"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_31"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_32"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_33"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_34"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_35"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_36"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_37"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_38"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_39"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_40"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_41"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_42"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_43"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_44"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_45"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_46"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_47"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_48"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_49"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_calculate_health_score__mutmut["xǁAgentRegistryǁ_calculate_health_score__mutmut_50"] = (
+    AgentRegistry.xǁAgentRegistryǁ_calculate_health_score__mutmut_50
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁ_remove_agent_from_redis__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_remove_agent_from_redis__mutmut['xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_remove_agent_from_redis__mutmut['xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_remove_agent_from_redis__mutmut['xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_3 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut["xǁAgentRegistryǁ_save_agent_to_redis__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut["xǁAgentRegistryǁ_save_agent_to_redis__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut["xǁAgentRegistryǁ_save_agent_to_redis__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut["xǁAgentRegistryǁ_save_agent_to_redis__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut["xǁAgentRegistryǁ_save_agent_to_redis__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut["xǁAgentRegistryǁ_save_agent_to_redis__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut["xǁAgentRegistryǁ_save_agent_to_redis__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut["xǁAgentRegistryǁ_save_agent_to_redis__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut["xǁAgentRegistryǁ_save_agent_to_redis__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut["xǁAgentRegistryǁ_save_agent_to_redis__mutmut_10"] = (
+    AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_save_agent_to_redis__mutmut["xǁAgentRegistryǁ_save_agent_to_redis__mutmut_11"] = (
+    AgentRegistry.xǁAgentRegistryǁ_save_agent_to_redis__mutmut_11
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_10'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_11'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_12'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_13'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_14'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_15'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_16'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_17'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_18'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_19'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_20'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_21'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_22'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_23'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_24'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_25'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut['xǁAgentRegistryǁ_load_agents_from_redis__mutmut_26'] = AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_26 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_agent_from_redis__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_agent_from_redis__mutmut["xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_agent_from_redis__mutmut["xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_remove_agent_from_redis__mutmut["xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁ_remove_agent_from_redis__mutmut_3
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_10'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_11'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_12'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_13'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_14'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_15'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut['xǁAgentRegistryǁ_publish_agent_event__mutmut_16'] = AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_16 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_10"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_11"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_12"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_13"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_14"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_15"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_16"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_17"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_18"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_19"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_20"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_21"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_22"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_23"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_24"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_25"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_load_agents_from_redis__mutmut["xǁAgentRegistryǁ_load_agents_from_redis__mutmut_26"] = (
+    AgentRegistry.xǁAgentRegistryǁ_load_agents_from_redis__mutmut_26
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_10'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_11'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_12'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_13'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_14'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_15'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_16'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_17'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_18'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_19'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_20'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_21'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_22'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_23'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_24'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_25'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_26'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_27'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_28'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut['xǁAgentRegistryǁ_heartbeat_monitor__mutmut_29'] = AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_29 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_10"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_11"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_12"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_13"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_14"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_15"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_publish_agent_event__mutmut["xǁAgentRegistryǁ_publish_agent_event__mutmut_16"] = (
+    AgentRegistry.xǁAgentRegistryǁ_publish_agent_event__mutmut_16
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['_mutmut_orig'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_1'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_2'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_3'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_4'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_5'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_6'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_7'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_8'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_9'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_10'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_11'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_12'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_13'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_14'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_15'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_16'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_17'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_18'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_19'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_20'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_21'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_22'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_23'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_24'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_25'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_26'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_27'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_28'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut['xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_29'] = AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_29 # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_10"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_11"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_12"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_13"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_14"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_15"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_16"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_17"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_18"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_19"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_20"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_21"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_22"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_23"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_24"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_25"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_26"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_27"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_28"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_heartbeat_monitor__mutmut["xǁAgentRegistryǁ_heartbeat_monitor__mutmut_29"] = (
+    AgentRegistry.xǁAgentRegistryǁ_heartbeat_monitor__mutmut_29
+)  # type: ignore # mutmut generated
+
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["_mutmut_orig"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_1"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_2"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_3"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_4"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_5"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_6"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_7"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_8"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_9"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_10"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_11"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_12"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_13"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_14"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_15"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_16"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_17"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_18"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_19"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_20"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_21"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_22"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_23"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_24"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_25"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_26"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_27"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_28"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut["xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_29"] = (
+    AgentRegistry.xǁAgentRegistryǁ_cleanup_inactive_agents__mutmut_29
+)  # type: ignore # mutmut generated
 mutants_xǁAgentDiscoveryServiceǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut: MutantDict = {}  # type: ignore
@@ -10056,47 +11081,67 @@ class AgentDiscoveryService:
         self.discovery_handlers[handler_name] = handler
         logger.info("Registered discovery handler: %s", handler_name)
 
-    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_orig(self, handler_name: str, handler: Callable[[Any], Any]) -> None:
+    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_orig(
+        self, handler_name: str, handler: Callable[[Any], Any]
+    ) -> None:
         """Register a discovery handler"""
         self.discovery_handlers[handler_name] = handler
         logger.info("Registered discovery handler: %s", handler_name)
 
-    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_1(self, handler_name: str, handler: Callable[[Any], Any]) -> None:
+    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_1(
+        self, handler_name: str, handler: Callable[[Any], Any]
+    ) -> None:
         """Register a discovery handler"""
         self.discovery_handlers[handler_name] = None
         logger.info("Registered discovery handler: %s", handler_name)
 
-    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_2(self, handler_name: str, handler: Callable[[Any], Any]) -> None:
+    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_2(
+        self, handler_name: str, handler: Callable[[Any], Any]
+    ) -> None:
         """Register a discovery handler"""
         self.discovery_handlers[handler_name] = handler
         logger.info(None, handler_name)
 
-    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_3(self, handler_name: str, handler: Callable[[Any], Any]) -> None:
+    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_3(
+        self, handler_name: str, handler: Callable[[Any], Any]
+    ) -> None:
         """Register a discovery handler"""
         self.discovery_handlers[handler_name] = handler
         logger.info("Registered discovery handler: %s", None)
 
-    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_4(self, handler_name: str, handler: Callable[[Any], Any]) -> None:
+    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_4(
+        self, handler_name: str, handler: Callable[[Any], Any]
+    ) -> None:
         """Register a discovery handler"""
         self.discovery_handlers[handler_name] = handler
         logger.info(handler_name)
 
-    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_5(self, handler_name: str, handler: Callable[[Any], Any]) -> None:
+    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_5(
+        self, handler_name: str, handler: Callable[[Any], Any]
+    ) -> None:
         """Register a discovery handler"""
         self.discovery_handlers[handler_name] = handler
-        logger.info("Registered discovery handler: %s", )
+        logger.info(
+            "Registered discovery handler: %s",
+        )
 
-    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_6(self, handler_name: str, handler: Callable[[Any], Any]) -> None:
+    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_6(
+        self, handler_name: str, handler: Callable[[Any], Any]
+    ) -> None:
         """Register a discovery handler"""
         self.discovery_handlers[handler_name] = handler
         logger.info("XXRegistered discovery handler: %sXX", handler_name)
 
-    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_7(self, handler_name: str, handler: Callable[[Any], Any]) -> None:
+    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_7(
+        self, handler_name: str, handler: Callable[[Any], Any]
+    ) -> None:
         """Register a discovery handler"""
         self.discovery_handlers[handler_name] = handler
         logger.info("registered discovery handler: %s", handler_name)
 
-    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_8(self, handler_name: str, handler: Callable[[Any], Any]) -> None:
+    def xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_8(
+        self, handler_name: str, handler: Callable[[Any], Any]
+    ) -> None:
         """Register a discovery handler"""
         self.discovery_handlers[handler_name] = handler
         logger.info("REGISTERED DISCOVERY HANDLER: %S", handler_name)
@@ -10138,7 +11183,9 @@ class AgentDiscoveryService:
             logger.error("Error handling discovery request: %s", e)
             return None
 
-    async def xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_orig(self, message: AgentMessage) -> AgentMessage | None:
+    async def xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_orig(
+        self, message: AgentMessage
+    ) -> AgentMessage | None:
         """Handle agent discovery request"""
         try:
             discovery_data = DiscoveryMessage(**message.payload)
@@ -10853,7 +11900,7 @@ class AgentDiscoveryService:
                 endpoints=discovery_data.endpoints,
                 metadata=discovery_data.metadata,
                 last_heartbeat=datetime.now(UTC),
-                )
+            )
             if discovery_data.agent_id in self.registry.agents:
                 await self.registry.update_agent_status(discovery_data.agent_id, AgentStatus.ACTIVE)
             else:
@@ -11143,7 +12190,9 @@ class AgentDiscoveryService:
                 registration_time=datetime.now(UTC),
             )
             if discovery_data.agent_id in self.registry.agents:
-                await self.registry.update_agent_status(discovery_data.agent_id, )
+                await self.registry.update_agent_status(
+                    discovery_data.agent_id,
+                )
             else:
                 await self.registry.register_agent(agent_info)
             available_agents = await self.registry.discover_agents({"status": "active", "limit": 50})
@@ -11167,7 +12216,7 @@ class AgentDiscoveryService:
         """Handle agent discovery request"""
         try:
             discovery_data = DiscoveryMessage(**message.payload)
-            agent_info = AgentInfo(
+            AgentInfo(
                 agent_id=discovery_data.agent_id,
                 agent_type=AgentType(discovery_data.agent_type),
                 status=AgentStatus.ACTIVE,
@@ -11542,7 +12591,7 @@ class AgentDiscoveryService:
                 await self.registry.update_agent_status(discovery_data.agent_id, AgentStatus.ACTIVE)
             else:
                 await self.registry.register_agent(agent_info)
-            available_agents = await self.registry.discover_agents({"status": "active", "limit": 50})
+            await self.registry.discover_agents({"status": "active", "limit": 50})
             response_data = None
             response = AgentMessage(
                 sender_id="discovery_service",
@@ -11720,7 +12769,7 @@ class AgentDiscoveryService:
             else:
                 await self.registry.register_agent(agent_info)
             available_agents = await self.registry.discover_agents({"status": "active", "limit": 50})
-            response_data = {
+            {
                 "discovery_agents": [agent.to_dict() for agent in available_agents],
                 "registry_stats": await self.registry.get_registry_stats(),
             }
@@ -11858,7 +12907,7 @@ class AgentDiscoveryService:
             else:
                 await self.registry.register_agent(agent_info)
             available_agents = await self.registry.discover_agents({"status": "active", "limit": 50})
-            response_data = {
+            {
                 "discovery_agents": [agent.to_dict() for agent in available_agents],
                 "registry_stats": await self.registry.get_registry_stats(),
             }
@@ -12035,7 +13084,7 @@ class AgentDiscoveryService:
             else:
                 await self.registry.register_agent(agent_info)
             available_agents = await self.registry.discover_agents({"status": "active", "limit": 50})
-            response_data = {
+            {
                 "discovery_agents": [agent.to_dict() for agent in available_agents],
                 "registry_stats": await self.registry.get_registry_stats(),
             }
@@ -12079,7 +13128,7 @@ class AgentDiscoveryService:
                 receiver_id=message.sender_id,
                 message_type=MessageType.DISCOVERY,
                 payload=response_data,
-                )
+            )
             return response
         except Exception as e:
             logger.error("Error handling discovery request: %s", e)
@@ -12225,7 +13274,7 @@ class AgentDiscoveryService:
                 correlation_id=message.id,
             )
             return response
-        except Exception as e:
+        except Exception:
             logger.error("Error handling discovery request: %s", None)
             return None
 
@@ -12297,8 +13346,10 @@ class AgentDiscoveryService:
                 correlation_id=message.id,
             )
             return response
-        except Exception as e:
-            logger.error("Error handling discovery request: %s", )
+        except Exception:
+            logger.error(
+                "Error handling discovery request: %s",
+            )
             return None
 
     async def xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_61(self, message: AgentMessage) -> AgentMessage | None:
@@ -13226,7 +14277,7 @@ class AgentDiscoveryService:
             if not agents:
                 return None
             return agents[0]
-        except Exception as e:
+        except Exception:
             logger.error("Error finding best agent: %s", None)
             return None
 
@@ -13266,8 +14317,10 @@ class AgentDiscoveryService:
             if not agents:
                 return None
             return agents[0]
-        except Exception as e:
-            logger.error("Error finding best agent: %s", )
+        except Exception:
+            logger.error(
+                "Error finding best agent: %s",
+            )
             return None
 
     async def xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_42(self, requirements: dict[str, Any]) -> AgentInfo | None:
@@ -13442,7 +14495,7 @@ class AgentDiscoveryService:
             agents = await self.registry.get_agents_by_service(service)
             endpoints: dict[str, list[str]] = {}
             for agent in agents:
-                for service_name, endpoint in agent.endpoints.items():
+                for service_name, _endpoint in agent.endpoints.items():
                     if service_name not in endpoints:
                         endpoints[service_name] = []
                     endpoints[service_name].append(None)
@@ -13477,7 +14530,7 @@ class AgentDiscoveryService:
                         endpoints[service_name] = []
                     endpoints[service_name].append(endpoint)
             return endpoints
-        except Exception as e:
+        except Exception:
             logger.error("Error getting service endpoints: %s", None)
             return {}
 
@@ -13507,8 +14560,10 @@ class AgentDiscoveryService:
                         endpoints[service_name] = []
                     endpoints[service_name].append(endpoint)
             return endpoints
-        except Exception as e:
-            logger.error("Error getting service endpoints: %s", )
+        except Exception:
+            logger.error(
+                "Error getting service endpoints: %s",
+            )
             return {}
 
     async def xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_11(self, service: str) -> dict[str, list[str]]:
@@ -13556,145 +14611,416 @@ class AgentDiscoveryService:
             logger.error("ERROR GETTING SERVICE ENDPOINTS: %S", e)
             return {}
 
-mutants_xǁAgentDiscoveryServiceǁ__init____mutmut['_mutmut_orig'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁ__init____mutmut['xǁAgentDiscoveryServiceǁ__init____mutmut_1'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁ__init____mutmut['xǁAgentDiscoveryServiceǁ__init____mutmut_2'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁ__init____mutmut_2 # type: ignore # mutmut generated
 
-mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut['_mutmut_orig'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut['xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_1'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut['xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_2'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut['xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_3'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut['xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_4'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut['xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_5'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut['xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_6'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut['xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_7'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut['xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_8'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_8 # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁ__init____mutmut["_mutmut_orig"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁ__init____mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁ__init____mutmut["xǁAgentDiscoveryServiceǁ__init____mutmut_1"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁ__init____mutmut["xǁAgentDiscoveryServiceǁ__init____mutmut_2"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
 
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['_mutmut_orig'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_1'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_2'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_3'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_4'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_5'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_6'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_7'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_8'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_9'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_10'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_11'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_12'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_13'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_14'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_15'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_16'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_17'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_18'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_19'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_20'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_21'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_22'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_23'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_24'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_25'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_26'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_27'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_28'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_29'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_30'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_31'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_32'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_33'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_34'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_35'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_36'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_37'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_38'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_39'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_40'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_41'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_42'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_43'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_44'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_45'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_46'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_47'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_48'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_49'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_50'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_51'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_52'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_53'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_54'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_55'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_56'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_57'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_58'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_59'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_60'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_61'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_62'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut['xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_63'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_63 # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut["_mutmut_orig"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut[
+    "xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_1"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_1  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut[
+    "xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_2"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_2  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut[
+    "xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_3"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_3  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut[
+    "xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_4"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_4  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut[
+    "xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_5"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_5  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut[
+    "xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_6"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_6  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut[
+    "xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_7"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_7  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut[
+    "xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_8"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁregister_discovery_handler__mutmut_8  # type: ignore # mutmut generated
 
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['_mutmut_orig'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_1'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_2'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_3'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_4'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_5'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_6'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_7'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_8'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_9'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_10'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_11'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_12'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_13'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_14'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_15'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_16'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_17'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_18'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_19'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_20'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_21'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_22'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_23'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_24'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_25'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_26'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_27'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_28'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_29'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_30'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_31'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_32'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_33'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_34'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_35'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_36'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_37'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_38'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_39'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_40'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_41'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_42'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_43'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut['xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_44'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_44 # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut["_mutmut_orig"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_1"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_1  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_2"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_2  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_3"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_3  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_4"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_4  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_5"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_5  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_6"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_6  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_7"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_7  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_8"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_8  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_9"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_9  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_10"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_10  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_11"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_11  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_12"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_12  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_13"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_13  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_14"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_14  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_15"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_15  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_16"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_16  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_17"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_17  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_18"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_18  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_19"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_19  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_20"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_20  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_21"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_21  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_22"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_22  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_23"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_23  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_24"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_24  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_25"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_25  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_26"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_26  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_27"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_27  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_28"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_28  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_29"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_29  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_30"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_30  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_31"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_31  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_32"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_32  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_33"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_33  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_34"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_34  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_35"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_35  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_36"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_36  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_37"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_37  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_38"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_38  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_39"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_39  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_40"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_40  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_41"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_41  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_42"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_42  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_43"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_43  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_44"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_44  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_45"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_45  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_46"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_46  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_47"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_47  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_48"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_48  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_49"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_49  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_50"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_50  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_51"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_51  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_52"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_52  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_53"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_53  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_54"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_54  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_55"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_55  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_56"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_56  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_57"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_57  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_58"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_58  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_59"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_59  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_60"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_60  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_61"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_61  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_62"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_62  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut[
+    "xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_63"
+] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁhandle_discovery_request__mutmut_63  # type: ignore # mutmut generated
 
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['_mutmut_orig'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_1'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_2'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_3'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_4'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_5'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_6'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_7'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_8'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_9'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_10'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_11'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_12'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut['xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_13'] = AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_13 # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["_mutmut_orig"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_1"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_2"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_3"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_4"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_5"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_6"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_7"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_8"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_9"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_10"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_11"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_12"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_13"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_14"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_15"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_16"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_17"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_18"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_19"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_20"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_21"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_22"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_23"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_24"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_25"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_26"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_27"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_28"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_29"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_30"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_31"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_32"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_33"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_34"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_35"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_36"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_37"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_38"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_39"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_40"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_41"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_42"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_43"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁfind_best_agent__mutmut["xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_44"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁfind_best_agent__mutmut_44
+)  # type: ignore # mutmut generated
+
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["_mutmut_orig"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_1"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_2"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_3"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_4"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_5"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_6"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_7"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_8"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_9"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_10"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_11"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_12"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut["xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_13"] = (
+    AgentDiscoveryService.xǁAgentDiscoveryServiceǁget_service_endpoints__mutmut_13
+)  # type: ignore # mutmut generated
 mutants_x_create_agent_info__mutmut: MutantDict = {}  # type: ignore
 
 
@@ -14027,7 +15353,7 @@ def x_create_agent_info__mutmut_18(
         endpoints=endpoints,
         metadata={},
         last_heartbeat=datetime.now(UTC),
-        )
+    )
 
 
 def x_create_agent_info__mutmut_19(
@@ -14080,28 +15406,29 @@ def x_create_agent_info__mutmut_21(
         registration_time=datetime.now(None),
     )
 
-mutants_x_create_agent_info__mutmut['_mutmut_orig'] = x_create_agent_info__mutmut_orig # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_1'] = x_create_agent_info__mutmut_1 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_2'] = x_create_agent_info__mutmut_2 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_3'] = x_create_agent_info__mutmut_3 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_4'] = x_create_agent_info__mutmut_4 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_5'] = x_create_agent_info__mutmut_5 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_6'] = x_create_agent_info__mutmut_6 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_7'] = x_create_agent_info__mutmut_7 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_8'] = x_create_agent_info__mutmut_8 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_9'] = x_create_agent_info__mutmut_9 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_10'] = x_create_agent_info__mutmut_10 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_11'] = x_create_agent_info__mutmut_11 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_12'] = x_create_agent_info__mutmut_12 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_13'] = x_create_agent_info__mutmut_13 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_14'] = x_create_agent_info__mutmut_14 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_15'] = x_create_agent_info__mutmut_15 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_16'] = x_create_agent_info__mutmut_16 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_17'] = x_create_agent_info__mutmut_17 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_18'] = x_create_agent_info__mutmut_18 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_19'] = x_create_agent_info__mutmut_19 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_20'] = x_create_agent_info__mutmut_20 # type: ignore # mutmut generated
-mutants_x_create_agent_info__mutmut['x_create_agent_info__mutmut_21'] = x_create_agent_info__mutmut_21 # type: ignore # mutmut generated
+
+mutants_x_create_agent_info__mutmut["_mutmut_orig"] = x_create_agent_info__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_1"] = x_create_agent_info__mutmut_1  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_2"] = x_create_agent_info__mutmut_2  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_3"] = x_create_agent_info__mutmut_3  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_4"] = x_create_agent_info__mutmut_4  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_5"] = x_create_agent_info__mutmut_5  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_6"] = x_create_agent_info__mutmut_6  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_7"] = x_create_agent_info__mutmut_7  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_8"] = x_create_agent_info__mutmut_8  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_9"] = x_create_agent_info__mutmut_9  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_10"] = x_create_agent_info__mutmut_10  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_11"] = x_create_agent_info__mutmut_11  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_12"] = x_create_agent_info__mutmut_12  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_13"] = x_create_agent_info__mutmut_13  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_14"] = x_create_agent_info__mutmut_14  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_15"] = x_create_agent_info__mutmut_15  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_16"] = x_create_agent_info__mutmut_16  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_17"] = x_create_agent_info__mutmut_17  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_18"] = x_create_agent_info__mutmut_18  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_19"] = x_create_agent_info__mutmut_19  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_20"] = x_create_agent_info__mutmut_20  # type: ignore # mutmut generated
+mutants_x_create_agent_info__mutmut["x_create_agent_info__mutmut_21"] = x_create_agent_info__mutmut_21  # type: ignore # mutmut generated
 mutants_x_example_usage__mutmut: MutantDict = {}  # type: ignore
 
 
@@ -14421,7 +15748,7 @@ async def x_example_usage__mutmut_14() -> None:
         agent_type="worker",
         capabilities=["data_processing", "analysis"],
         services=["process_data", "analyze_results"],
-        )
+    )
     await registry.register_agent(agent_info)
     agents = await registry.discover_agents({"capabilities": ["data_processing"], "status": "active"})
     logger.info("Found %s agents", len(agents))
@@ -14856,7 +16183,7 @@ async def x_example_usage__mutmut_35() -> None:
     registry = AgentRegistry()
     await registry.start()
     discovery_service = AgentDiscoveryService(registry)
-    agent_info = create_agent_info(
+    create_agent_info(
         agent_id="agent-001",
         agent_type="worker",
         capabilities=["data_processing", "analysis"],
@@ -15116,7 +16443,7 @@ async def x_example_usage__mutmut_47() -> None:
         endpoints={"http": "http://localhost:8001", "ws": "ws://localhost:8002"},
     )
     await registry.register_agent(agent_info)
-    agents = await registry.discover_agents({"capabilities": ["data_processing"], "status": "active"})
+    await registry.discover_agents({"capabilities": ["data_processing"], "status": "active"})
     logger.info("Found %s agents", None)
     best_agent = await discovery_service.find_best_agent({"capabilities": ["data_processing"], "min_health_score": 0.8})
     if best_agent:
@@ -15158,8 +16485,10 @@ async def x_example_usage__mutmut_49() -> None:
         endpoints={"http": "http://localhost:8001", "ws": "ws://localhost:8002"},
     )
     await registry.register_agent(agent_info)
-    agents = await registry.discover_agents({"capabilities": ["data_processing"], "status": "active"})
-    logger.info("Found %s agents", )
+    await registry.discover_agents({"capabilities": ["data_processing"], "status": "active"})
+    logger.info(
+        "Found %s agents",
+    )
     best_agent = await discovery_service.find_best_agent({"capabilities": ["data_processing"], "min_health_score": 0.8})
     if best_agent:
         logger.info("Best agent: %s", best_agent.agent_id)
@@ -15233,7 +16562,7 @@ async def x_example_usage__mutmut_53() -> None:
     """Example of how to use the agent discovery system"""
     registry = AgentRegistry()
     await registry.start()
-    discovery_service = AgentDiscoveryService(registry)
+    AgentDiscoveryService(registry)
     agent_info = create_agent_info(
         agent_id="agent-001",
         agent_type="worker",
@@ -15498,7 +16827,9 @@ async def x_example_usage__mutmut_65() -> None:
     logger.info("Found %s agents", len(agents))
     best_agent = await discovery_service.find_best_agent({"capabilities": ["data_processing"], "min_health_score": 0.8})
     if best_agent:
-        logger.info("Best agent: %s", )
+        logger.info(
+            "Best agent: %s",
+        )
     await registry.stop()
 
 
@@ -15564,75 +16895,76 @@ async def x_example_usage__mutmut_68() -> None:
         logger.info("BEST AGENT: %S", best_agent.agent_id)
     await registry.stop()
 
-mutants_x_example_usage__mutmut['_mutmut_orig'] = x_example_usage__mutmut_orig # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_1'] = x_example_usage__mutmut_1 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_2'] = x_example_usage__mutmut_2 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_3'] = x_example_usage__mutmut_3 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_4'] = x_example_usage__mutmut_4 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_5'] = x_example_usage__mutmut_5 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_6'] = x_example_usage__mutmut_6 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_7'] = x_example_usage__mutmut_7 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_8'] = x_example_usage__mutmut_8 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_9'] = x_example_usage__mutmut_9 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_10'] = x_example_usage__mutmut_10 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_11'] = x_example_usage__mutmut_11 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_12'] = x_example_usage__mutmut_12 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_13'] = x_example_usage__mutmut_13 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_14'] = x_example_usage__mutmut_14 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_15'] = x_example_usage__mutmut_15 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_16'] = x_example_usage__mutmut_16 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_17'] = x_example_usage__mutmut_17 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_18'] = x_example_usage__mutmut_18 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_19'] = x_example_usage__mutmut_19 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_20'] = x_example_usage__mutmut_20 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_21'] = x_example_usage__mutmut_21 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_22'] = x_example_usage__mutmut_22 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_23'] = x_example_usage__mutmut_23 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_24'] = x_example_usage__mutmut_24 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_25'] = x_example_usage__mutmut_25 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_26'] = x_example_usage__mutmut_26 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_27'] = x_example_usage__mutmut_27 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_28'] = x_example_usage__mutmut_28 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_29'] = x_example_usage__mutmut_29 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_30'] = x_example_usage__mutmut_30 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_31'] = x_example_usage__mutmut_31 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_32'] = x_example_usage__mutmut_32 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_33'] = x_example_usage__mutmut_33 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_34'] = x_example_usage__mutmut_34 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_35'] = x_example_usage__mutmut_35 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_36'] = x_example_usage__mutmut_36 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_37'] = x_example_usage__mutmut_37 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_38'] = x_example_usage__mutmut_38 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_39'] = x_example_usage__mutmut_39 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_40'] = x_example_usage__mutmut_40 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_41'] = x_example_usage__mutmut_41 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_42'] = x_example_usage__mutmut_42 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_43'] = x_example_usage__mutmut_43 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_44'] = x_example_usage__mutmut_44 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_45'] = x_example_usage__mutmut_45 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_46'] = x_example_usage__mutmut_46 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_47'] = x_example_usage__mutmut_47 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_48'] = x_example_usage__mutmut_48 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_49'] = x_example_usage__mutmut_49 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_50'] = x_example_usage__mutmut_50 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_51'] = x_example_usage__mutmut_51 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_52'] = x_example_usage__mutmut_52 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_53'] = x_example_usage__mutmut_53 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_54'] = x_example_usage__mutmut_54 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_55'] = x_example_usage__mutmut_55 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_56'] = x_example_usage__mutmut_56 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_57'] = x_example_usage__mutmut_57 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_58'] = x_example_usage__mutmut_58 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_59'] = x_example_usage__mutmut_59 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_60'] = x_example_usage__mutmut_60 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_61'] = x_example_usage__mutmut_61 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_62'] = x_example_usage__mutmut_62 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_63'] = x_example_usage__mutmut_63 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_64'] = x_example_usage__mutmut_64 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_65'] = x_example_usage__mutmut_65 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_66'] = x_example_usage__mutmut_66 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_67'] = x_example_usage__mutmut_67 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_68'] = x_example_usage__mutmut_68 # type: ignore # mutmut generated
+
+mutants_x_example_usage__mutmut["_mutmut_orig"] = x_example_usage__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_1"] = x_example_usage__mutmut_1  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_2"] = x_example_usage__mutmut_2  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_3"] = x_example_usage__mutmut_3  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_4"] = x_example_usage__mutmut_4  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_5"] = x_example_usage__mutmut_5  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_6"] = x_example_usage__mutmut_6  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_7"] = x_example_usage__mutmut_7  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_8"] = x_example_usage__mutmut_8  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_9"] = x_example_usage__mutmut_9  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_10"] = x_example_usage__mutmut_10  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_11"] = x_example_usage__mutmut_11  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_12"] = x_example_usage__mutmut_12  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_13"] = x_example_usage__mutmut_13  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_14"] = x_example_usage__mutmut_14  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_15"] = x_example_usage__mutmut_15  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_16"] = x_example_usage__mutmut_16  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_17"] = x_example_usage__mutmut_17  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_18"] = x_example_usage__mutmut_18  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_19"] = x_example_usage__mutmut_19  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_20"] = x_example_usage__mutmut_20  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_21"] = x_example_usage__mutmut_21  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_22"] = x_example_usage__mutmut_22  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_23"] = x_example_usage__mutmut_23  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_24"] = x_example_usage__mutmut_24  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_25"] = x_example_usage__mutmut_25  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_26"] = x_example_usage__mutmut_26  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_27"] = x_example_usage__mutmut_27  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_28"] = x_example_usage__mutmut_28  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_29"] = x_example_usage__mutmut_29  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_30"] = x_example_usage__mutmut_30  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_31"] = x_example_usage__mutmut_31  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_32"] = x_example_usage__mutmut_32  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_33"] = x_example_usage__mutmut_33  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_34"] = x_example_usage__mutmut_34  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_35"] = x_example_usage__mutmut_35  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_36"] = x_example_usage__mutmut_36  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_37"] = x_example_usage__mutmut_37  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_38"] = x_example_usage__mutmut_38  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_39"] = x_example_usage__mutmut_39  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_40"] = x_example_usage__mutmut_40  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_41"] = x_example_usage__mutmut_41  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_42"] = x_example_usage__mutmut_42  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_43"] = x_example_usage__mutmut_43  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_44"] = x_example_usage__mutmut_44  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_45"] = x_example_usage__mutmut_45  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_46"] = x_example_usage__mutmut_46  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_47"] = x_example_usage__mutmut_47  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_48"] = x_example_usage__mutmut_48  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_49"] = x_example_usage__mutmut_49  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_50"] = x_example_usage__mutmut_50  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_51"] = x_example_usage__mutmut_51  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_52"] = x_example_usage__mutmut_52  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_53"] = x_example_usage__mutmut_53  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_54"] = x_example_usage__mutmut_54  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_55"] = x_example_usage__mutmut_55  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_56"] = x_example_usage__mutmut_56  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_57"] = x_example_usage__mutmut_57  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_58"] = x_example_usage__mutmut_58  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_59"] = x_example_usage__mutmut_59  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_60"] = x_example_usage__mutmut_60  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_61"] = x_example_usage__mutmut_61  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_62"] = x_example_usage__mutmut_62  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_63"] = x_example_usage__mutmut_63  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_64"] = x_example_usage__mutmut_64  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_65"] = x_example_usage__mutmut_65  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_66"] = x_example_usage__mutmut_66  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_67"] = x_example_usage__mutmut_67  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_68"] = x_example_usage__mutmut_68  # type: ignore # mutmut generated
 
 
 if __name__ == "__main__":

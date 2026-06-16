@@ -4,7 +4,6 @@ Tests for improved exception chaining and error handling
 """
 
 import pytest
-
 from aitbc.crypto.crypto import (
     decrypt_private_key,
     encrypt_private_key,

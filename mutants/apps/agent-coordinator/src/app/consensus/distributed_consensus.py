@@ -14,7 +14,8 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 
 
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
+from mutmut.mutation.trampoline import MutantDict
+from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated
 
 
 @dataclass
@@ -41,6 +42,8 @@ class ConsensusNode:
     reputation_score: float = 1.0
     voting_power: float = 1.0
     is_active: bool = True
+
+
 mutants_xǁDistributedConsensusǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁDistributedConsensusǁregister_node__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁDistributedConsensusǁcreate_proposal__mutmut: MutantDict = {}  # type: ignore
@@ -312,7 +315,9 @@ class DistributedConsensus:
     async def xǁDistributedConsensusǁregister_node__mutmut_5(self, node_data: dict[str, Any]) -> dict[str, Any]:
         """Register a new node in the consensus network"""
         try:
-            node_id = node_data.get("node_id", )
+            node_id = node_data.get(
+                "node_id",
+            )
             endpoint = node_data.get("endpoint", "")
             node = ConsensusNode(
                 node_id=node_id,
@@ -505,7 +510,9 @@ class DistributedConsensus:
         """Register a new node in the consensus network"""
         try:
             node_id = node_data.get("node_id", str(uuid.uuid4()))
-            endpoint = node_data.get("endpoint", )
+            endpoint = node_data.get(
+                "endpoint",
+            )
             node = ConsensusNode(
                 node_id=node_id,
                 endpoint=endpoint,
@@ -601,7 +608,7 @@ class DistributedConsensus:
         """Register a new node in the consensus network"""
         try:
             node_id = node_data.get("node_id", str(uuid.uuid4()))
-            endpoint = node_data.get("endpoint", "")
+            node_data.get("endpoint", "")
             node = None
             self.nodes[node_id] = node
             return {
@@ -642,7 +649,7 @@ class DistributedConsensus:
         """Register a new node in the consensus network"""
         try:
             node_id = node_data.get("node_id", str(uuid.uuid4()))
-            endpoint = node_data.get("endpoint", "")
+            node_data.get("endpoint", "")
             node = ConsensusNode(
                 node_id=node_id,
                 endpoint=None,
@@ -785,7 +792,7 @@ class DistributedConsensus:
         """Register a new node in the consensus network"""
         try:
             node_id = node_data.get("node_id", str(uuid.uuid4()))
-            endpoint = node_data.get("endpoint", "")
+            node_data.get("endpoint", "")
             node = ConsensusNode(
                 node_id=node_id,
                 last_seen=datetime.now(UTC),
@@ -884,7 +891,7 @@ class DistributedConsensus:
                 last_seen=datetime.now(UTC),
                 reputation_score=node_data.get("reputation_score", 1.0),
                 voting_power=node_data.get("voting_power", 1.0),
-                )
+            )
             self.nodes[node_id] = node
             return {
                 "status": "success",
@@ -1001,7 +1008,9 @@ class DistributedConsensus:
                 node_id=node_id,
                 endpoint=endpoint,
                 last_seen=datetime.now(UTC),
-                reputation_score=node_data.get("reputation_score", ),
+                reputation_score=node_data.get(
+                    "reputation_score",
+                ),
                 voting_power=node_data.get("voting_power", 1.0),
                 is_active=True,
             )
@@ -1170,7 +1179,9 @@ class DistributedConsensus:
                 endpoint=endpoint,
                 last_seen=datetime.now(UTC),
                 reputation_score=node_data.get("reputation_score", 1.0),
-                voting_power=node_data.get("voting_power", ),
+                voting_power=node_data.get(
+                    "voting_power",
+                ),
                 is_active=True,
             )
             self.nodes[node_id] = node
@@ -1285,7 +1296,7 @@ class DistributedConsensus:
         try:
             node_id = node_data.get("node_id", str(uuid.uuid4()))
             endpoint = node_data.get("endpoint", "")
-            node = ConsensusNode(
+            ConsensusNode(
                 node_id=node_id,
                 endpoint=endpoint,
                 last_seen=datetime.now(UTC),
@@ -1661,7 +1672,9 @@ class DistributedConsensus:
                 "total_nodes": len(self.nodes),
             }
         except Exception as e:
-            logger.error("Error registering node: %s", )
+            logger.error(
+                "Error registering node: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     async def xǁDistributedConsensusǁregister_node__mutmut_62(self, node_data: dict[str, Any]) -> dict[str, Any]:
@@ -2181,7 +2194,9 @@ class DistributedConsensus:
         """Create a new consensus proposal"""
         try:
             proposal_id = str(uuid.uuid4())
-            proposer_id = proposal_data.get("proposer_id", )
+            proposer_id = proposal_data.get(
+                "proposer_id",
+            )
             if self.current_algorithm == "majority_vote":
                 required_votes = max(1, len(self.nodes) // 2 + 1)
             elif self.current_algorithm == "supermajority":
@@ -2557,7 +2572,9 @@ class DistributedConsensus:
             proposal_id = str(uuid.uuid4())
             proposer_id = proposal_data.get("proposer_id", "")
             if self.current_algorithm == "majority_vote":
-                required_votes = max(1, )
+                required_votes = max(
+                    1,
+                )
             elif self.current_algorithm == "supermajority":
                 required_votes = max(1, int(len(self.nodes) * 0.67))
             elif self.current_algorithm == "unanimous":
@@ -3001,7 +3018,9 @@ class DistributedConsensus:
             if self.current_algorithm == "majority_vote":
                 required_votes = max(1, len(self.nodes) // 2 + 1)
             elif self.current_algorithm == "supermajority":
-                required_votes = max(1, )
+                required_votes = max(
+                    1,
+                )
             elif self.current_algorithm == "unanimous":
                 required_votes = len(self.nodes)
             else:
@@ -3447,7 +3466,9 @@ class DistributedConsensus:
             elif self.current_algorithm == "unanimous":
                 required_votes = len(self.nodes)
             else:
-                required_votes = max(1, )
+                required_votes = max(
+                    1,
+                )
             proposal = ConsensusProposal(
                 proposal_id=proposal_id,
                 proposer_id=proposer_id,
@@ -3643,7 +3664,7 @@ class DistributedConsensus:
         """Create a new consensus proposal"""
         try:
             proposal_id = str(uuid.uuid4())
-            proposer_id = proposal_data.get("proposer_id", "")
+            proposal_data.get("proposer_id", "")
             if self.current_algorithm == "majority_vote":
                 required_votes = max(1, len(self.nodes) // 2 + 1)
             elif self.current_algorithm == "supermajority":
@@ -3704,7 +3725,7 @@ class DistributedConsensus:
         """Create a new consensus proposal"""
         try:
             proposal_id = str(uuid.uuid4())
-            proposer_id = proposal_data.get("proposer_id", "")
+            proposal_data.get("proposer_id", "")
             if self.current_algorithm == "majority_vote":
                 required_votes = max(1, len(self.nodes) // 2 + 1)
             elif self.current_algorithm == "supermajority":
@@ -3907,7 +3928,7 @@ class DistributedConsensus:
         """Create a new consensus proposal"""
         try:
             proposal_id = str(uuid.uuid4())
-            proposer_id = proposal_data.get("proposer_id", "")
+            proposal_data.get("proposer_id", "")
             if self.current_algorithm == "majority_vote":
                 required_votes = max(1, len(self.nodes) // 2 + 1)
             elif self.current_algorithm == "supermajority":
@@ -4054,7 +4075,7 @@ class DistributedConsensus:
                 proposal_data=proposal_data.get("content", {}),
                 timestamp=datetime.now(UTC),
                 deadline=datetime.now(UTC) + self.voting_timeout,
-                )
+            )
             self.proposals[proposal_id] = proposal
             await self._initiate_voting(proposal)
             return {
@@ -4186,7 +4207,9 @@ class DistributedConsensus:
             proposal = ConsensusProposal(
                 proposal_id=proposal_id,
                 proposer_id=proposer_id,
-                proposal_data=proposal_data.get("content", ),
+                proposal_data=proposal_data.get(
+                    "content",
+                ),
                 timestamp=datetime.now(UTC),
                 deadline=datetime.now(UTC) + self.voting_timeout,
                 required_votes=required_votes,
@@ -4983,7 +5006,9 @@ class DistributedConsensus:
                 "algorithm": self.current_algorithm,
             }
         except Exception as e:
-            logger.error("Error creating proposal: %s", )
+            logger.error(
+                "Error creating proposal: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     async def xǁDistributedConsensusǁcreate_proposal__mutmut_90(self, proposal_data: dict[str, Any]) -> dict[str, Any]:
@@ -5371,7 +5396,7 @@ class DistributedConsensus:
         """Initiate voting for a proposal"""
         try:
             active_nodes = [node for node in self.nodes.values() if node.is_active]
-            for node in active_nodes:
+            for _node in active_nodes:
                 await self._simulate_node_vote(proposal, None)
             await self._check_consensus(proposal)
         except Exception as e:
@@ -5391,8 +5416,10 @@ class DistributedConsensus:
         """Initiate voting for a proposal"""
         try:
             active_nodes = [node for node in self.nodes.values() if node.is_active]
-            for node in active_nodes:
-                await self._simulate_node_vote(proposal, )
+            for _node in active_nodes:
+                await self._simulate_node_vote(
+                    proposal,
+                )
             await self._check_consensus(proposal)
         except Exception as e:
             logger.error("Error initiating voting: %s", e)
@@ -5424,7 +5451,7 @@ class DistributedConsensus:
             for node in active_nodes:
                 await self._simulate_node_vote(proposal, node.node_id)
             await self._check_consensus(proposal)
-        except Exception as e:
+        except Exception:
             logger.error("Error initiating voting: %s", None)
 
     async def xǁDistributedConsensusǁ_initiate_voting__mutmut_9(self, proposal: ConsensusProposal) -> None:
@@ -5444,8 +5471,10 @@ class DistributedConsensus:
             for node in active_nodes:
                 await self._simulate_node_vote(proposal, node.node_id)
             await self._check_consensus(proposal)
-        except Exception as e:
-            logger.error("Error initiating voting: %s", )
+        except Exception:
+            logger.error(
+                "Error initiating voting: %s",
+            )
 
     async def xǁDistributedConsensusǁ_initiate_voting__mutmut_11(self, proposal: ConsensusProposal) -> None:
         """Initiate voting for a proposal"""
@@ -5976,7 +6005,9 @@ class DistributedConsensus:
             vote_probability += node.reputation_score * 0.2
             if proposal.proposal_data.get("priority") == "high":
                 vote_probability += 0.1
-            vote_probability += random.uniform(-0.2, )
+            vote_probability += random.uniform(
+                -0.2,
+            )
             vote = random.random() < vote_probability
             await self.cast_vote(proposal.proposal_id, node_id, vote)
         except Exception as e:
@@ -6121,7 +6152,7 @@ class DistributedConsensus:
             if proposal.proposal_data.get("priority") == "high":
                 vote_probability += 0.1
             vote_probability += random.uniform(-0.2, 0.2)
-            vote = random.random() < vote_probability
+            random.random() < vote_probability
             await self.cast_vote(proposal.proposal_id, node_id, None)
         except Exception as e:
             logger.error("Error simulating node vote: %s", e)
@@ -6175,8 +6206,11 @@ class DistributedConsensus:
             if proposal.proposal_data.get("priority") == "high":
                 vote_probability += 0.1
             vote_probability += random.uniform(-0.2, 0.2)
-            vote = random.random() < vote_probability
-            await self.cast_vote(proposal.proposal_id, node_id, )
+            random.random() < vote_probability
+            await self.cast_vote(
+                proposal.proposal_id,
+                node_id,
+            )
         except Exception as e:
             logger.error("Error simulating node vote: %s", e)
 
@@ -6213,7 +6247,7 @@ class DistributedConsensus:
             vote_probability += random.uniform(-0.2, 0.2)
             vote = random.random() < vote_probability
             await self.cast_vote(proposal.proposal_id, node_id, vote)
-        except Exception as e:
+        except Exception:
             logger.error("Error simulating node vote: %s", None)
 
     async def xǁDistributedConsensusǁ_simulate_node_vote__mutmut_40(self, proposal: ConsensusProposal, node_id: str) -> None:
@@ -6249,8 +6283,10 @@ class DistributedConsensus:
             vote_probability += random.uniform(-0.2, 0.2)
             vote = random.random() < vote_probability
             await self.cast_vote(proposal.proposal_id, node_id, vote)
-        except Exception as e:
-            logger.error("Error simulating node vote: %s", )
+        except Exception:
+            logger.error(
+                "Error simulating node vote: %s",
+            )
 
     async def xǁDistributedConsensusǁ_simulate_node_vote__mutmut_42(self, proposal: ConsensusProposal, node_id: str) -> None:
         """Simulate a node's voting decision"""
@@ -6332,7 +6368,9 @@ class DistributedConsensus:
             logger.error("Error casting vote: %s", e)
             return {"status": "error", "message": str(e)}
 
-    async def xǁDistributedConsensusǁcast_vote__mutmut_orig(self, proposal_id: str, node_id: str, vote: bool) -> dict[str, Any]:
+    async def xǁDistributedConsensusǁcast_vote__mutmut_orig(
+        self, proposal_id: str, node_id: str, vote: bool
+    ) -> dict[str, Any]:
         """Cast a vote for a proposal"""
         try:
             if proposal_id not in self.proposals:
@@ -7654,7 +7692,9 @@ class DistributedConsensus:
                 "required_votes": proposal.required_votes,
             }
         except Exception as e:
-            logger.error("Error casting vote: %s", )
+            logger.error(
+                "Error casting vote: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     async def xǁDistributedConsensusǁcast_vote__mutmut_53(self, proposal_id: str, node_id: str, vote: bool) -> dict[str, Any]:
@@ -8737,7 +8777,10 @@ class DistributedConsensus:
             total_votes = len(proposal.current_votes)
             if datetime.now(UTC) > proposal.deadline:
                 proposal.status = "expired"
-                await self._finalize_proposal(proposal, False, )
+                await self._finalize_proposal(
+                    proposal,
+                    False,
+                )
                 return
             active_nodes = sum(1 for node in self.nodes.values() if node.is_active)
             if total_votes < active_nodes * self.min_participation:
@@ -9603,7 +9646,10 @@ class DistributedConsensus:
             if self.current_algorithm == "majority_vote":
                 if yes_votes >= proposal.required_votes:
                     proposal.status = "approved"
-                    await self._finalize_proposal(proposal, True, )
+                    await self._finalize_proposal(
+                        proposal,
+                        True,
+                    )
                 elif no_votes >= proposal.required_votes:
                     proposal.status = "rejected"
                     await self._finalize_proposal(proposal, False, f"Majority against: {no_votes}/{total_votes}")
@@ -10035,7 +10081,10 @@ class DistributedConsensus:
                     await self._finalize_proposal(proposal, True, f"Majority reached: {yes_votes}/{total_votes}")
                 elif no_votes >= proposal.required_votes:
                     proposal.status = "rejected"
-                    await self._finalize_proposal(proposal, False, )
+                    await self._finalize_proposal(
+                        proposal,
+                        False,
+                    )
             elif self.current_algorithm == "supermajority":
                 if yes_votes >= proposal.required_votes:
                     proposal.status = "approved"
@@ -10585,7 +10634,10 @@ class DistributedConsensus:
             elif self.current_algorithm == "supermajority":
                 if yes_votes >= proposal.required_votes:
                     proposal.status = "approved"
-                    await self._finalize_proposal(proposal, True, )
+                    await self._finalize_proposal(
+                        proposal,
+                        True,
+                    )
                 elif no_votes >= proposal.required_votes:
                     proposal.status = "rejected"
                     await self._finalize_proposal(proposal, False, f"Supermajority against: {no_votes}/{total_votes}")
@@ -11017,7 +11069,10 @@ class DistributedConsensus:
                     await self._finalize_proposal(proposal, True, f"Supermajority reached: {yes_votes}/{total_votes}")
                 elif no_votes >= proposal.required_votes:
                     proposal.status = "rejected"
-                    await self._finalize_proposal(proposal, False, )
+                    await self._finalize_proposal(
+                        proposal,
+                        False,
+                    )
             elif self.current_algorithm == "unanimous":
                 if total_votes == len(self.nodes) and yes_votes == total_votes:
                     proposal.status = "approved"
@@ -11645,7 +11700,10 @@ class DistributedConsensus:
             elif self.current_algorithm == "unanimous":
                 if total_votes == len(self.nodes) and yes_votes == total_votes:
                     proposal.status = "approved"
-                    await self._finalize_proposal(proposal, True, )
+                    await self._finalize_proposal(
+                        proposal,
+                        True,
+                    )
                 elif no_votes > 0:
                     proposal.status = "rejected"
                     await self._finalize_proposal(proposal, False, f"Not unanimous: {yes_votes}/{total_votes}")
@@ -12233,7 +12291,10 @@ class DistributedConsensus:
                     await self._finalize_proposal(proposal, True, "Unanimous approval")
                 elif no_votes > 0:
                     proposal.status = "rejected"
-                    await self._finalize_proposal(proposal, False, )
+                    await self._finalize_proposal(
+                        proposal,
+                        False,
+                    )
         except Exception as e:
             logger.error("Error checking consensus: %s", e)
 
@@ -12351,7 +12412,7 @@ class DistributedConsensus:
                 elif no_votes > 0:
                     proposal.status = "rejected"
                     await self._finalize_proposal(proposal, False, f"Not unanimous: {yes_votes}/{total_votes}")
-        except Exception as e:
+        except Exception:
             logger.error("Error checking consensus: %s", None)
 
     async def xǁDistributedConsensusǁ_check_consensus__mutmut_113(self, proposal: ConsensusProposal) -> None:
@@ -12429,8 +12490,10 @@ class DistributedConsensus:
                 elif no_votes > 0:
                     proposal.status = "rejected"
                     await self._finalize_proposal(proposal, False, f"Not unanimous: {yes_votes}/{total_votes}")
-        except Exception as e:
-            logger.error("Error checking consensus: %s", )
+        except Exception:
+            logger.error(
+                "Error checking consensus: %s",
+            )
 
     async def xǁDistributedConsensusǁ_check_consensus__mutmut_115(self, proposal: ConsensusProposal) -> None:
         """Check if consensus is reached for a proposal"""
@@ -12570,7 +12633,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_orig(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_orig(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12590,7 +12655,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_1(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_1(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = None
@@ -12600,7 +12667,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_2(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_2(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12620,7 +12689,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_3(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_3(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12640,7 +12711,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_4(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_4(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12660,7 +12733,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_5(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_5(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12680,7 +12755,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_6(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_6(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12700,7 +12777,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_7(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_7(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12720,7 +12799,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_8(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_8(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12740,7 +12821,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_9(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_9(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12760,7 +12843,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_10(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_10(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12780,7 +12865,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_11(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_11(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12800,7 +12887,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_12(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_12(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12820,7 +12909,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_13(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_13(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12840,7 +12931,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_14(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_14(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12860,7 +12953,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_15(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_15(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12880,7 +12975,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_16(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_16(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12900,7 +12997,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_17(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_17(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12920,7 +13019,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_18(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_18(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12940,7 +13041,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_19(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_19(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12960,7 +13063,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_20(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_20(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -12980,7 +13085,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_21(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_21(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13000,10 +13107,12 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_22(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_22(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
-            history_record = {
+            {
                 "proposal_id": proposal.proposal_id,
                 "proposer_id": proposal.proposer_id,
                 "proposal_data": proposal.proposal_data,
@@ -13020,7 +13129,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_23(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_23(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13040,7 +13151,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_24(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_24(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13060,7 +13173,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_25(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_25(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13080,7 +13195,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_26(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_26(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13100,7 +13217,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_27(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_27(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13120,7 +13239,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_28(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_28(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13140,7 +13261,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_29(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_29(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13160,7 +13283,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_30(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_30(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13176,11 +13301,17 @@ class DistributedConsensus:
             }
             self.consensus_history.append(history_record)
             await self._cleanup_old_proposals()
-            logger.info("Proposal %s %s: %s", proposal.proposal_id, "approved" if approved else "rejected", )
+            logger.info(
+                "Proposal %s %s: %s",
+                proposal.proposal_id,
+                "approved" if approved else "rejected",
+            )
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_31(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_31(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13200,7 +13331,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_32(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_32(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13220,7 +13353,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_33(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_33(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13240,7 +13375,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_34(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_34(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13260,7 +13397,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_35(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_35(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13280,7 +13419,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_36(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_36(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13300,7 +13441,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_37(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_37(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13320,7 +13463,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("Error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_38(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_38(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13340,7 +13485,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error(None, e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_39(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_39(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13357,10 +13504,12 @@ class DistributedConsensus:
             self.consensus_history.append(history_record)
             await self._cleanup_old_proposals()
             logger.info("Proposal %s %s: %s", proposal.proposal_id, "approved" if approved else "rejected", reason)
-        except Exception as e:
+        except Exception:
             logger.error("Error finalizing proposal: %s", None)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_40(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_40(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13380,7 +13529,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error(e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_41(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_41(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13397,10 +13548,14 @@ class DistributedConsensus:
             self.consensus_history.append(history_record)
             await self._cleanup_old_proposals()
             logger.info("Proposal %s %s: %s", proposal.proposal_id, "approved" if approved else "rejected", reason)
-        except Exception as e:
-            logger.error("Error finalizing proposal: %s", )
+        except Exception:
+            logger.error(
+                "Error finalizing proposal: %s",
+            )
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_42(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_42(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13420,7 +13575,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("XXError finalizing proposal: %sXX", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_43(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_43(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13440,7 +13597,9 @@ class DistributedConsensus:
         except Exception as e:
             logger.error("error finalizing proposal: %s", e)
 
-    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_44(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
+    async def xǁDistributedConsensusǁ_finalize_proposal__mutmut_44(
+        self, proposal: ConsensusProposal, approved: bool, reason: str
+    ) -> None:
         """Finalize a proposal decision"""
         try:
             history_record = {
@@ -13520,7 +13679,7 @@ class DistributedConsensus:
     async def xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_3(self) -> None:
         """Clean up old and expired proposals"""
         try:
-            current_time = datetime.now(UTC)
+            datetime.now(UTC)
             expired_proposals = None
             for pid in expired_proposals:
                 del self.proposals[pid]
@@ -13678,7 +13837,7 @@ class DistributedConsensus:
             ]
             for pid in expired_proposals:
                 del self.proposals[pid]
-        except Exception as e:
+        except Exception:
             logger.error("Error cleaning up proposals: %s", None)
 
     async def xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_15(self) -> None:
@@ -13706,8 +13865,10 @@ class DistributedConsensus:
             ]
             for pid in expired_proposals:
                 del self.proposals[pid]
-        except Exception as e:
-            logger.error("Error cleaning up proposals: %s", )
+        except Exception:
+            logger.error(
+                "Error cleaning up proposals: %s",
+            )
 
     async def xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_17(self) -> None:
         """Clean up old and expired proposals"""
@@ -14991,7 +15152,9 @@ class DistributedConsensus:
                 "algorithm": self.current_algorithm,
             }
         except Exception as e:
-            logger.error("Error getting proposal status: %s", )
+            logger.error(
+                "Error getting proposal status: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     async def xǁDistributedConsensusǁget_proposal_status__mutmut_45(self, proposal_id: str) -> dict[str, Any]:
@@ -15622,7 +15785,9 @@ class DistributedConsensus:
             self.current_algorithm = algorithm
             return {"status": "success", "algorithm": algorithm, "changed_at": datetime.now(UTC).isoformat()}
         except Exception as e:
-            logger.error("Error setting consensus algorithm: %s", )
+            logger.error(
+                "Error setting consensus algorithm: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     async def xǁDistributedConsensusǁset_consensus_algorithm__mutmut_29(self, algorithm: str) -> dict[str, Any]:
@@ -19445,8 +19610,8 @@ class DistributedConsensus:
             for _algorithm, stats in algorithm_stats.items():
                 stats["success_rate"] = stats["approved"] / stats["total"] if stats["total"] > 0 else 0
             node_participation = {}
-            for node_id, node in self.nodes.items():
-                votes_cast = sum(1 for record in self.consensus_history if node_id in record["votes"])
+            for node_id, _node in self.nodes.items():
+                sum(1 for record in self.consensus_history if node_id in record["votes"])
                 node_participation[node_id] = None
             return {
                 "status": "success",
@@ -21570,7 +21735,9 @@ class DistributedConsensus:
                 "last_updated": datetime.now(UTC).isoformat(),
             }
         except Exception as e:
-            logger.error("Error getting consensus statistics: %s", )
+            logger.error(
+                "Error getting consensus statistics: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     async def xǁDistributedConsensusǁget_consensus_statistics__mutmut_118(self) -> dict[str, Any]:
@@ -22571,7 +22738,9 @@ class DistributedConsensus:
                 "updated_at": datetime.now(UTC).isoformat(),
             }
         except Exception as e:
-            logger.error("Error updating node status: %s", )
+            logger.error(
+                "Error updating node status: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     async def xǁDistributedConsensusǁupdate_node_status__mutmut_29(self, node_id: str, is_active: bool) -> dict[str, Any]:
@@ -22744,768 +22913,2269 @@ class DistributedConsensus:
             logger.error("Error updating node status: %s", e)
             return {"status": "error", "message": str(None)}
 
-mutants_xǁDistributedConsensusǁ__init____mutmut['_mutmut_orig'] = DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ__init____mutmut['xǁDistributedConsensusǁ__init____mutmut_1'] = DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ__init____mutmut['xǁDistributedConsensusǁ__init____mutmut_2'] = DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_2 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ__init____mutmut['xǁDistributedConsensusǁ__init____mutmut_3'] = DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_3 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ__init____mutmut['xǁDistributedConsensusǁ__init____mutmut_4'] = DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_4 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ__init____mutmut['xǁDistributedConsensusǁ__init____mutmut_5'] = DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_5 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ__init____mutmut['xǁDistributedConsensusǁ__init____mutmut_6'] = DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_6 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ__init____mutmut['xǁDistributedConsensusǁ__init____mutmut_7'] = DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_7 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ__init____mutmut['xǁDistributedConsensusǁ__init____mutmut_8'] = DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_8 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ__init____mutmut['xǁDistributedConsensusǁ__init____mutmut_9'] = DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_9 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ__init____mutmut['xǁDistributedConsensusǁ__init____mutmut_10'] = DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_10 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ__init____mutmut['xǁDistributedConsensusǁ__init____mutmut_11'] = DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_11 # type: ignore # mutmut generated
 
-mutants_xǁDistributedConsensusǁregister_node__mutmut['_mutmut_orig'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_1'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_2'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_3'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_4'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_5'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_6'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_7'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_8'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_9'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_10'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_11'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_12'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_13'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_14'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_15'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_16'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_17'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_18'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_19'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_20'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_21'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_22'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_23'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_24'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_25'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_26'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_27'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_28'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_29'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_30'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_31'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_32'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_33'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_34'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_35'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_36'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_37'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_38'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_39'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_40'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_41'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_42'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_43'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_44'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_45'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_46'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_47'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_48'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_49'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_50'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_51'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_52'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_53'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_54'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_55'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_56'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_57'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_58'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_59'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_60'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_61'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_62'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_63'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_64'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_65'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_66'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_67'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_68'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_69'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_70'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁregister_node__mutmut['xǁDistributedConsensusǁregister_node__mutmut_71'] = DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_71 # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ__init____mutmut["_mutmut_orig"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ__init____mutmut["xǁDistributedConsensusǁ__init____mutmut_1"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ__init____mutmut["xǁDistributedConsensusǁ__init____mutmut_2"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ__init____mutmut["xǁDistributedConsensusǁ__init____mutmut_3"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ__init____mutmut["xǁDistributedConsensusǁ__init____mutmut_4"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ__init____mutmut["xǁDistributedConsensusǁ__init____mutmut_5"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ__init____mutmut["xǁDistributedConsensusǁ__init____mutmut_6"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ__init____mutmut["xǁDistributedConsensusǁ__init____mutmut_7"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ__init____mutmut["xǁDistributedConsensusǁ__init____mutmut_8"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ__init____mutmut["xǁDistributedConsensusǁ__init____mutmut_9"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ__init____mutmut["xǁDistributedConsensusǁ__init____mutmut_10"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ__init____mutmut["xǁDistributedConsensusǁ__init____mutmut_11"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ__init____mutmut_11
+)  # type: ignore # mutmut generated
 
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['_mutmut_orig'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_1'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_2'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_3'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_4'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_5'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_6'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_7'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_8'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_9'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_10'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_11'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_12'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_13'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_14'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_15'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_16'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_17'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_18'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_19'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_20'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_21'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_22'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_23'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_24'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_25'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_26'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_27'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_28'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_29'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_30'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_31'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_32'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_33'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_34'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_35'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_36'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_37'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_38'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_39'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_40'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_41'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_42'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_43'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_44'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_45'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_46'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_47'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_48'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_49'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_50'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_51'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_52'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_53'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_54'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_55'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_56'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_57'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_58'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_59'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_60'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_61'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_62'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_63'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_64'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_65'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_66'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_67'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_68'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_69'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_70'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_71'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_71 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_72'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_72 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_73'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_73 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_74'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_74 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_75'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_75 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_76'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_76 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_77'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_77 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_78'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_78 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_79'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_79 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_80'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_80 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_81'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_81 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_82'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_82 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_83'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_83 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_84'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_84 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_85'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_85 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_86'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_86 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_87'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_87 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_88'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_88 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_89'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_89 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_90'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_90 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_91'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_91 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_92'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_92 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_93'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_93 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_94'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_94 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_95'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_95 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_96'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_96 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_97'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_97 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_98'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_98 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcreate_proposal__mutmut['xǁDistributedConsensusǁcreate_proposal__mutmut_99'] = DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_99 # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["_mutmut_orig"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_1"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_2"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_3"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_4"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_5"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_6"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_7"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_8"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_9"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_10"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_11"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_12"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_13"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_14"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_15"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_16"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_17"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_18"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_19"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_20"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_21"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_22"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_23"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_24"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_25"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_26"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_27"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_28"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_29"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_30"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_31"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_32"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_33"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_34"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_35"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_36"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_37"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_38"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_39"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_40"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_41"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_42"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_43"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_44"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_45"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_46"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_47"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_48"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_49"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_50"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_51"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_52"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_53"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_54"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_55"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_56"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_57"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_58"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_59"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_60"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_61"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_62"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_63"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_64"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_65"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_66"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_67"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_68"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_68
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_69"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_69
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_70"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_70
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁregister_node__mutmut["xǁDistributedConsensusǁregister_node__mutmut_71"] = (
+    DistributedConsensus.xǁDistributedConsensusǁregister_node__mutmut_71
+)  # type: ignore # mutmut generated
 
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['_mutmut_orig'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['xǁDistributedConsensusǁ_initiate_voting__mutmut_1'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['xǁDistributedConsensusǁ_initiate_voting__mutmut_2'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['xǁDistributedConsensusǁ_initiate_voting__mutmut_3'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['xǁDistributedConsensusǁ_initiate_voting__mutmut_4'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['xǁDistributedConsensusǁ_initiate_voting__mutmut_5'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['xǁDistributedConsensusǁ_initiate_voting__mutmut_6'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['xǁDistributedConsensusǁ_initiate_voting__mutmut_7'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['xǁDistributedConsensusǁ_initiate_voting__mutmut_8'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['xǁDistributedConsensusǁ_initiate_voting__mutmut_9'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['xǁDistributedConsensusǁ_initiate_voting__mutmut_10'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['xǁDistributedConsensusǁ_initiate_voting__mutmut_11'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['xǁDistributedConsensusǁ_initiate_voting__mutmut_12'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut['xǁDistributedConsensusǁ_initiate_voting__mutmut_13'] = DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_13 # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["_mutmut_orig"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_1"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_2"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_3"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_4"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_5"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_6"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_7"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_8"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_9"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_10"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_11"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_12"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_13"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_14"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_15"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_16"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_17"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_18"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_19"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_20"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_21"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_22"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_23"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_24"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_25"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_26"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_27"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_28"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_29"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_30"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_31"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_32"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_33"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_34"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_35"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_36"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_37"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_38"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_39"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_40"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_41"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_42"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_43"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_44"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_45"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_46"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_47"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_48"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_49"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_50"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_51"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_52"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_53"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_54"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_55"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_56"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_57"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_58"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_59"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_60"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_61"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_62"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_63"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_64"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_65"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_66"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_67"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_68"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_68
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_69"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_69
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_70"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_70
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_71"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_71
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_72"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_72
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_73"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_73
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_74"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_74
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_75"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_75
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_76"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_76
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_77"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_77
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_78"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_78
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_79"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_79
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_80"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_80
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_81"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_81
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_82"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_82
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_83"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_83
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_84"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_84
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_85"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_85
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_86"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_86
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_87"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_87
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_88"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_88
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_89"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_89
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_90"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_90
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_91"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_91
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_92"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_92
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_93"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_93
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_94"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_94
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_95"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_95
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_96"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_96
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_97"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_97
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_98"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_98
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcreate_proposal__mutmut["xǁDistributedConsensusǁcreate_proposal__mutmut_99"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcreate_proposal__mutmut_99
+)  # type: ignore # mutmut generated
 
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['_mutmut_orig'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_1'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_2'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_3'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_4'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_5'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_6'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_7'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_8'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_9'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_10'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_11'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_12'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_13'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_14'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_15'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_16'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_17'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_18'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_19'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_20'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_21'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_22'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_23'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_24'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_25'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_26'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_27'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_28'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_29'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_30'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_31'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_32'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_33'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_34'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_35'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_36'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_37'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_38'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_39'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_40'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_41'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_42'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_43'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut['xǁDistributedConsensusǁ_simulate_node_vote__mutmut_44'] = DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_44 # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["_mutmut_orig"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["xǁDistributedConsensusǁ_initiate_voting__mutmut_1"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["xǁDistributedConsensusǁ_initiate_voting__mutmut_2"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["xǁDistributedConsensusǁ_initiate_voting__mutmut_3"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["xǁDistributedConsensusǁ_initiate_voting__mutmut_4"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["xǁDistributedConsensusǁ_initiate_voting__mutmut_5"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["xǁDistributedConsensusǁ_initiate_voting__mutmut_6"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["xǁDistributedConsensusǁ_initiate_voting__mutmut_7"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["xǁDistributedConsensusǁ_initiate_voting__mutmut_8"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["xǁDistributedConsensusǁ_initiate_voting__mutmut_9"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["xǁDistributedConsensusǁ_initiate_voting__mutmut_10"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["xǁDistributedConsensusǁ_initiate_voting__mutmut_11"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["xǁDistributedConsensusǁ_initiate_voting__mutmut_12"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_initiate_voting__mutmut["xǁDistributedConsensusǁ_initiate_voting__mutmut_13"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_initiate_voting__mutmut_13
+)  # type: ignore # mutmut generated
 
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['_mutmut_orig'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_1'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_2'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_3'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_4'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_5'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_6'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_7'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_8'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_9'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_10'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_11'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_12'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_13'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_14'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_15'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_16'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_17'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_18'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_19'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_20'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_21'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_22'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_23'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_24'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_25'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_26'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_27'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_28'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_29'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_30'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_31'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_32'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_33'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_34'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_35'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_36'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_37'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_38'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_39'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_40'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_41'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_42'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_43'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_44'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_45'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_46'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_47'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_48'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_49'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_50'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_51'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_52'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_53'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_54'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_55'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_56'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_57'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_58'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_59'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_60'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_61'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁcast_vote__mutmut['xǁDistributedConsensusǁcast_vote__mutmut_62'] = DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_62 # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["_mutmut_orig"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_1"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_2"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_3"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_4"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_5"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_6"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_7"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_8"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_9"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_10"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_11"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_12"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_13"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_14"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_15"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_16"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_17"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_18"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_19"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_20"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_21"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_22"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_23"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_24"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_25"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_26"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_27"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_28"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_29"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_30"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_31"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_32"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_33"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_34"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_35"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_36"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_37"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_38"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_39"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_40"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_41"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_42"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_43"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_simulate_node_vote__mutmut["xǁDistributedConsensusǁ_simulate_node_vote__mutmut_44"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_simulate_node_vote__mutmut_44
+)  # type: ignore # mutmut generated
 
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['_mutmut_orig'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_1'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_2'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_3'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_4'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_5'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_6'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_7'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_8'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_9'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_10'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_11'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_12'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_13'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_14'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_15'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_16'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_17'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_18'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_19'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_20'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_21'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_22'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_23'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_24'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_25'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_26'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_27'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_28'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_29'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_30'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_31'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_32'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_33'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_34'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_35'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_36'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_37'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_38'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_39'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_40'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_41'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_42'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_43'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_44'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_45'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_46'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_47'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_48'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_49'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_50'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_51'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_52'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_53'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_54'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_55'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_56'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_57'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_58'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_59'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_60'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_61'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_62'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_63'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_64'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_65'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_66'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_67'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_68'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_69'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_70'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_71'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_71 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_72'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_72 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_73'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_73 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_74'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_74 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_75'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_75 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_76'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_76 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_77'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_77 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_78'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_78 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_79'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_79 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_80'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_80 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_81'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_81 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_82'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_82 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_83'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_83 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_84'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_84 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_85'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_85 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_86'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_86 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_87'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_87 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_88'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_88 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_89'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_89 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_90'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_90 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_91'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_91 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_92'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_92 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_93'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_93 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_94'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_94 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_95'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_95 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_96'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_96 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_97'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_97 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_98'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_98 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_99'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_99 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_100'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_100 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_101'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_101 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_102'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_102 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_103'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_103 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_104'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_104 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_105'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_105 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_106'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_106 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_107'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_107 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_108'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_108 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_109'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_109 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_110'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_110 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_111'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_111 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_112'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_112 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_113'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_113 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_114'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_114 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_115'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_115 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_116'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_116 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_check_consensus__mutmut['xǁDistributedConsensusǁ_check_consensus__mutmut_117'] = DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_117 # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["_mutmut_orig"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_1"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_2"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_3"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_4"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_5"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_6"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_7"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_8"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_9"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_10"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_11"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_12"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_13"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_14"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_15"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_16"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_17"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_18"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_19"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_20"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_21"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_22"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_23"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_24"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_25"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_26"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_27"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_28"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_29"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_30"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_31"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_32"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_33"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_34"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_35"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_36"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_37"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_38"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_39"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_40"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_41"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_42"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_43"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_44"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_45"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_46"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_47"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_48"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_49"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_50"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_51"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_52"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_53"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_54"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_55"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_56"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_57"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_58"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_59"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_60"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_61"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁcast_vote__mutmut["xǁDistributedConsensusǁcast_vote__mutmut_62"] = (
+    DistributedConsensus.xǁDistributedConsensusǁcast_vote__mutmut_62
+)  # type: ignore # mutmut generated
 
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['_mutmut_orig'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_1'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_2'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_3'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_4'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_5'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_6'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_7'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_8'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_9'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_10'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_11'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_12'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_13'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_14'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_15'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_16'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_17'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_18'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_19'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_20'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_21'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_22'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_23'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_24'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_25'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_26'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_27'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_28'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_29'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_30'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_31'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_32'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_33'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_34'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_35'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_36'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_37'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_38'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_39'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_40'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_41'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_42'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_43'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut['xǁDistributedConsensusǁ_finalize_proposal__mutmut_44'] = DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_44 # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["_mutmut_orig"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_1"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_2"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_3"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_4"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_5"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_6"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_7"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_8"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_9"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_10"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_11"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_12"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_13"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_14"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_15"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_16"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_17"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_18"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_19"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_20"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_21"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_22"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_23"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_24"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_25"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_26"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_27"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_28"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_29"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_30"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_31"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_32"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_33"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_34"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_35"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_36"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_37"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_38"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_39"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_40"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_41"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_42"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_43"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_44"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_45"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_46"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_47"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_48"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_49"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_50"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_51"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_52"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_53"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_54"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_55"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_56"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_57"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_58"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_59"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_60"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_61"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_62"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_63"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_64"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_65"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_66"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_67"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_68"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_68
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_69"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_69
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_70"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_70
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_71"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_71
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_72"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_72
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_73"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_73
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_74"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_74
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_75"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_75
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_76"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_76
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_77"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_77
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_78"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_78
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_79"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_79
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_80"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_80
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_81"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_81
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_82"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_82
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_83"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_83
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_84"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_84
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_85"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_85
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_86"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_86
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_87"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_87
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_88"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_88
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_89"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_89
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_90"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_90
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_91"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_91
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_92"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_92
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_93"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_93
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_94"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_94
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_95"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_95
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_96"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_96
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_97"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_97
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_98"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_98
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_99"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_99
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_100"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_100
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_101"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_101
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_102"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_102
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_103"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_103
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_104"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_104
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_105"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_105
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_106"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_106
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_107"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_107
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_108"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_108
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_109"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_109
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_110"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_110
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_111"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_111
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_112"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_112
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_113"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_113
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_114"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_114
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_115"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_115
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_116"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_116
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_check_consensus__mutmut["xǁDistributedConsensusǁ_check_consensus__mutmut_117"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_check_consensus__mutmut_117
+)  # type: ignore # mutmut generated
 
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['_mutmut_orig'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_1'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_2'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_3'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_4'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_5'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_6'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_7'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_8'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_9'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_10'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_11'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_12'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_13'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_14'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_15'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_16'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_17'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_18'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut['xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_19'] = DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_19 # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["_mutmut_orig"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_1"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_2"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_3"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_4"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_5"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_6"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_7"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_8"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_9"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_10"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_11"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_12"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_13"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_14"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_15"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_16"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_17"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_18"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_19"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_20"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_21"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_22"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_23"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_24"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_25"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_26"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_27"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_28"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_29"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_30"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_31"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_32"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_33"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_34"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_35"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_36"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_37"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_38"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_39"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_40"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_41"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_42"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_43"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_finalize_proposal__mutmut["xǁDistributedConsensusǁ_finalize_proposal__mutmut_44"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_finalize_proposal__mutmut_44
+)  # type: ignore # mutmut generated
 
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['_mutmut_orig'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_1'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_2'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_3'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_4'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_5'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_6'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_7'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_8'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_9'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_10'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_11'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_12'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_13'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_14'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_15'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_16'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_17'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_18'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_19'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_20'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_21'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_22'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_23'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_24'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_25'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_26'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_27'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_28'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_29'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_30'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_31'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_32'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_33'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_34'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_35'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_36'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_37'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_38'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_39'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_40'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_41'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_42'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_43'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_44'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_45'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_46'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_47'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_48'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_49'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_50'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_51'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_52'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_53'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_proposal_status__mutmut['xǁDistributedConsensusǁget_proposal_status__mutmut_54'] = DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_54 # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["_mutmut_orig"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_1"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_2"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_3"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_4"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_5"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_6"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_7"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_8"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_9"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_10"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_11"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_12"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_13"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_14"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_15"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_16"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_17"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_18"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut["xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_19"] = (
+    DistributedConsensus.xǁDistributedConsensusǁ_cleanup_old_proposals__mutmut_19
+)  # type: ignore # mutmut generated
 
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['_mutmut_orig'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_1'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_2'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_3'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_4'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_5'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_6'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_7'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_8'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_9'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_10'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_11'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_12'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_13'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_14'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_15'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_16'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_17'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_18'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_19'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_20'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_21'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_22'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_23'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_24'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_25'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_26'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_27'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_28'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_29'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_30'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_31'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_32'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_33'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_34'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_35'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_36'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_37'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut['xǁDistributedConsensusǁset_consensus_algorithm__mutmut_38'] = DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_38 # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["_mutmut_orig"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_1"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_2"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_3"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_4"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_5"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_6"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_7"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_8"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_9"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_10"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_11"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_12"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_13"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_14"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_15"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_16"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_17"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_18"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_19"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_20"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_21"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_22"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_23"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_24"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_25"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_26"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_27"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_28"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_29"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_30"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_31"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_32"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_33"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_34"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_35"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_36"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_37"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_38"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_39"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_40"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_41"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_42"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_43"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_44"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_45"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_46"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_47"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_48"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_49"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_50"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_51"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_52"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_53"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_proposal_status__mutmut["xǁDistributedConsensusǁget_proposal_status__mutmut_54"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_proposal_status__mutmut_54
+)  # type: ignore # mutmut generated
 
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['_mutmut_orig'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_1'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_2'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_3'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_4'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_5'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_6'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_7'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_8'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_9'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_10'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_11'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_12'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_13'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_14'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_15'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_16'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_17'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_18'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_19'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_20'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_21'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_22'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_23'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_24'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_25'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_26'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_27'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_28'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_29'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_30'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_31'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_32'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_33'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_34'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_35'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_36'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_37'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_38'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_39'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_40'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_41'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_42'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_43'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_44'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_45'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_46'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_47'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_48'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_49'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_50'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_51'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_52'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_53'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_54'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_55'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_56'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_57'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_58'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_59'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_60'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_61'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_62'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_63'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_64'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_65'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_66'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_67'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_68'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_69'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_70'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_71'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_71 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_72'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_72 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_73'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_73 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_74'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_74 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_75'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_75 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_76'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_76 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_77'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_77 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_78'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_78 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_79'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_79 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_80'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_80 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_81'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_81 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_82'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_82 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_83'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_83 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_84'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_84 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_85'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_85 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_86'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_86 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_87'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_87 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_88'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_88 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_89'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_89 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_90'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_90 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_91'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_91 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_92'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_92 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_93'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_93 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_94'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_94 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_95'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_95 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_96'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_96 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_97'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_97 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_98'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_98 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_99'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_99 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_100'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_100 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_101'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_101 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_102'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_102 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_103'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_103 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_104'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_104 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_105'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_105 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_106'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_106 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_107'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_107 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_108'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_108 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_109'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_109 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_110'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_110 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_111'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_111 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_112'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_112 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_113'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_113 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_114'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_114 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_115'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_115 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_116'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_116 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_117'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_117 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_118'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_118 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_119'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_119 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_120'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_120 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_121'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_121 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_122'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_122 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_123'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_123 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_124'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_124 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_125'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_125 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_126'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_126 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut['xǁDistributedConsensusǁget_consensus_statistics__mutmut_127'] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_127 # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["_mutmut_orig"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_1"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_2"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_3"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_4"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_5"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_6"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_7"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_8"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_9"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_10"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_11"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_12"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_13"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_14"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_15"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_16"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_17"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_18"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_19"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_20"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_21"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_22"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_23"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_24"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_25"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_26"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_27"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_28"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_29"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_30"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_31"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_32"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_33"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_34"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_35"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_36"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_37"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁset_consensus_algorithm__mutmut["xǁDistributedConsensusǁset_consensus_algorithm__mutmut_38"] = (
+    DistributedConsensus.xǁDistributedConsensusǁset_consensus_algorithm__mutmut_38
+)  # type: ignore # mutmut generated
 
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['_mutmut_orig'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_1'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_2'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_3'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_4'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_5'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_6'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_7'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_8'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_9'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_10'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_11'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_12'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_13'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_14'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_15'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_16'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_17'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_18'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_19'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_20'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_21'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_22'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_23'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_24'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_25'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_26'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_27'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_28'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_29'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_30'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_31'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_32'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_33'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_34'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_35'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_36'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_37'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁDistributedConsensusǁupdate_node_status__mutmut['xǁDistributedConsensusǁupdate_node_status__mutmut_38'] = DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_38 # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut["_mutmut_orig"] = (
+    DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_1"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_1  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_2"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_2  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_3"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_3  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_4"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_4  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_5"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_5  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_6"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_6  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_7"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_7  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_8"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_8  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_9"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_9  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_10"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_10  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_11"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_11  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_12"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_12  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_13"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_13  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_14"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_14  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_15"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_15  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_16"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_16  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_17"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_17  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_18"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_18  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_19"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_19  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_20"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_20  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_21"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_21  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_22"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_22  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_23"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_23  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_24"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_24  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_25"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_25  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_26"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_26  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_27"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_27  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_28"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_28  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_29"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_29  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_30"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_30  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_31"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_31  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_32"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_32  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_33"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_33  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_34"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_34  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_35"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_35  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_36"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_36  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_37"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_37  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_38"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_38  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_39"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_39  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_40"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_40  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_41"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_41  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_42"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_42  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_43"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_43  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_44"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_44  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_45"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_45  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_46"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_46  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_47"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_47  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_48"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_48  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_49"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_49  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_50"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_50  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_51"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_51  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_52"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_52  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_53"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_53  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_54"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_54  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_55"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_55  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_56"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_56  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_57"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_57  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_58"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_58  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_59"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_59  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_60"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_60  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_61"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_61  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_62"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_62  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_63"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_63  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_64"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_64  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_65"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_65  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_66"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_66  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_67"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_67  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_68"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_68  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_69"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_69  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_70"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_70  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_71"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_71  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_72"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_72  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_73"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_73  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_74"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_74  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_75"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_75  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_76"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_76  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_77"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_77  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_78"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_78  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_79"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_79  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_80"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_80  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_81"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_81  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_82"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_82  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_83"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_83  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_84"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_84  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_85"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_85  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_86"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_86  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_87"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_87  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_88"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_88  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_89"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_89  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_90"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_90  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_91"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_91  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_92"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_92  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_93"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_93  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_94"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_94  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_95"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_95  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_96"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_96  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_97"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_97  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_98"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_98  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_99"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_99  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_100"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_100  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_101"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_101  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_102"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_102  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_103"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_103  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_104"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_104  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_105"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_105  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_106"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_106  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_107"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_107  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_108"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_108  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_109"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_109  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_110"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_110  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_111"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_111  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_112"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_112  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_113"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_113  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_114"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_114  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_115"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_115  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_116"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_116  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_117"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_117  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_118"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_118  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_119"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_119  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_120"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_120  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_121"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_121  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_122"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_122  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_123"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_123  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_124"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_124  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_125"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_125  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_126"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_126  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁget_consensus_statistics__mutmut[
+    "xǁDistributedConsensusǁget_consensus_statistics__mutmut_127"
+] = DistributedConsensus.xǁDistributedConsensusǁget_consensus_statistics__mutmut_127  # type: ignore # mutmut generated
+
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["_mutmut_orig"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_1"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_2"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_3"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_4"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_5"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_6"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_7"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_8"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_9"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_10"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_11"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_12"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_13"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_14"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_15"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_16"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_17"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_18"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_19"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_20"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_21"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_22"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_23"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_24"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_25"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_26"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_27"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_28"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_29"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_30"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_31"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_32"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_33"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_34"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_35"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_36"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_37"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁDistributedConsensusǁupdate_node_status__mutmut["xǁDistributedConsensusǁupdate_node_status__mutmut_38"] = (
+    DistributedConsensus.xǁDistributedConsensusǁupdate_node_status__mutmut_38
+)  # type: ignore # mutmut generated
 
 
 distributed_consensus = DistributedConsensus()

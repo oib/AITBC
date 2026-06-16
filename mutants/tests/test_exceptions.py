@@ -4,7 +4,6 @@ Tests for AITBC exception hierarchy
 """
 
 import pytest
-
 from aitbc.exceptions import (
     AITBCError,
     AuthenticationError,
