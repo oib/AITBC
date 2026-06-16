@@ -127,7 +127,7 @@ class P2PNetworkService:
             writer.close()
             try:
                 await writer.wait_closed()
-            except Exception:
+            except Exception:  # nosec B110 - intentional silent cleanup
                 pass
         self.active_connections.clear()
         self.connected_endpoints.clear()
@@ -504,7 +504,7 @@ class P2PNetworkService:
             writer.close()
             try:
                 await writer.wait_closed()
-            except Exception:
+            except Exception:  # nosec B110 - intentional silent cleanup
                 pass
 
     def _get_gpu_count(self) -> int:

@@ -16,7 +16,7 @@ os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
 # Get sync configuration from environment
-redis_url = os.getenv("SYNC_REDIS_URL", "redis://localhost:6379")
+redis_url = os.getenv("SYNC_REDIS_URL", "redis://127.0.0.1:6379")
 node_id = os.getenv("SYNC_NODE_ID") or os.getenv("proposer_id")
 if not node_id:
     raise ValueError("SYNC_NODE_ID or proposer_id environment variable is required")
