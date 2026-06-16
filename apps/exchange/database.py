@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from aitbc.constants import DATA_DIR
+from aitbc import DATA_DIR
 
 # Database configuration
 DATABASE_URL = os.getenv("EXCHANGE_DATABASE_URL", f"sqlite:///{DATA_DIR}/data/exchange/exchange.db")

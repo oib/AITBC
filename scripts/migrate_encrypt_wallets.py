@@ -14,7 +14,7 @@ import os
 import sys
 from pathlib import Path
 
-from aitbc.constants import KEYSTORE_DIR
+from aitbc import KEYSTORE_DIR
 from aitbc.crypto import encrypt_private_key
 
 

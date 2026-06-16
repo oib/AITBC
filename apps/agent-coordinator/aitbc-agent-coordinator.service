@@ -9,12 +9,13 @@ User=aitbc-internal
 Group=aitbc-services
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/agent-coordinator/src
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
 EnvironmentFile=/etc/aitbc/blockchain-secrets.env
 
 # Agent coordinator execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-coordinator/aitbc-agent-coordinator-wrapper.py
+ExecStart=/opt/aitbc/venv/bin/python -m app.main
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10

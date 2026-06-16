@@ -1,49 +1,60 @@
 #!/usr/bin/env python3
-"""
-Wrapper script for {service_name} service
-Uses centralized aitbc utilities for path configuration
-"""
+"""agent-registry service wrapper"""
 
 import os
+import sys
 from pathlib import Path
-from aitbc import DATA_DIR, ENV_FILE, LOG_DIR, NODE_ENV_FILE, REPO_DIR, KEYSTORE_DIR
 
-# Set up environment using aitbc constants
-os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)
-os.environ["AITBC_NODE_ENV_FILE"] = str(NODE_ENV_FILE)
-os.environ["PYTHONPATH"] = "{PYTHONPATH}"
-os.environ["DATA_DIR"] = str(DATA_DIR)
-os.environ["LOG_DIR"] = str(LOG_DIR)
+# Add AITBC to path
+REPO_DIR = Path("/opt/aitbc")
 
-{wallet_env_code}
+sys.path.insert(0, str(REPO_DIR))
 
-{load_node_env_code}
+# Import AITBC utilities
+from aitbc import (  # noqa: E402
+    LOG_DIR,
+    configure_logging,
+    get_logger,
+)
 
-{db_path_code}
+# Configure logging
+configure_logging(
+    level="INFO",
+    service_name="agent-registry",
+    to_file=True,
+)
+
+logger = get_logger(__name__)
+logger.info("Starting agent-registry service")
+
+# agent-registry bind configuration
+bind_host = os.getenv("AGENT_REGISTRY_HOST", "127.0.0.1")
+bind_port = os.getenv("AGENT_REGISTRY_PORT", "8003")
 
 log_level = os.getenv("LOG_LEVEL", "info").lower()
 access_log = os.getenv("ACCESS_LOG", "true").lower() in ("1", "true", "yes")
 
-# {service_name} bind configuration
-# Use {bind_host_env} for bind address (default: {bind_host_default})
-# Use {port_env} for port (default: {port_default})
-bind_host = os.getenv("{bind_host_env}", "{bind_host_default}")
-bind_port = os.getenv("{port_env}", "{port_default}")
-
 # Execute the actual service
 exec_cmd = [
-    "/opt/aitbc/venv/bin/python",
+    sys.executable,
     "-m",
     "uvicorn",
-    "{module}",
+    "aitbc.agent_registry.src.app:app",
     "--host",
     bind_host,
     "--port",
     bind_port,
-{workers_code}{extra_uvicorn_code}
     "--log-level",
     log_level,
 ]
+
 if access_log:
     exec_cmd.append("--access-log")
-os.execvp(exec_cmd[0], exec_cmd)
+
+logger.info(f"Executing: {' '.join(exec_cmd)}")
+
+# Ensure PYTHONPATH is set for the child process
+env = os.environ.copy()
+env["PYTHONPATH"] = "/opt/aitbc"
+
+os.execvpe(exec_cmd[0], exec_cmd, env)
