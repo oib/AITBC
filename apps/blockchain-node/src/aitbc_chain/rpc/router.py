@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -371,7 +371,9 @@ async def reconcile_balance_route(request: Request, address: str, chain_id: str 
 
 @router.post("/disputes/file", summary="File a new dispute")
 async def file_dispute_route(
-    request: FileDisputeRequest, http_request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(security)
+    request: FileDisputeRequest,
+    http_request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> FileDisputeResponse:
     """File a new dispute for a marketplace transaction"""
     return await file_dispute(request, http_request, credentials)
@@ -379,7 +381,9 @@ async def file_dispute_route(
 
 @router.post("/disputes/evidence", summary="Submit evidence for a dispute")
 async def submit_evidence_route(
-    request: SubmitEvidenceRequest, http_request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(security)
+    request: SubmitEvidenceRequest,
+    http_request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> SubmitEvidenceResponse:
     """Submit evidence for a dispute"""
     return await submit_evidence(request, http_request, credentials)
@@ -387,7 +391,9 @@ async def submit_evidence_route(
 
 @router.post("/disputes/verify-evidence", summary="Verify evidence (arbitrator only)")
 async def verify_evidence_route(
-    request: VerifyEvidenceRequest, http_request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(security)
+    request: VerifyEvidenceRequest,
+    http_request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> VerifyEvidenceResponse:
     """Verify evidence submitted in a dispute"""
     return await verify_evidence(request, http_request, credentials)
@@ -397,7 +403,7 @@ async def verify_evidence_route(
 async def submit_arbitration_vote_route(
     request: SubmitArbitrationVoteRequest,
     http_request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> SubmitArbitrationVoteResponse:
     """Submit an arbitration vote for a dispute"""
     return await submit_arbitration_vote(request, http_request, credentials)
@@ -407,7 +413,7 @@ async def submit_arbitration_vote_route(
 async def authorize_arbitrator_route(
     request: AuthorizeArbitratorRequest,
     http_request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> AuthorizeArbitratorResponse:
     """Authorize a new arbitrator"""
     return await authorize_arbitrator(request, http_request, credentials)

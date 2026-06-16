@@ -52,9 +52,8 @@ class TestGetChainInfo:
     @patch("aitbc_cli.utils.blockchain.AITBCHTTPClient")
     def test_get_chain_info_network_error(self, mock_client_class):
         """Test chain info with network error"""
-        from aitbc_cli.utils.blockchain import get_chain_info
-
         from aitbc import NetworkError
+        from aitbc_cli.utils.blockchain import get_chain_info
 
         mock_client = Mock()
         mock_client_class.return_value = mock_client

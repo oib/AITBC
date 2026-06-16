@@ -4,9 +4,9 @@ REST API endpoints for multi-jurisdictional DAO governance, regional councils, t
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, func, select
 
 from aitbc.rate_limiting import rate_limit
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/governance-enhanced", tags=["Enhanced Governance"])
 
 
 # Dependency injection
-def get_governance_service(session: Session = Depends(get_session)) -> GovernanceService:
+def get_governance_service(session: Annotated[Session, Depends(get_session)]) -> GovernanceService:
     return GovernanceService(session)
 
 
@@ -36,8 +36,8 @@ async def create_regional_council(
     jurisdiction: str,
     council_members: list[str],
     budget_allocation: float,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Create a regional governance council"""
 
@@ -60,9 +60,9 @@ async def create_regional_council(
 @rate_limit(rate=200, per=60)
 async def get_regional_councils(
     request: Request,
-    region: str | None = Query(None, description="Filter by region"),
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    region: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> list[dict[str, Any]]:
     """Get regional governance councils"""
 
@@ -84,8 +84,8 @@ async def create_regional_proposal(
     proposal_type: str,
     amount_requested: float,
     proposer_address: str,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Create a proposal for a specific regional council"""
 
@@ -108,8 +108,8 @@ async def vote_on_regional_proposal(
     voter_address: str,
     vote_type: VoteType,
     voting_power: float,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Vote on a regional proposal"""
 
@@ -127,9 +127,9 @@ async def vote_on_regional_proposal(
 @rate_limit(rate=200, per=60)
 async def get_treasury_balance(
     request: Request,
-    region: str | None = Query(None, description="Filter by region"),
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    region: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Get treasury balance for global or specific region"""
 
@@ -150,8 +150,8 @@ async def allocate_treasury_funds(
     purpose: str,
     recipient_address: str,
     approver_address: str,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Allocate treasury funds to a regional council or project"""
 
@@ -170,11 +170,11 @@ async def allocate_treasury_funds(
 @rate_limit(rate=200, per=60)
 async def get_treasury_transactions(
     request: Request,
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of transactions"),
-    offset: int = Query(0, ge=0, description="Offset for pagination"),
-    region: str | None = Query(None, description="Filter by region"),
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    limit: int | None,
+    offset: int | None,
+    region: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> list[dict[str, Any]]:
     """Get treasury transaction history"""
 
@@ -195,8 +195,8 @@ async def create_staking_pool(
     developer_address: str,
     base_apy: float,
     reputation_multiplier: float,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Create a staking pool for an agent developer"""
 
@@ -213,9 +213,9 @@ async def create_staking_pool(
 @rate_limit(rate=200, per=60)
 async def get_developer_staking_pools(
     request: Request,
-    developer_address: str | None = Query(None, description="Filter by developer address"),
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    developer_address: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> list[dict[str, Any]]:
     """Get staking pools for a specific developer or all pools"""
 
@@ -235,8 +235,8 @@ async def calculate_staking_rewards(
     staker_address: str,
     amount: float,
     duration_days: int,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Calculate staking rewards for a specific position"""
 
@@ -253,8 +253,8 @@ async def calculate_staking_rewards(
 async def distribute_staking_rewards(
     request: Request,
     pool_id: str,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Distribute rewards to all stakers in a pool"""
 
@@ -276,9 +276,9 @@ async def distribute_staking_rewards(
 @rate_limit(rate=200, per=60)
 async def get_governance_analytics(
     request: Request,
-    time_period_days: int = Query(30, ge=1, le=365, description="Time period in days"),
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    time_period_days: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Get comprehensive governance analytics"""
 
@@ -295,8 +295,8 @@ async def get_governance_analytics(
 async def get_regional_governance_health(
     request: Request,
     region: str,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Get health metrics for a specific region's governance"""
 
@@ -314,9 +314,9 @@ async def get_regional_governance_health(
 async def create_governance_profile(
     request: Request,
     user_id: str,
-    initial_voting_power: float = 0.0,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    initial_voting_power: float | None,
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Create or get a governance profile"""
 
@@ -345,8 +345,8 @@ async def delegate_votes(
     request: Request,
     delegator_id: str,
     delegatee_id: str,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Delegate voting power from one profile to another"""
 
@@ -371,8 +371,8 @@ async def delegate_votes(
 async def get_governance_profile(
     request: Request,
     user_id: str,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Get governance profile by user ID"""
 
@@ -458,8 +458,8 @@ async def check_compliance_status(
     request: Request,
     user_address: str,
     jurisdiction: str,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Check compliance status for a user in a specific jurisdiction"""
 
@@ -492,8 +492,8 @@ async def check_compliance_status(
 @rate_limit(rate=1000, per=60)
 async def get_governance_system_health(
     request: Request,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Get overall governance system health status"""
 
@@ -543,8 +543,8 @@ async def get_governance_system_health(
 @rate_limit(rate=200, per=60)
 async def get_governance_platform_status(
     request: Request,
-    session: Session = Depends(get_session),
-    governance_service: GovernanceService = Depends(get_governance_service),
+    session: Annotated[Session, Depends(get_session)],
+    governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
     """Get comprehensive platform status information"""
 

@@ -57,8 +57,8 @@ async def create_royalty_distribution(
     request: Request,
     royalty_request: RoyaltyDistributionRequest,
     offer_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Create royalty distribution for marketplace offer"""
     try:
@@ -78,8 +78,8 @@ async def calculate_royalties(
     request: Request,
     offer_id: str,
     sale_amount: float,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Calculate royalties for a sale"""
     try:
@@ -97,8 +97,8 @@ async def create_model_license(
     request: Request,
     license_request: ModelLicenseRequest,
     offer_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Create model license for marketplace offer"""
     try:
@@ -122,8 +122,8 @@ async def verify_model(
     request: Request,
     verification_request: ModelVerificationRequest,
     offer_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Verify model quality and performance"""
     try:
@@ -140,8 +140,8 @@ async def verify_model(
 async def get_marketplace_analytics(
     request: Request,
     analytics_request: MarketplaceAnalyticsRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Get marketplace analytics and insights"""
     try:

@@ -40,8 +40,8 @@ async def create_security_policy(
     description: str,
     security_level: SecurityLevel,
     policy_rules: dict,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AgentSecurityPolicy:  # type: ignore[arg-type]
     """Create a new security policy"""
     try:
@@ -91,8 +91,8 @@ async def list_security_policies() -> list[AgentSecurityPolicy]:
 async def get_security_policy(
     request: Request,
     policy_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AgentSecurityPolicy:  # type: ignore[arg-type]
     """Get a specific security policy"""
     try:
@@ -113,8 +113,8 @@ async def update_security_policy(
     request: Request,
     policy_id: str,
     policy_updates: dict,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AgentSecurityPolicy:  # type: ignore[arg-type]
     """Update a security policy"""
     try:
@@ -149,8 +149,8 @@ async def update_security_policy(
 async def delete_security_policy(
     request: Request,
     policy_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, str]:  # type: ignore[arg-type]
     """Delete a security policy"""
     try:
@@ -181,8 +181,8 @@ async def delete_security_policy(
 async def validate_workflow_security(
     request: Request,
     workflow_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Validate workflow security requirements"""
     try:
@@ -205,18 +205,18 @@ async def validate_workflow_security(
 @rate_limit(rate=200, per=60)
 async def list_audit_logs(
     request: Request,
-    event_type: AuditEventType | None = None,
-    workflow_id: str | None = None,
-    execution_id: str | None = None,
-    user_id: str | None = None,
-    security_level: SecurityLevel | None = None,
-    requires_investigation: bool | None = None,
-    risk_score_min: int | None = None,
-    risk_score_max: int | None = None,
-    limit: int = 100,
-    offset: int = 0,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    event_type: AuditEventType | None,
+    workflow_id: str | None,
+    execution_id: str | None,
+    user_id: str | None,
+    security_level: SecurityLevel | None,
+    requires_investigation: bool | None,
+    risk_score_min: int | None,
+    risk_score_max: int | None,
+    limit: int | None,
+    offset: int | None,
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> list[AgentAuditLog]:  # type: ignore[arg-type]
     """List audit logs with filtering"""
     try:
@@ -253,8 +253,8 @@ async def list_audit_logs(
 async def get_audit_log(
     request: Request,
     audit_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AgentAuditLog:  # type: ignore[arg-type]
     """Get a specific audit log entry"""
     try:
@@ -273,14 +273,14 @@ async def get_audit_log(
 @rate_limit(rate=200, per=60)
 async def list_trust_scores(
     request: Request,
-    entity_type: str | None = None,
-    entity_id: str | None = None,
-    min_score: float | None = None,
-    max_score: float | None = None,
-    limit: int = 100,
-    offset: int = 0,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    entity_type: str | None,
+    entity_id: str | None,
+    min_score: float | None,
+    max_score: float | None,
+    limit: int | None,
+    offset: int | None,
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> list[AgentTrustScore]:  # type: ignore[arg-type]
     """List trust scores with filtering"""
     try:
@@ -310,8 +310,8 @@ async def get_trust_score(
     request: Request,
     entity_type: str,
     entity_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AgentTrustScore:  # type: ignore[arg-type]
     """Get trust score for specific entity"""
     try:
@@ -339,11 +339,11 @@ async def update_trust_score(
     entity_type: str,
     entity_id: str,
     execution_success: bool,
-    execution_time: float | None = None,
-    security_violation: bool = False,
-    policy_violation: bool = False,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    execution_time: float | None,
+    security_violation: bool | None,
+    policy_violation: bool | None,
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AgentTrustScore:  # type: ignore[arg-type]
     """Update trust score based on execution results"""
     try:
@@ -383,10 +383,10 @@ async def update_trust_score(
 async def create_sandbox(
     request: Request,
     execution_id: str,
-    security_level: SecurityLevel = SecurityLevel.PUBLIC,
-    workflow_requirements: dict | None = None,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    security_level: SecurityLevel | None,
+    workflow_requirements: dict | None,
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Create sandbox environment for agent execution"""
     try:
@@ -418,8 +418,8 @@ async def create_sandbox(
 async def monitor_sandbox(
     request: Request,
     execution_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Monitor sandbox execution for security violations"""
     try:
@@ -436,8 +436,8 @@ async def monitor_sandbox(
 async def cleanup_sandbox(
     request: Request,
     execution_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Clean up sandbox environment after execution"""
     try:
@@ -463,8 +463,8 @@ async def monitor_execution_security(
     request: Request,
     execution_id: str,
     workflow_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Monitor execution for security violations"""
     try:
@@ -480,8 +480,8 @@ async def monitor_execution_security(
 @rate_limit(rate=200, per=60)
 async def get_security_dashboard(
     request: Request,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Get comprehensive security dashboard data"""
     try:
@@ -528,8 +528,8 @@ async def get_security_dashboard(
 @rate_limit(rate=200, per=60)
 async def get_security_statistics(
     request: Request,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Get security statistics and metrics"""
     try:

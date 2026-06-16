@@ -1,8 +1,8 @@
 """Database operations router for Edge API Service"""
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from ..services.database_service import DatabaseService
@@ -24,21 +24,25 @@ def get_database_service() -> DatabaseService:
 
 
 @router.post("/init")
-async def init_database(request: InitDatabaseRequest, svc: DatabaseService = Depends(get_database_service)) -> dict[str, Any]:
+async def init_database(
+    request: InitDatabaseRequest, svc: Annotated[DatabaseService, Depends(get_database_service)]
+) -> dict[str, Any]:
     """Initialize edge database"""
     result = await svc.init_database(request.database_id, request.island_id, request.capacity_gb)
     return result
 
 
 @router.get("/")
-async def list_databases(island_id: str = Query(None), svc: DatabaseService = Depends(get_database_service)) -> dict[str, Any]:
+async def list_databases(
+    island_id: str | None, svc: Annotated[DatabaseService, Depends(get_database_service)]
+) -> dict[str, Any]:
     """List databases, optionally filtered by island_id"""
     databases = await svc.list_databases(island_id)
     return {"databases": databases, "total": len(databases)}
 
 
 @router.get("/{database_id}")
-async def get_database(database_id: str, svc: DatabaseService = Depends(get_database_service)) -> dict[str, Any]:
+async def get_database(database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]) -> dict[str, Any]:
     """Get database details"""
     db = await svc.get_database(database_id)
     if db is None:
@@ -47,7 +51,7 @@ async def get_database(database_id: str, svc: DatabaseService = Depends(get_data
 
 
 @router.delete("/{database_id}")
-async def delete_database(database_id: str, svc: DatabaseService = Depends(get_database_service)) -> dict[str, str]:
+async def delete_database(database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]) -> dict[str, str]:
     """Delete database"""
     success = await svc.delete_database(database_id)
     if success:
@@ -57,7 +61,7 @@ async def delete_database(database_id: str, svc: DatabaseService = Depends(get_d
 
 
 @router.post("/{database_id}/sync")
-async def sync_database(database_id: str, svc: DatabaseService = Depends(get_database_service)) -> dict[str, Any]:
+async def sync_database(database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]) -> dict[str, Any]:
     """Sync database from source"""
     result = await svc.sync_database(database_id)
     return result

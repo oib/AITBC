@@ -4,9 +4,9 @@ REST API for AI agent staking system with reputation-based yield farming
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
@@ -23,7 +23,7 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
-def create_get_current_user_optional(session: Session = Depends(get_session)) -> Any:
+def create_get_current_user_optional(session: Annotated[Session, Depends(get_session)]) -> Any:
     async def get_current_user_optional(request: Request | None = None) -> dict[str, Any]:
         """Optional authentication that returns default test user if no token provided"""
         try:
@@ -165,7 +165,7 @@ class EarningsDistributionRequest(BaseModel):
     distribution_data: dict[str, Any] = Field(default_factory=dict)
 
 
-def get_staking_service(session: Session = Depends(get_session)) -> StakingService:
+def get_staking_service(session: Annotated[Session, Depends(get_session)]) -> StakingService:
     return StakingService(session)
 
 
@@ -179,10 +179,10 @@ async def create_stake(
     request: Request,
     stake_request: StakeCreateRequest,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
-    blockchain_service: BlockchainService = Depends(get_blockchain_service),
-    current_user: dict = Depends(get_current_user_optional),
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    current_user: Annotated[dict, Depends(get_current_user_optional)],
 ) -> StakeResponse:
     """Create a new stake on an agent wallet"""
     try:
@@ -212,9 +212,9 @@ async def create_stake(
 async def get_stake(
     request: Request,
     stake_id: str,
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
-    current_user: dict = Depends(get_current_user_optional),
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    current_user: Annotated[dict, Depends(get_current_user_optional)],
 ) -> StakeResponse:
     """Get stake details"""
     try:
@@ -235,10 +235,10 @@ async def get_stake(
 @rate_limit(rate=200, per=60)
 async def get_stakes(
     request: Request,
-    filters: StakingFilterRequest = Depends(),
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
-    current_user: dict = Depends(get_current_user_optional),
+    filters: Annotated[StakingFilterRequest, Depends()],
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    current_user: Annotated[dict, Depends(get_current_user_optional)],
 ) -> list[StakeResponse]:
     """Get filtered list of user's stakes"""
     try:
@@ -266,10 +266,10 @@ async def add_to_stake(
     stake_id: str,
     stake_request: StakeUpdateRequest,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
-    blockchain_service: BlockchainService = Depends(get_blockchain_service),
-    current_user: dict = Depends(get_current_user_optional),
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    current_user: Annotated[dict, Depends(get_current_user_optional)],
 ) -> StakeResponse:
     """Add more tokens to an existing stake"""
     try:
@@ -296,10 +296,10 @@ async def unbond_stake(
     request: Request,
     stake_id: str,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
-    blockchain_service: BlockchainService = Depends(get_blockchain_service),
-    current_user: dict = Depends(get_current_user_optional),
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    current_user: Annotated[dict, Depends(get_current_user_optional)],
 ) -> dict[str, str]:
     """Initiate unbonding for a stake"""
     try:
@@ -328,10 +328,10 @@ async def complete_unbonding(
     request: Request,
     stake_id: str,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
-    blockchain_service: BlockchainService = Depends(get_blockchain_service),
-    current_user: dict = Depends(get_current_user_optional),
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    current_user: Annotated[dict, Depends(get_current_user_optional)],
 ) -> dict[str, Any]:
     """Complete unbonding and return stake + rewards"""
     try:
@@ -362,9 +362,9 @@ async def complete_unbonding(
 async def get_stake_rewards(
     request: Request,
     stake_id: str,
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
-    current_user: dict = Depends(get_current_user_optional),
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    current_user: Annotated[dict, Depends(get_current_user_optional)],
 ) -> dict[str, Any]:
     """Get current rewards for a stake"""
     try:
@@ -394,8 +394,8 @@ async def get_stake_rewards(
 async def get_agent_metrics(
     request: Request,
     agent_wallet: str,
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
 ) -> AgentMetricsResponse:
     """Get agent performance metrics"""
     try:
@@ -415,8 +415,8 @@ async def get_agent_metrics(
 async def get_staking_pool(
     request: Request,
     agent_wallet: str,
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
 ) -> StakingPoolResponse:
     """Get staking pool information for an agent"""
     try:
@@ -436,9 +436,9 @@ async def get_staking_pool(
 async def get_agent_apy(
     request: Request,
     agent_wallet: str,
-    lock_period: int = Query(default=30, ge=1, le=365),
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
+    lock_period: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
 ) -> dict[str, Any]:
     """Get current APY for staking on an agent"""
     try:
@@ -462,10 +462,10 @@ async def update_agent_performance(
     agent_wallet: str,
     performance_request: AgentPerformanceUpdateRequest,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
-    blockchain_service: BlockchainService = Depends(get_blockchain_service),
-    current_user: dict = Depends(get_current_user_optional),
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    current_user: Annotated[dict, Depends(get_current_user_optional)],
 ) -> dict[str, str]:
     """Update agent performance metrics (oracle only)"""
     try:
@@ -490,10 +490,10 @@ async def distribute_agent_earnings(
     agent_wallet: str,
     earnings_request: EarningsDistributionRequest,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
-    blockchain_service: BlockchainService = Depends(get_blockchain_service),
-    current_user: dict = Depends(get_current_user_optional),
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    current_user: Annotated[dict, Depends(get_current_user_optional)],
 ) -> dict[str, Any]:
     """Distribute agent earnings to stakers"""
     try:
@@ -520,11 +520,11 @@ async def distribute_agent_earnings(
 @rate_limit(rate=200, per=60)
 async def get_supported_agents(
     request: Request,
-    page: int = Query(default=1, ge=1),
-    limit: int = Query(default=50, ge=1, le=100),
-    tier: PerformanceTier | None = None,
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
+    page: int | None,
+    limit: int | None,
+    tier: PerformanceTier | None,
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
 ) -> dict[str, Any]:
     """Get list of supported agents for staking"""
     try:
@@ -539,9 +539,9 @@ async def get_supported_agents(
 @rate_limit(rate=200, per=60)
 async def get_staking_stats(
     request: Request,
-    period: str = Query(default="daily", pattern="^(hourly|daily|weekly|monthly)$"),
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
+    period: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
 ) -> StakingStatsResponse:
     """Get staking system statistics"""
     try:
@@ -556,11 +556,11 @@ async def get_staking_stats(
 @rate_limit(rate=200, per=60)
 async def get_staking_leaderboard(
     request: Request,
-    period: str = Query(default="weekly", pattern="^(daily|weekly|monthly)$"),
-    metric: str = Query(default="total_staked", pattern="^(total_staked|total_rewards|apy)$"),
-    limit: int = Query(default=50, ge=1, le=100),
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
+    period: str | None,
+    metric: str | None,
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
 ) -> dict[str, Any]:
     """Get staking leaderboard"""
     try:
@@ -615,13 +615,13 @@ async def get_staking_leaderboard(
 @rate_limit(rate=200, per=60)
 async def get_my_staking_positions(
     request: Request,
-    status: StakeStatus | None = None,
-    agent_wallet: str | None = None,
-    page: int = Query(default=1, ge=1),
-    limit: int = Query(default=20, ge=1, le=100),
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
-    current_user: dict = Depends(get_current_user_optional),
+    status: StakeStatus | None,
+    agent_wallet: str | None,
+    page: int | None,
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    current_user: Annotated[dict, Depends(get_current_user_optional)],
 ) -> list[StakeResponse]:
     """Get current user's staking positions"""
     try:
@@ -638,10 +638,10 @@ async def get_my_staking_positions(
 @rate_limit(rate=200, per=60)
 async def get_my_staking_rewards(
     request: Request,
-    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
-    current_user: dict = Depends(get_current_user_optional),
+    period: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    current_user: Annotated[dict, Depends(get_current_user_optional)],
 ) -> dict[str, Any]:
     """Get current user's staking rewards"""
     try:
@@ -658,10 +658,10 @@ async def claim_staking_rewards(
     request: Request,
     stake_ids: list[str],
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
-    blockchain_service: BlockchainService = Depends(get_blockchain_service),
-    current_user: dict = Depends(get_current_user_optional),
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    current_user: Annotated[dict, Depends(get_current_user_optional)],
 ) -> dict[str, Any]:
     """Claim accumulated rewards for multiple stakes"""
     try:
@@ -695,8 +695,8 @@ async def claim_staking_rewards(
 async def get_risk_assessment(
     request: Request,
     agent_wallet: str,
-    session: Session = Depends(get_session),
-    staking_service: StakingService = Depends(get_staking_service),
+    session: Annotated[Session, Depends(get_session)],
+    staking_service: Annotated[StakingService, Depends(get_staking_service)],
 ) -> dict[str, Any]:
     """Get risk assessment for staking on an agent"""
     try:

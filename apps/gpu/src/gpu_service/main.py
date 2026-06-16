@@ -7,7 +7,7 @@ import os
 import subprocess
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
@@ -130,13 +130,13 @@ async def get_session_dep() -> AsyncIterator[AsyncSession]:
         yield session
 
 
-async def get_edge_service(session: AsyncSession = Depends(get_session_dep)) -> EdgeGPUService:
+async def get_edge_service(session: Annotated[AsyncSession, Depends(get_session_dep)]) -> EdgeGPUService:
     """Get edge GPU service instance"""
     return EdgeGPUService(session)
 
 
 @app.get("/v1/gpu/{gpu_id}")
-async def get_gpu(gpu_id: str, session: AsyncSession = Depends(get_session_dep)):
+async def get_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Get a specific GPU by ID"""
     from sqlalchemy import select
 
@@ -167,7 +167,7 @@ async def get_gpu(gpu_id: str, session: AsyncSession = Depends(get_session_dep))
 
 
 @app.delete("/v1/gpu/{gpu_id}")
-async def delete_gpu(gpu_id: str, session: AsyncSession = Depends(get_session_dep)):
+async def delete_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Delete a specific GPU by ID"""
     from sqlalchemy import select
 
@@ -187,7 +187,7 @@ async def delete_gpu(gpu_id: str, session: AsyncSession = Depends(get_session_de
 
 
 @app.put("/v1/gpu/{gpu_id}")
-async def update_gpu(gpu_id: str, gpu_data: dict[str, Any], session: AsyncSession = Depends(get_session_dep)):
+async def update_gpu(gpu_id: str, gpu_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Update a specific GPU by ID"""
     from sqlalchemy import select
 
@@ -218,10 +218,10 @@ async def update_gpu(gpu_id: str, gpu_data: dict[str, Any], session: AsyncSessio
 
 @app.get("/v1/marketplace/edge-gpu/profiles")
 async def get_consumer_gpu_profiles(
-    architecture: str | None = None,
-    edge_optimized: bool | None = None,
-    min_memory_gb: int | None = None,
-    svc: EdgeGPUService = Depends(get_edge_service),
+    architecture: str | None,
+    edge_optimized: bool | None,
+    min_memory_gb: int | None,
+    svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
 ):
     """Get consumer GPU profiles"""
     from .domain.gpu_marketplace import GPUArchitecture
@@ -231,13 +231,13 @@ async def get_consumer_gpu_profiles(
 
 
 @app.get("/v1/marketplace/edge-gpu/metrics/{gpu_id}")
-async def get_edge_gpu_metrics(gpu_id: str, limit: int = 100, svc: EdgeGPUService = Depends(get_edge_service)):
+async def get_edge_gpu_metrics(gpu_id: str, limit: int | None, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]):
     """Get edge GPU metrics"""
     return await svc.list_metrics(gpu_id=gpu_id, limit=limit)
 
 
 @app.post("/v1/marketplace/edge-gpu/scan/{miner_id}")
-async def scan_edge_gpus(miner_id: str, svc: EdgeGPUService = Depends(get_edge_service)):
+async def scan_edge_gpus(miner_id: str, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]):
     """Scan and register edge GPUs for a miner"""
     return await svc.discover_and_register_edge_gpus(miner_id)
 
@@ -248,13 +248,15 @@ class OptimizeInferenceRequest(BaseModel):
 
 
 @app.post("/v1/marketplace/edge-gpu/optimize/inference/{gpu_id}")
-async def optimize_inference(gpu_id: str, request: OptimizeInferenceRequest, svc: EdgeGPUService = Depends(get_edge_service)):
+async def optimize_inference(
+    gpu_id: str, request: OptimizeInferenceRequest, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]
+):
     """Optimize ML inference request for edge GPU"""
     return await svc.optimize_inference_for_edge(gpu_id, request.model_name, request.request_data)
 
 
 @app.post("/v1/transactions")
-async def submit_transaction(transaction_data: dict[str, Any], session: AsyncSession = Depends(get_session_dep)):
+async def submit_transaction(transaction_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Submit GPU marketplace transaction to blockchain"""
     transaction_type = transaction_data.get("type")
     action = transaction_data.get("action")
@@ -358,11 +360,11 @@ async def submit_transaction(transaction_data: dict[str, Any], session: AsyncSes
 
 @app.get("/v1/transactions")
 async def get_transactions(
-    transaction_type: str | None = None,
-    action: str | None = None,
-    status: str | None = None,
-    island_id: str | None = None,
-    session: AsyncSession = Depends(get_session_dep),
+    transaction_type: str | None,
+    action: str | None,
+    status: str | None,
+    island_id: str | None,
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
 ):
     """Query GPU marketplace transactions"""
     from sqlalchemy import select
@@ -398,7 +400,7 @@ async def get_transactions(
 
 
 @app.post("/v1/gpu/register")
-async def register_gpu(gpu_data: dict[str, Any], session: AsyncSession = Depends(get_session_dep)):
+async def register_gpu(gpu_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Register a GPU with the service and record on blockchain"""
     from uuid import uuid4
 
@@ -457,7 +459,7 @@ async def register_gpu(gpu_data: dict[str, Any], session: AsyncSession = Depends
 
 
 @app.post("/v1/miners/register")
-async def register_miner(miner_data: dict[str, Any], session: AsyncSession = Depends(get_session_dep)):
+async def register_miner(miner_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Register or update a miner"""
     from uuid import uuid4
 
@@ -480,7 +482,7 @@ async def register_miner(miner_data: dict[str, Any], session: AsyncSession = Dep
 
 
 @app.post("/v1/miners/heartbeat")
-async def miner_heartbeat(heartbeat_data: dict[str, Any], session: AsyncSession = Depends(get_session_dep)):
+async def miner_heartbeat(heartbeat_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Send miner heartbeat"""
     from sqlalchemy import update
 
@@ -498,7 +500,7 @@ async def miner_heartbeat(heartbeat_data: dict[str, Any], session: AsyncSession 
 
 
 @app.get("/v1/miners/{miner_id}/gpus")
-async def get_miner_gpus(miner_id: str, session: AsyncSession = Depends(get_session_dep)):
+async def get_miner_gpus(miner_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Get GPUs registered by a miner"""
     from sqlalchemy import select
 
@@ -525,7 +527,7 @@ async def get_miner_gpus(miner_id: str, session: AsyncSession = Depends(get_sess
 
 
 @app.post("/v1/miners/poll")
-async def poll_jobs(poll_data: dict[str, Any], session: AsyncSession = Depends(get_session_dep)):
+async def poll_jobs(poll_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Poll for next job"""
     poll_data.get("miner_id")
     poll_data.get("max_wait_seconds", 5)
@@ -533,7 +535,9 @@ async def poll_jobs(poll_data: dict[str, Any], session: AsyncSession = Depends(g
 
 
 @app.post("/v1/miners/{job_id}/result")
-async def submit_job_result(job_id: str, result_data: dict[str, Any], session: AsyncSession = Depends(get_session_dep)):
+async def submit_job_result(
+    job_id: str, result_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]
+):
     """Submit job result"""
     result_data.get("miner_id")
     result_data.get("result")
@@ -542,7 +546,9 @@ async def submit_job_result(job_id: str, result_data: dict[str, Any], session: A
 
 
 @app.post("/v1/miners/{job_id}/fail")
-async def submit_job_failure(job_id: str, fail_data: dict[str, Any], session: AsyncSession = Depends(get_session_dep)):
+async def submit_job_failure(
+    job_id: str, fail_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]
+):
     """Submit job failure"""
     fail_data.get("miner_id")
     fail_data.get("error")
@@ -550,14 +556,14 @@ async def submit_job_failure(job_id: str, fail_data: dict[str, Any], session: As
 
 
 @app.post("/v1/miners/{miner_id}/earnings")
-async def get_miner_earnings(miner_id: str, session: AsyncSession = Depends(get_session_dep)):
+async def get_miner_earnings(miner_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Get miner earnings"""
     return {"miner_id": miner_id, "total_earnings": 0.0, "pending_earnings": 0.0, "currency": "AITBC"}
 
 
 @app.put("/v1/miners/{miner_id}/capabilities")
 async def update_miner_capabilities(
-    miner_id: str, capabilities_data: dict[str, Any], session: AsyncSession = Depends(get_session_dep)
+    miner_id: str, capabilities_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]
 ):
     """Update miner capabilities"""
     capabilities = capabilities_data.get("capabilities", {})
@@ -565,7 +571,7 @@ async def update_miner_capabilities(
 
 
 @app.delete("/v1/miners/{miner_id}")
-async def deregister_miner(miner_id: str, session: AsyncSession = Depends(get_session_dep)):
+async def deregister_miner(miner_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Deregister miner"""
     from sqlalchemy import update
 
