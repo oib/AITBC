@@ -4,9 +4,9 @@ REST API for agent reputation, trust scores, and economic profiles
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, desc
 from sqlalchemy.orm import Session
@@ -29,7 +29,7 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/reputation", tags=["reputation"])
 
 
-def get_reputation_service(session: Session = Depends(get_session)) -> ReputationService:
+def get_reputation_service(session: Annotated[Session, Depends(get_session)]) -> ReputationService:
     return ReputationService(session)  # type: ignore[arg-type]
 
 
@@ -136,7 +136,7 @@ class ReputationMetricsResponse(BaseModel):
 @router.get("/profile/{agent_id}", response_model=ReputationProfileResponse)
 @rate_limit(rate=200, per=60)
 async def get_reputation_profile(
-    request: Request, agent_id: str, session: Session = Depends(get_session)
+    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> ReputationProfileResponse:
     """Get comprehensive reputation profile for an agent"""
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
@@ -153,7 +153,7 @@ async def get_reputation_profile(
 @router.post("/profile/{agent_id}")
 @rate_limit(rate=20, per=60)
 async def create_reputation_profile(
-    request: Request, agent_id: str, session: Session = Depends(get_session)
+    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Create a new reputation profile for an agent"""
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
@@ -174,7 +174,7 @@ async def create_reputation_profile(
 @router.post("/feedback/{agent_id}", response_model=FeedbackResponse)
 @rate_limit(rate=20, per=60)
 async def add_community_feedback(
-    request: Request, agent_id: str, feedback_request: FeedbackRequest, session: Session = Depends(get_session)
+    request: Request, agent_id: str, feedback_request: FeedbackRequest, session: Annotated[Session, Depends(get_session)]
 ) -> FeedbackResponse:
     """Add community feedback for an agent"""
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
@@ -208,7 +208,7 @@ async def add_community_feedback(
 @router.post("/job-completion")
 @rate_limit(rate=20, per=60)
 async def record_job_completion(
-    request: Request, job_request: JobCompletionRequest, session: Session = Depends(get_session)
+    request: Request, job_request: JobCompletionRequest, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Record job completion and update reputation"""
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
@@ -237,7 +237,7 @@ async def record_job_completion(
 @router.get("/trust-score/{agent_id}", response_model=TrustScoreResponse)
 @rate_limit(rate=200, per=60)
 async def get_trust_score_breakdown(
-    request: Request, agent_id: str, session: Session = Depends(get_session)
+    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> TrustScoreResponse:
     """Get detailed trust score breakdown for an agent"""
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
@@ -270,10 +270,10 @@ async def get_trust_score_breakdown(
 @rate_limit(rate=200, per=60)
 async def get_reputation_leaderboard(
     request: Request,
-    category: str = Query(default="trust_score", description="Category to rank by"),
-    limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    region: str | None = Query(default=None, description="Filter by region"),
-    session: Session = Depends(get_session),
+    category: str | None,
+    limit: int | None,
+    region: str | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> list[LeaderboardEntry]:
     """Get reputation leaderboard"""
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
@@ -287,7 +287,9 @@ async def get_reputation_leaderboard(
 
 @router.get("/metrics", response_model=ReputationMetricsResponse)
 @rate_limit(rate=200, per=60)
-async def get_reputation_metrics(request: Request, session: Session = Depends(get_session)) -> ReputationMetricsResponse:
+async def get_reputation_metrics(
+    request: Request, session: Annotated[Session, Depends(get_session)]
+) -> ReputationMetricsResponse:
     """Get overall reputation system metrics"""
     try:
         reputations = session.execute(select(AgentReputation)).all()
@@ -332,7 +334,7 @@ async def get_reputation_metrics(request: Request, session: Session = Depends(ge
 @router.get("/feedback/{agent_id}")
 @rate_limit(rate=200, per=60)
 async def get_agent_feedback(
-    request: Request, agent_id: str, limit: int = Query(default=10, ge=1, le=50), session: Session = Depends(get_session)
+    request: Request, agent_id: str, limit: int | None, session: Annotated[Session, Depends(get_session)]
 ) -> list[FeedbackResponse]:
     """Get community feedback for an agent"""
     try:
@@ -367,7 +369,7 @@ async def get_agent_feedback(
 @router.get("/events/{agent_id}")
 @rate_limit(rate=200, per=60)
 async def get_reputation_events(
-    request: Request, agent_id: str, limit: int = Query(default=20, ge=1, le=100), session: Session = Depends(get_session)
+    request: Request, agent_id: str, limit: int | None, session: Annotated[Session, Depends(get_session)]
 ) -> list[dict[str, Any]]:
     """Get reputation change events for an agent"""
     try:
@@ -400,7 +402,7 @@ async def get_reputation_events(
 @router.put("/profile/{agent_id}/specialization")
 @rate_limit(rate=20, per=60)
 async def update_specialization(
-    request: Request, agent_id: str, specialization_tags: list[str], session: Session = Depends(get_session)
+    request: Request, agent_id: str, specialization_tags: list[str], session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Update agent specialization tags"""
     try:
@@ -427,7 +429,7 @@ async def update_specialization(
 @router.put("/profile/{agent_id}/region")
 @rate_limit(rate=20, per=60)
 async def update_region(
-    request: Request, agent_id: str, region: str, session: Session = Depends(get_session)
+    request: Request, agent_id: str, region: str, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Update agent geographic region"""
     try:
@@ -456,8 +458,8 @@ async def update_region(
 async def get_cross_chain_reputation(
     request: Request,
     agent_id: str,
-    session: Session = Depends(get_session),
-    reputation_service: ReputationService = Depends(get_reputation_service),
+    session: Annotated[Session, Depends(get_session)],
+    reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],
 ) -> dict[str, Any]:
     """Get cross-chain reputation data for an agent"""
     try:
@@ -498,8 +500,8 @@ async def sync_cross_chain_reputation(
     request: Request,
     agent_id: str,
     background_tasks: Any,
-    session: Session = Depends(get_session),
-    reputation_service: ReputationService = Depends(get_reputation_service),
+    session: Annotated[Session, Depends(get_session)],
+    reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],
 ) -> dict[str, Any]:
     """Synchronize reputation across chains for an agent"""
     try:
@@ -524,10 +526,10 @@ async def sync_cross_chain_reputation(
 @rate_limit(rate=200, per=60)
 async def get_cross_chain_leaderboard(
     request: Request,
-    limit: int = Query(50, ge=1, le=100),
-    min_score: float = Query(0.0, ge=0.0, le=1.0),
-    session: Session = Depends(get_session),
-    reputation_service: ReputationService = Depends(get_reputation_service),
+    limit: int | None,
+    min_score: float | None,
+    session: Annotated[Session, Depends(get_session)],
+    reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],
 ) -> dict[str, Any]:
     """Get cross-chain reputation leaderboard"""
     try:
@@ -572,8 +574,8 @@ async def submit_cross_chain_event(
     request: Request,
     event_data: dict[str, Any],
     background_tasks: Any,
-    session: Session = Depends(get_session),
-    reputation_service: ReputationService = Depends(get_reputation_service),
+    session: Annotated[Session, Depends(get_session)],
+    reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],
 ) -> dict[str, Any]:
     """Submit a cross-chain reputation event"""
     try:
@@ -621,9 +623,9 @@ async def submit_cross_chain_event(
 @rate_limit(rate=200, per=60)
 async def get_cross_chain_analytics(
     request: Request,
-    chain_id: int | None = Query(None),
-    session: Session = Depends(get_session),
-    reputation_service: ReputationService = Depends(get_reputation_service),
+    chain_id: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],
 ) -> dict[str, Any]:
     """Get cross-chain reputation analytics"""
     try:

@@ -3,7 +3,7 @@ Service configuration router for pool hub
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/services", tags=["services"])
 
 @router.get("/", response_model=list[ServiceConfigResponse])
 async def list_service_configs(
-    db: Session = Depends(get_db), miner_id: str = Depends(get_miner_id)
+    db: Annotated[Session, Depends(get_db)], miner_id: Annotated[str, Depends(get_miner_id)]
 ) -> list[ServiceConfigResponse]:
     """List all service configurations for the miner"""
     stmt = select(ServiceConfig).where(ServiceConfig.miner_id == miner_id)
@@ -29,7 +29,7 @@ async def list_service_configs(
 
 @router.get("/{service_type}", response_model=ServiceConfigResponse)
 async def get_service_config(
-    service_type: str, db: Session = Depends(get_db), miner_id: str = Depends(get_miner_id)
+    service_type: str, db: Annotated[Session, Depends(get_db)], miner_id: Annotated[str, Depends(get_miner_id)]
 ) -> ServiceConfigResponse:
     """Get configuration for a specific service"""
     stmt = select(ServiceConfig).where(ServiceConfig.miner_id == miner_id, ServiceConfig.service_type == service_type)
@@ -53,7 +53,10 @@ async def get_service_config(
 
 @router.post("/{service_type}", response_model=ServiceConfigResponse)
 async def create_or_update_service_config(
-    service_type: str, config_data: ServiceConfigCreate, db: Session = Depends(get_db), miner_id: str = Depends(get_miner_id)
+    service_type: str,
+    config_data: ServiceConfigCreate,
+    db: Annotated[Session, Depends(get_db)],
+    miner_id: Annotated[str, Depends(get_miner_id)],
 ) -> ServiceConfigResponse:
     """Create or update service configuration"""
     # Validate service type
@@ -94,7 +97,10 @@ async def create_or_update_service_config(
 
 @router.patch("/{service_type}", response_model=ServiceConfigResponse)
 async def patch_service_config(
-    service_type: str, config_data: ServiceConfigUpdate, db: Session = Depends(get_db), miner_id: str = Depends(get_miner_id)
+    service_type: str,
+    config_data: ServiceConfigUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    miner_id: Annotated[str, Depends(get_miner_id)],
 ) -> ServiceConfigResponse:
     """Partially update service configuration"""
     stmt = select(ServiceConfig).where(ServiceConfig.miner_id == miner_id, ServiceConfig.service_type == service_type)
@@ -123,7 +129,7 @@ async def patch_service_config(
 
 @router.delete("/{service_type}")
 async def delete_service_config(
-    service_type: str, db: Session = Depends(get_db), miner_id: str = Depends(get_miner_id)
+    service_type: str, db: Annotated[Session, Depends(get_db)], miner_id: Annotated[str, Depends(get_miner_id)]
 ) -> dict[str, Any]:
     """Delete service configuration"""
     stmt = select(ServiceConfig).where(ServiceConfig.miner_id == miner_id, ServiceConfig.service_type == service_type)
@@ -207,7 +213,10 @@ async def get_service_template(service_type: str) -> dict[str, Any]:
 
 @router.post("/validate/{service_type}")
 async def validate_service_config(
-    service_type: str, config_data: dict[str, Any], db: Session = Depends(get_db), miner_id: str = Depends(get_miner_id)
+    service_type: str,
+    config_data: dict[str, Any],
+    db: Annotated[Session, Depends(get_db)],
+    miner_id: Annotated[str, Depends(get_miner_id)],
 ) -> dict[str, Any]:
     """Validate service configuration against miner capabilities"""
     # Get miner info
