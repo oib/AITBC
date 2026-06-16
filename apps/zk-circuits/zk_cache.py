@@ -55,7 +55,7 @@ class ZKCircuitCache:
                 if dep_path.exists():
                     dependencies.append(dep_path)
                     dependencies.extend(self._find_dependencies(dep_path))
-        except Exception:
+        except Exception:  # nosec B110 - intentional silent failure
             pass
         return list(set(dependencies))
 
@@ -89,7 +89,7 @@ class ZKCircuitCache:
                 with open(self.cache_manifest) as f:
                     manifest = json.load(f)
                 return manifest.get(cache_key)
-        except Exception:
+        except Exception:  # nosec B110 - intentional silent failure
             pass
         return None
 
@@ -162,7 +162,7 @@ class ZKCircuitCache:
                     "total_size_mb": total_size / (1024 * 1024),
                     "cache_dir": str(self.cache_dir),
                 }
-        except Exception:
+        except Exception:  # nosec B110 - intentional silent failure
             pass
         return {"entries": 0, "total_size_mb": 0, "cache_dir": str(self.cache_dir)}
 

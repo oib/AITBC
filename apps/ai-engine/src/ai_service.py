@@ -11,6 +11,10 @@ import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from aitbc import get_logger
+
+logger = get_logger(__name__)
+
 app = FastAPI(title="AITBC AI Service API", version="1.0.0")
 
 
@@ -31,6 +35,7 @@ class SimpleAITradingEngine:
 
     def __init__(self) -> None:
         self.models_loaded = True
+        logger.info("SimpleAITradingEngine initialized")
 
     async def analyze_market(self, symbol: str) -> dict[str, Any]:
         """Simple market analysis"""
@@ -102,8 +107,10 @@ async def analyze_market(request: AnalysisRequest) -> dict[str, Any]:
     """AI market analysis"""
     try:
         analysis = await ai_engine.analyze_market(request.symbol)
+        logger.info("Market analysis completed", extra={"symbol": request.symbol})
         return {"status": "success", "analysis": analysis, "timestamp": datetime.now(UTC)}
     except Exception:
+        logger.exception("Market analysis failed", extra={"symbol": request.symbol})
         return {"status": "error", "message": "Analysis failed"}
 
 
@@ -112,9 +119,10 @@ async def execute_ai_trade(request: TradingRequest) -> dict[str, Any]:
     """Execute AI-powered trade"""
     try:
         decision = await ai_engine.make_trading_decision(request.symbol)
-
+        logger.info("AI trade decision made", extra={"symbol": request.symbol, "signal": decision["signal"]})
         return {"status": "success", "decision": decision, "timestamp": datetime.now(UTC)}
     except Exception:
+        logger.exception("AI trade execution failed", extra={"symbol": request.symbol})
         return {"status": "error", "message": "Analysis failed"}
 
 
@@ -134,6 +142,7 @@ async def predict_market(symbol: str) -> dict[str, Any]:
             "timestamp": datetime.now(UTC),
         }
     except Exception:
+        logger.exception("Market prediction failed", extra={"symbol": symbol})
         return {"status": "error", "message": "Analysis failed"}
 
 
@@ -161,15 +170,17 @@ async def get_ai_dashboard() -> dict[str, Any]:
                 "signal": (await ai_engine.make_trading_decision(symbol))["signal"],
                 "confidence": (await ai_engine.make_trading_decision(symbol))["confidence"],
             }
-
+        logger.info("AI dashboard generated", extra={"symbols": len(symbols)})
         return {"status": "success", "dashboard": dashboard_data, "timestamp": datetime.now(UTC)}
     except Exception:
+        logger.exception("AI dashboard generation failed")
         return {"status": "error", "message": "Analysis failed"}
 
 
 @app.get("/api/ai/status")
 async def get_ai_status() -> dict[str, Any]:
     """Get AI service status"""
+    logger.debug("AI status requested")
     return {
         "status": "active",
         "models_loaded": ai_engine.models_loaded,
@@ -188,4 +199,5 @@ async def health_check() -> dict[str, Any]:
 if __name__ == "__main__":
     import uvicorn
 
+    logger.info("Starting AITBC AI Service on port 8005")
     uvicorn.run(app, host="0.0.0.0", port=8005)

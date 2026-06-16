@@ -43,6 +43,28 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+  # Documentation validation
+  - repo: local
+    hooks:
+      - id: validate-docs
+        name: validate-documentation-links
+        entry: bash scripts/validate_docs.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+  # Type ignore validation
+  - repo: local
+    hooks:
+      - id: check-type-ignores
+        name: check-undocumented-type-ignores
+        entry: bash scripts/ci/check-type-ignores.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
   # Security checks with Bandit (only on pre-push to save time)
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.3

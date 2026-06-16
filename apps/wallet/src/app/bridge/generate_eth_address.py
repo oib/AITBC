@@ -3,14 +3,14 @@
 Generate Ethereum wallet address for ETH-AIT bridge.
 """
 
-import os
+import subprocess
 import sys
 
 try:
     from eth_account import Account
 except ImportError:
     print("Installing eth-account...")
-    os.system(f"{sys.executable} -m pip install eth-account")
+    subprocess.run([sys.executable, "-m", "pip", "install", "eth-account"], check=True)
     from eth_account import Account
 
 

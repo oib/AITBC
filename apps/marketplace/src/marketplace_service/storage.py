@@ -13,9 +13,11 @@ from sqlmodel import SQLModel
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/marketplace_service.db")
+DATABASE_URL = os.getenv(
+    "MARKETPLACE_DATABASE_URL", os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/marketplace_service.db")
+)
 engine = create_async_engine(DATABASE_URL, echo=False)
-logger.info("Storage module loaded: engine=%s, DATABASE_URL=%s", engine, DATABASE_URL)
+logger.info("Storage module loaded: engine=%s, DATABASE_URL=%s", engine, os.getenv("MARKETPLACE_DATABASE_URL", "not set"))
 
 
 async def init_db() -> None:
