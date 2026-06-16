@@ -3,9 +3,6 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
-
-
 class AgentRegistrationRequest(BaseModel):
     agent_id: str = Field(..., description="Unique agent identifier")
     agent_type: str = Field(..., description="Type of agent")

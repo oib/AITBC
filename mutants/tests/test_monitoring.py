@@ -5,7 +5,6 @@ Tests for monitoring and metrics utilities
 import time
 
 import pytest
-
 from aitbc.monitoring import (
     HealthChecker,
     MetricsCollector,

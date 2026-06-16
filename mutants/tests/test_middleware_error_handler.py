@@ -4,7 +4,6 @@ Tests for AITBC middleware error handler
 """
 
 import pytest
-
 from aitbc.middleware.error_handler import ErrorHandlerMiddleware
 
 

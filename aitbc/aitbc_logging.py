@@ -17,7 +17,17 @@ from typing import Any
 class BlockchainTextFormatter(logging.Formatter):
     """Compact bracketed formatter that appends blockchain-specific extra fields."""
 
-    BLOCKCHAIN_FIELDS = ("chain_id", "supported_chains", "height", "hash", "proposer", "error", "request_id", "node_id")
+    BLOCKCHAIN_FIELDS = (
+        "chain_id",
+        "supported_chains",
+        "height",
+        "hash",
+        "proposer",
+        "error",
+        "request_id",
+        "node_id",
+        "correlation_id",
+    )
 
     def format(self, record: logging.LogRecord) -> str:
         message = record.getMessage()
@@ -42,6 +52,7 @@ class StructuredFormatter(logging.Formatter):
         "service",
         "environment",
         "version",
+        "correlation_id",
     )
 
     def format(self, record: logging.LogRecord) -> str:

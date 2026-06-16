@@ -6,7 +6,6 @@ Tests for enhanced caching strategies including blockchain-specific caching
 from unittest.mock import Mock
 
 import pytest
-
 from aitbc.caching import (
     BlockchainCache,
     CacheInvalidator,

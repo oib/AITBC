@@ -7,7 +7,6 @@ import tempfile
 from unittest.mock import Mock, patch
 
 import pytest
-
 from aitbc.state import (
     AsyncStateMachine,
     ConfigurableStateMachine,

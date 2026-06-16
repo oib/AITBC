@@ -4,7 +4,6 @@ Tests for AITBC training_setup package initialization
 """
 
 import pytest
-
 from aitbc.training_setup import __all__
 
 

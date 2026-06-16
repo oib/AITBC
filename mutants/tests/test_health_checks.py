@@ -6,7 +6,6 @@ from datetime import datetime
 from unittest.mock import patch
 
 import pytest
-
 from aitbc.health_checks import (
     HealthCheck,
     HealthChecker,

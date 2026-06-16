@@ -16,7 +16,8 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 
 
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
+from mutmut.mutation.trampoline import MutantDict
+from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated
 
 
 class MessageType(StrEnum):
@@ -80,6 +81,8 @@ class AgentMessage:
         data["message_type"] = MessageType(data["message_type"])
         data["priority"] = Priority(data["priority"])
         return cls(**data)
+
+
 mutants_xǁCommunicationProtocolǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁCommunicationProtocolǁregister_handler__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁCommunicationProtocolǁsend_message__mutmut: MutantDict = {}  # type: ignore
@@ -125,25 +128,33 @@ class CommunicationProtocol:
             self.message_handlers[message_type] = []
         self.message_handlers[message_type].append(handler)
 
-    async def xǁCommunicationProtocolǁregister_handler__mutmut_orig(self, message_type: MessageType, handler: Callable[[AgentMessage], Any]) -> None:
+    async def xǁCommunicationProtocolǁregister_handler__mutmut_orig(
+        self, message_type: MessageType, handler: Callable[[AgentMessage], Any]
+    ) -> None:
         """Register a message handler for a specific message type"""
         if message_type not in self.message_handlers:
             self.message_handlers[message_type] = []
         self.message_handlers[message_type].append(handler)
 
-    async def xǁCommunicationProtocolǁregister_handler__mutmut_1(self, message_type: MessageType, handler: Callable[[AgentMessage], Any]) -> None:
+    async def xǁCommunicationProtocolǁregister_handler__mutmut_1(
+        self, message_type: MessageType, handler: Callable[[AgentMessage], Any]
+    ) -> None:
         """Register a message handler for a specific message type"""
         if message_type in self.message_handlers:
             self.message_handlers[message_type] = []
         self.message_handlers[message_type].append(handler)
 
-    async def xǁCommunicationProtocolǁregister_handler__mutmut_2(self, message_type: MessageType, handler: Callable[[AgentMessage], Any]) -> None:
+    async def xǁCommunicationProtocolǁregister_handler__mutmut_2(
+        self, message_type: MessageType, handler: Callable[[AgentMessage], Any]
+    ) -> None:
         """Register a message handler for a specific message type"""
         if message_type not in self.message_handlers:
             self.message_handlers[message_type] = None
         self.message_handlers[message_type].append(handler)
 
-    async def xǁCommunicationProtocolǁregister_handler__mutmut_3(self, message_type: MessageType, handler: Callable[[AgentMessage], Any]) -> None:
+    async def xǁCommunicationProtocolǁregister_handler__mutmut_3(
+        self, message_type: MessageType, handler: Callable[[AgentMessage], Any]
+    ) -> None:
         """Register a message handler for a specific message type"""
         if message_type not in self.message_handlers:
             self.message_handlers[message_type] = []
@@ -352,7 +363,9 @@ class CommunicationProtocol:
                 await self._broadcast_message(message)
                 return True
             else:
-                logger.warning("Cannot send message to %s: not connected", )
+                logger.warning(
+                    "Cannot send message to %s: not connected",
+                )
                 return False
         except Exception as e:
             logger.error("Error sending message: %s", e)
@@ -450,7 +463,7 @@ class CommunicationProtocol:
             else:
                 logger.warning("Cannot send message to %s: not connected", message.receiver_id)
                 return False
-        except Exception as e:
+        except Exception:
             logger.error("Error sending message: %s", None)
             return False
 
@@ -482,8 +495,10 @@ class CommunicationProtocol:
             else:
                 logger.warning("Cannot send message to %s: not connected", message.receiver_id)
                 return False
-        except Exception as e:
-            logger.error("Error sending message: %s", )
+        except Exception:
+            logger.error(
+                "Error sending message: %s",
+            )
             return False
 
     async def xǁCommunicationProtocolǁsend_message__mutmut_20(self, message: AgentMessage) -> bool:
@@ -645,7 +660,9 @@ class CommunicationProtocol:
         """Process received message"""
         try:
             if self._is_message_expired(message):
-                logger.warning("Message %s expired, ignoring", )
+                logger.warning(
+                    "Message %s expired, ignoring",
+                )
                 return
             handlers = self.message_handlers.get(message.message_type, [])
             for handler in handlers:
@@ -767,7 +784,9 @@ class CommunicationProtocol:
             if self._is_message_expired(message):
                 logger.warning("Message %s expired, ignoring", message.id)
                 return
-            handlers = self.message_handlers.get(message.message_type, )
+            handlers = self.message_handlers.get(
+                message.message_type,
+            )
             for handler in handlers:
                 try:
                     await handler(message)
@@ -816,7 +835,7 @@ class CommunicationProtocol:
             for handler in handlers:
                 try:
                     await handler(message)
-                except Exception as e:
+                except Exception:
                     logger.error("Error in message handler: %s", None)
         except Exception as e:
             logger.error("Error processing message: %s", e)
@@ -846,8 +865,10 @@ class CommunicationProtocol:
             for handler in handlers:
                 try:
                     await handler(message)
-                except Exception as e:
-                    logger.error("Error in message handler: %s", )
+                except Exception:
+                    logger.error(
+                        "Error in message handler: %s",
+                    )
         except Exception as e:
             logger.error("Error processing message: %s", e)
 
@@ -923,7 +944,7 @@ class CommunicationProtocol:
                     await handler(message)
                 except Exception as e:
                     logger.error("Error in message handler: %s", e)
-        except Exception as e:
+        except Exception:
             logger.error("Error processing message: %s", None)
 
     async def xǁCommunicationProtocolǁreceive_message__mutmut_24(self, message: AgentMessage) -> Any:
@@ -953,8 +974,10 @@ class CommunicationProtocol:
                     await handler(message)
                 except Exception as e:
                     logger.error("Error in message handler: %s", e)
-        except Exception as e:
-            logger.error("Error processing message: %s", )
+        except Exception:
+            logger.error(
+                "Error processing message: %s",
+            )
 
     async def xǁCommunicationProtocolǁreceive_message__mutmut_26(self, message: AgentMessage) -> Any:
         """Process received message"""
@@ -1082,88 +1105,241 @@ class CommunicationProtocol:
         """Broadcast message to all connected agents"""
         raise NotImplementedError("SUBCLASSES MUST IMPLEMENT _BROADCAST_MESSAGE")
 
-mutants_xǁCommunicationProtocolǁ__init____mutmut['_mutmut_orig'] = CommunicationProtocol.xǁCommunicationProtocolǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ__init____mutmut['xǁCommunicationProtocolǁ__init____mutmut_1'] = CommunicationProtocol.xǁCommunicationProtocolǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ__init____mutmut['xǁCommunicationProtocolǁ__init____mutmut_2'] = CommunicationProtocol.xǁCommunicationProtocolǁ__init____mutmut_2 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ__init____mutmut['xǁCommunicationProtocolǁ__init____mutmut_3'] = CommunicationProtocol.xǁCommunicationProtocolǁ__init____mutmut_3 # type: ignore # mutmut generated
 
-mutants_xǁCommunicationProtocolǁregister_handler__mutmut['_mutmut_orig'] = CommunicationProtocol.xǁCommunicationProtocolǁregister_handler__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁregister_handler__mutmut['xǁCommunicationProtocolǁregister_handler__mutmut_1'] = CommunicationProtocol.xǁCommunicationProtocolǁregister_handler__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁregister_handler__mutmut['xǁCommunicationProtocolǁregister_handler__mutmut_2'] = CommunicationProtocol.xǁCommunicationProtocolǁregister_handler__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁregister_handler__mutmut['xǁCommunicationProtocolǁregister_handler__mutmut_3'] = CommunicationProtocol.xǁCommunicationProtocolǁregister_handler__mutmut_3 # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ__init____mutmut["_mutmut_orig"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ__init____mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ__init____mutmut["xǁCommunicationProtocolǁ__init____mutmut_1"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ__init____mutmut["xǁCommunicationProtocolǁ__init____mutmut_2"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ__init____mutmut["xǁCommunicationProtocolǁ__init____mutmut_3"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ__init____mutmut_3
+)  # type: ignore # mutmut generated
 
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['_mutmut_orig'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_1'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_2'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_3'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_4'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_5'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_6'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_7'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_8'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_9'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_10'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_11'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_12'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_13'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_14'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_15'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_16'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_17'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_18'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_19'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_20'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_21'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_22'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁsend_message__mutmut['xǁCommunicationProtocolǁsend_message__mutmut_23'] = CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_23 # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁregister_handler__mutmut["_mutmut_orig"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁregister_handler__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁregister_handler__mutmut["xǁCommunicationProtocolǁregister_handler__mutmut_1"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁregister_handler__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁregister_handler__mutmut["xǁCommunicationProtocolǁregister_handler__mutmut_2"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁregister_handler__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁregister_handler__mutmut["xǁCommunicationProtocolǁregister_handler__mutmut_3"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁregister_handler__mutmut_3
+)  # type: ignore # mutmut generated
 
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['_mutmut_orig'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_1'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_2'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_3'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_4'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_5'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_6'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_7'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_8'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_9'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_10'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_11'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_12'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_13'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_14'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_15'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_16'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_17'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_18'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_19'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_20'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_21'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_22'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_23'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_24'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_25'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_26'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_27'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁreceive_message__mutmut['xǁCommunicationProtocolǁreceive_message__mutmut_28'] = CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_28 # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["_mutmut_orig"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_1"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_2"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_3"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_4"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_5"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_6"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_7"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_8"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_9"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_10"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_11"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_12"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_13"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_14"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_15"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_16"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_17"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_18"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_19"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_20"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_21"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_22"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁsend_message__mutmut["xǁCommunicationProtocolǁsend_message__mutmut_23"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁsend_message__mutmut_23
+)  # type: ignore # mutmut generated
 
-mutants_xǁCommunicationProtocolǁ_is_message_expired__mutmut['_mutmut_orig'] = CommunicationProtocol.xǁCommunicationProtocolǁ_is_message_expired__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ_is_message_expired__mutmut['xǁCommunicationProtocolǁ_is_message_expired__mutmut_1'] = CommunicationProtocol.xǁCommunicationProtocolǁ_is_message_expired__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ_is_message_expired__mutmut['xǁCommunicationProtocolǁ_is_message_expired__mutmut_2'] = CommunicationProtocol.xǁCommunicationProtocolǁ_is_message_expired__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ_is_message_expired__mutmut['xǁCommunicationProtocolǁ_is_message_expired__mutmut_3'] = CommunicationProtocol.xǁCommunicationProtocolǁ_is_message_expired__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ_is_message_expired__mutmut['xǁCommunicationProtocolǁ_is_message_expired__mutmut_4'] = CommunicationProtocol.xǁCommunicationProtocolǁ_is_message_expired__mutmut_4 # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["_mutmut_orig"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_1"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_2"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_3"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_4"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_5"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_6"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_7"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_8"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_9"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_10"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_11"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_12"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_13"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_14"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_15"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_16"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_17"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_18"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_19"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_20"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_21"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_22"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_23"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_24"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_25"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_26"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_27"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁreceive_message__mutmut["xǁCommunicationProtocolǁreceive_message__mutmut_28"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁreceive_message__mutmut_28
+)  # type: ignore # mutmut generated
 
-mutants_xǁCommunicationProtocolǁ_send_to_agent__mutmut['_mutmut_orig'] = CommunicationProtocol.xǁCommunicationProtocolǁ_send_to_agent__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ_send_to_agent__mutmut['xǁCommunicationProtocolǁ_send_to_agent__mutmut_1'] = CommunicationProtocol.xǁCommunicationProtocolǁ_send_to_agent__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ_send_to_agent__mutmut['xǁCommunicationProtocolǁ_send_to_agent__mutmut_2'] = CommunicationProtocol.xǁCommunicationProtocolǁ_send_to_agent__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ_send_to_agent__mutmut['xǁCommunicationProtocolǁ_send_to_agent__mutmut_3'] = CommunicationProtocol.xǁCommunicationProtocolǁ_send_to_agent__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ_send_to_agent__mutmut['xǁCommunicationProtocolǁ_send_to_agent__mutmut_4'] = CommunicationProtocol.xǁCommunicationProtocolǁ_send_to_agent__mutmut_4 # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_is_message_expired__mutmut["_mutmut_orig"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_is_message_expired__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_is_message_expired__mutmut["xǁCommunicationProtocolǁ_is_message_expired__mutmut_1"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_is_message_expired__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_is_message_expired__mutmut["xǁCommunicationProtocolǁ_is_message_expired__mutmut_2"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_is_message_expired__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_is_message_expired__mutmut["xǁCommunicationProtocolǁ_is_message_expired__mutmut_3"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_is_message_expired__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_is_message_expired__mutmut["xǁCommunicationProtocolǁ_is_message_expired__mutmut_4"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_is_message_expired__mutmut_4
+)  # type: ignore # mutmut generated
 
-mutants_xǁCommunicationProtocolǁ_broadcast_message__mutmut['_mutmut_orig'] = CommunicationProtocol.xǁCommunicationProtocolǁ_broadcast_message__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ_broadcast_message__mutmut['xǁCommunicationProtocolǁ_broadcast_message__mutmut_1'] = CommunicationProtocol.xǁCommunicationProtocolǁ_broadcast_message__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ_broadcast_message__mutmut['xǁCommunicationProtocolǁ_broadcast_message__mutmut_2'] = CommunicationProtocol.xǁCommunicationProtocolǁ_broadcast_message__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ_broadcast_message__mutmut['xǁCommunicationProtocolǁ_broadcast_message__mutmut_3'] = CommunicationProtocol.xǁCommunicationProtocolǁ_broadcast_message__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁCommunicationProtocolǁ_broadcast_message__mutmut['xǁCommunicationProtocolǁ_broadcast_message__mutmut_4'] = CommunicationProtocol.xǁCommunicationProtocolǁ_broadcast_message__mutmut_4 # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_send_to_agent__mutmut["_mutmut_orig"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_send_to_agent__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_send_to_agent__mutmut["xǁCommunicationProtocolǁ_send_to_agent__mutmut_1"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_send_to_agent__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_send_to_agent__mutmut["xǁCommunicationProtocolǁ_send_to_agent__mutmut_2"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_send_to_agent__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_send_to_agent__mutmut["xǁCommunicationProtocolǁ_send_to_agent__mutmut_3"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_send_to_agent__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_send_to_agent__mutmut["xǁCommunicationProtocolǁ_send_to_agent__mutmut_4"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_send_to_agent__mutmut_4
+)  # type: ignore # mutmut generated
+
+mutants_xǁCommunicationProtocolǁ_broadcast_message__mutmut["_mutmut_orig"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_broadcast_message__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_broadcast_message__mutmut["xǁCommunicationProtocolǁ_broadcast_message__mutmut_1"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_broadcast_message__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_broadcast_message__mutmut["xǁCommunicationProtocolǁ_broadcast_message__mutmut_2"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_broadcast_message__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_broadcast_message__mutmut["xǁCommunicationProtocolǁ_broadcast_message__mutmut_3"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_broadcast_message__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationProtocolǁ_broadcast_message__mutmut["xǁCommunicationProtocolǁ_broadcast_message__mutmut_4"] = (
+    CommunicationProtocol.xǁCommunicationProtocolǁ_broadcast_message__mutmut_4
+)  # type: ignore # mutmut generated
 mutants_xǁHierarchicalProtocolǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut: MutantDict = {}  # type: ignore
@@ -1285,7 +1461,10 @@ class HierarchicalProtocol(CommunicationProtocol):
         """Add a sub-agent to this master agent"""
         if self.is_master:
             self.sub_agents.append(agent_id)
-            logger.info("Added sub-agent %s to master %s", agent_id, )
+            logger.info(
+                "Added sub-agent %s to master %s",
+                agent_id,
+            )
         else:
             logger.warning("Agent %s is not a master, cannot add sub-agents", self.agent_id)
 
@@ -1343,7 +1522,9 @@ class HierarchicalProtocol(CommunicationProtocol):
             self.sub_agents.append(agent_id)
             logger.info("Added sub-agent %s to master %s", agent_id, self.agent_id)
         else:
-            logger.warning("Agent %s is not a master, cannot add sub-agents", )
+            logger.warning(
+                "Agent %s is not a master, cannot add sub-agents",
+            )
 
     async def xǁHierarchicalProtocolǁadd_sub_agent__mutmut_15(self, agent_id: str) -> None:
         """Add a sub-agent to this master agent"""
@@ -1433,7 +1614,9 @@ class HierarchicalProtocol(CommunicationProtocol):
     async def xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_5(self, message: AgentMessage) -> None:
         """Send message to all sub-agents"""
         if not self.is_master:
-            logger.warning("Agent %s is not a master", )
+            logger.warning(
+                "Agent %s is not a master",
+            )
             return
         message.message_type = MessageType.HIERARCHICAL
         for sub_agent_id in self.sub_agents:
@@ -1486,7 +1669,7 @@ class HierarchicalProtocol(CommunicationProtocol):
             logger.warning("Agent %s is not a master", self.agent_id)
             return
         message.message_type = MessageType.HIERARCHICAL
-        for sub_agent_id in self.sub_agents:
+        for _sub_agent_id in self.sub_agents:
             message.receiver_id = None
             await self.send_message(message)
 
@@ -1564,7 +1747,9 @@ class HierarchicalProtocol(CommunicationProtocol):
     async def xǁHierarchicalProtocolǁsend_to_master__mutmut_4(self, message: AgentMessage) -> None:
         """Send message to master agent"""
         if self.is_master:
-            logger.warning("Agent %s is a master, cannot send to master", )
+            logger.warning(
+                "Agent %s is a master, cannot send to master",
+            )
             return
         if self.master_agent:
             message.receiver_id = self.master_agent
@@ -1691,7 +1876,9 @@ class HierarchicalProtocol(CommunicationProtocol):
             message.message_type = MessageType.HIERARCHICAL
             await self.send_message(message)
         else:
-            logger.warning("Agent %s has no master agent", )
+            logger.warning(
+                "Agent %s has no master agent",
+            )
 
     async def xǁHierarchicalProtocolǁsend_to_master__mutmut_15(self, message: AgentMessage) -> None:
         """Send message to master agent"""
@@ -1729,63 +1916,172 @@ class HierarchicalProtocol(CommunicationProtocol):
         else:
             logger.warning("AGENT %S HAS NO MASTER AGENT", self.agent_id)
 
-mutants_xǁHierarchicalProtocolǁ__init____mutmut['_mutmut_orig'] = HierarchicalProtocol.xǁHierarchicalProtocolǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁ__init____mutmut['xǁHierarchicalProtocolǁ__init____mutmut_1'] = HierarchicalProtocol.xǁHierarchicalProtocolǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁ__init____mutmut['xǁHierarchicalProtocolǁ__init____mutmut_2'] = HierarchicalProtocol.xǁHierarchicalProtocolǁ__init____mutmut_2 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁ__init____mutmut['xǁHierarchicalProtocolǁ__init____mutmut_3'] = HierarchicalProtocol.xǁHierarchicalProtocolǁ__init____mutmut_3 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁ__init____mutmut['xǁHierarchicalProtocolǁ__init____mutmut_4'] = HierarchicalProtocol.xǁHierarchicalProtocolǁ__init____mutmut_4 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁ__init____mutmut['xǁHierarchicalProtocolǁ__init____mutmut_5'] = HierarchicalProtocol.xǁHierarchicalProtocolǁ__init____mutmut_5 # type: ignore # mutmut generated
 
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['_mutmut_orig'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_1'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_2'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_3'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_4'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_5'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_6'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_7'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_8'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_9'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_10'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_11'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_12'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_13'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_14'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_15'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_16'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut['xǁHierarchicalProtocolǁadd_sub_agent__mutmut_17'] = HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_17 # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁ__init____mutmut["_mutmut_orig"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁ__init____mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁ__init____mutmut["xǁHierarchicalProtocolǁ__init____mutmut_1"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁ__init____mutmut["xǁHierarchicalProtocolǁ__init____mutmut_2"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁ__init____mutmut["xǁHierarchicalProtocolǁ__init____mutmut_3"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁ__init____mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁ__init____mutmut["xǁHierarchicalProtocolǁ__init____mutmut_4"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁ__init____mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁ__init____mutmut["xǁHierarchicalProtocolǁ__init____mutmut_5"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁ__init____mutmut_5
+)  # type: ignore # mutmut generated
 
-mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut['_mutmut_orig'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut['xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_1'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut['xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_2'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut['xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_3'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut['xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_4'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut['xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_5'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut['xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_6'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut['xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_7'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut['xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_8'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut['xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_9'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut['xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_10'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut['xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_11'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_11 # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["_mutmut_orig"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_1"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_2"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_3"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_4"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_5"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_6"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_7"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_8"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_9"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_10"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_11"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_12"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_13"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_14"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_15"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_16"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁadd_sub_agent__mutmut["xǁHierarchicalProtocolǁadd_sub_agent__mutmut_17"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁadd_sub_agent__mutmut_17
+)  # type: ignore # mutmut generated
 
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['_mutmut_orig'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_1'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_2'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_3'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_4'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_5'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_6'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_7'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_8'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_9'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_10'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_11'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_12'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_13'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_14'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_15'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_16'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut['xǁHierarchicalProtocolǁsend_to_master__mutmut_17'] = HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_17 # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut["_mutmut_orig"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut["xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_1"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut["xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_2"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut["xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_3"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut["xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_4"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut["xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_5"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut["xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_6"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut["xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_7"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut["xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_8"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut["xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_9"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut["xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_10"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut["xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_11"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_sub_agents__mutmut_11
+)  # type: ignore # mutmut generated
+
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["_mutmut_orig"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_1"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_2"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_3"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_4"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_5"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_6"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_7"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_8"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_9"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_10"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_11"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_12"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_13"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_14"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_15"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_16"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁHierarchicalProtocolǁsend_to_master__mutmut["xǁHierarchicalProtocolǁsend_to_master__mutmut_17"] = (
+    HierarchicalProtocol.xǁHierarchicalProtocolǁsend_to_master__mutmut_17
+)  # type: ignore # mutmut generated
 mutants_xǁPeerToPeerProtocolǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut: MutantDict = {}  # type: ignore
@@ -1857,7 +2153,10 @@ class PeerToPeerProtocol(CommunicationProtocol):
     async def xǁPeerToPeerProtocolǁadd_peer__mutmut_7(self, peer_id: str, connection_info: dict[str, Any]) -> None:
         """Add a peer to the peer network"""
         self.peers[peer_id] = connection_info
-        logger.info("Added peer %s to agent %s", peer_id, )
+        logger.info(
+            "Added peer %s to agent %s",
+            peer_id,
+        )
 
     async def xǁPeerToPeerProtocolǁadd_peer__mutmut_8(self, peer_id: str, connection_info: dict[str, Any]) -> None:
         """Add a peer to the peer network"""
@@ -1927,7 +2226,10 @@ class PeerToPeerProtocol(CommunicationProtocol):
         """Remove a peer from the peer network"""
         if peer_id in self.peers:
             del self.peers[peer_id]
-            logger.info("Removed peer %s from agent %s", peer_id, )
+            logger.info(
+                "Removed peer %s from agent %s",
+                peer_id,
+            )
 
     async def xǁPeerToPeerProtocolǁremove_peer__mutmut_8(self, peer_id: str) -> None:
         """Remove a peer from the peer network"""
@@ -2005,7 +2307,9 @@ class PeerToPeerProtocol(CommunicationProtocol):
     async def xǁPeerToPeerProtocolǁsend_to_peer__mutmut_5(self, message: AgentMessage, peer_id: str) -> bool:
         """Send message to specific peer"""
         if peer_id not in self.peers:
-            logger.warning("Peer %s not found", )
+            logger.warning(
+                "Peer %s not found",
+            )
             return False
         message.receiver_id = peer_id
         message.message_type = MessageType.PEER_TO_PEER
@@ -2099,7 +2403,7 @@ class PeerToPeerProtocol(CommunicationProtocol):
     async def xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_2(self, message: AgentMessage) -> None:
         """Broadcast message to all peers"""
         message.message_type = MessageType.PEER_TO_PEER
-        for peer_id in self.peers:
+        for _peer_id in self.peers:
             message.receiver_id = None
             await self.send_message(message)
 
@@ -2110,52 +2414,133 @@ class PeerToPeerProtocol(CommunicationProtocol):
             message.receiver_id = peer_id
             await self.send_message(None)
 
-mutants_xǁPeerToPeerProtocolǁ__init____mutmut['_mutmut_orig'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁ__init____mutmut['xǁPeerToPeerProtocolǁ__init____mutmut_1'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁ__init____mutmut['xǁPeerToPeerProtocolǁ__init____mutmut_2'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁ__init____mutmut_2 # type: ignore # mutmut generated
 
-mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut['_mutmut_orig'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut['xǁPeerToPeerProtocolǁadd_peer__mutmut_1'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut['xǁPeerToPeerProtocolǁadd_peer__mutmut_2'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut['xǁPeerToPeerProtocolǁadd_peer__mutmut_3'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut['xǁPeerToPeerProtocolǁadd_peer__mutmut_4'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut['xǁPeerToPeerProtocolǁadd_peer__mutmut_5'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut['xǁPeerToPeerProtocolǁadd_peer__mutmut_6'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut['xǁPeerToPeerProtocolǁadd_peer__mutmut_7'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut['xǁPeerToPeerProtocolǁadd_peer__mutmut_8'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut['xǁPeerToPeerProtocolǁadd_peer__mutmut_9'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut['xǁPeerToPeerProtocolǁadd_peer__mutmut_10'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_10 # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁ__init____mutmut["_mutmut_orig"] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁ__init____mutmut["xǁPeerToPeerProtocolǁ__init____mutmut_1"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁ__init____mutmut["xǁPeerToPeerProtocolǁ__init____mutmut_2"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
 
-mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut['_mutmut_orig'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut['xǁPeerToPeerProtocolǁremove_peer__mutmut_1'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut['xǁPeerToPeerProtocolǁremove_peer__mutmut_2'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut['xǁPeerToPeerProtocolǁremove_peer__mutmut_3'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut['xǁPeerToPeerProtocolǁremove_peer__mutmut_4'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut['xǁPeerToPeerProtocolǁremove_peer__mutmut_5'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut['xǁPeerToPeerProtocolǁremove_peer__mutmut_6'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut['xǁPeerToPeerProtocolǁremove_peer__mutmut_7'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut['xǁPeerToPeerProtocolǁremove_peer__mutmut_8'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut['xǁPeerToPeerProtocolǁremove_peer__mutmut_9'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut['xǁPeerToPeerProtocolǁremove_peer__mutmut_10'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_10 # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut["_mutmut_orig"] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut["xǁPeerToPeerProtocolǁadd_peer__mutmut_1"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut["xǁPeerToPeerProtocolǁadd_peer__mutmut_2"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut["xǁPeerToPeerProtocolǁadd_peer__mutmut_3"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut["xǁPeerToPeerProtocolǁadd_peer__mutmut_4"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut["xǁPeerToPeerProtocolǁadd_peer__mutmut_5"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut["xǁPeerToPeerProtocolǁadd_peer__mutmut_6"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut["xǁPeerToPeerProtocolǁadd_peer__mutmut_7"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut["xǁPeerToPeerProtocolǁadd_peer__mutmut_8"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut["xǁPeerToPeerProtocolǁadd_peer__mutmut_9"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁadd_peer__mutmut["xǁPeerToPeerProtocolǁadd_peer__mutmut_10"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁadd_peer__mutmut_10
+)  # type: ignore # mutmut generated
 
-mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut['_mutmut_orig'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut['xǁPeerToPeerProtocolǁsend_to_peer__mutmut_1'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut['xǁPeerToPeerProtocolǁsend_to_peer__mutmut_2'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut['xǁPeerToPeerProtocolǁsend_to_peer__mutmut_3'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut['xǁPeerToPeerProtocolǁsend_to_peer__mutmut_4'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut['xǁPeerToPeerProtocolǁsend_to_peer__mutmut_5'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut['xǁPeerToPeerProtocolǁsend_to_peer__mutmut_6'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut['xǁPeerToPeerProtocolǁsend_to_peer__mutmut_7'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut['xǁPeerToPeerProtocolǁsend_to_peer__mutmut_8'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut['xǁPeerToPeerProtocolǁsend_to_peer__mutmut_9'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut['xǁPeerToPeerProtocolǁsend_to_peer__mutmut_10'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut['xǁPeerToPeerProtocolǁsend_to_peer__mutmut_11'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut['xǁPeerToPeerProtocolǁsend_to_peer__mutmut_12'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_12 # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut["_mutmut_orig"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut["xǁPeerToPeerProtocolǁremove_peer__mutmut_1"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut["xǁPeerToPeerProtocolǁremove_peer__mutmut_2"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut["xǁPeerToPeerProtocolǁremove_peer__mutmut_3"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut["xǁPeerToPeerProtocolǁremove_peer__mutmut_4"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut["xǁPeerToPeerProtocolǁremove_peer__mutmut_5"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut["xǁPeerToPeerProtocolǁremove_peer__mutmut_6"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut["xǁPeerToPeerProtocolǁremove_peer__mutmut_7"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut["xǁPeerToPeerProtocolǁremove_peer__mutmut_8"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut["xǁPeerToPeerProtocolǁremove_peer__mutmut_9"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁremove_peer__mutmut["xǁPeerToPeerProtocolǁremove_peer__mutmut_10"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁremove_peer__mutmut_10
+)  # type: ignore # mutmut generated
 
-mutants_xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut['_mutmut_orig'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut['xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_1'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut['xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_2'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut['xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_3'] = PeerToPeerProtocol.xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_3 # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut["_mutmut_orig"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut["xǁPeerToPeerProtocolǁsend_to_peer__mutmut_1"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut["xǁPeerToPeerProtocolǁsend_to_peer__mutmut_2"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut["xǁPeerToPeerProtocolǁsend_to_peer__mutmut_3"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut["xǁPeerToPeerProtocolǁsend_to_peer__mutmut_4"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut["xǁPeerToPeerProtocolǁsend_to_peer__mutmut_5"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut["xǁPeerToPeerProtocolǁsend_to_peer__mutmut_6"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut["xǁPeerToPeerProtocolǁsend_to_peer__mutmut_7"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut["xǁPeerToPeerProtocolǁsend_to_peer__mutmut_8"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut["xǁPeerToPeerProtocolǁsend_to_peer__mutmut_9"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut["xǁPeerToPeerProtocolǁsend_to_peer__mutmut_10"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut["xǁPeerToPeerProtocolǁsend_to_peer__mutmut_11"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁsend_to_peer__mutmut["xǁPeerToPeerProtocolǁsend_to_peer__mutmut_12"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁsend_to_peer__mutmut_12
+)  # type: ignore # mutmut generated
+
+mutants_xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut["_mutmut_orig"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut["xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_1"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut["xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_2"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut["xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_3"] = (
+    PeerToPeerProtocol.xǁPeerToPeerProtocolǁbroadcast_to_peers__mutmut_3
+)  # type: ignore # mutmut generated
 mutants_xǁBroadcastProtocolǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁBroadcastProtocolǁsubscribe__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁBroadcastProtocolǁunsubscribe__mutmut: MutantDict = {}  # type: ignore
@@ -2260,7 +2645,10 @@ class BroadcastProtocol(CommunicationProtocol):
         """Subscribe to broadcast channel"""
         if agent_id not in self.subscribers:
             self.subscribers.append(agent_id)
-            logger.info("Agent %s subscribed to %s", agent_id, )
+            logger.info(
+                "Agent %s subscribed to %s",
+                agent_id,
+            )
 
     async def xǁBroadcastProtocolǁsubscribe__mutmut_9(self, agent_id: str) -> None:
         """Subscribe to broadcast channel"""
@@ -2339,7 +2727,10 @@ class BroadcastProtocol(CommunicationProtocol):
         """Unsubscribe from broadcast channel"""
         if agent_id in self.subscribers:
             self.subscribers.remove(agent_id)
-            logger.info("Agent %s unsubscribed from %s", agent_id, )
+            logger.info(
+                "Agent %s unsubscribed from %s",
+                agent_id,
+            )
 
     async def xǁBroadcastProtocolǁunsubscribe__mutmut_9(self, agent_id: str) -> None:
         """Unsubscribe from broadcast channel"""
@@ -2440,46 +2831,115 @@ class BroadcastProtocol(CommunicationProtocol):
                 message_copy.receiver_id = subscriber_id
                 await self.send_message(None)
 
-mutants_xǁBroadcastProtocolǁ__init____mutmut['_mutmut_orig'] = BroadcastProtocol.xǁBroadcastProtocolǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁ__init____mutmut['xǁBroadcastProtocolǁ__init____mutmut_1'] = BroadcastProtocol.xǁBroadcastProtocolǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁ__init____mutmut['xǁBroadcastProtocolǁ__init____mutmut_2'] = BroadcastProtocol.xǁBroadcastProtocolǁ__init____mutmut_2 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁ__init____mutmut['xǁBroadcastProtocolǁ__init____mutmut_3'] = BroadcastProtocol.xǁBroadcastProtocolǁ__init____mutmut_3 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁ__init____mutmut['xǁBroadcastProtocolǁ__init____mutmut_4'] = BroadcastProtocol.xǁBroadcastProtocolǁ__init____mutmut_4 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁ__init____mutmut['xǁBroadcastProtocolǁ__init____mutmut_5'] = BroadcastProtocol.xǁBroadcastProtocolǁ__init____mutmut_5 # type: ignore # mutmut generated
 
-mutants_xǁBroadcastProtocolǁsubscribe__mutmut['_mutmut_orig'] = BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁsubscribe__mutmut['xǁBroadcastProtocolǁsubscribe__mutmut_1'] = BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁsubscribe__mutmut['xǁBroadcastProtocolǁsubscribe__mutmut_2'] = BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁsubscribe__mutmut['xǁBroadcastProtocolǁsubscribe__mutmut_3'] = BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁsubscribe__mutmut['xǁBroadcastProtocolǁsubscribe__mutmut_4'] = BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁsubscribe__mutmut['xǁBroadcastProtocolǁsubscribe__mutmut_5'] = BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁsubscribe__mutmut['xǁBroadcastProtocolǁsubscribe__mutmut_6'] = BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁsubscribe__mutmut['xǁBroadcastProtocolǁsubscribe__mutmut_7'] = BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁsubscribe__mutmut['xǁBroadcastProtocolǁsubscribe__mutmut_8'] = BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁsubscribe__mutmut['xǁBroadcastProtocolǁsubscribe__mutmut_9'] = BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁsubscribe__mutmut['xǁBroadcastProtocolǁsubscribe__mutmut_10'] = BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁsubscribe__mutmut['xǁBroadcastProtocolǁsubscribe__mutmut_11'] = BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_11 # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁ__init____mutmut["_mutmut_orig"] = BroadcastProtocol.xǁBroadcastProtocolǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁ__init____mutmut["xǁBroadcastProtocolǁ__init____mutmut_1"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁ__init____mutmut["xǁBroadcastProtocolǁ__init____mutmut_2"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁ__init____mutmut["xǁBroadcastProtocolǁ__init____mutmut_3"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁ__init____mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁ__init____mutmut["xǁBroadcastProtocolǁ__init____mutmut_4"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁ__init____mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁ__init____mutmut["xǁBroadcastProtocolǁ__init____mutmut_5"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁ__init____mutmut_5
+)  # type: ignore # mutmut generated
 
-mutants_xǁBroadcastProtocolǁunsubscribe__mutmut['_mutmut_orig'] = BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁunsubscribe__mutmut['xǁBroadcastProtocolǁunsubscribe__mutmut_1'] = BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁunsubscribe__mutmut['xǁBroadcastProtocolǁunsubscribe__mutmut_2'] = BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁunsubscribe__mutmut['xǁBroadcastProtocolǁunsubscribe__mutmut_3'] = BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁunsubscribe__mutmut['xǁBroadcastProtocolǁunsubscribe__mutmut_4'] = BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁunsubscribe__mutmut['xǁBroadcastProtocolǁunsubscribe__mutmut_5'] = BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁunsubscribe__mutmut['xǁBroadcastProtocolǁunsubscribe__mutmut_6'] = BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁunsubscribe__mutmut['xǁBroadcastProtocolǁunsubscribe__mutmut_7'] = BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁunsubscribe__mutmut['xǁBroadcastProtocolǁunsubscribe__mutmut_8'] = BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁunsubscribe__mutmut['xǁBroadcastProtocolǁunsubscribe__mutmut_9'] = BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁunsubscribe__mutmut['xǁBroadcastProtocolǁunsubscribe__mutmut_10'] = BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁunsubscribe__mutmut['xǁBroadcastProtocolǁunsubscribe__mutmut_11'] = BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_11 # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁsubscribe__mutmut["_mutmut_orig"] = BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁsubscribe__mutmut["xǁBroadcastProtocolǁsubscribe__mutmut_1"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁsubscribe__mutmut["xǁBroadcastProtocolǁsubscribe__mutmut_2"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁsubscribe__mutmut["xǁBroadcastProtocolǁsubscribe__mutmut_3"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁsubscribe__mutmut["xǁBroadcastProtocolǁsubscribe__mutmut_4"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁsubscribe__mutmut["xǁBroadcastProtocolǁsubscribe__mutmut_5"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁsubscribe__mutmut["xǁBroadcastProtocolǁsubscribe__mutmut_6"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁsubscribe__mutmut["xǁBroadcastProtocolǁsubscribe__mutmut_7"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁsubscribe__mutmut["xǁBroadcastProtocolǁsubscribe__mutmut_8"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁsubscribe__mutmut["xǁBroadcastProtocolǁsubscribe__mutmut_9"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁsubscribe__mutmut["xǁBroadcastProtocolǁsubscribe__mutmut_10"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁsubscribe__mutmut["xǁBroadcastProtocolǁsubscribe__mutmut_11"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁsubscribe__mutmut_11
+)  # type: ignore # mutmut generated
 
-mutants_xǁBroadcastProtocolǁbroadcast__mutmut['_mutmut_orig'] = BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁbroadcast__mutmut['xǁBroadcastProtocolǁbroadcast__mutmut_1'] = BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁbroadcast__mutmut['xǁBroadcastProtocolǁbroadcast__mutmut_2'] = BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁbroadcast__mutmut['xǁBroadcastProtocolǁbroadcast__mutmut_3'] = BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁbroadcast__mutmut['xǁBroadcastProtocolǁbroadcast__mutmut_4'] = BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁbroadcast__mutmut['xǁBroadcastProtocolǁbroadcast__mutmut_5'] = BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁBroadcastProtocolǁbroadcast__mutmut['xǁBroadcastProtocolǁbroadcast__mutmut_6'] = BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_6 # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁunsubscribe__mutmut["_mutmut_orig"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁunsubscribe__mutmut["xǁBroadcastProtocolǁunsubscribe__mutmut_1"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁunsubscribe__mutmut["xǁBroadcastProtocolǁunsubscribe__mutmut_2"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁunsubscribe__mutmut["xǁBroadcastProtocolǁunsubscribe__mutmut_3"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁunsubscribe__mutmut["xǁBroadcastProtocolǁunsubscribe__mutmut_4"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁunsubscribe__mutmut["xǁBroadcastProtocolǁunsubscribe__mutmut_5"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁunsubscribe__mutmut["xǁBroadcastProtocolǁunsubscribe__mutmut_6"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁunsubscribe__mutmut["xǁBroadcastProtocolǁunsubscribe__mutmut_7"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁunsubscribe__mutmut["xǁBroadcastProtocolǁunsubscribe__mutmut_8"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁunsubscribe__mutmut["xǁBroadcastProtocolǁunsubscribe__mutmut_9"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁunsubscribe__mutmut["xǁBroadcastProtocolǁunsubscribe__mutmut_10"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁunsubscribe__mutmut["xǁBroadcastProtocolǁunsubscribe__mutmut_11"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁunsubscribe__mutmut_11
+)  # type: ignore # mutmut generated
+
+mutants_xǁBroadcastProtocolǁbroadcast__mutmut["_mutmut_orig"] = BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁbroadcast__mutmut["xǁBroadcastProtocolǁbroadcast__mutmut_1"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁbroadcast__mutmut["xǁBroadcastProtocolǁbroadcast__mutmut_2"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁbroadcast__mutmut["xǁBroadcastProtocolǁbroadcast__mutmut_3"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁbroadcast__mutmut["xǁBroadcastProtocolǁbroadcast__mutmut_4"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁbroadcast__mutmut["xǁBroadcastProtocolǁbroadcast__mutmut_5"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁBroadcastProtocolǁbroadcast__mutmut["xǁBroadcastProtocolǁbroadcast__mutmut_6"] = (
+    BroadcastProtocol.xǁBroadcastProtocolǁbroadcast__mutmut_6
+)  # type: ignore # mutmut generated
 mutants_xǁCommunicationManagerǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁCommunicationManagerǁadd_protocol__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁCommunicationManagerǁget_protocol__mutmut: MutantDict = {}  # type: ignore
@@ -2551,7 +3011,10 @@ class CommunicationManager:
     def xǁCommunicationManagerǁadd_protocol__mutmut_7(self, name: str, protocol: CommunicationProtocol) -> None:
         """Add a communication protocol"""
         self.protocols[name] = protocol
-        logger.info("Added protocol %s to agent %s", name, )
+        logger.info(
+            "Added protocol %s to agent %s",
+            name,
+        )
 
     def xǁCommunicationManagerǁadd_protocol__mutmut_8(self, name: str, protocol: CommunicationProtocol) -> None:
         """Add a communication protocol"""
@@ -2701,7 +3164,9 @@ class CommunicationManager:
         """Register message handler for specific protocol"""
         protocol = self.get_protocol(protocol_name)
         if protocol:
-            await protocol.register_handler(message_type, )
+            await protocol.register_handler(
+                message_type,
+            )
         else:
             logger.error("Protocol %s not found", protocol_name)
 
@@ -2743,7 +3208,9 @@ class CommunicationManager:
         if protocol:
             await protocol.register_handler(message_type, handler)
         else:
-            logger.error("Protocol %s not found", )
+            logger.error(
+                "Protocol %s not found",
+            )
 
     async def xǁCommunicationManagerǁregister_handler__mutmut_11(
         self, protocol_name: str, message_type: MessageType, handler: Callable[[AgentMessage], Any]
@@ -2775,45 +3242,116 @@ class CommunicationManager:
         else:
             logger.error("PROTOCOL %S NOT FOUND", protocol_name)
 
-mutants_xǁCommunicationManagerǁ__init____mutmut['_mutmut_orig'] = CommunicationManager.xǁCommunicationManagerǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁ__init____mutmut['xǁCommunicationManagerǁ__init____mutmut_1'] = CommunicationManager.xǁCommunicationManagerǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁ__init____mutmut['xǁCommunicationManagerǁ__init____mutmut_2'] = CommunicationManager.xǁCommunicationManagerǁ__init____mutmut_2 # type: ignore # mutmut generated
 
-mutants_xǁCommunicationManagerǁadd_protocol__mutmut['_mutmut_orig'] = CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁadd_protocol__mutmut['xǁCommunicationManagerǁadd_protocol__mutmut_1'] = CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁadd_protocol__mutmut['xǁCommunicationManagerǁadd_protocol__mutmut_2'] = CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁadd_protocol__mutmut['xǁCommunicationManagerǁadd_protocol__mutmut_3'] = CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁadd_protocol__mutmut['xǁCommunicationManagerǁadd_protocol__mutmut_4'] = CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁadd_protocol__mutmut['xǁCommunicationManagerǁadd_protocol__mutmut_5'] = CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁadd_protocol__mutmut['xǁCommunicationManagerǁadd_protocol__mutmut_6'] = CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁadd_protocol__mutmut['xǁCommunicationManagerǁadd_protocol__mutmut_7'] = CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁadd_protocol__mutmut['xǁCommunicationManagerǁadd_protocol__mutmut_8'] = CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁadd_protocol__mutmut['xǁCommunicationManagerǁadd_protocol__mutmut_9'] = CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁadd_protocol__mutmut['xǁCommunicationManagerǁadd_protocol__mutmut_10'] = CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_10 # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁ__init____mutmut["_mutmut_orig"] = (
+    CommunicationManager.xǁCommunicationManagerǁ__init____mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁ__init____mutmut["xǁCommunicationManagerǁ__init____mutmut_1"] = (
+    CommunicationManager.xǁCommunicationManagerǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁ__init____mutmut["xǁCommunicationManagerǁ__init____mutmut_2"] = (
+    CommunicationManager.xǁCommunicationManagerǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
 
-mutants_xǁCommunicationManagerǁget_protocol__mutmut['_mutmut_orig'] = CommunicationManager.xǁCommunicationManagerǁget_protocol__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁget_protocol__mutmut['xǁCommunicationManagerǁget_protocol__mutmut_1'] = CommunicationManager.xǁCommunicationManagerǁget_protocol__mutmut_1 # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁadd_protocol__mutmut["_mutmut_orig"] = (
+    CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁadd_protocol__mutmut["xǁCommunicationManagerǁadd_protocol__mutmut_1"] = (
+    CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁadd_protocol__mutmut["xǁCommunicationManagerǁadd_protocol__mutmut_2"] = (
+    CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁadd_protocol__mutmut["xǁCommunicationManagerǁadd_protocol__mutmut_3"] = (
+    CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁadd_protocol__mutmut["xǁCommunicationManagerǁadd_protocol__mutmut_4"] = (
+    CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁadd_protocol__mutmut["xǁCommunicationManagerǁadd_protocol__mutmut_5"] = (
+    CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁadd_protocol__mutmut["xǁCommunicationManagerǁadd_protocol__mutmut_6"] = (
+    CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁadd_protocol__mutmut["xǁCommunicationManagerǁadd_protocol__mutmut_7"] = (
+    CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁadd_protocol__mutmut["xǁCommunicationManagerǁadd_protocol__mutmut_8"] = (
+    CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁadd_protocol__mutmut["xǁCommunicationManagerǁadd_protocol__mutmut_9"] = (
+    CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁadd_protocol__mutmut["xǁCommunicationManagerǁadd_protocol__mutmut_10"] = (
+    CommunicationManager.xǁCommunicationManagerǁadd_protocol__mutmut_10
+)  # type: ignore # mutmut generated
 
-mutants_xǁCommunicationManagerǁsend_message__mutmut['_mutmut_orig'] = CommunicationManager.xǁCommunicationManagerǁsend_message__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁsend_message__mutmut['xǁCommunicationManagerǁsend_message__mutmut_1'] = CommunicationManager.xǁCommunicationManagerǁsend_message__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁsend_message__mutmut['xǁCommunicationManagerǁsend_message__mutmut_2'] = CommunicationManager.xǁCommunicationManagerǁsend_message__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁsend_message__mutmut['xǁCommunicationManagerǁsend_message__mutmut_3'] = CommunicationManager.xǁCommunicationManagerǁsend_message__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁsend_message__mutmut['xǁCommunicationManagerǁsend_message__mutmut_4'] = CommunicationManager.xǁCommunicationManagerǁsend_message__mutmut_4 # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁget_protocol__mutmut["_mutmut_orig"] = (
+    CommunicationManager.xǁCommunicationManagerǁget_protocol__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁget_protocol__mutmut["xǁCommunicationManagerǁget_protocol__mutmut_1"] = (
+    CommunicationManager.xǁCommunicationManagerǁget_protocol__mutmut_1
+)  # type: ignore # mutmut generated
 
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['_mutmut_orig'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['xǁCommunicationManagerǁregister_handler__mutmut_1'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['xǁCommunicationManagerǁregister_handler__mutmut_2'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['xǁCommunicationManagerǁregister_handler__mutmut_3'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['xǁCommunicationManagerǁregister_handler__mutmut_4'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['xǁCommunicationManagerǁregister_handler__mutmut_5'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['xǁCommunicationManagerǁregister_handler__mutmut_6'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['xǁCommunicationManagerǁregister_handler__mutmut_7'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['xǁCommunicationManagerǁregister_handler__mutmut_8'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['xǁCommunicationManagerǁregister_handler__mutmut_9'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['xǁCommunicationManagerǁregister_handler__mutmut_10'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['xǁCommunicationManagerǁregister_handler__mutmut_11'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['xǁCommunicationManagerǁregister_handler__mutmut_12'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁCommunicationManagerǁregister_handler__mutmut['xǁCommunicationManagerǁregister_handler__mutmut_13'] = CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_13 # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁsend_message__mutmut["_mutmut_orig"] = (
+    CommunicationManager.xǁCommunicationManagerǁsend_message__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁsend_message__mutmut["xǁCommunicationManagerǁsend_message__mutmut_1"] = (
+    CommunicationManager.xǁCommunicationManagerǁsend_message__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁsend_message__mutmut["xǁCommunicationManagerǁsend_message__mutmut_2"] = (
+    CommunicationManager.xǁCommunicationManagerǁsend_message__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁsend_message__mutmut["xǁCommunicationManagerǁsend_message__mutmut_3"] = (
+    CommunicationManager.xǁCommunicationManagerǁsend_message__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁsend_message__mutmut["xǁCommunicationManagerǁsend_message__mutmut_4"] = (
+    CommunicationManager.xǁCommunicationManagerǁsend_message__mutmut_4
+)  # type: ignore # mutmut generated
+
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["_mutmut_orig"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["xǁCommunicationManagerǁregister_handler__mutmut_1"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["xǁCommunicationManagerǁregister_handler__mutmut_2"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["xǁCommunicationManagerǁregister_handler__mutmut_3"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["xǁCommunicationManagerǁregister_handler__mutmut_4"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["xǁCommunicationManagerǁregister_handler__mutmut_5"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["xǁCommunicationManagerǁregister_handler__mutmut_6"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["xǁCommunicationManagerǁregister_handler__mutmut_7"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["xǁCommunicationManagerǁregister_handler__mutmut_8"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["xǁCommunicationManagerǁregister_handler__mutmut_9"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["xǁCommunicationManagerǁregister_handler__mutmut_10"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["xǁCommunicationManagerǁregister_handler__mutmut_11"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["xǁCommunicationManagerǁregister_handler__mutmut_12"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁCommunicationManagerǁregister_handler__mutmut["xǁCommunicationManagerǁregister_handler__mutmut_13"] = (
+    CommunicationManager.xǁCommunicationManagerǁregister_handler__mutmut_13
+)  # type: ignore # mutmut generated
 mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁMessageTemplatesǁcreate_status_update__mutmut: MutantDict = {}  # type: ignore
@@ -2919,7 +3457,7 @@ class MessageTemplates:
             sender_id=sender_id,
             message_type=MessageType.HEARTBEAT,
             priority=Priority.LOW,
-            )
+        )
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_heartbeat__mutmut_9(sender_id: str) -> AgentMessage:
@@ -2964,7 +3502,9 @@ class MessageTemplates:
         )
 
     @staticmethod
-    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_orig(sender_id: str, receiver_id: str, task_data: dict[str, Any]) -> AgentMessage:
+    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_orig(
+        sender_id: str, receiver_id: str, task_data: dict[str, Any]
+    ) -> AgentMessage:
         """Create task assignment message"""
         return AgentMessage(
             sender_id=sender_id,
@@ -2975,7 +3515,9 @@ class MessageTemplates:
         )
 
     @staticmethod
-    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_1(sender_id: str, receiver_id: str, task_data: dict[str, Any]) -> AgentMessage:
+    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_1(
+        sender_id: str, receiver_id: str, task_data: dict[str, Any]
+    ) -> AgentMessage:
         """Create task assignment message"""
         return AgentMessage(
             sender_id=None,
@@ -2986,7 +3528,9 @@ class MessageTemplates:
         )
 
     @staticmethod
-    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_2(sender_id: str, receiver_id: str, task_data: dict[str, Any]) -> AgentMessage:
+    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_2(
+        sender_id: str, receiver_id: str, task_data: dict[str, Any]
+    ) -> AgentMessage:
         """Create task assignment message"""
         return AgentMessage(
             sender_id=sender_id,
@@ -2997,7 +3541,9 @@ class MessageTemplates:
         )
 
     @staticmethod
-    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_3(sender_id: str, receiver_id: str, task_data: dict[str, Any]) -> AgentMessage:
+    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_3(
+        sender_id: str, receiver_id: str, task_data: dict[str, Any]
+    ) -> AgentMessage:
         """Create task assignment message"""
         return AgentMessage(
             sender_id=sender_id,
@@ -3008,7 +3554,9 @@ class MessageTemplates:
         )
 
     @staticmethod
-    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_4(sender_id: str, receiver_id: str, task_data: dict[str, Any]) -> AgentMessage:
+    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_4(
+        sender_id: str, receiver_id: str, task_data: dict[str, Any]
+    ) -> AgentMessage:
         """Create task assignment message"""
         return AgentMessage(
             sender_id=sender_id,
@@ -3019,7 +3567,9 @@ class MessageTemplates:
         )
 
     @staticmethod
-    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_5(sender_id: str, receiver_id: str, task_data: dict[str, Any]) -> AgentMessage:
+    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_5(
+        sender_id: str, receiver_id: str, task_data: dict[str, Any]
+    ) -> AgentMessage:
         """Create task assignment message"""
         return AgentMessage(
             sender_id=sender_id,
@@ -3030,7 +3580,9 @@ class MessageTemplates:
         )
 
     @staticmethod
-    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_6(sender_id: str, receiver_id: str, task_data: dict[str, Any]) -> AgentMessage:
+    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_6(
+        sender_id: str, receiver_id: str, task_data: dict[str, Any]
+    ) -> AgentMessage:
         """Create task assignment message"""
         return AgentMessage(
             receiver_id=receiver_id,
@@ -3040,7 +3592,9 @@ class MessageTemplates:
         )
 
     @staticmethod
-    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_7(sender_id: str, receiver_id: str, task_data: dict[str, Any]) -> AgentMessage:
+    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_7(
+        sender_id: str, receiver_id: str, task_data: dict[str, Any]
+    ) -> AgentMessage:
         """Create task assignment message"""
         return AgentMessage(
             sender_id=sender_id,
@@ -3050,7 +3604,9 @@ class MessageTemplates:
         )
 
     @staticmethod
-    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_8(sender_id: str, receiver_id: str, task_data: dict[str, Any]) -> AgentMessage:
+    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_8(
+        sender_id: str, receiver_id: str, task_data: dict[str, Any]
+    ) -> AgentMessage:
         """Create task assignment message"""
         return AgentMessage(
             sender_id=sender_id,
@@ -3060,7 +3616,9 @@ class MessageTemplates:
         )
 
     @staticmethod
-    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_9(sender_id: str, receiver_id: str, task_data: dict[str, Any]) -> AgentMessage:
+    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_9(
+        sender_id: str, receiver_id: str, task_data: dict[str, Any]
+    ) -> AgentMessage:
         """Create task assignment message"""
         return AgentMessage(
             sender_id=sender_id,
@@ -3070,14 +3628,16 @@ class MessageTemplates:
         )
 
     @staticmethod
-    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_10(sender_id: str, receiver_id: str, task_data: dict[str, Any]) -> AgentMessage:
+    def xǁMessageTemplatesǁcreate_task_assignment__mutmut_10(
+        sender_id: str, receiver_id: str, task_data: dict[str, Any]
+    ) -> AgentMessage:
         """Create task assignment message"""
         return AgentMessage(
             sender_id=sender_id,
             receiver_id=receiver_id,
             message_type=MessageType.TASK_ASSIGNMENT,
             priority=Priority.NORMAL,
-            )
+        )
 
     @staticmethod
     @_mutmut_mutated(mutants_xǁMessageTemplatesǁcreate_status_update__mutmut)
@@ -3104,16 +3664,12 @@ class MessageTemplates:
     @staticmethod
     def xǁMessageTemplatesǁcreate_status_update__mutmut_2(sender_id: str, status_data: dict[str, Any]) -> AgentMessage:
         """Create status update message"""
-        return AgentMessage(
-            sender_id=sender_id, message_type=None, priority=Priority.NORMAL, payload=status_data
-        )
+        return AgentMessage(sender_id=sender_id, message_type=None, priority=Priority.NORMAL, payload=status_data)
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_status_update__mutmut_3(sender_id: str, status_data: dict[str, Any]) -> AgentMessage:
         """Create status update message"""
-        return AgentMessage(
-            sender_id=sender_id, message_type=MessageType.STATUS_UPDATE, priority=None, payload=status_data
-        )
+        return AgentMessage(sender_id=sender_id, message_type=MessageType.STATUS_UPDATE, priority=None, payload=status_data)
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_status_update__mutmut_4(sender_id: str, status_data: dict[str, Any]) -> AgentMessage:
@@ -3125,29 +3681,26 @@ class MessageTemplates:
     @staticmethod
     def xǁMessageTemplatesǁcreate_status_update__mutmut_5(sender_id: str, status_data: dict[str, Any]) -> AgentMessage:
         """Create status update message"""
-        return AgentMessage(
-            message_type=MessageType.STATUS_UPDATE, priority=Priority.NORMAL, payload=status_data
-        )
+        return AgentMessage(message_type=MessageType.STATUS_UPDATE, priority=Priority.NORMAL, payload=status_data)
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_status_update__mutmut_6(sender_id: str, status_data: dict[str, Any]) -> AgentMessage:
         """Create status update message"""
-        return AgentMessage(
-            sender_id=sender_id, priority=Priority.NORMAL, payload=status_data
-        )
+        return AgentMessage(sender_id=sender_id, priority=Priority.NORMAL, payload=status_data)
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_status_update__mutmut_7(sender_id: str, status_data: dict[str, Any]) -> AgentMessage:
         """Create status update message"""
-        return AgentMessage(
-            sender_id=sender_id, message_type=MessageType.STATUS_UPDATE, payload=status_data
-        )
+        return AgentMessage(sender_id=sender_id, message_type=MessageType.STATUS_UPDATE, payload=status_data)
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_status_update__mutmut_8(sender_id: str, status_data: dict[str, Any]) -> AgentMessage:
         """Create status update message"""
         return AgentMessage(
-            sender_id=sender_id, message_type=MessageType.STATUS_UPDATE, priority=Priority.NORMAL, )
+            sender_id=sender_id,
+            message_type=MessageType.STATUS_UPDATE,
+            priority=Priority.NORMAL,
+        )
 
     @staticmethod
     @_mutmut_mutated(mutants_xǁMessageTemplatesǁcreate_discovery__mutmut)
@@ -3174,9 +3727,7 @@ class MessageTemplates:
     @staticmethod
     def xǁMessageTemplatesǁcreate_discovery__mutmut_2(sender_id: str) -> AgentMessage:
         """Create discovery message"""
-        return AgentMessage(
-            sender_id=sender_id, message_type=None, priority=Priority.NORMAL, payload={"agent_id": sender_id}
-        )
+        return AgentMessage(sender_id=sender_id, message_type=None, priority=Priority.NORMAL, payload={"agent_id": sender_id})
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_discovery__mutmut_3(sender_id: str) -> AgentMessage:
@@ -3188,42 +3739,40 @@ class MessageTemplates:
     @staticmethod
     def xǁMessageTemplatesǁcreate_discovery__mutmut_4(sender_id: str) -> AgentMessage:
         """Create discovery message"""
-        return AgentMessage(
-            sender_id=sender_id, message_type=MessageType.DISCOVERY, priority=Priority.NORMAL, payload=None
-        )
+        return AgentMessage(sender_id=sender_id, message_type=MessageType.DISCOVERY, priority=Priority.NORMAL, payload=None)
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_discovery__mutmut_5(sender_id: str) -> AgentMessage:
         """Create discovery message"""
-        return AgentMessage(
-            message_type=MessageType.DISCOVERY, priority=Priority.NORMAL, payload={"agent_id": sender_id}
-        )
+        return AgentMessage(message_type=MessageType.DISCOVERY, priority=Priority.NORMAL, payload={"agent_id": sender_id})
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_discovery__mutmut_6(sender_id: str) -> AgentMessage:
         """Create discovery message"""
-        return AgentMessage(
-            sender_id=sender_id, priority=Priority.NORMAL, payload={"agent_id": sender_id}
-        )
+        return AgentMessage(sender_id=sender_id, priority=Priority.NORMAL, payload={"agent_id": sender_id})
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_discovery__mutmut_7(sender_id: str) -> AgentMessage:
         """Create discovery message"""
-        return AgentMessage(
-            sender_id=sender_id, message_type=MessageType.DISCOVERY, payload={"agent_id": sender_id}
-        )
+        return AgentMessage(sender_id=sender_id, message_type=MessageType.DISCOVERY, payload={"agent_id": sender_id})
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_discovery__mutmut_8(sender_id: str) -> AgentMessage:
         """Create discovery message"""
         return AgentMessage(
-            sender_id=sender_id, message_type=MessageType.DISCOVERY, priority=Priority.NORMAL, )
+            sender_id=sender_id,
+            message_type=MessageType.DISCOVERY,
+            priority=Priority.NORMAL,
+        )
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_discovery__mutmut_9(sender_id: str) -> AgentMessage:
         """Create discovery message"""
         return AgentMessage(
-            sender_id=sender_id, message_type=MessageType.DISCOVERY, priority=Priority.NORMAL, payload={"XXagent_idXX": sender_id}
+            sender_id=sender_id,
+            message_type=MessageType.DISCOVERY,
+            priority=Priority.NORMAL,
+            payload={"XXagent_idXX": sender_id},
         )
 
     @staticmethod
@@ -3242,7 +3791,9 @@ class MessageTemplates:
         )
 
     @staticmethod
-    def xǁMessageTemplatesǁcreate_consensus_request__mutmut_orig(sender_id: str, proposal_data: dict[str, Any]) -> AgentMessage:
+    def xǁMessageTemplatesǁcreate_consensus_request__mutmut_orig(
+        sender_id: str, proposal_data: dict[str, Any]
+    ) -> AgentMessage:
         """Create consensus request message"""
         return AgentMessage(
             sender_id=sender_id, message_type=MessageType.CONSENSUS, priority=Priority.HIGH, payload=proposal_data
@@ -3251,114 +3802,208 @@ class MessageTemplates:
     @staticmethod
     def xǁMessageTemplatesǁcreate_consensus_request__mutmut_1(sender_id: str, proposal_data: dict[str, Any]) -> AgentMessage:
         """Create consensus request message"""
-        return AgentMessage(
-            sender_id=None, message_type=MessageType.CONSENSUS, priority=Priority.HIGH, payload=proposal_data
-        )
+        return AgentMessage(sender_id=None, message_type=MessageType.CONSENSUS, priority=Priority.HIGH, payload=proposal_data)
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_consensus_request__mutmut_2(sender_id: str, proposal_data: dict[str, Any]) -> AgentMessage:
         """Create consensus request message"""
-        return AgentMessage(
-            sender_id=sender_id, message_type=None, priority=Priority.HIGH, payload=proposal_data
-        )
+        return AgentMessage(sender_id=sender_id, message_type=None, priority=Priority.HIGH, payload=proposal_data)
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_consensus_request__mutmut_3(sender_id: str, proposal_data: dict[str, Any]) -> AgentMessage:
         """Create consensus request message"""
-        return AgentMessage(
-            sender_id=sender_id, message_type=MessageType.CONSENSUS, priority=None, payload=proposal_data
-        )
+        return AgentMessage(sender_id=sender_id, message_type=MessageType.CONSENSUS, priority=None, payload=proposal_data)
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_consensus_request__mutmut_4(sender_id: str, proposal_data: dict[str, Any]) -> AgentMessage:
         """Create consensus request message"""
-        return AgentMessage(
-            sender_id=sender_id, message_type=MessageType.CONSENSUS, priority=Priority.HIGH, payload=None
-        )
+        return AgentMessage(sender_id=sender_id, message_type=MessageType.CONSENSUS, priority=Priority.HIGH, payload=None)
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_consensus_request__mutmut_5(sender_id: str, proposal_data: dict[str, Any]) -> AgentMessage:
         """Create consensus request message"""
-        return AgentMessage(
-            message_type=MessageType.CONSENSUS, priority=Priority.HIGH, payload=proposal_data
-        )
+        return AgentMessage(message_type=MessageType.CONSENSUS, priority=Priority.HIGH, payload=proposal_data)
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_consensus_request__mutmut_6(sender_id: str, proposal_data: dict[str, Any]) -> AgentMessage:
         """Create consensus request message"""
-        return AgentMessage(
-            sender_id=sender_id, priority=Priority.HIGH, payload=proposal_data
-        )
+        return AgentMessage(sender_id=sender_id, priority=Priority.HIGH, payload=proposal_data)
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_consensus_request__mutmut_7(sender_id: str, proposal_data: dict[str, Any]) -> AgentMessage:
         """Create consensus request message"""
-        return AgentMessage(
-            sender_id=sender_id, message_type=MessageType.CONSENSUS, payload=proposal_data
-        )
+        return AgentMessage(sender_id=sender_id, message_type=MessageType.CONSENSUS, payload=proposal_data)
 
     @staticmethod
     def xǁMessageTemplatesǁcreate_consensus_request__mutmut_8(sender_id: str, proposal_data: dict[str, Any]) -> AgentMessage:
         """Create consensus request message"""
         return AgentMessage(
-            sender_id=sender_id, message_type=MessageType.CONSENSUS, priority=Priority.HIGH, )
+            sender_id=sender_id,
+            message_type=MessageType.CONSENSUS,
+            priority=Priority.HIGH,
+        )
 
-mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut['_mutmut_orig'] = MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut['xǁMessageTemplatesǁcreate_heartbeat__mutmut_1'] = MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut['xǁMessageTemplatesǁcreate_heartbeat__mutmut_2'] = MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut['xǁMessageTemplatesǁcreate_heartbeat__mutmut_3'] = MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut['xǁMessageTemplatesǁcreate_heartbeat__mutmut_4'] = MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut['xǁMessageTemplatesǁcreate_heartbeat__mutmut_5'] = MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut['xǁMessageTemplatesǁcreate_heartbeat__mutmut_6'] = MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut['xǁMessageTemplatesǁcreate_heartbeat__mutmut_7'] = MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut['xǁMessageTemplatesǁcreate_heartbeat__mutmut_8'] = MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut['xǁMessageTemplatesǁcreate_heartbeat__mutmut_9'] = MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut['xǁMessageTemplatesǁcreate_heartbeat__mutmut_10'] = MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut['xǁMessageTemplatesǁcreate_heartbeat__mutmut_11'] = MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_11 # type: ignore # mutmut generated
 
-mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut['_mutmut_orig'] = MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut['xǁMessageTemplatesǁcreate_task_assignment__mutmut_1'] = MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut['xǁMessageTemplatesǁcreate_task_assignment__mutmut_2'] = MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut['xǁMessageTemplatesǁcreate_task_assignment__mutmut_3'] = MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut['xǁMessageTemplatesǁcreate_task_assignment__mutmut_4'] = MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut['xǁMessageTemplatesǁcreate_task_assignment__mutmut_5'] = MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut['xǁMessageTemplatesǁcreate_task_assignment__mutmut_6'] = MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut['xǁMessageTemplatesǁcreate_task_assignment__mutmut_7'] = MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut['xǁMessageTemplatesǁcreate_task_assignment__mutmut_8'] = MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut['xǁMessageTemplatesǁcreate_task_assignment__mutmut_9'] = MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut['xǁMessageTemplatesǁcreate_task_assignment__mutmut_10'] = MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_10 # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut["_mutmut_orig"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut["xǁMessageTemplatesǁcreate_heartbeat__mutmut_1"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut["xǁMessageTemplatesǁcreate_heartbeat__mutmut_2"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut["xǁMessageTemplatesǁcreate_heartbeat__mutmut_3"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut["xǁMessageTemplatesǁcreate_heartbeat__mutmut_4"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut["xǁMessageTemplatesǁcreate_heartbeat__mutmut_5"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut["xǁMessageTemplatesǁcreate_heartbeat__mutmut_6"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut["xǁMessageTemplatesǁcreate_heartbeat__mutmut_7"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut["xǁMessageTemplatesǁcreate_heartbeat__mutmut_8"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut["xǁMessageTemplatesǁcreate_heartbeat__mutmut_9"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut["xǁMessageTemplatesǁcreate_heartbeat__mutmut_10"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_heartbeat__mutmut["xǁMessageTemplatesǁcreate_heartbeat__mutmut_11"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_heartbeat__mutmut_11
+)  # type: ignore # mutmut generated
 
-mutants_xǁMessageTemplatesǁcreate_status_update__mutmut['_mutmut_orig'] = MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_status_update__mutmut['xǁMessageTemplatesǁcreate_status_update__mutmut_1'] = MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_status_update__mutmut['xǁMessageTemplatesǁcreate_status_update__mutmut_2'] = MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_status_update__mutmut['xǁMessageTemplatesǁcreate_status_update__mutmut_3'] = MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_status_update__mutmut['xǁMessageTemplatesǁcreate_status_update__mutmut_4'] = MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_status_update__mutmut['xǁMessageTemplatesǁcreate_status_update__mutmut_5'] = MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_status_update__mutmut['xǁMessageTemplatesǁcreate_status_update__mutmut_6'] = MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_status_update__mutmut['xǁMessageTemplatesǁcreate_status_update__mutmut_7'] = MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_status_update__mutmut['xǁMessageTemplatesǁcreate_status_update__mutmut_8'] = MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_8 # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut["_mutmut_orig"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut["xǁMessageTemplatesǁcreate_task_assignment__mutmut_1"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut["xǁMessageTemplatesǁcreate_task_assignment__mutmut_2"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut["xǁMessageTemplatesǁcreate_task_assignment__mutmut_3"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut["xǁMessageTemplatesǁcreate_task_assignment__mutmut_4"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut["xǁMessageTemplatesǁcreate_task_assignment__mutmut_5"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut["xǁMessageTemplatesǁcreate_task_assignment__mutmut_6"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut["xǁMessageTemplatesǁcreate_task_assignment__mutmut_7"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut["xǁMessageTemplatesǁcreate_task_assignment__mutmut_8"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut["xǁMessageTemplatesǁcreate_task_assignment__mutmut_9"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_task_assignment__mutmut["xǁMessageTemplatesǁcreate_task_assignment__mutmut_10"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_task_assignment__mutmut_10
+)  # type: ignore # mutmut generated
 
-mutants_xǁMessageTemplatesǁcreate_discovery__mutmut['_mutmut_orig'] = MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_discovery__mutmut['xǁMessageTemplatesǁcreate_discovery__mutmut_1'] = MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_discovery__mutmut['xǁMessageTemplatesǁcreate_discovery__mutmut_2'] = MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_discovery__mutmut['xǁMessageTemplatesǁcreate_discovery__mutmut_3'] = MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_discovery__mutmut['xǁMessageTemplatesǁcreate_discovery__mutmut_4'] = MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_discovery__mutmut['xǁMessageTemplatesǁcreate_discovery__mutmut_5'] = MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_discovery__mutmut['xǁMessageTemplatesǁcreate_discovery__mutmut_6'] = MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_discovery__mutmut['xǁMessageTemplatesǁcreate_discovery__mutmut_7'] = MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_discovery__mutmut['xǁMessageTemplatesǁcreate_discovery__mutmut_8'] = MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_discovery__mutmut['xǁMessageTemplatesǁcreate_discovery__mutmut_9'] = MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_discovery__mutmut['xǁMessageTemplatesǁcreate_discovery__mutmut_10'] = MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_10 # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_status_update__mutmut["_mutmut_orig"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_status_update__mutmut["xǁMessageTemplatesǁcreate_status_update__mutmut_1"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_status_update__mutmut["xǁMessageTemplatesǁcreate_status_update__mutmut_2"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_status_update__mutmut["xǁMessageTemplatesǁcreate_status_update__mutmut_3"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_status_update__mutmut["xǁMessageTemplatesǁcreate_status_update__mutmut_4"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_status_update__mutmut["xǁMessageTemplatesǁcreate_status_update__mutmut_5"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_status_update__mutmut["xǁMessageTemplatesǁcreate_status_update__mutmut_6"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_status_update__mutmut["xǁMessageTemplatesǁcreate_status_update__mutmut_7"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_status_update__mutmut["xǁMessageTemplatesǁcreate_status_update__mutmut_8"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_status_update__mutmut_8
+)  # type: ignore # mutmut generated
 
-mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut['_mutmut_orig'] = MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut['xǁMessageTemplatesǁcreate_consensus_request__mutmut_1'] = MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut['xǁMessageTemplatesǁcreate_consensus_request__mutmut_2'] = MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut['xǁMessageTemplatesǁcreate_consensus_request__mutmut_3'] = MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut['xǁMessageTemplatesǁcreate_consensus_request__mutmut_4'] = MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut['xǁMessageTemplatesǁcreate_consensus_request__mutmut_5'] = MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut['xǁMessageTemplatesǁcreate_consensus_request__mutmut_6'] = MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut['xǁMessageTemplatesǁcreate_consensus_request__mutmut_7'] = MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut['xǁMessageTemplatesǁcreate_consensus_request__mutmut_8'] = MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_8 # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_discovery__mutmut["_mutmut_orig"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_discovery__mutmut["xǁMessageTemplatesǁcreate_discovery__mutmut_1"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_discovery__mutmut["xǁMessageTemplatesǁcreate_discovery__mutmut_2"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_discovery__mutmut["xǁMessageTemplatesǁcreate_discovery__mutmut_3"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_discovery__mutmut["xǁMessageTemplatesǁcreate_discovery__mutmut_4"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_discovery__mutmut["xǁMessageTemplatesǁcreate_discovery__mutmut_5"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_discovery__mutmut["xǁMessageTemplatesǁcreate_discovery__mutmut_6"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_discovery__mutmut["xǁMessageTemplatesǁcreate_discovery__mutmut_7"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_discovery__mutmut["xǁMessageTemplatesǁcreate_discovery__mutmut_8"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_discovery__mutmut["xǁMessageTemplatesǁcreate_discovery__mutmut_9"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_discovery__mutmut["xǁMessageTemplatesǁcreate_discovery__mutmut_10"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_discovery__mutmut_10
+)  # type: ignore # mutmut generated
+
+mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut["_mutmut_orig"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut["xǁMessageTemplatesǁcreate_consensus_request__mutmut_1"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut["xǁMessageTemplatesǁcreate_consensus_request__mutmut_2"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut["xǁMessageTemplatesǁcreate_consensus_request__mutmut_3"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut["xǁMessageTemplatesǁcreate_consensus_request__mutmut_4"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut["xǁMessageTemplatesǁcreate_consensus_request__mutmut_5"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut["xǁMessageTemplatesǁcreate_consensus_request__mutmut_6"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut["xǁMessageTemplatesǁcreate_consensus_request__mutmut_7"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁMessageTemplatesǁcreate_consensus_request__mutmut["xǁMessageTemplatesǁcreate_consensus_request__mutmut_8"] = (
+    MessageTemplates.xǁMessageTemplatesǁcreate_consensus_request__mutmut_8
+)  # type: ignore # mutmut generated
 mutants_xǁWebSocketHandlerǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁWebSocketHandlerǁhandle_connection__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut: MutantDict = {}  # type: ignore
@@ -3493,7 +4138,9 @@ class WebSocketHandler:
         import websockets
 
         self.websocket_connections[agent_id] = websocket
-        logger.info("WebSocket connection established for agent %s", )
+        logger.info(
+            "WebSocket connection established for agent %s",
+        )
         try:
             async for message in websocket:
                 data = json.loads(message)
@@ -3563,7 +4210,7 @@ class WebSocketHandler:
         self.websocket_connections[agent_id] = websocket
         logger.info("WebSocket connection established for agent %s", agent_id)
         try:
-            async for message in websocket:
+            async for _message in websocket:
                 data = None
                 agent_message = AgentMessage.from_dict(data)
                 await self.communication_manager.receive_message(agent_message)  # type: ignore
@@ -3580,7 +4227,7 @@ class WebSocketHandler:
         self.websocket_connections[agent_id] = websocket
         logger.info("WebSocket connection established for agent %s", agent_id)
         try:
-            async for message in websocket:
+            async for _message in websocket:
                 data = json.loads(None)
                 agent_message = AgentMessage.from_dict(data)
                 await self.communication_manager.receive_message(agent_message)  # type: ignore
@@ -3598,7 +4245,7 @@ class WebSocketHandler:
         logger.info("WebSocket connection established for agent %s", agent_id)
         try:
             async for message in websocket:
-                data = json.loads(message)
+                json.loads(message)
                 agent_message = None
                 await self.communication_manager.receive_message(agent_message)  # type: ignore
         except websockets.exceptions.ConnectionClosed:
@@ -3615,7 +4262,7 @@ class WebSocketHandler:
         logger.info("WebSocket connection established for agent %s", agent_id)
         try:
             async for message in websocket:
-                data = json.loads(message)
+                json.loads(message)
                 agent_message = AgentMessage.from_dict(None)
                 await self.communication_manager.receive_message(agent_message)  # type: ignore
         except websockets.exceptions.ConnectionClosed:
@@ -3633,7 +4280,7 @@ class WebSocketHandler:
         try:
             async for message in websocket:
                 data = json.loads(message)
-                agent_message = AgentMessage.from_dict(data)
+                AgentMessage.from_dict(data)
                 await self.communication_manager.receive_message(None)  # type: ignore
         except websockets.exceptions.ConnectionClosed:
             logger.info("WebSocket connection closed for agent %s", agent_id)
@@ -3704,7 +4351,9 @@ class WebSocketHandler:
                 agent_message = AgentMessage.from_dict(data)
                 await self.communication_manager.receive_message(agent_message)  # type: ignore
         except websockets.exceptions.ConnectionClosed:
-            logger.info("WebSocket connection closed for agent %s", )
+            logger.info(
+                "WebSocket connection closed for agent %s",
+            )
         finally:
             if agent_id in self.websocket_connections:
                 del self.websocket_connections[agent_id]
@@ -3863,44 +4512,113 @@ class WebSocketHandler:
         for websocket in self.websocket_connections.values():
             await websocket.send(json.dumps(None))
 
-mutants_xǁWebSocketHandlerǁ__init____mutmut['_mutmut_orig'] = WebSocketHandler.xǁWebSocketHandlerǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁ__init____mutmut['xǁWebSocketHandlerǁ__init____mutmut_1'] = WebSocketHandler.xǁWebSocketHandlerǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁ__init____mutmut['xǁWebSocketHandlerǁ__init____mutmut_2'] = WebSocketHandler.xǁWebSocketHandlerǁ__init____mutmut_2 # type: ignore # mutmut generated
 
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['_mutmut_orig'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_1'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_2'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_3'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_4'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_5'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_6'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_7'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_8'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_9'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_10'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_11'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_12'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_13'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_14'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_15'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_16'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_17'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_18'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_19'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_20'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁhandle_connection__mutmut['xǁWebSocketHandlerǁhandle_connection__mutmut_21'] = WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_21 # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁ__init____mutmut["_mutmut_orig"] = WebSocketHandler.xǁWebSocketHandlerǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁ__init____mutmut["xǁWebSocketHandlerǁ__init____mutmut_1"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁ__init____mutmut["xǁWebSocketHandlerǁ__init____mutmut_2"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
 
-mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut['_mutmut_orig'] = WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut['xǁWebSocketHandlerǁsend_to_agent__mutmut_1'] = WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut['xǁWebSocketHandlerǁsend_to_agent__mutmut_2'] = WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut['xǁWebSocketHandlerǁsend_to_agent__mutmut_3'] = WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut['xǁWebSocketHandlerǁsend_to_agent__mutmut_4'] = WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut['xǁWebSocketHandlerǁsend_to_agent__mutmut_5'] = WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut['xǁWebSocketHandlerǁsend_to_agent__mutmut_6'] = WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_6 # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["_mutmut_orig"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_1"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_2"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_3"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_4"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_5"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_6"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_7"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_8"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_9"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_10"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_11"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_12"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_13"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_14"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_15"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_16"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_17"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_18"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_19"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_20"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁhandle_connection__mutmut["xǁWebSocketHandlerǁhandle_connection__mutmut_21"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁhandle_connection__mutmut_21
+)  # type: ignore # mutmut generated
 
-mutants_xǁWebSocketHandlerǁbroadcast_message__mutmut['_mutmut_orig'] = WebSocketHandler.xǁWebSocketHandlerǁbroadcast_message__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁbroadcast_message__mutmut['xǁWebSocketHandlerǁbroadcast_message__mutmut_1'] = WebSocketHandler.xǁWebSocketHandlerǁbroadcast_message__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁWebSocketHandlerǁbroadcast_message__mutmut['xǁWebSocketHandlerǁbroadcast_message__mutmut_2'] = WebSocketHandler.xǁWebSocketHandlerǁbroadcast_message__mutmut_2 # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut["_mutmut_orig"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut["xǁWebSocketHandlerǁsend_to_agent__mutmut_1"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut["xǁWebSocketHandlerǁsend_to_agent__mutmut_2"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut["xǁWebSocketHandlerǁsend_to_agent__mutmut_3"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut["xǁWebSocketHandlerǁsend_to_agent__mutmut_4"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut["xǁWebSocketHandlerǁsend_to_agent__mutmut_5"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁsend_to_agent__mutmut["xǁWebSocketHandlerǁsend_to_agent__mutmut_6"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁsend_to_agent__mutmut_6
+)  # type: ignore # mutmut generated
+
+mutants_xǁWebSocketHandlerǁbroadcast_message__mutmut["_mutmut_orig"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁbroadcast_message__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁbroadcast_message__mutmut["xǁWebSocketHandlerǁbroadcast_message__mutmut_1"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁbroadcast_message__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁWebSocketHandlerǁbroadcast_message__mutmut["xǁWebSocketHandlerǁbroadcast_message__mutmut_2"] = (
+    WebSocketHandler.xǁWebSocketHandlerǁbroadcast_message__mutmut_2
+)  # type: ignore # mutmut generated
 mutants_xǁRedisMessageBrokerǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁRedisMessageBrokerǁpublish_message__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut: MutantDict = {}  # type: ignore
@@ -3946,7 +4664,6 @@ class RedisMessageBroker:
 
     async def xǁRedisMessageBrokerǁpublish_message__mutmut_1(self, channel: str, message: AgentMessage) -> Any:
         """Publish message to Redis channel"""
-        import redis.asyncio as redis
 
         redis_client = None
         await redis_client.publish(channel, json.dumps(message.to_dict()))
@@ -3989,7 +4706,9 @@ class RedisMessageBroker:
         import redis.asyncio as redis
 
         redis_client = redis.from_url(self.redis_url)
-        await redis_client.publish(channel, )
+        await redis_client.publish(
+            channel,
+        )
         await redis_client.aclose()
 
     async def xǁRedisMessageBrokerǁpublish_message__mutmut_7(self, channel: str, message: AgentMessage) -> Any:
@@ -4023,7 +4742,6 @@ class RedisMessageBroker:
 
     async def xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_1(self, channel: str, handler: Callable[[Any], Any]) -> Any:
         """Subscribe to Redis channel"""
-        import redis.asyncio as redis
 
         redis_client = None
         pubsub = redis_client.pubsub()
@@ -4045,7 +4763,7 @@ class RedisMessageBroker:
         """Subscribe to Redis channel"""
         import redis.asyncio as redis
 
-        redis_client = redis.from_url(self.redis_url)
+        redis.from_url(self.redis_url)
         pubsub = None
         await pubsub.subscribe(channel)
         self.channels[channel] = {"pubsub": pubsub, "handler": handler}
@@ -4179,7 +4897,12 @@ class RedisMessageBroker:
         pubsub = redis_client.pubsub()
         await pubsub.subscribe(channel)
         self.channels[channel] = {"pubsub": pubsub, "handler": handler}
-        asyncio.create_task(self._listen_to_channel(channel, pubsub, ))
+        asyncio.create_task(
+            self._listen_to_channel(
+                channel,
+                pubsub,
+            )
+        )
 
     @_mutmut_mutated(mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut)
     async def _listen_to_channel(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
@@ -4190,7 +4913,9 @@ class RedisMessageBroker:
                 agent_message = AgentMessage.from_dict(data)
                 await handler(agent_message)
 
-    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_orig(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
+    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_orig(
+        self, channel: str, pubsub: Any, handler: Callable[[Any], Any]
+    ) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["type"] == "message":
@@ -4198,7 +4923,9 @@ class RedisMessageBroker:
                 agent_message = AgentMessage.from_dict(data)
                 await handler(agent_message)
 
-    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_1(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
+    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_1(
+        self, channel: str, pubsub: Any, handler: Callable[[Any], Any]
+    ) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["XXtypeXX"] == "message":
@@ -4206,7 +4933,9 @@ class RedisMessageBroker:
                 agent_message = AgentMessage.from_dict(data)
                 await handler(agent_message)
 
-    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_2(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
+    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_2(
+        self, channel: str, pubsub: Any, handler: Callable[[Any], Any]
+    ) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["TYPE"] == "message":
@@ -4214,7 +4943,9 @@ class RedisMessageBroker:
                 agent_message = AgentMessage.from_dict(data)
                 await handler(agent_message)
 
-    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_3(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
+    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_3(
+        self, channel: str, pubsub: Any, handler: Callable[[Any], Any]
+    ) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["type"] != "message":
@@ -4222,7 +4953,9 @@ class RedisMessageBroker:
                 agent_message = AgentMessage.from_dict(data)
                 await handler(agent_message)
 
-    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_4(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
+    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_4(
+        self, channel: str, pubsub: Any, handler: Callable[[Any], Any]
+    ) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["type"] == "XXmessageXX":
@@ -4230,7 +4963,9 @@ class RedisMessageBroker:
                 agent_message = AgentMessage.from_dict(data)
                 await handler(agent_message)
 
-    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_5(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
+    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_5(
+        self, channel: str, pubsub: Any, handler: Callable[[Any], Any]
+    ) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["type"] == "MESSAGE":
@@ -4238,7 +4973,9 @@ class RedisMessageBroker:
                 agent_message = AgentMessage.from_dict(data)
                 await handler(agent_message)
 
-    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_6(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
+    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_6(
+        self, channel: str, pubsub: Any, handler: Callable[[Any], Any]
+    ) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["type"] == "message":
@@ -4246,7 +4983,9 @@ class RedisMessageBroker:
                 agent_message = AgentMessage.from_dict(data)
                 await handler(agent_message)
 
-    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_7(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
+    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_7(
+        self, channel: str, pubsub: Any, handler: Callable[[Any], Any]
+    ) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["type"] == "message":
@@ -4254,7 +4993,9 @@ class RedisMessageBroker:
                 agent_message = AgentMessage.from_dict(data)
                 await handler(agent_message)
 
-    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_8(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
+    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_8(
+        self, channel: str, pubsub: Any, handler: Callable[[Any], Any]
+    ) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["type"] == "message":
@@ -4262,7 +5003,9 @@ class RedisMessageBroker:
                 agent_message = AgentMessage.from_dict(data)
                 await handler(agent_message)
 
-    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_9(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
+    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_9(
+        self, channel: str, pubsub: Any, handler: Callable[[Any], Any]
+    ) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["type"] == "message":
@@ -4270,74 +5013,161 @@ class RedisMessageBroker:
                 agent_message = AgentMessage.from_dict(data)
                 await handler(agent_message)
 
-    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_10(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
+    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_10(
+        self, channel: str, pubsub: Any, handler: Callable[[Any], Any]
+    ) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["type"] == "message":
-                data = json.loads(message["data"])
+                json.loads(message["data"])
                 agent_message = None
                 await handler(agent_message)
 
-    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_11(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
+    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_11(
+        self, channel: str, pubsub: Any, handler: Callable[[Any], Any]
+    ) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["type"] == "message":
-                data = json.loads(message["data"])
+                json.loads(message["data"])
                 agent_message = AgentMessage.from_dict(None)
                 await handler(agent_message)
 
-    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_12(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
+    async def xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_12(
+        self, channel: str, pubsub: Any, handler: Callable[[Any], Any]
+    ) -> Any:
         """Listen for messages on channel"""
         async for message in pubsub.listen():
             if message["type"] == "message":
                 data = json.loads(message["data"])
-                agent_message = AgentMessage.from_dict(data)
+                AgentMessage.from_dict(data)
                 await handler(None)
 
-mutants_xǁRedisMessageBrokerǁ__init____mutmut['_mutmut_orig'] = RedisMessageBroker.xǁRedisMessageBrokerǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ__init____mutmut['xǁRedisMessageBrokerǁ__init____mutmut_1'] = RedisMessageBroker.xǁRedisMessageBrokerǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ__init____mutmut['xǁRedisMessageBrokerǁ__init____mutmut_2'] = RedisMessageBroker.xǁRedisMessageBrokerǁ__init____mutmut_2 # type: ignore # mutmut generated
 
-mutants_xǁRedisMessageBrokerǁpublish_message__mutmut['_mutmut_orig'] = RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁpublish_message__mutmut['xǁRedisMessageBrokerǁpublish_message__mutmut_1'] = RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁpublish_message__mutmut['xǁRedisMessageBrokerǁpublish_message__mutmut_2'] = RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁpublish_message__mutmut['xǁRedisMessageBrokerǁpublish_message__mutmut_3'] = RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁpublish_message__mutmut['xǁRedisMessageBrokerǁpublish_message__mutmut_4'] = RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁpublish_message__mutmut['xǁRedisMessageBrokerǁpublish_message__mutmut_5'] = RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁpublish_message__mutmut['xǁRedisMessageBrokerǁpublish_message__mutmut_6'] = RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁpublish_message__mutmut['xǁRedisMessageBrokerǁpublish_message__mutmut_7'] = RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_7 # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ__init____mutmut["_mutmut_orig"] = RedisMessageBroker.xǁRedisMessageBrokerǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ__init____mutmut["xǁRedisMessageBrokerǁ__init____mutmut_1"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ__init____mutmut["xǁRedisMessageBrokerǁ__init____mutmut_2"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
 
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['_mutmut_orig'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_1'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_2'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_3'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_4'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_5'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_6'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_7'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_8'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_9'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_10'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_11'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_12'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_13'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_14'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_15'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut['xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_16'] = RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_16 # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁpublish_message__mutmut["_mutmut_orig"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁpublish_message__mutmut["xǁRedisMessageBrokerǁpublish_message__mutmut_1"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁpublish_message__mutmut["xǁRedisMessageBrokerǁpublish_message__mutmut_2"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁpublish_message__mutmut["xǁRedisMessageBrokerǁpublish_message__mutmut_3"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁpublish_message__mutmut["xǁRedisMessageBrokerǁpublish_message__mutmut_4"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁpublish_message__mutmut["xǁRedisMessageBrokerǁpublish_message__mutmut_5"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁpublish_message__mutmut["xǁRedisMessageBrokerǁpublish_message__mutmut_6"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁpublish_message__mutmut["xǁRedisMessageBrokerǁpublish_message__mutmut_7"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁpublish_message__mutmut_7
+)  # type: ignore # mutmut generated
 
-mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut['_mutmut_orig'] = RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut['xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_1'] = RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut['xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_2'] = RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut['xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_3'] = RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut['xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_4'] = RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut['xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_5'] = RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut['xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_6'] = RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut['xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_7'] = RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut['xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_8'] = RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut['xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_9'] = RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut['xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_10'] = RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut['xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_11'] = RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut['xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_12'] = RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_12 # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["_mutmut_orig"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_1"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_2"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_3"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_4"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_5"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_6"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_7"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_8"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_9"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_10"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_11"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_12"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_13"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_14"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_15"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut["xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_16"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁsubscribe_to_channel__mutmut_16
+)  # type: ignore # mutmut generated
+
+mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut["_mutmut_orig"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut["xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_1"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut["xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_2"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut["xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_3"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut["xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_4"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut["xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_5"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut["xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_6"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut["xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_7"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut["xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_8"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut["xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_9"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut["xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_10"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut["xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_11"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁRedisMessageBrokerǁ_listen_to_channel__mutmut["xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_12"] = (
+    RedisMessageBroker.xǁRedisMessageBrokerǁ_listen_to_channel__mutmut_12
+)  # type: ignore # mutmut generated
 mutants_x_create_protocol__mutmut: MutantDict = {}  # type: ignore
 
 
@@ -4441,7 +5271,9 @@ def x_create_protocol__mutmut_6(protocol_type: str, agent_id: str, **kwargs: Any
 def x_create_protocol__mutmut_7(protocol_type: str, agent_id: str, **kwargs: Any) -> CommunicationProtocol:
     """Factory function to create communication protocols"""
     if protocol_type == "hierarchical":
-        return HierarchicalProtocol(agent_id, )
+        return HierarchicalProtocol(
+            agent_id,
+        )
     elif protocol_type == "peer_to_peer":
         return PeerToPeerProtocol(agent_id)
     elif protocol_type == "broadcast":
@@ -4489,7 +5321,12 @@ def x_create_protocol__mutmut_10(protocol_type: str, agent_id: str, **kwargs: An
 def x_create_protocol__mutmut_11(protocol_type: str, agent_id: str, **kwargs: Any) -> CommunicationProtocol:
     """Factory function to create communication protocols"""
     if protocol_type == "hierarchical":
-        return HierarchicalProtocol(agent_id, kwargs.get("is_master", ))
+        return HierarchicalProtocol(
+            agent_id,
+            kwargs.get(
+                "is_master",
+            ),
+        )
     elif protocol_type == "peer_to_peer":
         return PeerToPeerProtocol(agent_id)
     elif protocol_type == "broadcast":
@@ -4661,7 +5498,9 @@ def x_create_protocol__mutmut_25(protocol_type: str, agent_id: str, **kwargs: An
     elif protocol_type == "peer_to_peer":
         return PeerToPeerProtocol(agent_id)
     elif protocol_type == "broadcast":
-        return BroadcastProtocol(agent_id, )
+        return BroadcastProtocol(
+            agent_id,
+        )
     else:
         raise ValueError(f"Unknown protocol type: {protocol_type}")
 
@@ -4709,7 +5548,12 @@ def x_create_protocol__mutmut_29(protocol_type: str, agent_id: str, **kwargs: An
     elif protocol_type == "peer_to_peer":
         return PeerToPeerProtocol(agent_id)
     elif protocol_type == "broadcast":
-        return BroadcastProtocol(agent_id, kwargs.get("broadcast_channel", ))
+        return BroadcastProtocol(
+            agent_id,
+            kwargs.get(
+                "broadcast_channel",
+            ),
+        )
     else:
         raise ValueError(f"Unknown protocol type: {protocol_type}")
 
@@ -4773,41 +5617,42 @@ def x_create_protocol__mutmut_34(protocol_type: str, agent_id: str, **kwargs: An
     else:
         raise ValueError(None)
 
-mutants_x_create_protocol__mutmut['_mutmut_orig'] = x_create_protocol__mutmut_orig # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_1'] = x_create_protocol__mutmut_1 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_2'] = x_create_protocol__mutmut_2 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_3'] = x_create_protocol__mutmut_3 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_4'] = x_create_protocol__mutmut_4 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_5'] = x_create_protocol__mutmut_5 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_6'] = x_create_protocol__mutmut_6 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_7'] = x_create_protocol__mutmut_7 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_8'] = x_create_protocol__mutmut_8 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_9'] = x_create_protocol__mutmut_9 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_10'] = x_create_protocol__mutmut_10 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_11'] = x_create_protocol__mutmut_11 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_12'] = x_create_protocol__mutmut_12 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_13'] = x_create_protocol__mutmut_13 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_14'] = x_create_protocol__mutmut_14 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_15'] = x_create_protocol__mutmut_15 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_16'] = x_create_protocol__mutmut_16 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_17'] = x_create_protocol__mutmut_17 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_18'] = x_create_protocol__mutmut_18 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_19'] = x_create_protocol__mutmut_19 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_20'] = x_create_protocol__mutmut_20 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_21'] = x_create_protocol__mutmut_21 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_22'] = x_create_protocol__mutmut_22 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_23'] = x_create_protocol__mutmut_23 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_24'] = x_create_protocol__mutmut_24 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_25'] = x_create_protocol__mutmut_25 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_26'] = x_create_protocol__mutmut_26 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_27'] = x_create_protocol__mutmut_27 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_28'] = x_create_protocol__mutmut_28 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_29'] = x_create_protocol__mutmut_29 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_30'] = x_create_protocol__mutmut_30 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_31'] = x_create_protocol__mutmut_31 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_32'] = x_create_protocol__mutmut_32 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_33'] = x_create_protocol__mutmut_33 # type: ignore # mutmut generated
-mutants_x_create_protocol__mutmut['x_create_protocol__mutmut_34'] = x_create_protocol__mutmut_34 # type: ignore # mutmut generated
+
+mutants_x_create_protocol__mutmut["_mutmut_orig"] = x_create_protocol__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_1"] = x_create_protocol__mutmut_1  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_2"] = x_create_protocol__mutmut_2  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_3"] = x_create_protocol__mutmut_3  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_4"] = x_create_protocol__mutmut_4  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_5"] = x_create_protocol__mutmut_5  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_6"] = x_create_protocol__mutmut_6  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_7"] = x_create_protocol__mutmut_7  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_8"] = x_create_protocol__mutmut_8  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_9"] = x_create_protocol__mutmut_9  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_10"] = x_create_protocol__mutmut_10  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_11"] = x_create_protocol__mutmut_11  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_12"] = x_create_protocol__mutmut_12  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_13"] = x_create_protocol__mutmut_13  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_14"] = x_create_protocol__mutmut_14  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_15"] = x_create_protocol__mutmut_15  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_16"] = x_create_protocol__mutmut_16  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_17"] = x_create_protocol__mutmut_17  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_18"] = x_create_protocol__mutmut_18  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_19"] = x_create_protocol__mutmut_19  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_20"] = x_create_protocol__mutmut_20  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_21"] = x_create_protocol__mutmut_21  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_22"] = x_create_protocol__mutmut_22  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_23"] = x_create_protocol__mutmut_23  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_24"] = x_create_protocol__mutmut_24  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_25"] = x_create_protocol__mutmut_25  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_26"] = x_create_protocol__mutmut_26  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_27"] = x_create_protocol__mutmut_27  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_28"] = x_create_protocol__mutmut_28  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_29"] = x_create_protocol__mutmut_29  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_30"] = x_create_protocol__mutmut_30  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_31"] = x_create_protocol__mutmut_31  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_32"] = x_create_protocol__mutmut_32  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_33"] = x_create_protocol__mutmut_33  # type: ignore # mutmut generated
+mutants_x_create_protocol__mutmut["x_create_protocol__mutmut_34"] = x_create_protocol__mutmut_34  # type: ignore # mutmut generated
 mutants_x_example_usage__mutmut: MutantDict = {}  # type: ignore
 
 
@@ -5031,7 +5876,10 @@ async def x_example_usage__mutmut_10() -> Any:
 async def x_example_usage__mutmut_11() -> Any:
     """Example of how to use the communication protocols"""
     comm_manager = CommunicationManager("agent-001")
-    hierarchical_protocol = create_protocol("hierarchical", "agent-001", )
+    hierarchical_protocol = create_protocol(
+        "hierarchical",
+        "agent-001",
+    )
     p2p_protocol = create_protocol("peer_to_peer", "agent-001")
     broadcast_protocol = create_protocol("broadcast", "agent-001")
     comm_manager.add_protocol("hierarchical", hierarchical_protocol)
@@ -5212,7 +6060,9 @@ async def x_example_usage__mutmut_21() -> Any:
     """Example of how to use the communication protocols"""
     comm_manager = CommunicationManager("agent-001")
     hierarchical_protocol = create_protocol("hierarchical", "agent-001", is_master=True)
-    p2p_protocol = create_protocol("peer_to_peer", )
+    p2p_protocol = create_protocol(
+        "peer_to_peer",
+    )
     broadcast_protocol = create_protocol("broadcast", "agent-001")
     comm_manager.add_protocol("hierarchical", hierarchical_protocol)
     comm_manager.add_protocol("peer_to_peer", p2p_protocol)
@@ -5375,7 +6225,9 @@ async def x_example_usage__mutmut_30() -> Any:
     comm_manager = CommunicationManager("agent-001")
     hierarchical_protocol = create_protocol("hierarchical", "agent-001", is_master=True)
     p2p_protocol = create_protocol("peer_to_peer", "agent-001")
-    broadcast_protocol = create_protocol("broadcast", )
+    broadcast_protocol = create_protocol(
+        "broadcast",
+    )
     comm_manager.add_protocol("hierarchical", hierarchical_protocol)
     comm_manager.add_protocol("peer_to_peer", p2p_protocol)
     comm_manager.add_protocol("broadcast", broadcast_protocol)
@@ -5481,7 +6333,7 @@ async def x_example_usage__mutmut_35() -> Any:
 async def x_example_usage__mutmut_36() -> Any:
     """Example of how to use the communication protocols"""
     comm_manager = CommunicationManager("agent-001")
-    hierarchical_protocol = create_protocol("hierarchical", "agent-001", is_master=True)
+    create_protocol("hierarchical", "agent-001", is_master=True)
     p2p_protocol = create_protocol("peer_to_peer", "agent-001")
     broadcast_protocol = create_protocol("broadcast", "agent-001")
     comm_manager.add_protocol("hierarchical", None)
@@ -5517,10 +6369,12 @@ async def x_example_usage__mutmut_37() -> Any:
 async def x_example_usage__mutmut_38() -> Any:
     """Example of how to use the communication protocols"""
     comm_manager = CommunicationManager("agent-001")
-    hierarchical_protocol = create_protocol("hierarchical", "agent-001", is_master=True)
+    create_protocol("hierarchical", "agent-001", is_master=True)
     p2p_protocol = create_protocol("peer_to_peer", "agent-001")
     broadcast_protocol = create_protocol("broadcast", "agent-001")
-    comm_manager.add_protocol("hierarchical", )
+    comm_manager.add_protocol(
+        "hierarchical",
+    )
     comm_manager.add_protocol("peer_to_peer", p2p_protocol)
     comm_manager.add_protocol("broadcast", broadcast_protocol)
 
@@ -5590,7 +6444,7 @@ async def x_example_usage__mutmut_42() -> Any:
     """Example of how to use the communication protocols"""
     comm_manager = CommunicationManager("agent-001")
     hierarchical_protocol = create_protocol("hierarchical", "agent-001", is_master=True)
-    p2p_protocol = create_protocol("peer_to_peer", "agent-001")
+    create_protocol("peer_to_peer", "agent-001")
     broadcast_protocol = create_protocol("broadcast", "agent-001")
     comm_manager.add_protocol("hierarchical", hierarchical_protocol)
     comm_manager.add_protocol("peer_to_peer", None)
@@ -5626,10 +6480,12 @@ async def x_example_usage__mutmut_44() -> Any:
     """Example of how to use the communication protocols"""
     comm_manager = CommunicationManager("agent-001")
     hierarchical_protocol = create_protocol("hierarchical", "agent-001", is_master=True)
-    p2p_protocol = create_protocol("peer_to_peer", "agent-001")
+    create_protocol("peer_to_peer", "agent-001")
     broadcast_protocol = create_protocol("broadcast", "agent-001")
     comm_manager.add_protocol("hierarchical", hierarchical_protocol)
-    comm_manager.add_protocol("peer_to_peer", )
+    comm_manager.add_protocol(
+        "peer_to_peer",
+    )
     comm_manager.add_protocol("broadcast", broadcast_protocol)
 
     async def handle_heartbeat(message: AgentMessage) -> Any:
@@ -5699,7 +6555,7 @@ async def x_example_usage__mutmut_48() -> Any:
     comm_manager = CommunicationManager("agent-001")
     hierarchical_protocol = create_protocol("hierarchical", "agent-001", is_master=True)
     p2p_protocol = create_protocol("peer_to_peer", "agent-001")
-    broadcast_protocol = create_protocol("broadcast", "agent-001")
+    create_protocol("broadcast", "agent-001")
     comm_manager.add_protocol("hierarchical", hierarchical_protocol)
     comm_manager.add_protocol("peer_to_peer", p2p_protocol)
     comm_manager.add_protocol("broadcast", None)
@@ -5735,10 +6591,12 @@ async def x_example_usage__mutmut_50() -> Any:
     comm_manager = CommunicationManager("agent-001")
     hierarchical_protocol = create_protocol("hierarchical", "agent-001", is_master=True)
     p2p_protocol = create_protocol("peer_to_peer", "agent-001")
-    broadcast_protocol = create_protocol("broadcast", "agent-001")
+    create_protocol("broadcast", "agent-001")
     comm_manager.add_protocol("hierarchical", hierarchical_protocol)
     comm_manager.add_protocol("peer_to_peer", p2p_protocol)
-    comm_manager.add_protocol("broadcast", )
+    comm_manager.add_protocol(
+        "broadcast",
+    )
 
     async def handle_heartbeat(message: AgentMessage) -> Any:
         logger.info("Received heartbeat from %s", message.sender_id)
@@ -5849,7 +6707,9 @@ async def x_example_usage__mutmut_56() -> Any:
     comm_manager.add_protocol("broadcast", broadcast_protocol)
 
     async def handle_heartbeat(message: AgentMessage) -> Any:
-        logger.info("Received heartbeat from %s", )
+        logger.info(
+            "Received heartbeat from %s",
+        )
 
     await comm_manager.register_handler("hierarchical", MessageType.HEARTBEAT, handle_heartbeat)
     heartbeat = MessageTemplates.create_heartbeat("agent-001")
@@ -6013,7 +6873,10 @@ async def x_example_usage__mutmut_65() -> Any:
     async def handle_heartbeat(message: AgentMessage) -> Any:
         logger.info("Received heartbeat from %s", message.sender_id)
 
-    await comm_manager.register_handler("hierarchical", MessageType.HEARTBEAT, )
+    await comm_manager.register_handler(
+        "hierarchical",
+        MessageType.HEARTBEAT,
+    )
     heartbeat = MessageTemplates.create_heartbeat("agent-001")
     await comm_manager.send_message("hierarchical", heartbeat)
 
@@ -6158,7 +7021,7 @@ async def x_example_usage__mutmut_73() -> Any:
         logger.info("Received heartbeat from %s", message.sender_id)
 
     await comm_manager.register_handler("hierarchical", MessageType.HEARTBEAT, handle_heartbeat)
-    heartbeat = MessageTemplates.create_heartbeat("agent-001")
+    MessageTemplates.create_heartbeat("agent-001")
     await comm_manager.send_message("hierarchical", None)
 
 
@@ -6194,8 +7057,10 @@ async def x_example_usage__mutmut_75() -> Any:
         logger.info("Received heartbeat from %s", message.sender_id)
 
     await comm_manager.register_handler("hierarchical", MessageType.HEARTBEAT, handle_heartbeat)
-    heartbeat = MessageTemplates.create_heartbeat("agent-001")
-    await comm_manager.send_message("hierarchical", )
+    MessageTemplates.create_heartbeat("agent-001")
+    await comm_manager.send_message(
+        "hierarchical",
+    )
 
 
 async def x_example_usage__mutmut_76() -> Any:
@@ -6233,84 +7098,85 @@ async def x_example_usage__mutmut_77() -> Any:
     heartbeat = MessageTemplates.create_heartbeat("agent-001")
     await comm_manager.send_message("HIERARCHICAL", heartbeat)
 
-mutants_x_example_usage__mutmut['_mutmut_orig'] = x_example_usage__mutmut_orig # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_1'] = x_example_usage__mutmut_1 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_2'] = x_example_usage__mutmut_2 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_3'] = x_example_usage__mutmut_3 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_4'] = x_example_usage__mutmut_4 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_5'] = x_example_usage__mutmut_5 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_6'] = x_example_usage__mutmut_6 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_7'] = x_example_usage__mutmut_7 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_8'] = x_example_usage__mutmut_8 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_9'] = x_example_usage__mutmut_9 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_10'] = x_example_usage__mutmut_10 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_11'] = x_example_usage__mutmut_11 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_12'] = x_example_usage__mutmut_12 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_13'] = x_example_usage__mutmut_13 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_14'] = x_example_usage__mutmut_14 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_15'] = x_example_usage__mutmut_15 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_16'] = x_example_usage__mutmut_16 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_17'] = x_example_usage__mutmut_17 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_18'] = x_example_usage__mutmut_18 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_19'] = x_example_usage__mutmut_19 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_20'] = x_example_usage__mutmut_20 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_21'] = x_example_usage__mutmut_21 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_22'] = x_example_usage__mutmut_22 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_23'] = x_example_usage__mutmut_23 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_24'] = x_example_usage__mutmut_24 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_25'] = x_example_usage__mutmut_25 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_26'] = x_example_usage__mutmut_26 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_27'] = x_example_usage__mutmut_27 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_28'] = x_example_usage__mutmut_28 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_29'] = x_example_usage__mutmut_29 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_30'] = x_example_usage__mutmut_30 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_31'] = x_example_usage__mutmut_31 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_32'] = x_example_usage__mutmut_32 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_33'] = x_example_usage__mutmut_33 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_34'] = x_example_usage__mutmut_34 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_35'] = x_example_usage__mutmut_35 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_36'] = x_example_usage__mutmut_36 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_37'] = x_example_usage__mutmut_37 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_38'] = x_example_usage__mutmut_38 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_39'] = x_example_usage__mutmut_39 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_40'] = x_example_usage__mutmut_40 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_41'] = x_example_usage__mutmut_41 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_42'] = x_example_usage__mutmut_42 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_43'] = x_example_usage__mutmut_43 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_44'] = x_example_usage__mutmut_44 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_45'] = x_example_usage__mutmut_45 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_46'] = x_example_usage__mutmut_46 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_47'] = x_example_usage__mutmut_47 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_48'] = x_example_usage__mutmut_48 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_49'] = x_example_usage__mutmut_49 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_50'] = x_example_usage__mutmut_50 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_51'] = x_example_usage__mutmut_51 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_52'] = x_example_usage__mutmut_52 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_53'] = x_example_usage__mutmut_53 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_54'] = x_example_usage__mutmut_54 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_55'] = x_example_usage__mutmut_55 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_56'] = x_example_usage__mutmut_56 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_57'] = x_example_usage__mutmut_57 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_58'] = x_example_usage__mutmut_58 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_59'] = x_example_usage__mutmut_59 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_60'] = x_example_usage__mutmut_60 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_61'] = x_example_usage__mutmut_61 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_62'] = x_example_usage__mutmut_62 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_63'] = x_example_usage__mutmut_63 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_64'] = x_example_usage__mutmut_64 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_65'] = x_example_usage__mutmut_65 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_66'] = x_example_usage__mutmut_66 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_67'] = x_example_usage__mutmut_67 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_68'] = x_example_usage__mutmut_68 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_69'] = x_example_usage__mutmut_69 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_70'] = x_example_usage__mutmut_70 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_71'] = x_example_usage__mutmut_71 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_72'] = x_example_usage__mutmut_72 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_73'] = x_example_usage__mutmut_73 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_74'] = x_example_usage__mutmut_74 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_75'] = x_example_usage__mutmut_75 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_76'] = x_example_usage__mutmut_76 # type: ignore # mutmut generated
-mutants_x_example_usage__mutmut['x_example_usage__mutmut_77'] = x_example_usage__mutmut_77 # type: ignore # mutmut generated
+
+mutants_x_example_usage__mutmut["_mutmut_orig"] = x_example_usage__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_1"] = x_example_usage__mutmut_1  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_2"] = x_example_usage__mutmut_2  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_3"] = x_example_usage__mutmut_3  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_4"] = x_example_usage__mutmut_4  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_5"] = x_example_usage__mutmut_5  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_6"] = x_example_usage__mutmut_6  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_7"] = x_example_usage__mutmut_7  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_8"] = x_example_usage__mutmut_8  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_9"] = x_example_usage__mutmut_9  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_10"] = x_example_usage__mutmut_10  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_11"] = x_example_usage__mutmut_11  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_12"] = x_example_usage__mutmut_12  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_13"] = x_example_usage__mutmut_13  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_14"] = x_example_usage__mutmut_14  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_15"] = x_example_usage__mutmut_15  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_16"] = x_example_usage__mutmut_16  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_17"] = x_example_usage__mutmut_17  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_18"] = x_example_usage__mutmut_18  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_19"] = x_example_usage__mutmut_19  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_20"] = x_example_usage__mutmut_20  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_21"] = x_example_usage__mutmut_21  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_22"] = x_example_usage__mutmut_22  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_23"] = x_example_usage__mutmut_23  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_24"] = x_example_usage__mutmut_24  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_25"] = x_example_usage__mutmut_25  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_26"] = x_example_usage__mutmut_26  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_27"] = x_example_usage__mutmut_27  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_28"] = x_example_usage__mutmut_28  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_29"] = x_example_usage__mutmut_29  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_30"] = x_example_usage__mutmut_30  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_31"] = x_example_usage__mutmut_31  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_32"] = x_example_usage__mutmut_32  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_33"] = x_example_usage__mutmut_33  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_34"] = x_example_usage__mutmut_34  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_35"] = x_example_usage__mutmut_35  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_36"] = x_example_usage__mutmut_36  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_37"] = x_example_usage__mutmut_37  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_38"] = x_example_usage__mutmut_38  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_39"] = x_example_usage__mutmut_39  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_40"] = x_example_usage__mutmut_40  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_41"] = x_example_usage__mutmut_41  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_42"] = x_example_usage__mutmut_42  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_43"] = x_example_usage__mutmut_43  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_44"] = x_example_usage__mutmut_44  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_45"] = x_example_usage__mutmut_45  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_46"] = x_example_usage__mutmut_46  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_47"] = x_example_usage__mutmut_47  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_48"] = x_example_usage__mutmut_48  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_49"] = x_example_usage__mutmut_49  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_50"] = x_example_usage__mutmut_50  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_51"] = x_example_usage__mutmut_51  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_52"] = x_example_usage__mutmut_52  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_53"] = x_example_usage__mutmut_53  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_54"] = x_example_usage__mutmut_54  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_55"] = x_example_usage__mutmut_55  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_56"] = x_example_usage__mutmut_56  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_57"] = x_example_usage__mutmut_57  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_58"] = x_example_usage__mutmut_58  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_59"] = x_example_usage__mutmut_59  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_60"] = x_example_usage__mutmut_60  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_61"] = x_example_usage__mutmut_61  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_62"] = x_example_usage__mutmut_62  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_63"] = x_example_usage__mutmut_63  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_64"] = x_example_usage__mutmut_64  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_65"] = x_example_usage__mutmut_65  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_66"] = x_example_usage__mutmut_66  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_67"] = x_example_usage__mutmut_67  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_68"] = x_example_usage__mutmut_68  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_69"] = x_example_usage__mutmut_69  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_70"] = x_example_usage__mutmut_70  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_71"] = x_example_usage__mutmut_71  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_72"] = x_example_usage__mutmut_72  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_73"] = x_example_usage__mutmut_73  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_74"] = x_example_usage__mutmut_74  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_75"] = x_example_usage__mutmut_75  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_76"] = x_example_usage__mutmut_76  # type: ignore # mutmut generated
+mutants_x_example_usage__mutmut["x_example_usage__mutmut_77"] = x_example_usage__mutmut_77  # type: ignore # mutmut generated
 
 
 if __name__ == "__main__":
