@@ -315,18 +315,18 @@ class SubscriptionClient:
                     "hash": block_hash,
                     "node_id": self._node_id,
                     "chain_id": self._chain_id,
+                    "sync_mode": "push",
                 },
             )
             sync = ChainSync(session_factory=lambda: session_scope(self._chain_id), chain_id=self._chain_id)  # type: ignore[arg-type, return-value]
             result = sync.import_block(block_data, transactions=block_data.get("transactions"))
             if result.accepted:
                 logger.info(
-                    "Block imported successfully via push",
+                    "Block imported via push sync",
                     extra={
                         "height": block_height,
                         "hash": block_hash,
-                        "node_id": self._node_id,
-                        "sync_mode": self._sync_mode,
+                        "sync_mode": "push",
                     },
                 )
                 metrics_registry.increment("subscription_blocks_received_total")
