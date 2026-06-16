@@ -1,43 +1,45 @@
 #!/usr/bin/env python3
-"""
-Wrapper script for agent-coordinator service
-Uses centralized aitbc utilities for path configuration
-"""
+"""agent-coordinator service wrapper"""
 
 import os
+import sys
+from pathlib import Path
 
-from aitbc import DATA_DIR, ENV_FILE, LOG_DIR, NODE_ENV_FILE
+# Add AITBC to path
+REPO_DIR = Path("/opt/aitbc")
+SERVICE_DIR = Path("/opt/aitbc/apps/agent-coordinator/src")
 
-# Set up environment using aitbc constants
-os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)
-os.environ["AITBC_NODE_ENV_FILE"] = str(NODE_ENV_FILE)
-os.environ["PYTHONPATH"] = "REPO_DIR:REPO_DIR/agent-coordinator/scripts"
-os.environ["DATA_DIR"] = str(DATA_DIR)
-os.environ["LOG_DIR"] = str(LOG_DIR)
+sys.path.insert(0, str(REPO_DIR))
+sys.path.insert(0, str(SERVICE_DIR))
 
+# Import AITBC utilities
+from aitbc import (  # noqa: E402
+    LOG_DIR,
+    configure_logging,
+    get_logger,
+)
 
-log_level = os.getenv("LOG_LEVEL", "info").lower()
-access_log = os.getenv("ACCESS_LOG", "true").lower() in ("1", "true", "yes")
+# Configure logging
+configure_logging(
+    level="INFO",
+    service_name="agent-coordinator",
+    to_file=True,
+)
 
-# agent-coordinator bind configuration
-# Use AGENT_COORDINATOR_BIND_HOST for bind address (default: 127.0.0.1)
-# Use AGENT_COORDINATOR_PORT for port (default: 8107)
-bind_host = os.getenv("AGENT_COORDINATOR_BIND_HOST", "127.0.0.1")
-bind_port = os.getenv("AGENT_COORDINATOR_PORT", "8107")
+logger = get_logger(__name__)
+logger.info("Starting agent-coordinator service")
 
-# Execute the actual service
+# Execute service
 exec_cmd = [
-    "/opt/aitbc/venv/bin/python",
+    sys.executable,
     "-m",
-    "uvicorn",
-    "app.main:app",
-    "--host",
-    bind_host,
-    "--port",
-    bind_port,
-    "--log-level",
-    log_level,
+    "app.main",
 ]
-if access_log:
-    exec_cmd.append("--access-log")
-os.execvp(exec_cmd[0], exec_cmd)
+
+logger.info(f"Executing: {' '.join(exec_cmd)}")
+
+# Ensure PYTHONPATH is set for the child process
+env = os.environ.copy()
+env["PYTHONPATH"] = "/opt/aitbc:/opt/aitbc/apps/agent-coordinator/src"
+
+os.execvpe(exec_cmd[0], exec_cmd, env)
