@@ -24,6 +24,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         request_id = request.headers.get(self.header_name) or str(uuid.uuid4())
         request.state.request_id = request_id
+        request.state.correlation_id = request_id  # Alias for correlation tracking
         logger.info(
             "Incoming request - ID: %s, Method: %s, Path: %s, Client: %s",
             request_id,

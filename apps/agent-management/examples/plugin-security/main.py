@@ -7,7 +7,7 @@ import asyncio
 import os
 import tempfile
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -187,7 +187,7 @@ async def list_security_policies():
 
 
 @app.post("/api/v1/security/upload")
-async def upload_plugin_for_scan(plugin_id: str, version: str, file: UploadFile = File(...)):
+async def upload_plugin_for_scan(plugin_id: str, version: str, file: Annotated[UploadFile, File(...)]):
     """Upload plugin file for security scanning"""
     if not file.filename.endswith((".py", ".zip", ".tar.gz")):
         raise HTTPException(status_code=400, detail="Invalid file type")

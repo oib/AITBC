@@ -45,9 +45,9 @@ async def submit_service_job(
     request_http: Request,
     service_type: ServiceType,
     request_data: dict[str, Any],
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
-    user_agent: str = Header(None),
+    session: Annotated[Session, Depends(get_session)],
+    client_id: Annotated[str, Depends(require_client_key())],
+    user_agent: Annotated[str, Header(None)],
 ) -> ServiceResponse:
     """Submit a job for a specific service type
 
@@ -116,8 +116,8 @@ async def submit_service_job(
 async def whisper_transcribe(
     request_http: Request,
     request: WhisperRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Transcribe audio file using Whisper"""
 
@@ -149,8 +149,8 @@ async def whisper_transcribe(
 async def whisper_translate(
     request_http: Request,
     request: WhisperRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Translate audio file using Whisper"""
     # Force task to be translate
@@ -185,8 +185,8 @@ async def whisper_translate(
 async def stable_diffusion_generate(
     request_http: Request,
     request: StableDiffusionRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Generate images using Stable Diffusion"""
 
@@ -222,8 +222,8 @@ async def stable_diffusion_generate(
 async def stable_diffusion_img2img(
     request_http: Request,
     request: StableDiffusionRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Image-to-image generation using Stable Diffusion"""
     # Add img2img specific parameters
@@ -256,8 +256,8 @@ async def stable_diffusion_img2img(
 async def llm_inference(
     request_http: Request,
     request: LLMRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Run inference on a language model"""
 
@@ -288,8 +288,8 @@ async def llm_inference(
 async def llm_stream(
     request_http: Request,
     request: LLMRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Stream LLM inference response"""
     # Force streaming mode
@@ -326,8 +326,8 @@ async def llm_stream(
 async def ffmpeg_transcode(
     request_http: Request,
     request: FFmpegRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Transcode video using FFmpeg"""
 
@@ -365,8 +365,8 @@ async def ffmpeg_transcode(
 async def blender_render(
     request_http: Request,
     request: BlenderRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    client_id: Annotated[str, Depends(require_client_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Render scene using Blender"""
 

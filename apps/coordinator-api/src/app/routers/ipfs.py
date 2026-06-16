@@ -11,7 +11,7 @@ Provides:
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
@@ -37,7 +37,7 @@ class PinCIDRequest(BaseModel):
 
 
 @router.post("/upload", summary="Upload file to IPFS")
-async def upload_file(request: Request, file: UploadFile = File(...), pin: bool = True) -> dict[str, Any]:
+async def upload_file(request: Request, file: Annotated[UploadFile, File(...)], pin: bool = True) -> dict[str, Any]:
     """
     Upload a file to IPFS.
 

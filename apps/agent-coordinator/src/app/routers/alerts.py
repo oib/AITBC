@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -19,7 +19,7 @@ router = APIRouter()
 @router.get("/alerts")
 @rate_limit(rate=200, per=60)
 async def get_alerts(
-    request: Request, status: str | None = None, current_user: dict[str, Any] = Depends(get_current_user)
+    request: Request, status: str | None, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
 ) -> dict[str, Any]:
     """Get alerts with optional status filter"""
     try:
@@ -40,7 +40,7 @@ async def get_alerts(
 @router.post("/alerts/{alert_id}/resolve")
 @rate_limit(rate=50, per=60)
 async def resolve_alert(
-    request: Request, alert_id: str, current_user: dict[str, Any] = Depends(get_current_user)
+    request: Request, alert_id: str, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
 ) -> dict[str, Any]:
     """Resolve an alert"""
     try:
@@ -57,7 +57,9 @@ async def resolve_alert(
 
 @router.get("/alerts/stats")
 @rate_limit(rate=200, per=60)
-async def get_alert_stats(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+async def get_alert_stats(
+    request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
+) -> dict[str, Any]:
     """Get alert statistics"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
@@ -73,7 +75,9 @@ async def get_alert_stats(request: Request, current_user: dict[str, Any] = Depen
 
 @router.get("/alerts/rules")
 @rate_limit(rate=200, per=60)
-async def get_alert_rules(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+async def get_alert_rules(
+    request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
+) -> dict[str, Any]:
     """Get alert rules"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
@@ -90,7 +94,7 @@ async def get_alert_rules(request: Request, current_user: dict[str, Any] = Depen
 @router.get("/sla")
 @rate_limit(rate=200, per=60)
 async def get_sla_status(
-    request: Request, sla_id: str | None = None, current_user: dict[str, Any] = Depends(get_current_user)
+    request: Request, sla_id: str | None, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
 ) -> dict[str, Any]:
     """Get SLA status"""
     try:
@@ -111,7 +115,7 @@ async def get_sla_status(
 @router.post("/sla/{sla_id}/record")
 @rate_limit(rate=50, per=60)
 async def record_sla_metric(
-    request: Request, sla_id: str, value: float, current_user: dict[str, Any] = Depends(get_current_user)
+    request: Request, sla_id: str, value: float, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
 ) -> dict[str, Any]:
     """Record SLA metric"""
     try:
@@ -133,7 +137,9 @@ async def record_sla_metric(
 
 @router.get("/system/status")
 @rate_limit(rate=200, per=60)
-async def get_system_status(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+async def get_system_status(
+    request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
+) -> dict[str, Any]:
     """Get comprehensive system status"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SYSTEM_HEALTH):

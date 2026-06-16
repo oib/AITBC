@@ -210,7 +210,7 @@ async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_s
 async def buy_gpu(
     request: GPUBuyRequest,
     session: Annotated[Session, Depends(get_session)],
-    engine: DynamicPricingEngine = Depends(get_pricing_engine),
+    engine: Annotated[DynamicPricingEngine, Depends(get_pricing_engine)],
 ) -> dict[str, Any]:
     """Buy GPU compute from marketplace with blockchain payment and AI job scheduling."""
     gpu = _get_gpu_or_404(session, request.gpu_id)
@@ -351,7 +351,7 @@ async def book_gpu(
     gpu_id: str,
     request: GPUBookRequest,
     session: Annotated[Session, Depends(get_session)],
-    engine: DynamicPricingEngine = Depends(get_pricing_engine),
+    engine: Annotated[DynamicPricingEngine, Depends(get_pricing_engine)],
 ) -> dict[str, Any]:
     """Book a GPU with dynamic pricing."""
     gpu = _get_gpu_or_404(session, gpu_id)
@@ -433,7 +433,7 @@ async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_sessi
 
 @router.post("/marketplace/gpu/{gpu_id}/confirm")
 async def confirm_gpu_booking(
-    gpu_id: str, request: GPUConfirmRequest, session: Session = Depends(get_session)
+    gpu_id: str, request: GPUConfirmRequest, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Confirm a booking (client ACK)."""
     gpu = _get_gpu_or_404(session, gpu_id)
@@ -459,7 +459,7 @@ async def confirm_gpu_booking(
 
 
 @router.post("/tasks/ollama")
-async def submit_ollama_task(request: OllamaTaskRequest, session: Session = Depends(get_session)) -> dict[str, Any]:
+async def submit_ollama_task(request: OllamaTaskRequest, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Stub Ollama task submission endpoint."""
     gpu = _get_gpu_or_404(session, request.gpu_id)
     if gpu.status != "booked":
@@ -478,7 +478,7 @@ async def submit_ollama_task(request: OllamaTaskRequest, session: Session = Depe
 
 
 @router.post("/payments/send")
-async def send_payment(request: PaymentRequest, session: Session = Depends(get_session)) -> dict[str, Any]:
+async def send_payment(request: PaymentRequest, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Stub payment endpoint (hook for blockchain processor)."""
     if request.amount <= 0:
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="Amount must be greater than zero")
@@ -627,8 +627,8 @@ async def list_orders(
 async def get_pricing(
     model: str,
     session: Annotated[Session, Depends(get_session)],
-    engine: DynamicPricingEngine = Depends(get_pricing_engine),
-    collector: MarketDataCollector = Depends(get_market_collector),
+    engine: Annotated[DynamicPricingEngine, Depends(get_pricing_engine)],
+    collector: Annotated[MarketDataCollector, Depends(get_market_collector)],
 ) -> dict[str, Any]:
     """Get enhanced pricing information for a model with dynamic pricing."""
     all_gpus = session.execute(select(GPURegistry)).scalars().all()
@@ -725,7 +725,7 @@ async def get_pricing(
 
 
 @router.post("/marketplace/gpu/bid")
-async def bid_gpu(request: dict[str, Any], session: Session = Depends(get_session)) -> dict[str, Any]:
+async def bid_gpu(request: dict[str, Any], session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Place a bid on a GPU"""
     bid_id = str(uuid4())
     return {

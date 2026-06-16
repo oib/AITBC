@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
@@ -103,7 +103,9 @@ async def get_health_metrics(request: Request) -> dict[str, Any]:
 
 @router.get("/system/status")
 @rate_limit(rate=200, per=60)
-async def get_system_status(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+async def get_system_status(
+    request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
+) -> dict[str, Any]:
     """Get system status (protected endpoint)"""
     try:
         system_metrics = {
@@ -125,7 +127,9 @@ async def get_system_status(request: Request, current_user: dict[str, Any] = Dep
 
 @router.get("/protected/admin")
 @rate_limit(rate=200, per=60)
-async def protected_admin(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+async def protected_admin(
+    request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
+) -> dict[str, Any]:
     """Protected admin endpoint"""
     try:
         if current_user.get("role") != "admin":
@@ -140,7 +144,9 @@ async def protected_admin(request: Request, current_user: dict[str, Any] = Depen
 
 @router.get("/protected/operator")
 @rate_limit(rate=200, per=60)
-async def protected_operator(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+async def protected_operator(
+    request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
+) -> dict[str, Any]:
     """Protected operator endpoint"""
     try:
         if current_user.get("role") not in ("admin", "operator"):

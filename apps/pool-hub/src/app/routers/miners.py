@@ -1,9 +1,9 @@
 """Miner management routes for Pool Hub"""
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
@@ -61,7 +61,7 @@ def get_scoring() -> ScoringEngine:
 @router.post("/register", response_model=MinerInfo)
 @rate_limit(rate=50, per=60)
 async def register_miner(
-    request: Request, registration: MinerRegistration, registry: MinerRegistry = Depends(get_registry)
+    request: Request, registration: MinerRegistration, registry: Annotated[MinerRegistry, Depends(get_registry)]
 ) -> MinerInfo:
     """Register a new miner with the pool hub."""
     try:
@@ -81,7 +81,7 @@ async def register_miner(
 @router.post("/{miner_id}/heartbeat")
 @rate_limit(rate=100, per=60)
 async def miner_heartbeat(
-    request: Request, miner_id: str, status: MinerStatus, registry: MinerRegistry = Depends(get_registry)
+    request: Request, miner_id: str, status: MinerStatus, registry: Annotated[MinerRegistry, Depends(get_registry)]
 ) -> dict[str, str]:
     """Update miner heartbeat and status."""
     miner = await registry.get(miner_id)
@@ -100,7 +100,7 @@ async def miner_heartbeat(
 
 @router.get("/{miner_id}", response_model=MinerInfo)
 @rate_limit(rate=200, per=60)
-async def get_miner(request: Request, miner_id: str, registry: MinerRegistry = Depends(get_registry)) -> MinerInfo:
+async def get_miner(request: Request, miner_id: str, registry: Annotated[MinerRegistry, Depends(get_registry)]) -> MinerInfo:
     """Get miner information."""
     miner = await registry.get(miner_id)
     if not miner:
@@ -112,11 +112,11 @@ async def get_miner(request: Request, miner_id: str, registry: MinerRegistry = D
 @rate_limit(rate=200, per=60)
 async def list_miners(
     request: Request,
-    pool_id: str | None = Query(None),
-    status: str | None = Query(None),
-    capability: str | None = Query(None),
-    limit: int = Query(50, le=100),
-    registry: MinerRegistry = Depends(get_registry),
+    pool_id: str | None,
+    status: str | None,
+    capability: str | None,
+    limit: int | None,
+    registry: Annotated[MinerRegistry, Depends(get_registry)],
 ) -> list[MinerInfo]:
     """List miners with optional filters."""
     return await registry.list(  # type: ignore[no-any-return]
@@ -126,7 +126,9 @@ async def list_miners(
 
 @router.delete("/{miner_id}")
 @rate_limit(rate=50, per=60)
-async def unregister_miner(request: Request, miner_id: str, registry: MinerRegistry = Depends(get_registry)) -> dict[str, str]:
+async def unregister_miner(
+    request: Request, miner_id: str, registry: Annotated[MinerRegistry, Depends(get_registry)]
+) -> dict[str, str]:
     """Unregister a miner from the pool hub."""
     miner = await registry.get(miner_id)
     if not miner:
@@ -141,8 +143,8 @@ async def unregister_miner(request: Request, miner_id: str, registry: MinerRegis
 async def get_miner_score(
     request: Request,
     miner_id: str,
-    registry: MinerRegistry = Depends(get_registry),
-    scoring: ScoringEngine = Depends(get_scoring),
+    registry: Annotated[MinerRegistry, Depends(get_registry)],
+    scoring: Annotated[ScoringEngine, Depends(get_scoring)],
 ) -> dict[str, Any]:
     """Get miner's current score and ranking."""
     miner = await registry.get(miner_id)
@@ -158,7 +160,7 @@ async def get_miner_score(
 @router.post("/{miner_id}/capabilities")
 @rate_limit(rate=50, per=60)
 async def update_capabilities(
-    request: Request, miner_id: str, capabilities: list[str], registry: MinerRegistry = Depends(get_registry)
+    request: Request, miner_id: str, capabilities: list[str], registry: Annotated[MinerRegistry, Depends(get_registry)]
 ) -> dict[str, Any]:
     """Update miner capabilities."""
     miner = await registry.get(miner_id)

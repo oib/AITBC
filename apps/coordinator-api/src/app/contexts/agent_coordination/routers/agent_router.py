@@ -33,8 +33,8 @@ router = APIRouter(tags=["AI Agents"])
 @router.post("/workflows", response_model=AIAgentWorkflow)
 async def create_workflow(
     workflow_data: AgentWorkflowCreate,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AIAgentWorkflow:  # type: ignore[arg-type]
     """Create a new AI agent workflow"""
     try:
@@ -51,11 +51,11 @@ async def create_workflow(
 
 @router.get("/workflows", response_model=list[AIAgentWorkflow])
 async def list_workflows(
-    owner_id: str | None = None,
-    is_public: bool | None = None,
-    tags: list[str] | None = None,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    owner_id: str | None,
+    is_public: bool | None,
+    tags: list[str] | None,
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> list[AIAgentWorkflow]:  # type: ignore[arg-type]
     """List agent workflows with filtering"""
     try:
@@ -81,8 +81,8 @@ async def list_workflows(
 async def get_workflow(
     workflow_id: str,
     request: Request,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AIAgentWorkflow:  # type: ignore[arg-type]
     """Get a specific agent workflow"""
     try:
@@ -105,8 +105,8 @@ async def update_workflow(
     workflow_id: str,
     workflow_data: AgentWorkflowUpdate,
     request: Request,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AIAgentWorkflow:  # type: ignore[arg-type]
     """Update an agent workflow"""
     try:
@@ -133,8 +133,8 @@ async def update_workflow(
 @router.delete("/workflows/{workflow_id}")
 async def delete_workflow(
     workflow_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, str]:  # type: ignore[arg-type]
     """Delete an agent workflow"""
     try:
@@ -159,8 +159,8 @@ async def execute_workflow(
     workflow_id: str,
     execution_request: AgentExecutionRequest,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AgentExecutionResponse:  # type: ignore[arg-type]
     """Execute an AI agent workflow"""
     try:
@@ -193,8 +193,8 @@ async def execute_workflow(
 @router.get("/executions/{execution_id}/status", response_model=AgentExecutionStatus)
 async def get_execution_status(
     execution_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AgentExecutionStatus:  # type: ignore[arg-type]
     """Get execution status"""
     try:
@@ -217,12 +217,12 @@ async def get_execution_status(
 
 @router.get("/executions", response_model=list[AgentExecutionStatus])
 async def list_executions(
-    workflow_id: str | None = None,
-    status: AgentStatus | None = None,
-    limit: int = 50,
-    offset: int = 0,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    workflow_id: str | None,
+    status: AgentStatus | None,
+    limit: int | None,
+    offset: int | None,
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> list[AgentExecutionStatus]:  # type: ignore[arg-type]
     """List agent executions with filtering"""
     try:
@@ -249,8 +249,8 @@ async def list_executions(
 async def cancel_workflow(
     workflow_id: str,
     execution_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Cancel a workflow execution"""
     try:
@@ -278,10 +278,10 @@ async def cancel_workflow(
 @router.get("/workflows/{workflow_id}/executions", response_model=list[AgentExecutionStatus])
 async def list_workflow_executions(
     workflow_id: str,
-    limit: int = 50,
-    offset: int = 0,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    limit: int | None,
+    offset: int | None,
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> list[AgentExecutionStatus]:  # type: ignore[arg-type]
     """List executions for a specific workflow"""
     try:

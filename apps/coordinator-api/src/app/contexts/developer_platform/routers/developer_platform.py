@@ -4,9 +4,9 @@ REST API endpoints for the developer ecosystem including bounties, certification
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, func, select
 
 from aitbc.rate_limiting import rate_limit
@@ -27,11 +27,11 @@ router = APIRouter(prefix="/developer-platform", tags=["Developer Platform"])
 
 
 # Dependency injection
-def get_developer_platform_service(session: Session = Depends(get_session)) -> DeveloperPlatformService:
+def get_developer_platform_service(session: Annotated[Session, Depends(get_session)]) -> DeveloperPlatformService:
     return DeveloperPlatformService(session)
 
 
-def get_governance_service(session: Session = Depends(get_session)) -> GovernanceService:
+def get_governance_service(session: Annotated[Session, Depends(get_session)]) -> GovernanceService:
     return GovernanceService(session)
 
 
@@ -41,8 +41,8 @@ def get_governance_service(session: Session = Depends(get_session)) -> Governanc
 async def register_developer(
     request: DeveloperCreate,
     request_http: Request,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Register a new developer profile"""
 
@@ -69,8 +69,8 @@ async def register_developer(
 async def get_developer_profile(
     wallet_address: str,
     request: Request,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Get developer profile by wallet address"""
 
@@ -104,8 +104,8 @@ async def update_developer_profile(
     wallet_address: str,
     updates: dict[str, Any],
     request: Request,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Update developer profile"""
 
@@ -130,10 +130,10 @@ async def update_developer_profile(
 @rate_limit(rate=200, per=60)
 async def get_leaderboard(
     request: Request,
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of developers"),
-    offset: int = Query(0, ge=0, description="Offset for pagination"),
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    limit: int | None,
+    offset: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> list[dict[str, Any]]:
     """Get developer leaderboard sorted by reputation score"""
 
@@ -163,8 +163,8 @@ async def get_leaderboard(
 async def get_developer_stats(
     wallet_address: str,
     request: Request,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Get comprehensive developer statistics"""
 
@@ -184,8 +184,8 @@ async def get_developer_stats(
 async def create_bounty(
     request: BountyCreate,
     request_http: Request,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Create a new bounty task"""
 
@@ -212,11 +212,11 @@ async def create_bounty(
 @rate_limit(rate=200, per=60)
 async def list_bounties(
     request: Request,
-    status: BountyStatus | None = Query(None, description="Filter by bounty status"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of bounties"),
-    offset: int = Query(0, ge=0, description="Offset for pagination"),
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    status: BountyStatus | None,
+    limit: int | None,
+    offset: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> list[dict[str, Any]]:
     """List bounty tasks with optional status filter"""
 
@@ -248,8 +248,8 @@ async def list_bounties(
 async def get_bounty_details(
     bounty_id: str,
     request: Request,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Get detailed bounty information"""
 
@@ -269,8 +269,8 @@ async def submit_bounty_solution(
     bounty_id: str,
     request: BountySubmissionCreate,
     request_http: Request,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Submit a solution for a bounty"""
 
@@ -299,10 +299,10 @@ async def submit_bounty_solution(
 async def get_my_submissions(
     developer_id: str,
     request: Request,
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of submissions"),
-    offset: int = Query(0, ge=0, description="Offset for pagination"),
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    limit: int | None,
+    offset: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> list[dict[str, Any]]:
     """Get all submissions by a developer"""
 
@@ -336,9 +336,9 @@ async def review_bounty_submission(
     reviewer_address: str,
     review_notes: str,
     request: Request,
-    approved: bool = Query(True, description="Whether to approve the submission"),
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    approved: bool | None,
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Review and approve/reject a bounty submission"""
 
@@ -371,8 +371,8 @@ async def review_bounty_submission(
 @rate_limit(rate=200, per=60)
 async def get_bounty_statistics(
     request: Request,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Get comprehensive bounty statistics"""
 
@@ -390,8 +390,8 @@ async def get_bounty_statistics(
 async def grant_certification(
     request: CertificationGrant,
     request_http: Request,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Grant a certification to a developer"""
 
@@ -421,8 +421,8 @@ async def grant_certification(
 async def get_developer_certifications(
     wallet_address: str,
     request: Request,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> list[dict[str, Any]]:
     """Get certifications for a developer"""
 
@@ -457,7 +457,7 @@ async def get_developer_certifications(
 @router.get("/certifications/verify/{certification_id}", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def verify_certification(
-    request: Request, certification_id: str, session: Session = Depends(get_session)
+    request: Request, certification_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Verify a certification by ID"""
 
@@ -531,8 +531,8 @@ async def create_regional_hub(
     region: str,
     description: str,
     manager_address: str,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Create a regional developer hub"""
 
@@ -559,8 +559,8 @@ async def create_regional_hub(
 @rate_limit(rate=200, per=60)
 async def get_regional_hubs(
     request: Request,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> list[dict[str, Any]]:
     """Get all regional developer hubs"""
 
@@ -590,9 +590,9 @@ async def get_regional_hubs(
 async def get_hub_developers(
     request: Request,
     hub_id: str,
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of developers"),
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> list[dict[str, Any]]:
     """Get developers in a regional hub"""
 
@@ -625,8 +625,8 @@ async def stake_on_developer(
     staker_address: str,
     developer_address: str,
     amount: float,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Stake AITBC tokens on a developer"""
 
@@ -663,8 +663,8 @@ async def stake_on_developer(
 async def get_staking_info(
     request: Request,
     address: str,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Get staking information for an address"""
 
@@ -682,8 +682,8 @@ async def unstake_tokens(
     request: Request,
     staking_id: str,
     amount: float,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Unstake tokens from a developer"""
 
@@ -700,8 +700,8 @@ async def unstake_tokens(
 async def get_rewards(
     request: Request,
     address: str,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Get reward information for an address"""
 
@@ -718,8 +718,8 @@ async def get_rewards(
 async def claim_rewards(
     request: Request,
     address: str,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Claim pending rewards"""
 
@@ -735,7 +735,7 @@ async def claim_rewards(
 
 @router.get("/staking-stats", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
-async def get_staking_statistics(request: Request, session: Session = Depends(get_session)) -> dict[str, Any]:
+async def get_staking_statistics(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get comprehensive staking statistics"""
 
     try:
@@ -765,8 +765,8 @@ async def get_staking_statistics(request: Request, session: Session = Depends(ge
 @rate_limit(rate=200, per=60)
 async def get_platform_overview(
     request: Request,
-    session: Session = Depends(get_session),
-    dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
+    session: Annotated[Session, Depends(get_session)],
+    dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
     """Get platform overview analytics"""
 
@@ -847,7 +847,7 @@ async def get_platform_overview(
 
 @router.get("/health", response_model=dict[str, Any])
 @rate_limit(rate=1000, per=60)
-async def get_platform_health(request: Request, session: Session = Depends(get_session)) -> dict[str, Any]:
+async def get_platform_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get developer platform health status"""
 
     try:

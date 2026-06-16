@@ -36,8 +36,8 @@ async def create_royalty_distribution(
     request: Request,
     offer_id: str,
     royalty_tiers: RoyaltyDistributionRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> RoyaltyDistributionResponse:  # type: ignore[arg-type]
     """Create sophisticated royalty distribution for marketplace offer"""
     try:
@@ -67,9 +67,9 @@ async def calculate_royalties(
     request: Request,
     offer_id: str,
     sale_amount: float,
-    transaction_id: str | None = None,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    transaction_id: str | None,
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict:  # type: ignore[arg-type]
     """Calculate and distribute royalties for a sale"""
     try:
@@ -94,8 +94,8 @@ async def create_model_license(
     request: Request,
     offer_id: str,
     license_request: ModelLicenseRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> ModelLicenseResponse:  # type: ignore[arg-type]
     """Create model license and IP protection"""
     try:
@@ -131,8 +131,8 @@ async def verify_model(
     request: Request,
     offer_id: str,
     verification_request: ModelVerificationRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> ModelVerificationResponse:  # type: ignore[arg-type]
     """Perform advanced model verification"""
     try:
@@ -161,10 +161,10 @@ async def verify_model(
 @rate_limit(rate=200, per=60)
 async def get_marketplace_analytics(
     request: Request,
-    period_days: int = 30,
-    metrics: list[str] | None = None,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    period_days: int | None,
+    metrics: list[str] | None,
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> MarketplaceAnalyticsResponse:  # type: ignore[arg-type]
     """Get comprehensive marketplace analytics"""
     try:

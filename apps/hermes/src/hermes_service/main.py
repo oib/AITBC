@@ -10,12 +10,13 @@ from typing import Any
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
-from aitbc import get_logger
+from aitbc import configure_logging, get_logger
 
 from .handlers import HandlerRegistry  # type: ignore[import-not-found]
 from .services.transaction_service import TransactionService  # type: ignore
 from .storage import CoinRequest, CoinRequestStatus, get_db_session, init_db  # type: ignore
 
+configure_logging(level="INFO")
 logger = get_logger(__name__)
 app = FastAPI(title="AITBC Hermes Service", description="Agent orchestration and edge computing service", version="1.0.0")
 COORDINATOR_URL = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8011")

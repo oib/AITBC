@@ -1,9 +1,9 @@
 """Pool management routes for Pool Hub"""
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
@@ -62,7 +62,9 @@ def get_registry() -> MinerRegistry:
 
 @router.post("/", response_model=PoolInfo)
 @rate_limit(rate=50, per=60)
-async def create_pool(request: Request, pool: PoolCreate, registry: MinerRegistry = Depends(get_registry)) -> PoolInfo:
+async def create_pool(
+    request: Request, pool: PoolCreate, registry: Annotated[MinerRegistry, Depends(get_registry)]
+) -> PoolInfo:
     """Create a new mining pool."""
     try:
         created = await registry.create_pool(
@@ -81,7 +83,7 @@ async def create_pool(request: Request, pool: PoolCreate, registry: MinerRegistr
 
 @router.get("/{pool_id}", response_model=PoolInfo)
 @rate_limit(rate=200, per=60)
-async def get_pool(request: Request, pool_id: str, registry: MinerRegistry = Depends(get_registry)) -> PoolInfo:
+async def get_pool(request: Request, pool_id: str, registry: Annotated[MinerRegistry, Depends(get_registry)]) -> PoolInfo:
     """Get pool information."""
     pool = await registry.get_pool(pool_id)
     if not pool:
@@ -92,7 +94,7 @@ async def get_pool(request: Request, pool_id: str, registry: MinerRegistry = Dep
 @router.get("/", response_model=list[PoolInfo])
 @rate_limit(rate=200, per=60)
 async def list_pools(
-    request: Request, limit: int = Query(50, le=100), offset: int = Query(0), registry: MinerRegistry = Depends(get_registry)
+    request: Request, limit: int | None, offset: int | None, registry: Annotated[MinerRegistry, Depends(get_registry)]
 ) -> list[PoolInfo]:
     """List all pools."""
     return await registry.list_pools(limit=limit, offset=offset)  # type: ignore[no-any-return]
@@ -100,7 +102,9 @@ async def list_pools(
 
 @router.get("/{pool_id}/stats", response_model=PoolStats)
 @rate_limit(rate=200, per=60)
-async def get_pool_stats(request: Request, pool_id: str, registry: MinerRegistry = Depends(get_registry)) -> PoolStats:
+async def get_pool_stats(
+    request: Request, pool_id: str, registry: Annotated[MinerRegistry, Depends(get_registry)]
+) -> PoolStats:
     """Get pool statistics."""
     pool = await registry.get_pool(pool_id)
     if not pool:
@@ -114,9 +118,9 @@ async def get_pool_stats(request: Request, pool_id: str, registry: MinerRegistry
 async def get_pool_miners(
     request: Request,
     pool_id: str,
-    status: str | None = Query(None),
-    limit: int = Query(50, le=100),
-    registry: MinerRegistry = Depends(get_registry),
+    status: str | None,
+    limit: int | None,
+    registry: Annotated[MinerRegistry, Depends(get_registry)],
 ) -> list[dict[str, Any]]:
     """Get miners in a pool."""
     pool = await registry.get_pool(pool_id)
@@ -129,7 +133,7 @@ async def get_pool_miners(
 @router.put("/{pool_id}")
 @rate_limit(rate=50, per=60)
 async def update_pool(
-    request: Request, pool_id: str, updates: dict[str, Any], registry: MinerRegistry = Depends(get_registry)
+    request: Request, pool_id: str, updates: dict[str, Any], registry: Annotated[MinerRegistry, Depends(get_registry)]
 ) -> dict[str, str]:
     """Update pool settings."""
     pool = await registry.get_pool(pool_id)
@@ -145,7 +149,9 @@ async def update_pool(
 
 @router.delete("/{pool_id}")
 @rate_limit(rate=50, per=60)
-async def delete_pool(request: Request, pool_id: str, registry: MinerRegistry = Depends(get_registry)) -> dict[str, str]:
+async def delete_pool(
+    request: Request, pool_id: str, registry: Annotated[MinerRegistry, Depends(get_registry)]
+) -> dict[str, str]:
     """Delete a pool (must have no miners)."""
     pool = await registry.get_pool(pool_id)
     if not pool:

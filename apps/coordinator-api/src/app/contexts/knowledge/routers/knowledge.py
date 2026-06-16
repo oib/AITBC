@@ -1,6 +1,6 @@
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -57,7 +57,7 @@ class KnowledgeNodeResponse(BaseModel):
 @router.post("/graphs", response_model=KnowledgeGraphResponse)
 @rate_limit(rate=20, per=60)
 async def create_knowledge_graph(
-    request: Request, graph_request: KnowledgeGraphCreateRequest, session: Session = Depends(get_session)
+    request: Request, graph_request: KnowledgeGraphCreateRequest, session: Annotated[Session, Depends(get_session)]
 ) -> KnowledgeGraphResponse:
     """Create a new knowledge graph"""
     try:
@@ -79,7 +79,9 @@ async def create_knowledge_graph(
 
 @router.get("/graphs", response_model=list[KnowledgeGraphResponse])
 @rate_limit(rate=200, per=60)
-async def list_knowledge_graphs(request: Request, session: Session = Depends(get_session)) -> list[KnowledgeGraphResponse]:
+async def list_knowledge_graphs(
+    request: Request, session: Annotated[Session, Depends(get_session)]
+) -> list[KnowledgeGraphResponse]:
     """List all available knowledge graphs"""
     try:
         return []
@@ -91,7 +93,7 @@ async def list_knowledge_graphs(request: Request, session: Session = Depends(get
 @router.get("/graphs/{graph_id}", response_model=KnowledgeGraphResponse)
 @rate_limit(rate=200, per=60)
 async def get_knowledge_graph(
-    request: Request, graph_id: str, session: Session = Depends(get_session)
+    request: Request, graph_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> KnowledgeGraphResponse:
     """Get details of a specific knowledge graph"""
     try:
@@ -113,7 +115,7 @@ async def get_knowledge_graph(
 @router.post("/graphs/{graph_id}/nodes", response_model=KnowledgeNodeResponse)
 @rate_limit(rate=20, per=60)
 async def contribute_knowledge(
-    request: Request, graph_id: str, node_request: KnowledgeNodeRequest, session: Session = Depends(get_session)
+    request: Request, graph_id: str, node_request: KnowledgeNodeRequest, session: Annotated[Session, Depends(get_session)]
 ) -> KnowledgeNodeResponse:
     """Contribute knowledge to a graph"""
     try:
@@ -136,9 +138,9 @@ async def contribute_knowledge(
 async def query_knowledge_graph(
     request: Request,
     graph_id: str,
-    node_type: str | None = Query(default=None),
-    filters: str | None = Query(default=None),
-    session: Session = Depends(get_session),
+    node_type: str | None,
+    filters: str | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> list[KnowledgeNodeResponse]:
     """Query knowledge from a graph"""
     try:
@@ -150,7 +152,9 @@ async def query_knowledge_graph(
 
 @router.post("/graphs/{graph_id}/join")
 @rate_limit(rate=20, per=60)
-async def join_knowledge_graph(request: Request, graph_id: str, session: Session = Depends(get_session)) -> dict[str, str]:
+async def join_knowledge_graph(
+    request: Request, graph_id: str, session: Annotated[Session, Depends(get_session)]
+) -> dict[str, str]:
     """Join an existing knowledge graph"""
     try:
         return {"status": "success", "message": f"Joined graph {graph_id}"}

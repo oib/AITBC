@@ -1,3 +1,5 @@
+from typing import Annotated
+
 """
 AITBC FFmpeg Video Processing Service
 FastAPI service wrapping FFmpeg with GPU acceleration (NVENC/NVDEC)
@@ -11,9 +13,9 @@ import tempfile
 import time
 from contextlib import asynccontextmanager
 
-import uvicorn
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+import uvicorn  # noqa: E402
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
 
 _device = os.getenv("FFMPEG_GPU_DEVICE", "0")
 _hw_accel = os.getenv("FFMPEG_HW_ACCEL", "cuda")
@@ -103,7 +105,7 @@ async def capabilities():
 
 @app.post("/process")
 async def process_video(
-    file: UploadFile = File(...),
+    file: Annotated[UploadFile, File(...)],
     output_format: str = Form(default="mp4"),
     codec: str = Form(default="h264"),
     resolution: str = Form(default="1080p"),

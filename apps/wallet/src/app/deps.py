@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import Depends
 
 from .keystore.persistent_service import PersistentKeystoreService
@@ -17,18 +19,18 @@ def get_settings() -> Settings:
     return settings
 
 
-def get_receipt_service(config: Settings = Depends(get_settings)) -> ReceiptVerifierService:
+def get_receipt_service(config: Annotated[Settings, Depends(get_settings)]) -> ReceiptVerifierService:
     return ReceiptVerifierService(
         coordinator_url=config.coordinator_base_url,
         api_key=config.coordinator_api_key,
     )
 
 
-def get_keystore(config: Settings = Depends(get_settings)) -> PersistentKeystoreService:
+def get_keystore(config: Annotated[Settings, Depends(get_settings)]) -> PersistentKeystoreService:
     return PersistentKeystoreService(db_path=config.ledger_db_path.parent / "keystore.db")
 
 
-def get_ledger(config: Settings = Depends(get_settings)) -> SQLiteLedgerAdapter:
+def get_ledger(config: Annotated[Settings, Depends(get_settings)]) -> SQLiteLedgerAdapter:
     return SQLiteLedgerAdapter(config.ledger_db_path)
 
 

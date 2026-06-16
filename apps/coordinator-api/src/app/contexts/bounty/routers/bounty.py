@@ -4,7 +4,7 @@ REST API for AI agent bounty system with ZK-proof verification
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -170,7 +170,7 @@ class BountyStatsResponse(BaseModel):
     tier_distribution: dict[str, int]
 
 
-def get_bounty_service(session: Session = Depends(get_session)) -> BountyService:
+def get_bounty_service(session: Annotated[Session, Depends(get_session)]) -> BountyService:
     return BountyService(session)
 
 
@@ -184,10 +184,10 @@ async def create_bounty(
     request: Request,
     bounty_request: BountyCreateRequest,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    bounty_service: BountyService = Depends(get_bounty_service),
-    blockchain_service: BlockchainService = Depends(get_blockchain_service),
-    current_user: dict = Depends(get_current_user),
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> BountyResponse:
     """Create a new bounty"""
     try:
@@ -206,9 +206,9 @@ async def create_bounty(
 @rate_limit(rate=200, per=60)
 async def get_bounties(
     request: Request,
-    session: Session = Depends(get_session),
-    filters: BountyFilterRequest = Depends(),
-    bounty_service: BountyService = Depends(get_bounty_service),
+    session: Annotated[Session, Depends(get_session)],
+    filters: Annotated[BountyFilterRequest, Depends()],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
 ) -> list[BountyResponse]:
     """Get filtered list of bounties"""
     try:
@@ -237,8 +237,8 @@ async def get_bounties(
 async def get_bounty(
     request: Request,
     bounty_id: str,
-    session: Session = Depends(get_session),
-    bounty_service: BountyService = Depends(get_bounty_service),
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
 ) -> BountyResponse:
     """Get bounty details"""
     try:
@@ -260,10 +260,10 @@ async def submit_bounty_solution(
     bounty_id: str,
     submission_request: BountySubmissionRequest,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    bounty_service: BountyService = Depends(get_bounty_service),
-    blockchain_service: BlockchainService = Depends(get_blockchain_service),
-    current_user: dict = Depends(get_current_user),
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> BountySubmissionResponse:
     """Submit a solution to a bounty"""
     try:
@@ -300,9 +300,9 @@ async def submit_bounty_solution(
 async def get_bounty_submissions(
     request: Request,
     bounty_id: str,
-    session: Session = Depends(get_session),
-    bounty_service: BountyService = Depends(get_bounty_service),
-    current_user: dict = Depends(get_current_user),
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> list[BountySubmissionResponse]:
     """Get all submissions for a bounty"""
     try:
@@ -328,10 +328,10 @@ async def verify_bounty_submission(
     bounty_id: str,
     verification_request: BountyVerificationRequest,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    bounty_service: BountyService = Depends(get_bounty_service),
-    blockchain_service: BlockchainService = Depends(get_blockchain_service),
-    current_user: dict = Depends(get_current_user),
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> dict[str, str]:
     """Verify a bounty submission (oracle/admin only)"""
     try:
@@ -360,10 +360,10 @@ async def dispute_bounty_submission(
     bounty_id: str,
     dispute_request: BountyDisputeRequest,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    bounty_service: BountyService = Depends(get_bounty_service),
-    blockchain_service: BlockchainService = Depends(get_blockchain_service),
-    current_user: dict = Depends(get_current_user),
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> dict[str, str]:
     """Dispute a bounty submission"""
     try:
@@ -390,12 +390,12 @@ async def dispute_bounty_submission(
 @rate_limit(rate=200, per=60)
 async def get_my_created_bounties(
     request: Request,
-    status: BountyStatus | None = None,
-    page: int = Query(default=1, ge=1),
-    limit: int = Query(default=20, ge=1, le=100),
-    session: Session = Depends(get_session),
-    bounty_service: BountyService = Depends(get_bounty_service),
-    current_user: dict = Depends(get_current_user),
+    status: BountyStatus | None,
+    page: int | None,
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> list[BountyResponse]:
     """Get bounties created by the current user"""
     try:
@@ -412,12 +412,12 @@ async def get_my_created_bounties(
 @rate_limit(rate=200, per=60)
 async def get_my_submissions(
     request: Request,
-    status: SubmissionStatus | None = None,
-    page: int = Query(default=1, ge=1),
-    limit: int = Query(default=20, ge=1, le=100),
-    session: Session = Depends(get_session),
-    bounty_service: BountyService = Depends(get_bounty_service),
-    current_user: dict = Depends(get_current_user),
+    status: SubmissionStatus | None,
+    page: int | None,
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> list[BountySubmissionResponse]:
     """Get submissions made by the current user"""
     try:
@@ -434,10 +434,10 @@ async def get_my_submissions(
 @rate_limit(rate=200, per=60)
 async def get_bounty_leaderboard(
     request: Request,
-    period: str = Query(default="weekly", pattern="^(daily|weekly|monthly)$"),
-    limit: int = Query(default=50, ge=1, le=100),
-    session: Session = Depends(get_session),
-    bounty_service: BountyService = Depends(get_bounty_service),
+    period: str | None,
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
 ) -> dict[str, Any]:
     """Get bounty leaderboard"""
     try:
@@ -452,9 +452,9 @@ async def get_bounty_leaderboard(
 @rate_limit(rate=200, per=60)
 async def get_bounty_stats(
     request: Request,
-    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
-    session: Session = Depends(get_session),
-    bounty_service: BountyService = Depends(get_bounty_service),
+    period: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
 ) -> BountyStatsResponse:
     """Get bounty statistics"""
     try:
@@ -471,10 +471,10 @@ async def expire_bounty(
     request: Request,
     bounty_id: str,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    bounty_service: BountyService = Depends(get_bounty_service),
-    blockchain_service: BlockchainService = Depends(get_blockchain_service),
-    current_user: dict = Depends(get_current_user),
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> dict[str, str]:
     """Expire a bounty (creator only)"""
     try:
@@ -500,7 +500,9 @@ async def expire_bounty(
 @router.get("/bounties/categories")
 @rate_limit(rate=500, per=60)
 async def get_bounty_categories(
-    request: Request, session: Session = Depends(get_session), bounty_service: BountyService = Depends(get_bounty_service)
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
 ) -> dict[str, Any]:
     """Get all bounty categories"""
     try:
@@ -515,9 +517,9 @@ async def get_bounty_categories(
 @rate_limit(rate=500, per=60)
 async def get_bounty_tags(
     request: Request,
-    limit: int = Query(default=100, ge=1, le=500),
-    session: Session = Depends(get_session),
-    bounty_service: BountyService = Depends(get_bounty_service),
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
 ) -> dict[str, Any]:
     """Get popular bounty tags"""
     try:
@@ -532,11 +534,11 @@ async def get_bounty_tags(
 @rate_limit(rate=200, per=60)
 async def search_bounties(
     request: Request,
-    query: str = Query(..., min_length=1, max_length=100),
-    page: int = Query(default=1, ge=1),
-    limit: int = Query(default=20, ge=1, le=100),
-    session: Session = Depends(get_session),
-    bounty_service: BountyService = Depends(get_bounty_service),
+    query: str | None,
+    page: int | None,
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
 ) -> list[BountyResponse]:
     """Search bounties by text"""
     try:

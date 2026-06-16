@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
-from aitbc import get_logger
+from aitbc import configure_logging, get_logger
 from aitbc.rate_limiting import RateLimitMiddleware
 
 from .api_jsonrpc import router as jsonrpc_router
@@ -16,6 +16,7 @@ from .api_rest import router as receipts_router
 from .bridge import init_db, start_monitoring
 from .settings import settings
 
+configure_logging(level="INFO")
 logger = get_logger(__name__)
 
 

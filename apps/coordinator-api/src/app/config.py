@@ -47,7 +47,7 @@ class Settings(BaseAITBCConfig):
     app_name: str = Field(default="AITBC Coordinator API", description="Application name")
     app_host: str = Field(default="0.0.0.0", description="Application host")
     port: int = Field(default=8203, description="Server port")
-    environment: str = Field(default="dev", description="Environment")
+    environment: str = Field(default="development", description="Environment")
     audit_log_dir: str = Field(default=str(LOG_DIR / "audit"), description="Audit log directory")
 
     # Database

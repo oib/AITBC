@@ -5,6 +5,7 @@ Tests for chain ID utility functions
 from unittest.mock import Mock, patch
 
 import pytest
+from aitbc import NetworkError
 from aitbc_cli.utils.chain_id import (
     KNOWN_CHAINS,
     get_chain_id,
@@ -12,8 +13,6 @@ from aitbc_cli.utils.chain_id import (
     get_default_chain_id,
     validate_chain_id,
 )
-
-from aitbc import NetworkError
 
 
 class TestGetDefaultChainId:

@@ -139,7 +139,10 @@ async def list_solutions(
 @router.post("/solutions/{solution_id}/purchase")
 @rate_limit(rate=20, per=60)
 async def purchase_solution(
-    solution_id: str, request: Request, session: Annotated[Session, Depends(get_session)], buyer_id: str = Body(embed=True)
+    solution_id: str,
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    buyer_id: Annotated[str, Body(embed=True)],
 ) -> dict[str, Any]:
     """Purchase or install a third-party solution"""
     service = ThirdPartySolutionService(session)  # type: ignore[arg-type]
@@ -157,8 +160,8 @@ async def purchase_solution(
 async def propose_innovation_lab(
     request_http: Request,
     session: Annotated[Session, Depends(get_session)],
-    researcher_id: str = Query(...),
-    request: LabProposalRequest = Body(...),
+    researcher_id: Annotated[str, Query(...)],
+    request: Annotated[LabProposalRequest, Body(...)],
 ) -> InnovationLab:
     """Propose a new agent innovation lab or research program"""
     service = InnovationLabService(session)  # type: ignore[arg-type]
@@ -172,7 +175,10 @@ async def propose_innovation_lab(
 @router.post("/labs/{lab_id}/join")
 @rate_limit(rate=20, per=60)
 async def join_innovation_lab(
-    lab_id: str, request: Request, session: Annotated[Session, Depends(get_session)], developer_id: str = Body(embed=True)
+    lab_id: str,
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    developer_id: Annotated[str, Body(embed=True)],
 ) -> InnovationLab:
     """Join an active innovation lab"""
     service = InnovationLabService(session)  # type: ignore[arg-type]
@@ -186,7 +192,10 @@ async def join_innovation_lab(
 @router.post("/labs/{lab_id}/fund")
 @rate_limit(rate=20, per=60)
 async def fund_innovation_lab(
-    lab_id: str, request: Request, session: Annotated[Session, Depends(get_session)], amount: float = Body(embed=True)
+    lab_id: str,
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    amount: Annotated[float, Body(embed=True)],
 ) -> InnovationLab:
     """Provide funding to a proposed innovation lab"""
     service = InnovationLabService(session)  # type: ignore[arg-type]
@@ -202,8 +211,8 @@ async def fund_innovation_lab(
 async def create_community_post(
     request_http: Request,
     session: Annotated[Session, Depends(get_session)],
-    author_id: str = Query(...),
-    request: PostCreateRequest = Body(...),
+    author_id: Annotated[str, Query(...)],
+    request: Annotated[PostCreateRequest, Body(...)],
 ) -> CommunityPost:
     """Create a new post in the community forum"""
     service = CommunityPlatformService(session)  # type: ignore[arg-type]
@@ -243,8 +252,8 @@ async def upvote_community_post(
 async def create_hackathon(
     request_http: Request,
     session: Annotated[Session, Depends(get_session)],
-    organizer_id: str = Query(...),
-    request: HackathonCreateRequest = Body(...),
+    organizer_id: Annotated[str, Query(...)],
+    request: Annotated[HackathonCreateRequest, Body(...)],
 ) -> Hackathon:
     """Create a new agent innovation hackathon (requires high reputation)"""
     service = CommunityPlatformService(session)  # type: ignore[arg-type]
@@ -263,7 +272,7 @@ async def register_for_hackathon(
     hackathon_id: str,
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    developer_id: str = Body(embed=True),
+    developer_id: Annotated[str, Body(embed=True)],
 ) -> Hackathon:
     """Register for an upcoming or ongoing hackathon"""
     service = CommunityPlatformService(session)  # type: ignore[arg-type]
