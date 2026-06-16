@@ -12,7 +12,7 @@ Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/run/aitbc/secrets/.env
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/blockchain-node/aitbc-blockchain-node-wrapper.py
+ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.main
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10
