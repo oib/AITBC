@@ -17,7 +17,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
-from aitbc.constants import KEYSTORE_DIR
+from aitbc import KEYSTORE_DIR
 from aitbc.crypto import encrypt_private_key
 
 # Add CLI utils to path
