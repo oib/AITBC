@@ -5,13 +5,14 @@ import uvicorn
 from fastapi import FastAPI
 from sqlalchemy.orm import Session
 
+from aitbc.aitbc_logging import configure_logging, get_logger
+
 # Local imports
 from .core.config import settings
 from .core.database import Base, get_engine, get_sessionmaker
-from .core.logging import get_logger, setup_logging
 
 # Setup logging
-setup_logging(settings)
+configure_logging(level=settings.log_level if hasattr(settings, "log_level") else "INFO")
 logger = get_logger(__name__)
 
 # Create FastAPI app

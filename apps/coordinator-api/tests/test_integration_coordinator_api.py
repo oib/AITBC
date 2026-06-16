@@ -71,7 +71,7 @@ class TestLoggingConfiguration:
     def test_logger_import(self):
         """Test that shared logging module can be imported"""
         try:
-            from aitbc.logging import get_logger
+            from aitbc import get_logger
 
             logger = get_logger(__name__)
             assert logger is not None
@@ -80,7 +80,7 @@ class TestLoggingConfiguration:
 
     def test_logger_functionality(self):
         """Test basic logger functionality"""
-        from aitbc.logging import get_logger
+        from aitbc import get_logger
 
         logger = get_logger("test")
         assert hasattr(logger, "info")

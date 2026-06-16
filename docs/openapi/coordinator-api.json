@@ -1,0 +1,1269 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AITBC Coordinator-Api Service",
+    "version": "0.1.0",
+    "description": "API specification for AITBC coordinator-api service"
+  },
+  "paths": {
+    "/v1/receipts/{job_id}": {
+      "get": {
+        "tags": [
+          "wallets",
+          "receipts"
+        ],
+        "summary": "Verify latest receipt for a job",
+        "operationId": "verify_latest_receipt_v1_receipts__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptVerifyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/receipts/{job_id}/history": {
+      "get": {
+        "tags": [
+          "wallets",
+          "receipts"
+        ],
+        "summary": "Verify all historical receipts for a job",
+        "operationId": "verify_receipt_history_v1_receipts__job_id__history_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptVerificationListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wallets": {
+      "get": {
+        "tags": [
+          "wallets",
+          "receipts"
+        ],
+        "summary": "List wallets",
+        "operationId": "list_wallets_v1_wallets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "wallets",
+          "receipts"
+        ],
+        "summary": "Create wallet",
+        "operationId": "create_wallet_v1_wallets_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalletCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wallets/{wallet_id}/balance": {
+      "get": {
+        "tags": [
+          "wallets",
+          "receipts"
+        ],
+        "summary": "Get wallet balance from blockchain",
+        "operationId": "get_wallet_balance_v1_wallets__wallet_id__balance_get",
+        "parameters": [
+          {
+            "name": "wallet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Wallet Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Wallet Balance V1 Wallets  Wallet Id  Balance Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wallets/{wallet_id}/unlock": {
+      "post": {
+        "tags": [
+          "wallets",
+          "receipts"
+        ],
+        "summary": "Unlock wallet",
+        "operationId": "unlock_wallet_v1_wallets__wallet_id__unlock_post",
+        "parameters": [
+          {
+            "name": "wallet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Wallet Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalletUnlockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletUnlockResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wallets/{wallet_id}/sign": {
+      "post": {
+        "tags": [
+          "wallets",
+          "receipts"
+        ],
+        "summary": "Sign payload",
+        "operationId": "sign_payload_v1_wallets__wallet_id__sign_post",
+        "parameters": [
+          {
+            "name": "wallet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Wallet Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalletSignRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletSignResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wallets/{wallet_id}/send": {
+      "post": {
+        "tags": [
+          "wallets",
+          "receipts"
+        ],
+        "summary": "Send transaction",
+        "description": "Sign and submit a transaction to the blockchain.\n\nThis endpoint creates, signs, and broadcasts a real transaction\nusing the wallet's private key.",
+        "operationId": "send_transaction_v1_wallets__wallet_id__send_post",
+        "parameters": [
+          {
+            "name": "wallet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Wallet Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalletTransactionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletTransactionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wallets/{wallet_id}/faucet": {
+      "post": {
+        "tags": [
+          "wallets",
+          "receipts"
+        ],
+        "summary": "Request faucet funds",
+        "description": "Request test tokens from the blockchain faucet.\n\nThis endpoint funds a newly created wallet with test tokens\nfor development and testing purposes.",
+        "operationId": "faucet_request_v1_wallets__wallet_id__faucet_post",
+        "parameters": [
+          {
+            "name": "wallet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Wallet Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletTransactionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rpc": {
+      "post": {
+        "tags": [
+          "jsonrpc"
+        ],
+        "summary": "JSON-RPC endpoint",
+        "operationId": "handle_jsonrpc_v1_rpc_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Request"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Handle Jsonrpc V1 Rpc Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/exchange/price": {
+      "get": {
+        "tags": [
+          "exchange"
+        ],
+        "summary": "Get Price",
+        "description": "Get current ETH-AIT exchange rate.",
+        "operationId": "get_price_v1_exchange_price_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Price V1 Exchange Price Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/exchange/deposits": {
+      "get": {
+        "tags": [
+          "exchange"
+        ],
+        "summary": "List Deposits",
+        "description": "List ETH deposits.\n\nQuery parameters:\n- status: Filter by status (pending, verified, completed, rejected)\n- limit: Maximum number of results (default: 50)\n- offset: Pagination offset (default: 0)",
+        "operationId": "list_deposits_v1_exchange_deposits_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Deposits V1 Exchange Deposits Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/exchange/deposits/{deposit_id}": {
+      "get": {
+        "tags": [
+          "exchange"
+        ],
+        "summary": "Get Deposit",
+        "description": "Get a specific deposit by ID.",
+        "operationId": "get_deposit_v1_exchange_deposits__deposit_id__get",
+        "parameters": [
+          {
+            "name": "deposit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Deposit Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Deposit V1 Exchange Deposits  Deposit Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/exchange/deposits/{deposit_id}/verify": {
+      "post": {
+        "tags": [
+          "exchange"
+        ],
+        "summary": "Verify Deposit",
+        "description": "Verify a deposit (admin operation).",
+        "operationId": "verify_deposit_v1_exchange_deposits__deposit_id__verify_post",
+        "parameters": [
+          {
+            "name": "deposit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Deposit Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Verify Deposit V1 Exchange Deposits  Deposit Id  Verify Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/exchange/deposits/{deposit_id}/complete": {
+      "post": {
+        "tags": [
+          "exchange"
+        ],
+        "summary": "Complete Deposit",
+        "description": "Mark a deposit as completed after AIT minting (admin operation).",
+        "operationId": "complete_deposit_v1_exchange_deposits__deposit_id__complete_post",
+        "parameters": [
+          {
+            "name": "deposit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Deposit Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Complete Deposit V1 Exchange Deposits  Deposit Id  Complete Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/exchange/calculate": {
+      "get": {
+        "tags": [
+          "exchange"
+        ],
+        "summary": "Calculate Exchange",
+        "description": "Calculate AIT amount for a given ETH amount.\n\nQuery parameters:\n- eth_amount: Amount of ETH to convert",
+        "operationId": "calculate_exchange_v1_exchange_calculate_get",
+        "parameters": [
+          {
+            "name": "eth_amount",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "title": "Eth Amount"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Calculate Exchange V1 Exchange Calculate Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/exchange/history": {
+      "get": {
+        "tags": [
+          "exchange"
+        ],
+        "summary": "Get Price History",
+        "description": "Get price history and all-time averages.",
+        "operationId": "get_price_history_v1_exchange_history_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Price History V1 Exchange History Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/exchange/status": {
+      "get": {
+        "tags": [
+          "exchange"
+        ],
+        "summary": "Get Bridge Status",
+        "description": "Get bridge service status.",
+        "operationId": "get_bridge_status_v1_exchange_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Bridge Status V1 Exchange Status Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Check Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ReceiptVerificationListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReceiptVerificationModel"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ReceiptVerificationListResponse"
+      },
+      "ReceiptVerificationModel": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "receipt_id": {
+            "type": "string",
+            "title": "Receipt Id"
+          },
+          "miner_signature": {
+            "$ref": "#/components/schemas/SignatureValidationModel"
+          },
+          "coordinator_attestations": {
+            "items": {
+              "$ref": "#/components/schemas/SignatureValidationModel"
+            },
+            "type": "array",
+            "title": "Coordinator Attestations"
+          },
+          "all_valid": {
+            "type": "boolean",
+            "title": "All Valid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "receipt_id",
+          "miner_signature",
+          "coordinator_attestations",
+          "all_valid"
+        ],
+        "title": "ReceiptVerificationModel"
+      },
+      "ReceiptVerifyResponse": {
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/ReceiptVerificationModel"
+          }
+        },
+        "type": "object",
+        "required": [
+          "result"
+        ],
+        "title": "ReceiptVerifyResponse"
+      },
+      "SignatureValidationModel": {
+        "properties": {
+          "key_id": {
+            "type": "string",
+            "title": "Key Id"
+          },
+          "alg": {
+            "type": "string",
+            "title": "Alg",
+            "default": "Ed25519"
+          },
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key_id",
+          "valid"
+        ],
+        "title": "SignatureValidationModel"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WalletCreateRequest": {
+        "properties": {
+          "chain_id": {
+            "type": "string",
+            "title": "Chain Id"
+          },
+          "wallet_id": {
+            "type": "string",
+            "title": "Wallet Id"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata",
+            "default": {}
+          },
+          "secret_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secret Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chain_id",
+          "wallet_id",
+          "password"
+        ],
+        "title": "WalletCreateRequest"
+      },
+      "WalletCreateResponse": {
+        "properties": {
+          "wallet": {
+            "$ref": "#/components/schemas/WalletDescriptor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "wallet"
+        ],
+        "title": "WalletCreateResponse"
+      },
+      "WalletDescriptor": {
+        "properties": {
+          "wallet_id": {
+            "type": "string",
+            "title": "Wallet Id"
+          },
+          "chain_id": {
+            "type": "string",
+            "title": "Chain Id"
+          },
+          "public_key": {
+            "type": "string",
+            "title": "Public Key"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "wallet_id",
+          "chain_id",
+          "public_key",
+          "address",
+          "metadata"
+        ],
+        "title": "WalletDescriptor"
+      },
+      "WalletListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WalletDescriptor"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "WalletListResponse"
+      },
+      "WalletSignRequest": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "title": "Password"
+          },
+          "message_base64": {
+            "type": "string",
+            "title": "Message Base64"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password",
+          "message_base64"
+        ],
+        "title": "WalletSignRequest"
+      },
+      "WalletSignResponse": {
+        "properties": {
+          "wallet_id": {
+            "type": "string",
+            "title": "Wallet Id"
+          },
+          "chain_id": {
+            "type": "string",
+            "title": "Chain Id"
+          },
+          "signature_base64": {
+            "type": "string",
+            "title": "Signature Base64"
+          }
+        },
+        "type": "object",
+        "required": [
+          "wallet_id",
+          "chain_id",
+          "signature_base64"
+        ],
+        "title": "WalletSignResponse"
+      },
+      "WalletTransactionRequest": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "title": "Password"
+          },
+          "recipient": {
+            "type": "string",
+            "title": "Recipient"
+          },
+          "amount": {
+            "type": "integer",
+            "title": "Amount"
+          },
+          "fee": {
+            "type": "integer",
+            "title": "Fee",
+            "default": 1000
+          },
+          "nonce": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nonce"
+          },
+          "chain_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Id"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password",
+          "recipient",
+          "amount"
+        ],
+        "title": "WalletTransactionRequest",
+        "description": "Request to send a transaction from a wallet"
+      },
+      "WalletTransactionResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "tx_hash": {
+            "type": "string",
+            "title": "Tx Hash"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "sender": {
+            "type": "string",
+            "title": "Sender"
+          },
+          "recipient": {
+            "type": "string",
+            "title": "Recipient"
+          },
+          "amount": {
+            "type": "integer",
+            "title": "Amount"
+          },
+          "fee": {
+            "type": "integer",
+            "title": "Fee"
+          },
+          "nonce": {
+            "type": "integer",
+            "title": "Nonce"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "tx_hash",
+          "status",
+          "sender",
+          "recipient",
+          "amount",
+          "fee",
+          "nonce"
+        ],
+        "title": "WalletTransactionResponse",
+        "description": "Response after submitting a transaction"
+      },
+      "WalletUnlockRequest": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "title": "WalletUnlockRequest"
+      },
+      "WalletUnlockResponse": {
+        "properties": {
+          "wallet_id": {
+            "type": "string",
+            "title": "Wallet Id"
+          },
+          "chain_id": {
+            "type": "string",
+            "title": "Chain Id"
+          },
+          "unlocked": {
+            "type": "boolean",
+            "title": "Unlocked"
+          }
+        },
+        "type": "object",
+        "required": [
+          "wallet_id",
+          "chain_id",
+          "unlocked"
+        ],
+        "title": "WalletUnlockResponse"
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8203",
+      "description": "Coordinator API (production)"
+    },
+    {
+      "url": "http://localhost:8102",
+      "description": "Marketplace (production)"
+    },
+    {
+      "url": "http://localhost:8108",
+      "description": "Wallet (production)"
+    },
+    {
+      "url": "http://localhost:8103",
+      "description": "Hermes (production)"
+    }
+  ]
+}

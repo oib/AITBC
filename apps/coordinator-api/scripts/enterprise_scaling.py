@@ -7,7 +7,7 @@ import asyncio
 from enum import StrEnum
 from typing import Any
 
-from aitbc.logging import get_logger
+from aitbc import get_logger
 
 logger = get_logger(__name__)
 

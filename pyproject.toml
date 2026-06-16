@@ -182,7 +182,7 @@ select = [
 ]
 ignore = [
     "E501",  # line too long, handled by black
-    "B008",  # do not perform function calls in argument defaults
+    "B008",  # do not perform function calls in argument defaults (TEMPORARY: 1,105 violations - refactor in progress)
     "C901",  # too complex
 ]
 

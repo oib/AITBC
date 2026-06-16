@@ -18,6 +18,12 @@ os.environ["LOG_DIR"] = str(LOG_DIR)
 log_level = os.getenv("LOG_LEVEL", "info").lower()
 access_log = os.getenv("ACCESS_LOG", "true").lower() in ("1", "true", "yes")
 
+# Agent Registry bind configuration
+# Use AGENT_REGISTRY_BIND_HOST for bind address (default: 127.0.0.1)
+# Use AGENT_REGISTRY_PORT for port (default: 8204)
+bind_host = os.getenv("AGENT_REGISTRY_BIND_HOST", "127.0.0.1")
+bind_port = os.getenv("AGENT_REGISTRY_PORT", "8204")
+
 # Execute the actual service
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
@@ -25,9 +31,9 @@ exec_cmd = [
     "uvicorn",
     "app:app",
     "--host",
-    "127.0.0.1",
+    bind_host,
     "--port",
-    "8204",
+    bind_port,
     "--app-dir",
     f"{REPO_DIR}/aitbc/agent_registry/src",
     "--log-level",

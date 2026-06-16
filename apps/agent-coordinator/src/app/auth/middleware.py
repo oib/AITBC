@@ -6,7 +6,7 @@ Implements JWT and API key authentication middleware
 import os
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, TypeVar, cast
+from typing import Annotated, Any, TypeVar, cast
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -110,7 +110,7 @@ class RateLimiter:
 rate_limiter = RateLimiter()
 
 
-def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(security)) -> dict[str, Any]:
+def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)]) -> dict[str, Any]:
     """Get current user from JWT token or API key"""
     try:
         if credentials and credentials.scheme == "Bearer":
