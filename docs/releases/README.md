@@ -25,6 +25,8 @@
 
 Read the release notes newest-first:
 
+- **[v0.4.23](RELEASE_v0.4.23.md)** - June 15, 2026 - **Architecture Refactoring, Logging Standardization, Observability Enhancement** 📋 Planning
+- **[v0.4.22](RELEASE_v0.4.22.md)** - June 15, 2026 - **Blockchain-node MyPy Type Safety Completion, Quality Improvements** ✅ Released
 - **[v0.4.14](RELEASE_v0.4.14.md)** - June 8, 2026 - **Infrastructure Activation, Security & Monitoring** ✅ Released
 - **[v0.4.13](RELEASE_v0.4.13.md)** - June 7, 2026 - **Security Remediation & System Stabilization**
 - **[v0.4.12](RELEASE_v0.4.12.md)** - June 7, 2026 - **Governance Service & DAO Integration** (Concept Plan)

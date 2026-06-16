@@ -32,7 +32,7 @@ async def _resolve_chain_account(address: str, client: httpx.AsyncClient) -> str
         r = await client.get(f"{_HUB_RPC_URL}/accounts/{address}")
         if r.status_code == 200:
             return address
-    except Exception:
+    except Exception:  # nosec B110 - intentional silent failure
         pass
     return None
 

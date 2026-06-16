@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """GPU resource RPC endpoints for AITBC blockchain."""
 
 import os
