@@ -2,7 +2,7 @@
 Validation router for service configuration validation
 """
 
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
@@ -16,7 +16,7 @@ validator = HardwareValidator()
 
 @router.post("/validation/service/{service_id}")
 async def validate_service(
-    service_id: str, config: dict[str, Any], miner: Miner = Depends(get_miner_from_token)
+    service_id: str, config: dict[str, Any], miner: Annotated[Miner, Depends(get_miner_from_token)]
 ) -> dict[str, Any]:
     """Validate if miner can run a specific service with given configuration"""
 
@@ -33,7 +33,7 @@ async def validate_service(
 
 
 @router.get("/validation/compatible-services")
-async def get_compatible_services(miner: Miner = Depends(get_miner_from_token)) -> list[dict[str, Any]]:
+async def get_compatible_services(miner: Annotated[Miner, Depends(get_miner_from_token)]) -> list[dict[str, Any]]:
     """Get list of services compatible with miner hardware, sorted by compatibility score"""
 
     compatible = await validator.get_compatible_services(miner)
@@ -46,7 +46,7 @@ async def get_compatible_services(miner: Miner = Depends(get_miner_from_token)) 
 
 @router.post("/validation/batch")
 async def validate_multiple_services(
-    validations: list[dict[str, Any]], miner: Miner = Depends(get_miner_from_token)
+    validations: list[dict[str, Any]], miner: Annotated[Miner, Depends(get_miner_from_token)]
 ) -> list[dict[str, Any]]:
     """Validate multiple service configurations in batch"""
 
@@ -77,7 +77,7 @@ async def validate_multiple_services(
 
 
 @router.get("/validation/hardware-profile")
-async def get_hardware_profile(miner: Miner = Depends(get_miner_from_token)) -> dict[str, Any]:
+async def get_hardware_profile(miner: Annotated[Miner, Depends(get_miner_from_token)]) -> dict[str, Any]:
     """Get miner's hardware profile with capabilities assessment"""
 
     # Get compatible services to assess capabilities

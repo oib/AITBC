@@ -10,9 +10,13 @@ from .hierarchical_config import (
     load_config,
 )
 
+# Alias for backward compatibility
+BaseAITBCConfig = ValidatedAITBCConfig
+
 __all__ = [
     "HierarchicalConfig",
     "ValidatedAITBCConfig",
+    "BaseAITBCConfig",  # Alias for backward compatibility
     "load_config",
     "create_config_template",
 ]

@@ -160,7 +160,7 @@ def create_mock_trades(db: Session):
 
 
 @app.get("/api/trades/recent", response_model=list[TradeResponse])
-def get_recent_trades(limit: int = 20, db: Session = Depends(get_db_session)):
+def get_recent_trades(limit: int | None, db: Annotated[Session, Depends(get_db_session)]):
     """Get recent trades"""
     trades = db.query(Trade).order_by(desc(Trade.created_at)).limit(limit).all()
     return trades
@@ -168,9 +168,9 @@ def get_recent_trades(limit: int = 20, db: Session = Depends(get_db_session)):
 
 @app.get("/api/orders", response_model=list[OrderResponse])
 def get_orders(
-    status_filter: str | None = None,
-    user_only: bool = False,
-    db: Session = Depends(get_db_session),
+    status_filter: str | None,
+    user_only: bool | None,
+    db: Annotated[Session, Depends(get_db_session)],
     user_id: OptionalUserDep = None,
 ):
     """Get all orders with optional status filter"""
@@ -188,7 +188,7 @@ def get_orders(
 
 
 @app.get("/api/my/orders", response_model=list[OrderResponse])
-def get_my_orders(user_id: UserDep, status_filter: str | None = None, db: Session = Depends(get_db_session)):
+def get_my_orders(user_id: UserDep, status_filter: str | None, db: Annotated[Session, Depends(get_db_session)]):
     """Get current user's orders"""
     query = db.query(Order).filter(Order.user_id == user_id)
 
@@ -200,7 +200,7 @@ def get_my_orders(user_id: UserDep, status_filter: str | None = None, db: Sessio
 
 
 @app.get("/api/orders/orderbook", response_model=OrderBookResponse)
-def get_orderbook(db: Session = Depends(get_db_session)):
+def get_orderbook(db: Annotated[Session, Depends(get_db_session)]):
     """Get current order book"""
 
     # Get open buy orders (sorted by price descending)
@@ -221,7 +221,7 @@ def get_orderbook(db: Session = Depends(get_db_session)):
 
 
 @app.post("/api/orders", response_model=OrderResponse)
-def create_order(order: OrderCreate, user_id: UserDep, db: Session = Depends(get_db_session)):
+def create_order(order: OrderCreate, user_id: UserDep, db: Annotated[Session, Depends(get_db_session)]):
     """Create a new order"""
 
     # Validate order type
@@ -311,7 +311,7 @@ def try_match_order(order: Order, db: Session):
 
 
 @app.post("/api/auth/login")
-def login_user(wallet_address: str, db: Session = Depends(get_db_session)):
+def login_user(wallet_address: str, db: Annotated[Session, Depends(get_db_session)]):
     """Login with wallet address"""
     # Find or create user
     user = db.query(User).filter(User.wallet_address == wallet_address).first()

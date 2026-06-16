@@ -5,13 +5,12 @@ Tests for blockchain utility functions
 from unittest.mock import Mock, patch
 
 import pytest
+from aitbc import NetworkError
 from aitbc_cli.utils.blockchain import (
     get_blockchain_analytics,
     get_chain_info,
     get_network_status,
 )
-
-from aitbc import NetworkError
 
 
 class TestGetChainInfo:

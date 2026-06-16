@@ -1,8 +1,8 @@
 """Edge serve operations router for Edge API Service"""
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..services.serve_service import ServeService
@@ -25,7 +25,9 @@ def get_serve_service() -> ServeService:
 
 
 @router.post("/requests")
-async def submit_compute_request(request: SubmitComputeRequest, svc: ServeService = Depends(get_serve_service)) -> Any:
+async def submit_compute_request(
+    request: SubmitComputeRequest, svc: Annotated[ServeService, Depends(get_serve_service)]
+) -> Any:
     """Submit compute request"""
     result = await svc.submit_compute_request(request.gpu_id, request.model_name, request.input_data, request.priority)
     return result
@@ -33,7 +35,7 @@ async def submit_compute_request(request: SubmitComputeRequest, svc: ServeServic
 
 @router.get("/requests")
 async def list_compute_requests(
-    gpu_id: str = Query(None), status: str = Query(None), svc: ServeService = Depends(get_serve_service)
+    gpu_id: str | None, status: str | None, svc: Annotated[ServeService, Depends(get_serve_service)]
 ) -> dict[str, Any]:
     """List compute requests, optionally filtered"""
     requests = await svc.list_compute_requests(gpu_id, status)
@@ -41,7 +43,7 @@ async def list_compute_requests(
 
 
 @router.get("/requests/{request_id}")
-async def get_compute_request(request_id: str, svc: ServeService = Depends(get_serve_service)) -> Any:
+async def get_compute_request(request_id: str, svc: Annotated[ServeService, Depends(get_serve_service)]) -> Any:
     """Get compute request details"""
     req = await svc.get_compute_request(request_id)
     if req is None:
@@ -50,7 +52,7 @@ async def get_compute_request(request_id: str, svc: ServeService = Depends(get_s
 
 
 @router.post("/requests/{request_id}/cancel")
-async def cancel_compute_request(request_id: str, svc: ServeService = Depends(get_serve_service)) -> dict[str, str]:
+async def cancel_compute_request(request_id: str, svc: Annotated[ServeService, Depends(get_serve_service)]) -> dict[str, str]:
     """Cancel compute request"""
     success = await svc.cancel_compute_request(request_id)
     if success:
@@ -60,7 +62,7 @@ async def cancel_compute_request(request_id: str, svc: ServeService = Depends(ge
 
 
 @router.get("/requests/{request_id}/result")
-async def get_compute_result(request_id: str, svc: ServeService = Depends(get_serve_service)) -> Any:
+async def get_compute_result(request_id: str, svc: Annotated[ServeService, Depends(get_serve_service)]) -> Any:
     """Get compute result"""
     result = await svc.get_compute_result(request_id)
     if result is None:

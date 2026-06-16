@@ -13,7 +13,7 @@ sys.path.insert(0, str(REPO_DIR))
 sys.path.insert(0, str(SERVICE_DIR))
 
 # Import AITBC utilities
-from aitbc import (
+from aitbc import (  # noqa: E402
     DATA_DIR,
     LOG_DIR,
     REPO_DIR as AITBC_REPO_DIR,

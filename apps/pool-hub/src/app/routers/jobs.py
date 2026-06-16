@@ -1,9 +1,9 @@
 """Job distribution routes for Pool Hub"""
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
@@ -60,8 +60,8 @@ def get_scoring() -> ScoringEngine:
 async def assign_job(
     request: Request,
     job: JobRequest,
-    registry: MinerRegistry = Depends(get_registry),
-    scoring: ScoringEngine = Depends(get_scoring),
+    registry: Annotated[MinerRegistry, Depends(get_registry)],
+    scoring: Annotated[ScoringEngine, Depends(get_scoring)],
 ) -> JobAssignment:
     """Assign a job to the best available miner."""
     # Find available miners with required capability
@@ -93,8 +93,8 @@ async def assign_job(
 async def submit_result(
     request: Request,
     result: JobResult,
-    registry: MinerRegistry = Depends(get_registry),
-    scoring: ScoringEngine = Depends(get_scoring),
+    registry: Annotated[MinerRegistry, Depends(get_registry)],
+    scoring: Annotated[ScoringEngine, Depends(get_scoring)],
 ) -> dict[str, str]:
     """Submit job result and update miner stats."""
     miner = await registry.get(result.miner_id)
@@ -117,9 +117,9 @@ async def submit_result(
 @rate_limit(rate=200, per=60)
 async def get_pending_jobs(
     request: Request,
-    pool_id: str | None = Query(None),
-    limit: int = Query(50, le=100),
-    registry: MinerRegistry = Depends(get_registry),
+    pool_id: str | None,
+    limit: int | None,
+    registry: Annotated[MinerRegistry, Depends(get_registry)],
 ) -> list[dict[str, Any]]:
     """Get pending jobs waiting for assignment."""
     return await registry.get_pending_jobs(pool_id=pool_id, limit=limit)  # type: ignore[no-any-return]
@@ -127,7 +127,7 @@ async def get_pending_jobs(
 
 @router.get("/{job_id}")
 @rate_limit(rate=200, per=60)
-async def get_job_status(request: Request, job_id: str, registry: MinerRegistry = Depends(get_registry)) -> object:
+async def get_job_status(request: Request, job_id: str, registry: Annotated[MinerRegistry, Depends(get_registry)]) -> object:
     """Get job assignment status."""
     job = await registry.get_job(job_id)
     if not job:
@@ -140,8 +140,8 @@ async def get_job_status(request: Request, job_id: str, registry: MinerRegistry 
 async def reassign_job(
     request: Request,
     job_id: str,
-    registry: MinerRegistry = Depends(get_registry),
-    scoring: ScoringEngine = Depends(get_scoring),
+    registry: Annotated[MinerRegistry, Depends(get_registry)],
+    scoring: Annotated[ScoringEngine, Depends(get_scoring)],
 ) -> dict[str, str]:
     """Reassign a failed or timed-out job to another miner."""
     job = await registry.get_job(job_id)

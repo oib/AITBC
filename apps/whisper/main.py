@@ -1,3 +1,5 @@
+from typing import Annotated
+
 """
 AITBC Whisper Transcription Service
 Minimal FastAPI service wrapping faster-whisper for the software marketplace.
@@ -10,9 +12,9 @@ import tempfile
 import time
 from contextlib import asynccontextmanager
 
-import uvicorn
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+import uvicorn  # noqa: E402
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
 
 _model = None
 _model_name = os.getenv("WHISPER_MODEL", "base")
@@ -62,7 +64,7 @@ async def list_models():
 
 @app.post("/transcribe")
 async def transcribe(
-    file: UploadFile = File(...),
+    file: Annotated[UploadFile, File(...)],
     language: str | None = Form(default=None),
     task: str = Form(default="transcribe"),
     beam_size: int = Form(default=5),

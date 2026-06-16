@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from redis.asyncio import Redis
 from sqlalchemy import text
@@ -16,8 +18,8 @@ router = APIRouter(tags=["health"], prefix="/v1")
 
 @router.get("/health", response_model=HealthResponse, summary="Pool Hub health status")
 async def health_endpoint(
-    session: AsyncSession = Depends(db_session_dep),
-    redis: Redis = Depends(redis_dep),
+    session: Annotated[AsyncSession, Depends(db_session_dep)],
+    redis: Annotated[Redis, Depends(redis_dep)],
 ) -> HealthResponse:
     db_ok = True
     redis_ok = True

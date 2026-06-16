@@ -9,6 +9,12 @@ from importlib import import_module
 from typing import Any
 
 from ._version import __version__
+from .aitbc_logging import (
+    configure_logging,
+    get_blockchain_logger,
+    get_logger,
+    setup_logger,
+)
 from .constants import (
     AGENT_COORDINATOR_PORT,
     BLOCKCHAIN_DATA_DIR,
@@ -37,12 +43,6 @@ from .exceptions import (
     RateLimitError,
     RetryError,
     ValidationError,
-)
-from .logging import (
-    configure_logging,
-    get_blockchain_logger,
-    get_logger,
-    setup_logger,
 )
 from .middleware import (
     ErrorHandlerMiddleware,
@@ -89,11 +89,11 @@ for _name in ("DatabaseService SQLiteDatabaseService DatabaseServiceFactory").sp
     _LAZY_EXPORTS[_name] = ("database_service", _name)
 
 # HTTP client
-for _name in ("AsyncAITBCHTTPClient AITBCHTTPClient").split():
-    _LAZY_EXPORTS[_name] = ("network.http_client", _name)
+for _name in ("AsyncAITBCHTTPClient AITBCHTTPClient Web3Client create_web3_client").split():
+    _LAZY_EXPORTS[_name] = ("network", _name)
 
 # Config
-for _name in ("BaseAITBCConfig AITBCConfig").split():
+for _name in ("HierarchicalConfig ValidatedAITBCConfig").split():
     _LAZY_EXPORTS[_name] = ("config.hierarchical_config", _name)
 
 # Decorators
@@ -141,12 +141,17 @@ for _name in ("DataLayer MockDataGenerator RealDataFetcher get_data_layer").spli
 for _name in (
     "derive_ethereum_address sign_transaction_hash verify_signature encrypt_private_key decrypt_private_key "
     "generate_secure_random_bytes keccak256_hash sha256_hash validate_ethereum_address "
-    "generate_ethereum_private_key Web3Client create_web3_client "
+    "generate_ethereum_private_key"
+).split():
+    _LAZY_EXPORTS[_name] = ("crypto", _name)
+
+# Crypto Security
+for _name in (
     "generate_token generate_api_key validate_token_format validate_api_key "
     "generate_secure_random_string generate_secure_random_int SecretManager "
     "hash_password verify_password generate_nonce generate_hmac verify_hmac"
 ).split():
-    _LAZY_EXPORTS[_name] = ("crypto", _name)
+    _LAZY_EXPORTS[_name] = ("crypto.security", _name)
 
 # Events
 for _name in (

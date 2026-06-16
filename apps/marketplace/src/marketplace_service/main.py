@@ -6,7 +6,7 @@ Manages hardware+software bundle marketplace operations
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Annotated, Any
 
 import httpx
 from fastapi import BackgroundTasks, Depends, FastAPI
@@ -30,7 +30,7 @@ from .services.marketplace_service import MarketplaceService  # noqa: E402
 from .services.matching_service import MatchingService  # noqa: E402
 from .storage import get_session, init_db  # noqa: E402
 
-configure_logging(level="CRITICAL")
+configure_logging(level="INFO")
 logger = get_logger(__name__)
 
 
@@ -112,22 +112,22 @@ async def metrics() -> PlainTextResponse:
     return PlainTextResponse(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
-async def get_marketplace_service(session: AsyncSession = Depends(get_session)) -> MarketplaceService:
+async def get_marketplace_service(session: Annotated[AsyncSession, Depends(get_session)]) -> MarketplaceService:
     """Get marketplace service instance"""
     return MarketplaceService(session)
 
 
-async def get_matching_service(session: AsyncSession = Depends(get_session)) -> MatchingService:
+async def get_matching_service(session: Annotated[AsyncSession, Depends(get_session)]) -> MatchingService:
     """Get matching service instance"""
     return MatchingService(session)
 
 
 @app.get("/v1/marketplace/offers")
 async def get_offers(
-    status: str | None = None,
-    region: str | None = None,
-    gpu_model: str | None = None,
-    svc: MarketplaceService = Depends(get_marketplace_service),
+    status: str | None,
+    region: str | None,
+    gpu_model: str | None,
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
 ) -> Any:
     """Get marketplace offers"""
     try:
@@ -143,7 +143,7 @@ async def get_offers(
 
 
 @app.get("/v1/marketplace/offers/{offer_id}")
-async def get_offer(offer_id: str, svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def get_offer(offer_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
     """Get a specific marketplace offer"""
     try:
         logger.info("GET /v1/marketplace/offers/%s called", offer_id)
@@ -176,7 +176,7 @@ async def book_offer(
     offer_id: str,
     booking_data: dict[str, Any],
     background_tasks: BackgroundTasks,
-    svc: MarketplaceService = Depends(get_marketplace_service),
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
 ) -> Any:
     """Book/purchase a marketplace offer"""
     try:
@@ -197,7 +197,9 @@ async def book_offer(
 
 
 @app.post("/v1/marketplace/offers")
-async def create_offer(offer_data: dict[str, Any], svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def create_offer(
+    offer_data: dict[str, Any], svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+) -> Any:
     """Create a new marketplace offer"""
     try:
         logger.info("POST /v1/marketplace/offers called with data keys: %s", offer_data.keys())
@@ -217,13 +219,13 @@ async def create_offer(offer_data: dict[str, Any], svc: MarketplaceService = Dep
 
 
 @app.get("/v1/marketplace/analytics")
-async def get_analytics(period_type: str = "daily", svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def get_analytics(period_type: str | None, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
     """Get marketplace analytics"""
     return await svc.get_analytics(period_type=period_type)
 
 
 @app.get("/v1/marketplace")
-async def get_marketplace_overview(svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def get_marketplace_overview(svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
     """Get hardware+software bundle marketplace overview"""
     logger.info("GET /v1/marketplace called - marketplace overview")
     offers = await svc.list_offers()
@@ -244,7 +246,7 @@ async def get_marketplace_overview(svc: MarketplaceService = Depends(get_marketp
 
 
 @app.get("/v1/marketplace/offers/{offer_id}/history")
-async def get_offer_history(offer_id: str, svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def get_offer_history(offer_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
     """Get offer history (migrated from Coordinator API)"""
     logger.info("GET /v1/marketplace/offers/%s/history called", offer_id)
     offer = await svc.get_offer(offer_id)
@@ -263,7 +265,7 @@ async def get_offer_history(offer_id: str, svc: MarketplaceService = Depends(get
 
 @app.post("/v1/marketplace/offers/{offer_id}/cancel")
 async def cancel_offer(
-    offer_id: str, reason: str | None = None, svc: MarketplaceService = Depends(get_marketplace_service)
+    offer_id: str, reason: str | None, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
 ) -> Any:
     """Cancel offer (migrated from Coordinator API)"""
     logger.info("POST /v1/marketplace/offers/%s/cancel called", offer_id)
@@ -285,7 +287,7 @@ async def cancel_offer(
 
 @app.get("/v1/marketplace/performance")
 async def get_marketplace_performance(
-    period: str = "daily", svc: MarketplaceService = Depends(get_marketplace_service)
+    period: str | None, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
 ) -> Any:
     """Get marketplace performance metrics (migrated from Coordinator API)"""
     logger.info("GET /v1/marketplace/performance called with period=%s", period)
@@ -306,7 +308,10 @@ async def get_marketplace_performance(
 
 @app.post("/v1/marketplace/dynamic-pricing")
 async def calculate_dynamic_pricing(
-    offer_id: str, current_demand: int, current_supply: int, svc: MarketplaceService = Depends(get_marketplace_service)
+    offer_id: str,
+    current_demand: int,
+    current_supply: int,
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
 ) -> Any:
     """Calculate dynamic pricing based on supply/demand (migrated from Coordinator API)"""
     logger.info("POST /v1/marketplace/dynamic-pricing called for offer %s", offer_id)
@@ -375,7 +380,9 @@ async def get_plugins(plugin_type: str | None = None, status: str = "approved") 
 
 
 @app.post("/v1/marketplace/plugins")
-async def register_plugin(plugin_data: dict[str, Any], svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def register_plugin(
+    plugin_data: dict[str, Any], svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+) -> Any:
     """Register a new plugin"""
     try:
         logger.info("POST /v1/marketplace/plugins called with data keys: %s", plugin_data.keys())
@@ -389,7 +396,9 @@ async def register_plugin(plugin_data: dict[str, Any], svc: MarketplaceService =
 
 @app.get("/v1/marketplace/offer")
 async def list_software_offers(
-    service_type: str | None = None, status: str | None = None, svc: MarketplaceService = Depends(get_marketplace_service)
+    service_type: str | None,
+    status: str | None,
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
 ) -> Any:
     """List marketplace offers (hardware+software bundles)"""
     try:
@@ -403,7 +412,7 @@ async def list_software_offers(
 
 
 @app.get("/v1/marketplace/offer/{plugin_id}")
-async def get_software_offer(plugin_id: str, svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def get_software_offer(plugin_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
     """Get a specific marketplace offer"""
     try:
         logger.info("GET /v1/marketplace/offer/%s called", plugin_id)
@@ -418,7 +427,9 @@ async def get_software_offer(plugin_id: str, svc: MarketplaceService = Depends(g
 
 
 @app.post("/v1/marketplace/offer")
-async def register_offer(service_data: dict[str, Any], svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def register_offer(
+    service_data: dict[str, Any], svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+) -> Any:
     """Register or update a marketplace offer"""
     try:
         logger.info("POST /v1/marketplace/offer called with data keys: %s", service_data.keys())
@@ -431,7 +442,7 @@ async def register_offer(service_data: dict[str, Any], svc: MarketplaceService =
 
 
 @app.delete("/v1/marketplace/offer/{plugin_id}")
-async def unregister_offer(plugin_id: str, svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def unregister_offer(plugin_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
     """Unregister a marketplace offer"""
     try:
         logger.info("DELETE /v1/marketplace/offer/%s called", plugin_id)
@@ -444,7 +455,9 @@ async def unregister_offer(plugin_id: str, svc: MarketplaceService = Depends(get
 
 
 @app.post("/v1/knowledge-graph")
-async def create_graph(graph_data: dict[str, Any], svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def create_graph(
+    graph_data: dict[str, Any], svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+) -> Any:
     """Create a new knowledge graph"""
     try:
         logger.info("POST /v1/knowledge-graph called with data keys: %s", graph_data.keys())
@@ -458,7 +471,7 @@ async def create_graph(graph_data: dict[str, Any], svc: MarketplaceService = Dep
 
 @app.post("/v1/knowledge-graph/{graph_id}/nodes")
 async def add_node(
-    graph_id: str, node_data: dict[str, Any], svc: MarketplaceService = Depends(get_marketplace_service)
+    graph_id: str, node_data: dict[str, Any], svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
 ) -> Any:
     """Add a node to a knowledge graph"""
     try:
@@ -474,7 +487,7 @@ async def add_node(
 
 @app.post("/v1/knowledge-graph/{graph_id}/edges")
 async def add_edge(
-    graph_id: str, edge_data: dict[str, Any], svc: MarketplaceService = Depends(get_marketplace_service)
+    graph_id: str, edge_data: dict[str, Any], svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
 ) -> Any:
     """Add an edge to a knowledge graph"""
     try:
@@ -489,7 +502,7 @@ async def add_edge(
 
 
 @app.get("/v1/knowledge-graph/{graph_id}")
-async def query_graph(graph_id: str, svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def query_graph(graph_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
     """Query a knowledge graph"""
     try:
         logger.info("GET /v1/knowledge-graph/%s called", graph_id)
@@ -510,7 +523,7 @@ class RatingRequest(BaseModel):
 
 @app.post("/v1/marketplace/offer/{service_id}/rate")
 async def rate_service(
-    service_id: str, rating_data: RatingRequest, svc: MarketplaceService = Depends(get_marketplace_service)
+    service_id: str, rating_data: RatingRequest, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
 ) -> Any:
     """Rate a marketplace service offer"""
     try:
@@ -539,7 +552,10 @@ async def rate_service(
 
 @app.get("/v1/marketplace/offer/{service_id}/ratings")
 async def get_service_ratings(
-    service_id: str, limit: int = 50, offset: int = 0, svc: MarketplaceService = Depends(get_marketplace_service)
+    service_id: str,
+    limit: int | None,
+    offset: int | None,
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
 ) -> Any:
     """Get ratings for a marketplace service offer"""
     try:
@@ -570,7 +586,7 @@ async def get_service_ratings(
 
 
 @app.get("/v1/marketplace/offer-by-id/{offer_id}")
-async def get_offer_by_id(offer_id: str, svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def get_offer_by_id(offer_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
     """Get a marketplace service offer by offer_id (blockchain offer ID)"""
     try:
         logger.info("GET /v1/marketplace/offer-by-id/%s called", offer_id)
@@ -584,7 +600,7 @@ async def get_offer_by_id(offer_id: str, svc: MarketplaceService = Depends(get_m
 
 
 @app.get("/v1/marketplace/ratings/unsynced")
-async def get_unsynced_ratings(limit: int = 100, svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def get_unsynced_ratings(limit: int | None, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
     """Get ratings that haven't been synced to remote nodes"""
     try:
         logger.info("GET /v1/marketplace/ratings/unsynced called")
@@ -596,7 +612,9 @@ async def get_unsynced_ratings(limit: int = 100, svc: MarketplaceService = Depen
 
 
 @app.post("/v1/marketplace/ratings/sync")
-async def sync_ratings(ratings: list[dict[str, Any]], svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def sync_ratings(
+    ratings: list[dict[str, Any]], svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+) -> Any:
     """Sync ratings from remote node"""
     try:
         logger.info("POST /v1/marketplace/ratings/sync called with %s ratings", len(ratings))
@@ -608,7 +626,9 @@ async def sync_ratings(ratings: list[dict[str, Any]], svc: MarketplaceService = 
 
 
 @app.post("/v1/marketplace/ratings/mark-synced")
-async def mark_ratings_synced(rating_ids: list[str], svc: MarketplaceService = Depends(get_marketplace_service)) -> Any:
+async def mark_ratings_synced(
+    rating_ids: list[str], svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+) -> Any:
     """Mark ratings as synced to remote nodes"""
     try:
         logger.info("POST /v1/marketplace/ratings/mark-synced called with %s IDs", len(rating_ids))
@@ -620,7 +640,9 @@ async def mark_ratings_synced(rating_ids: list[str], svc: MarketplaceService = D
 
 
 @app.post("/v1/transactions")
-async def submit_transaction(transaction_data: dict[str, Any], session: AsyncSession = Depends(get_session_dep)) -> Any:
+async def submit_transaction(
+    transaction_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]
+) -> Any:
     """Submit marketplace transaction"""
     from .domain.marketplace import MarketplaceOffer
 
@@ -644,11 +666,11 @@ async def submit_transaction(transaction_data: dict[str, Any], session: AsyncSes
 
 @app.get("/v1/transactions")
 async def get_transactions(
-    transaction_type: str | None = None,
-    action: str | None = None,
-    status: str | None = None,
-    island_id: str | None = None,
-    session: AsyncSession = Depends(get_session_dep),
+    transaction_type: str | None,
+    action: str | None,
+    status: str | None,
+    island_id: str | None,
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
 ) -> Any:
     """Query marketplace transactions"""
     from sqlalchemy import select
