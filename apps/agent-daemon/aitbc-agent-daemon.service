@@ -17,7 +17,7 @@ Environment="HERMES_SERVICE_URL=http://localhost:8103"
 Environment="ENABLE_HERMES_POLLING=true"
 Environment="HERMES_AGENT_IDS=owl-hub"
 Environment="AGENT_DAEMON_CHAINS=ait-hub.aitbc.bubuit.net"
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-daemon/aitbc-agent-daemon-wrapper.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-coordinator/scripts/agent_daemon.py --wallet my-agent-wallet --address "" --password-file /var/lib/aitbc/keystore/.genesis_password --keystore-dir /var/lib/aitbc/keystore --db-path /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db --rpc-url http://localhost:8202 --poll-interval 10 --reply-message pong --trigger-message ping --chain-id ait-hub.aitbc.bubuit.net
 
 Restart=always
 RestartSec=10

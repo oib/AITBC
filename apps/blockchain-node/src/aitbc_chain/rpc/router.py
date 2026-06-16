@@ -239,6 +239,13 @@ async def get_info_route(request: Request, chain_id: str | None = None) -> dict[
     }
 
 
+@router.get("/status", summary="Get node status (alias for /info)")
+@rate_limit(rate=200, per=60)
+async def get_status_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """Get node status - alias for /info endpoint"""
+    return await get_info_route(request, chain_id)
+
+
 @router.get("/network-info", summary="Get network information for joining")
 @rate_limit(rate=100, per=60)
 async def get_network_info_route(request: Request) -> dict[str, Any]:
