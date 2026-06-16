@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
@@ -22,7 +22,7 @@ limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(tags=["marketplace"])
 
 
-def _get_service(session: Session = Depends(get_session)) -> MarketplaceService:
+def _get_service(session: Annotated[Session, Depends(get_session)]) -> MarketplaceService:
     return MarketplaceService(session)  # type: ignore[arg-type]
 
 
@@ -31,7 +31,7 @@ def _get_service(session: Session = Depends(get_session)) -> MarketplaceService:
 async def list_marketplace_offers(
     request: Request,
     *,
-    session: Session = Depends(get_session),
+    session: Annotated[Session, Depends(get_session)],
     status_filter: str | None = Query(default=None, alias="status", description="Filter by offer status"),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -51,7 +51,9 @@ async def list_marketplace_offers(
 @router.get("/marketplace/stats", response_model=MarketplaceStatsView, summary="Get marketplace summary statistics")
 @limiter.limit(lambda: settings.rate_limit_marketplace_stats)
 @cached(**get_cache_config("marketplace_stats"))
-async def get_marketplace_stats(request: Request, *, session: Session = Depends(get_session)) -> MarketplaceStatsView:
+async def get_marketplace_stats(
+    request: Request, *, session: Annotated[Session, Depends(get_session)]
+) -> MarketplaceStatsView:
     marketplace_requests_total.labels(endpoint="/marketplace/stats", method="GET").inc()
     service = _get_service(session)
     try:
@@ -65,7 +67,7 @@ async def get_marketplace_stats(request: Request, *, session: Session = Depends(
 async def list_marketplace_plugins(
     request: Request,
     *,
-    session: Session = Depends(get_session),
+    session: Annotated[Session, Depends(get_session)],
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:

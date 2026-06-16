@@ -4,10 +4,10 @@ REST API for agent-to-agent trading, matching, negotiation, and settlement
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
@@ -163,7 +163,7 @@ class TradingSummaryResponse(BaseModel):
 @router.post("/requests", response_model=TradeRequestResponse)
 @rate_limit(rate=20, per=60)
 async def create_trade_request(
-    request: Request, request_data: TradeRequestRequest, session: Session = Depends(get_session)
+    request: Request, request_data: TradeRequestRequest, session: Annotated[Session, Depends(get_session)]
 ) -> TradeRequestResponse:
     """Create a new trade request"""
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
@@ -217,7 +217,7 @@ async def create_trade_request(
 @router.get("/requests/{request_id}", response_model=TradeRequestResponse)
 @rate_limit(rate=200, per=60)
 async def get_trade_request(
-    request: Request, request_id: str, session: Session = Depends(get_session)
+    request: Request, request_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> TradeRequestResponse:
     """Get trade request details"""
     try:
@@ -248,7 +248,7 @@ async def get_trade_request(
 
 @router.post("/requests/{request_id}/matches")
 @rate_limit(rate=50, per=60)
-async def find_matches(request: Request, request_id: str, session: Session = Depends(get_session)) -> list[str]:
+async def find_matches(request: Request, request_id: str, session: Annotated[Session, Depends(get_session)]) -> list[str]:
     """Find matching sellers for a trade request"""
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
@@ -264,7 +264,7 @@ async def find_matches(request: Request, request_id: str, session: Session = Dep
 @router.get("/requests/{request_id}/matches")
 @rate_limit(rate=200, per=60)
 async def get_trade_matches(
-    request: Request, request_id: str, session: Session = Depends(get_session)
+    request: Request, request_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> list[TradeMatchResponse]:
     """Get trade matches for a request"""
     try:
@@ -300,7 +300,7 @@ async def get_trade_matches(
 @router.post("/negotiations", response_model=NegotiationResponse)
 @rate_limit(rate=20, per=60)
 async def initiate_negotiation(
-    request: Request, negotiation_data: NegotiationRequest, session: Session = Depends(get_session)
+    request: Request, negotiation_data: NegotiationRequest, session: Annotated[Session, Depends(get_session)]
 ) -> NegotiationResponse:
     """Initiate negotiation between buyer and seller"""
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
@@ -332,7 +332,7 @@ async def initiate_negotiation(
 @router.get("/negotiations/{negotiation_id}", response_model=NegotiationResponse)
 @rate_limit(rate=200, per=60)
 async def get_negotiation(
-    request: Request, negotiation_id: str, session: Session = Depends(get_session)
+    request: Request, negotiation_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> NegotiationResponse:
     """Get negotiation details"""
     try:
@@ -364,7 +364,9 @@ async def get_negotiation(
 
 @router.get("/matches/{match_id}")
 @rate_limit(rate=200, per=60)
-async def get_trade_match(request: Request, match_id: str, session: Session = Depends(get_session)) -> TradeMatchResponse:
+async def get_trade_match(
+    request: Request, match_id: str, session: Annotated[Session, Depends(get_session)]
+) -> TradeMatchResponse:
     """Get trade match details"""
     try:
         match = session.execute(select(TradeMatch).where(TradeMatch.match_id == match_id)).first()
@@ -398,7 +400,7 @@ async def get_trade_match(request: Request, match_id: str, session: Session = De
 @router.get("/agents/{agent_id}/summary", response_model=TradingSummaryResponse)
 @rate_limit(rate=200, per=60)
 async def get_trading_summary(
-    request: Request, agent_id: str, session: Session = Depends(get_session)
+    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> TradingSummaryResponse:
     """Get comprehensive trading summary for an agent"""
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
@@ -414,11 +416,11 @@ async def get_trading_summary(
 @rate_limit(rate=200, per=60)
 async def list_trade_requests(
     request: Request,
-    agent_id: str | None = Query(default=None, description="Filter by agent ID"),
-    trade_type: str | None = Query(default=None, description="Filter by trade type"),
-    status: str | None = Query(default=None, description="Filter by status"),
-    limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Session = Depends(get_session),
+    agent_id: str | None,
+    trade_type: str | None,
+    status: str | None,
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> list[TradeRequestResponse]:
     """List trade requests with filters"""
     try:
@@ -457,11 +459,11 @@ async def list_trade_requests(
 @rate_limit(rate=200, per=60)
 async def list_trade_matches(
     request: Request,
-    agent_id: str | None = Query(default=None, description="Filter by agent ID"),
-    min_score: float | None = Query(default=None, description="Minimum match score"),
-    status: str | None = Query(default=None, description="Filter by status"),
-    limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Session = Depends(get_session),
+    agent_id: str | None,
+    min_score: float | None,
+    status: str | None,
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> list[TradeMatchResponse]:
     """List trade matches with filters"""
     try:
@@ -503,11 +505,11 @@ async def list_trade_matches(
 @rate_limit(rate=200, per=60)
 async def list_negotiations(
     request: Request,
-    agent_id: str | None = Query(default=None, description="Filter by agent ID"),
-    status: str | None = Query(default=None, description="Filter by status"),
-    strategy: str | None = Query(default=None, description="Filter by strategy"),
-    limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Session = Depends(get_session),
+    agent_id: str | None,
+    status: str | None,
+    strategy: str | None,
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> list[NegotiationResponse]:
     """List negotiations with filters"""
     try:
@@ -545,10 +547,10 @@ async def list_negotiations(
 @rate_limit(rate=200, per=60)
 async def get_trading_analytics(
     request: Request,
-    period_type: str = Query(default="daily", description="Period type: daily, weekly, monthly"),
-    start_date: str | None = Query(default=None, description="Start date (ISO format)"),
-    end_date: str | None = Query(default=None, description="End date (ISO format)"),
-    session: Session = Depends(get_session),
+    period_type: str | None,
+    start_date: str | None,
+    end_date: str | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get P2P trading analytics"""
     try:
@@ -597,7 +599,7 @@ async def get_trading_analytics(
 @router.post("/simulate-match")
 @rate_limit(rate=50, per=60)
 async def simulate_trade_matching(
-    request: Request, request_data: TradeRequestRequest, session: Session = Depends(get_session)
+    request: Request, request_data: TradeRequestRequest, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Simulate trade matching without creating actual request"""
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]

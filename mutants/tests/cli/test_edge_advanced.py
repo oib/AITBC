@@ -9,10 +9,9 @@ from unittest.mock import MagicMock, Mock, patch
 
 import httpx
 import pytest
+from aitbc import AITBCHTTPClient
 from aitbc_cli.commands.edge import edge
 from click.testing import CliRunner
-
-from aitbc import AITBCHTTPClient
 
 
 @pytest.fixture

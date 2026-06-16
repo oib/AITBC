@@ -11,8 +11,8 @@ import yaml
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from ..aitbc_logging import get_logger
 from ..constants import CONFIG_DIR, DATA_DIR, ENV_FILE, LOG_DIR
-from ..logging import get_logger
 
 logger = get_logger(__name__)
 

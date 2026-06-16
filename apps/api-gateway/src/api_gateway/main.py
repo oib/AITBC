@@ -1,3 +1,5 @@
+from typing import Annotated
+
 """
 API Gateway main application
 Routes requests to microservices
@@ -109,7 +111,7 @@ if SLOWAPI_AVAILABLE:
         )
 
 
-def verify_auth(credentials: HTTPAuthorizationCredentials = Depends(security)) -> bool:
+def verify_auth(credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]) -> bool:
     """Verify authentication if required."""
     if not REQUIRE_AUTH:
         return True
@@ -200,7 +202,7 @@ async def proxy_with_retry(client: httpx.AsyncClient, method: str, url: str, **k
 
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
-async def proxy_request(path: str, request: Request, authenticated: bool = Depends(verify_auth)) -> Response:
+async def proxy_request(path: str, request: Request, authenticated: Annotated[bool, Depends(verify_auth)]) -> Response:
     """Proxy request to appropriate microservice with rate limiting and circuit breaker."""
     service_name: str | None = None
     for name, config in SERVICES.items():

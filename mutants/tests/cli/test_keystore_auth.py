@@ -101,9 +101,8 @@ class TestLoadKeystore:
     def test_load_keystore_success(self):
         """Test successful keystore loading"""
         try:
-            from keystore_auth import load_keystore
-
             from aitbc.utils.paths import get_keystore_path  # noqa: F401
+            from keystore_auth import load_keystore
         except ImportError:
             pytest.skip("aitbc.utils.paths import failed")
 
@@ -124,9 +123,8 @@ class TestLoadKeystore:
     def test_load_keystore_not_found(self):
         """Test loading non-existent keystore"""
         try:
-            from keystore_auth import load_keystore
-
             from aitbc.utils.paths import get_keystore_path  # noqa: F401
+            from keystore_auth import load_keystore
         except ImportError:
             pytest.skip("aitbc.utils.paths import failed")
 
