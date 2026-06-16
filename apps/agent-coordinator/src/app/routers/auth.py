@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -121,8 +121,8 @@ async def validate_token(request: Request, validate_data: dict[str, str]) -> dic
 async def generate_api_key(
     request: Request,
     user_id: str,
-    permissions: list[str] | None = None,
-    current_user: dict[str, Any] = Depends(get_current_user),
+    permissions: list[str] | None,
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
 ) -> dict[str, Any]:
     """Generate API key for user"""
     try:
@@ -156,7 +156,7 @@ async def validate_api_key(request: Request, api_key: str) -> dict[str, Any]:
 @router.delete("/api-key/{api_key}")
 @rate_limit(rate=50, per=60)
 async def revoke_api_key(
-    request: Request, api_key: str, current_user: dict[str, Any] = Depends(get_current_user)
+    request: Request, api_key: str, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
 ) -> dict[str, Any]:
     """Revoke API key"""
     try:

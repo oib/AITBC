@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from aitbc import configure_logging, get_logger
+
 from ..database import close_engine, create_engine
 from ..redis_cache import close_redis, create_redis
 from ..settings import settings
@@ -11,6 +13,9 @@ from .routers.services import router as services_router
 from .routers.sla import router as sla_router
 from .routers.ui import router as ui_router
 from .routers.validation import router as validation_router
+
+configure_logging(level="INFO")
+logger = get_logger(__name__)
 
 
 @asynccontextmanager

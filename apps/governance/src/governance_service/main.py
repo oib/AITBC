@@ -5,7 +5,7 @@ Manages governance operations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
@@ -89,82 +89,86 @@ async def governance_status() -> dict[str, str]:
     return {"status": "operational", "service": "governance-service", "message": "Governance service is running"}
 
 
-async def get_governance_service(session: AsyncSession = Depends(get_session_dep)) -> GovernanceService:
+async def get_governance_service(session: Annotated[AsyncSession, Depends(get_session_dep)]) -> GovernanceService:
     """Get governance service instance"""
     return GovernanceService(session)
 
 
 @app.get("/v1/governance/profiles")
 async def get_profiles(
-    role: str | None = None, user_id: str | None = None, svc: GovernanceService = Depends(get_governance_service)
+    role: str | None, user_id: str | None, svc: Annotated[GovernanceService, Depends(get_governance_service)]
 ):
     """Get governance profiles"""
     return await svc.list_profiles(role=role, user_id=user_id)
 
 
 @app.get("/v1/governance/profiles/{profile_id}")
-async def get_profile(profile_id: str, svc: GovernanceService = Depends(get_governance_service)):
+async def get_profile(profile_id: str, svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Get a specific governance profile"""
     return await svc.get_profile(profile_id)
 
 
 @app.post("/v1/governance/profiles")
-async def create_profile(profile_data: dict[str, Any], svc: GovernanceService = Depends(get_governance_service)):
+async def create_profile(profile_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Create a new governance profile"""
     return await svc.create_profile(profile_data)
 
 
 @app.get("/v1/governance/proposals")
 async def get_proposals(
-    status: str | None = None,
-    category: str | None = None,
-    proposer_id: str | None = None,
-    svc: GovernanceService = Depends(get_governance_service),
+    status: str | None,
+    category: str | None,
+    proposer_id: str | None,
+    svc: Annotated[GovernanceService, Depends(get_governance_service)],
 ):
     """Get governance proposals"""
     return await svc.list_proposals(status=status, category=category, proposer_id=proposer_id)
 
 
 @app.get("/v1/governance/proposals/{proposal_id}")
-async def get_proposal(proposal_id: str, svc: GovernanceService = Depends(get_governance_service)):
+async def get_proposal(proposal_id: str, svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Get a specific proposal"""
     return await svc.get_proposal(proposal_id)
 
 
 @app.post("/v1/governance/proposals")
-async def create_proposal(proposal_data: dict[str, Any], svc: GovernanceService = Depends(get_governance_service)):
+async def create_proposal(proposal_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Create a new proposal"""
     return await svc.create_proposal(proposal_data)
 
 
 @app.get("/v1/governance/votes")
 async def get_votes(
-    proposal_id: str | None = None, voter_id: str | None = None, svc: GovernanceService = Depends(get_governance_service)
+    proposal_id: str | None,
+    voter_id: str | None,
+    svc: Annotated[GovernanceService, Depends(get_governance_service)],
 ):
     """Get votes"""
     return await svc.list_votes(proposal_id=proposal_id, voter_id=voter_id)
 
 
 @app.post("/v1/governance/votes")
-async def create_vote(vote_data: dict[str, Any], svc: GovernanceService = Depends(get_governance_service)):
+async def create_vote(vote_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Create a new vote"""
     return await svc.create_vote(vote_data)
 
 
 @app.get("/v1/governance/treasury")
-async def get_treasury(svc: GovernanceService = Depends(get_governance_service)):
+async def get_treasury(svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Get DAO treasury"""
     return await svc.get_treasury()
 
 
 @app.get("/v1/governance/analytics")
-async def get_analytics(period: str = "monthly", svc: GovernanceService = Depends(get_governance_service)):
+async def get_analytics(period: str | None, svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Get governance analytics"""
     return await svc.get_analytics(period=period)
 
 
 @app.post("/v1/governance/execute")
-async def execute_proposal(proposal_id: str, executor_id: str, svc: GovernanceService = Depends(get_governance_service)):
+async def execute_proposal(
+    proposal_id: str, executor_id: str, svc: Annotated[GovernanceService, Depends(get_governance_service)]
+):
     """Execute a passed proposal (migrated from Coordinator API)"""
     logger.info("Executing proposal %s by executor %s", proposal_id, executor_id)
     proposal = await svc.get_proposal(proposal_id)
@@ -208,7 +212,7 @@ async def get_governance_params():
 
 @app.get("/v1/governance/voting-power/{address}")
 async def get_voting_power(
-    address: str, proposal_id: str | None = None, svc: GovernanceService = Depends(get_governance_service)
+    address: str, proposal_id: str | None, svc: Annotated[GovernanceService, Depends(get_governance_service)]
 ):
     """Get voting power for an address (migrated from Coordinator API)"""
     logger.info("Getting voting power for address %s", address)
@@ -235,7 +239,7 @@ async def get_voting_power(
 
 
 @app.post("/v1/transactions")
-async def submit_transaction(transaction_data: dict[str, Any], session: AsyncSession = Depends(get_session_dep)):
+async def submit_transaction(transaction_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Submit governance transaction"""
     from .domain.governance import Proposal, Vote
 
@@ -262,11 +266,11 @@ async def submit_transaction(transaction_data: dict[str, Any], session: AsyncSes
 
 @app.get("/v1/transactions")
 async def get_transactions(
-    transaction_type: str | None = None,
-    action: str | None = None,
-    status: str | None = None,
-    island_id: str | None = None,
-    session: AsyncSession = Depends(get_session_dep),
+    transaction_type: str | None,
+    action: str | None,
+    status: str | None,
+    island_id: str | None,
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
 ):
     """Query governance transactions"""
     from sqlalchemy import select
@@ -317,7 +321,7 @@ async def get_transactions(
 
 @app.post("/v1/governance/stake")
 async def stake_tokens(
-    staker_address: str, amount: int, lock_period_days: int, svc: GovernanceService = Depends(get_governance_service)
+    staker_address: str, amount: int, lock_period_days: int, svc: Annotated[GovernanceService, Depends(get_governance_service)]
 ):
     """Stake tokens for enhanced voting power"""
     try:
@@ -336,7 +340,7 @@ async def stake_tokens(
 
 
 @app.get("/v1/governance/voting-power/{address}")
-async def get_voting_power_v2(address: str, svc: GovernanceService = Depends(get_governance_service)):
+async def get_voting_power_v2(address: str, svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Get voting power for an address (v0.4.12 enhanced)"""
     try:
         voting_power = await svc.calculate_voting_power(address)
@@ -348,7 +352,10 @@ async def get_voting_power_v2(address: str, svc: GovernanceService = Depends(get
 
 @app.post("/v1/governance/delegate")
 async def delegate_voting_power(
-    delegator_address: str, delegate_address: str, amount: int, svc: GovernanceService = Depends(get_governance_service)
+    delegator_address: str,
+    delegate_address: str,
+    amount: int,
+    svc: Annotated[GovernanceService, Depends(get_governance_service)],
 ):
     """Delegate voting power to another address"""
     try:
@@ -366,7 +373,7 @@ async def delegate_voting_power(
 
 
 @app.post("/v1/governance/proposals/{proposal_id}/execute")
-async def execute_proposal_v2(proposal_id: str, svc: GovernanceService = Depends(get_governance_service)):
+async def execute_proposal_v2(proposal_id: str, svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Execute a passed proposal (v0.4.12 enhanced with logging)"""
     try:
         proposal = await svc.execute_proposal(proposal_id)

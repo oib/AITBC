@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import base64
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
@@ -28,9 +28,9 @@ def _response(
 @router.post("/rpc", summary="JSON-RPC endpoint")
 def handle_jsonrpc(
     request: dict[str, Any],
-    service: ReceiptVerifierService = Depends(get_receipt_service),
-    keystore: KeystoreService = Depends(get_keystore),
-    ledger: SQLiteLedgerAdapter = Depends(get_ledger),
+    service: Annotated[ReceiptVerifierService, Depends(get_receipt_service)],
+    keystore: Annotated[KeystoreService, Depends(get_keystore)],
+    ledger: Annotated[SQLiteLedgerAdapter, Depends(get_ledger)],
 ) -> dict[str, Any]:
     method = request.get("method")
     params = request.get("params") or {}

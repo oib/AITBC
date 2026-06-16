@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -15,7 +15,7 @@ router = APIRouter()
 @router.post("/users/{user_id}/role")
 @rate_limit(rate=50, per=60)
 async def assign_user_role(
-    request: Request, user_id: str, role: str, current_user: dict[str, Any] = Depends(get_current_user)
+    request: Request, user_id: str, role: str, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
 ) -> dict[str, Any]:
     """Assign role to user"""
     try:
@@ -37,7 +37,7 @@ async def assign_user_role(
 @router.get("/users/{user_id}/role")
 @rate_limit(rate=200, per=60)
 async def get_user_role(
-    request: Request, user_id: str, current_user: dict[str, Any] = Depends(get_current_user)
+    request: Request, user_id: str, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
 ) -> dict[str, Any]:
     """Get user's role"""
     try:
@@ -55,7 +55,7 @@ async def get_user_role(
 @router.get("/users/{user_id}/permissions")
 @rate_limit(rate=200, per=60)
 async def get_user_permissions(
-    request: Request, user_id: str, current_user: dict[str, Any] = Depends(get_current_user)
+    request: Request, user_id: str, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
 ) -> dict[str, Any]:
     """Get user's permissions"""
     try:
@@ -75,7 +75,7 @@ async def get_user_permissions(
 @router.post("/users/{user_id}/permissions/grant")
 @rate_limit(rate=50, per=60)
 async def grant_user_permission(
-    request: Request, user_id: str, permission: str, current_user: dict[str, Any] = Depends(get_current_user)
+    request: Request, user_id: str, permission: str, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
 ) -> dict[str, Any]:
     """Grant custom permission to user"""
     try:
@@ -97,7 +97,7 @@ async def grant_user_permission(
 @router.delete("/users/{user_id}/permissions/{permission}")
 @rate_limit(rate=50, per=60)
 async def revoke_user_permission(
-    request: Request, user_id: str, permission: str, current_user: dict[str, Any] = Depends(get_current_user)
+    request: Request, user_id: str, permission: str, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
 ) -> dict[str, Any]:
     """Revoke custom permission from user"""
     try:
@@ -118,7 +118,9 @@ async def revoke_user_permission(
 
 @router.get("/roles")
 @rate_limit(rate=200, per=60)
-async def list_all_roles(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+async def list_all_roles(
+    request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
+) -> dict[str, Any]:
     """List all available roles and their permissions"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.USER_VIEW):
@@ -135,7 +137,7 @@ async def list_all_roles(request: Request, current_user: dict[str, Any] = Depend
 @router.get("/roles/{role}")
 @rate_limit(rate=200, per=60)
 async def get_role_permissions(
-    request: Request, role: str, current_user: dict[str, Any] = Depends(get_current_user)
+    request: Request, role: str, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
 ) -> dict[str, Any]:
     """Get all permissions for a specific role"""
     try:
@@ -156,7 +158,9 @@ async def get_role_permissions(
 
 @router.get("/auth/stats")
 @rate_limit(rate=200, per=60)
-async def get_permission_stats(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+async def get_permission_stats(
+    request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
+) -> dict[str, Any]:
     """Get statistics about permissions and users"""
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
@@ -173,7 +177,9 @@ async def get_permission_stats(request: Request, current_user: dict[str, Any] = 
 @router.get("/protected/admin")
 @rate_limit(rate=100, per=60)
 @require_role([Role.ADMIN])  # type: ignore
-async def admin_only_endpoint(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+async def admin_only_endpoint(
+    request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
+) -> dict[str, Any]:
     """Admin-only endpoint example"""
     return {
         "status": "success",
@@ -191,7 +197,9 @@ async def admin_only_endpoint(request: Request, current_user: dict[str, Any] = D
 @router.get("/protected/operator")
 @rate_limit(rate=100, per=60)
 @require_role([Role.ADMIN, Role.OPERATOR])  # type: ignore
-async def operator_endpoint(request: Request, current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+async def operator_endpoint(
+    request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
+) -> dict[str, Any]:
     """Operator and admin endpoint example"""
     return {
         "status": "success",

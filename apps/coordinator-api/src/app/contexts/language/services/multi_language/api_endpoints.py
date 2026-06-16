@@ -5,7 +5,7 @@ REST API endpoints for translation and language detection services
 
 import asyncio
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -148,9 +148,9 @@ router = APIRouter(prefix="/api/v1/multi-language", tags=["multi-language"])
 async def translate_text(
     request: TranslationAPIRequest,
     background_tasks: BackgroundTasks,
-    engine: TranslationEngine = Depends(get_translation_engine),
-    cache: TranslationCache | None = Depends(get_translation_cache),
-    quality_checker: TranslationQualityChecker | None = Depends(get_quality_checker),
+    engine: Annotated[TranslationEngine, Depends(get_translation_engine)],
+    cache: Annotated[TranslationCache | None, Depends(get_translation_cache)],
+    quality_checker: Annotated[TranslationQualityChecker | None, Depends(get_quality_checker)],
 ) -> TranslationAPIResponse:
     """
     Translate text between supported languages with caching and quality assessment
@@ -227,8 +227,8 @@ async def translate_text(
 async def translate_batch(
     request: BatchTranslationRequest,
     background_tasks: BackgroundTasks,
-    engine: TranslationEngine = Depends(get_translation_engine),
-    cache: TranslationCache | None = Depends(get_translation_cache),
+    engine: Annotated[TranslationEngine, Depends(get_translation_engine)],
+    cache: Annotated[TranslationCache | None, Depends(get_translation_cache)],
 ) -> BatchTranslationResponse:
     """
     Translate multiple texts in a single request
@@ -264,7 +264,7 @@ async def translate_batch(
 
 @router.post("/detect-language", response_model=LanguageDetectionResponse)
 async def detect_language(
-    request: LanguageDetectionRequest, detector: LanguageDetector = Depends(get_language_detector)
+    request: LanguageDetectionRequest, detector: Annotated[LanguageDetector, Depends(get_language_detector)]
 ) -> None:
     """
     Detect the language of given text
@@ -288,7 +288,7 @@ async def detect_language(
 
 @router.post("/detect-language/batch", response_model=BatchDetectionResponse)
 async def detect_language_batch(
-    request: BatchDetectionRequest, detector: LanguageDetector = Depends(get_language_detector)
+    request: BatchDetectionRequest, detector: Annotated[LanguageDetector, Depends(get_language_detector)]
 ) -> None:
     """
     Detect languages for multiple texts in a single request
@@ -320,7 +320,8 @@ async def detect_language_batch(
 
 @router.get("/languages", response_model=SupportedLanguagesResponse)
 async def get_supported_languages(
-    engine: TranslationEngine = Depends(get_translation_engine), detector: LanguageDetector = Depends(get_language_detector)
+    engine: Annotated[TranslationEngine, Depends(get_translation_engine)],
+    detector: Annotated[LanguageDetector, Depends(get_language_detector)],
 ) -> SupportedLanguagesResponse:
     """
     Get list of supported languages for translation and detection
@@ -339,7 +340,7 @@ async def get_supported_languages(
 
 
 @router.get("/cache/stats")
-async def get_cache_stats(cache: TranslationCache | None = Depends(get_translation_cache)) -> None:
+async def get_cache_stats(cache: Annotated[TranslationCache | None, Depends(get_translation_cache)]) -> None:
     """
     Get translation cache statistics
     """
@@ -355,9 +356,9 @@ async def get_cache_stats(cache: TranslationCache | None = Depends(get_translati
 
 @router.post("/cache/clear")
 async def clear_cache(
-    source_language: str | None = None,
-    target_language: str | None = None,
-    cache: TranslationCache | None = Depends(get_translation_cache),
+    source_language: str | None,
+    target_language: str | None,
+    cache: Annotated[TranslationCache | None, Depends(get_translation_cache)],
 ) -> dict[str, Any]:
     """
     Clear translation cache (optionally by language pair)
@@ -377,10 +378,10 @@ async def clear_cache(
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check(
-    engine: TranslationEngine = Depends(get_translation_engine),
-    detector: LanguageDetector = Depends(get_language_detector),
-    cache: TranslationCache | None = Depends(get_translation_cache),
-    quality_checker: TranslationQualityChecker | None = Depends(get_quality_checker),
+    engine: Annotated[TranslationEngine, Depends(get_translation_engine)],
+    detector: Annotated[LanguageDetector, Depends(get_language_detector)],
+    cache: Annotated[TranslationCache | None, Depends(get_translation_cache)],
+    quality_checker: Annotated[TranslationQualityChecker | None, Depends(get_quality_checker)],
 ) -> HealthResponse:
     """
     Health check for all multi-language services
@@ -410,7 +411,9 @@ async def health_check(
 
 
 @router.get("/cache/top-translations")
-async def get_top_translations(limit: int = 100, cache: TranslationCache | None = Depends(get_translation_cache)) -> None:
+async def get_top_translations(
+    limit: int | None, cache: Annotated[TranslationCache | None, Depends(get_translation_cache)]
+) -> None:
     """
     Get most accessed translations from cache
     """
@@ -425,7 +428,7 @@ async def get_top_translations(limit: int = 100, cache: TranslationCache | None 
 
 
 @router.post("/cache/optimize")
-async def optimize_cache(cache: TranslationCache | None = Depends(get_translation_cache)) -> None:
+async def optimize_cache(cache: Annotated[TranslationCache | None, Depends(get_translation_cache)]) -> None:
     """
     Optimize cache by removing low-access entries
     """

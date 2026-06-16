@@ -30,6 +30,7 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
 
         # Add to request state for access in endpoints and logging
         request.state.correlation_id = correlation_id
+        request.state.request_id = correlation_id  # Alias for request tracking
 
         # Process request
         response = await call_next(request)

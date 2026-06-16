@@ -35,8 +35,8 @@ router = APIRouter(tags=["AI Agents"])
 async def create_workflow(
     request: Request,
     workflow_data: AgentWorkflowCreate,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    current_user: Annotated[str, Depends(require_admin_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AIAgentWorkflow:
     """Create a new AI agent workflow"""
     try:
@@ -55,11 +55,11 @@ async def create_workflow(
 @rate_limit(rate=200, per=60)
 async def list_workflows(
     request: Request,
-    owner_id: str | None = None,
-    is_public: bool | None = None,
-    tags: list[str] | None = None,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    current_user: Annotated[str, Depends(require_admin_key())] = Depends(),
+    owner_id: str | None,
+    is_public: bool | None,
+    tags: list[str] | None,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> list[AIAgentWorkflow]:
     """List agent workflows with filtering"""
     try:
@@ -85,8 +85,8 @@ async def list_workflows(
 async def get_workflow(
     request: Request,
     workflow_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    current_user: Annotated[str, Depends(require_admin_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AIAgentWorkflow:
     """Get a specific agent workflow"""
     try:
@@ -109,8 +109,8 @@ async def update_workflow(
     request: Request,
     workflow_id: str,
     workflow_data: AgentWorkflowUpdate,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    current_user: Annotated[str, Depends(require_admin_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AIAgentWorkflow:
     """Update an agent workflow"""
     try:
@@ -139,8 +139,8 @@ async def update_workflow(
 async def delete_workflow(
     request: Request,
     workflow_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    current_user: Annotated[str, Depends(require_admin_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, str]:
     """Delete an agent workflow"""
     try:
@@ -167,8 +167,8 @@ async def execute_workflow(
     workflow_id: str,
     execution_request: AgentExecutionRequest,
     background_tasks: BackgroundTasks,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    current_user: Annotated[str, Depends(require_admin_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AgentExecutionResponse:
     """Execute an AI agent workflow"""
     try:
@@ -203,8 +203,8 @@ async def execute_workflow(
 async def get_execution_status(
     request: Request,
     execution_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    current_user: Annotated[str, Depends(require_admin_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> AgentExecutionStatus:
     """Get execution status"""
     try:
@@ -229,12 +229,12 @@ async def get_execution_status(
 @rate_limit(rate=200, per=60)
 async def list_executions(
     request: Request,
-    workflow_id: str | None = None,
-    status: AgentStatus | None = None,
-    limit: int = 50,
-    offset: int = 0,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    current_user: Annotated[str, Depends(require_admin_key())] = Depends(),
+    workflow_id: str | None,
+    status: AgentStatus | None,
+    limit: int | None,
+    offset: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> list[AgentExecutionStatus]:
     """List agent executions with filtering"""
     try:
@@ -277,8 +277,8 @@ async def list_executions(
 async def cancel_execution(
     request: Request,
     execution_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    current_user: Annotated[str, Depends(require_admin_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, str]:
     """Cancel an ongoing execution"""
     try:
@@ -310,8 +310,8 @@ async def cancel_execution(
 async def get_execution_logs(
     request: Request,
     execution_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    current_user: Annotated[str, Depends(require_admin_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:
     """Get execution logs"""
     try:
@@ -366,8 +366,8 @@ async def test_endpoint(request: Request) -> dict[str, str]:
 async def create_agent_network(
     request: Request,
     network_data: dict[str, Any],
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    current_user: Annotated[str, Depends(require_admin_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:
     """Create a new agent network for collaborative processing"""
     try:
@@ -400,8 +400,8 @@ async def create_agent_network(
 async def get_execution_receipt(
     request: Request,
     execution_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
-    current_user: Annotated[str, Depends(require_admin_key())] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:
     """Get verifiable receipt for completed execution"""
     try:

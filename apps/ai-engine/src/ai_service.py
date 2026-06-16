@@ -11,13 +11,14 @@ import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from aitbc import get_logger
+from aitbc import configure_logging, get_logger
 
+configure_logging(level="INFO")
 logger = get_logger(__name__)
-
 app = FastAPI(title="AITBC AI Service API", version="1.0.0")
 
 
+# Models
 # Models
 class TradingRequest(BaseModel):
     symbol: str

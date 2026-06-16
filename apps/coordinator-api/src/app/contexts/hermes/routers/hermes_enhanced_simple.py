@@ -78,8 +78,8 @@ class EcosystemDevelopmentRequest(BaseModel):
 async def route_agent_skill(
     request_http: Request,
     request: SkillRoutingRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Route agent skill to appropriate agent"""
     try:
@@ -100,8 +100,8 @@ async def route_agent_skill(
 async def intelligent_job_offloading(
     request_http: Request,
     request: JobOffloadingRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Intelligent job offloading strategies"""
     try:
@@ -122,8 +122,8 @@ async def intelligent_job_offloading(
 async def coordinate_agent_collaboration(
     request_http: Request,
     request: AgentCollaborationRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Agent collaboration and coordination"""
     try:
@@ -142,8 +142,8 @@ async def coordinate_agent_collaboration(
 async def optimize_hybrid_execution(
     request_http: Request,
     request: HybridExecutionRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Hybrid execution optimization"""
     try:
@@ -162,8 +162,8 @@ async def optimize_hybrid_execution(
 async def deploy_to_edge(
     request_http: Request,
     request: EdgeDeploymentRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Deploy agent to edge computing infrastructure"""
     try:
@@ -182,8 +182,8 @@ async def deploy_to_edge(
 async def coordinate_edge_to_cloud(
     request_http: Request,
     request: EdgeCoordinationRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Coordinate edge-to-cloud agent operations"""
     try:
@@ -202,8 +202,8 @@ async def coordinate_edge_to_cloud(
 async def develop_hermes_ecosystem(
     request_http: Request,
     request: EcosystemDevelopmentRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
-    current_user: str = Depends(require_admin_key()),
+    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Build hermes ecosystem components"""
     try:

@@ -8,7 +8,7 @@ import time
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
@@ -99,76 +99,76 @@ async def trading_status() -> dict[str, str]:
     return {"status": "operational", "service": "trading", "message": "Trading service is running"}
 
 
-async def get_trading_service(session: AsyncSession = Depends(get_session_dep)) -> TradingService:
+async def get_trading_service(session: Annotated[AsyncSession, Depends(get_session_dep)]) -> TradingService:
     """Get trading service instance"""
     return TradingService(session)
 
 
 @app.get("/v1/trading/requests")
 async def get_requests(
-    status: str | None = None,
-    buyer_agent_id: str | None = None,
-    trade_type: str | None = None,
-    svc: TradingService = Depends(get_trading_service),
+    status: str | None,
+    buyer_agent_id: str | None,
+    trade_type: str | None,
+    svc: Annotated[TradingService, Depends(get_trading_service)],
 ):
     """Get trade requests"""
     return await svc.list_requests(status=status, buyer_agent_id=buyer_agent_id, trade_type=trade_type)
 
 
 @app.get("/v1/trading/requests/{request_id}")
-async def get_request(request_id: str, svc: TradingService = Depends(get_trading_service)):
+async def get_request(request_id: str, svc: Annotated[TradingService, Depends(get_trading_service)]):
     """Get a specific trade request"""
     return await svc.get_request(request_id)
 
 
 @app.post("/v1/trading/requests")
-async def create_request(request_data: dict[str, Any], svc: TradingService = Depends(get_trading_service)):
+async def create_request(request_data: dict[str, Any], svc: Annotated[TradingService, Depends(get_trading_service)]):
     """Create a new trade request"""
     return await svc.create_request(request_data)
 
 
 @app.get("/v1/trading/matches")
 async def get_matches(
-    status: str | None = None,
-    buyer_agent_id: str | None = None,
-    seller_agent_id: str | None = None,
-    svc: TradingService = Depends(get_trading_service),
+    status: str | None,
+    buyer_agent_id: str | None,
+    seller_agent_id: str | None,
+    svc: Annotated[TradingService, Depends(get_trading_service)],
 ):
     """Get trade matches"""
     return await svc.list_matches(status=status, buyer_agent_id=buyer_agent_id, seller_agent_id=seller_agent_id)
 
 
 @app.post("/v1/trading/matches")
-async def create_match(match_data: dict[str, Any], svc: TradingService = Depends(get_trading_service)):
+async def create_match(match_data: dict[str, Any], svc: Annotated[TradingService, Depends(get_trading_service)]):
     """Create a new trade match"""
     return await svc.create_match(match_data)
 
 
 @app.get("/v1/trading/agreements")
 async def get_agreements(
-    status: str | None = None,
-    buyer_agent_id: str | None = None,
-    seller_agent_id: str | None = None,
-    svc: TradingService = Depends(get_trading_service),
+    status: str | None,
+    buyer_agent_id: str | None,
+    seller_agent_id: str | None,
+    svc: Annotated[TradingService, Depends(get_trading_service)],
 ):
     """Get trade agreements"""
     return await svc.list_agreements(status=status, buyer_agent_id=buyer_agent_id, seller_agent_id=seller_agent_id)
 
 
 @app.post("/v1/trading/agreements")
-async def create_agreement(agreement_data: dict[str, Any], svc: TradingService = Depends(get_trading_service)):
+async def create_agreement(agreement_data: dict[str, Any], svc: Annotated[TradingService, Depends(get_trading_service)]):
     """Create a new trade agreement"""
     return await svc.create_agreement(agreement_data)
 
 
 @app.get("/v1/trading/analytics")
-async def get_analytics(period_type: str = "daily", svc: TradingService = Depends(get_trading_service)):
+async def get_analytics(period_type: str | None, svc: Annotated[TradingService, Depends(get_trading_service)]):
     """Get trading analytics"""
     return await svc.get_analytics(period_type=period_type)
 
 
 @app.post("/v1/transactions")
-async def submit_transaction(transaction_data: dict[str, Any], session: AsyncSession = Depends(get_session_dep)):
+async def submit_transaction(transaction_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Submit trading transaction"""
     from .domain.trading import TradeAgreement, TradeMatch, TradeRequest, TradeSettlement
 
@@ -206,11 +206,11 @@ async def submit_transaction(transaction_data: dict[str, Any], session: AsyncSes
 
 @app.get("/v1/transactions")
 async def get_transactions(
-    transaction_type: str | None = None,
-    action: str | None = None,
-    status: str | None = None,
-    island_id: str | None = None,
-    session: AsyncSession = Depends(get_session_dep),
+    transaction_type: str | None,
+    action: str | None,
+    status: str | None,
+    island_id: str | None,
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
 ):
     """Query trading transactions"""
     from sqlalchemy import select
@@ -280,7 +280,7 @@ async def get_transactions(
 
 
 @app.get("/v1/blocks")
-async def get_blocks(limit: int = 10, session: AsyncSession = Depends(get_session_dep)):
+async def get_blocks(limit: int | None, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """List recent blocks
 
     NOTE: Trading service is not production-critical.
@@ -291,7 +291,7 @@ async def get_blocks(limit: int = 10, session: AsyncSession = Depends(get_sessio
 
 
 @app.get("/v1/explorer/blocks")
-async def get_blocks_v1(limit: int = 10, chain_id: str | None = None, session: AsyncSession = Depends(get_session_dep)):
+async def get_blocks_v1(limit: int | None, chain_id: str | None, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """List recent blocks (v1/explorer path for CLI compatibility)
 
     NOTE: Trading service is not production-critical.
@@ -302,38 +302,38 @@ async def get_blocks_v1(limit: int = 10, chain_id: str | None = None, session: A
 
 
 @app.get("/api/v1/blocks")
-async def get_blocks_api(limit: int = 10, chain_id: str | None = None, session: AsyncSession = Depends(get_session_dep)):
+async def get_blocks_api(limit: int | None, chain_id: str | None, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """List recent blocks (api/v1 path for CLI compatibility)"""
     return {"blocks": [], "limit": limit, "chain_id": chain_id or "ait-devnet", "total": 0}
 
 
 @app.get("/v1/blocks/{block_id}")
-async def get_block(block_id: str, session: AsyncSession = Depends(get_session_dep)):
+async def get_block(block_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Get block details"""
     return {"block_id": block_id, "error": "Block not found"}
 
 
 @app.get("/v1/receipts")
-async def get_receipts(limit: int = 10, session: AsyncSession = Depends(get_session_dep)):
+async def get_receipts(limit: int | None, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """List job receipts"""
     return {"receipts": [], "limit": limit, "total": 0}
 
 
 @app.get("/v1/explorer/receipts")
-async def get_receipts_v1(limit: int = 10, job_id: str | None = None, session: AsyncSession = Depends(get_session_dep)):
+async def get_receipts_v1(limit: int | None, job_id: str | None, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """List job receipts (v1/explorer path for CLI compatibility)"""
     return {"receipts": [], "limit": limit, "job_id": job_id, "total": 0}
 
 
 @app.get("/v1/transactions/{tx_hash}")
-async def get_transaction(tx_hash: str, session: AsyncSession = Depends(get_session_dep)):
+async def get_transaction(tx_hash: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Get transaction details by hash"""
     return {"tx_hash": tx_hash, "error": "Transaction not found"}
 
 
 @app.get("/v1/explorer/transactions/{tx_hash}")
 async def get_transaction_explorer(
-    tx_hash: str, chain_id: str | None = None, session: AsyncSession = Depends(get_session_dep)
+    tx_hash: str, chain_id: str | None, session: Annotated[AsyncSession, Depends(get_session_dep)]
 ):
     """Get transaction details by hash (explorer path for CLI compatibility)"""
     return {"tx_hash": tx_hash, "chain_id": chain_id or "ait-devnet", "error": "Transaction not found"}

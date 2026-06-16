@@ -5,9 +5,9 @@ Provides endpoints for SLA metrics, capacity planning, and billing integration.
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -86,17 +86,17 @@ class InvoiceGenerationRequest(BaseModel):
     period_end: datetime
 
 
-def get_sla_collector(db: Session = Depends(get_db)) -> SLACollector:
+def get_sla_collector(db: Annotated[Session, Depends(get_db)]) -> SLACollector:
     return SLACollector(db)
 
 
-def get_billing_integration(db: Session = Depends(get_db)) -> BillingIntegration:
+def get_billing_integration(db: Annotated[Session, Depends(get_db)]) -> BillingIntegration:
     return BillingIntegration(db)
 
 
 @router.get("/metrics/{miner_id}", response_model=list[SLAMetricResponse])
 async def get_miner_sla_metrics(
-    miner_id: str, hours: int = Query(default=24, ge=1, le=168), sla_collector: SLACollector = Depends(get_sla_collector)
+    miner_id: str, hours: int | None, sla_collector: Annotated[SLACollector, Depends(get_sla_collector)]
 ) -> list[SLAMetricResponse]:
     """Get SLA metrics for a specific miner"""
     try:
@@ -109,7 +109,7 @@ async def get_miner_sla_metrics(
 
 @router.get("/metrics", response_model=list[SLAMetricResponse])
 async def get_all_sla_metrics(
-    hours: int = Query(default=24, ge=1, le=168), sla_collector: SLACollector = Depends(get_sla_collector)
+    hours: int | None, sla_collector: Annotated[SLACollector, Depends(get_sla_collector)]
 ) -> list[SLAMetricResponse]:
     """Get SLA metrics across all miners"""
     try:
@@ -122,7 +122,7 @@ async def get_all_sla_metrics(
 
 @router.get("/violations", response_model=list[SLAViolationResponse])
 async def get_sla_violations(
-    miner_id: str | None = Query(default=None), resolved: bool = Query(default=False), db: Session = Depends(get_db)
+    miner_id: str | None, resolved: bool | None, db: Annotated[Session, Depends(get_db)]
 ) -> list[SLAViolationResponse]:
     """Get SLA violations"""
     try:
@@ -135,7 +135,7 @@ async def get_sla_violations(
 
 
 @router.post("/metrics/collect")
-async def collect_sla_metrics(sla_collector: SLACollector = Depends(get_sla_collector)) -> dict[str, Any]:
+async def collect_sla_metrics(sla_collector: Annotated[SLACollector, Depends(get_sla_collector)]) -> dict[str, Any]:
     """Trigger SLA metrics collection for all miners"""
     try:
         results = await sla_collector.collect_all_miner_metrics()
@@ -146,9 +146,7 @@ async def collect_sla_metrics(sla_collector: SLACollector = Depends(get_sla_coll
 
 
 @router.get("/capacity/snapshots", response_model=list[CapacitySnapshotResponse])
-async def get_capacity_snapshots(
-    hours: int = Query(default=24, ge=1, le=168), db: Session = Depends(get_db)
-) -> list[CapacitySnapshotResponse]:
+async def get_capacity_snapshots(hours: int | None, db: Annotated[Session, Depends(get_db)]) -> list[CapacitySnapshotResponse]:
     """Get capacity planning snapshots"""
     try:
         cutoff = datetime.now(UTC) - timedelta(hours=hours)
@@ -164,8 +162,8 @@ async def get_capacity_snapshots(
 
 @router.get("/capacity/forecast")
 async def get_capacity_forecast(
-    hours_ahead: int = Query(default=168, ge=1, le=8760),
-    billing_integration: BillingIntegration = Depends(get_billing_integration),
+    hours_ahead: int | None,
+    billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
 ) -> dict[str, Any]:
     """Get capacity forecast from coordinator-api"""
     try:
@@ -184,7 +182,7 @@ async def get_capacity_forecast(
 
 @router.get("/capacity/recommendations")
 async def get_scaling_recommendations(
-    billing_integration: BillingIntegration = Depends(get_billing_integration),
+    billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
 ) -> dict[str, Any]:
     """Get auto-scaling recommendations from coordinator-api"""
     try:
@@ -206,7 +204,7 @@ async def get_scaling_recommendations(
 
 
 @router.post("/capacity/alerts/configure")
-async def configure_capacity_alerts(alert_config: dict[str, Any], db: Session = Depends(get_db)) -> dict[str, Any]:
+async def configure_capacity_alerts(alert_config: dict[str, Any], db: Annotated[Session, Depends(get_db)]) -> dict[str, Any]:
     """Configure capacity alerts"""
     try:
         return {"status": "configured", "alert_config": alert_config, "timestamp": datetime.now(UTC).isoformat()}
@@ -217,9 +215,9 @@ async def configure_capacity_alerts(alert_config: dict[str, Any], db: Session = 
 
 @router.get("/billing/usage")
 async def get_billing_usage(
-    tenant_id: str | None = Query(default=None),
-    hours: int = Query(default=24, ge=1, le=168),
-    billing_integration: BillingIntegration = Depends(get_billing_integration),
+    tenant_id: str | None,
+    hours: int | None,
+    billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
 ) -> dict[str, Any]:
     """Get billing usage data from coordinator-api"""
     try:
@@ -232,7 +230,7 @@ async def get_billing_usage(
 
 @router.post("/billing/sync")
 async def sync_billing_usage(
-    request: UsageSyncRequest, billing_integration: BillingIntegration = Depends(get_billing_integration)
+    request: UsageSyncRequest, billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)]
 ) -> dict[str, Any]:
     """Trigger billing sync with coordinator-api"""
     try:
@@ -252,7 +250,7 @@ async def sync_billing_usage(
 
 @router.post("/billing/usage/record")
 async def record_usage(
-    request: UsageRecordRequest, billing_integration: BillingIntegration = Depends(get_billing_integration)
+    request: UsageRecordRequest, billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)]
 ) -> dict[str, Any]:
     """Record a single usage event to coordinator-api billing"""
     try:
@@ -272,7 +270,7 @@ async def record_usage(
 
 @router.post("/billing/invoice/generate")
 async def generate_invoice(
-    request: InvoiceGenerationRequest, billing_integration: BillingIntegration = Depends(get_billing_integration)
+    request: InvoiceGenerationRequest, billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)]
 ) -> dict[str, Any]:
     """Trigger invoice generation in coordinator-api"""
     try:
@@ -286,7 +284,7 @@ async def generate_invoice(
 
 
 @router.get("/status")
-async def get_sla_status(db: Session = Depends(get_db)) -> dict[str, Any]:
+async def get_sla_status(db: Annotated[Session, Depends(get_db)]) -> dict[str, Any]:
     """Get overall SLA status"""
     try:
         sla_collector = SLACollector(db)

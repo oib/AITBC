@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
@@ -60,7 +60,7 @@ def _result_to_response(result: ReceiptValidationResult) -> ReceiptVerifyRespons
 def verify_latest_receipt(
     request: Request,
     job_id: str,
-    service: ReceiptVerifierService = Depends(get_receipt_service),
+    service: Annotated[ReceiptVerifierService, Depends(get_receipt_service)],
 ) -> ReceiptVerifyResponse:
     result = service.verify_latest(job_id)
     if result is None:
@@ -77,7 +77,7 @@ def verify_latest_receipt(
 def verify_receipt_history(
     request: Request,
     job_id: str,
-    service: ReceiptVerifierService = Depends(get_receipt_service),
+    service: Annotated[ReceiptVerifierService, Depends(get_receipt_service)],
 ) -> ReceiptVerificationListResponse:
     results = service.verify_history(job_id)
     items = [from_validation_result(result) for result in results]
@@ -88,8 +88,8 @@ def verify_receipt_history(
 @rate_limit(rate=200, per=60)
 def list_wallets(
     request: Request,
-    keystore: PersistentKeystoreService = Depends(get_keystore),
-    ledger: SQLiteLedgerAdapter = Depends(get_ledger),
+    keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
+    ledger: Annotated[SQLiteLedgerAdapter, Depends(get_ledger)],
 ) -> WalletListResponse:
     descriptors = []
     for record in keystore.list_records():
@@ -116,8 +116,8 @@ def list_wallets(
 async def create_wallet(
     request: Request,
     wallet_request: WalletCreateRequest,
-    keystore: PersistentKeystoreService = Depends(get_keystore),
-    ledger: SQLiteLedgerAdapter = Depends(get_ledger),
+    keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
+    ledger: Annotated[SQLiteLedgerAdapter, Depends(get_ledger)],
 ) -> WalletCreateResponse:
     try:
         secret = base64.b64decode(wallet_request.secret_key) if wallet_request.secret_key else None
@@ -160,7 +160,7 @@ async def create_wallet(
 @router.get("/wallets/{wallet_id}/balance", summary="Get wallet balance from blockchain")
 def get_wallet_balance(
     wallet_id: str,
-    keystore: PersistentKeystoreService = Depends(get_keystore),
+    keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
 ) -> dict[str, Any]:
     import httpx as _httpx
 
@@ -200,8 +200,8 @@ def unlock_wallet(
     request: Request,
     wallet_id: str,
     unlock_request: WalletUnlockRequest,
-    keystore: PersistentKeystoreService = Depends(get_keystore),
-    ledger: SQLiteLedgerAdapter = Depends(get_ledger),
+    keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
+    ledger: Annotated[SQLiteLedgerAdapter, Depends(get_ledger)],
 ) -> WalletUnlockResponse:
     try:
         ip_address = request.client.host if request.client else "unknown"
@@ -233,8 +233,8 @@ def sign_payload(
     request: Request,
     wallet_id: str,
     sign_request: WalletSignRequest,
-    keystore: PersistentKeystoreService = Depends(get_keystore),
-    ledger: SQLiteLedgerAdapter = Depends(get_ledger),
+    keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
+    ledger: Annotated[SQLiteLedgerAdapter, Depends(get_ledger)],
 ) -> WalletSignResponse:
     try:
         message = base64.b64decode(sign_request.message_base64)
@@ -268,8 +268,8 @@ def send_transaction(
     request: Request,
     wallet_id: str,
     tx_request: WalletTransactionRequest,
-    keystore: PersistentKeystoreService = Depends(get_keystore),
-    ledger: SQLiteLedgerAdapter = Depends(get_ledger),
+    keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
+    ledger: Annotated[SQLiteLedgerAdapter, Depends(get_ledger)],
 ) -> WalletTransactionResponse:
     """
     Sign and submit a transaction to the blockchain.
@@ -326,7 +326,7 @@ def send_transaction(
 async def faucet_request(
     request: Request,
     wallet_id: str,
-    keystore: PersistentKeystoreService = Depends(get_keystore),
+    keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
 ) -> WalletTransactionResponse:
     """
     Request test tokens from the blockchain faucet.
