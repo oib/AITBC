@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 
 import pytest
-
 from aitbc.exceptions import ConfigurationError
 from aitbc.utils.env import (
     get_bool_env_var,

@@ -2,15 +2,11 @@
 
 from typing import Any
 
+from aitbc.rate_limiting import rate_limit
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
-from aitbc.rate_limiting import rate_limit
-
 router = APIRouter(prefix="/swarm", tags=["Swarm"])
-
-
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
 
 
 class SwarmInfo(BaseModel):

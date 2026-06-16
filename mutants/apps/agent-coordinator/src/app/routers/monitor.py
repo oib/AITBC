@@ -2,14 +2,10 @@
 
 from typing import Any
 
+from aitbc.rate_limiting import rate_limit
 from fastapi import APIRouter, Request
 
-from aitbc.rate_limiting import rate_limit
-
 router = APIRouter(tags=["Monitor"])
-
-
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
 
 
 @router.get("/api/v1/dashboard", response_model=dict)

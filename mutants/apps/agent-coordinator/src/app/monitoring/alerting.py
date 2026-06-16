@@ -26,7 +26,8 @@ import requests
 logger = get_logger(__name__)
 
 
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
+from mutmut.mutation.trampoline import MutantDict
+from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated
 
 
 class AlertSeverity(Enum):
@@ -119,6 +120,8 @@ class AlertRule:
             "annotations": self.annotations,
             "notification_channels": [ch.value for ch in self.notification_channels],
         }
+
+
 mutants_xǁSLAMonitorǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁSLAMonitorǁadd_sla_rule__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁSLAMonitorǁrecord_metric__mutmut: MutantDict = {}  # type: ignore
@@ -163,73 +166,97 @@ class SLAMonitor:
         self.sla_metrics[sla_id] = []
         self.violations[sla_id] = []
 
-    def xǁSLAMonitorǁadd_sla_rule__mutmut_orig(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> None:
+    def xǁSLAMonitorǁadd_sla_rule__mutmut_orig(
+        self, sla_id: str, name: str, target: float, window: timedelta, metric: str
+    ) -> None:
         """Add SLA rule"""
         self.sla_rules[sla_id] = {"name": name, "target": target, "window": window, "metric": metric}
         self.sla_metrics[sla_id] = []
         self.violations[sla_id] = []
 
-    def xǁSLAMonitorǁadd_sla_rule__mutmut_1(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> None:
+    def xǁSLAMonitorǁadd_sla_rule__mutmut_1(
+        self, sla_id: str, name: str, target: float, window: timedelta, metric: str
+    ) -> None:
         """Add SLA rule"""
         self.sla_rules[sla_id] = None
         self.sla_metrics[sla_id] = []
         self.violations[sla_id] = []
 
-    def xǁSLAMonitorǁadd_sla_rule__mutmut_2(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> None:
+    def xǁSLAMonitorǁadd_sla_rule__mutmut_2(
+        self, sla_id: str, name: str, target: float, window: timedelta, metric: str
+    ) -> None:
         """Add SLA rule"""
         self.sla_rules[sla_id] = {"XXnameXX": name, "target": target, "window": window, "metric": metric}
         self.sla_metrics[sla_id] = []
         self.violations[sla_id] = []
 
-    def xǁSLAMonitorǁadd_sla_rule__mutmut_3(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> None:
+    def xǁSLAMonitorǁadd_sla_rule__mutmut_3(
+        self, sla_id: str, name: str, target: float, window: timedelta, metric: str
+    ) -> None:
         """Add SLA rule"""
         self.sla_rules[sla_id] = {"NAME": name, "target": target, "window": window, "metric": metric}
         self.sla_metrics[sla_id] = []
         self.violations[sla_id] = []
 
-    def xǁSLAMonitorǁadd_sla_rule__mutmut_4(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> None:
+    def xǁSLAMonitorǁadd_sla_rule__mutmut_4(
+        self, sla_id: str, name: str, target: float, window: timedelta, metric: str
+    ) -> None:
         """Add SLA rule"""
         self.sla_rules[sla_id] = {"name": name, "XXtargetXX": target, "window": window, "metric": metric}
         self.sla_metrics[sla_id] = []
         self.violations[sla_id] = []
 
-    def xǁSLAMonitorǁadd_sla_rule__mutmut_5(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> None:
+    def xǁSLAMonitorǁadd_sla_rule__mutmut_5(
+        self, sla_id: str, name: str, target: float, window: timedelta, metric: str
+    ) -> None:
         """Add SLA rule"""
         self.sla_rules[sla_id] = {"name": name, "TARGET": target, "window": window, "metric": metric}
         self.sla_metrics[sla_id] = []
         self.violations[sla_id] = []
 
-    def xǁSLAMonitorǁadd_sla_rule__mutmut_6(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> None:
+    def xǁSLAMonitorǁadd_sla_rule__mutmut_6(
+        self, sla_id: str, name: str, target: float, window: timedelta, metric: str
+    ) -> None:
         """Add SLA rule"""
         self.sla_rules[sla_id] = {"name": name, "target": target, "XXwindowXX": window, "metric": metric}
         self.sla_metrics[sla_id] = []
         self.violations[sla_id] = []
 
-    def xǁSLAMonitorǁadd_sla_rule__mutmut_7(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> None:
+    def xǁSLAMonitorǁadd_sla_rule__mutmut_7(
+        self, sla_id: str, name: str, target: float, window: timedelta, metric: str
+    ) -> None:
         """Add SLA rule"""
         self.sla_rules[sla_id] = {"name": name, "target": target, "WINDOW": window, "metric": metric}
         self.sla_metrics[sla_id] = []
         self.violations[sla_id] = []
 
-    def xǁSLAMonitorǁadd_sla_rule__mutmut_8(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> None:
+    def xǁSLAMonitorǁadd_sla_rule__mutmut_8(
+        self, sla_id: str, name: str, target: float, window: timedelta, metric: str
+    ) -> None:
         """Add SLA rule"""
         self.sla_rules[sla_id] = {"name": name, "target": target, "window": window, "XXmetricXX": metric}
         self.sla_metrics[sla_id] = []
         self.violations[sla_id] = []
 
-    def xǁSLAMonitorǁadd_sla_rule__mutmut_9(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> None:
+    def xǁSLAMonitorǁadd_sla_rule__mutmut_9(
+        self, sla_id: str, name: str, target: float, window: timedelta, metric: str
+    ) -> None:
         """Add SLA rule"""
         self.sla_rules[sla_id] = {"name": name, "target": target, "window": window, "METRIC": metric}
         self.sla_metrics[sla_id] = []
         self.violations[sla_id] = []
 
-    def xǁSLAMonitorǁadd_sla_rule__mutmut_10(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> None:
+    def xǁSLAMonitorǁadd_sla_rule__mutmut_10(
+        self, sla_id: str, name: str, target: float, window: timedelta, metric: str
+    ) -> None:
         """Add SLA rule"""
         self.sla_rules[sla_id] = {"name": name, "target": target, "window": window, "metric": metric}
         self.sla_metrics[sla_id] = None
         self.violations[sla_id] = []
 
-    def xǁSLAMonitorǁadd_sla_rule__mutmut_11(self, sla_id: str, name: str, target: float, window: timedelta, metric: str) -> None:
+    def xǁSLAMonitorǁadd_sla_rule__mutmut_11(
+        self, sla_id: str, name: str, target: float, window: timedelta, metric: str
+    ) -> None:
         """Add SLA rule"""
         self.sla_rules[sla_id] = {"name": name, "target": target, "window": window, "metric": metric}
         self.sla_metrics[sla_id] = []
@@ -681,7 +708,7 @@ class SLAMonitor:
         if is_violation:
             self.violations[sla_id].append({"timestamp": timestamp, "value": value, "target": rule["target"]})
         self.sla_metrics[sla_id].append({"timestamp": timestamp, "value": value, "violation": is_violation})
-        cutoff = timestamp - rule["window"]
+        timestamp - rule["window"]
         self.sla_metrics[sla_id] = None
 
     def xǁSLAMonitorǁrecord_metric__mutmut_31(self, sla_id: str, value: float, timestamp: datetime | None = None) -> None:
@@ -2411,7 +2438,9 @@ class SLAMonitor:
         total_measurements = len(metrics)
         violations_count = sum(1 for m in metrics if m["violation"])
         compliance_percentage = (total_measurements - violations_count) / total_measurements * 100
-        recent_violations = [v for v in self.violations[sla_id] if v["XXtimestampXX"] > datetime.now(UTC) - timedelta(hours=24)]
+        recent_violations = [
+            v for v in self.violations[sla_id] if v["XXtimestampXX"] > datetime.now(UTC) - timedelta(hours=24)
+        ]
         return {
             "status": "success",
             "sla_id": sla_id,
@@ -3800,177 +3829,494 @@ class SLAMonitor:
             return 100.0
         return (total_measurements - total_violations) / total_measurements * 101
 
-mutants_xǁSLAMonitorǁ__init____mutmut['_mutmut_orig'] = SLAMonitor.xǁSLAMonitorǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ__init____mutmut['xǁSLAMonitorǁ__init____mutmut_1'] = SLAMonitor.xǁSLAMonitorǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ__init____mutmut['xǁSLAMonitorǁ__init____mutmut_2'] = SLAMonitor.xǁSLAMonitorǁ__init____mutmut_2 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ__init____mutmut['xǁSLAMonitorǁ__init____mutmut_3'] = SLAMonitor.xǁSLAMonitorǁ__init____mutmut_3 # type: ignore # mutmut generated
 
-mutants_xǁSLAMonitorǁadd_sla_rule__mutmut['_mutmut_orig'] = SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁadd_sla_rule__mutmut['xǁSLAMonitorǁadd_sla_rule__mutmut_1'] = SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁadd_sla_rule__mutmut['xǁSLAMonitorǁadd_sla_rule__mutmut_2'] = SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁadd_sla_rule__mutmut['xǁSLAMonitorǁadd_sla_rule__mutmut_3'] = SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁadd_sla_rule__mutmut['xǁSLAMonitorǁadd_sla_rule__mutmut_4'] = SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁadd_sla_rule__mutmut['xǁSLAMonitorǁadd_sla_rule__mutmut_5'] = SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁadd_sla_rule__mutmut['xǁSLAMonitorǁadd_sla_rule__mutmut_6'] = SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁadd_sla_rule__mutmut['xǁSLAMonitorǁadd_sla_rule__mutmut_7'] = SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁadd_sla_rule__mutmut['xǁSLAMonitorǁadd_sla_rule__mutmut_8'] = SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁadd_sla_rule__mutmut['xǁSLAMonitorǁadd_sla_rule__mutmut_9'] = SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁadd_sla_rule__mutmut['xǁSLAMonitorǁadd_sla_rule__mutmut_10'] = SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁadd_sla_rule__mutmut['xǁSLAMonitorǁadd_sla_rule__mutmut_11'] = SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_11 # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ__init____mutmut["_mutmut_orig"] = SLAMonitor.xǁSLAMonitorǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ__init____mutmut["xǁSLAMonitorǁ__init____mutmut_1"] = SLAMonitor.xǁSLAMonitorǁ__init____mutmut_1  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ__init____mutmut["xǁSLAMonitorǁ__init____mutmut_2"] = SLAMonitor.xǁSLAMonitorǁ__init____mutmut_2  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ__init____mutmut["xǁSLAMonitorǁ__init____mutmut_3"] = SLAMonitor.xǁSLAMonitorǁ__init____mutmut_3  # type: ignore # mutmut generated
 
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['_mutmut_orig'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_1'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_2'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_3'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_4'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_5'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_6'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_7'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_8'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_9'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_10'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_11'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_12'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_13'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_14'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_15'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_16'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_17'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_18'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_19'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_20'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_21'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_22'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_23'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_24'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_25'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_26'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_27'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_28'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_29'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_30'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_31'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_32'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁrecord_metric__mutmut['xǁSLAMonitorǁrecord_metric__mutmut_33'] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_33 # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁadd_sla_rule__mutmut["_mutmut_orig"] = SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁadd_sla_rule__mutmut["xǁSLAMonitorǁadd_sla_rule__mutmut_1"] = (
+    SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁadd_sla_rule__mutmut["xǁSLAMonitorǁadd_sla_rule__mutmut_2"] = (
+    SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁadd_sla_rule__mutmut["xǁSLAMonitorǁadd_sla_rule__mutmut_3"] = (
+    SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁadd_sla_rule__mutmut["xǁSLAMonitorǁadd_sla_rule__mutmut_4"] = (
+    SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁadd_sla_rule__mutmut["xǁSLAMonitorǁadd_sla_rule__mutmut_5"] = (
+    SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁadd_sla_rule__mutmut["xǁSLAMonitorǁadd_sla_rule__mutmut_6"] = (
+    SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁadd_sla_rule__mutmut["xǁSLAMonitorǁadd_sla_rule__mutmut_7"] = (
+    SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁadd_sla_rule__mutmut["xǁSLAMonitorǁadd_sla_rule__mutmut_8"] = (
+    SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁadd_sla_rule__mutmut["xǁSLAMonitorǁadd_sla_rule__mutmut_9"] = (
+    SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁadd_sla_rule__mutmut["xǁSLAMonitorǁadd_sla_rule__mutmut_10"] = (
+    SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁadd_sla_rule__mutmut["xǁSLAMonitorǁadd_sla_rule__mutmut_11"] = (
+    SLAMonitor.xǁSLAMonitorǁadd_sla_rule__mutmut_11
+)  # type: ignore # mutmut generated
 
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['_mutmut_orig'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_1'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_2'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_3'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_4'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_5'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_6'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_7'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_8'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_9'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_10'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_11'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_12'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_13'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_14'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_15'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_16'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_17'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_18'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_19'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_20'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_21'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_22'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_23'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_24'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_25'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_26'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_27'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_28'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_29'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_30'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_31'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_32'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_33'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_34'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_35'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_36'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_37'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_38'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_39'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_40'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_41'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_42'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_43'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_44'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_45'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_46'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_47'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_48'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_49'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_50'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_51'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_52'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_53'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_54'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_55'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_56'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_57'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_58'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_59'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_60'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_61'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_62'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_63'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_64'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_65'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_66'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_67'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_68'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_69'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_70'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_71'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_71 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_72'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_72 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_73'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_73 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_74'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_74 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_75'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_75 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_76'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_76 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_77'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_77 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_78'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_78 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_sla_compliance__mutmut['xǁSLAMonitorǁget_sla_compliance__mutmut_79'] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_79 # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["_mutmut_orig"] = SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_1"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_2"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_3"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_4"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_5"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_6"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_7"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_8"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_9"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_10"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_11"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_12"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_13"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_14"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_15"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_16"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_17"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_18"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_19"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_20"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_21"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_22"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_23"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_24"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_25"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_26"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_27"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_28"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_29"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_30"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_31"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_32"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁrecord_metric__mutmut["xǁSLAMonitorǁrecord_metric__mutmut_33"] = (
+    SLAMonitor.xǁSLAMonitorǁrecord_metric__mutmut_33
+)  # type: ignore # mutmut generated
 
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['_mutmut_orig'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['xǁSLAMonitorǁget_all_sla_status__mutmut_1'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['xǁSLAMonitorǁget_all_sla_status__mutmut_2'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['xǁSLAMonitorǁget_all_sla_status__mutmut_3'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['xǁSLAMonitorǁget_all_sla_status__mutmut_4'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['xǁSLAMonitorǁget_all_sla_status__mutmut_5'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['xǁSLAMonitorǁget_all_sla_status__mutmut_6'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['xǁSLAMonitorǁget_all_sla_status__mutmut_7'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['xǁSLAMonitorǁget_all_sla_status__mutmut_8'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['xǁSLAMonitorǁget_all_sla_status__mutmut_9'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['xǁSLAMonitorǁget_all_sla_status__mutmut_10'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['xǁSLAMonitorǁget_all_sla_status__mutmut_11'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['xǁSLAMonitorǁget_all_sla_status__mutmut_12'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁget_all_sla_status__mutmut['xǁSLAMonitorǁget_all_sla_status__mutmut_13'] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_13 # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["_mutmut_orig"] = SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_1"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_2"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_3"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_4"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_5"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_6"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_7"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_8"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_9"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_10"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_11"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_12"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_13"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_14"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_15"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_16"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_17"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_18"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_19"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_20"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_21"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_22"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_23"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_24"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_25"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_26"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_27"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_28"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_29"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_30"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_31"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_32"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_33"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_34"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_35"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_36"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_37"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_38"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_39"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_40"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_41"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_42"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_43"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_44"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_45"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_46"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_47"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_48"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_49"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_50"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_51"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_52"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_53"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_54"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_55"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_56"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_57"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_58"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_59"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_60"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_61"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_62"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_63"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_64"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_65"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_66"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_67"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_68"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_68
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_69"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_69
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_70"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_70
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_71"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_71
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_72"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_72
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_73"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_73
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_74"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_74
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_75"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_75
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_76"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_76
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_77"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_77
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_78"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_78
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_sla_compliance__mutmut["xǁSLAMonitorǁget_sla_compliance__mutmut_79"] = (
+    SLAMonitor.xǁSLAMonitorǁget_sla_compliance__mutmut_79
+)  # type: ignore # mutmut generated
 
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['_mutmut_orig'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_1'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_2'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_3'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_4'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_5'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_6'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_7'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_8'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_9'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_10'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_11'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_12'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_13'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_14'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_15'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_16'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_17'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_18'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_19'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_20'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut['xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_21'] = SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_21 # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["_mutmut_orig"] = SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["xǁSLAMonitorǁget_all_sla_status__mutmut_1"] = (
+    SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["xǁSLAMonitorǁget_all_sla_status__mutmut_2"] = (
+    SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["xǁSLAMonitorǁget_all_sla_status__mutmut_3"] = (
+    SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["xǁSLAMonitorǁget_all_sla_status__mutmut_4"] = (
+    SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["xǁSLAMonitorǁget_all_sla_status__mutmut_5"] = (
+    SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["xǁSLAMonitorǁget_all_sla_status__mutmut_6"] = (
+    SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["xǁSLAMonitorǁget_all_sla_status__mutmut_7"] = (
+    SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["xǁSLAMonitorǁget_all_sla_status__mutmut_8"] = (
+    SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["xǁSLAMonitorǁget_all_sla_status__mutmut_9"] = (
+    SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["xǁSLAMonitorǁget_all_sla_status__mutmut_10"] = (
+    SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["xǁSLAMonitorǁget_all_sla_status__mutmut_11"] = (
+    SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["xǁSLAMonitorǁget_all_sla_status__mutmut_12"] = (
+    SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁget_all_sla_status__mutmut["xǁSLAMonitorǁget_all_sla_status__mutmut_13"] = (
+    SLAMonitor.xǁSLAMonitorǁget_all_sla_status__mutmut_13
+)  # type: ignore # mutmut generated
+
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["_mutmut_orig"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_1"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_2"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_3"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_4"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_5"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_6"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_7"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_8"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_9"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_10"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_11"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_12"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_13"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_14"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_15"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_16"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_17"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_18"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_19"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_20"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁSLAMonitorǁ_calculate_overall_compliance__mutmut["xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_21"] = (
+    SLAMonitor.xǁSLAMonitorǁ_calculate_overall_compliance__mutmut_21
+)  # type: ignore # mutmut generated
 mutants_xǁNotificationManagerǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁNotificationManagerǁconfigure_email__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁNotificationManagerǁconfigure_slack__mutmut: MutantDict = {}  # type: ignore
@@ -4022,7 +4368,9 @@ class NotificationManager:
             "from_email": from_email,
         }
 
-    def xǁNotificationManagerǁconfigure_email__mutmut_orig(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
+    def xǁNotificationManagerǁconfigure_email__mutmut_orig(
+        self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str
+    ) -> Any:
         """Configure email notifications"""
         self.email_config = {
             "smtp_server": smtp_server,
@@ -4032,11 +4380,15 @@ class NotificationManager:
             "from_email": from_email,
         }
 
-    def xǁNotificationManagerǁconfigure_email__mutmut_1(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
+    def xǁNotificationManagerǁconfigure_email__mutmut_1(
+        self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str
+    ) -> Any:
         """Configure email notifications"""
         self.email_config = None
 
-    def xǁNotificationManagerǁconfigure_email__mutmut_2(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
+    def xǁNotificationManagerǁconfigure_email__mutmut_2(
+        self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str
+    ) -> Any:
         """Configure email notifications"""
         self.email_config = {
             "XXsmtp_serverXX": smtp_server,
@@ -4046,7 +4398,9 @@ class NotificationManager:
             "from_email": from_email,
         }
 
-    def xǁNotificationManagerǁconfigure_email__mutmut_3(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
+    def xǁNotificationManagerǁconfigure_email__mutmut_3(
+        self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str
+    ) -> Any:
         """Configure email notifications"""
         self.email_config = {
             "SMTP_SERVER": smtp_server,
@@ -4056,7 +4410,9 @@ class NotificationManager:
             "from_email": from_email,
         }
 
-    def xǁNotificationManagerǁconfigure_email__mutmut_4(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
+    def xǁNotificationManagerǁconfigure_email__mutmut_4(
+        self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str
+    ) -> Any:
         """Configure email notifications"""
         self.email_config = {
             "smtp_server": smtp_server,
@@ -4066,7 +4422,9 @@ class NotificationManager:
             "from_email": from_email,
         }
 
-    def xǁNotificationManagerǁconfigure_email__mutmut_5(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
+    def xǁNotificationManagerǁconfigure_email__mutmut_5(
+        self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str
+    ) -> Any:
         """Configure email notifications"""
         self.email_config = {
             "smtp_server": smtp_server,
@@ -4076,7 +4434,9 @@ class NotificationManager:
             "from_email": from_email,
         }
 
-    def xǁNotificationManagerǁconfigure_email__mutmut_6(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
+    def xǁNotificationManagerǁconfigure_email__mutmut_6(
+        self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str
+    ) -> Any:
         """Configure email notifications"""
         self.email_config = {
             "smtp_server": smtp_server,
@@ -4086,7 +4446,9 @@ class NotificationManager:
             "from_email": from_email,
         }
 
-    def xǁNotificationManagerǁconfigure_email__mutmut_7(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
+    def xǁNotificationManagerǁconfigure_email__mutmut_7(
+        self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str
+    ) -> Any:
         """Configure email notifications"""
         self.email_config = {
             "smtp_server": smtp_server,
@@ -4096,7 +4458,9 @@ class NotificationManager:
             "from_email": from_email,
         }
 
-    def xǁNotificationManagerǁconfigure_email__mutmut_8(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
+    def xǁNotificationManagerǁconfigure_email__mutmut_8(
+        self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str
+    ) -> Any:
         """Configure email notifications"""
         self.email_config = {
             "smtp_server": smtp_server,
@@ -4106,7 +4470,9 @@ class NotificationManager:
             "from_email": from_email,
         }
 
-    def xǁNotificationManagerǁconfigure_email__mutmut_9(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
+    def xǁNotificationManagerǁconfigure_email__mutmut_9(
+        self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str
+    ) -> Any:
         """Configure email notifications"""
         self.email_config = {
             "smtp_server": smtp_server,
@@ -4116,7 +4482,9 @@ class NotificationManager:
             "from_email": from_email,
         }
 
-    def xǁNotificationManagerǁconfigure_email__mutmut_10(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
+    def xǁNotificationManagerǁconfigure_email__mutmut_10(
+        self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str
+    ) -> Any:
         """Configure email notifications"""
         self.email_config = {
             "smtp_server": smtp_server,
@@ -4126,7 +4494,9 @@ class NotificationManager:
             "XXfrom_emailXX": from_email,
         }
 
-    def xǁNotificationManagerǁconfigure_email__mutmut_11(self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str) -> Any:
+    def xǁNotificationManagerǁconfigure_email__mutmut_11(
+        self, smtp_server: str, smtp_port: int, username: str, password: str, from_email: str
+    ) -> Any:
         """Configure email notifications"""
         self.email_config = {
             "smtp_server": smtp_server,
@@ -4170,7 +4540,9 @@ class NotificationManager:
         """Add webhook configuration"""
         self.webhook_configs[name] = {"url": url, "headers": headers or {}}
 
-    def xǁNotificationManagerǁadd_webhook__mutmut_orig(self, name: str, url: str, headers: dict[str, str] | None = None) -> Any:
+    def xǁNotificationManagerǁadd_webhook__mutmut_orig(
+        self, name: str, url: str, headers: dict[str, str] | None = None
+    ) -> Any:
         """Add webhook configuration"""
         self.webhook_configs[name] = {"url": url, "headers": headers or {}}
 
@@ -4214,7 +4586,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_orig(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_orig(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4229,7 +4603,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_1(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_1(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel != NotificationChannel.EMAIL:
@@ -4244,7 +4620,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_2(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_2(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4259,7 +4637,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_3(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_3(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4274,7 +4654,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_4(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_4(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4289,11 +4671,15 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_5(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_5(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
-                await self._send_email(alert, )
+                await self._send_email(
+                    alert,
+                )
             elif channel == NotificationChannel.SLACK:
                 await self._send_slack(alert, message)
             elif channel == NotificationChannel.WEBHOOK:
@@ -4304,7 +4690,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_6(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_6(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4319,7 +4707,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_7(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_7(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4334,7 +4724,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_8(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_8(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4349,7 +4741,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_9(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_9(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4364,13 +4758,17 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_10(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_10(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
                 await self._send_email(alert, message)
             elif channel == NotificationChannel.SLACK:
-                await self._send_slack(alert, )
+                await self._send_slack(
+                    alert,
+                )
             elif channel == NotificationChannel.WEBHOOK:
                 await self._send_webhook(alert, message)
             elif channel == NotificationChannel.LOG:
@@ -4379,7 +4777,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_11(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_11(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4394,7 +4794,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_12(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_12(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4409,7 +4811,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_13(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_13(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4424,7 +4828,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_14(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_14(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4439,7 +4845,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_15(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_15(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4447,14 +4855,18 @@ class NotificationManager:
             elif channel == NotificationChannel.SLACK:
                 await self._send_slack(alert, message)
             elif channel == NotificationChannel.WEBHOOK:
-                await self._send_webhook(alert, )
+                await self._send_webhook(
+                    alert,
+                )
             elif channel == NotificationChannel.LOG:
                 self._send_log(alert, message)
             logger.info("Notification sent via %s for alert %s", channel.value, alert.alert_id)
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_16(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_16(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4469,7 +4881,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_17(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_17(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4484,7 +4898,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_18(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_18(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4499,7 +4915,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_19(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_19(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4514,7 +4932,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_20(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_20(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4524,12 +4944,16 @@ class NotificationManager:
             elif channel == NotificationChannel.WEBHOOK:
                 await self._send_webhook(alert, message)
             elif channel == NotificationChannel.LOG:
-                self._send_log(alert, )
+                self._send_log(
+                    alert,
+                )
             logger.info("Notification sent via %s for alert %s", channel.value, alert.alert_id)
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_21(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_21(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4544,7 +4968,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_22(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_22(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4559,7 +4985,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_23(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_23(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4574,7 +5002,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_24(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_24(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4589,7 +5019,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_25(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_25(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4604,7 +5036,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_26(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_26(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4615,11 +5049,16 @@ class NotificationManager:
                 await self._send_webhook(alert, message)
             elif channel == NotificationChannel.LOG:
                 self._send_log(alert, message)
-            logger.info("Notification sent via %s for alert %s", channel.value, )
+            logger.info(
+                "Notification sent via %s for alert %s",
+                channel.value,
+            )
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_27(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_27(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4634,7 +5073,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_28(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_28(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4649,7 +5090,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_29(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_29(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4664,7 +5107,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_30(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_30(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4679,7 +5124,9 @@ class NotificationManager:
         except Exception as e:
             logger.error(None, channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_31(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_31(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4694,7 +5141,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", None, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_32(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_32(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4706,10 +5155,12 @@ class NotificationManager:
             elif channel == NotificationChannel.LOG:
                 self._send_log(alert, message)
             logger.info("Notification sent via %s for alert %s", channel.value, alert.alert_id)
-        except Exception as e:
+        except Exception:
             logger.error("Failed to send notification via %s: %s", channel.value, None)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_33(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_33(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4724,7 +5175,9 @@ class NotificationManager:
         except Exception as e:
             logger.error(channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_34(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_34(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4739,7 +5192,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_35(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_35(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4751,10 +5206,15 @@ class NotificationManager:
             elif channel == NotificationChannel.LOG:
                 self._send_log(alert, message)
             logger.info("Notification sent via %s for alert %s", channel.value, alert.alert_id)
-        except Exception as e:
-            logger.error("Failed to send notification via %s: %s", channel.value, )
+        except Exception:
+            logger.error(
+                "Failed to send notification via %s: %s",
+                channel.value,
+            )
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_36(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_36(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4769,7 +5229,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("XXFailed to send notification via %s: %sXX", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_37(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_37(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -4784,7 +5246,9 @@ class NotificationManager:
         except Exception as e:
             logger.error("failed to send notification via %s: %s", channel.value, e)
 
-    async def xǁNotificationManagerǁsend_notification__mutmut_38(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:
+    async def xǁNotificationManagerǁsend_notification__mutmut_38(
+        self, channel: NotificationChannel, alert: Alert, message: str
+    ) -> Any:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
@@ -5595,7 +6059,7 @@ class NotificationManager:
             msg["From"] = self.email_config["from_email"]
             msg["To"] = "admin@aitbc.local"
             msg["Subject"] = f"[{alert.severity.value.upper()}] {alert.name}"
-            body = f"\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels, )}\nAnnotations: {json.dumps(alert.annotations, indent=2)}\n            "
+            body = f"\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels)}\nAnnotations: {json.dumps(alert.annotations, indent=2)}\n            "
             msg.attach(MIMEText(body, "plain"))
             server = smtplib.SMTP(self.email_config["smtp_server"], self.email_config["smtp_port"])
             server.starttls()
@@ -5710,7 +6174,7 @@ class NotificationManager:
             msg["From"] = self.email_config["from_email"]
             msg["To"] = "admin@aitbc.local"
             msg["Subject"] = f"[{alert.severity.value.upper()}] {alert.name}"
-            body = f"\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels, indent=2)}\nAnnotations: {json.dumps(alert.annotations, )}\n            "
+            body = f"\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels, indent=2)}\nAnnotations: {json.dumps(alert.annotations)}\n            "
             msg.attach(MIMEText(body, "plain"))
             server = smtplib.SMTP(self.email_config["smtp_server"], self.email_config["smtp_port"])
             server.starttls()
@@ -5756,7 +6220,7 @@ class NotificationManager:
             msg["From"] = self.email_config["from_email"]
             msg["To"] = "admin@aitbc.local"
             msg["Subject"] = f"[{alert.severity.value.upper()}] {alert.name}"
-            body = f"\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels, indent=2)}\nAnnotations: {json.dumps(alert.annotations, indent=2)}\n            "
+            f"\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels, indent=2)}\nAnnotations: {json.dumps(alert.annotations, indent=2)}\n            "
             msg.attach(None)
             server = smtplib.SMTP(self.email_config["smtp_server"], self.email_config["smtp_port"])
             server.starttls()
@@ -5779,7 +6243,7 @@ class NotificationManager:
             msg["From"] = self.email_config["from_email"]
             msg["To"] = "admin@aitbc.local"
             msg["Subject"] = f"[{alert.severity.value.upper()}] {alert.name}"
-            body = f"\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels, indent=2)}\nAnnotations: {json.dumps(alert.annotations, indent=2)}\n            "
+            f"\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels, indent=2)}\nAnnotations: {json.dumps(alert.annotations, indent=2)}\n            "
             msg.attach(MIMEText(None, "plain"))
             server = smtplib.SMTP(self.email_config["smtp_server"], self.email_config["smtp_port"])
             server.starttls()
@@ -5825,7 +6289,7 @@ class NotificationManager:
             msg["From"] = self.email_config["from_email"]
             msg["To"] = "admin@aitbc.local"
             msg["Subject"] = f"[{alert.severity.value.upper()}] {alert.name}"
-            body = f"\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels, indent=2)}\nAnnotations: {json.dumps(alert.annotations, indent=2)}\n            "
+            f"\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels, indent=2)}\nAnnotations: {json.dumps(alert.annotations, indent=2)}\n            "
             msg.attach(MIMEText("plain"))
             server = smtplib.SMTP(self.email_config["smtp_server"], self.email_config["smtp_port"])
             server.starttls()
@@ -5849,7 +6313,11 @@ class NotificationManager:
             msg["To"] = "admin@aitbc.local"
             msg["Subject"] = f"[{alert.severity.value.upper()}] {alert.name}"
             body = f"\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels, indent=2)}\nAnnotations: {json.dumps(alert.annotations, indent=2)}\n            "
-            msg.attach(MIMEText(body, ))
+            msg.attach(
+                MIMEText(
+                    body,
+                )
+            )
             server = smtplib.SMTP(self.email_config["smtp_server"], self.email_config["smtp_port"])
             server.starttls()
             server.login(self.email_config["username"], self.email_config["password"])
@@ -6011,7 +6479,9 @@ class NotificationManager:
             msg["Subject"] = f"[{alert.severity.value.upper()}] {alert.name}"
             body = f"\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels, indent=2)}\nAnnotations: {json.dumps(alert.annotations, indent=2)}\n            "
             msg.attach(MIMEText(body, "plain"))
-            server = smtplib.SMTP(self.email_config["smtp_server"], )
+            server = smtplib.SMTP(
+                self.email_config["smtp_server"],
+            )
             server.starttls()
             server.login(self.email_config["username"], self.email_config["password"])
             server.send_message(msg)
@@ -6197,7 +6667,9 @@ class NotificationManager:
             msg.attach(MIMEText(body, "plain"))
             server = smtplib.SMTP(self.email_config["smtp_server"], self.email_config["smtp_port"])
             server.starttls()
-            server.login(self.email_config["username"], )
+            server.login(
+                self.email_config["username"],
+            )
             server.send_message(msg)
             server.quit()
         except Exception as e:
@@ -6361,7 +6833,7 @@ class NotificationManager:
             server.login(self.email_config["username"], self.email_config["password"])
             server.send_message(msg)
             server.quit()
-        except Exception as e:
+        except Exception:
             logger.error("Failed to send email: %s", None)
 
     async def xǁNotificationManagerǁ_send_email__mutmut_67(self, alert: Alert, message: str) -> None:
@@ -6407,8 +6879,10 @@ class NotificationManager:
             server.login(self.email_config["username"], self.email_config["password"])
             server.send_message(msg)
             server.quit()
-        except Exception as e:
-            logger.error("Failed to send email: %s", )
+        except Exception:
+            logger.error(
+                "Failed to send email: %s",
+            )
 
     async def xǁNotificationManagerǁ_send_email__mutmut_69(self, alert: Alert, message: str) -> None:
         """Send email notification"""
@@ -6893,7 +7367,9 @@ class NotificationManager:
                 AlertSeverity.WARNING: "warning",
                 AlertSeverity.INFO: "good",
                 AlertSeverity.DEBUG: "gray",
-            }.get(alert.severity, )
+            }.get(
+                alert.severity,
+            )
             payload = {
                 "channel": self.slack_config["channel"],
                 "username": "AITBC Alert Manager",
@@ -7295,7 +7771,7 @@ class NotificationManager:
             logger.warning("Slack not configured")
             return
         try:
-            color = {
+            {
                 AlertSeverity.CRITICAL: "danger",
                 AlertSeverity.WARNING: "warning",
                 AlertSeverity.INFO: "good",
@@ -10094,7 +10570,7 @@ class NotificationManager:
                 AlertSeverity.INFO: "good",
                 AlertSeverity.DEBUG: "gray",
             }.get(alert.severity, "gray")
-            payload = {
+            {
                 "channel": self.slack_config["channel"],
                 "username": "AITBC Alert Manager",
                 "icon_emoji": ":warning:",
@@ -10168,7 +10644,7 @@ class NotificationManager:
                 AlertSeverity.INFO: "good",
                 AlertSeverity.DEBUG: "gray",
             }.get(alert.severity, "gray")
-            payload = {
+            {
                 "channel": self.slack_config["channel"],
                 "username": "AITBC Alert Manager",
                 "icon_emoji": ":warning:",
@@ -10279,7 +10755,7 @@ class NotificationManager:
                 AlertSeverity.INFO: "good",
                 AlertSeverity.DEBUG: "gray",
             }.get(alert.severity, "gray")
-            payload = {
+            {
                 "channel": self.slack_config["channel"],
                 "username": "AITBC Alert Manager",
                 "icon_emoji": ":warning:",
@@ -10336,7 +10812,10 @@ class NotificationManager:
                     }
                 ],
             }
-            response = requests.post(self.slack_config["webhook_url"], json=payload, )
+            response = requests.post(
+                self.slack_config["webhook_url"],
+                json=payload,
+            )
             response.raise_for_status()
         except Exception as e:
             logger.error("Failed to send Slack notification: %s", e)
@@ -10523,7 +11002,7 @@ class NotificationManager:
             }
             response = requests.post(self.slack_config["webhook_url"], json=payload, timeout=10)
             response.raise_for_status()
-        except Exception as e:
+        except Exception:
             logger.error("Failed to send Slack notification: %s", None)
 
     async def xǁNotificationManagerǁ_send_slack__mutmut_109(self, alert: Alert, message: str) -> None:
@@ -10597,8 +11076,10 @@ class NotificationManager:
             }
             response = requests.post(self.slack_config["webhook_url"], json=payload, timeout=10)
             response.raise_for_status()
-        except Exception as e:
-            logger.error("Failed to send Slack notification: %s", )
+        except Exception:
+            logger.error(
+                "Failed to send Slack notification: %s",
+            )
 
     async def xǁNotificationManagerǁ_send_slack__mutmut_111(self, alert: Alert, message: str) -> None:
         """Send Slack notification"""
@@ -10836,9 +11317,9 @@ class NotificationManager:
     async def xǁNotificationManagerǁ_send_webhook__mutmut_10(self, alert: Alert, message: str) -> None:
         """Send webhook notification"""
         webhook_configs = self.webhook_configs
-        for name, config in webhook_configs.items():
+        for name, _config in webhook_configs.items():
             try:
-                payload = {"alert": alert.to_dict(), "message": message, "timestamp": datetime.now(UTC).isoformat()}
+                {"alert": alert.to_dict(), "message": message, "timestamp": datetime.now(UTC).isoformat()}
                 response = None
                 response.raise_for_status()
             except Exception as e:
@@ -10860,7 +11341,7 @@ class NotificationManager:
         webhook_configs = self.webhook_configs
         for name, config in webhook_configs.items():
             try:
-                payload = {"alert": alert.to_dict(), "message": message, "timestamp": datetime.now(UTC).isoformat()}
+                {"alert": alert.to_dict(), "message": message, "timestamp": datetime.now(UTC).isoformat()}
                 response = requests.post(config["url"], json=None, headers=config["headers"], timeout=10)
                 response.raise_for_status()
             except Exception as e:
@@ -10904,7 +11385,7 @@ class NotificationManager:
         webhook_configs = self.webhook_configs
         for name, config in webhook_configs.items():
             try:
-                payload = {"alert": alert.to_dict(), "message": message, "timestamp": datetime.now(UTC).isoformat()}
+                {"alert": alert.to_dict(), "message": message, "timestamp": datetime.now(UTC).isoformat()}
                 response = requests.post(config["url"], headers=config["headers"], timeout=10)
                 response.raise_for_status()
             except Exception as e:
@@ -10927,7 +11408,11 @@ class NotificationManager:
         for name, config in webhook_configs.items():
             try:
                 payload = {"alert": alert.to_dict(), "message": message, "timestamp": datetime.now(UTC).isoformat()}
-                response = requests.post(config["url"], json=payload, headers=config["headers"], )
+                response = requests.post(
+                    config["url"],
+                    json=payload,
+                    headers=config["headers"],
+                )
                 response.raise_for_status()
             except Exception as e:
                 logger.error("Failed to send webhook to %s: %s", name, e)
@@ -11001,7 +11486,7 @@ class NotificationManager:
     async def xǁNotificationManagerǁ_send_webhook__mutmut_25(self, alert: Alert, message: str) -> None:
         """Send webhook notification"""
         webhook_configs = self.webhook_configs
-        for name, config in webhook_configs.items():
+        for _name, config in webhook_configs.items():
             try:
                 payload = {"alert": alert.to_dict(), "message": message, "timestamp": datetime.now(UTC).isoformat()}
                 response = requests.post(config["url"], json=payload, headers=config["headers"], timeout=10)
@@ -11017,7 +11502,7 @@ class NotificationManager:
                 payload = {"alert": alert.to_dict(), "message": message, "timestamp": datetime.now(UTC).isoformat()}
                 response = requests.post(config["url"], json=payload, headers=config["headers"], timeout=10)
                 response.raise_for_status()
-            except Exception as e:
+            except Exception:
                 logger.error("Failed to send webhook to %s: %s", name, None)
 
     async def xǁNotificationManagerǁ_send_webhook__mutmut_27(self, alert: Alert, message: str) -> None:
@@ -11034,7 +11519,7 @@ class NotificationManager:
     async def xǁNotificationManagerǁ_send_webhook__mutmut_28(self, alert: Alert, message: str) -> None:
         """Send webhook notification"""
         webhook_configs = self.webhook_configs
-        for name, config in webhook_configs.items():
+        for _name, config in webhook_configs.items():
             try:
                 payload = {"alert": alert.to_dict(), "message": message, "timestamp": datetime.now(UTC).isoformat()}
                 response = requests.post(config["url"], json=payload, headers=config["headers"], timeout=10)
@@ -11050,8 +11535,11 @@ class NotificationManager:
                 payload = {"alert": alert.to_dict(), "message": message, "timestamp": datetime.now(UTC).isoformat()}
                 response = requests.post(config["url"], json=payload, headers=config["headers"], timeout=10)
                 response.raise_for_status()
-            except Exception as e:
-                logger.error("Failed to send webhook to %s: %s", name, )
+            except Exception:
+                logger.error(
+                    "Failed to send webhook to %s: %s",
+                    name,
+                )
 
     async def xǁNotificationManagerǁ_send_webhook__mutmut_30(self, alert: Alert, message: str) -> None:
         """Send webhook notification"""
@@ -11149,12 +11637,14 @@ class NotificationManager:
             AlertSeverity.WARNING: logging.WARNING,
             AlertSeverity.INFO: logging.INFO,
             AlertSeverity.DEBUG: logging.DEBUG,
-        }.get(alert.severity, )
+        }.get(
+            alert.severity,
+        )
         logger.log(log_level, "ALERT [%s] %s: %s - %s", alert.severity.value.upper(), alert.name, alert.description, message)
 
     def xǁNotificationManagerǁ_send_log__mutmut_6(self, alert: Alert, message: str) -> None:
         """Send log notification"""
-        log_level = {
+        {
             AlertSeverity.CRITICAL: logging.CRITICAL,
             AlertSeverity.WARNING: logging.WARNING,
             AlertSeverity.INFO: logging.INFO,
@@ -11214,7 +11704,7 @@ class NotificationManager:
 
     def xǁNotificationManagerǁ_send_log__mutmut_12(self, alert: Alert, message: str) -> None:
         """Send log notification"""
-        log_level = {
+        {
             AlertSeverity.CRITICAL: logging.CRITICAL,
             AlertSeverity.WARNING: logging.WARNING,
             AlertSeverity.INFO: logging.INFO,
@@ -11270,7 +11760,13 @@ class NotificationManager:
             AlertSeverity.INFO: logging.INFO,
             AlertSeverity.DEBUG: logging.DEBUG,
         }.get(alert.severity, logging.INFO)
-        logger.log(log_level, "ALERT [%s] %s: %s - %s", alert.severity.value.upper(), alert.name, alert.description, )
+        logger.log(
+            log_level,
+            "ALERT [%s] %s: %s - %s",
+            alert.severity.value.upper(),
+            alert.name,
+            alert.description,
+        )
 
     def xǁNotificationManagerǁ_send_log__mutmut_18(self, alert: Alert, message: str) -> None:
         """Send log notification"""
@@ -11280,7 +11776,9 @@ class NotificationManager:
             AlertSeverity.INFO: logging.INFO,
             AlertSeverity.DEBUG: logging.DEBUG,
         }.get(alert.severity, logging.INFO)
-        logger.log(log_level, "XXALERT [%s] %s: %s - %sXX", alert.severity.value.upper(), alert.name, alert.description, message)
+        logger.log(
+            log_level, "XXALERT [%s] %s: %s - %sXX", alert.severity.value.upper(), alert.name, alert.description, message
+        )
 
     def xǁNotificationManagerǁ_send_log__mutmut_19(self, alert: Alert, message: str) -> None:
         """Send log notification"""
@@ -11312,323 +11810,942 @@ class NotificationManager:
         }.get(alert.severity, logging.INFO)
         logger.log(log_level, "ALERT [%s] %s: %s - %s", alert.severity.value.lower(), alert.name, alert.description, message)
 
-mutants_xǁNotificationManagerǁ__init____mutmut['_mutmut_orig'] = NotificationManager.xǁNotificationManagerǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ__init____mutmut['xǁNotificationManagerǁ__init____mutmut_1'] = NotificationManager.xǁNotificationManagerǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ__init____mutmut['xǁNotificationManagerǁ__init____mutmut_2'] = NotificationManager.xǁNotificationManagerǁ__init____mutmut_2 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ__init____mutmut['xǁNotificationManagerǁ__init____mutmut_3'] = NotificationManager.xǁNotificationManagerǁ__init____mutmut_3 # type: ignore # mutmut generated
 
-mutants_xǁNotificationManagerǁconfigure_email__mutmut['_mutmut_orig'] = NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_email__mutmut['xǁNotificationManagerǁconfigure_email__mutmut_1'] = NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_email__mutmut['xǁNotificationManagerǁconfigure_email__mutmut_2'] = NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_email__mutmut['xǁNotificationManagerǁconfigure_email__mutmut_3'] = NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_email__mutmut['xǁNotificationManagerǁconfigure_email__mutmut_4'] = NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_email__mutmut['xǁNotificationManagerǁconfigure_email__mutmut_5'] = NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_email__mutmut['xǁNotificationManagerǁconfigure_email__mutmut_6'] = NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_email__mutmut['xǁNotificationManagerǁconfigure_email__mutmut_7'] = NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_email__mutmut['xǁNotificationManagerǁconfigure_email__mutmut_8'] = NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_email__mutmut['xǁNotificationManagerǁconfigure_email__mutmut_9'] = NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_email__mutmut['xǁNotificationManagerǁconfigure_email__mutmut_10'] = NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_email__mutmut['xǁNotificationManagerǁconfigure_email__mutmut_11'] = NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_11 # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ__init____mutmut["_mutmut_orig"] = (
+    NotificationManager.xǁNotificationManagerǁ__init____mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ__init____mutmut["xǁNotificationManagerǁ__init____mutmut_1"] = (
+    NotificationManager.xǁNotificationManagerǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ__init____mutmut["xǁNotificationManagerǁ__init____mutmut_2"] = (
+    NotificationManager.xǁNotificationManagerǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ__init____mutmut["xǁNotificationManagerǁ__init____mutmut_3"] = (
+    NotificationManager.xǁNotificationManagerǁ__init____mutmut_3
+)  # type: ignore # mutmut generated
 
-mutants_xǁNotificationManagerǁconfigure_slack__mutmut['_mutmut_orig'] = NotificationManager.xǁNotificationManagerǁconfigure_slack__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_slack__mutmut['xǁNotificationManagerǁconfigure_slack__mutmut_1'] = NotificationManager.xǁNotificationManagerǁconfigure_slack__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_slack__mutmut['xǁNotificationManagerǁconfigure_slack__mutmut_2'] = NotificationManager.xǁNotificationManagerǁconfigure_slack__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_slack__mutmut['xǁNotificationManagerǁconfigure_slack__mutmut_3'] = NotificationManager.xǁNotificationManagerǁconfigure_slack__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_slack__mutmut['xǁNotificationManagerǁconfigure_slack__mutmut_4'] = NotificationManager.xǁNotificationManagerǁconfigure_slack__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁconfigure_slack__mutmut['xǁNotificationManagerǁconfigure_slack__mutmut_5'] = NotificationManager.xǁNotificationManagerǁconfigure_slack__mutmut_5 # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_email__mutmut["_mutmut_orig"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_email__mutmut["xǁNotificationManagerǁconfigure_email__mutmut_1"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_email__mutmut["xǁNotificationManagerǁconfigure_email__mutmut_2"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_email__mutmut["xǁNotificationManagerǁconfigure_email__mutmut_3"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_email__mutmut["xǁNotificationManagerǁconfigure_email__mutmut_4"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_email__mutmut["xǁNotificationManagerǁconfigure_email__mutmut_5"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_email__mutmut["xǁNotificationManagerǁconfigure_email__mutmut_6"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_email__mutmut["xǁNotificationManagerǁconfigure_email__mutmut_7"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_email__mutmut["xǁNotificationManagerǁconfigure_email__mutmut_8"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_email__mutmut["xǁNotificationManagerǁconfigure_email__mutmut_9"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_email__mutmut["xǁNotificationManagerǁconfigure_email__mutmut_10"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_email__mutmut["xǁNotificationManagerǁconfigure_email__mutmut_11"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_email__mutmut_11
+)  # type: ignore # mutmut generated
 
-mutants_xǁNotificationManagerǁadd_webhook__mutmut['_mutmut_orig'] = NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁadd_webhook__mutmut['xǁNotificationManagerǁadd_webhook__mutmut_1'] = NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁadd_webhook__mutmut['xǁNotificationManagerǁadd_webhook__mutmut_2'] = NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁadd_webhook__mutmut['xǁNotificationManagerǁadd_webhook__mutmut_3'] = NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁadd_webhook__mutmut['xǁNotificationManagerǁadd_webhook__mutmut_4'] = NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁadd_webhook__mutmut['xǁNotificationManagerǁadd_webhook__mutmut_5'] = NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁadd_webhook__mutmut['xǁNotificationManagerǁadd_webhook__mutmut_6'] = NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_6 # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_slack__mutmut["_mutmut_orig"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_slack__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_slack__mutmut["xǁNotificationManagerǁconfigure_slack__mutmut_1"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_slack__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_slack__mutmut["xǁNotificationManagerǁconfigure_slack__mutmut_2"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_slack__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_slack__mutmut["xǁNotificationManagerǁconfigure_slack__mutmut_3"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_slack__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_slack__mutmut["xǁNotificationManagerǁconfigure_slack__mutmut_4"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_slack__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁconfigure_slack__mutmut["xǁNotificationManagerǁconfigure_slack__mutmut_5"] = (
+    NotificationManager.xǁNotificationManagerǁconfigure_slack__mutmut_5
+)  # type: ignore # mutmut generated
 
-mutants_xǁNotificationManagerǁsend_notification__mutmut['_mutmut_orig'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_1'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_2'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_3'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_4'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_5'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_6'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_7'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_8'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_9'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_10'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_11'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_12'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_13'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_14'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_15'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_16'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_17'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_18'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_19'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_20'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_21'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_22'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_23'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_24'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_25'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_26'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_27'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_28'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_29'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_30'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_31'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_32'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_33'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_34'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_35'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_36'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_37'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁsend_notification__mutmut['xǁNotificationManagerǁsend_notification__mutmut_38'] = NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_38 # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁadd_webhook__mutmut["_mutmut_orig"] = (
+    NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁadd_webhook__mutmut["xǁNotificationManagerǁadd_webhook__mutmut_1"] = (
+    NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁadd_webhook__mutmut["xǁNotificationManagerǁadd_webhook__mutmut_2"] = (
+    NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁadd_webhook__mutmut["xǁNotificationManagerǁadd_webhook__mutmut_3"] = (
+    NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁadd_webhook__mutmut["xǁNotificationManagerǁadd_webhook__mutmut_4"] = (
+    NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁadd_webhook__mutmut["xǁNotificationManagerǁadd_webhook__mutmut_5"] = (
+    NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁadd_webhook__mutmut["xǁNotificationManagerǁadd_webhook__mutmut_6"] = (
+    NotificationManager.xǁNotificationManagerǁadd_webhook__mutmut_6
+)  # type: ignore # mutmut generated
 
-mutants_xǁNotificationManagerǁ_send_email__mutmut['_mutmut_orig'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_1'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_2'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_3'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_4'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_5'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_6'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_7'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_8'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_9'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_10'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_11'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_12'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_13'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_14'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_15'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_16'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_17'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_18'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_19'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_20'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_21'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_22'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_23'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_24'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_25'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_26'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_27'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_28'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_29'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_30'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_31'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_32'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_33'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_34'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_35'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_36'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_37'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_38'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_39'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_40'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_41'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_42'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_43'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_44'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_45'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_46'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_47'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_48'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_49'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_50'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_51'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_52'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_53'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_54'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_55'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_56'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_57'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_58'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_59'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_60'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_61'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_62'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_63'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_64'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_65'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_66'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_67'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_68'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_69'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_70'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_email__mutmut['xǁNotificationManagerǁ_send_email__mutmut_71'] = NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_71 # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["_mutmut_orig"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_1"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_2"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_3"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_4"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_5"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_6"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_7"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_8"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_9"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_10"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_11"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_12"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_13"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_14"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_15"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_16"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_17"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_18"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_19"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_20"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_21"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_22"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_23"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_24"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_25"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_26"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_27"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_28"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_29"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_30"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_31"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_32"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_33"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_34"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_35"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_36"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_37"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁsend_notification__mutmut["xǁNotificationManagerǁsend_notification__mutmut_38"] = (
+    NotificationManager.xǁNotificationManagerǁsend_notification__mutmut_38
+)  # type: ignore # mutmut generated
 
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['_mutmut_orig'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_1'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_2'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_3'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_4'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_5'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_6'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_7'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_8'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_9'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_10'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_11'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_12'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_13'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_14'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_15'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_16'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_17'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_18'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_19'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_20'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_21'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_22'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_23'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_24'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_25'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_26'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_27'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_28'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_29'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_30'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_31'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_32'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_33'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_34'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_35'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_36'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_37'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_38'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_39'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_40'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_41'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_42'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_43'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_44'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_45'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_46'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_47'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_48'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_49'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_50'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_51'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_52'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_53'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_54'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_55'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_56'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_57'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_58'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_59'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_60'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_61'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_62'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_63'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_64'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_65'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_66'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_67'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_68'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_69'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_70'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_71'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_71 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_72'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_72 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_73'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_73 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_74'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_74 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_75'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_75 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_76'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_76 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_77'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_77 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_78'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_78 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_79'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_79 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_80'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_80 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_81'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_81 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_82'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_82 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_83'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_83 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_84'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_84 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_85'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_85 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_86'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_86 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_87'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_87 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_88'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_88 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_89'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_89 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_90'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_90 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_91'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_91 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_92'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_92 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_93'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_93 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_94'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_94 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_95'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_95 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_96'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_96 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_97'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_97 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_98'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_98 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_99'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_99 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_100'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_100 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_101'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_101 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_102'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_102 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_103'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_103 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_104'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_104 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_105'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_105 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_106'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_106 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_107'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_107 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_108'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_108 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_109'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_109 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_110'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_110 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_111'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_111 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_112'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_112 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_slack__mutmut['xǁNotificationManagerǁ_send_slack__mutmut_113'] = NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_113 # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["_mutmut_orig"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_1"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_2"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_3"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_4"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_5"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_6"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_7"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_8"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_9"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_10"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_11"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_12"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_13"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_14"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_15"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_16"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_17"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_18"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_19"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_20"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_21"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_22"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_23"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_24"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_25"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_26"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_27"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_28"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_29"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_30"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_31"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_32"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_33"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_34"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_35"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_36"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_37"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_38"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_39"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_40"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_41"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_42"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_43"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_44"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_45"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_46"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_47"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_48"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_49"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_50"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_51"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_52"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_53"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_54"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_55"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_56"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_57"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_58"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_59"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_60"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_61"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_62"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_63"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_64"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_65"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_66"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_67"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_68"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_68
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_69"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_69
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_70"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_70
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_email__mutmut["xǁNotificationManagerǁ_send_email__mutmut_71"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_email__mutmut_71
+)  # type: ignore # mutmut generated
 
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['_mutmut_orig'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_1'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_2'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_3'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_4'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_5'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_6'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_7'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_8'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_9'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_10'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_11'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_12'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_13'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_14'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_15'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_16'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_17'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_18'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_19'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_20'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_21'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_22'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_23'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_24'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_25'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_26'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_27'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_28'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_29'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_30'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_31'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_webhook__mutmut['xǁNotificationManagerǁ_send_webhook__mutmut_32'] = NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_32 # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["_mutmut_orig"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_1"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_2"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_3"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_4"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_5"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_6"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_7"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_8"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_9"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_10"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_11"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_12"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_13"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_14"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_15"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_16"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_17"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_18"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_19"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_20"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_21"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_22"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_23"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_24"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_25"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_26"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_27"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_28"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_29"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_30"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_31"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_32"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_33"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_34"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_35"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_36"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_37"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_38"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_39"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_40"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_41"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_42"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_43"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_44"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_45"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_46"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_47"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_48"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_49"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_50"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_51"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_52"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_53"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_54"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_55"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_56"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_57"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_58"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_59"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_60"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_61"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_62"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_63"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_64"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_65"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_66"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_67"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_68"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_68
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_69"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_69
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_70"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_70
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_71"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_71
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_72"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_72
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_73"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_73
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_74"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_74
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_75"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_75
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_76"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_76
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_77"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_77
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_78"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_78
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_79"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_79
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_80"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_80
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_81"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_81
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_82"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_82
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_83"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_83
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_84"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_84
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_85"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_85
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_86"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_86
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_87"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_87
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_88"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_88
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_89"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_89
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_90"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_90
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_91"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_91
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_92"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_92
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_93"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_93
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_94"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_94
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_95"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_95
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_96"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_96
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_97"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_97
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_98"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_98
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_99"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_99
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_100"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_100
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_101"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_101
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_102"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_102
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_103"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_103
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_104"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_104
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_105"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_105
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_106"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_106
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_107"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_107
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_108"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_108
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_109"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_109
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_110"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_110
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_111"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_111
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_112"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_112
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_slack__mutmut["xǁNotificationManagerǁ_send_slack__mutmut_113"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_slack__mutmut_113
+)  # type: ignore # mutmut generated
 
-mutants_xǁNotificationManagerǁ_send_log__mutmut['_mutmut_orig'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_1'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_2'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_3'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_4'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_5'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_6'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_7'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_8'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_9'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_10'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_11'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_12'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_13'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_14'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_15'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_16'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_17'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_18'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_19'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_20'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁNotificationManagerǁ_send_log__mutmut['xǁNotificationManagerǁ_send_log__mutmut_21'] = NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_21 # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["_mutmut_orig"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_1"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_2"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_3"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_4"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_5"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_6"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_7"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_8"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_9"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_10"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_11"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_12"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_13"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_14"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_15"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_16"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_17"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_18"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_19"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_20"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_21"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_22"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_23"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_24"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_25"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_26"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_27"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_28"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_29"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_30"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_31"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_webhook__mutmut["xǁNotificationManagerǁ_send_webhook__mutmut_32"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_webhook__mutmut_32
+)  # type: ignore # mutmut generated
+
+mutants_xǁNotificationManagerǁ_send_log__mutmut["_mutmut_orig"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_1"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_2"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_3"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_4"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_5"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_6"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_7"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_8"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_9"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_10"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_11"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_12"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_13"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_14"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_15"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_16"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_17"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_18"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_19"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_20"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁNotificationManagerǁ_send_log__mutmut["xǁNotificationManagerǁ_send_log__mutmut_21"] = (
+    NotificationManager.xǁNotificationManagerǁ_send_log__mutmut_21
+)  # type: ignore # mutmut generated
 mutants_xǁAlertManagerǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁAlertManagerǁadd_rule__mutmut: MutantDict = {}  # type: ignore
@@ -13038,7 +14155,7 @@ class AlertManager:
                 duration=timedelta(minutes=5),
                 labels={"component": "api"},
                 annotations={"runbook_url": "https://docs.aitbc.local/runbooks/error_rate"},
-                ),
+            ),
             AlertRule(
                 rule_id="high_response_time",
                 name="High Response Time",
@@ -15497,7 +16614,7 @@ class AlertManager:
                 threshold=2.0,
                 duration=timedelta(minutes=3),
                 labels={"component": "api"},
-                ),
+            ),
             AlertRule(
                 rule_id="agent_count_low",
                 name="Low Agent Count",
@@ -17704,7 +18821,7 @@ class AlertManager:
                 threshold=3,
                 duration=timedelta(minutes=2),
                 labels={"component": "agents"},
-                ),
+            ),
             AlertRule(
                 rule_id="memory_usage_high",
                 name="High Memory Usage",
@@ -19911,7 +21028,7 @@ class AlertManager:
                 threshold=0.85,
                 duration=timedelta(minutes=5),
                 labels={"component": "system"},
-                ),
+            ),
             AlertRule(
                 rule_id="cpu_usage_high",
                 name="High CPU Usage",
@@ -22118,7 +23235,7 @@ class AlertManager:
                 threshold=0.8,
                 duration=timedelta(minutes=5),
                 labels={"component": "system"},
-                ),
+            ),
         ]
         for rule in default_rules:
             self.rules[rule.rule_id] = rule
@@ -23496,7 +24613,10 @@ class AlertManager:
             if not rule.enabled:
                 continue
             try:
-                condition_met = self._evaluate_condition(rule.condition, metrics, )
+                condition_met = self._evaluate_condition(
+                    rule.condition,
+                    metrics,
+                )
                 current_time = datetime.now(UTC)
                 if condition_met:
                     if rule_id not in self.active_conditions:
@@ -23692,7 +24812,9 @@ class AlertManager:
                     if rule_id not in self.active_conditions:
                         self.active_conditions[rule_id] = current_time
                     elif current_time - self.active_conditions[rule_id] >= rule.duration:
-                        self._trigger_alert(rule, )
+                        self._trigger_alert(
+                            rule,
+                        )
                         self.active_conditions[rule_id] = current_time
                 elif rule_id in self.active_conditions:
                     del self.active_conditions[rule_id]
@@ -23791,7 +24913,7 @@ class AlertManager:
                         self.active_conditions[rule_id] = current_time
                 elif rule_id in self.active_conditions:
                     del self.active_conditions[rule_id]
-            except Exception as e:
+            except Exception:
                 logger.error("Error evaluating rule %s: %s", rule_id, None)
 
     def xǁAlertManagerǁevaluate_rules__mutmut_25(self, metrics: dict[str, Any]) -> None:
@@ -23848,8 +24970,11 @@ class AlertManager:
                         self.active_conditions[rule_id] = current_time
                 elif rule_id in self.active_conditions:
                     del self.active_conditions[rule_id]
-            except Exception as e:
-                logger.error("Error evaluating rule %s: %s", rule_id, )
+            except Exception:
+                logger.error(
+                    "Error evaluating rule %s: %s",
+                    rule_id,
+                )
 
     def xǁAlertManagerǁevaluate_rules__mutmut_28(self, metrics: dict[str, Any]) -> None:
         """Evaluate all alert rules against current metrics"""
@@ -23928,7 +25053,9 @@ class AlertManager:
             return bool(cpu_usage > threshold)
         return False
 
-    def xǁAlertManagerǁ_evaluate_condition__mutmut_orig(self, condition: str, metrics: dict[str, Any], threshold: float) -> bool:
+    def xǁAlertManagerǁ_evaluate_condition__mutmut_orig(
+        self, condition: str, metrics: dict[str, Any], threshold: float
+    ) -> bool:
         """Evaluate alert condition"""
         if "error_rate" in condition:
             error_rate: float = metrics.get("error_rate", 0)
@@ -24083,7 +25210,9 @@ class AlertManager:
     def xǁAlertManagerǁ_evaluate_condition__mutmut_8(self, condition: str, metrics: dict[str, Any], threshold: float) -> bool:
         """Evaluate alert condition"""
         if "error_rate" in condition:
-            error_rate: float = metrics.get("error_rate", )
+            error_rate: float = metrics.get(
+                "error_rate",
+            )
             return bool(error_rate > threshold)
         elif "response_time" in condition:
             response_time: float = metrics.get("avg_response_time", 0)
@@ -24159,7 +25288,7 @@ class AlertManager:
     def xǁAlertManagerǁ_evaluate_condition__mutmut_12(self, condition: str, metrics: dict[str, Any], threshold: float) -> bool:
         """Evaluate alert condition"""
         if "error_rate" in condition:
-            error_rate: float = metrics.get("error_rate", 0)
+            metrics.get("error_rate", 0)
             return bool(None)
         elif "response_time" in condition:
             response_time: float = metrics.get("avg_response_time", 0)
@@ -24333,7 +25462,9 @@ class AlertManager:
             error_rate: float = metrics.get("error_rate", 0)
             return bool(error_rate > threshold)
         elif "response_time" in condition:
-            response_time: float = metrics.get("avg_response_time", )
+            response_time: float = metrics.get(
+                "avg_response_time",
+            )
             return bool(response_time > threshold)
         elif "agent_count" in condition:
             agent_count: float = metrics.get("active_agents", 0)
@@ -24409,7 +25540,7 @@ class AlertManager:
             error_rate: float = metrics.get("error_rate", 0)
             return bool(error_rate > threshold)
         elif "response_time" in condition:
-            response_time: float = metrics.get("avg_response_time", 0)
+            metrics.get("avg_response_time", 0)
             return bool(None)
         elif "agent_count" in condition:
             agent_count: float = metrics.get("active_agents", 0)
@@ -24583,7 +25714,9 @@ class AlertManager:
             response_time: float = metrics.get("avg_response_time", 0)
             return bool(response_time > threshold)
         elif "agent_count" in condition:
-            agent_count: float = metrics.get("active_agents", )
+            agent_count: float = metrics.get(
+                "active_agents",
+            )
             return bool(agent_count < threshold)
         elif "memory_usage" in condition:
             memory_usage: float = metrics.get("memory_usage_percent", 0)
@@ -24659,7 +25792,7 @@ class AlertManager:
             response_time: float = metrics.get("avg_response_time", 0)
             return bool(response_time > threshold)
         elif "agent_count" in condition:
-            agent_count: float = metrics.get("active_agents", 0)
+            metrics.get("active_agents", 0)
             return bool(None)
         elif "memory_usage" in condition:
             memory_usage: float = metrics.get("memory_usage_percent", 0)
@@ -24833,7 +25966,9 @@ class AlertManager:
             agent_count: float = metrics.get("active_agents", 0)
             return bool(agent_count < threshold)
         elif "memory_usage" in condition:
-            memory_usage: float = metrics.get("memory_usage_percent", )
+            memory_usage: float = metrics.get(
+                "memory_usage_percent",
+            )
             return bool(memory_usage > threshold)
         elif "cpu_usage" in condition:
             cpu_usage: float = metrics.get("cpu_usage_percent", 0)
@@ -24909,7 +26044,7 @@ class AlertManager:
             agent_count: float = metrics.get("active_agents", 0)
             return bool(agent_count < threshold)
         elif "memory_usage" in condition:
-            memory_usage: float = metrics.get("memory_usage_percent", 0)
+            metrics.get("memory_usage_percent", 0)
             return bool(None)
         elif "cpu_usage" in condition:
             cpu_usage: float = metrics.get("cpu_usage_percent", 0)
@@ -25083,7 +26218,9 @@ class AlertManager:
             memory_usage: float = metrics.get("memory_usage_percent", 0)
             return bool(memory_usage > threshold)
         elif "cpu_usage" in condition:
-            cpu_usage: float = metrics.get("cpu_usage_percent", )
+            cpu_usage: float = metrics.get(
+                "cpu_usage_percent",
+            )
             return bool(cpu_usage > threshold)
         return False
 
@@ -25159,7 +26296,7 @@ class AlertManager:
             memory_usage: float = metrics.get("memory_usage_percent", 0)
             return bool(memory_usage > threshold)
         elif "cpu_usage" in condition:
-            cpu_usage: float = metrics.get("cpu_usage_percent", 0)
+            metrics.get("cpu_usage_percent", 0)
             return bool(None)
         return False
 
@@ -25974,7 +27111,7 @@ class AlertManager:
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
             labels=rule.labels.copy(),
-            )
+        )
         alert.annotations.update(
             {
                 "error_rate": str(metrics.get("error_rate", "N/A")),
@@ -26068,9 +27205,7 @@ class AlertManager:
             labels=rule.labels.copy(),
             annotations=rule.annotations.copy(),
         )
-        alert.annotations.update(
-            None
-        )
+        alert.annotations.update(None)
         self.alerts[alert_id] = alert
         message = self._generate_alert_message(alert, metrics)
         for channel in rule.notification_channels:
@@ -26281,7 +27416,11 @@ class AlertManager:
         )
         alert.annotations.update(
             {
-                "error_rate": str(metrics.get("error_rate", )),
+                "error_rate": str(
+                    metrics.get(
+                        "error_rate",
+                    )
+                ),
                 "response_time": str(metrics.get("avg_response_time", "N/A")),
                 "agent_count": str(metrics.get("active_agents", "N/A")),
                 "memory_usage": str(metrics.get("memory_usage_percent", "N/A")),
@@ -26623,7 +27762,11 @@ class AlertManager:
         alert.annotations.update(
             {
                 "error_rate": str(metrics.get("error_rate", "N/A")),
-                "response_time": str(metrics.get("avg_response_time", )),
+                "response_time": str(
+                    metrics.get(
+                        "avg_response_time",
+                    )
+                ),
                 "agent_count": str(metrics.get("active_agents", "N/A")),
                 "memory_usage": str(metrics.get("memory_usage_percent", "N/A")),
                 "cpu_usage": str(metrics.get("cpu_usage_percent", "N/A")),
@@ -26965,7 +28108,11 @@ class AlertManager:
             {
                 "error_rate": str(metrics.get("error_rate", "N/A")),
                 "response_time": str(metrics.get("avg_response_time", "N/A")),
-                "agent_count": str(metrics.get("active_agents", )),
+                "agent_count": str(
+                    metrics.get(
+                        "active_agents",
+                    )
+                ),
                 "memory_usage": str(metrics.get("memory_usage_percent", "N/A")),
                 "cpu_usage": str(metrics.get("cpu_usage_percent", "N/A")),
             }
@@ -27307,7 +28454,11 @@ class AlertManager:
                 "error_rate": str(metrics.get("error_rate", "N/A")),
                 "response_time": str(metrics.get("avg_response_time", "N/A")),
                 "agent_count": str(metrics.get("active_agents", "N/A")),
-                "memory_usage": str(metrics.get("memory_usage_percent", )),
+                "memory_usage": str(
+                    metrics.get(
+                        "memory_usage_percent",
+                    )
+                ),
                 "cpu_usage": str(metrics.get("cpu_usage_percent", "N/A")),
             }
         )
@@ -27649,7 +28800,11 @@ class AlertManager:
                 "response_time": str(metrics.get("avg_response_time", "N/A")),
                 "agent_count": str(metrics.get("active_agents", "N/A")),
                 "memory_usage": str(metrics.get("memory_usage_percent", "N/A")),
-                "cpu_usage": str(metrics.get("cpu_usage_percent", )),
+                "cpu_usage": str(
+                    metrics.get(
+                        "cpu_usage_percent",
+                    )
+                ),
             }
         )
         self.alerts[alert_id] = alert
@@ -27963,7 +29118,9 @@ class AlertManager:
             }
         )
         self.alerts[alert_id] = alert
-        message = self._generate_alert_message(alert, )
+        message = self._generate_alert_message(
+            alert,
+        )
         for channel in rule.notification_channels:
             asyncio.create_task(self.notification_manager.send_notification(channel, alert, message))
 
@@ -27994,8 +29151,8 @@ class AlertManager:
             }
         )
         self.alerts[alert_id] = alert
-        message = self._generate_alert_message(alert, metrics)
-        for channel in rule.notification_channels:
+        self._generate_alert_message(alert, metrics)
+        for _channel in rule.notification_channels:
             asyncio.create_task(None)
 
     def xǁAlertManagerǁ_trigger_alert__mutmut_90(self, rule: AlertRule, metrics: dict[str, Any]) -> Any:
@@ -28026,7 +29183,7 @@ class AlertManager:
         )
         self.alerts[alert_id] = alert
         message = self._generate_alert_message(alert, metrics)
-        for channel in rule.notification_channels:
+        for _channel in rule.notification_channels:
             asyncio.create_task(self.notification_manager.send_notification(None, alert, message))
 
     def xǁAlertManagerǁ_trigger_alert__mutmut_91(self, rule: AlertRule, metrics: dict[str, Any]) -> Any:
@@ -28087,7 +29244,7 @@ class AlertManager:
             }
         )
         self.alerts[alert_id] = alert
-        message = self._generate_alert_message(alert, metrics)
+        self._generate_alert_message(alert, metrics)
         for channel in rule.notification_channels:
             asyncio.create_task(self.notification_manager.send_notification(channel, alert, None))
 
@@ -28119,7 +29276,7 @@ class AlertManager:
         )
         self.alerts[alert_id] = alert
         message = self._generate_alert_message(alert, metrics)
-        for channel in rule.notification_channels:
+        for _channel in rule.notification_channels:
             asyncio.create_task(self.notification_manager.send_notification(alert, message))
 
     def xǁAlertManagerǁ_trigger_alert__mutmut_94(self, rule: AlertRule, metrics: dict[str, Any]) -> Any:
@@ -28180,9 +29337,14 @@ class AlertManager:
             }
         )
         self.alerts[alert_id] = alert
-        message = self._generate_alert_message(alert, metrics)
+        self._generate_alert_message(alert, metrics)
         for channel in rule.notification_channels:
-            asyncio.create_task(self.notification_manager.send_notification(channel, alert, ))
+            asyncio.create_task(
+                self.notification_manager.send_notification(
+                    channel,
+                    alert,
+                )
+            )
 
     @_mutmut_mutated(mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut)
     def _find_similar_active_alert(self, rule: AlertRule) -> Alert | None:
@@ -28278,7 +29440,6 @@ class AlertManager:
         result: Alert | None = None
         for alert in self.alerts.values():
             if alert.status == AlertStatus.ACTIVE and alert.name == rule.name:
-                labels_equal = alert.labels == rule.labels
                 if bool(None):
                     result = alert
                     break
@@ -28358,7 +29519,7 @@ class AlertManager:
     def xǁAlertManagerǁ_generate_alert_message__mutmut_5(self, alert: Alert, metrics: dict[str, Any]) -> str:
         """Generate alert message"""
         message_parts = [f"Alert triggered for {alert.name}", "Current metrics:"]
-        for key, value in metrics.items():
+        for _key, value in metrics.items():
             if isinstance(value, int | float):
                 message_parts.append(None)
         return "\n".join(message_parts)
@@ -28681,7 +29842,10 @@ class AlertManager:
 
     def xǁAlertManagerǁget_alert_history__mutmut_8(self, limit: int = 100) -> list[dict[str, Any]]:
         """Get alert history"""
-        sorted_alerts = sorted(self.alerts.values(), key=lambda a: a.created_at, )
+        sorted_alerts = sorted(
+            self.alerts.values(),
+            key=lambda a: a.created_at,
+        )
         return [alert.to_dict() for alert in sorted_alerts[:limit]]
 
     def xǁAlertManagerǁget_alert_history__mutmut_9(self, limit: int = 100) -> list[dict[str, Any]]:
@@ -28935,476 +30099,1363 @@ class AlertManager:
             "ENABLED_RULES": len([r for r in self.rules.values() if r.enabled]),
         }
 
-mutants_xǁAlertManagerǁ__init____mutmut['_mutmut_orig'] = AlertManager.xǁAlertManagerǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ__init____mutmut['xǁAlertManagerǁ__init____mutmut_1'] = AlertManager.xǁAlertManagerǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ__init____mutmut['xǁAlertManagerǁ__init____mutmut_2'] = AlertManager.xǁAlertManagerǁ__init____mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ__init____mutmut['xǁAlertManagerǁ__init____mutmut_3'] = AlertManager.xǁAlertManagerǁ__init____mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ__init____mutmut['xǁAlertManagerǁ__init____mutmut_4'] = AlertManager.xǁAlertManagerǁ__init____mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ__init____mutmut['xǁAlertManagerǁ__init____mutmut_5'] = AlertManager.xǁAlertManagerǁ__init____mutmut_5 # type: ignore # mutmut generated
 
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['_mutmut_orig'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_1'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_2'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_3'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_4'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_5'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_6'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_7'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_8'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_9'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_10'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_11'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_12'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_13'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_14'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_15'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_16'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_17'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_18'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_19'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_20'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_21'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_22'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_23'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_24'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_25'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_26'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_27'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_28'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_29'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_30'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_31'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_32'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_33'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_34'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_35'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_36'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_37'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_38'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_39'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_40'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_41'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_42'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_43'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_44'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_45'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_46'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_47'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_48'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_49'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_50'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_51'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_52'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_53'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_54'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_55'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_56'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_57'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_58'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_59'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_60'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_61'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_62'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_63'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_64'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_65'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_66'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_67'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_68'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_69'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_70'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_71'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_71 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_72'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_72 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_73'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_73 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_74'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_74 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_75'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_75 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_76'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_76 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_77'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_77 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_78'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_78 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_79'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_79 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_80'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_80 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_81'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_81 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_82'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_82 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_83'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_83 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_84'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_84 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_85'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_85 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_86'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_86 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_87'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_87 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_88'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_88 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_89'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_89 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_90'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_90 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_91'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_91 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_92'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_92 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_93'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_93 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_94'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_94 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_95'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_95 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_96'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_96 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_97'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_97 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_98'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_98 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_99'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_99 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_100'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_100 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_101'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_101 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_102'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_102 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_103'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_103 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_104'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_104 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_105'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_105 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_106'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_106 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_107'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_107 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_108'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_108 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_109'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_109 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_110'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_110 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_111'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_111 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_112'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_112 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_113'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_113 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_114'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_114 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_115'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_115 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_116'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_116 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_117'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_117 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_118'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_118 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_119'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_119 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_120'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_120 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_121'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_121 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_122'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_122 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_123'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_123 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_124'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_124 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_125'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_125 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_126'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_126 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_127'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_127 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_128'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_128 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_129'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_129 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_130'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_130 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_131'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_131 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_132'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_132 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_133'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_133 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_134'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_134 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_135'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_135 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_136'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_136 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_137'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_137 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_138'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_138 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_139'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_139 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_140'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_140 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_141'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_141 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_142'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_142 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_143'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_143 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_144'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_144 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_145'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_145 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_146'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_146 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_147'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_147 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_148'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_148 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_149'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_149 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_150'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_150 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_151'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_151 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_152'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_152 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_153'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_153 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_154'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_154 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_155'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_155 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_156'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_156 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_157'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_157 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_158'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_158 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_159'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_159 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_160'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_160 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_161'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_161 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_162'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_162 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_163'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_163 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_164'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_164 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_165'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_165 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_166'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_166 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_167'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_167 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_168'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_168 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_169'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_169 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_170'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_170 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_171'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_171 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_172'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_172 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_173'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_173 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_174'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_174 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_175'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_175 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_176'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_176 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_177'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_177 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_178'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_178 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_179'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_179 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_180'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_180 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_181'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_181 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_182'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_182 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut['xǁAlertManagerǁ_initialize_default_rules__mutmut_183'] = AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_183 # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ__init____mutmut["_mutmut_orig"] = AlertManager.xǁAlertManagerǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ__init____mutmut["xǁAlertManagerǁ__init____mutmut_1"] = AlertManager.xǁAlertManagerǁ__init____mutmut_1  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ__init____mutmut["xǁAlertManagerǁ__init____mutmut_2"] = AlertManager.xǁAlertManagerǁ__init____mutmut_2  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ__init____mutmut["xǁAlertManagerǁ__init____mutmut_3"] = AlertManager.xǁAlertManagerǁ__init____mutmut_3  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ__init____mutmut["xǁAlertManagerǁ__init____mutmut_4"] = AlertManager.xǁAlertManagerǁ__init____mutmut_4  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ__init____mutmut["xǁAlertManagerǁ__init____mutmut_5"] = AlertManager.xǁAlertManagerǁ__init____mutmut_5  # type: ignore # mutmut generated
 
-mutants_xǁAlertManagerǁadd_rule__mutmut['_mutmut_orig'] = AlertManager.xǁAlertManagerǁadd_rule__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁadd_rule__mutmut['xǁAlertManagerǁadd_rule__mutmut_1'] = AlertManager.xǁAlertManagerǁadd_rule__mutmut_1 # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["_mutmut_orig"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_1"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_2"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_3"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_4"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_5"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_6"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_7"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_8"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_9"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_10"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_11"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_12"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_13"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_14"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_15"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_16"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_17"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_18"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_19"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_20"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_21"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_22"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_23"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_24"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_25"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_26"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_27"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_28"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_29"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_30"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_31"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_32"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_33"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_34"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_35"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_36"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_37"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_38"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_39"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_40"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_41"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_42"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_43"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_44"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_45"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_46"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_47"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_48"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_49"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_50"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_51"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_52"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_53"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_54"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_55"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_56"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_57"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_58"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_59"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_60"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_61"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_62"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_63"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_64"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_65"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_66"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_67"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_68"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_68
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_69"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_69
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_70"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_70
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_71"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_71
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_72"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_72
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_73"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_73
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_74"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_74
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_75"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_75
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_76"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_76
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_77"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_77
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_78"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_78
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_79"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_79
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_80"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_80
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_81"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_81
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_82"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_82
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_83"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_83
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_84"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_84
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_85"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_85
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_86"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_86
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_87"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_87
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_88"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_88
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_89"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_89
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_90"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_90
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_91"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_91
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_92"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_92
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_93"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_93
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_94"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_94
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_95"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_95
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_96"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_96
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_97"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_97
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_98"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_98
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_99"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_99
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_100"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_100
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_101"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_101
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_102"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_102
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_103"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_103
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_104"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_104
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_105"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_105
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_106"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_106
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_107"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_107
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_108"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_108
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_109"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_109
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_110"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_110
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_111"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_111
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_112"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_112
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_113"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_113
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_114"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_114
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_115"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_115
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_116"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_116
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_117"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_117
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_118"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_118
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_119"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_119
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_120"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_120
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_121"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_121
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_122"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_122
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_123"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_123
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_124"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_124
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_125"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_125
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_126"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_126
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_127"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_127
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_128"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_128
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_129"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_129
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_130"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_130
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_131"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_131
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_132"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_132
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_133"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_133
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_134"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_134
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_135"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_135
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_136"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_136
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_137"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_137
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_138"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_138
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_139"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_139
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_140"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_140
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_141"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_141
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_142"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_142
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_143"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_143
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_144"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_144
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_145"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_145
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_146"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_146
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_147"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_147
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_148"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_148
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_149"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_149
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_150"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_150
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_151"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_151
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_152"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_152
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_153"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_153
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_154"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_154
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_155"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_155
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_156"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_156
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_157"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_157
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_158"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_158
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_159"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_159
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_160"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_160
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_161"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_161
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_162"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_162
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_163"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_163
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_164"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_164
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_165"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_165
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_166"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_166
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_167"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_167
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_168"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_168
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_169"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_169
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_170"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_170
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_171"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_171
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_172"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_172
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_173"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_173
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_174"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_174
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_175"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_175
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_176"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_176
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_177"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_177
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_178"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_178
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_179"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_179
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_180"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_180
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_181"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_181
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_182"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_182
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_initialize_default_rules__mutmut["xǁAlertManagerǁ_initialize_default_rules__mutmut_183"] = (
+    AlertManager.xǁAlertManagerǁ_initialize_default_rules__mutmut_183
+)  # type: ignore # mutmut generated
 
-mutants_xǁAlertManagerǁremove_rule__mutmut['_mutmut_orig'] = AlertManager.xǁAlertManagerǁremove_rule__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁremove_rule__mutmut['xǁAlertManagerǁremove_rule__mutmut_1'] = AlertManager.xǁAlertManagerǁremove_rule__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁremove_rule__mutmut['xǁAlertManagerǁremove_rule__mutmut_2'] = AlertManager.xǁAlertManagerǁremove_rule__mutmut_2 # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁadd_rule__mutmut["_mutmut_orig"] = AlertManager.xǁAlertManagerǁadd_rule__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁadd_rule__mutmut["xǁAlertManagerǁadd_rule__mutmut_1"] = AlertManager.xǁAlertManagerǁadd_rule__mutmut_1  # type: ignore # mutmut generated
 
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['_mutmut_orig'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_1'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_2'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_3'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_4'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_5'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_6'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_7'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_8'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_9'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_10'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_11'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_12'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_13'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_14'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_15'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_16'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_17'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_18'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_19'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_20'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_21'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_22'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_23'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_24'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_25'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_26'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_27'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_28'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_29'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁevaluate_rules__mutmut['xǁAlertManagerǁevaluate_rules__mutmut_30'] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_30 # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁremove_rule__mutmut["_mutmut_orig"] = AlertManager.xǁAlertManagerǁremove_rule__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁremove_rule__mutmut["xǁAlertManagerǁremove_rule__mutmut_1"] = (
+    AlertManager.xǁAlertManagerǁremove_rule__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁremove_rule__mutmut["xǁAlertManagerǁremove_rule__mutmut_2"] = (
+    AlertManager.xǁAlertManagerǁremove_rule__mutmut_2
+)  # type: ignore # mutmut generated
 
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['_mutmut_orig'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_1'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_2'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_3'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_4'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_5'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_6'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_7'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_8'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_9'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_10'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_11'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_12'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_13'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_14'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_15'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_16'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_17'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_18'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_19'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_20'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_21'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_22'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_23'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_24'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_25'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_26'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_27'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_28'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_29'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_30'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_31'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_32'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_33'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_34'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_35'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_36'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_37'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_38'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_39'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_40'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_41'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_42'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_43'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_44'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_45'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_46'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_47'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_48'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_49'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_50'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_51'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_52'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_53'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_54'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_55'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_56'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_57'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_58'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_59'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_60'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_61'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_62'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_63'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_64'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_65'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_evaluate_condition__mutmut['xǁAlertManagerǁ_evaluate_condition__mutmut_66'] = AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_66 # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["_mutmut_orig"] = AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_1"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_2"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_3"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_4"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_5"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_6"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_7"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_8"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_9"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_10"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_11"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_12"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_13"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_14"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_15"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_16"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_17"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_18"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_19"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_20"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_21"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_22"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_23"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_24"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_25"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_26"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_27"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_28"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_29"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁevaluate_rules__mutmut["xǁAlertManagerǁevaluate_rules__mutmut_30"] = (
+    AlertManager.xǁAlertManagerǁevaluate_rules__mutmut_30
+)  # type: ignore # mutmut generated
 
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['_mutmut_orig'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_1'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_2'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_3'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_4'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_5'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_6'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_7'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_8'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_9'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_10'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_11'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_12'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_13'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_14'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_15'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_16'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_17'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_18'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_19'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_20'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_21'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_22'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_23'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_24'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_25'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_26'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_27'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_28'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_29'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_30'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_31'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_32'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_33'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_34'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_35'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_36'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_37'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_38'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_39'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_40'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_41'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_42'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_43'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_44'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_45'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_46'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_47'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_48'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_49'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_50'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_51'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_52'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_53'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_54'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_55'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_56'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_57'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_58'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_59'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_60'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_61'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_62'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_63'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_64'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_65'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_66'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_67'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_68'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_69'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_70'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_71'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_71 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_72'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_72 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_73'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_73 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_74'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_74 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_75'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_75 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_76'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_76 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_77'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_77 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_78'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_78 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_79'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_79 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_80'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_80 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_81'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_81 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_82'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_82 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_83'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_83 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_84'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_84 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_85'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_85 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_86'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_86 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_87'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_87 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_88'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_88 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_89'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_89 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_90'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_90 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_91'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_91 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_92'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_92 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_93'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_93 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_94'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_94 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_trigger_alert__mutmut['xǁAlertManagerǁ_trigger_alert__mutmut_95'] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_95 # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["_mutmut_orig"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_1"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_2"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_3"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_4"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_5"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_6"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_7"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_8"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_9"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_10"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_11"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_12"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_13"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_14"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_15"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_16"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_17"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_18"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_19"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_20"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_21"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_22"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_23"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_24"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_25"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_26"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_27"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_28"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_29"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_30"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_31"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_32"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_33"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_34"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_35"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_36"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_37"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_38"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_39"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_40"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_41"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_42"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_43"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_44"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_45"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_46"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_47"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_48"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_49"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_50"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_51"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_52"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_53"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_54"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_55"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_56"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_57"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_58"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_59"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_60"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_61"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_62"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_63"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_64"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_65"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_evaluate_condition__mutmut["xǁAlertManagerǁ_evaluate_condition__mutmut_66"] = (
+    AlertManager.xǁAlertManagerǁ_evaluate_condition__mutmut_66
+)  # type: ignore # mutmut generated
 
-mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut['_mutmut_orig'] = AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut['xǁAlertManagerǁ_find_similar_active_alert__mutmut_1'] = AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut['xǁAlertManagerǁ_find_similar_active_alert__mutmut_2'] = AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut['xǁAlertManagerǁ_find_similar_active_alert__mutmut_3'] = AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut['xǁAlertManagerǁ_find_similar_active_alert__mutmut_4'] = AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut['xǁAlertManagerǁ_find_similar_active_alert__mutmut_5'] = AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut['xǁAlertManagerǁ_find_similar_active_alert__mutmut_6'] = AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut['xǁAlertManagerǁ_find_similar_active_alert__mutmut_7'] = AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut['xǁAlertManagerǁ_find_similar_active_alert__mutmut_8'] = AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut['xǁAlertManagerǁ_find_similar_active_alert__mutmut_9'] = AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_9 # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["_mutmut_orig"] = AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_1"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_2"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_3"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_4"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_5"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_6"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_7"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_8"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_9"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_10"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_11"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_12"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_13"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_14"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_15"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_16"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_17"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_18"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_19"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_20"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_21"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_22"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_23"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_24"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_25"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_26"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_27"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_28"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_29"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_30"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_31"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_32"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_33"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_34"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_35"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_36"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_37"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_38"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_39"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_40"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_41"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_42"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_43"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_44"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_45"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_46"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_47"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_48"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_49"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_50"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_51"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_52"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_53"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_54"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_55"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_56"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_57"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_58"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_59"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_60"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_61"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_62"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_63"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_64"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_65"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_66"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_67"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_68"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_68
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_69"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_69
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_70"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_70
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_71"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_71
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_72"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_72
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_73"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_73
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_74"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_74
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_75"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_75
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_76"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_76
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_77"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_77
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_78"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_78
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_79"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_79
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_80"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_80
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_81"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_81
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_82"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_82
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_83"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_83
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_84"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_84
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_85"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_85
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_86"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_86
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_87"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_87
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_88"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_88
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_89"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_89
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_90"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_90
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_91"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_91
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_92"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_92
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_93"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_93
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_94"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_94
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_trigger_alert__mutmut["xǁAlertManagerǁ_trigger_alert__mutmut_95"] = (
+    AlertManager.xǁAlertManagerǁ_trigger_alert__mutmut_95
+)  # type: ignore # mutmut generated
 
-mutants_xǁAlertManagerǁ_generate_alert_message__mutmut['_mutmut_orig'] = AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_generate_alert_message__mutmut['xǁAlertManagerǁ_generate_alert_message__mutmut_1'] = AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_generate_alert_message__mutmut['xǁAlertManagerǁ_generate_alert_message__mutmut_2'] = AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_generate_alert_message__mutmut['xǁAlertManagerǁ_generate_alert_message__mutmut_3'] = AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_generate_alert_message__mutmut['xǁAlertManagerǁ_generate_alert_message__mutmut_4'] = AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_generate_alert_message__mutmut['xǁAlertManagerǁ_generate_alert_message__mutmut_5'] = AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_generate_alert_message__mutmut['xǁAlertManagerǁ_generate_alert_message__mutmut_6'] = AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁ_generate_alert_message__mutmut['xǁAlertManagerǁ_generate_alert_message__mutmut_7'] = AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_7 # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut["_mutmut_orig"] = (
+    AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut["xǁAlertManagerǁ_find_similar_active_alert__mutmut_1"] = (
+    AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut["xǁAlertManagerǁ_find_similar_active_alert__mutmut_2"] = (
+    AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut["xǁAlertManagerǁ_find_similar_active_alert__mutmut_3"] = (
+    AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut["xǁAlertManagerǁ_find_similar_active_alert__mutmut_4"] = (
+    AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut["xǁAlertManagerǁ_find_similar_active_alert__mutmut_5"] = (
+    AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut["xǁAlertManagerǁ_find_similar_active_alert__mutmut_6"] = (
+    AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut["xǁAlertManagerǁ_find_similar_active_alert__mutmut_7"] = (
+    AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut["xǁAlertManagerǁ_find_similar_active_alert__mutmut_8"] = (
+    AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_find_similar_active_alert__mutmut["xǁAlertManagerǁ_find_similar_active_alert__mutmut_9"] = (
+    AlertManager.xǁAlertManagerǁ_find_similar_active_alert__mutmut_9
+)  # type: ignore # mutmut generated
 
-mutants_xǁAlertManagerǁresolve_alert__mutmut['_mutmut_orig'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_1'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_2'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_3'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_4'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_5'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_6'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_7'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_8'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_9'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_10'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_11'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_12'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_13'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_14'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_15'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_16'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_17'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_18'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_19'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_20'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_21'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁresolve_alert__mutmut['xǁAlertManagerǁresolve_alert__mutmut_22'] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_22 # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_generate_alert_message__mutmut["_mutmut_orig"] = (
+    AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_generate_alert_message__mutmut["xǁAlertManagerǁ_generate_alert_message__mutmut_1"] = (
+    AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_generate_alert_message__mutmut["xǁAlertManagerǁ_generate_alert_message__mutmut_2"] = (
+    AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_generate_alert_message__mutmut["xǁAlertManagerǁ_generate_alert_message__mutmut_3"] = (
+    AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_generate_alert_message__mutmut["xǁAlertManagerǁ_generate_alert_message__mutmut_4"] = (
+    AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_generate_alert_message__mutmut["xǁAlertManagerǁ_generate_alert_message__mutmut_5"] = (
+    AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_generate_alert_message__mutmut["xǁAlertManagerǁ_generate_alert_message__mutmut_6"] = (
+    AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁ_generate_alert_message__mutmut["xǁAlertManagerǁ_generate_alert_message__mutmut_7"] = (
+    AlertManager.xǁAlertManagerǁ_generate_alert_message__mutmut_7
+)  # type: ignore # mutmut generated
 
-mutants_xǁAlertManagerǁget_active_alerts__mutmut['_mutmut_orig'] = AlertManager.xǁAlertManagerǁget_active_alerts__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_active_alerts__mutmut['xǁAlertManagerǁget_active_alerts__mutmut_1'] = AlertManager.xǁAlertManagerǁget_active_alerts__mutmut_1 # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["_mutmut_orig"] = AlertManager.xǁAlertManagerǁresolve_alert__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_1"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_2"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_3"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_4"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_5"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_6"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_7"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_8"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_9"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_10"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_11"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_12"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_13"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_14"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_15"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_16"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_17"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_18"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_19"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_20"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_21"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁresolve_alert__mutmut["xǁAlertManagerǁresolve_alert__mutmut_22"] = (
+    AlertManager.xǁAlertManagerǁresolve_alert__mutmut_22
+)  # type: ignore # mutmut generated
 
-mutants_xǁAlertManagerǁget_alert_history__mutmut['_mutmut_orig'] = AlertManager.xǁAlertManagerǁget_alert_history__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_history__mutmut['xǁAlertManagerǁget_alert_history__mutmut_1'] = AlertManager.xǁAlertManagerǁget_alert_history__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_history__mutmut['xǁAlertManagerǁget_alert_history__mutmut_2'] = AlertManager.xǁAlertManagerǁget_alert_history__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_history__mutmut['xǁAlertManagerǁget_alert_history__mutmut_3'] = AlertManager.xǁAlertManagerǁget_alert_history__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_history__mutmut['xǁAlertManagerǁget_alert_history__mutmut_4'] = AlertManager.xǁAlertManagerǁget_alert_history__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_history__mutmut['xǁAlertManagerǁget_alert_history__mutmut_5'] = AlertManager.xǁAlertManagerǁget_alert_history__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_history__mutmut['xǁAlertManagerǁget_alert_history__mutmut_6'] = AlertManager.xǁAlertManagerǁget_alert_history__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_history__mutmut['xǁAlertManagerǁget_alert_history__mutmut_7'] = AlertManager.xǁAlertManagerǁget_alert_history__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_history__mutmut['xǁAlertManagerǁget_alert_history__mutmut_8'] = AlertManager.xǁAlertManagerǁget_alert_history__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_history__mutmut['xǁAlertManagerǁget_alert_history__mutmut_9'] = AlertManager.xǁAlertManagerǁget_alert_history__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_history__mutmut['xǁAlertManagerǁget_alert_history__mutmut_10'] = AlertManager.xǁAlertManagerǁget_alert_history__mutmut_10 # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_active_alerts__mutmut["_mutmut_orig"] = AlertManager.xǁAlertManagerǁget_active_alerts__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_active_alerts__mutmut["xǁAlertManagerǁget_active_alerts__mutmut_1"] = (
+    AlertManager.xǁAlertManagerǁget_active_alerts__mutmut_1
+)  # type: ignore # mutmut generated
 
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['_mutmut_orig'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_1'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_2'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_3'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_4'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_5'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_6'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_7'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_8'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_9'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_10'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_11'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_12'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_13'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAlertManagerǁget_alert_stats__mutmut['xǁAlertManagerǁget_alert_stats__mutmut_14'] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_14 # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_history__mutmut["_mutmut_orig"] = AlertManager.xǁAlertManagerǁget_alert_history__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_history__mutmut["xǁAlertManagerǁget_alert_history__mutmut_1"] = (
+    AlertManager.xǁAlertManagerǁget_alert_history__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_history__mutmut["xǁAlertManagerǁget_alert_history__mutmut_2"] = (
+    AlertManager.xǁAlertManagerǁget_alert_history__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_history__mutmut["xǁAlertManagerǁget_alert_history__mutmut_3"] = (
+    AlertManager.xǁAlertManagerǁget_alert_history__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_history__mutmut["xǁAlertManagerǁget_alert_history__mutmut_4"] = (
+    AlertManager.xǁAlertManagerǁget_alert_history__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_history__mutmut["xǁAlertManagerǁget_alert_history__mutmut_5"] = (
+    AlertManager.xǁAlertManagerǁget_alert_history__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_history__mutmut["xǁAlertManagerǁget_alert_history__mutmut_6"] = (
+    AlertManager.xǁAlertManagerǁget_alert_history__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_history__mutmut["xǁAlertManagerǁget_alert_history__mutmut_7"] = (
+    AlertManager.xǁAlertManagerǁget_alert_history__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_history__mutmut["xǁAlertManagerǁget_alert_history__mutmut_8"] = (
+    AlertManager.xǁAlertManagerǁget_alert_history__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_history__mutmut["xǁAlertManagerǁget_alert_history__mutmut_9"] = (
+    AlertManager.xǁAlertManagerǁget_alert_history__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_history__mutmut["xǁAlertManagerǁget_alert_history__mutmut_10"] = (
+    AlertManager.xǁAlertManagerǁget_alert_history__mutmut_10
+)  # type: ignore # mutmut generated
+
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["_mutmut_orig"] = AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_1"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_2"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_3"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_4"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_5"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_6"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_7"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_8"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_9"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_10"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_11"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_12"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_13"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAlertManagerǁget_alert_stats__mutmut["xǁAlertManagerǁget_alert_stats__mutmut_14"] = (
+    AlertManager.xǁAlertManagerǁget_alert_stats__mutmut_14
+)  # type: ignore # mutmut generated
 
 
 alert_manager = AlertManager()

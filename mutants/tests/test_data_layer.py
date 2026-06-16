@@ -1,7 +1,6 @@
 """Tests for aitbc.data_layer"""
 
 import pytest
-
 from aitbc.data_layer import DataLayer, MockDataGenerator
 
 

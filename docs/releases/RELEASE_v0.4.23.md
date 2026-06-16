@@ -1,7 +1,7 @@
 # AITBC v0.4.23 Release Plan
 
 **Date**: 2026-06-15
-**Status**: 📋 **PLANNING**
+**Status**: � **IN PROGRESS**
 **Scope**: Architecture Refactoring, Logging Standardization, Observability Enhancement, and CI/CD Improvements
 
 ## 🎯 Overview
@@ -304,7 +304,7 @@ aitbc/
        "-m",
        "{{ module_name }}",
    ]
-   
+
    os.execvp(exec_cmd[0], exec_cmd)
    ```
 
@@ -430,7 +430,7 @@ aitbc/
 
 #### Current State
 - **Files with # mypy: ignore-errors**: 2 (down from 73 in v0.4.17)
-- **Location**: 
+- **Location**:
   - apps/blockchain-node/src/aitbc_chain/rpc/router.py
   - apps/blockchain-node/src/aitbc_chain/rpc/gpu_resources.py
 
@@ -497,53 +497,6 @@ aitbc/
 |-------|---------------|----------|--------|
 | Phase 1: Architecture refactoring | 8-12 hours | P0 | 📋 Pending |
 | Phase 2: Logging standardization | 6-8 hours | P1 | 📋 Pending |
-### Phase 9: B008 Lint Refactor (Priority P2)
-
-#### Current State
-- **B008 violations**: 1,105 instances across ~200+ files
-- **Pattern**: `param: Type = Depends(...)` instead of `param: Annotated[Type, Depends(...)]`
-- **Rule**: flake8-bugbear B008 - "Do not perform function calls in argument defaults"
-
-#### Technical Challenge
-Python's parameter default ordering prevents simple parameter-by-parameter fixes:
-- Removing default from `param: Type = Depends(...)` creates parameter WITHOUT default
-- Cannot be followed by parameters WITH defaults (syntax error)
-- All `Depends` parameters in a function must be fixed SIMULTANEOUSLY
-- Requires analyzing all function signatures for default ordering validity
-
-#### Implementation Plan
-
-1. **Phase 9a: LibCST Transformer Development**
-   - Build AST-based transformer at `Parameters` node level (not individual `Param`)
-   - Identify all functions with B008 violations
-   - Group parameters by function, process all `Depends` params together
-   - Validate default ordering before applying changes
-   - Handle edge cases: `*args`, `**kwargs`, keyword-only params
-
-2. **Phase 9b: Safety Validation**
-   - Dry-run on entire codebase
-   - Identify functions that CANNOT be safely fixed (parameter ordering conflicts)
-   - Mark unsafe functions for manual review or `# noqa: B008`
-   - Target: >95% auto-fix rate
-
-3. **Phase 9c: Batch Application**
-   - Apply validated transformations
-   - Run `ruff check --select=B008` to verify zero violations
-   - Add `Annotated` imports where needed
-
-4. **Phase 9c: CI Integration**
-   - Add B008 to flake8-bugbear select rules
-   - Prevent regression with pre-commit hook
-
-#### Estimated Effort
-- **Time**: 12-16 hours
-- **Complexity**: High (AST manipulation, parameter ordering constraints)
-- **Risk**: Medium (requires careful validation, but non-breaking changes)
-
-| Phase | Estimated Time | Priority | Status |
-|-------|---------------|----------|--------|
-| Phase 1: Architecture refactoring | 8-12 hours | P0 | 📋 Pending |
-| Phase 2: Logging standardization | 6-8 hours | P1 | 📋 Pending |
 | Phase 3: X-Request-ID propagation | 4-6 hours | P1 | 📋 Pending |
 | Phase 4: CI/CD improvements | 8-10 hours | P2 | 📋 Pending |
 | Phase 5: Wrapper script templating | 6-8 hours | P2 | 📋 Pending |
@@ -580,6 +533,49 @@ Python's parameter default ordering prevents simple parameter-by-parameter fixes
 - **Propagation failures**: Handle missing correlation IDs gracefully
 - **Performance overhead**: Minimize overhead of correlation ID tracking
 - **Storage**: Ensure log storage can handle additional fields
+
+### Phase 9: B008 Lint Refactor (Priority P2)
+
+#### Current State
+- **B008 violations**: 1,105 instances across ~200+ files
+- **Pattern**: `param: Type = Depends(...)` instead of `param: Annotated[Type, Depends(...)]`
+- **Rule**: flake8-bugbear B008 - "Do not perform function calls in argument defaults"
+
+#### Technical Challenge
+Python's parameter default ordering prevents simple parameter-by-parameter fixes:
+- Removing default from `param: Type = Depends(...)` creates parameter WITHOUT default
+- Cannot be followed by parameters WITH defaults (syntax error)
+- All `Depends` parameters in a function must be fixed SIMULTANEOUSLY
+- Requires analyzing all function signatures for default ordering validity
+
+#### Implementation Plan
+
+1. **Phase 9a: LibCST Transformer Development**
+   - Build AST-based transformer at `Parameters` node level (not individual `Param`)
+   - Identify all functions with B008 violations
+   - Group parameters by function, process all `Depends` params together
+   - Validate default ordering before applying changes
+   - Handle edge cases: `*args`, `**kwargs`, keyword-only params
+
+2. **Phase 9b: Safety Validation**
+   - Dry-run on entire codebase
+   - Identify functions that CANNOT be safely fixed (parameter ordering conflicts)
+   - Mark unsafe functions for manual review or `# noqa: B008`
+   - Target: >95% auto-fix rate
+
+3. **Phase 9c: Batch Application**
+   - Apply validated transformations
+   - Run `ruff check --select=B008` to verify zero violations
+   - Add `Annotated` imports where needed
+
+4. **Phase 9d: CI Integration**
+   - Add B008 to flake8-bugbear select rules
+   - Prevent regression with pre-commit hook
+
+#### Estimated Effort
+- **Time**: 12-16 hours
+- **Complexity**: High (AST manipulation, parameter ordering constraints)
+- **Risk**: Medium (requires careful validation, but non-breaking changes)
 
 ## 📝 Decisions Made
 
@@ -618,7 +614,8 @@ Python's parameter default ordering prevents simple parameter-by-parameter fixes
 8. **Phase 6 execution** - Security hardening (4-6 hours)
 9. **Phase 7 execution** - Documentation validation (4-6 hours)
 10. **Phase 8 execution** - Type checking tracking (2-4 hours)
-11. **Release complete** - All phases finished
+11. **Phase 9 execution** - B008 Lint Refactor (12-16 hours)
+12. **Release complete** - All phases finished
 
 ### Phase 1 Execution Strategy
 - Create new submodule structure without breaking changes
@@ -664,6 +661,7 @@ v0.4.23 targets architectural improvements, observability enhancement, and opera
 - Remove hardcoded security values
 - Validate documentation links
 - Complete type safety (0 type ignores)
+- **Eliminate B008 lint violations (1,105 → 0) via LibCST refactor**
 
 **Release Manager**: Development Team
 **Reviewers**: Development Team

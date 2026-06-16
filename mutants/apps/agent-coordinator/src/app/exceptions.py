@@ -1,14 +1,10 @@
 from datetime import UTC, datetime
 from typing import Any
 
+from aitbc import get_logger
 from fastapi.responses import JSONResponse
 
-from aitbc import get_logger
-
 logger = get_logger(__name__)
-
-
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
 
 
 def register_exception_handlers(app: Any) -> None:

@@ -2,9 +2,8 @@
 
 from unittest.mock import patch
 
-from click.testing import CliRunner
-
 from aitbc.training_setup.cli import cli
+from click.testing import CliRunner
 
 
 class TestTrainingCLI:

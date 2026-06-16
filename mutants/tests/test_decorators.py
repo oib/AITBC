@@ -6,7 +6,6 @@ import time
 from unittest.mock import patch
 
 import pytest
-
 from aitbc.decorators import (
     async_timing,
     cache_result,

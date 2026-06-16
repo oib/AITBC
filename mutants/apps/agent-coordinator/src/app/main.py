@@ -1,8 +1,9 @@
 import uvicorn
+from aitbc.rate_limiting import RateLimitMiddleware
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from aitbc.rate_limiting import RateLimitMiddleware
+from mutmut.mutation.trampoline import MutantDict
+from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated
 
 from .config import settings, validated_cors_origins
 from .exceptions import register_exception_handlers
@@ -11,8 +12,6 @@ from .middleware import register_middleware
 from .routers import ROUTERS
 from .routers.health import router as health_router
 
-
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
 mutants_x_create_app__mutmut: MutantDict = {}  # type: ignore
 
 
@@ -354,7 +353,7 @@ def x_create_app__mutmut_9() -> FastAPI:
         title="AITBC Agent Coordinator",
         description="Advanced multi-agent coordination and management system",
         version="1.0.0",
-        )
+    )
 
     app.add_middleware(
         CORSMiddleware,
@@ -935,7 +934,7 @@ def x_create_app__mutmut_26() -> FastAPI:
         allow_origins=validated_cors_origins(settings.cors_origins),
         allow_credentials=True,
         allow_methods=["*"],
-        )
+    )
 
     # Add rate limiting middleware
     app.add_middleware(RateLimitMiddleware, rate=100, per=60)
@@ -1278,7 +1277,10 @@ def x_create_app__mutmut_36() -> FastAPI:
     )
 
     # Add rate limiting middleware
-    app.add_middleware(RateLimitMiddleware, rate=100, )
+    app.add_middleware(
+        RateLimitMiddleware,
+        rate=100,
+    )
 
     for router in ROUTERS:
         # Check if router already has a prefix (like agent_messaging.router)
@@ -1520,7 +1522,9 @@ def x_create_app__mutmut_43() -> FastAPI:
 
     for router in ROUTERS:
         # Check if router already has a prefix (like agent_messaging.router)
-        if hasattr(router, ) and router.prefix.startswith("/api"):
+        if hasattr(
+            router,
+        ) and router.prefix.startswith("/api"):
             app.include_router(router)
         else:
             app.include_router(router, prefix="/v1")
@@ -1863,7 +1867,9 @@ def x_create_app__mutmut_53() -> FastAPI:
         if hasattr(router, "prefix") and router.prefix.startswith("/api"):
             app.include_router(router)
         else:
-            app.include_router(router, )
+            app.include_router(
+                router,
+            )
 
     # Add health router without prefix for direct access to /health
     app.include_router(health_router)
@@ -2042,65 +2048,66 @@ def x_create_app__mutmut_58() -> FastAPI:
     register_exception_handlers(None)
     return app
 
-mutants_x_create_app__mutmut['_mutmut_orig'] = x_create_app__mutmut_orig # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_1'] = x_create_app__mutmut_1 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_2'] = x_create_app__mutmut_2 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_3'] = x_create_app__mutmut_3 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_4'] = x_create_app__mutmut_4 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_5'] = x_create_app__mutmut_5 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_6'] = x_create_app__mutmut_6 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_7'] = x_create_app__mutmut_7 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_8'] = x_create_app__mutmut_8 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_9'] = x_create_app__mutmut_9 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_10'] = x_create_app__mutmut_10 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_11'] = x_create_app__mutmut_11 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_12'] = x_create_app__mutmut_12 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_13'] = x_create_app__mutmut_13 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_14'] = x_create_app__mutmut_14 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_15'] = x_create_app__mutmut_15 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_16'] = x_create_app__mutmut_16 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_17'] = x_create_app__mutmut_17 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_18'] = x_create_app__mutmut_18 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_19'] = x_create_app__mutmut_19 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_20'] = x_create_app__mutmut_20 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_21'] = x_create_app__mutmut_21 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_22'] = x_create_app__mutmut_22 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_23'] = x_create_app__mutmut_23 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_24'] = x_create_app__mutmut_24 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_25'] = x_create_app__mutmut_25 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_26'] = x_create_app__mutmut_26 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_27'] = x_create_app__mutmut_27 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_28'] = x_create_app__mutmut_28 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_29'] = x_create_app__mutmut_29 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_30'] = x_create_app__mutmut_30 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_31'] = x_create_app__mutmut_31 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_32'] = x_create_app__mutmut_32 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_33'] = x_create_app__mutmut_33 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_34'] = x_create_app__mutmut_34 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_35'] = x_create_app__mutmut_35 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_36'] = x_create_app__mutmut_36 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_37'] = x_create_app__mutmut_37 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_38'] = x_create_app__mutmut_38 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_39'] = x_create_app__mutmut_39 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_40'] = x_create_app__mutmut_40 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_41'] = x_create_app__mutmut_41 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_42'] = x_create_app__mutmut_42 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_43'] = x_create_app__mutmut_43 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_44'] = x_create_app__mutmut_44 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_45'] = x_create_app__mutmut_45 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_46'] = x_create_app__mutmut_46 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_47'] = x_create_app__mutmut_47 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_48'] = x_create_app__mutmut_48 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_49'] = x_create_app__mutmut_49 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_50'] = x_create_app__mutmut_50 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_51'] = x_create_app__mutmut_51 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_52'] = x_create_app__mutmut_52 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_53'] = x_create_app__mutmut_53 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_54'] = x_create_app__mutmut_54 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_55'] = x_create_app__mutmut_55 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_56'] = x_create_app__mutmut_56 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_57'] = x_create_app__mutmut_57 # type: ignore # mutmut generated
-mutants_x_create_app__mutmut['x_create_app__mutmut_58'] = x_create_app__mutmut_58 # type: ignore # mutmut generated
+
+mutants_x_create_app__mutmut["_mutmut_orig"] = x_create_app__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_1"] = x_create_app__mutmut_1  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_2"] = x_create_app__mutmut_2  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_3"] = x_create_app__mutmut_3  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_4"] = x_create_app__mutmut_4  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_5"] = x_create_app__mutmut_5  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_6"] = x_create_app__mutmut_6  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_7"] = x_create_app__mutmut_7  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_8"] = x_create_app__mutmut_8  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_9"] = x_create_app__mutmut_9  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_10"] = x_create_app__mutmut_10  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_11"] = x_create_app__mutmut_11  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_12"] = x_create_app__mutmut_12  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_13"] = x_create_app__mutmut_13  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_14"] = x_create_app__mutmut_14  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_15"] = x_create_app__mutmut_15  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_16"] = x_create_app__mutmut_16  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_17"] = x_create_app__mutmut_17  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_18"] = x_create_app__mutmut_18  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_19"] = x_create_app__mutmut_19  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_20"] = x_create_app__mutmut_20  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_21"] = x_create_app__mutmut_21  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_22"] = x_create_app__mutmut_22  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_23"] = x_create_app__mutmut_23  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_24"] = x_create_app__mutmut_24  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_25"] = x_create_app__mutmut_25  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_26"] = x_create_app__mutmut_26  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_27"] = x_create_app__mutmut_27  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_28"] = x_create_app__mutmut_28  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_29"] = x_create_app__mutmut_29  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_30"] = x_create_app__mutmut_30  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_31"] = x_create_app__mutmut_31  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_32"] = x_create_app__mutmut_32  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_33"] = x_create_app__mutmut_33  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_34"] = x_create_app__mutmut_34  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_35"] = x_create_app__mutmut_35  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_36"] = x_create_app__mutmut_36  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_37"] = x_create_app__mutmut_37  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_38"] = x_create_app__mutmut_38  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_39"] = x_create_app__mutmut_39  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_40"] = x_create_app__mutmut_40  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_41"] = x_create_app__mutmut_41  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_42"] = x_create_app__mutmut_42  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_43"] = x_create_app__mutmut_43  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_44"] = x_create_app__mutmut_44  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_45"] = x_create_app__mutmut_45  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_46"] = x_create_app__mutmut_46  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_47"] = x_create_app__mutmut_47  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_48"] = x_create_app__mutmut_48  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_49"] = x_create_app__mutmut_49  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_50"] = x_create_app__mutmut_50  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_51"] = x_create_app__mutmut_51  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_52"] = x_create_app__mutmut_52  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_53"] = x_create_app__mutmut_53  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_54"] = x_create_app__mutmut_54  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_55"] = x_create_app__mutmut_55  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_56"] = x_create_app__mutmut_56  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_57"] = x_create_app__mutmut_57  # type: ignore # mutmut generated
+mutants_x_create_app__mutmut["x_create_app__mutmut_58"] = x_create_app__mutmut_58  # type: ignore # mutmut generated
 
 
 app = create_app()
@@ -2220,7 +2227,7 @@ def x_main__mutmut_10() -> None:
         host=settings.host,
         port=settings.port,
         reload=True,
-        )
+    )
 
 
 def x_main__mutmut_11() -> None:
@@ -2272,22 +2279,23 @@ def x_main__mutmut_15() -> None:
         log_level="INFO",
     )
 
-mutants_x_main__mutmut['_mutmut_orig'] = x_main__mutmut_orig # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_1'] = x_main__mutmut_1 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_2'] = x_main__mutmut_2 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_3'] = x_main__mutmut_3 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_4'] = x_main__mutmut_4 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_5'] = x_main__mutmut_5 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_6'] = x_main__mutmut_6 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_7'] = x_main__mutmut_7 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_8'] = x_main__mutmut_8 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_9'] = x_main__mutmut_9 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_10'] = x_main__mutmut_10 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_11'] = x_main__mutmut_11 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_12'] = x_main__mutmut_12 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_13'] = x_main__mutmut_13 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_14'] = x_main__mutmut_14 # type: ignore # mutmut generated
-mutants_x_main__mutmut['x_main__mutmut_15'] = x_main__mutmut_15 # type: ignore # mutmut generated
+
+mutants_x_main__mutmut["_mutmut_orig"] = x_main__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_1"] = x_main__mutmut_1  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_2"] = x_main__mutmut_2  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_3"] = x_main__mutmut_3  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_4"] = x_main__mutmut_4  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_5"] = x_main__mutmut_5  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_6"] = x_main__mutmut_6  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_7"] = x_main__mutmut_7  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_8"] = x_main__mutmut_8  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_9"] = x_main__mutmut_9  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_10"] = x_main__mutmut_10  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_11"] = x_main__mutmut_11  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_12"] = x_main__mutmut_12  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_13"] = x_main__mutmut_13  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_14"] = x_main__mutmut_14  # type: ignore # mutmut generated
+mutants_x_main__mutmut["x_main__mutmut_15"] = x_main__mutmut_15  # type: ignore # mutmut generated
 
 
 if __name__ == "__main__":

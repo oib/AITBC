@@ -4,9 +4,8 @@ Imports fixtures from dedicated fixture files for better organization
 """
 
 import pytest
-from click.testing import CliRunner
-
 from aitbc.training_setup import TrainingEnvironment, TrainingSetupError
+from click.testing import CliRunner
 
 
 @pytest.fixture(autouse=True)

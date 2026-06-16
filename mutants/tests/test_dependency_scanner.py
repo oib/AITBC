@@ -9,7 +9,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-
 from aitbc.dependency_scanner import (
     DependencyScanner,
     VulnerabilityReport,

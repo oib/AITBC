@@ -3,16 +3,12 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-
 from aitbc import get_logger
+from fastapi import FastAPI
 
 from . import state
 
 logger = get_logger(__name__)
-
-
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
 
 
 @asynccontextmanager

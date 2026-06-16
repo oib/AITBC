@@ -7,4 +7,5 @@ from .message_encryption import AgentKeyPair, EncryptedMessage, MessageEncryptor
 __all__ = ["AgentKeyPair", "EncryptedMessage", "MessageEncryptor", "get_encryptor"]
 
 
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
+from mutmut.mutation.trampoline import MutantDict
+from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated

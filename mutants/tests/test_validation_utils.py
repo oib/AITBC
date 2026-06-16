@@ -1,7 +1,6 @@
 """Tests for aitbc.utils.validation"""
 
 import pytest
-
 from aitbc.exceptions import ValidationError
 from aitbc.utils.validation import (
     validate_address,
