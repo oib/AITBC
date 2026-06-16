@@ -8,10 +8,9 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any, TypeVar, cast
 
+from aitbc import get_logger
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-
-from aitbc import get_logger
 
 from .jwt_handler import api_key_manager, jwt_handler
 
@@ -20,13 +19,16 @@ F = TypeVar("F", bound=Callable[..., Any])
 security = HTTPBearer(auto_error=False)
 
 
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
+from mutmut.mutation.trampoline import MutantDict
+from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated
 
 
 class AuthenticationError(Exception):
     """Custom authentication error"""
 
     pass
+
+
 mutants_xǁRateLimiterǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁRateLimiterǁis_allowed__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut: MutantDict = {}  # type: ignore
@@ -209,7 +211,13 @@ class RateLimiter:
 
         import redis
 
-        self.redis_url: str = redis_url or os.getenv("REDIS_URL", ) or "redis://localhost:6379/0"
+        self.redis_url: str = (
+            redis_url
+            or os.getenv(
+                "REDIS_URL",
+            )
+            or "redis://localhost:6379/0"
+        )
         self.redis_client: Any | None = None
         self.memory_requests: dict[str, deque[float]] = {}
         self.limits = {
@@ -917,8 +925,6 @@ class RateLimiter:
     def xǁRateLimiterǁ__init____mutmut_41(self, redis_url: str | None = None):
         from collections import deque
 
-        import redis
-
         self.redis_url: str = redis_url or os.getenv("REDIS_URL", "redis://localhost:6379/0") or "redis://localhost:6379/0"
         self.redis_client: Any | None = None
         self.memory_requests: dict[str, deque[float]] = {}
@@ -1012,7 +1018,9 @@ class RateLimiter:
             "api_key": {"requests": 10000, "window": 3600},
         }
         try:
-            self.redis_client = redis.from_url(self.redis_url, )
+            self.redis_client = redis.from_url(
+                self.redis_url,
+            )
             self.redis_client.ping()
             logger.info("RateLimiter connected to Redis")
         except Exception as e:
@@ -1162,7 +1170,7 @@ class RateLimiter:
             self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
             self.redis_client.ping()
             logger.info("RateLimiter connected to Redis")
-        except Exception as e:
+        except Exception:
             logger.error("Failed to connect to Redis: %s", None)
             self.redis_client = None
 
@@ -1204,8 +1212,10 @@ class RateLimiter:
             self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
             self.redis_client.ping()
             logger.info("RateLimiter connected to Redis")
-        except Exception as e:
-            logger.error("Failed to connect to Redis: %s", )
+        except Exception:
+            logger.error(
+                "Failed to connect to Redis: %s",
+            )
             self.redis_client = None
 
     def xǁRateLimiterǁ__init____mutmut_55(self, redis_url: str | None = None):
@@ -1427,7 +1437,6 @@ class RateLimiter:
 
     def xǁRateLimiterǁis_allowed__mutmut_3(self, user_id: str, user_role: str = "default") -> dict[str, Any]:
         """Check if user is allowed to make request"""
-        import time
 
         current_time = None
         limit_config = self.limits.get(user_role, self.limits["default"])
@@ -1595,7 +1604,9 @@ class RateLimiter:
         import time
 
         current_time = time.time()
-        limit_config = self.limits.get(user_role, )
+        limit_config = self.limits.get(
+            user_role,
+        )
         max_requests = limit_config["requests"]
         window_seconds = limit_config["window"]
         if self.redis_client is None:
@@ -2226,7 +2237,12 @@ class RateLimiter:
         max_requests = limit_config["requests"]
         window_seconds = limit_config["window"]
         if self.redis_client is None:
-            return self._is_allowed_memory(user_id, user_role, current_time, max_requests, )
+            return self._is_allowed_memory(
+                user_id,
+                user_role,
+                current_time,
+                max_requests,
+            )
         try:
             key = f"ratelimit:{user_id}:{user_role}"
             self.redis_client.zremrangebyscore(key, 0, current_time - window_seconds)
@@ -2460,7 +2476,10 @@ class RateLimiter:
             return self._is_allowed_memory(user_id, user_role, current_time, max_requests, window_seconds)
         try:
             key = f"ratelimit:{user_id}:{user_role}"
-            self.redis_client.zremrangebyscore(key, 0, )
+            self.redis_client.zremrangebyscore(
+                key,
+                0,
+            )
             current_count = self.redis_client.zcard(key)
             if current_count < max_requests:
                 self.redis_client.zadd(key, {str(current_time): current_time})
@@ -2760,7 +2779,9 @@ class RateLimiter:
             self.redis_client.zremrangebyscore(key, 0, current_time - window_seconds)
             current_count = self.redis_client.zcard(key)
             if current_count < max_requests:
-                self.redis_client.zadd(key, )
+                self.redis_client.zadd(
+                    key,
+                )
                 self.redis_client.expire(key, window_seconds)
                 return {
                     "allowed": True,
@@ -2926,7 +2947,9 @@ class RateLimiter:
             current_count = self.redis_client.zcard(key)
             if current_count < max_requests:
                 self.redis_client.zadd(key, {str(current_time): current_time})
-                self.redis_client.expire(key, )
+                self.redis_client.expire(
+                    key,
+                )
                 return {
                     "allowed": True,
                     "remaining": max_requests - current_count - 1,
@@ -3593,7 +3616,11 @@ class RateLimiter:
                     "reset_time": current_time + window_seconds,
                 }
             else:
-                oldest = self.redis_client.zrange(key, 0, 0, )
+                oldest = self.redis_client.zrange(
+                    key,
+                    0,
+                    0,
+                )
                 if oldest:
                     reset_time = float(oldest[0][1]) + window_seconds
                 else:
@@ -4259,7 +4286,7 @@ class RateLimiter:
                 else:
                     reset_time = current_time + window_seconds
                 return {"allowed": False, "remaining": 0, "reset_time": reset_time}
-        except Exception as e:
+        except Exception:
             logger.error("Redis rate limiting error, falling back to in-memory: %s", None)
             return self._is_allowed_memory(user_id, user_role, current_time, max_requests, window_seconds)
 
@@ -4325,8 +4352,10 @@ class RateLimiter:
                 else:
                     reset_time = current_time + window_seconds
                 return {"allowed": False, "remaining": 0, "reset_time": reset_time}
-        except Exception as e:
-            logger.error("Redis rate limiting error, falling back to in-memory: %s", )
+        except Exception:
+            logger.error(
+                "Redis rate limiting error, falling back to in-memory: %s",
+            )
             return self._is_allowed_memory(user_id, user_role, current_time, max_requests, window_seconds)
 
     def xǁRateLimiterǁis_allowed__mutmut_91(self, user_id: str, user_role: str = "default") -> dict[str, Any]:
@@ -4756,7 +4785,12 @@ class RateLimiter:
                 return {"allowed": False, "remaining": 0, "reset_time": reset_time}
         except Exception as e:
             logger.error("Redis rate limiting error, falling back to in-memory: %s", e)
-            return self._is_allowed_memory(user_id, user_role, current_time, max_requests, )
+            return self._is_allowed_memory(
+                user_id,
+                user_role,
+                current_time,
+                max_requests,
+            )
 
     @_mutmut_mutated(mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut)
     def _is_allowed_memory(
@@ -4832,7 +4866,6 @@ class RateLimiter:
         self, user_id: str, user_role: str, current_time: float, max_requests: int, window_seconds: int
     ) -> dict[str, Any]:
         """Fallback in-memory rate limiting"""
-        from collections import deque
 
         if user_id not in self.memory_requests:
             self.memory_requests[user_id] = None
@@ -5284,7 +5317,7 @@ class RateLimiter:
                 "reset_time": current_time + window_seconds,
             }
         else:
-            oldest_request = user_requests[0]
+            user_requests[0]
             reset_time = None
             return {"allowed": False, "remaining": 0, "reset_time": reset_time}
 
@@ -5495,202 +5528,451 @@ class RateLimiter:
             reset_time = oldest_request + window_seconds
             return {"allowed": False, "remaining": 0, "RESET_TIME": reset_time}
 
-mutants_xǁRateLimiterǁ__init____mutmut['_mutmut_orig'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_1'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_2'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_2 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_3'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_3 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_4'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_4 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_5'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_5 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_6'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_6 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_7'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_7 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_8'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_8 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_9'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_9 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_10'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_10 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_11'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_11 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_12'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_12 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_13'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_13 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_14'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_14 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_15'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_15 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_16'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_16 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_17'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_17 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_18'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_18 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_19'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_19 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_20'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_20 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_21'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_21 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_22'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_22 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_23'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_23 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_24'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_24 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_25'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_25 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_26'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_26 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_27'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_27 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_28'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_28 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_29'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_29 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_30'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_30 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_31'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_31 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_32'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_32 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_33'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_33 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_34'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_34 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_35'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_35 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_36'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_36 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_37'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_37 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_38'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_38 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_39'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_39 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_40'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_40 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_41'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_41 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_42'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_42 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_43'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_43 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_44'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_44 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_45'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_45 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_46'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_46 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_47'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_47 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_48'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_48 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_49'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_49 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_50'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_50 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_51'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_51 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_52'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_52 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_53'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_53 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_54'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_54 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_55'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_55 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_56'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_56 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_57'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_57 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ__init____mutmut['xǁRateLimiterǁ__init____mutmut_58'] = RateLimiter.xǁRateLimiterǁ__init____mutmut_58 # type: ignore # mutmut generated
 
-mutants_xǁRateLimiterǁis_allowed__mutmut['_mutmut_orig'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_1'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_2'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_3'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_4'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_5'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_6'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_7'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_8'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_9'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_10'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_11'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_12'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_13'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_14'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_15'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_16'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_17'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_18'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_19'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_20'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_21'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_22'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_23'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_24'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_25'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_26'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_27'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_28'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_29'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_30'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_31'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_32'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_33'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_34'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_35'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_36'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_37'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_38'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_39'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_40'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_41'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_42'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_43'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_44'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_45'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_46'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_47'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_48'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_49'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_50'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_51'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_52'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_53'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_54'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_55'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_56'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_57'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_58'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_59'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_60'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_61'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_62'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_63'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_64'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_65'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_65 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_66'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_66 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_67'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_67 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_68'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_68 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_69'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_69 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_70'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_70 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_71'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_71 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_72'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_72 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_73'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_73 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_74'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_74 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_75'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_75 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_76'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_76 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_77'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_77 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_78'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_78 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_79'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_79 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_80'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_80 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_81'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_81 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_82'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_82 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_83'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_83 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_84'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_84 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_85'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_85 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_86'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_86 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_87'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_87 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_88'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_88 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_89'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_89 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_90'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_90 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_91'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_91 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_92'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_92 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_93'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_93 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_94'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_94 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_95'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_95 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_96'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_96 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_97'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_97 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_98'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_98 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_99'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_99 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_100'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_100 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_101'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_101 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_102'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_102 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁis_allowed__mutmut['xǁRateLimiterǁis_allowed__mutmut_103'] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_103 # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["_mutmut_orig"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_1"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_1  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_2"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_2  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_3"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_3  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_4"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_4  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_5"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_5  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_6"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_6  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_7"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_7  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_8"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_8  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_9"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_9  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_10"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_10  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_11"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_11  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_12"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_12  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_13"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_13  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_14"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_14  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_15"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_15  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_16"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_16  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_17"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_17  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_18"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_18  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_19"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_19  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_20"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_20  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_21"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_21  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_22"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_22  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_23"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_23  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_24"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_24  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_25"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_25  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_26"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_26  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_27"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_27  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_28"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_28  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_29"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_29  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_30"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_30  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_31"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_31  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_32"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_32  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_33"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_33  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_34"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_34  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_35"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_35  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_36"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_36  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_37"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_37  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_38"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_38  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_39"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_39  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_40"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_40  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_41"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_41  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_42"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_42  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_43"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_43  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_44"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_44  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_45"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_45  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_46"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_46  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_47"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_47  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_48"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_48  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_49"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_49  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_50"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_50  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_51"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_51  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_52"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_52  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_53"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_53  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_54"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_54  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_55"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_55  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_56"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_56  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_57"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_57  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ__init____mutmut["xǁRateLimiterǁ__init____mutmut_58"] = RateLimiter.xǁRateLimiterǁ__init____mutmut_58  # type: ignore # mutmut generated
 
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['_mutmut_orig'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_1'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_2'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_3'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_4'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_5'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_6'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_7'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_8'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_9'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_10'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_11'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_12'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_13'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_14'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_15'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_16'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_17'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_18'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_19'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_20'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_21'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_22'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_23'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_24'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_25'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_26'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_27'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_28'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_29'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut['xǁRateLimiterǁ_is_allowed_memory__mutmut_30'] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_30 # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["_mutmut_orig"] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_1"] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_1  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_2"] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_2  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_3"] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_3  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_4"] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_4  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_5"] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_5  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_6"] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_6  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_7"] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_7  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_8"] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_8  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_9"] = RateLimiter.xǁRateLimiterǁis_allowed__mutmut_9  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_10"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_11"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_12"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_13"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_14"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_15"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_16"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_17"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_18"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_19"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_20"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_21"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_22"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_23"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_24"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_25"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_26"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_27"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_28"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_29"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_30"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_31"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_32"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_33"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_34"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_35"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_36"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_37"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_38"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_39"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_40"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_41"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_42"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_43"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_44"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_45"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_46"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_47"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_48"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_49"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_50"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_51"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_52"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_53"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_54"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_55"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_56"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_57"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_58"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_59"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_60"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_61"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_62"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_63"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_64"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_65"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_65
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_66"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_66
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_67"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_67
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_68"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_68
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_69"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_69
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_70"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_70
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_71"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_71
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_72"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_72
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_73"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_73
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_74"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_74
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_75"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_75
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_76"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_76
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_77"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_77
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_78"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_78
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_79"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_79
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_80"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_80
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_81"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_81
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_82"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_82
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_83"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_83
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_84"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_84
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_85"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_85
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_86"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_86
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_87"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_87
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_88"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_88
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_89"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_89
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_90"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_90
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_91"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_91
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_92"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_92
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_93"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_93
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_94"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_94
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_95"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_95
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_96"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_96
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_97"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_97
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_98"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_98
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_99"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_99
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_100"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_100
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_101"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_101
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_102"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_102
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁis_allowed__mutmut["xǁRateLimiterǁis_allowed__mutmut_103"] = (
+    RateLimiter.xǁRateLimiterǁis_allowed__mutmut_103
+)  # type: ignore # mutmut generated
+
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["_mutmut_orig"] = RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_1"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_2"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_3"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_4"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_5"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_6"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_7"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_8"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_9"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_10"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_11"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_12"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_13"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_14"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_15"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_16"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_17"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_18"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_19"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_20"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_21"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_22"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_23"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_24"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_25"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_26"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_27"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_28"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_29"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁRateLimiterǁ_is_allowed_memory__mutmut["xǁRateLimiterǁ_is_allowed_memory__mutmut_30"] = (
+    RateLimiter.xǁRateLimiterǁ_is_allowed_memory__mutmut_30
+)  # type: ignore # mutmut generated
 
 
 rate_limiter = RateLimiter()
@@ -6142,7 +6424,6 @@ def x_get_current_user__mutmut_7(credentials: HTTPAuthorizationCredentials | Non
     """Get current user from JWT token or API key"""
     try:
         if credentials and credentials.scheme == "Bearer":
-            token = credentials.credentials
             validation = None
             if validation["valid"]:
                 payload = validation["payload"]
@@ -6197,7 +6478,6 @@ def x_get_current_user__mutmut_8(credentials: HTTPAuthorizationCredentials | Non
     """Get current user from JWT token or API key"""
     try:
         if credentials and credentials.scheme == "Bearer":
-            token = credentials.credentials
             validation = jwt_handler.validate_token(None)
             if validation["valid"]:
                 payload = validation["payload"]
@@ -6972,7 +7252,9 @@ def x_get_current_user__mutmut_22(credentials: HTTPAuthorizationCredentials | No
             if validation["valid"]:
                 payload = validation["payload"]
                 user_id = payload.get("user_id")
-                rate_check = rate_limiter.is_allowed(user_id, )
+                rate_check = rate_limiter.is_allowed(
+                    user_id,
+                )
                 if not rate_check["allowed"]:
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -7192,7 +7474,12 @@ def x_get_current_user__mutmut_26(credentials: HTTPAuthorizationCredentials | No
             if validation["valid"]:
                 payload = validation["payload"]
                 user_id = payload.get("user_id")
-                rate_check = rate_limiter.is_allowed(user_id, payload.get("role", ))
+                rate_check = rate_limiter.is_allowed(
+                    user_id,
+                    payload.get(
+                        "role",
+                    ),
+                )
                 if not rate_check["allowed"]:
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -7910,7 +8197,7 @@ def x_get_current_user__mutmut_39(credentials: HTTPAuthorizationCredentials | No
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         detail={"error": "Rate limit exceeded", "reset_time": rate_check["reset_time"]},
-                        )
+                    )
                 return {
                     "user_id": user_id,
                     "username": payload.get("username"),
@@ -8459,7 +8746,9 @@ def x_get_current_user__mutmut_49(credentials: HTTPAuthorizationCredentials | No
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         detail={"error": "Rate limit exceeded", "reset_time": rate_check["reset_time"]},
-                        headers={"XXRetry-AfterXX": str(int(rate_check["reset_time"] - rate_limiter.memory_requests[user_id][0]))},
+                        headers={
+                            "XXRetry-AfterXX": str(int(rate_check["reset_time"] - rate_limiter.memory_requests[user_id][0]))
+                        },
                     )
                 return {
                     "user_id": user_id,
@@ -8789,7 +9078,9 @@ def x_get_current_user__mutmut_55(credentials: HTTPAuthorizationCredentials | No
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         detail={"error": "Rate limit exceeded", "reset_time": rate_check["reset_time"]},
-                        headers={"Retry-After": str(int(rate_check["XXreset_timeXX"] - rate_limiter.memory_requests[user_id][0]))},
+                        headers={
+                            "Retry-After": str(int(rate_check["XXreset_timeXX"] - rate_limiter.memory_requests[user_id][0]))
+                        },
                     )
                 return {
                     "user_id": user_id,
@@ -9674,7 +9965,11 @@ def x_get_current_user__mutmut_71(credentials: HTTPAuthorizationCredentials | No
                 return {
                     "user_id": user_id,
                     "username": payload.get("username"),
-                    "role": str(payload.get("role", )),
+                    "role": str(
+                        payload.get(
+                            "role",
+                        )
+                    ),
                     "permissions": payload.get("permissions", []),
                     "auth_type": "jwt",
                 }
@@ -10225,7 +10520,9 @@ def x_get_current_user__mutmut_81(credentials: HTTPAuthorizationCredentials | No
                     "user_id": user_id,
                     "username": payload.get("username"),
                     "role": str(payload.get("role", "default")),
-                    "permissions": payload.get("permissions", ),
+                    "permissions": payload.get(
+                        "permissions",
+                    ),
                     "auth_type": "jwt",
                 }
         api_key = None
@@ -11612,7 +11909,9 @@ def x_get_current_user__mutmut_106(credentials: HTTPAuthorizationCredentials | N
             validation = api_key_manager.validate_api_key(api_key)
             if validation["valid"]:
                 user_id = validation["user_id"]
-                rate_check = rate_limiter.is_allowed(user_id, )
+                rate_check = rate_limiter.is_allowed(
+                    user_id,
+                )
                 if not rate_check["allowed"]:
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -12110,7 +12409,7 @@ def x_get_current_user__mutmut_115(credentials: HTTPAuthorizationCredentials | N
                 if not rate_check["allowed"]:
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        )
+                    )
                 return {
                     "user_id": user_id,
                     "username": f"api_user_{user_id}",
@@ -13548,9 +13847,7 @@ def x_get_current_user__mutmut_141(credentials: HTTPAuthorizationCredentials | N
                     "permissions": validation["permissions"],
                     "auth_type": "api_key",
                 }
-        raise HTTPException(
-            status_code=None, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"}
-        )
+        raise HTTPException(status_code=None, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"})
     except HTTPException:
         raise
     except Exception as e:
@@ -13603,9 +13900,7 @@ def x_get_current_user__mutmut_142(credentials: HTTPAuthorizationCredentials | N
                     "permissions": validation["permissions"],
                     "auth_type": "api_key",
                 }
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=None, headers={"WWW-Authenticate": "Bearer"}
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=None, headers={"WWW-Authenticate": "Bearer"})
     except HTTPException:
         raise
     except Exception as e:
@@ -13658,9 +13953,7 @@ def x_get_current_user__mutmut_143(credentials: HTTPAuthorizationCredentials | N
                     "permissions": validation["permissions"],
                     "auth_type": "api_key",
                 }
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required", headers=None
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required", headers=None)
     except HTTPException:
         raise
     except Exception as e:
@@ -13713,9 +14006,7 @@ def x_get_current_user__mutmut_144(credentials: HTTPAuthorizationCredentials | N
                     "permissions": validation["permissions"],
                     "auth_type": "api_key",
                 }
-        raise HTTPException(
-            detail="Authentication required", headers={"WWW-Authenticate": "Bearer"}
-        )
+        raise HTTPException(detail="Authentication required", headers={"WWW-Authenticate": "Bearer"})
     except HTTPException:
         raise
     except Exception as e:
@@ -13768,9 +14059,7 @@ def x_get_current_user__mutmut_145(credentials: HTTPAuthorizationCredentials | N
                     "permissions": validation["permissions"],
                     "auth_type": "api_key",
                 }
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, headers={"WWW-Authenticate": "Bearer"}
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers={"WWW-Authenticate": "Bearer"})
     except HTTPException:
         raise
     except Exception as e:
@@ -13824,7 +14113,9 @@ def x_get_current_user__mutmut_146(credentials: HTTPAuthorizationCredentials | N
                     "auth_type": "api_key",
                 }
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required", )
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -13878,7 +14169,9 @@ def x_get_current_user__mutmut_147(credentials: HTTPAuthorizationCredentials | N
                     "auth_type": "api_key",
                 }
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="XXAuthentication requiredXX", headers={"WWW-Authenticate": "Bearer"}
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="XXAuthentication requiredXX",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     except HTTPException:
         raise
@@ -14043,7 +14336,9 @@ def x_get_current_user__mutmut_150(credentials: HTTPAuthorizationCredentials | N
                     "auth_type": "api_key",
                 }
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required", headers={"XXWWW-AuthenticateXX": "Bearer"}
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"XXWWW-AuthenticateXX": "Bearer"},
         )
     except HTTPException:
         raise
@@ -14208,7 +14503,9 @@ def x_get_current_user__mutmut_153(credentials: HTTPAuthorizationCredentials | N
                     "auth_type": "api_key",
                 }
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required", headers={"WWW-Authenticate": "XXBearerXX"}
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "XXBearerXX"},
         )
     except HTTPException:
         raise
@@ -14543,7 +14840,9 @@ def x_get_current_user__mutmut_159(credentials: HTTPAuthorizationCredentials | N
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Authentication error: %s", )
+        logger.error(
+            "Authentication error: %s",
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed") from e
 
 
@@ -14929,7 +15228,9 @@ def x_get_current_user__mutmut_166(credentials: HTTPAuthorizationCredentials | N
         raise
     except Exception as e:
         logger.error("Authentication error: %s", e)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, ) from e
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        ) from e
 
 
 def x_get_current_user__mutmut_167(credentials: HTTPAuthorizationCredentials | None = Depends(security)) -> dict[str, Any]:
@@ -15096,176 +15397,177 @@ def x_get_current_user__mutmut_169(credentials: HTTPAuthorizationCredentials | N
         logger.error("Authentication error: %s", e)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="AUTHENTICATION FAILED") from e
 
-mutants_x_get_current_user__mutmut['_mutmut_orig'] = x_get_current_user__mutmut_orig # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_1'] = x_get_current_user__mutmut_1 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_2'] = x_get_current_user__mutmut_2 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_3'] = x_get_current_user__mutmut_3 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_4'] = x_get_current_user__mutmut_4 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_5'] = x_get_current_user__mutmut_5 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_6'] = x_get_current_user__mutmut_6 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_7'] = x_get_current_user__mutmut_7 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_8'] = x_get_current_user__mutmut_8 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_9'] = x_get_current_user__mutmut_9 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_10'] = x_get_current_user__mutmut_10 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_11'] = x_get_current_user__mutmut_11 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_12'] = x_get_current_user__mutmut_12 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_13'] = x_get_current_user__mutmut_13 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_14'] = x_get_current_user__mutmut_14 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_15'] = x_get_current_user__mutmut_15 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_16'] = x_get_current_user__mutmut_16 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_17'] = x_get_current_user__mutmut_17 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_18'] = x_get_current_user__mutmut_18 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_19'] = x_get_current_user__mutmut_19 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_20'] = x_get_current_user__mutmut_20 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_21'] = x_get_current_user__mutmut_21 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_22'] = x_get_current_user__mutmut_22 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_23'] = x_get_current_user__mutmut_23 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_24'] = x_get_current_user__mutmut_24 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_25'] = x_get_current_user__mutmut_25 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_26'] = x_get_current_user__mutmut_26 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_27'] = x_get_current_user__mutmut_27 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_28'] = x_get_current_user__mutmut_28 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_29'] = x_get_current_user__mutmut_29 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_30'] = x_get_current_user__mutmut_30 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_31'] = x_get_current_user__mutmut_31 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_32'] = x_get_current_user__mutmut_32 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_33'] = x_get_current_user__mutmut_33 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_34'] = x_get_current_user__mutmut_34 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_35'] = x_get_current_user__mutmut_35 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_36'] = x_get_current_user__mutmut_36 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_37'] = x_get_current_user__mutmut_37 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_38'] = x_get_current_user__mutmut_38 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_39'] = x_get_current_user__mutmut_39 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_40'] = x_get_current_user__mutmut_40 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_41'] = x_get_current_user__mutmut_41 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_42'] = x_get_current_user__mutmut_42 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_43'] = x_get_current_user__mutmut_43 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_44'] = x_get_current_user__mutmut_44 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_45'] = x_get_current_user__mutmut_45 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_46'] = x_get_current_user__mutmut_46 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_47'] = x_get_current_user__mutmut_47 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_48'] = x_get_current_user__mutmut_48 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_49'] = x_get_current_user__mutmut_49 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_50'] = x_get_current_user__mutmut_50 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_51'] = x_get_current_user__mutmut_51 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_52'] = x_get_current_user__mutmut_52 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_53'] = x_get_current_user__mutmut_53 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_54'] = x_get_current_user__mutmut_54 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_55'] = x_get_current_user__mutmut_55 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_56'] = x_get_current_user__mutmut_56 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_57'] = x_get_current_user__mutmut_57 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_58'] = x_get_current_user__mutmut_58 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_59'] = x_get_current_user__mutmut_59 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_60'] = x_get_current_user__mutmut_60 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_61'] = x_get_current_user__mutmut_61 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_62'] = x_get_current_user__mutmut_62 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_63'] = x_get_current_user__mutmut_63 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_64'] = x_get_current_user__mutmut_64 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_65'] = x_get_current_user__mutmut_65 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_66'] = x_get_current_user__mutmut_66 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_67'] = x_get_current_user__mutmut_67 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_68'] = x_get_current_user__mutmut_68 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_69'] = x_get_current_user__mutmut_69 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_70'] = x_get_current_user__mutmut_70 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_71'] = x_get_current_user__mutmut_71 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_72'] = x_get_current_user__mutmut_72 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_73'] = x_get_current_user__mutmut_73 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_74'] = x_get_current_user__mutmut_74 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_75'] = x_get_current_user__mutmut_75 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_76'] = x_get_current_user__mutmut_76 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_77'] = x_get_current_user__mutmut_77 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_78'] = x_get_current_user__mutmut_78 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_79'] = x_get_current_user__mutmut_79 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_80'] = x_get_current_user__mutmut_80 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_81'] = x_get_current_user__mutmut_81 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_82'] = x_get_current_user__mutmut_82 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_83'] = x_get_current_user__mutmut_83 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_84'] = x_get_current_user__mutmut_84 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_85'] = x_get_current_user__mutmut_85 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_86'] = x_get_current_user__mutmut_86 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_87'] = x_get_current_user__mutmut_87 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_88'] = x_get_current_user__mutmut_88 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_89'] = x_get_current_user__mutmut_89 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_90'] = x_get_current_user__mutmut_90 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_91'] = x_get_current_user__mutmut_91 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_92'] = x_get_current_user__mutmut_92 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_93'] = x_get_current_user__mutmut_93 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_94'] = x_get_current_user__mutmut_94 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_95'] = x_get_current_user__mutmut_95 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_96'] = x_get_current_user__mutmut_96 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_97'] = x_get_current_user__mutmut_97 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_98'] = x_get_current_user__mutmut_98 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_99'] = x_get_current_user__mutmut_99 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_100'] = x_get_current_user__mutmut_100 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_101'] = x_get_current_user__mutmut_101 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_102'] = x_get_current_user__mutmut_102 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_103'] = x_get_current_user__mutmut_103 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_104'] = x_get_current_user__mutmut_104 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_105'] = x_get_current_user__mutmut_105 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_106'] = x_get_current_user__mutmut_106 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_107'] = x_get_current_user__mutmut_107 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_108'] = x_get_current_user__mutmut_108 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_109'] = x_get_current_user__mutmut_109 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_110'] = x_get_current_user__mutmut_110 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_111'] = x_get_current_user__mutmut_111 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_112'] = x_get_current_user__mutmut_112 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_113'] = x_get_current_user__mutmut_113 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_114'] = x_get_current_user__mutmut_114 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_115'] = x_get_current_user__mutmut_115 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_116'] = x_get_current_user__mutmut_116 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_117'] = x_get_current_user__mutmut_117 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_118'] = x_get_current_user__mutmut_118 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_119'] = x_get_current_user__mutmut_119 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_120'] = x_get_current_user__mutmut_120 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_121'] = x_get_current_user__mutmut_121 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_122'] = x_get_current_user__mutmut_122 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_123'] = x_get_current_user__mutmut_123 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_124'] = x_get_current_user__mutmut_124 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_125'] = x_get_current_user__mutmut_125 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_126'] = x_get_current_user__mutmut_126 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_127'] = x_get_current_user__mutmut_127 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_128'] = x_get_current_user__mutmut_128 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_129'] = x_get_current_user__mutmut_129 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_130'] = x_get_current_user__mutmut_130 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_131'] = x_get_current_user__mutmut_131 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_132'] = x_get_current_user__mutmut_132 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_133'] = x_get_current_user__mutmut_133 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_134'] = x_get_current_user__mutmut_134 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_135'] = x_get_current_user__mutmut_135 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_136'] = x_get_current_user__mutmut_136 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_137'] = x_get_current_user__mutmut_137 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_138'] = x_get_current_user__mutmut_138 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_139'] = x_get_current_user__mutmut_139 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_140'] = x_get_current_user__mutmut_140 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_141'] = x_get_current_user__mutmut_141 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_142'] = x_get_current_user__mutmut_142 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_143'] = x_get_current_user__mutmut_143 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_144'] = x_get_current_user__mutmut_144 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_145'] = x_get_current_user__mutmut_145 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_146'] = x_get_current_user__mutmut_146 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_147'] = x_get_current_user__mutmut_147 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_148'] = x_get_current_user__mutmut_148 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_149'] = x_get_current_user__mutmut_149 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_150'] = x_get_current_user__mutmut_150 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_151'] = x_get_current_user__mutmut_151 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_152'] = x_get_current_user__mutmut_152 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_153'] = x_get_current_user__mutmut_153 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_154'] = x_get_current_user__mutmut_154 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_155'] = x_get_current_user__mutmut_155 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_156'] = x_get_current_user__mutmut_156 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_157'] = x_get_current_user__mutmut_157 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_158'] = x_get_current_user__mutmut_158 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_159'] = x_get_current_user__mutmut_159 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_160'] = x_get_current_user__mutmut_160 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_161'] = x_get_current_user__mutmut_161 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_162'] = x_get_current_user__mutmut_162 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_163'] = x_get_current_user__mutmut_163 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_164'] = x_get_current_user__mutmut_164 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_165'] = x_get_current_user__mutmut_165 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_166'] = x_get_current_user__mutmut_166 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_167'] = x_get_current_user__mutmut_167 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_168'] = x_get_current_user__mutmut_168 # type: ignore # mutmut generated
-mutants_x_get_current_user__mutmut['x_get_current_user__mutmut_169'] = x_get_current_user__mutmut_169 # type: ignore # mutmut generated
+
+mutants_x_get_current_user__mutmut["_mutmut_orig"] = x_get_current_user__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_1"] = x_get_current_user__mutmut_1  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_2"] = x_get_current_user__mutmut_2  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_3"] = x_get_current_user__mutmut_3  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_4"] = x_get_current_user__mutmut_4  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_5"] = x_get_current_user__mutmut_5  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_6"] = x_get_current_user__mutmut_6  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_7"] = x_get_current_user__mutmut_7  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_8"] = x_get_current_user__mutmut_8  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_9"] = x_get_current_user__mutmut_9  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_10"] = x_get_current_user__mutmut_10  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_11"] = x_get_current_user__mutmut_11  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_12"] = x_get_current_user__mutmut_12  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_13"] = x_get_current_user__mutmut_13  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_14"] = x_get_current_user__mutmut_14  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_15"] = x_get_current_user__mutmut_15  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_16"] = x_get_current_user__mutmut_16  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_17"] = x_get_current_user__mutmut_17  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_18"] = x_get_current_user__mutmut_18  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_19"] = x_get_current_user__mutmut_19  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_20"] = x_get_current_user__mutmut_20  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_21"] = x_get_current_user__mutmut_21  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_22"] = x_get_current_user__mutmut_22  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_23"] = x_get_current_user__mutmut_23  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_24"] = x_get_current_user__mutmut_24  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_25"] = x_get_current_user__mutmut_25  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_26"] = x_get_current_user__mutmut_26  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_27"] = x_get_current_user__mutmut_27  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_28"] = x_get_current_user__mutmut_28  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_29"] = x_get_current_user__mutmut_29  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_30"] = x_get_current_user__mutmut_30  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_31"] = x_get_current_user__mutmut_31  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_32"] = x_get_current_user__mutmut_32  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_33"] = x_get_current_user__mutmut_33  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_34"] = x_get_current_user__mutmut_34  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_35"] = x_get_current_user__mutmut_35  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_36"] = x_get_current_user__mutmut_36  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_37"] = x_get_current_user__mutmut_37  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_38"] = x_get_current_user__mutmut_38  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_39"] = x_get_current_user__mutmut_39  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_40"] = x_get_current_user__mutmut_40  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_41"] = x_get_current_user__mutmut_41  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_42"] = x_get_current_user__mutmut_42  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_43"] = x_get_current_user__mutmut_43  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_44"] = x_get_current_user__mutmut_44  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_45"] = x_get_current_user__mutmut_45  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_46"] = x_get_current_user__mutmut_46  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_47"] = x_get_current_user__mutmut_47  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_48"] = x_get_current_user__mutmut_48  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_49"] = x_get_current_user__mutmut_49  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_50"] = x_get_current_user__mutmut_50  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_51"] = x_get_current_user__mutmut_51  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_52"] = x_get_current_user__mutmut_52  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_53"] = x_get_current_user__mutmut_53  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_54"] = x_get_current_user__mutmut_54  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_55"] = x_get_current_user__mutmut_55  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_56"] = x_get_current_user__mutmut_56  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_57"] = x_get_current_user__mutmut_57  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_58"] = x_get_current_user__mutmut_58  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_59"] = x_get_current_user__mutmut_59  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_60"] = x_get_current_user__mutmut_60  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_61"] = x_get_current_user__mutmut_61  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_62"] = x_get_current_user__mutmut_62  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_63"] = x_get_current_user__mutmut_63  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_64"] = x_get_current_user__mutmut_64  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_65"] = x_get_current_user__mutmut_65  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_66"] = x_get_current_user__mutmut_66  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_67"] = x_get_current_user__mutmut_67  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_68"] = x_get_current_user__mutmut_68  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_69"] = x_get_current_user__mutmut_69  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_70"] = x_get_current_user__mutmut_70  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_71"] = x_get_current_user__mutmut_71  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_72"] = x_get_current_user__mutmut_72  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_73"] = x_get_current_user__mutmut_73  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_74"] = x_get_current_user__mutmut_74  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_75"] = x_get_current_user__mutmut_75  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_76"] = x_get_current_user__mutmut_76  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_77"] = x_get_current_user__mutmut_77  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_78"] = x_get_current_user__mutmut_78  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_79"] = x_get_current_user__mutmut_79  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_80"] = x_get_current_user__mutmut_80  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_81"] = x_get_current_user__mutmut_81  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_82"] = x_get_current_user__mutmut_82  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_83"] = x_get_current_user__mutmut_83  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_84"] = x_get_current_user__mutmut_84  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_85"] = x_get_current_user__mutmut_85  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_86"] = x_get_current_user__mutmut_86  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_87"] = x_get_current_user__mutmut_87  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_88"] = x_get_current_user__mutmut_88  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_89"] = x_get_current_user__mutmut_89  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_90"] = x_get_current_user__mutmut_90  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_91"] = x_get_current_user__mutmut_91  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_92"] = x_get_current_user__mutmut_92  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_93"] = x_get_current_user__mutmut_93  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_94"] = x_get_current_user__mutmut_94  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_95"] = x_get_current_user__mutmut_95  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_96"] = x_get_current_user__mutmut_96  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_97"] = x_get_current_user__mutmut_97  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_98"] = x_get_current_user__mutmut_98  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_99"] = x_get_current_user__mutmut_99  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_100"] = x_get_current_user__mutmut_100  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_101"] = x_get_current_user__mutmut_101  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_102"] = x_get_current_user__mutmut_102  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_103"] = x_get_current_user__mutmut_103  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_104"] = x_get_current_user__mutmut_104  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_105"] = x_get_current_user__mutmut_105  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_106"] = x_get_current_user__mutmut_106  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_107"] = x_get_current_user__mutmut_107  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_108"] = x_get_current_user__mutmut_108  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_109"] = x_get_current_user__mutmut_109  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_110"] = x_get_current_user__mutmut_110  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_111"] = x_get_current_user__mutmut_111  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_112"] = x_get_current_user__mutmut_112  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_113"] = x_get_current_user__mutmut_113  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_114"] = x_get_current_user__mutmut_114  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_115"] = x_get_current_user__mutmut_115  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_116"] = x_get_current_user__mutmut_116  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_117"] = x_get_current_user__mutmut_117  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_118"] = x_get_current_user__mutmut_118  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_119"] = x_get_current_user__mutmut_119  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_120"] = x_get_current_user__mutmut_120  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_121"] = x_get_current_user__mutmut_121  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_122"] = x_get_current_user__mutmut_122  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_123"] = x_get_current_user__mutmut_123  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_124"] = x_get_current_user__mutmut_124  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_125"] = x_get_current_user__mutmut_125  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_126"] = x_get_current_user__mutmut_126  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_127"] = x_get_current_user__mutmut_127  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_128"] = x_get_current_user__mutmut_128  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_129"] = x_get_current_user__mutmut_129  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_130"] = x_get_current_user__mutmut_130  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_131"] = x_get_current_user__mutmut_131  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_132"] = x_get_current_user__mutmut_132  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_133"] = x_get_current_user__mutmut_133  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_134"] = x_get_current_user__mutmut_134  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_135"] = x_get_current_user__mutmut_135  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_136"] = x_get_current_user__mutmut_136  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_137"] = x_get_current_user__mutmut_137  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_138"] = x_get_current_user__mutmut_138  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_139"] = x_get_current_user__mutmut_139  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_140"] = x_get_current_user__mutmut_140  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_141"] = x_get_current_user__mutmut_141  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_142"] = x_get_current_user__mutmut_142  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_143"] = x_get_current_user__mutmut_143  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_144"] = x_get_current_user__mutmut_144  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_145"] = x_get_current_user__mutmut_145  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_146"] = x_get_current_user__mutmut_146  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_147"] = x_get_current_user__mutmut_147  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_148"] = x_get_current_user__mutmut_148  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_149"] = x_get_current_user__mutmut_149  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_150"] = x_get_current_user__mutmut_150  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_151"] = x_get_current_user__mutmut_151  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_152"] = x_get_current_user__mutmut_152  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_153"] = x_get_current_user__mutmut_153  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_154"] = x_get_current_user__mutmut_154  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_155"] = x_get_current_user__mutmut_155  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_156"] = x_get_current_user__mutmut_156  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_157"] = x_get_current_user__mutmut_157  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_158"] = x_get_current_user__mutmut_158  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_159"] = x_get_current_user__mutmut_159  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_160"] = x_get_current_user__mutmut_160  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_161"] = x_get_current_user__mutmut_161  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_162"] = x_get_current_user__mutmut_162  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_163"] = x_get_current_user__mutmut_163  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_164"] = x_get_current_user__mutmut_164  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_165"] = x_get_current_user__mutmut_165  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_166"] = x_get_current_user__mutmut_166  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_167"] = x_get_current_user__mutmut_167  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_168"] = x_get_current_user__mutmut_168  # type: ignore # mutmut generated
+mutants_x_get_current_user__mutmut["x_get_current_user__mutmut_169"] = x_get_current_user__mutmut_169  # type: ignore # mutmut generated
 mutants_x_require_permissions__mutmut: MutantDict = {}  # type: ignore
 
 
@@ -15403,15 +15705,18 @@ def x_require_permissions__mutmut_4(required_permissions: list[str]) -> Callable
                 )
             return await func(*args, **kwargs)
 
-        return cast(F, )
+        return cast(
+            F,
+        )
 
     return decorator
 
-mutants_x_require_permissions__mutmut['_mutmut_orig'] = x_require_permissions__mutmut_orig # type: ignore # mutmut generated
-mutants_x_require_permissions__mutmut['x_require_permissions__mutmut_1'] = x_require_permissions__mutmut_1 # type: ignore # mutmut generated
-mutants_x_require_permissions__mutmut['x_require_permissions__mutmut_2'] = x_require_permissions__mutmut_2 # type: ignore # mutmut generated
-mutants_x_require_permissions__mutmut['x_require_permissions__mutmut_3'] = x_require_permissions__mutmut_3 # type: ignore # mutmut generated
-mutants_x_require_permissions__mutmut['x_require_permissions__mutmut_4'] = x_require_permissions__mutmut_4 # type: ignore # mutmut generated
+
+mutants_x_require_permissions__mutmut["_mutmut_orig"] = x_require_permissions__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_require_permissions__mutmut["x_require_permissions__mutmut_1"] = x_require_permissions__mutmut_1  # type: ignore # mutmut generated
+mutants_x_require_permissions__mutmut["x_require_permissions__mutmut_2"] = x_require_permissions__mutmut_2  # type: ignore # mutmut generated
+mutants_x_require_permissions__mutmut["x_require_permissions__mutmut_3"] = x_require_permissions__mutmut_3  # type: ignore # mutmut generated
+mutants_x_require_permissions__mutmut["x_require_permissions__mutmut_4"] = x_require_permissions__mutmut_4  # type: ignore # mutmut generated
 mutants_x_require_role__mutmut: MutantDict = {}  # type: ignore
 
 
@@ -15603,15 +15908,18 @@ def x_require_role__mutmut_4(required_roles: list[str]) -> Callable[[F], F]:
                 )
             return await func(*args, **kwargs)
 
-        return cast(F, )
+        return cast(
+            F,
+        )
 
     return decorator
 
-mutants_x_require_role__mutmut['_mutmut_orig'] = x_require_role__mutmut_orig # type: ignore # mutmut generated
-mutants_x_require_role__mutmut['x_require_role__mutmut_1'] = x_require_role__mutmut_1 # type: ignore # mutmut generated
-mutants_x_require_role__mutmut['x_require_role__mutmut_2'] = x_require_role__mutmut_2 # type: ignore # mutmut generated
-mutants_x_require_role__mutmut['x_require_role__mutmut_3'] = x_require_role__mutmut_3 # type: ignore # mutmut generated
-mutants_x_require_role__mutmut['x_require_role__mutmut_4'] = x_require_role__mutmut_4 # type: ignore # mutmut generated
+
+mutants_x_require_role__mutmut["_mutmut_orig"] = x_require_role__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_require_role__mutmut["x_require_role__mutmut_1"] = x_require_role__mutmut_1  # type: ignore # mutmut generated
+mutants_x_require_role__mutmut["x_require_role__mutmut_2"] = x_require_role__mutmut_2  # type: ignore # mutmut generated
+mutants_x_require_role__mutmut["x_require_role__mutmut_3"] = x_require_role__mutmut_3  # type: ignore # mutmut generated
+mutants_x_require_role__mutmut["x_require_role__mutmut_4"] = x_require_role__mutmut_4  # type: ignore # mutmut generated
 mutants_xǁSecurityHeadersǁget_security_headers__mutmut: MutantDict = {}  # type: ignore
 
 
@@ -16113,43 +16421,118 @@ class SecurityHeaders:
             "Permissions-Policy": "GEOLOCATION=(), MICROPHONE=(), CAMERA=()",
         }
 
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['_mutmut_orig'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_1'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_2'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_3'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_4'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_5'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_6'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_7'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_8'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_9'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_10'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_11'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_12'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_13'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_14'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_15'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_16'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_17'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_18'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_19'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_20'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_21'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_22'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_23'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_24'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_25'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_26'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_27'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_28'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_29'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_30'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_31'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_32'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_33'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_34'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_35'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁSecurityHeadersǁget_security_headers__mutmut['xǁSecurityHeadersǁget_security_headers__mutmut_36'] = SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_36 # type: ignore # mutmut generated
+
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["_mutmut_orig"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_1"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_2"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_3"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_4"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_5"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_6"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_7"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_8"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_9"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_10"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_11"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_12"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_13"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_14"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_15"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_16"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_17"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_18"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_19"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_20"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_21"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_22"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_23"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_24"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_25"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_26"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_27"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_28"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_29"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_30"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_31"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_32"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_33"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_34"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_35"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁSecurityHeadersǁget_security_headers__mutmut["xǁSecurityHeadersǁget_security_headers__mutmut_36"] = (
+    SecurityHeaders.xǁSecurityHeadersǁget_security_headers__mutmut_36
+)  # type: ignore # mutmut generated
 mutants_xǁInputValidatorǁvalidate_email__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁInputValidatorǁvalidate_password__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁInputValidatorǁsanitize_input__mutmut: MutantDict = {}  # type: ignore
@@ -16213,7 +16596,6 @@ class InputValidator:
         """Validate email format"""
         import re
 
-        pattern = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
         return re.match(None, email) is not None
 
     @staticmethod
@@ -16229,7 +16611,6 @@ class InputValidator:
         """Validate email format"""
         import re
 
-        pattern = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
         return re.match(email) is not None
 
     @staticmethod
@@ -16238,7 +16619,12 @@ class InputValidator:
         import re
 
         pattern = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-        return re.match(pattern, ) is not None
+        return (
+            re.match(
+                pattern,
+            )
+            is not None
+        )
 
     @staticmethod
     def xǁInputValidatorǁvalidate_email__mutmut_9(email: str) -> bool:
@@ -16491,7 +16877,9 @@ class InputValidator:
         errors = []
         if len(password) < 8:
             errors.append("Password must be at least 8 characters long")
-        if not re.search("[A-Z]", ):
+        if not re.search(
+            "[A-Z]",
+        ):
             errors.append("Password must contain at least one uppercase letter")
         if not re.search("[a-z]", password):
             errors.append("Password must contain at least one lowercase letter")
@@ -16691,7 +17079,9 @@ class InputValidator:
             errors.append("Password must be at least 8 characters long")
         if not re.search("[A-Z]", password):
             errors.append("Password must contain at least one uppercase letter")
-        if not re.search("[a-z]", ):
+        if not re.search(
+            "[a-z]",
+        ):
             errors.append("Password must contain at least one lowercase letter")
         if not re.search("\\d", password):
             errors.append("Password must contain at least one digit")
@@ -16891,7 +17281,9 @@ class InputValidator:
             errors.append("Password must contain at least one uppercase letter")
         if not re.search("[a-z]", password):
             errors.append("Password must contain at least one lowercase letter")
-        if not re.search("\\d", ):
+        if not re.search(
+            "\\d",
+        ):
             errors.append("Password must contain at least one digit")
         if not re.search('[!@#$%^&*(),.?":{}|<>]', password):
             errors.append("Password must contain at least one special character")
@@ -17073,7 +17465,9 @@ class InputValidator:
             errors.append("Password must contain at least one lowercase letter")
         if not re.search("\\d", password):
             errors.append("Password must contain at least one digit")
-        if not re.search('[!@#$%^&*(),.?":{}|<>]', ):
+        if not re.search(
+            '[!@#$%^&*(),.?":{}|<>]',
+        ):
             errors.append("Password must contain at least one special character")
         return {"valid": len(errors) == 0, "errors": errors}
 
@@ -17301,7 +17695,6 @@ class InputValidator:
     @staticmethod
     def xǁInputValidatorǁsanitize_input__mutmut_1(input_string: str) -> str:
         """Sanitize user input"""
-        import html
 
         sanitized = None
         dangerous_chars = ["<", ">", '"', "'", "&", "\x00", "\n", "\r", "\t"]
@@ -17437,7 +17830,7 @@ class InputValidator:
 
         sanitized = html.escape(input_string)
         dangerous_chars = ["<", ">", '"', "'", "&", "\x00", "\n", "\r", "\t"]
-        for char in dangerous_chars:
+        for _char in dangerous_chars:
             sanitized = None
         return sanitized.strip()
 
@@ -17448,7 +17841,7 @@ class InputValidator:
 
         sanitized = html.escape(input_string)
         dangerous_chars = ["<", ">", '"', "'", "&", "\x00", "\n", "\r", "\t"]
-        for char in dangerous_chars:
+        for _char in dangerous_chars:
             sanitized = sanitized.replace(None, "")
         return sanitized.strip()
 
@@ -17470,7 +17863,7 @@ class InputValidator:
 
         sanitized = html.escape(input_string)
         dangerous_chars = ["<", ">", '"', "'", "&", "\x00", "\n", "\r", "\t"]
-        for char in dangerous_chars:
+        for _char in dangerous_chars:
             sanitized = sanitized.replace("")
         return sanitized.strip()
 
@@ -17482,7 +17875,9 @@ class InputValidator:
         sanitized = html.escape(input_string)
         dangerous_chars = ["<", ">", '"', "'", "&", "\x00", "\n", "\r", "\t"]
         for char in dangerous_chars:
-            sanitized = sanitized.replace(char, )
+            sanitized = sanitized.replace(
+                char,
+            )
         return sanitized.strip()
 
     @staticmethod
@@ -17513,7 +17908,9 @@ class InputValidator:
         return {"valid": len(errors) == 0, "errors": errors}
 
     @staticmethod
-    def xǁInputValidatorǁvalidate_json_structure__mutmut_orig(data: dict[str, Any], required_fields: list[str]) -> dict[str, Any]:
+    def xǁInputValidatorǁvalidate_json_structure__mutmut_orig(
+        data: dict[str, Any], required_fields: list[str]
+    ) -> dict[str, Any]:
         """Validate JSON structure and required fields"""
         errors = []
         for field in required_fields:
@@ -17609,9 +18006,7 @@ class InputValidator:
                 errors.append(f"Missing required field: {field}")
         for field, value in data.items():
             if isinstance(value, dict):
-                nested_validation = InputValidator.validate_json_structure(
-                    value, None
-                )
+                nested_validation = InputValidator.validate_json_structure(value, None)
                 errors.extend(nested_validation["errors"])
         return {"valid": len(errors) == 0, "errors": errors}
 
@@ -17640,7 +18035,8 @@ class InputValidator:
         for field, value in data.items():
             if isinstance(value, dict):
                 nested_validation = InputValidator.validate_json_structure(
-                    value, )
+                    value,
+                )
                 errors.extend(nested_validation["errors"])
         return {"valid": len(errors) == 0, "errors": errors}
 
@@ -17660,7 +18056,9 @@ class InputValidator:
         return {"valid": len(errors) == 0, "errors": errors}
 
     @staticmethod
-    def xǁInputValidatorǁvalidate_json_structure__mutmut_10(data: dict[str, Any], required_fields: list[str]) -> dict[str, Any]:
+    def xǁInputValidatorǁvalidate_json_structure__mutmut_10(
+        data: dict[str, Any], required_fields: list[str]
+    ) -> dict[str, Any]:
         """Validate JSON structure and required fields"""
         errors = []
         for field in required_fields:
@@ -17668,14 +18066,16 @@ class InputValidator:
                 errors.append(f"Missing required field: {field}")
         for field, value in data.items():
             if isinstance(value, dict):
-                nested_validation = InputValidator.validate_json_structure(
+                InputValidator.validate_json_structure(
                     value, [f"{field}.{subfield}" for subfield in required_fields if subfield.startswith(f"{field}.")]
                 )
                 errors.extend(None)
         return {"valid": len(errors) == 0, "errors": errors}
 
     @staticmethod
-    def xǁInputValidatorǁvalidate_json_structure__mutmut_11(data: dict[str, Any], required_fields: list[str]) -> dict[str, Any]:
+    def xǁInputValidatorǁvalidate_json_structure__mutmut_11(
+        data: dict[str, Any], required_fields: list[str]
+    ) -> dict[str, Any]:
         """Validate JSON structure and required fields"""
         errors = []
         for field in required_fields:
@@ -17690,7 +18090,9 @@ class InputValidator:
         return {"valid": len(errors) == 0, "errors": errors}
 
     @staticmethod
-    def xǁInputValidatorǁvalidate_json_structure__mutmut_12(data: dict[str, Any], required_fields: list[str]) -> dict[str, Any]:
+    def xǁInputValidatorǁvalidate_json_structure__mutmut_12(
+        data: dict[str, Any], required_fields: list[str]
+    ) -> dict[str, Any]:
         """Validate JSON structure and required fields"""
         errors = []
         for field in required_fields:
@@ -17705,7 +18107,9 @@ class InputValidator:
         return {"valid": len(errors) == 0, "errors": errors}
 
     @staticmethod
-    def xǁInputValidatorǁvalidate_json_structure__mutmut_13(data: dict[str, Any], required_fields: list[str]) -> dict[str, Any]:
+    def xǁInputValidatorǁvalidate_json_structure__mutmut_13(
+        data: dict[str, Any], required_fields: list[str]
+    ) -> dict[str, Any]:
         """Validate JSON structure and required fields"""
         errors = []
         for field in required_fields:
@@ -17720,7 +18124,9 @@ class InputValidator:
         return {"XXvalidXX": len(errors) == 0, "errors": errors}
 
     @staticmethod
-    def xǁInputValidatorǁvalidate_json_structure__mutmut_14(data: dict[str, Any], required_fields: list[str]) -> dict[str, Any]:
+    def xǁInputValidatorǁvalidate_json_structure__mutmut_14(
+        data: dict[str, Any], required_fields: list[str]
+    ) -> dict[str, Any]:
         """Validate JSON structure and required fields"""
         errors = []
         for field in required_fields:
@@ -17735,7 +18141,9 @@ class InputValidator:
         return {"VALID": len(errors) == 0, "errors": errors}
 
     @staticmethod
-    def xǁInputValidatorǁvalidate_json_structure__mutmut_15(data: dict[str, Any], required_fields: list[str]) -> dict[str, Any]:
+    def xǁInputValidatorǁvalidate_json_structure__mutmut_15(
+        data: dict[str, Any], required_fields: list[str]
+    ) -> dict[str, Any]:
         """Validate JSON structure and required fields"""
         errors = []
         for field in required_fields:
@@ -17750,7 +18158,9 @@ class InputValidator:
         return {"valid": len(errors) != 0, "errors": errors}
 
     @staticmethod
-    def xǁInputValidatorǁvalidate_json_structure__mutmut_16(data: dict[str, Any], required_fields: list[str]) -> dict[str, Any]:
+    def xǁInputValidatorǁvalidate_json_structure__mutmut_16(
+        data: dict[str, Any], required_fields: list[str]
+    ) -> dict[str, Any]:
         """Validate JSON structure and required fields"""
         errors = []
         for field in required_fields:
@@ -17765,7 +18175,9 @@ class InputValidator:
         return {"valid": len(errors) == 1, "errors": errors}
 
     @staticmethod
-    def xǁInputValidatorǁvalidate_json_structure__mutmut_17(data: dict[str, Any], required_fields: list[str]) -> dict[str, Any]:
+    def xǁInputValidatorǁvalidate_json_structure__mutmut_17(
+        data: dict[str, Any], required_fields: list[str]
+    ) -> dict[str, Any]:
         """Validate JSON structure and required fields"""
         errors = []
         for field in required_fields:
@@ -17780,7 +18192,9 @@ class InputValidator:
         return {"valid": len(errors) == 0, "XXerrorsXX": errors}
 
     @staticmethod
-    def xǁInputValidatorǁvalidate_json_structure__mutmut_18(data: dict[str, Any], required_fields: list[str]) -> dict[str, Any]:
+    def xǁInputValidatorǁvalidate_json_structure__mutmut_18(
+        data: dict[str, Any], required_fields: list[str]
+    ) -> dict[str, Any]:
         """Validate JSON structure and required fields"""
         errors = []
         for field in required_fields:
@@ -17794,113 +18208,318 @@ class InputValidator:
                 errors.extend(nested_validation["errors"])
         return {"valid": len(errors) == 0, "ERRORS": errors}
 
-mutants_xǁInputValidatorǁvalidate_email__mutmut['_mutmut_orig'] = InputValidator.xǁInputValidatorǁvalidate_email__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_email__mutmut['xǁInputValidatorǁvalidate_email__mutmut_1'] = InputValidator.xǁInputValidatorǁvalidate_email__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_email__mutmut['xǁInputValidatorǁvalidate_email__mutmut_2'] = InputValidator.xǁInputValidatorǁvalidate_email__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_email__mutmut['xǁInputValidatorǁvalidate_email__mutmut_3'] = InputValidator.xǁInputValidatorǁvalidate_email__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_email__mutmut['xǁInputValidatorǁvalidate_email__mutmut_4'] = InputValidator.xǁInputValidatorǁvalidate_email__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_email__mutmut['xǁInputValidatorǁvalidate_email__mutmut_5'] = InputValidator.xǁInputValidatorǁvalidate_email__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_email__mutmut['xǁInputValidatorǁvalidate_email__mutmut_6'] = InputValidator.xǁInputValidatorǁvalidate_email__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_email__mutmut['xǁInputValidatorǁvalidate_email__mutmut_7'] = InputValidator.xǁInputValidatorǁvalidate_email__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_email__mutmut['xǁInputValidatorǁvalidate_email__mutmut_8'] = InputValidator.xǁInputValidatorǁvalidate_email__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_email__mutmut['xǁInputValidatorǁvalidate_email__mutmut_9'] = InputValidator.xǁInputValidatorǁvalidate_email__mutmut_9 # type: ignore # mutmut generated
 
-mutants_xǁInputValidatorǁvalidate_password__mutmut['_mutmut_orig'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_1'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_2'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_3'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_4'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_5'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_6'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_7'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_8'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_9'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_10'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_11'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_12'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_13'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_14'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_15'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_16'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_17'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_18'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_19'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_20'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_21'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_22'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_23'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_24'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_25'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_26'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_27'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_28'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_29'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_30'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_31'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_32'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_33'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_34'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_35'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_36'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_37'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_38'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_39'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_40'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_41'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_42'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_43'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_44'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_45'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_46'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_47'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_48'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_49'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_50'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_51'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_52'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_53'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_54'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_password__mutmut['xǁInputValidatorǁvalidate_password__mutmut_55'] = InputValidator.xǁInputValidatorǁvalidate_password__mutmut_55 # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_email__mutmut["_mutmut_orig"] = InputValidator.xǁInputValidatorǁvalidate_email__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_email__mutmut["xǁInputValidatorǁvalidate_email__mutmut_1"] = (
+    InputValidator.xǁInputValidatorǁvalidate_email__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_email__mutmut["xǁInputValidatorǁvalidate_email__mutmut_2"] = (
+    InputValidator.xǁInputValidatorǁvalidate_email__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_email__mutmut["xǁInputValidatorǁvalidate_email__mutmut_3"] = (
+    InputValidator.xǁInputValidatorǁvalidate_email__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_email__mutmut["xǁInputValidatorǁvalidate_email__mutmut_4"] = (
+    InputValidator.xǁInputValidatorǁvalidate_email__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_email__mutmut["xǁInputValidatorǁvalidate_email__mutmut_5"] = (
+    InputValidator.xǁInputValidatorǁvalidate_email__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_email__mutmut["xǁInputValidatorǁvalidate_email__mutmut_6"] = (
+    InputValidator.xǁInputValidatorǁvalidate_email__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_email__mutmut["xǁInputValidatorǁvalidate_email__mutmut_7"] = (
+    InputValidator.xǁInputValidatorǁvalidate_email__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_email__mutmut["xǁInputValidatorǁvalidate_email__mutmut_8"] = (
+    InputValidator.xǁInputValidatorǁvalidate_email__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_email__mutmut["xǁInputValidatorǁvalidate_email__mutmut_9"] = (
+    InputValidator.xǁInputValidatorǁvalidate_email__mutmut_9
+)  # type: ignore # mutmut generated
 
-mutants_xǁInputValidatorǁsanitize_input__mutmut['_mutmut_orig'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_1'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_2'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_3'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_4'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_5'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_6'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_7'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_8'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_9'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_10'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_11'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_12'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_13'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_14'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_15'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_16'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_17'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁsanitize_input__mutmut['xǁInputValidatorǁsanitize_input__mutmut_18'] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_18 # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["_mutmut_orig"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_1"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_2"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_3"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_4"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_5"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_6"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_7"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_8"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_9"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_10"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_11"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_12"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_13"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_14"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_15"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_16"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_17"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_18"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_19"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_20"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_21"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_22"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_23"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_24"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_25"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_26"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_27"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_28"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_29"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_30"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_31"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_32"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_33"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_34"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_35"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_36"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_37"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_38"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_39"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_40"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_41"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_42"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_43"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_44"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_45"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_46"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_47"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_48"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_49"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_50"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_51"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_52"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_53"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_54"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_password__mutmut["xǁInputValidatorǁvalidate_password__mutmut_55"] = (
+    InputValidator.xǁInputValidatorǁvalidate_password__mutmut_55
+)  # type: ignore # mutmut generated
 
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['_mutmut_orig'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_1'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_2'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_3'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_4'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_5'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_6'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_7'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_8'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_9'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_10'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_11'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_12'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_13'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_14'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_15'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_16'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_17'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁInputValidatorǁvalidate_json_structure__mutmut['xǁInputValidatorǁvalidate_json_structure__mutmut_18'] = InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_18 # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["_mutmut_orig"] = InputValidator.xǁInputValidatorǁsanitize_input__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_1"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_2"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_3"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_4"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_5"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_6"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_7"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_8"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_9"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_10"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_11"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_12"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_13"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_14"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_15"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_16"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_17"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁsanitize_input__mutmut["xǁInputValidatorǁsanitize_input__mutmut_18"] = (
+    InputValidator.xǁInputValidatorǁsanitize_input__mutmut_18
+)  # type: ignore # mutmut generated
+
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["_mutmut_orig"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_1"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_2"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_3"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_4"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_5"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_6"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_7"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_8"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_9"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_10"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_11"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_12"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_13"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_14"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_15"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_16"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_17"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁInputValidatorǁvalidate_json_structure__mutmut["xǁInputValidatorǁvalidate_json_structure__mutmut_18"] = (
+    InputValidator.xǁInputValidatorǁvalidate_json_structure__mutmut_18
+)  # type: ignore # mutmut generated
 
 
 security_headers = SecurityHeaders()

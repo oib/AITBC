@@ -4,10 +4,9 @@ import os
 import runpy
 from pathlib import Path
 
+import aitbc
 import aitbc_agent
 import aitbc_sdk
-
-import aitbc
 from aitbc.aitbc_logging import get_logger as direct_get_logger
 from aitbc.constants import (
     BLOCKCHAIN_RPC_PORT,

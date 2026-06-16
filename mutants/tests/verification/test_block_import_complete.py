@@ -7,7 +7,6 @@ Tests all functionality including validation, conflicts, and transaction import
 import hashlib
 
 import requests
-
 from aitbc import AITBCHTTPClient
 
 BASE_URL = "https://hub.aitbc.bubuit.net/rpc"

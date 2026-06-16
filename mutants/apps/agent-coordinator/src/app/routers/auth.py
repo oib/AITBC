@@ -1,9 +1,8 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth.jwt_handler import api_key_manager, jwt_handler
 from ..auth.middleware import get_current_user
@@ -11,9 +10,6 @@ from ..auth.permissions import Permission, Role, permission_manager
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
-
-
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
 
 
 @router.post("/login")

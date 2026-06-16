@@ -6,9 +6,6 @@ Uses mypy's test framework to verify type annotations are correct
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import Request, Response
-from starlette.types import ASGIApp
-
 from aitbc.rate_limiting import (
     RateLimitMiddleware,
     get_rate_limit_headers,
@@ -17,6 +14,8 @@ from aitbc.rate_limiting import (
     reset_rate_limit,
 )
 from aitbc.security_hardening import RateLimiter
+from fastapi import Request, Response
+from starlette.types import ASGIApp
 
 
 def test_get_rate_limiter_return_type() -> None:

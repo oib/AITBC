@@ -7,7 +7,6 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
-
 from aitbc.events import (
     AsyncEventBus,
     Event,

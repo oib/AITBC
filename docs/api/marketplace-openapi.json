@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "AITBC Marketplace Service",
-    "description": "API specification for AITBC marketplace service",
+    "description": "Manages hardware+software bundle marketplace operations",
     "version": "0.1.0"
   },
   "paths": {
@@ -1546,36 +1546,6 @@
         ],
         "title": "ValidationError"
       }
-    },
-    "securitySchemes": {
-      "BearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
-      },
-      "ApiKeyAuth": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "X-API-Key"
-      }
     }
-  },
-  "servers": [
-    {
-      "url": "http://localhost:8203",
-      "description": "Coordinator API (production)"
-    },
-    {
-      "url": "http://localhost:8102",
-      "description": "Marketplace (production)"
-    },
-    {
-      "url": "http://localhost:8108",
-      "description": "Wallet (production)"
-    },
-    {
-      "url": "http://localhost:8103",
-      "description": "Hermes (production)"
-    }
-  ]
+  }
 }

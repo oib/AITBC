@@ -8,15 +8,16 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from dotenv import load_dotenv
-
 from aitbc import get_logger
+from dotenv import load_dotenv
 
 load_dotenv()
 logger = get_logger(__name__)
 
 
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
+from mutmut.mutation.trampoline import MutantDict
+from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated
+
 mutants_xǁJWTHandlerǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁJWTHandlerǁgenerate_token__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut: MutantDict = {}  # type: ignore
@@ -136,7 +137,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_orig(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_orig(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -152,7 +155,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_1(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_1(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -168,7 +173,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_2(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_2(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -184,7 +191,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_3(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_3(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -200,7 +209,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_4(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_4(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -216,7 +227,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_5(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_5(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -232,7 +245,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_6(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_6(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -248,7 +263,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_7(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_7(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -264,7 +281,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_8(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_8(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -280,7 +299,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_9(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_9(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -296,7 +317,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_10(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_10(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -312,7 +335,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_11(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_11(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -328,7 +353,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_12(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_12(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -344,7 +371,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_13(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_13(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -360,7 +389,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_14(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_14(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -376,7 +407,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_15(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_15(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -392,7 +425,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_16(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_16(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -408,23 +443,26 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_17(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_17(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
-        import jwt
 
         try:
             if expires_delta:
                 expire = datetime.now(UTC) + expires_delta
             else:
                 expire = datetime.now(UTC) + self.token_expiry
-            token_payload = {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "access"}
+            {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "access"}
             token = None
             return {"status": "success", "token": token, "expires_at": expire.isoformat(), "token_type": "Bearer"}
         except Exception as e:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_18(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_18(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -433,14 +471,16 @@ class JWTHandler:
                 expire = datetime.now(UTC) + expires_delta
             else:
                 expire = datetime.now(UTC) + self.token_expiry
-            token_payload = {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "access"}
+            {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "access"}
             token = jwt.encode(None, self.secret_key, algorithm=self.algorithm)
             return {"status": "success", "token": token, "expires_at": expire.isoformat(), "token_type": "Bearer"}
         except Exception as e:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_19(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_19(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -456,7 +496,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_20(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_20(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -472,7 +514,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_21(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_21(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -481,14 +525,16 @@ class JWTHandler:
                 expire = datetime.now(UTC) + expires_delta
             else:
                 expire = datetime.now(UTC) + self.token_expiry
-            token_payload = {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "access"}
+            {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "access"}
             token = jwt.encode(self.secret_key, algorithm=self.algorithm)
             return {"status": "success", "token": token, "expires_at": expire.isoformat(), "token_type": "Bearer"}
         except Exception as e:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_22(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_22(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -504,7 +550,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_23(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_23(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -514,13 +562,18 @@ class JWTHandler:
             else:
                 expire = datetime.now(UTC) + self.token_expiry
             token_payload = {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "access"}
-            token = jwt.encode(token_payload, self.secret_key, )
+            token = jwt.encode(
+                token_payload,
+                self.secret_key,
+            )
             return {"status": "success", "token": token, "expires_at": expire.isoformat(), "token_type": "Bearer"}
         except Exception as e:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_24(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_24(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -536,7 +589,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_25(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_25(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -552,7 +607,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_26(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_26(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -568,7 +625,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_27(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_27(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -584,7 +643,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_28(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_28(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -600,7 +661,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_29(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_29(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -616,7 +679,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_30(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_30(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -632,7 +697,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_31(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_31(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -648,7 +715,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_32(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_32(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -664,7 +733,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_33(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_33(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -680,7 +751,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_34(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_34(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -696,7 +769,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_35(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_35(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -712,7 +787,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_36(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_36(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -728,7 +805,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_37(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_37(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -744,7 +823,9 @@ class JWTHandler:
             logger.error(None, e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_38(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_38(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -760,7 +841,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", None)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_39(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_39(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -776,7 +859,9 @@ class JWTHandler:
             logger.error(e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_40(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_40(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -789,10 +874,14 @@ class JWTHandler:
             token = jwt.encode(token_payload, self.secret_key, algorithm=self.algorithm)
             return {"status": "success", "token": token, "expires_at": expire.isoformat(), "token_type": "Bearer"}
         except Exception as e:
-            logger.error("Error generating JWT token: %s", )
+            logger.error(
+                "Error generating JWT token: %s",
+            )
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_41(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_41(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -808,7 +897,9 @@ class JWTHandler:
             logger.error("XXError generating JWT token: %sXX", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_42(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_42(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -824,7 +915,9 @@ class JWTHandler:
             logger.error("error generating jwt token: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_43(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_43(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -840,7 +933,9 @@ class JWTHandler:
             logger.error("ERROR GENERATING JWT TOKEN: %S", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_44(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_44(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -856,7 +951,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"XXstatusXX": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_45(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_45(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -872,7 +969,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"STATUS": "error", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_46(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_46(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -888,7 +987,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "XXerrorXX", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_47(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_47(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -904,7 +1005,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "ERROR", "message": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_48(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_48(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -920,7 +1023,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "XXmessageXX": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_49(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_49(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -936,7 +1041,9 @@ class JWTHandler:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "MESSAGE": str(e)}
 
-    def xǁJWTHandlerǁgenerate_token__mutmut_50(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
+    def xǁJWTHandlerǁgenerate_token__mutmut_50(
+        self, payload: dict[str, Any], expires_delta: timedelta | None = None
+    ) -> dict[str, Any]:
         """Generate JWT token with specified payload"""
         import jwt
 
@@ -1150,11 +1257,10 @@ class JWTHandler:
 
     def xǁJWTHandlerǁgenerate_refresh_token__mutmut_14(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Generate refresh token for token renewal"""
-        import jwt
 
         try:
             expire = datetime.now(UTC) + self.refresh_expiry
-            token_payload = {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "refresh"}
+            {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "refresh"}
             token = None
             return {"status": "success", "refresh_token": token, "expires_at": expire.isoformat()}
         except Exception as e:
@@ -1167,7 +1273,7 @@ class JWTHandler:
 
         try:
             expire = datetime.now(UTC) + self.refresh_expiry
-            token_payload = {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "refresh"}
+            {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "refresh"}
             token = jwt.encode(None, self.secret_key, algorithm=self.algorithm)
             return {"status": "success", "refresh_token": token, "expires_at": expire.isoformat()}
         except Exception as e:
@@ -1206,7 +1312,7 @@ class JWTHandler:
 
         try:
             expire = datetime.now(UTC) + self.refresh_expiry
-            token_payload = {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "refresh"}
+            {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "refresh"}
             token = jwt.encode(self.secret_key, algorithm=self.algorithm)
             return {"status": "success", "refresh_token": token, "expires_at": expire.isoformat()}
         except Exception as e:
@@ -1233,7 +1339,10 @@ class JWTHandler:
         try:
             expire = datetime.now(UTC) + self.refresh_expiry
             token_payload = {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "refresh"}
-            token = jwt.encode(token_payload, self.secret_key, )
+            token = jwt.encode(
+                token_payload,
+                self.secret_key,
+            )
             return {"status": "success", "refresh_token": token, "expires_at": expire.isoformat()}
         except Exception as e:
             logger.error("Error generating refresh token: %s", e)
@@ -1392,7 +1501,9 @@ class JWTHandler:
             token = jwt.encode(token_payload, self.secret_key, algorithm=self.algorithm)
             return {"status": "success", "refresh_token": token, "expires_at": expire.isoformat()}
         except Exception as e:
-            logger.error("Error generating refresh token: %s", )
+            logger.error(
+                "Error generating refresh token: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     def xǁJWTHandlerǁgenerate_refresh_token__mutmut_33(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -1681,7 +1792,11 @@ class JWTHandler:
         import jwt
 
         try:
-            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm], )
+            payload = jwt.decode(
+                token,
+                self.secret_key,
+                algorithms=[self.algorithm],
+            )
             return {"status": "success", "valid": True, "payload": payload}
         except jwt.ExpiredSignatureError:
             return {"status": "error", "valid": False, "message": "Token has expired"}
@@ -2195,7 +2310,7 @@ class JWTHandler:
             return {"status": "success", "valid": True, "payload": payload}
         except jwt.ExpiredSignatureError:
             return {"status": "error", "valid": False, "message": "Token has expired"}
-        except jwt.InvalidTokenError as e:
+        except jwt.InvalidTokenError:
             return {"status": "error", "valid": False, "message": f"Invalid token: {str(None)}"}
         except Exception as e:
             logger.error("Error validating token: %s", e)
@@ -2258,7 +2373,9 @@ class JWTHandler:
         except jwt.InvalidTokenError as e:
             return {"status": "error", "valid": False, "message": f"Invalid token: {str(e)}"}
         except Exception as e:
-            logger.error("Error validating token: %s", )
+            logger.error(
+                "Error validating token: %s",
+            )
             return {"status": "error", "valid": False, "message": f"Token validation error: {str(e)}"}
 
     def xǁJWTHandlerǁvalidate_token__mutmut_48(self, token: str) -> dict[str, Any]:
@@ -2967,7 +3084,7 @@ class JWTHandler:
             validation = self.validate_token(refresh_token)
             if not validation["valid"] or validation["payload"].get("type") != "refresh":
                 return {"status": "error", "message": "Invalid or expired refresh token"}
-            payload = validation["payload"]
+            validation["payload"]
             user_payload = None
             return self.generate_token(user_payload)
         except Exception as e:
@@ -3345,7 +3462,9 @@ class JWTHandler:
                 "user_id": payload.get("user_id"),
                 "username": payload.get("username"),
                 "role": payload.get("role"),
-                "permissions": payload.get("permissions", ),
+                "permissions": payload.get(
+                    "permissions",
+                ),
             }
             return self.generate_token(user_payload)
         except Exception as e:
@@ -3395,7 +3514,7 @@ class JWTHandler:
             if not validation["valid"] or validation["payload"].get("type") != "refresh":
                 return {"status": "error", "message": "Invalid or expired refresh token"}
             payload = validation["payload"]
-            user_payload = {
+            {
                 "user_id": payload.get("user_id"),
                 "username": payload.get("username"),
                 "role": payload.get("role"),
@@ -3475,7 +3594,9 @@ class JWTHandler:
             }
             return self.generate_token(user_payload)
         except Exception as e:
-            logger.error("Error refreshing token: %s", )
+            logger.error(
+                "Error refreshing token: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     def xǁJWTHandlerǁrefresh_access_token__mutmut_56(self, refresh_token: str) -> dict[str, Any]:
@@ -3681,7 +3802,6 @@ class JWTHandler:
 
     def xǁJWTHandlerǁdecode_token_without_validation__mutmut_1(self, token: str) -> dict[str, Any]:
         """Decode token without expiration validation (for debugging)"""
-        import jwt
 
         try:
             payload = None
@@ -3764,7 +3884,11 @@ class JWTHandler:
         import jwt
 
         try:
-            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm], )
+            payload = jwt.decode(
+                token,
+                self.secret_key,
+                algorithms=[self.algorithm],
+            )
             return {"status": "success", "payload": payload}
         except Exception as e:
             return {"status": "error", "message": f"Error decoding token: {str(e)}"}
@@ -3926,275 +4050,764 @@ class JWTHandler:
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm], options={"verify_exp": False})
             return {"status": "success", "payload": payload}
-        except Exception as e:
+        except Exception:
             return {"status": "error", "message": f"Error decoding token: {str(None)}"}
 
-mutants_xǁJWTHandlerǁ__init____mutmut['_mutmut_orig'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁ__init____mutmut['xǁJWTHandlerǁ__init____mutmut_1'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁ__init____mutmut['xǁJWTHandlerǁ__init____mutmut_2'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_2 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁ__init____mutmut['xǁJWTHandlerǁ__init____mutmut_3'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_3 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁ__init____mutmut['xǁJWTHandlerǁ__init____mutmut_4'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_4 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁ__init____mutmut['xǁJWTHandlerǁ__init____mutmut_5'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_5 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁ__init____mutmut['xǁJWTHandlerǁ__init____mutmut_6'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_6 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁ__init____mutmut['xǁJWTHandlerǁ__init____mutmut_7'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_7 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁ__init____mutmut['xǁJWTHandlerǁ__init____mutmut_8'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_8 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁ__init____mutmut['xǁJWTHandlerǁ__init____mutmut_9'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_9 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁ__init____mutmut['xǁJWTHandlerǁ__init____mutmut_10'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_10 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁ__init____mutmut['xǁJWTHandlerǁ__init____mutmut_11'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_11 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁ__init____mutmut['xǁJWTHandlerǁ__init____mutmut_12'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_12 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁ__init____mutmut['xǁJWTHandlerǁ__init____mutmut_13'] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_13 # type: ignore # mutmut generated
 
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['_mutmut_orig'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_1'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_2'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_3'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_4'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_5'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_6'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_7'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_8'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_9'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_10'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_11'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_12'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_13'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_14'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_15'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_16'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_17'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_18'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_19'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_20'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_21'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_22'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_23'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_24'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_25'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_26'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_27'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_28'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_29'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_30'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_31'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_32'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_33'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_34'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_35'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_36'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_37'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_38'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_39'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_40'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_41'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_42'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_43'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_44'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_45'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_46'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_47'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_48'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_49'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_token__mutmut['xǁJWTHandlerǁgenerate_token__mutmut_50'] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_50 # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["_mutmut_orig"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["xǁJWTHandlerǁ__init____mutmut_1"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_1  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["xǁJWTHandlerǁ__init____mutmut_2"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_2  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["xǁJWTHandlerǁ__init____mutmut_3"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_3  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["xǁJWTHandlerǁ__init____mutmut_4"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_4  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["xǁJWTHandlerǁ__init____mutmut_5"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_5  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["xǁJWTHandlerǁ__init____mutmut_6"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_6  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["xǁJWTHandlerǁ__init____mutmut_7"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_7  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["xǁJWTHandlerǁ__init____mutmut_8"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_8  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["xǁJWTHandlerǁ__init____mutmut_9"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_9  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["xǁJWTHandlerǁ__init____mutmut_10"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_10  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["xǁJWTHandlerǁ__init____mutmut_11"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_11  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["xǁJWTHandlerǁ__init____mutmut_12"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_12  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁ__init____mutmut["xǁJWTHandlerǁ__init____mutmut_13"] = JWTHandler.xǁJWTHandlerǁ__init____mutmut_13  # type: ignore # mutmut generated
 
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['_mutmut_orig'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_1'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_2'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_3'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_4'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_5'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_6'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_7'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_8'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_9'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_10'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_11'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_12'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_13'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_14'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_15'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_16'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_17'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_18'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_19'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_20'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_21'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_22'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_23'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_24'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_25'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_26'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_27'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_28'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_29'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_30'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_31'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_32'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_33'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_34'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_35'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_36'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_37'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_38'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_39'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_40'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_41'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut['xǁJWTHandlerǁgenerate_refresh_token__mutmut_42'] = JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_42 # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["_mutmut_orig"] = JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_1"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_2"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_3"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_4"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_5"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_6"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_7"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_8"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_9"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_10"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_11"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_12"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_13"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_14"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_15"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_16"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_17"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_18"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_19"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_20"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_21"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_22"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_23"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_24"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_25"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_26"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_27"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_28"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_29"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_30"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_31"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_32"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_33"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_34"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_35"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_36"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_37"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_38"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_39"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_40"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_41"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_42"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_43"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_44"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_45"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_46"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_47"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_48"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_49"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_token__mutmut["xǁJWTHandlerǁgenerate_token__mutmut_50"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_token__mutmut_50
+)  # type: ignore # mutmut generated
 
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['_mutmut_orig'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_1'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_2'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_3'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_4'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_5'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_6'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_7'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_8'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_9'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_10'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_11'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_12'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_13'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_14'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_15'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_16'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_17'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_18'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_19'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_20'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_21'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_22'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_23'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_24'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_25'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_26'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_27'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_28'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_29'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_30'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_31'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_32'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_33'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_34'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_35'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_36'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_37'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_38'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_39'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_40'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_41'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_42'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_43'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_44'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_45'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_46'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_47'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_48'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_49'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_50'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_51'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_52'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_53'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_54'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_55'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_56'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_57'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_58'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_59'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁvalidate_token__mutmut['xǁJWTHandlerǁvalidate_token__mutmut_60'] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_60 # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["_mutmut_orig"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_1"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_2"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_3"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_4"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_5"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_6"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_7"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_8"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_9"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_10"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_11"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_12"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_13"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_14"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_15"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_16"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_17"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_18"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_19"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_20"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_21"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_22"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_23"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_24"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_25"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_26"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_27"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_28"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_29"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_30"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_31"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_32"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_33"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_34"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_35"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_36"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_37"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_38"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_39"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_40"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_41"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁgenerate_refresh_token__mutmut["xǁJWTHandlerǁgenerate_refresh_token__mutmut_42"] = (
+    JWTHandler.xǁJWTHandlerǁgenerate_refresh_token__mutmut_42
+)  # type: ignore # mutmut generated
 
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['_mutmut_orig'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_1'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_2'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_3'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_4'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_5'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_6'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_7'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_8'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_9'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_10'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_11'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_12'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_13'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_14'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_15'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_16'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_17'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_18'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_19'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_20'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_21'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_22'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_23'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_24'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_25'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_26'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_27'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_28'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_29'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_30'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_31'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_32'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_33'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_34'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_35'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_36'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_37'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_38'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_39'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_40'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_41'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_42'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_43'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_44'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_45'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_46'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_47'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_48'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_49'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_50'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_51'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_52'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_52 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_53'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_53 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_54'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_54 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_55'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_55 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_56'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_56 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_57'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_57 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_58'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_58 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_59'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_59 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_60'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_60 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_61'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_61 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_62'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_62 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_63'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_63 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_64'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_64 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁrefresh_access_token__mutmut['xǁJWTHandlerǁrefresh_access_token__mutmut_65'] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_65 # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["_mutmut_orig"] = JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_1"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_2"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_3"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_4"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_5"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_6"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_7"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_8"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_9"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_10"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_11"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_12"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_13"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_14"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_15"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_16"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_17"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_18"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_19"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_20"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_21"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_22"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_23"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_24"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_25"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_26"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_27"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_28"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_29"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_30"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_31"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_32"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_33"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_34"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_35"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_36"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_37"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_38"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_39"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_40"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_41"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_42"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_43"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_44"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_45"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_46"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_47"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_48"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_49"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_50"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_51"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_52"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_53"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_54"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_55"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_56"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_57"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_58"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_59"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁvalidate_token__mutmut["xǁJWTHandlerǁvalidate_token__mutmut_60"] = (
+    JWTHandler.xǁJWTHandlerǁvalidate_token__mutmut_60
+)  # type: ignore # mutmut generated
 
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['_mutmut_orig'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_1'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_2'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_3'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_4'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_5'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_6'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_7'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_8'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_9'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_10'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_11'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_12'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_13'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_14'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_15'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_16'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_17'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_18'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_19'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_20'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_21'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_22'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_23'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_24'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut['xǁJWTHandlerǁdecode_token_without_validation__mutmut_25'] = JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_25 # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["_mutmut_orig"] = JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_1"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_2"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_3"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_4"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_5"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_6"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_7"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_8"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_9"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_10"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_11"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_12"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_13"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_14"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_15"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_16"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_17"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_18"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_19"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_20"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_21"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_22"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_23"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_24"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_25"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_26"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_27"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_28"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_29"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_30"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_31"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_32"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_33"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_34"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_35"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_36"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_37"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_38"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_39"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_40"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_41"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_42"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_43"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_44"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_45"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_46"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_47"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_48"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_49"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_50"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_51"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_52"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_52
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_53"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_53
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_54"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_54
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_55"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_55
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_56"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_56
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_57"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_57
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_58"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_58
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_59"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_59
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_60"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_60
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_61"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_61
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_62"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_62
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_63"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_63
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_64"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_64
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁrefresh_access_token__mutmut["xǁJWTHandlerǁrefresh_access_token__mutmut_65"] = (
+    JWTHandler.xǁJWTHandlerǁrefresh_access_token__mutmut_65
+)  # type: ignore # mutmut generated
+
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["_mutmut_orig"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_1"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_2"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_3"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_4"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_5"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_6"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_7"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_8"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_9"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_10"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_11"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_12"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_13"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_14"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_15"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_16"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_17"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_18"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_19"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_20"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_21"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_22"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_23"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_24"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁJWTHandlerǁdecode_token_without_validation__mutmut["xǁJWTHandlerǁdecode_token_without_validation__mutmut_25"] = (
+    JWTHandler.xǁJWTHandlerǁdecode_token_without_validation__mutmut_25
+)  # type: ignore # mutmut generated
 mutants_xǁPasswordManagerǁhash_password__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁPasswordManagerǁverify_password__mutmut: MutantDict = {}  # type: ignore
 
@@ -4301,7 +4914,9 @@ class PasswordManager:
 
         try:
             salt = bcrypt.gensalt()
-            hashed = bcrypt.hashpw(password.encode("utf-8"), )
+            hashed = bcrypt.hashpw(
+                password.encode("utf-8"),
+            )
             return {"status": "success", "hashed_password": hashed.decode("utf-8"), "salt": salt.decode("utf-8")}
         except Exception as e:
             logger.error("Error hashing password: %s", e)
@@ -4577,7 +5192,9 @@ class PasswordManager:
             hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
             return {"status": "success", "hashed_password": hashed.decode("utf-8"), "salt": salt.decode("utf-8")}
         except Exception as e:
-            logger.error("Error hashing password: %s", )
+            logger.error(
+                "Error hashing password: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     @staticmethod
@@ -4855,10 +5472,8 @@ class PasswordManager:
     def xǁPasswordManagerǁverify_password__mutmut_9(password: str, hashed_password: str) -> dict[str, Any]:
         """Verify password against hash"""
         try:
-            import bcrypt
-
-            hashed_bytes = hashed_password.encode("utf-8")
-            password_bytes = password.encode("utf-8")
+            hashed_password.encode("utf-8")
+            password.encode("utf-8")
             is_valid = None
             return {"status": "success", "valid": is_valid}
         except Exception as e:
@@ -4872,7 +5487,7 @@ class PasswordManager:
             import bcrypt
 
             hashed_bytes = hashed_password.encode("utf-8")
-            password_bytes = password.encode("utf-8")
+            password.encode("utf-8")
             is_valid = bcrypt.checkpw(None, hashed_bytes)
             return {"status": "success", "valid": is_valid}
         except Exception as e:
@@ -4885,7 +5500,7 @@ class PasswordManager:
         try:
             import bcrypt
 
-            hashed_bytes = hashed_password.encode("utf-8")
+            hashed_password.encode("utf-8")
             password_bytes = password.encode("utf-8")
             is_valid = bcrypt.checkpw(password_bytes, None)
             return {"status": "success", "valid": is_valid}
@@ -4900,7 +5515,7 @@ class PasswordManager:
             import bcrypt
 
             hashed_bytes = hashed_password.encode("utf-8")
-            password_bytes = password.encode("utf-8")
+            password.encode("utf-8")
             is_valid = bcrypt.checkpw(hashed_bytes)
             return {"status": "success", "valid": is_valid}
         except Exception as e:
@@ -4913,9 +5528,11 @@ class PasswordManager:
         try:
             import bcrypt
 
-            hashed_bytes = hashed_password.encode("utf-8")
+            hashed_password.encode("utf-8")
             password_bytes = password.encode("utf-8")
-            is_valid = bcrypt.checkpw(password_bytes, )
+            is_valid = bcrypt.checkpw(
+                password_bytes,
+            )
             return {"status": "success", "valid": is_valid}
         except Exception as e:
             logger.error("Error verifying password: %s", e)
@@ -5058,7 +5675,9 @@ class PasswordManager:
             is_valid = bcrypt.checkpw(password_bytes, hashed_bytes)
             return {"status": "success", "valid": is_valid}
         except Exception as e:
-            logger.error("Error verifying password: %s", )
+            logger.error(
+                "Error verifying password: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     @staticmethod
@@ -5201,79 +5820,222 @@ class PasswordManager:
             logger.error("Error verifying password: %s", e)
             return {"status": "error", "message": str(None)}
 
-mutants_xǁPasswordManagerǁhash_password__mutmut['_mutmut_orig'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_1'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_2'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_3'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_4'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_5'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_6'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_7'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_8'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_9'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_10'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_11'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_12'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_13'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_14'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_15'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_16'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_17'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_18'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_19'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_20'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_21'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_22'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_23'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_24'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_25'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_26'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_27'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_28'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_29'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_30'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_31'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_32'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_33'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_34'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_35'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_36'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁhash_password__mutmut['xǁPasswordManagerǁhash_password__mutmut_37'] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_37 # type: ignore # mutmut generated
 
-mutants_xǁPasswordManagerǁverify_password__mutmut['_mutmut_orig'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_1'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_2'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_3'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_4'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_5'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_6'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_7'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_8'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_9'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_10'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_11'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_12'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_13'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_14'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_15'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_16'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_17'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_18'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_19'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_20'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_21'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_22'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_23'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_24'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_25'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_26'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_27'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_28'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_29'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_30'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_31'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_32'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁPasswordManagerǁverify_password__mutmut['xǁPasswordManagerǁverify_password__mutmut_33'] = PasswordManager.xǁPasswordManagerǁverify_password__mutmut_33 # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["_mutmut_orig"] = PasswordManager.xǁPasswordManagerǁhash_password__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_1"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_2"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_3"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_4"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_5"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_6"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_7"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_8"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_9"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_10"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_11"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_12"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_13"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_14"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_15"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_16"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_17"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_18"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_19"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_20"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_21"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_22"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_23"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_24"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_25"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_26"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_27"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_28"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_29"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_30"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_31"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_32"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_33"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_34"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_35"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_36"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁhash_password__mutmut["xǁPasswordManagerǁhash_password__mutmut_37"] = (
+    PasswordManager.xǁPasswordManagerǁhash_password__mutmut_37
+)  # type: ignore # mutmut generated
+
+mutants_xǁPasswordManagerǁverify_password__mutmut["_mutmut_orig"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_orig
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_1"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_2"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_3"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_4"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_5"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_6"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_7"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_8"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_9"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_10"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_11"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_12"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_13"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_14"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_15"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_16"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_17"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_18"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_19"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_20"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_21"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_22"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_23"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_24"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_25"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_26"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_27"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_28"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_29"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_30"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_31"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_32"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁPasswordManagerǁverify_password__mutmut["xǁPasswordManagerǁverify_password__mutmut_33"] = (
+    PasswordManager.xǁPasswordManagerǁverify_password__mutmut_33
+)  # type: ignore # mutmut generated
 mutants_xǁAPIKeyManagerǁ__init____mutmut: MutantDict = {}  # type: ignore
 mutants_xǁAPIKeyManagerǁ_load_keys__mutmut: MutantDict = {}  # type: ignore
 mutants_xǁAPIKeyManagerǁ_save_keys__mutmut: MutantDict = {}  # type: ignore
@@ -5304,13 +6066,17 @@ class APIKeyManager:
 
     def xǁAPIKeyManagerǁ__init____mutmut_2(self, storage_path: str | None = None) -> None:
         self.storage_path: str = (
-            storage_path or os.getenv("API_KEY_STORAGE_PATH", "/var/lib/aitbc/api_keys.json") and "/var/lib/aitbc/api_keys.json"
+            storage_path
+            or os.getenv("API_KEY_STORAGE_PATH", "/var/lib/aitbc/api_keys.json")
+            and "/var/lib/aitbc/api_keys.json"
         )
         self.api_keys = self._load_keys()
 
     def xǁAPIKeyManagerǁ__init____mutmut_3(self, storage_path: str | None = None) -> None:
         self.storage_path: str = (
-            storage_path and os.getenv("API_KEY_STORAGE_PATH", "/var/lib/aitbc/api_keys.json") or "/var/lib/aitbc/api_keys.json"
+            storage_path
+            and os.getenv("API_KEY_STORAGE_PATH", "/var/lib/aitbc/api_keys.json")
+            or "/var/lib/aitbc/api_keys.json"
         )
         self.api_keys = self._load_keys()
 
@@ -5321,26 +6087,28 @@ class APIKeyManager:
         self.api_keys = self._load_keys()
 
     def xǁAPIKeyManagerǁ__init____mutmut_5(self, storage_path: str | None = None) -> None:
-        self.storage_path: str = (
-            storage_path or os.getenv("API_KEY_STORAGE_PATH", None) or "/var/lib/aitbc/api_keys.json"
-        )
+        self.storage_path: str = storage_path or os.getenv("API_KEY_STORAGE_PATH", None) or "/var/lib/aitbc/api_keys.json"
         self.api_keys = self._load_keys()
 
     def xǁAPIKeyManagerǁ__init____mutmut_6(self, storage_path: str | None = None) -> None:
-        self.storage_path: str = (
-            storage_path or os.getenv("/var/lib/aitbc/api_keys.json") or "/var/lib/aitbc/api_keys.json"
-        )
+        self.storage_path: str = storage_path or os.getenv("/var/lib/aitbc/api_keys.json") or "/var/lib/aitbc/api_keys.json"
         self.api_keys = self._load_keys()
 
     def xǁAPIKeyManagerǁ__init____mutmut_7(self, storage_path: str | None = None) -> None:
         self.storage_path: str = (
-            storage_path or os.getenv("API_KEY_STORAGE_PATH", ) or "/var/lib/aitbc/api_keys.json"
+            storage_path
+            or os.getenv(
+                "API_KEY_STORAGE_PATH",
+            )
+            or "/var/lib/aitbc/api_keys.json"
         )
         self.api_keys = self._load_keys()
 
     def xǁAPIKeyManagerǁ__init____mutmut_8(self, storage_path: str | None = None) -> None:
         self.storage_path: str = (
-            storage_path or os.getenv("XXAPI_KEY_STORAGE_PATHXX", "/var/lib/aitbc/api_keys.json") or "/var/lib/aitbc/api_keys.json"
+            storage_path
+            or os.getenv("XXAPI_KEY_STORAGE_PATHXX", "/var/lib/aitbc/api_keys.json")
+            or "/var/lib/aitbc/api_keys.json"
         )
         self.api_keys = self._load_keys()
 
@@ -5352,7 +6120,9 @@ class APIKeyManager:
 
     def xǁAPIKeyManagerǁ__init____mutmut_10(self, storage_path: str | None = None) -> None:
         self.storage_path: str = (
-            storage_path or os.getenv("API_KEY_STORAGE_PATH", "XX/var/lib/aitbc/api_keys.jsonXX") or "/var/lib/aitbc/api_keys.json"
+            storage_path
+            or os.getenv("API_KEY_STORAGE_PATH", "XX/var/lib/aitbc/api_keys.jsonXX")
+            or "/var/lib/aitbc/api_keys.json"
         )
         self.api_keys = self._load_keys()
 
@@ -5364,7 +6134,9 @@ class APIKeyManager:
 
     def xǁAPIKeyManagerǁ__init____mutmut_12(self, storage_path: str | None = None) -> None:
         self.storage_path: str = (
-            storage_path or os.getenv("API_KEY_STORAGE_PATH", "/var/lib/aitbc/api_keys.json") or "XX/var/lib/aitbc/api_keys.jsonXX"
+            storage_path
+            or os.getenv("API_KEY_STORAGE_PATH", "/var/lib/aitbc/api_keys.json")
+            or "XX/var/lib/aitbc/api_keys.jsonXX"
         )
         self.api_keys = self._load_keys()
 
@@ -5441,9 +6213,7 @@ class APIKeyManager:
         """Load API keys from persistent storage"""
         try:
             if os.path.exists(self.storage_path):
-                with open(self.storage_path) as f:
-                    import json
-
+                with open(self.storage_path):
                     data: dict[str, Any] = None
                     return data
             return {}
@@ -5455,7 +6225,7 @@ class APIKeyManager:
         """Load API keys from persistent storage"""
         try:
             if os.path.exists(self.storage_path):
-                with open(self.storage_path) as f:
+                with open(self.storage_path):
                     import json
 
                     data: dict[str, Any] = json.load(None)
@@ -5489,7 +6259,7 @@ class APIKeyManager:
                     data: dict[str, Any] = json.load(f)
                     return data
             return {}
-        except Exception as e:
+        except Exception:
             logger.error("Error loading API keys: %s", None)
             return {}
 
@@ -5517,8 +6287,10 @@ class APIKeyManager:
                     data: dict[str, Any] = json.load(f)
                     return data
             return {}
-        except Exception as e:
-            logger.error("Error loading API keys: %s", )
+        except Exception:
+            logger.error(
+                "Error loading API keys: %s",
+            )
             return {}
 
     def xǁAPIKeyManagerǁ_load_keys__mutmut_9(self) -> dict[str, Any]:
@@ -5627,7 +6399,9 @@ class APIKeyManager:
     def xǁAPIKeyManagerǁ_save_keys__mutmut_4(self) -> None:
         """Save API keys to persistent storage"""
         try:
-            os.makedirs(os.path.dirname(self.storage_path), )
+            os.makedirs(
+                os.path.dirname(self.storage_path),
+            )
             with open(self.storage_path, "w") as f:
                 import json
 
@@ -5700,7 +6474,9 @@ class APIKeyManager:
         """Save API keys to persistent storage"""
         try:
             os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
-            with open(self.storage_path, ) as f:
+            with open(
+                self.storage_path,
+            ) as f:
                 import json
 
                 json.dump(self.api_keys, f, indent=2)
@@ -5748,7 +6524,7 @@ class APIKeyManager:
         """Save API keys to persistent storage"""
         try:
             os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
-            with open(self.storage_path, "w") as f:
+            with open(self.storage_path, "w"):
                 import json
 
                 json.dump(self.api_keys, None, indent=2)
@@ -5784,7 +6560,7 @@ class APIKeyManager:
         """Save API keys to persistent storage"""
         try:
             os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
-            with open(self.storage_path, "w") as f:
+            with open(self.storage_path, "w"):
                 import json
 
                 json.dump(self.api_keys, indent=2)
@@ -5799,7 +6575,10 @@ class APIKeyManager:
             with open(self.storage_path, "w") as f:
                 import json
 
-                json.dump(self.api_keys, f, )
+                json.dump(
+                    self.api_keys,
+                    f,
+                )
             os.chmod(self.storage_path, 384)
         except Exception as e:
             logger.error("Error saving API keys: %s", e)
@@ -5860,7 +6639,9 @@ class APIKeyManager:
                 import json
 
                 json.dump(self.api_keys, f, indent=2)
-            os.chmod(self.storage_path, )
+            os.chmod(
+                self.storage_path,
+            )
         except Exception as e:
             logger.error("Error saving API keys: %s", e)
 
@@ -5897,7 +6678,7 @@ class APIKeyManager:
 
                 json.dump(self.api_keys, f, indent=2)
             os.chmod(self.storage_path, 384)
-        except Exception as e:
+        except Exception:
             logger.error("Error saving API keys: %s", None)
 
     def xǁAPIKeyManagerǁ_save_keys__mutmut_27(self) -> None:
@@ -5921,8 +6702,10 @@ class APIKeyManager:
 
                 json.dump(self.api_keys, f, indent=2)
             os.chmod(self.storage_path, 384)
-        except Exception as e:
-            logger.error("Error saving API keys: %s", )
+        except Exception:
+            logger.error(
+                "Error saving API keys: %s",
+            )
 
     def xǁAPIKeyManagerǁ_save_keys__mutmut_29(self) -> None:
         """Save API keys to persistent storage"""
@@ -5984,7 +6767,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_orig(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_orig(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6208,7 +6993,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_10(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_10(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6231,7 +7018,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_11(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_11(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6254,7 +7043,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_12(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_12(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6277,7 +7068,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_13(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_13(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6300,7 +7093,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_14(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_14(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6323,7 +7118,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_15(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_15(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6346,7 +7143,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_16(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_16(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6369,7 +7168,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_17(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_17(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6392,7 +7193,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_18(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_18(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6415,7 +7218,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_19(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_19(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6438,7 +7243,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_20(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_20(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6461,7 +7268,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_21(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_21(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6484,7 +7293,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_22(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_22(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6507,7 +7318,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_23(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_23(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6530,7 +7343,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_24(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_24(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6553,7 +7368,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_25(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_25(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6576,7 +7393,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_26(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_26(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6599,7 +7418,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_27(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_27(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6622,7 +7443,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_28(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_28(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6645,7 +7468,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_29(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_29(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6668,7 +7493,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_30(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_30(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6691,7 +7518,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_31(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_31(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6714,7 +7543,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_32(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_32(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6737,7 +7568,9 @@ class APIKeyManager:
             logger.error(None, e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_33(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_33(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6760,7 +7593,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", None)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_34(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_34(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6783,7 +7618,9 @@ class APIKeyManager:
             logger.error(e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_35(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_35(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6803,10 +7640,14 @@ class APIKeyManager:
                 "created_at": key_data["created_at"],
             }
         except Exception as e:
-            logger.error("Error generating API key: %s", )
+            logger.error(
+                "Error generating API key: %s",
+            )
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_36(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_36(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6829,7 +7670,9 @@ class APIKeyManager:
             logger.error("XXError generating API key: %sXX", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_37(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_37(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6852,7 +7695,9 @@ class APIKeyManager:
             logger.error("error generating api key: %s", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_38(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_38(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6875,7 +7720,9 @@ class APIKeyManager:
             logger.error("ERROR GENERATING API KEY: %S", e)
             return {"status": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_39(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_39(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6898,7 +7745,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"XXstatusXX": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_40(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_40(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6921,7 +7770,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"STATUS": "error", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_41(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_41(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6944,7 +7795,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "XXerrorXX", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_42(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_42(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6967,7 +7820,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "ERROR", "message": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_43(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_43(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -6990,7 +7845,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "XXmessageXX": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_44(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_44(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -7013,7 +7870,9 @@ class APIKeyManager:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "MESSAGE": str(e)}
 
-    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_45(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+    def xǁAPIKeyManagerǁgenerate_api_key__mutmut_45(
+        self, user_id: str, permissions: list[str] | None = None
+    ) -> dict[str, Any]:
         """Generate new API key for user"""
         try:
             api_key = secrets.token_urlsafe(32)
@@ -7396,7 +8255,12 @@ class APIKeyManager:
             key_data["last_used"] = datetime.now(UTC).isoformat()
             key_data["usage_count"] += 1
             self._save_keys()
-            return {"XXstatusXX": "success", "valid": True, "user_id": key_data["user_id"], "permissions": key_data["permissions"]}
+            return {
+                "XXstatusXX": "success",
+                "valid": True,
+                "user_id": key_data["user_id"],
+                "permissions": key_data["permissions"],
+            }
         except Exception as e:
             logger.error("Error validating API key: %s", e)
             return {"status": "error", "message": str(e)}
@@ -7424,7 +8288,12 @@ class APIKeyManager:
             key_data["last_used"] = datetime.now(UTC).isoformat()
             key_data["usage_count"] += 1
             self._save_keys()
-            return {"status": "XXsuccessXX", "valid": True, "user_id": key_data["user_id"], "permissions": key_data["permissions"]}
+            return {
+                "status": "XXsuccessXX",
+                "valid": True,
+                "user_id": key_data["user_id"],
+                "permissions": key_data["permissions"],
+            }
         except Exception as e:
             logger.error("Error validating API key: %s", e)
             return {"status": "error", "message": str(e)}
@@ -7452,7 +8321,12 @@ class APIKeyManager:
             key_data["last_used"] = datetime.now(UTC).isoformat()
             key_data["usage_count"] += 1
             self._save_keys()
-            return {"status": "success", "XXvalidXX": True, "user_id": key_data["user_id"], "permissions": key_data["permissions"]}
+            return {
+                "status": "success",
+                "XXvalidXX": True,
+                "user_id": key_data["user_id"],
+                "permissions": key_data["permissions"],
+            }
         except Exception as e:
             logger.error("Error validating API key: %s", e)
             return {"status": "error", "message": str(e)}
@@ -7480,7 +8354,12 @@ class APIKeyManager:
             key_data["last_used"] = datetime.now(UTC).isoformat()
             key_data["usage_count"] += 1
             self._save_keys()
-            return {"status": "success", "valid": False, "user_id": key_data["user_id"], "permissions": key_data["permissions"]}
+            return {
+                "status": "success",
+                "valid": False,
+                "user_id": key_data["user_id"],
+                "permissions": key_data["permissions"],
+            }
         except Exception as e:
             logger.error("Error validating API key: %s", e)
             return {"status": "error", "message": str(e)}
@@ -7494,7 +8373,12 @@ class APIKeyManager:
             key_data["last_used"] = datetime.now(UTC).isoformat()
             key_data["usage_count"] += 1
             self._save_keys()
-            return {"status": "success", "valid": True, "XXuser_idXX": key_data["user_id"], "permissions": key_data["permissions"]}
+            return {
+                "status": "success",
+                "valid": True,
+                "XXuser_idXX": key_data["user_id"],
+                "permissions": key_data["permissions"],
+            }
         except Exception as e:
             logger.error("Error validating API key: %s", e)
             return {"status": "error", "message": str(e)}
@@ -7522,7 +8406,12 @@ class APIKeyManager:
             key_data["last_used"] = datetime.now(UTC).isoformat()
             key_data["usage_count"] += 1
             self._save_keys()
-            return {"status": "success", "valid": True, "user_id": key_data["XXuser_idXX"], "permissions": key_data["permissions"]}
+            return {
+                "status": "success",
+                "valid": True,
+                "user_id": key_data["XXuser_idXX"],
+                "permissions": key_data["permissions"],
+            }
         except Exception as e:
             logger.error("Error validating API key: %s", e)
             return {"status": "error", "message": str(e)}
@@ -7550,7 +8439,12 @@ class APIKeyManager:
             key_data["last_used"] = datetime.now(UTC).isoformat()
             key_data["usage_count"] += 1
             self._save_keys()
-            return {"status": "success", "valid": True, "user_id": key_data["user_id"], "XXpermissionsXX": key_data["permissions"]}
+            return {
+                "status": "success",
+                "valid": True,
+                "user_id": key_data["user_id"],
+                "XXpermissionsXX": key_data["permissions"],
+            }
         except Exception as e:
             logger.error("Error validating API key: %s", e)
             return {"status": "error", "message": str(e)}
@@ -7578,7 +8472,12 @@ class APIKeyManager:
             key_data["last_used"] = datetime.now(UTC).isoformat()
             key_data["usage_count"] += 1
             self._save_keys()
-            return {"status": "success", "valid": True, "user_id": key_data["user_id"], "permissions": key_data["XXpermissionsXX"]}
+            return {
+                "status": "success",
+                "valid": True,
+                "user_id": key_data["user_id"],
+                "permissions": key_data["XXpermissionsXX"],
+            }
         except Exception as e:
             logger.error("Error validating API key: %s", e)
             return {"status": "error", "message": str(e)}
@@ -7650,7 +8549,9 @@ class APIKeyManager:
             self._save_keys()
             return {"status": "success", "valid": True, "user_id": key_data["user_id"], "permissions": key_data["permissions"]}
         except Exception as e:
-            logger.error("Error validating API key: %s", )
+            logger.error(
+                "Error validating API key: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     def xǁAPIKeyManagerǁvalidate_api_key__mutmut_43(self, api_key: str) -> dict[str, Any]:
@@ -8116,7 +9017,9 @@ class APIKeyManager:
             else:
                 return {"status": "error", "message": "API key not found"}
         except Exception as e:
-            logger.error("Error revoking API key: %s", )
+            logger.error(
+                "Error revoking API key: %s",
+            )
             return {"status": "error", "message": str(e)}
 
     def xǁAPIKeyManagerǁrevoke_api_key__mutmut_24(self, api_key: str) -> dict[str, Any]:
@@ -8249,203 +9152,576 @@ class APIKeyManager:
             logger.error("Error revoking API key: %s", e)
             return {"status": "error", "message": str(None)}
 
-mutants_xǁAPIKeyManagerǁ__init____mutmut['_mutmut_orig'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_1'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_2'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_3'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_4'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_5'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_6'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_7'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_8'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_9'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_10'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_11'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_12'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_13'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ__init____mutmut['xǁAPIKeyManagerǁ__init____mutmut_14'] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_14 # type: ignore # mutmut generated
 
-mutants_xǁAPIKeyManagerǁ_load_keys__mutmut['_mutmut_orig'] = APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_load_keys__mutmut['xǁAPIKeyManagerǁ_load_keys__mutmut_1'] = APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_load_keys__mutmut['xǁAPIKeyManagerǁ_load_keys__mutmut_2'] = APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_load_keys__mutmut['xǁAPIKeyManagerǁ_load_keys__mutmut_3'] = APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_load_keys__mutmut['xǁAPIKeyManagerǁ_load_keys__mutmut_4'] = APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_load_keys__mutmut['xǁAPIKeyManagerǁ_load_keys__mutmut_5'] = APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_load_keys__mutmut['xǁAPIKeyManagerǁ_load_keys__mutmut_6'] = APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_load_keys__mutmut['xǁAPIKeyManagerǁ_load_keys__mutmut_7'] = APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_load_keys__mutmut['xǁAPIKeyManagerǁ_load_keys__mutmut_8'] = APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_load_keys__mutmut['xǁAPIKeyManagerǁ_load_keys__mutmut_9'] = APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_load_keys__mutmut['xǁAPIKeyManagerǁ_load_keys__mutmut_10'] = APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_load_keys__mutmut['xǁAPIKeyManagerǁ_load_keys__mutmut_11'] = APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_11 # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["_mutmut_orig"] = APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_1"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_2"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_3"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_4"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_5"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_6"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_7"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_8"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_9"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_10"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_11"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_12"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_13"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ__init____mutmut["xǁAPIKeyManagerǁ__init____mutmut_14"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ__init____mutmut_14
+)  # type: ignore # mutmut generated
 
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['_mutmut_orig'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_1'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_2'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_3'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_4'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_5'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_6'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_7'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_8'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_9'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_10'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_11'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_12'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_13'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_14'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_15'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_16'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_17'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_18'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_19'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_20'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_21'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_22'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_23'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_24'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_25'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_26'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_27'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_28'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_29'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_30'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁ_save_keys__mutmut['xǁAPIKeyManagerǁ_save_keys__mutmut_31'] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_31 # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_load_keys__mutmut["_mutmut_orig"] = APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_load_keys__mutmut["xǁAPIKeyManagerǁ_load_keys__mutmut_1"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_load_keys__mutmut["xǁAPIKeyManagerǁ_load_keys__mutmut_2"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_load_keys__mutmut["xǁAPIKeyManagerǁ_load_keys__mutmut_3"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_load_keys__mutmut["xǁAPIKeyManagerǁ_load_keys__mutmut_4"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_load_keys__mutmut["xǁAPIKeyManagerǁ_load_keys__mutmut_5"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_load_keys__mutmut["xǁAPIKeyManagerǁ_load_keys__mutmut_6"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_load_keys__mutmut["xǁAPIKeyManagerǁ_load_keys__mutmut_7"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_load_keys__mutmut["xǁAPIKeyManagerǁ_load_keys__mutmut_8"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_load_keys__mutmut["xǁAPIKeyManagerǁ_load_keys__mutmut_9"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_load_keys__mutmut["xǁAPIKeyManagerǁ_load_keys__mutmut_10"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_load_keys__mutmut["xǁAPIKeyManagerǁ_load_keys__mutmut_11"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_load_keys__mutmut_11
+)  # type: ignore # mutmut generated
 
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['_mutmut_orig'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_1'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_2'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_3'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_4'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_5'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_6'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_7'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_8'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_9'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_10'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_11'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_12'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_13'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_14'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_15'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_16'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_17'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_18'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_19'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_20'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_21'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_22'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_23'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_24'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_25'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_26'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_27'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_28'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_29'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_30'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_31'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_32'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_33'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_34'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_35'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_36'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_37'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_38'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_39'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_40'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_41'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_42'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_43'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_44'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut['xǁAPIKeyManagerǁgenerate_api_key__mutmut_45'] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_45 # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["_mutmut_orig"] = APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_1"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_2"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_3"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_4"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_5"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_6"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_7"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_8"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_9"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_10"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_11"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_12"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_13"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_14"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_15"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_16"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_17"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_18"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_19"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_20"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_21"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_22"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_23"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_24"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_25"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_26"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_27"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_28"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_29"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_30"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁ_save_keys__mutmut["xǁAPIKeyManagerǁ_save_keys__mutmut_31"] = (
+    APIKeyManager.xǁAPIKeyManagerǁ_save_keys__mutmut_31
+)  # type: ignore # mutmut generated
 
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['_mutmut_orig'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_1'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_2'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_3'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_4'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_5'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_6'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_7'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_8'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_9'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_10'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_11'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_12'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_13'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_14'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_15'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_16'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_17'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_18'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_19'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_20'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_21'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_22'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_23'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_24'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_25'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_26'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_27'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_28'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_29'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_30'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_31'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_32'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_33'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_33 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_34'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_34 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_35'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_35 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_36'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_36 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_37'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_37 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_38'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_38 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_39'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_39 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_40'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_40 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_41'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_41 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_42'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_42 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_43'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_43 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_44'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_44 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_45'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_45 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_46'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_46 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_47'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_47 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_48'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_48 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_49'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_49 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_50'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_50 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_51'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_51 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut['xǁAPIKeyManagerǁvalidate_api_key__mutmut_52'] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_52 # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["_mutmut_orig"] = APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_1"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_2"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_3"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_4"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_5"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_6"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_7"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_8"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_9"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_10"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_11"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_12"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_13"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_14"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_15"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_16"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_17"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_18"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_19"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_20"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_21"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_22"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_23"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_24"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_25"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_26"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_27"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_28"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_29"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_30"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_31"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_32"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_33"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_34"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_35"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_36"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_37"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_38"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_39"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_40"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_41"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_42"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_43"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_44"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁgenerate_api_key__mutmut["xǁAPIKeyManagerǁgenerate_api_key__mutmut_45"] = (
+    APIKeyManager.xǁAPIKeyManagerǁgenerate_api_key__mutmut_45
+)  # type: ignore # mutmut generated
 
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['_mutmut_orig'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_orig # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_1'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_1 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_2'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_2 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_3'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_3 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_4'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_4 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_5'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_5 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_6'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_6 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_7'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_7 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_8'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_8 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_9'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_9 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_10'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_10 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_11'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_11 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_12'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_12 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_13'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_13 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_14'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_14 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_15'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_15 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_16'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_16 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_17'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_17 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_18'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_18 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_19'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_19 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_20'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_20 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_21'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_21 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_22'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_22 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_23'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_23 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_24'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_24 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_25'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_25 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_26'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_26 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_27'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_27 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_28'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_28 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_29'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_29 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_30'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_30 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_31'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_31 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_32'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_32 # type: ignore # mutmut generated
-mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut['xǁAPIKeyManagerǁrevoke_api_key__mutmut_33'] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_33 # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["_mutmut_orig"] = APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_1"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_2"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_3"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_4"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_5"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_6"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_7"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_8"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_9"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_10"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_11"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_12"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_13"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_14"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_15"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_16"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_17"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_18"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_19"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_20"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_21"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_22"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_23"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_24"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_25"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_26"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_27"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_28"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_29"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_30"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_31"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_32"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_33"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_33
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_34"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_34
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_35"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_35
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_36"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_36
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_37"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_37
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_38"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_38
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_39"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_39
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_40"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_40
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_41"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_41
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_42"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_42
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_43"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_43
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_44"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_44
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_45"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_45
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_46"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_46
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_47"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_47
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_48"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_48
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_49"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_49
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_50"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_50
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_51"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_51
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁvalidate_api_key__mutmut["xǁAPIKeyManagerǁvalidate_api_key__mutmut_52"] = (
+    APIKeyManager.xǁAPIKeyManagerǁvalidate_api_key__mutmut_52
+)  # type: ignore # mutmut generated
+
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["_mutmut_orig"] = APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_orig  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_1"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_1
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_2"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_2
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_3"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_3
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_4"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_4
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_5"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_5
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_6"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_6
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_7"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_7
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_8"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_8
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_9"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_9
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_10"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_10
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_11"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_11
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_12"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_12
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_13"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_13
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_14"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_14
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_15"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_15
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_16"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_16
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_17"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_17
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_18"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_18
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_19"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_19
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_20"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_20
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_21"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_21
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_22"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_22
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_23"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_23
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_24"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_24
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_25"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_25
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_26"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_26
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_27"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_27
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_28"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_28
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_29"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_29
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_30"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_30
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_31"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_31
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_32"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_32
+)  # type: ignore # mutmut generated
+mutants_xǁAPIKeyManagerǁrevoke_api_key__mutmut["xǁAPIKeyManagerǁrevoke_api_key__mutmut_33"] = (
+    APIKeyManager.xǁAPIKeyManagerǁrevoke_api_key__mutmut_33
+)  # type: ignore # mutmut generated
 
 
 # Global instances

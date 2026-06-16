@@ -1,10 +1,9 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from .. import state
 from ..auth.middleware import get_current_user
@@ -14,9 +13,6 @@ from ..monitoring.prometheus_metrics import performance_monitor
 
 logger = get_logger(__name__)
 router = APIRouter()
-
-
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
 
 
 @router.get("/alerts")

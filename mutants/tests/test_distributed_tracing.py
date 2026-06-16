@@ -4,7 +4,6 @@ Tests for AITBC distributed tracing utilities
 """
 
 import pytest
-
 from aitbc.distributed_tracing import (
     OPENTELEMETRY_AVAILABLE,
     SpanContext,

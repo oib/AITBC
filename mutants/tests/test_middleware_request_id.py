@@ -4,7 +4,6 @@ Tests for AITBC middleware request ID
 """
 
 import pytest
-
 from aitbc.middleware.request_id import RequestIDMiddleware
 
 

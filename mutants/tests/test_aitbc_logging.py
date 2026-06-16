@@ -7,7 +7,6 @@ import logging
 from io import StringIO
 
 import pytest
-
 from aitbc.aitbc_logging import LogContext, StructuredFormatter, configure_logging, get_logger, log_context, setup_logger
 
 

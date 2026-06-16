@@ -5,13 +5,12 @@ Tests for AITBC middleware modules
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from fastapi import HTTPException, Request, Response
-from fastapi.responses import JSONResponse
-from starlette.types import ASGIApp
-
 from aitbc.middleware.error_handler import ErrorHandlerMiddleware
 from aitbc.middleware.performance import PerformanceLoggingMiddleware
 from aitbc.middleware.request_id import RequestIDMiddleware
+from fastapi import HTTPException, Request, Response
+from fastapi.responses import JSONResponse
+from starlette.types import ASGIApp
 
 
 class TestPerformanceLoggingMiddleware:

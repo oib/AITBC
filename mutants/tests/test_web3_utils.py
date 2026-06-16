@@ -3,7 +3,6 @@
 from unittest.mock import patch
 
 import pytest
-
 from aitbc.network.web3_utils import WEB3_AVAILABLE, Web3Client
 
 

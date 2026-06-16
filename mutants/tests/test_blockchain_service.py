@@ -5,7 +5,6 @@ Tests for blockchain service layer
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from aitbc.blockchain_service import (
     Account,
     Block,

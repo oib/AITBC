@@ -96,6 +96,18 @@ Documentation about the documentation system itself
 - **[Apps](apps/)** - Applications documentation (72 items)
   - Application-level services, components, and integrations
 
+### 🔌 **API Documentation**
+- **[API Docs](api/)** - API documentation and OpenAPI specifications
+  - [API README](api/README.md) - API documentation overview
+  - [Marketplace API](api/marketplace-api.md) - Marketplace service API documentation
+  - [Escrow API](api/escrow-api.md) - Escrow service API documentation
+  - [WebSocket API](api/websocket.md) - WebSocket API documentation
+  - [OpenAPI Spec](api/openapi.json) - Complete OpenAPI specification (JSON)
+  - [Marketplace OpenAPI](api/marketplace-openapi.json) - Marketplace service OpenAPI spec
+  - [Blockchain API](api/blockchain/) - Blockchain node API documentation
+  - [Coordinator API](api/coordinator/) - Coordinator API documentation
+  - [API Examples](api/examples/) - API usage examples
+
 ### 🏗️ Architecture Documentation
 - **[Architecture](architecture/)** - System architecture and design patterns (10 items)
 

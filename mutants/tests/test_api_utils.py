@@ -6,7 +6,6 @@ from datetime import datetime
 from unittest.mock import Mock
 
 import pytest
-
 from aitbc.api_utils import (
     APIResponse,
     PaginatedResponse,

@@ -4,7 +4,6 @@ Tests for AITBC crypto utilities
 """
 
 import pytest
-
 from aitbc.crypto.crypto import (
     decrypt_private_key,
     derive_ethereum_address,

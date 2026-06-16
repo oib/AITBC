@@ -7,7 +7,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from aitbc.database_service import (
     DatabaseService,
     DatabaseServiceFactory,

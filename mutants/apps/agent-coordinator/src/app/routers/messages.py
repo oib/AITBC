@@ -2,11 +2,10 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
-from pydantic import BaseModel, Field
-
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 
 from .. import state
 from ..encryption import get_encryptor
@@ -18,7 +17,8 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/agent/messages", tags=["agent-messaging"])
 
 
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
+from mutmut.mutation.trampoline import MutantDict
+from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated
 
 
 class SendMessageRequest(BaseModel):
@@ -155,6 +155,8 @@ async def get_message_history(
 async def get_messages_for_agent_compatibility(request: Request, agent_id: str) -> dict[str, Any]:
     """Get messages for agent - AgentDaemon compatibility route"""
     return await get_messages_for_agent(request, agent_id)
+
+
 mutants_x_get_messages_for_agent__mutmut: MutantDict = {}  # type: ignore
 
 
@@ -372,7 +374,10 @@ async def x_get_messages_for_agent__mutmut_18(request: Request, agent_id: str) -
     try:
         if not state.message_storage:
             return {"agent_id": agent_id, "count": 0, "messages": [], "timestamp": datetime.now(UTC).isoformat()}
-        messages = await state.message_storage.get_messages_by_receiver(agent_id, 100, )
+        messages = await state.message_storage.get_messages_by_receiver(
+            agent_id,
+            100,
+        )
         return {"agent_id": agent_id, "count": len(messages), "messages": messages, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error("Error getting messages for agent %s: %s", agent_id, e)
@@ -406,7 +411,12 @@ async def x_get_messages_for_agent__mutmut_21(request: Request, agent_id: str) -
         if not state.message_storage:
             return {"agent_id": agent_id, "count": 0, "messages": [], "timestamp": datetime.now(UTC).isoformat()}
         messages = await state.message_storage.get_messages_by_receiver(agent_id, 100, 0)
-        return {"XXagent_idXX": agent_id, "count": len(messages), "messages": messages, "timestamp": datetime.now(UTC).isoformat()}
+        return {
+            "XXagent_idXX": agent_id,
+            "count": len(messages),
+            "messages": messages,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
     except Exception as e:
         logger.error("Error getting messages for agent %s: %s", agent_id, e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -428,7 +438,12 @@ async def x_get_messages_for_agent__mutmut_23(request: Request, agent_id: str) -
         if not state.message_storage:
             return {"agent_id": agent_id, "count": 0, "messages": [], "timestamp": datetime.now(UTC).isoformat()}
         messages = await state.message_storage.get_messages_by_receiver(agent_id, 100, 0)
-        return {"agent_id": agent_id, "XXcountXX": len(messages), "messages": messages, "timestamp": datetime.now(UTC).isoformat()}
+        return {
+            "agent_id": agent_id,
+            "XXcountXX": len(messages),
+            "messages": messages,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
     except Exception as e:
         logger.error("Error getting messages for agent %s: %s", agent_id, e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -450,7 +465,12 @@ async def x_get_messages_for_agent__mutmut_25(request: Request, agent_id: str) -
         if not state.message_storage:
             return {"agent_id": agent_id, "count": 0, "messages": [], "timestamp": datetime.now(UTC).isoformat()}
         messages = await state.message_storage.get_messages_by_receiver(agent_id, 100, 0)
-        return {"agent_id": agent_id, "count": len(messages), "XXmessagesXX": messages, "timestamp": datetime.now(UTC).isoformat()}
+        return {
+            "agent_id": agent_id,
+            "count": len(messages),
+            "XXmessagesXX": messages,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
     except Exception as e:
         logger.error("Error getting messages for agent %s: %s", agent_id, e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -472,7 +492,12 @@ async def x_get_messages_for_agent__mutmut_27(request: Request, agent_id: str) -
         if not state.message_storage:
             return {"agent_id": agent_id, "count": 0, "messages": [], "timestamp": datetime.now(UTC).isoformat()}
         messages = await state.message_storage.get_messages_by_receiver(agent_id, 100, 0)
-        return {"agent_id": agent_id, "count": len(messages), "messages": messages, "XXtimestampXX": datetime.now(UTC).isoformat()}
+        return {
+            "agent_id": agent_id,
+            "count": len(messages),
+            "messages": messages,
+            "XXtimestampXX": datetime.now(UTC).isoformat(),
+        }
     except Exception as e:
         logger.error("Error getting messages for agent %s: %s", agent_id, e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -494,7 +519,12 @@ async def x_get_messages_for_agent__mutmut_29(request: Request, agent_id: str) -
         if not state.message_storage:
             return {"agent_id": agent_id, "count": 0, "messages": [], "timestamp": datetime.now(UTC).isoformat()}
         messages = await state.message_storage.get_messages_by_receiver(agent_id, 100, 0)
-        return {"agent_id": agent_id, "count": len(messages), "messages": messages, "timestamp": datetime.now(None).isoformat()}
+        return {
+            "agent_id": agent_id,
+            "count": len(messages),
+            "messages": messages,
+            "timestamp": datetime.now(None).isoformat(),
+        }
     except Exception as e:
         logger.error("Error getting messages for agent %s: %s", agent_id, e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -562,7 +592,10 @@ async def x_get_messages_for_agent__mutmut_35(request: Request, agent_id: str) -
         messages = await state.message_storage.get_messages_by_receiver(agent_id, 100, 0)
         return {"agent_id": agent_id, "count": len(messages), "messages": messages, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
-        logger.error("Error getting messages for agent %s: %s", agent_id, )
+        logger.error(
+            "Error getting messages for agent %s: %s",
+            agent_id,
+        )
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -640,7 +673,9 @@ async def x_get_messages_for_agent__mutmut_42(request: Request, agent_id: str) -
         return {"agent_id": agent_id, "count": len(messages), "messages": messages, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error("Error getting messages for agent %s: %s", agent_id, e)
-        raise HTTPException(status_code=500, ) from e
+        raise HTTPException(
+            status_code=500,
+        ) from e
 
 
 async def x_get_messages_for_agent__mutmut_43(request: Request, agent_id: str) -> dict[str, Any]:
@@ -664,51 +699,52 @@ async def x_get_messages_for_agent__mutmut_44(request: Request, agent_id: str) -
         logger.error("Error getting messages for agent %s: %s", agent_id, e)
         raise HTTPException(status_code=500, detail=str(None)) from e
 
-mutants_x_get_messages_for_agent__mutmut['_mutmut_orig'] = x_get_messages_for_agent__mutmut_orig # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_1'] = x_get_messages_for_agent__mutmut_1 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_2'] = x_get_messages_for_agent__mutmut_2 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_3'] = x_get_messages_for_agent__mutmut_3 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_4'] = x_get_messages_for_agent__mutmut_4 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_5'] = x_get_messages_for_agent__mutmut_5 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_6'] = x_get_messages_for_agent__mutmut_6 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_7'] = x_get_messages_for_agent__mutmut_7 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_8'] = x_get_messages_for_agent__mutmut_8 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_9'] = x_get_messages_for_agent__mutmut_9 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_10'] = x_get_messages_for_agent__mutmut_10 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_11'] = x_get_messages_for_agent__mutmut_11 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_12'] = x_get_messages_for_agent__mutmut_12 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_13'] = x_get_messages_for_agent__mutmut_13 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_14'] = x_get_messages_for_agent__mutmut_14 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_15'] = x_get_messages_for_agent__mutmut_15 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_16'] = x_get_messages_for_agent__mutmut_16 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_17'] = x_get_messages_for_agent__mutmut_17 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_18'] = x_get_messages_for_agent__mutmut_18 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_19'] = x_get_messages_for_agent__mutmut_19 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_20'] = x_get_messages_for_agent__mutmut_20 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_21'] = x_get_messages_for_agent__mutmut_21 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_22'] = x_get_messages_for_agent__mutmut_22 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_23'] = x_get_messages_for_agent__mutmut_23 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_24'] = x_get_messages_for_agent__mutmut_24 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_25'] = x_get_messages_for_agent__mutmut_25 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_26'] = x_get_messages_for_agent__mutmut_26 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_27'] = x_get_messages_for_agent__mutmut_27 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_28'] = x_get_messages_for_agent__mutmut_28 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_29'] = x_get_messages_for_agent__mutmut_29 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_30'] = x_get_messages_for_agent__mutmut_30 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_31'] = x_get_messages_for_agent__mutmut_31 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_32'] = x_get_messages_for_agent__mutmut_32 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_33'] = x_get_messages_for_agent__mutmut_33 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_34'] = x_get_messages_for_agent__mutmut_34 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_35'] = x_get_messages_for_agent__mutmut_35 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_36'] = x_get_messages_for_agent__mutmut_36 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_37'] = x_get_messages_for_agent__mutmut_37 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_38'] = x_get_messages_for_agent__mutmut_38 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_39'] = x_get_messages_for_agent__mutmut_39 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_40'] = x_get_messages_for_agent__mutmut_40 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_41'] = x_get_messages_for_agent__mutmut_41 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_42'] = x_get_messages_for_agent__mutmut_42 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_43'] = x_get_messages_for_agent__mutmut_43 # type: ignore # mutmut generated
-mutants_x_get_messages_for_agent__mutmut['x_get_messages_for_agent__mutmut_44'] = x_get_messages_for_agent__mutmut_44 # type: ignore # mutmut generated
+
+mutants_x_get_messages_for_agent__mutmut["_mutmut_orig"] = x_get_messages_for_agent__mutmut_orig  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_1"] = x_get_messages_for_agent__mutmut_1  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_2"] = x_get_messages_for_agent__mutmut_2  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_3"] = x_get_messages_for_agent__mutmut_3  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_4"] = x_get_messages_for_agent__mutmut_4  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_5"] = x_get_messages_for_agent__mutmut_5  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_6"] = x_get_messages_for_agent__mutmut_6  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_7"] = x_get_messages_for_agent__mutmut_7  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_8"] = x_get_messages_for_agent__mutmut_8  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_9"] = x_get_messages_for_agent__mutmut_9  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_10"] = x_get_messages_for_agent__mutmut_10  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_11"] = x_get_messages_for_agent__mutmut_11  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_12"] = x_get_messages_for_agent__mutmut_12  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_13"] = x_get_messages_for_agent__mutmut_13  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_14"] = x_get_messages_for_agent__mutmut_14  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_15"] = x_get_messages_for_agent__mutmut_15  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_16"] = x_get_messages_for_agent__mutmut_16  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_17"] = x_get_messages_for_agent__mutmut_17  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_18"] = x_get_messages_for_agent__mutmut_18  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_19"] = x_get_messages_for_agent__mutmut_19  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_20"] = x_get_messages_for_agent__mutmut_20  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_21"] = x_get_messages_for_agent__mutmut_21  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_22"] = x_get_messages_for_agent__mutmut_22  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_23"] = x_get_messages_for_agent__mutmut_23  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_24"] = x_get_messages_for_agent__mutmut_24  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_25"] = x_get_messages_for_agent__mutmut_25  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_26"] = x_get_messages_for_agent__mutmut_26  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_27"] = x_get_messages_for_agent__mutmut_27  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_28"] = x_get_messages_for_agent__mutmut_28  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_29"] = x_get_messages_for_agent__mutmut_29  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_30"] = x_get_messages_for_agent__mutmut_30  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_31"] = x_get_messages_for_agent__mutmut_31  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_32"] = x_get_messages_for_agent__mutmut_32  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_33"] = x_get_messages_for_agent__mutmut_33  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_34"] = x_get_messages_for_agent__mutmut_34  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_35"] = x_get_messages_for_agent__mutmut_35  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_36"] = x_get_messages_for_agent__mutmut_36  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_37"] = x_get_messages_for_agent__mutmut_37  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_38"] = x_get_messages_for_agent__mutmut_38  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_39"] = x_get_messages_for_agent__mutmut_39  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_40"] = x_get_messages_for_agent__mutmut_40  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_41"] = x_get_messages_for_agent__mutmut_41  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_42"] = x_get_messages_for_agent__mutmut_42  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_43"] = x_get_messages_for_agent__mutmut_43  # type: ignore # mutmut generated
+mutants_x_get_messages_for_agent__mutmut["x_get_messages_for_agent__mutmut_44"] = x_get_messages_for_agent__mutmut_44  # type: ignore # mutmut generated
 
 
 @router.get("/discover")

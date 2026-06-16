@@ -1,10 +1,9 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
-
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from ..ai.advanced_ai import ai_integration
 from ..ai.realtime_learning import learning_system
@@ -12,9 +11,6 @@ from ..consensus.distributed_consensus import distributed_consensus
 
 logger = get_logger(__name__)
 router = APIRouter()
-
-
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
 
 
 @router.post("/consensus/node/register")

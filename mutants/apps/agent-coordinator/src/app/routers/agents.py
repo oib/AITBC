@@ -1,10 +1,9 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
-
 from aitbc import get_logger
 from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, HTTPException, Request
 
 from .. import state
 from ..models import AgentRegistrationRequest, AgentStatusUpdate
@@ -12,9 +11,6 @@ from ..routing.agent_discovery import create_agent_info
 
 logger = get_logger(__name__)
 router = APIRouter()
-
-
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
 
 
 @router.post("/agents/register")

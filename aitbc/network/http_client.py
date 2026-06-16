@@ -31,6 +31,7 @@ class AITBCHTTPClient:
         enable_logging: bool = False,
         circuit_breaker_threshold: int = 5,
         rate_limit: int | None = None,
+        correlation_id: str | None = None,
     ):
         """
         Initialize HTTP client.
@@ -45,6 +46,7 @@ class AITBCHTTPClient:
             enable_logging: Enable request/response logging
             circuit_breaker_threshold: Failures before opening circuit breaker
             rate_limit: Rate limit in requests per minute
+            correlation_id: Correlation ID for distributed tracing
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -55,6 +57,7 @@ class AITBCHTTPClient:
         self.enable_logging = enable_logging
         self.circuit_breaker_threshold = circuit_breaker_threshold
         self.rate_limit = rate_limit
+        self.correlation_id = correlation_id
         self.session = requests.Session()
         self.session.headers.update(self.headers)
         self.logger = get_logger(__name__)
@@ -202,6 +205,8 @@ class AITBCHTTPClient:
         self._check_circuit_breaker()
         self._check_rate_limit()
         req_headers = {**self.headers, **(headers or {})}
+        if self.correlation_id:
+            req_headers["X-Request-ID"] = self.correlation_id
         if self.enable_logging:
             self.logger.info("GET %s with params=%s", url, params)
         start_time = datetime.now()
@@ -254,6 +259,8 @@ class AITBCHTTPClient:
         self._check_circuit_breaker()
         self._check_rate_limit()
         req_headers = {**self.headers, **(headers or {})}
+        if self.correlation_id:
+            req_headers["X-Request-ID"] = self.correlation_id
         if self.enable_logging:
             self.logger.info("POST %s with json=%s", url, json)
         start_time = datetime.now()
@@ -305,6 +312,8 @@ class AITBCHTTPClient:
         self._check_circuit_breaker()
         self._check_rate_limit()
         req_headers = {**self.headers, **(headers or {})}
+        if self.correlation_id:
+            req_headers["X-Request-ID"] = self.correlation_id
         if self.enable_logging:
             self.logger.info("PUT %s with json=%s", url, json)
         start_time = datetime.now()
@@ -351,6 +360,8 @@ class AITBCHTTPClient:
         self._check_circuit_breaker()
         self._check_rate_limit()
         req_headers = {**self.headers, **(headers or {})}
+        if self.correlation_id:
+            req_headers["X-Request-ID"] = self.correlation_id
         if self.enable_logging:
             self.logger.info("DELETE %s with params=%s", url, params)
         start_time = datetime.now()
@@ -404,6 +415,7 @@ class AsyncAITBCHTTPClient:
         enable_logging: bool = False,
         circuit_breaker_threshold: int = 5,
         rate_limit: int | None = None,
+        correlation_id: str | None = None,
     ):
         """
         Initialize async HTTP client.
@@ -418,6 +430,7 @@ class AsyncAITBCHTTPClient:
             enable_logging: Enable request/response logging
             circuit_breaker_threshold: Failures before opening circuit breaker
             rate_limit: Rate limit in requests per minute
+            correlation_id: Correlation ID for distributed tracing
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -428,6 +441,7 @@ class AsyncAITBCHTTPClient:
         self.enable_logging = enable_logging
         self.circuit_breaker_threshold = circuit_breaker_threshold
         self.rate_limit = rate_limit
+        self.correlation_id = correlation_id
         self.logger = get_logger(__name__)
         self._client = None
         self._cache: dict[str, tuple] = {}
@@ -563,6 +577,8 @@ class AsyncAITBCHTTPClient:
         self._check_circuit_breaker()
         self._check_rate_limit()
         req_headers = {**self.headers, **(headers or {})}
+        if self.correlation_id:
+            req_headers["X-Request-ID"] = self.correlation_id
         if self.enable_logging:
             self.logger.info("ASYNC GET %s with params=%s", url, params)
         start_time = datetime.now()
@@ -612,6 +628,8 @@ class AsyncAITBCHTTPClient:
         self._check_circuit_breaker()
         self._check_rate_limit()
         req_headers = {**self.headers, **(headers or {})}
+        if self.correlation_id:
+            req_headers["X-Request-ID"] = self.correlation_id
         if self.enable_logging:
             self.logger.info("ASYNC POST %s with json=%s", url, json)
         start_time = datetime.now()

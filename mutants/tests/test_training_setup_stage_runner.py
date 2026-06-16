@@ -4,7 +4,6 @@ Tests for AITBC training setup stage runner
 """
 
 import pytest
-
 from aitbc.training_setup.stage_runner import StageRunner
 
 

@@ -6,7 +6,6 @@ Tests for AITBC queue manager utilities
 import asyncio
 
 import pytest
-
 from aitbc.queue_manager import (
     BackgroundTaskManager,
     Job,

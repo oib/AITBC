@@ -7,18 +7,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from aitbc import get_logger
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
-
-from aitbc import get_logger
 
 from ..workflow import get_orchestrator
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/agent/workflows", tags=["workflows"])
-
-
-from mutmut.mutation.trampoline import wrap_in_trampoline as _mutmut_mutated, MutantDict
 
 
 class CreateWorkflowRequest(BaseModel):

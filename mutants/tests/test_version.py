@@ -4,7 +4,6 @@ Tests for AITBC version module
 """
 
 import pytest
-
 from aitbc._version import __version__
 
 
