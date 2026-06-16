@@ -1,46 +1,52 @@
 #!/usr/bin/env python3
 """
-Wrapper script for {service_name} service
+Wrapper script for hermes service
 Uses centralized aitbc utilities for path configuration
 """
 
 import os
-from pathlib import Path
-from aitbc import DATA_DIR, ENV_FILE, LOG_DIR, NODE_ENV_FILE, REPO_DIR, KEYSTORE_DIR
+
+from aitbc import DATA_DIR, ENV_FILE, LOG_DIR, NODE_ENV_FILE
 
 # Set up environment using aitbc constants
 os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)
 os.environ["AITBC_NODE_ENV_FILE"] = str(NODE_ENV_FILE)
-os.environ["PYTHONPATH"] = "{PYTHONPATH}"
+os.environ["PYTHONPATH"] = "REPO_DIR:REPO_DIR/hermes/src"
 os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
-{wallet_env_code}
 
-{load_node_env_code}
+# Load node.env to get additional config
+if os.path.exists(NODE_ENV_FILE):
+    with open(NODE_ENV_FILE) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                os.environ[key.strip()] = value.strip()
 
-{db_path_code}
+if "HERMES_DB_PATH" not in os.environ:
+    os.environ["HERMES_DB_PATH"] = str(DATA_DIR / "data/hermes_coin_requests.db")
 
 log_level = os.getenv("LOG_LEVEL", "info").lower()
 access_log = os.getenv("ACCESS_LOG", "true").lower() in ("1", "true", "yes")
 
-# {service_name} bind configuration
-# Use {bind_host_env} for bind address (default: {bind_host_default})
-# Use {port_env} for port (default: {port_default})
-bind_host = os.getenv("{bind_host_env}", "{bind_host_default}")
-bind_port = os.getenv("{port_env}", "{port_default}")
+# hermes bind configuration
+# Use HERMES_BIND_HOST for bind address (default: 0.0.0.0)
+# Use HERMES_BIND_PORT for port (default: 8103)
+bind_host = os.getenv("HERMES_BIND_HOST", "0.0.0.0")
+bind_port = os.getenv("HERMES_BIND_PORT", "8103")
 
 # Execute the actual service
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
     "-m",
     "uvicorn",
-    "{module}",
+    "hermes_service.main:app",
     "--host",
     bind_host,
     "--port",
     bind_port,
-{workers_code}{extra_uvicorn_code}
     "--log-level",
     log_level,
 ]
