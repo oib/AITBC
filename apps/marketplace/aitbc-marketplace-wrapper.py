@@ -1,29 +1,45 @@
 #!/usr/bin/env python3
-"""
-Wrapper script for marketplace service
-Uses centralized aitbc utilities for path configuration
-"""
+"""marketplace service wrapper"""
 
 import os
+import sys
+from pathlib import Path
 
-from aitbc import DATA_DIR, ENV_FILE, LOG_DIR, NODE_ENV_FILE
+# Add AITBC to path
+REPO_DIR = Path("/opt/aitbc")
+SERVICE_DIR = Path("/opt/aitbc/apps/marketplace")
 
-# Set up environment using aitbc constants
-os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)
-os.environ["AITBC_NODE_ENV_FILE"] = str(NODE_ENV_FILE)
-os.environ["PYTHONPATH"] = (
-    "REPO_DIR:REPO_DIR/marketplace/scripts:REPO_DIR/marketplace/src:REPO_DIR/coordinator-api/src:REPO_DIR/packages/py/aitbc-sdk/src:REPO_DIR/packages/py/aitbc-crypto/src"
+sys.path.insert(0, str(REPO_DIR))
+sys.path.insert(0, str(SERVICE_DIR))
+
+# Import AITBC utilities
+from aitbc import (  # noqa: E402
+    LOG_DIR,
+    configure_logging,
+    get_logger,
 )
-os.environ["DATA_DIR"] = str(DATA_DIR)
-os.environ["LOG_DIR"] = str(LOG_DIR)
 
+# Configure logging
+configure_logging(
+    level="INFO",
+    service_name="marketplace",
+    to_file=True,
+)
 
-log_level = os.getenv("LOG_LEVEL", "info").lower()
-access_log = os.getenv("ACCESS_LOG", "true").lower() in ("1", "true", "yes")
+logger = get_logger(__name__)
+logger.info("Starting marketplace service")
 
-# Execute the actual service
+# Execute service
 exec_cmd = [
-    "/opt/aitbc/venv/bin/python",
-    "marketplace.py",
+    sys.executable,
+    "-m",
+    "marketplace_service.main",
 ]
-os.execvp(exec_cmd[0], exec_cmd)
+
+logger.info(f"Executing: {' '.join(exec_cmd)}")
+
+# Ensure PYTHONPATH is set for the child process
+env = os.environ.copy()
+env["PYTHONPATH"] = "/opt/aitbc:/opt/aitbc/apps/marketplace/src"
+
+os.execvpe(exec_cmd[0], exec_cmd, env)
