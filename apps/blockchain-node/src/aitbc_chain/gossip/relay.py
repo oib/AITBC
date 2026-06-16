@@ -1,14 +1,14 @@
 """
 Simple gossip relay service for blockchain nodes
-Uses Starlette Broadcast to share messages between nodes
+Uses in-memory broadcasting to share messages between nodes
 """
 
 import argparse
+import asyncio
 from typing import Any
 
 import uvicorn
 from starlette.applications import Starlette
-from starlette.broadcast import Broadcast  # type: ignore[import-not-found]
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Route, WebSocketRoute
@@ -17,7 +17,51 @@ from starlette.websockets import WebSocket
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-broadcast = Broadcast("memory://")
+
+
+class SimpleBroadcast:
+    """Simple in-memory broadcast replacement for starlette.broadcast"""
+
+    def __init__(self) -> None:
+        self._subscribers: dict[str, list[asyncio.Queue]] = {}
+
+    async def publish(self, channel: str, message: str) -> None:
+        """Publish a message to all subscribers of a channel"""
+        if channel not in self._subscribers:
+            return
+        for queue in self._subscribers[channel]:
+            await queue.put(message)
+
+    async def subscribe(self, channel: str) -> Any:
+        """Subscribe to a channel and return an async iterator"""
+        if channel not in self._subscribers:
+            self._subscribers[channel] = []
+        queue: asyncio.Queue = asyncio.Queue()
+        self._subscribers[channel].append(queue)
+
+        class Subscriber:
+            def __init__(self, q: asyncio.Queue, subs: dict[str, list[asyncio.Queue]], ch: str) -> None:
+                self.queue = q
+                self.subscribers = subs
+                self.channel = ch
+
+            async def __aenter__(self) -> "Subscriber":
+                return self
+
+            async def __aexit__(self, *args: Any) -> None:
+                if self.queue in self.subscribers.get(self.channel, []):
+                    self.subscribers[self.channel].remove(self.queue)
+
+            def __aiter__(self) -> "Subscriber":
+                return self
+
+            async def __anext__(self) -> str:
+                return await self.queue.get()
+
+        return Subscriber(queue, self._subscribers, channel)
+
+
+broadcast = SimpleBroadcast()
 
 
 async def gossip_endpoint(request: Any) -> dict[str, str]:

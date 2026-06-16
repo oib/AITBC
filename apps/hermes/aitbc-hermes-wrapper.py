@@ -1,55 +1,45 @@
 #!/usr/bin/env python3
-"""
-Wrapper script for hermes service
-Uses centralized aitbc utilities for path configuration
-"""
+"""hermes service wrapper"""
 
 import os
+import sys
+from pathlib import Path
 
-from aitbc import DATA_DIR, ENV_FILE, LOG_DIR, NODE_ENV_FILE
+# Add AITBC to path
+REPO_DIR = Path("/opt/aitbc")
+SERVICE_DIR = Path("/opt/aitbc/apps/hermes/src")
 
-# Set up environment using aitbc constants
-os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)
-os.environ["AITBC_NODE_ENV_FILE"] = str(NODE_ENV_FILE)
-os.environ["PYTHONPATH"] = "REPO_DIR:REPO_DIR/hermes/src"
-os.environ["DATA_DIR"] = str(DATA_DIR)
-os.environ["LOG_DIR"] = str(LOG_DIR)
+sys.path.insert(0, str(REPO_DIR))
+sys.path.insert(0, str(SERVICE_DIR))
 
+# Import AITBC utilities
+from aitbc import (  # noqa: E402
+    LOG_DIR,
+    configure_logging,
+    get_logger,
+)
 
-# Load node.env to get additional config
-if os.path.exists(NODE_ENV_FILE):
-    with open(NODE_ENV_FILE) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, value = line.split("=", 1)
-                os.environ[key.strip()] = value.strip()
+# Configure logging
+configure_logging(
+    level="INFO",
+    service_name="hermes",
+    to_file=True,
+)
 
-if "HERMES_DB_PATH" not in os.environ:
-    os.environ["HERMES_DB_PATH"] = str(DATA_DIR / "data/hermes_coin_requests.db")
+logger = get_logger(__name__)
+logger.info("Starting hermes service")
 
-log_level = os.getenv("LOG_LEVEL", "info").lower()
-access_log = os.getenv("ACCESS_LOG", "true").lower() in ("1", "true", "yes")
-
-# hermes bind configuration
-# Use HERMES_BIND_HOST for bind address (default: 0.0.0.0)
-# Use HERMES_BIND_PORT for port (default: 8103)
-bind_host = os.getenv("HERMES_BIND_HOST", "0.0.0.0")
-bind_port = os.getenv("HERMES_BIND_PORT", "8103")
-
-# Execute the actual service
+# Execute service
 exec_cmd = [
-    "/opt/aitbc/venv/bin/python",
+    sys.executable,
     "-m",
-    "uvicorn",
-    "hermes_service.main:app",
-    "--host",
-    bind_host,
-    "--port",
-    bind_port,
-    "--log-level",
-    log_level,
+    "hermes_service.main",
 ]
-if access_log:
-    exec_cmd.append("--access-log")
-os.execvp(exec_cmd[0], exec_cmd)
+
+logger.info(f"Executing: {' '.join(exec_cmd)}")
+
+# Ensure PYTHONPATH is set for the child process
+env = os.environ.copy()
+env["PYTHONPATH"] = "/opt/aitbc:/opt/aitbc/apps/hermes/src"
+
+os.execvpe(exec_cmd[0], exec_cmd, env)

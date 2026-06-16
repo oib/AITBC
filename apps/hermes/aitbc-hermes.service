@@ -8,11 +8,12 @@ User=aitbc-internal
 Group=aitbc-services
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/hermes/src
 Environment=HERMES_PORT=8103
 Environment=HERMES_BIND_HOST=127.0.0.1
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/hermes/aitbc-hermes-wrapper.py
+ExecStart=/opt/aitbc/venv/bin/python -m hermes_service.main
 Restart=always
 RestartSec=5
 StandardOutput=journal

@@ -8,7 +8,7 @@ from typing import ClassVar
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from aitbc.constants import DATA_DIR, KEYSTORE_DIR
+from aitbc import DATA_DIR, KEYSTORE_DIR
 
 
 class ProposerConfig(BaseModel):
