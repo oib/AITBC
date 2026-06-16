@@ -9,7 +9,6 @@ from importlib import import_module
 from typing import Any
 
 from ._version import __version__
-from .aitbc_logging import configure_logging, get_logger, setup_logger
 from .constants import (
     AGENT_COORDINATOR_PORT,
     BLOCKCHAIN_DATA_DIR,
@@ -39,6 +38,12 @@ from .exceptions import (
     RetryError,
     ValidationError,
 )
+from .logging import (
+    configure_logging,
+    get_blockchain_logger,
+    get_logger,
+    setup_logger,
+)
 from .middleware import (
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
@@ -66,106 +71,109 @@ from .utils.paths import (
     resolve_path,
 )
 
-try:
-    from .network.web3_utils import Web3Client, create_web3_client
+# Lazy exports for backward compatibility
+_LAZY_EXPORTS: dict[str, tuple[str, str]] = {}
 
-    _WEB3_AVAILABLE = True
-except ImportError:
-    _WEB3_AVAILABLE = False
+# JSON utils
+for _name in (
+    "load_json save_json merge_json json_to_string string_to_json get_nested_value set_nested_value flatten_json"
+).split():
+    _LAZY_EXPORTS[_name] = ("utils.json_utils", _name)
 
-_LAZY_EXPORTS: dict[str, tuple[str, str]] = {
-    "load_json": ("utils.json_utils", "load_json"),
-    "save_json": ("utils.json_utils", "save_json"),
-    "merge_json": ("utils.json_utils", "merge_json"),
-    "json_to_string": ("utils.json_utils", "json_to_string"),
-    "string_to_json": ("utils.json_utils", "string_to_json"),
-    "get_nested_value": ("utils.json_utils", "get_nested_value"),
-    "set_nested_value": ("utils.json_utils", "set_nested_value"),
-    "flatten_json": ("utils.json_utils", "flatten_json"),
-    "BlockchainService": ("blockchain_service", "BlockchainService"),
-    "RPCBlockchainService": ("blockchain_service", "RPCBlockchainService"),
-    "BlockchainServiceFactory": ("blockchain_service", "BlockchainServiceFactory"),
-    "DatabaseService": ("database_service", "DatabaseService"),
-    "SQLiteDatabaseService": ("database_service", "SQLiteDatabaseService"),
-    "DatabaseServiceFactory": ("database_service", "DatabaseServiceFactory"),
-    "AsyncAITBCHTTPClient": ("network.http_client", "AsyncAITBCHTTPClient"),
-    "BaseAITBCConfig": ("hierarchical_config", "BaseAITBCConfig"),
-    "AITBCConfig": ("hierarchical_config", "AITBCConfig"),
-    "AITBCHTTPClient": ("network.http_client", "AITBCHTTPClient"),
-    "retry": ("decorators", "retry"),
-    "timing": ("decorators", "timing"),
-    "cache_result": ("decorators", "cache_result"),
-    "validate_args": ("decorators", "validate_args"),
-    "handle_exceptions": ("decorators", "handle_exceptions"),
-    "async_timing": ("decorators", "async_timing"),
-    "validate_address": ("utils.validation", "validate_address"),
-    "validate_hash": ("utils.validation", "validate_hash"),
-    "validate_url": ("utils.validation", "validate_url"),
-    "validate_port": ("utils.validation", "validate_port"),
-    "validate_email": ("utils.validation", "validate_email"),
-    "validate_non_empty": ("utils.validation", "validate_non_empty"),
-    "validate_positive_number": ("utils.validation", "validate_positive_number"),
-    "validate_range": ("utils.validation", "validate_range"),
-    "validate_chain_id": ("utils.validation", "validate_chain_id"),
-    "validate_uuid": ("utils.validation", "validate_uuid"),
-    "run_sync": ("async_helpers", "run_sync"),
-    "gather_with_concurrency": ("async_helpers", "gather_with_concurrency"),
-    "run_with_timeout": ("async_helpers", "run_with_timeout"),
-    "batch_process": ("async_helpers", "batch_process"),
-    "sync_to_async": ("async_helpers", "sync_to_async"),
-    "async_to_sync": ("async_helpers", "async_to_sync"),
-    "retry_async": ("async_helpers", "retry_async"),
-    "wait_for_condition": ("async_helpers", "wait_for_condition"),
-    "DatabaseConnection": ("database", "DatabaseConnection"),
-    "get_database_connection": ("database", "get_database_connection"),
-    "ensure_database": ("database", "ensure_database"),
-    "vacuum_database": ("database", "vacuum_database"),
-    "get_table_info": ("database", "get_table_info"),
-    "table_exists": ("database", "table_exists"),
-    "MetricsCollector": ("monitoring", "MetricsCollector"),
-    "PerformanceTimer": ("monitoring", "PerformanceTimer"),
-    "HealthChecker": ("monitoring", "HealthChecker"),
-    "DataLayer": ("data_layer", "DataLayer"),
-    "MockDataGenerator": ("data_layer", "MockDataGenerator"),
-    "RealDataFetcher": ("data_layer", "RealDataFetcher"),
-    "get_data_layer": ("data_layer", "get_data_layer"),
-    "derive_ethereum_address": ("crypto.crypto", "derive_ethereum_address"),
-    "sign_transaction_hash": ("crypto.crypto", "sign_transaction_hash"),
-    "verify_signature": ("crypto.crypto", "verify_signature"),
-    "encrypt_private_key": ("crypto.crypto", "encrypt_private_key"),
-    "decrypt_private_key": ("crypto.crypto", "decrypt_private_key"),
-    "generate_secure_random_bytes": ("crypto.crypto", "generate_secure_random_bytes"),
-    "keccak256_hash": ("crypto.crypto", "keccak256_hash"),
-    "sha256_hash": ("crypto.crypto", "sha256_hash"),
-    "validate_ethereum_address": ("crypto.crypto", "validate_ethereum_address"),
-    "generate_ethereum_private_key": ("crypto.crypto", "generate_ethereum_private_key"),
-    "Web3Client": ("network.web3_utils", "Web3Client"),
-    "create_web3_client": ("network.web3_utils", "create_web3_client"),
-    "generate_token": ("crypto.security", "generate_token"),
-    "generate_api_key": ("crypto.security", "generate_api_key"),
-    "validate_token_format": ("crypto.security", "validate_token_format"),
-    "validate_api_key": ("crypto.security", "validate_api_key"),
-    "SessionManager": ("crypto.security", "SessionManager"),
-    "APIKeyManager": ("crypto.security", "APIKeyManager"),
-    "generate_secure_random_string": ("crypto.security", "generate_secure_random_string"),
-    "generate_secure_random_int": ("crypto.security", "generate_secure_random_int"),
-    "SecretManager": ("crypto.security", "SecretManager"),
-    "hash_password": ("crypto.security", "hash_password"),
-    "verify_password": ("crypto.security", "verify_password"),
-    "generate_nonce": ("crypto.security", "generate_nonce"),
-    "generate_hmac": ("crypto.security", "generate_hmac"),
-    "verify_hmac": ("crypto.security", "verify_hmac"),
-}
+# Blockchain service
+for _name in ("BlockchainService RPCBlockchainService BlockchainServiceFactory").split():
+    _LAZY_EXPORTS[_name] = ("blockchain_service", _name)
+
+# Database service
+for _name in ("DatabaseService SQLiteDatabaseService DatabaseServiceFactory").split():
+    _LAZY_EXPORTS[_name] = ("database_service", _name)
+
+# HTTP client
+for _name in ("AsyncAITBCHTTPClient AITBCHTTPClient").split():
+    _LAZY_EXPORTS[_name] = ("network.http_client", _name)
+
+# Config
+for _name in ("BaseAITBCConfig AITBCConfig").split():
+    _LAZY_EXPORTS[_name] = ("config.hierarchical_config", _name)
+
+# Decorators
+for _name in ("retry timing cache_result validate_args handle_exceptions async_timing").split():
+    _LAZY_EXPORTS[_name] = ("decorators", _name)
+
+# Validation
+for _name in (
+    "validate_address validate_hash validate_url validate_port validate_email "
+    "validate_non_empty validate_positive_number validate_range validate_chain_id validate_uuid"
+).split():
+    _LAZY_EXPORTS[_name] = ("utils.validation", _name)
+
+# Time utils
+for _name in (
+    "run_sync gather_with_concurrency run_with_timeout batch_process sync_to_async async_to_sync "
+    "retry_async wait_for_condition Timer"
+).split():
+    _LAZY_EXPORTS[_name] = ("async_helpers", _name)
 
 for _name in (
     "get_utc_now get_timestamp_utc format_iso8601 parse_iso8601 timestamp_to_iso iso_to_timestamp "
     "format_duration format_duration_precise parse_duration add_duration subtract_duration get_time_until "
     "get_time_since calculate_deadline is_deadline_passed get_deadline_remaining format_time_ago "
     "format_time_in to_timezone get_timezone_offset is_business_hours get_start_of_day get_end_of_day "
-    "get_start_of_week get_end_of_week get_start_of_month get_end_of_month sleep_until retry_until_deadline Timer"
+    "get_start_of_week get_end_of_week get_start_of_month get_end_of_month sleep_until retry_until_deadline"
 ).split():
     _LAZY_EXPORTS[_name] = ("utils.time_utils", _name)
 
+# Database connection
+for _name in (
+    "DatabaseConnection get_database_connection ensure_database vacuum_database get_table_info table_exists"
+).split():
+    _LAZY_EXPORTS[_name] = ("database", _name)
+
+# Monitoring
+for _name in ("MetricsCollector PerformanceTimer HealthChecker").split():
+    _LAZY_EXPORTS[_name] = ("monitoring", _name)
+
+# Data layer
+for _name in ("DataLayer MockDataGenerator RealDataFetcher get_data_layer").split():
+    _LAZY_EXPORTS[_name] = ("data_layer", _name)
+
+# Crypto
+for _name in (
+    "derive_ethereum_address sign_transaction_hash verify_signature encrypt_private_key decrypt_private_key "
+    "generate_secure_random_bytes keccak256_hash sha256_hash validate_ethereum_address "
+    "generate_ethereum_private_key Web3Client create_web3_client "
+    "generate_token generate_api_key validate_token_format validate_api_key "
+    "generate_secure_random_string generate_secure_random_int SecretManager "
+    "hash_password verify_password generate_nonce generate_hmac verify_hmac"
+).split():
+    _LAZY_EXPORTS[_name] = ("crypto", _name)
+
+# Events
+for _name in (
+    "Event EventPriority EventBus AsyncEventBus event_handler publish_event get_global_event_bus "
+    "set_global_event_bus EventFilter EventAggregator EventRouter"
+).split():
+    _LAZY_EXPORTS[_name] = ("events", _name)
+
+# Queue manager
+for _name in ("Job JobStatus JobPriority TaskQueue JobScheduler BackgroundTaskManager WorkerPool debounce throttle").split():
+    _LAZY_EXPORTS[_name] = ("queue_manager", _name)
+
+# State
+for _name in (
+    "StateTransition StateTransitionError StatePersistenceError StateMachine ConfigurableStateMachine "
+    "StatePersistence AsyncStateMachine StateMonitor StateValidator StateSnapshot"
+).split():
+    _LAZY_EXPORTS[_name] = ("state", _name)
+
+# Testing
+for _name in (
+    "MockFactory TestDataGenerator TestHelpers MockResponse MockDatabase MockCache mock_async_call "
+    "create_mock_config create_test_scenario"
+).split():
+    _LAZY_EXPORTS[_name] = ("testing", _name)
+
+# API utils
 for _name in (
     "APIResponse PaginatedResponse success_response error_response not_found_response unauthorized_response "
     "forbidden_response validation_error_response conflict_response internal_error_response PaginationParams "
@@ -174,27 +182,6 @@ for _name in (
     "merge_responses get_client_ip get_user_agent build_request_metadata"
 ).split():
     _LAZY_EXPORTS[_name] = ("api_utils", _name)
-
-for _name in (
-    "Event EventPriority EventBus AsyncEventBus event_handler publish_event get_global_event_bus "
-    "set_global_event_bus EventFilter EventAggregator EventRouter"
-).split():
-    _LAZY_EXPORTS[_name] = ("events", _name)
-
-for _name in ("Job JobStatus JobPriority TaskQueue JobScheduler BackgroundTaskManager WorkerPool debounce throttle").split():
-    _LAZY_EXPORTS[_name] = ("queue_manager", _name)
-
-for _name in (
-    "StateTransition StateTransitionError StatePersistenceError StateMachine ConfigurableStateMachine "
-    "StatePersistence AsyncStateMachine StateMonitor StateValidator StateSnapshot"
-).split():
-    _LAZY_EXPORTS[_name] = ("state", _name)
-
-for _name in (
-    "MockFactory TestDataGenerator TestHelpers MockResponse MockDatabase MockCache mock_async_call "
-    "create_mock_config create_test_scenario"
-).split():
-    _LAZY_EXPORTS[_name] = ("testing", _name)
 
 
 def __getattr__(name: str) -> Any:
@@ -207,8 +194,9 @@ def __getattr__(name: str) -> Any:
 
 __all__ = [
     "get_logger",
-    "setup_logger",
+    "get_blockchain_logger",
     "configure_logging",
+    "setup_logger",
     "DATA_DIR",
     "CONFIG_DIR",
     "LOG_DIR",
