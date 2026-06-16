@@ -78,7 +78,7 @@ class SynthesisRequest(BaseModel):
 @router.post("/capabilities", response_model=CreativeCapabilityResponse)
 @rate_limit(rate=50, per=60)
 async def create_creative_capability(
-    request_http: Request, request: CreativeCapabilityCreate, session: Annotated[Session, Depends(get_session)] = Depends()
+    request_http: Request, request: CreativeCapabilityCreate, session: Annotated[Session, Depends(get_session)]
 ) -> CreativeCapabilityResponse:
     """Initialize a new creative capability for an agent"""
     engine = CreativityEnhancementEngine()
@@ -103,7 +103,7 @@ async def enhance_creativity(
     request_http: Request,
     capability_id: str,
     request: EnhanceCreativityRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Enhance a specific creative capability using specified algorithm"""
     engine = CreativityEnhancementEngine()
@@ -125,7 +125,7 @@ async def evaluate_creation(
     request_http: Request,
     capability_id: str,
     request: EvaluateCreationRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Evaluate a creative output and update agent capability metrics"""
     engine = CreativityEnhancementEngine()
@@ -166,7 +166,7 @@ async def generate_ideas(request_http: Request, request: IdeationRequest) -> dic
 @router.post("/synthesis/cross-domain")
 @rate_limit(rate=50, per=60)
 async def synthesize_cross_domain(
-    request_http: Request, request: SynthesisRequest, session: Annotated[Session, Depends(get_session)] = Depends()
+    request_http: Request, request: SynthesisRequest, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Synthesize concepts from multiple domains to create novel outputs"""
     integrator = CrossDomainCreativeIntegrator()
@@ -189,7 +189,7 @@ async def synthesize_cross_domain(
 @router.get("/capabilities/{agent_id}")
 @rate_limit(rate=200, per=60)
 async def list_agent_creative_capabilities(
-    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)] = Depends()
+    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> list[CreativeCapability]:
     """List all creative capabilities for a specific agent"""
     try:

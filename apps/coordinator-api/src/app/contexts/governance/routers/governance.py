@@ -83,8 +83,8 @@ async def delegate_voting_power(
 async def create_proposal(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    proposer_id: str = Query(...),
-    proposal_request: ProposalCreateRequest = Body(...),
+    proposer_id: Annotated[str, Query(...)],
+    proposal_request: Annotated[ProposalCreateRequest, Body(...)],
 ) -> Proposal:
     """Submit a new governance proposal to the DAO"""
     service = GovernanceService(session)  # type: ignore[arg-type]
@@ -103,8 +103,8 @@ async def cast_vote(
     request: Request,
     proposal_id: str,
     session: Annotated[Session, Depends(get_session)],
-    voter_id: str = Query(...),
-    vote_request: VoteRequest = Body(...),
+    voter_id: Annotated[str, Query(...)],
+    vote_request: Annotated[VoteRequest, Body(...)],
 ) -> Vote:
     """Cast a vote on an active proposal"""
     service = GovernanceService(session)  # type: ignore[arg-type]
@@ -136,7 +136,10 @@ async def process_proposal(request: Request, proposal_id: str, session: Annotate
 @router.post("/proposals/{proposal_id}/execute", response_model=Proposal)
 @rate_limit(rate=20, per=60)
 async def execute_proposal(
-    request: Request, proposal_id: str, session: Annotated[Session, Depends(get_session)], executor_id: str = Query(...)
+    request: Request,
+    proposal_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    executor_id: Annotated[str, Query(...)],
 ) -> Proposal:
     """Execute the payload of a succeeded proposal"""
     service = GovernanceService(session)  # type: ignore[arg-type]
@@ -152,7 +155,9 @@ async def execute_proposal(
 @router.post("/analytics/reports", response_model=TransparencyReport)
 @rate_limit(rate=200, per=60)
 async def generate_transparency_report(
-    request: Request, session: Annotated[Session, Depends(get_session)], period: str = Query(..., description="e.g., 2026-Q1")
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    period: Annotated[str, Query(..., description="e.g., 2026-Q1")],
 ) -> TransparencyReport:
     """Generate a governance analytics and transparency report"""
     service = GovernanceService(session)  # type: ignore[arg-type]

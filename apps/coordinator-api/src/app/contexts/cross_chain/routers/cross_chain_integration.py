@@ -4,7 +4,7 @@ REST API endpoints for enhanced multi-chain wallet adapter, cross-chain bridge s
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 from uuid import uuid4
 
 from app.agent_identity.manager import AgentIdentityManager  # type: ignore[import-not-found]
@@ -27,7 +27,7 @@ from app.services.multi_chain_transaction_manager import (  # type: ignore[impor
     TransactionPriority,
 )
 from app.storage.db import get_session  # type: ignore[import-not-found]
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session
 
 from aitbc import get_logger
@@ -38,11 +38,11 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/cross-chain", tags=["Cross-Chain Integration"])
 
 
-def get_agent_identity_manager(session: Session = Depends(get_session)) -> AgentIdentityManager:
+def get_agent_identity_manager(session: Annotated[Session, Depends(get_session)]) -> AgentIdentityManager:
     return AgentIdentityManager(session)
 
 
-def get_reputation_engine(session: Session = Depends(get_session)) -> CrossChainReputationEngine:
+def get_reputation_engine(session: Annotated[Session, Depends(get_session)]) -> CrossChainReputationEngine:
     return CrossChainReputationEngine(session)
 
 
@@ -53,9 +53,9 @@ async def create_enhanced_wallet(
     owner_address: str,
     chain_id: int,
     security_config: dict[str, Any],
-    security_level: SecurityLevel = SecurityLevel.MEDIUM,
-    session: Session = Depends(get_session),
-    identity_manager: AgentIdentityManager = Depends(get_agent_identity_manager),
+    security_level: SecurityLevel | None,
+    session: Annotated[Session, Depends(get_session)],
+    identity_manager: Annotated[AgentIdentityManager, Depends(get_agent_identity_manager)],
 ) -> dict[str, Any]:
     """Create an enhanced multi-chain wallet"""
     try:
@@ -86,9 +86,9 @@ async def create_enhanced_wallet(
 async def get_wallet_balance(
     request: Request,
     wallet_address: str,
-    chain_id: int = Query(..., description="Chain ID"),
-    token_address: str | None = Query(None),
-    session: Session = Depends(get_session),
+    chain_id: int | None,
+    token_address: str | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get wallet balance with multi-token support"""
     try:
@@ -109,11 +109,11 @@ async def execute_wallet_transaction(
     chain_id: int,
     to_address: str,
     amount: float,
-    token_address: str | None = None,
-    data: dict[str, Any] | None = None,
-    gas_limit: int | None = None,
-    gas_price: int | None = None,
-    session: Session = Depends(get_session),
+    token_address: str | None,
+    data: dict[str, Any] | None,
+    gas_limit: int | None,
+    gas_price: int | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Execute a transaction from wallet"""
     try:
@@ -140,11 +140,11 @@ async def get_wallet_transaction_history(
     request: Request,
     wallet_address: str,
     chain_id: int,
-    limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
-    from_block: int | None = None,
-    to_block: int | None = None,
-    session: Session = Depends(get_session),
+    limit: int | None,
+    offset: int | None,
+    from_block: int | None,
+    to_block: int | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> list[dict[str, Any]]:
     """Get wallet transaction history"""
     try:
@@ -160,7 +160,7 @@ async def get_wallet_transaction_history(
 @router.post("/wallets/{wallet_address}/sign", response_model=dict[str, Any])
 @rate_limit(rate=50, per=60)
 async def sign_message(
-    request: Request, wallet_address: str, chain_id: int, message: str, session: Session = Depends(get_session)
+    request: Request, wallet_address: str, chain_id: int, message: str, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Sign a message with wallet"""
     try:
@@ -175,7 +175,12 @@ async def sign_message(
 @router.post("/wallets/verify-signature", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def verify_signature(
-    request: Request, message: str, signature: str, address: str, chain_id: int, session: Session = Depends(get_session)
+    request: Request,
+    message: str,
+    signature: str,
+    address: str,
+    chain_id: int,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Verify a message signature"""
     try:
@@ -200,12 +205,12 @@ async def create_bridge_request(
     source_chain_id: int,
     target_chain_id: int,
     amount: float,
-    token_address: str | None = None,
-    target_address: str | None = None,
-    protocol: BridgeProtocol | None = None,
-    security_level: BridgeSecurityLevel = BridgeSecurityLevel.MEDIUM,
-    deadline_minutes: int = Query(30, ge=5, le=1440),
-    session: Session = Depends(get_session),
+    token_address: str | None,
+    target_address: str | None,
+    protocol: BridgeProtocol | None,
+    security_level: BridgeSecurityLevel | None,
+    deadline_minutes: int | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Create a cross-chain bridge request"""
     try:
@@ -231,7 +236,7 @@ async def create_bridge_request(
 @router.get("/bridge/request/{bridge_request_id}", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def get_bridge_request_status(
-    request: Request, bridge_request_id: str, session: Session = Depends(get_session)
+    request: Request, bridge_request_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Get status of a bridge request"""
     try:
@@ -245,7 +250,7 @@ async def get_bridge_request_status(
 @router.post("/bridge/request/{bridge_request_id}/cancel", response_model=dict[str, Any])
 @rate_limit(rate=20, per=60)
 async def cancel_bridge_request(
-    request: Request, bridge_request_id: str, reason: str, session: Session = Depends(get_session)
+    request: Request, bridge_request_id: str, reason: str, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Cancel a bridge request"""
     try:
@@ -259,7 +264,7 @@ async def cancel_bridge_request(
 @router.get("/bridge/statistics", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def get_bridge_statistics(
-    request: Request, time_period_hours: int = Query(24, ge=1, le=8760), session: Session = Depends(get_session)
+    request: Request, time_period_hours: int | None, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Get bridge statistics"""
     try:
@@ -272,7 +277,7 @@ async def get_bridge_statistics(
 
 @router.get("/bridge/liquidity-pools", response_model=list[dict[str, Any]])
 @rate_limit(rate=200, per=60)
-async def get_liquidity_pools(request: Request, session: Session = Depends(get_session)) -> list[dict[str, Any]]:
+async def get_liquidity_pools(request: Request, session: Annotated[Session, Depends(get_session)]) -> list[dict[str, Any]]:
     """Get all liquidity pool information"""
     try:
         bridge_service = CrossChainBridgeService(session)
@@ -292,16 +297,16 @@ async def submit_transaction(
     from_address: str,
     to_address: str,
     amount: float,
-    token_address: str | None = None,
-    data: dict[str, Any] | None = None,
-    priority: TransactionPriority = TransactionPriority.MEDIUM,
-    routing_strategy: RoutingStrategy | None = None,
-    gas_limit: int | None = None,
-    gas_price: int | None = None,
-    max_fee_per_gas: int | None = None,
-    deadline_minutes: int = Query(30, ge=5, le=1440),
-    metadata: dict[str, Any] | None = None,
-    session: Session = Depends(get_session),
+    token_address: str | None,
+    data: dict[str, Any] | None,
+    priority: TransactionPriority | None,
+    routing_strategy: RoutingStrategy | None,
+    gas_limit: int | None,
+    gas_price: int | None,
+    max_fee_per_gas: int | None,
+    deadline_minutes: int | None,
+    metadata: dict[str, Any] | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Submit a multi-chain transaction"""
     try:
@@ -334,16 +339,16 @@ async def submit_transaction(
 @rate_limit(rate=200, per=60)
 async def get_transaction_history(
     request: Request,
-    user_id: str | None = Query(None),
-    chain_id: int | None = Query(None),
-    transaction_type: TransactionType | None = Query(None),
-    status: TransactionStatus | None = Query(None),
-    priority: TransactionPriority | None = Query(None),
-    limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
-    from_date: datetime | None = Query(None),
-    to_date: datetime | None = Query(None),
-    session: Session = Depends(get_session),
+    user_id: str | None,
+    chain_id: int | None,
+    transaction_type: TransactionType | None,
+    status: TransactionStatus | None,
+    priority: TransactionPriority | None,
+    limit: int | None,
+    offset: int | None,
+    from_date: datetime | None,
+    to_date: datetime | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> list[dict[str, Any]]:
     """Get transaction history with filtering"""
     try:
@@ -423,9 +428,9 @@ async def get_transaction_history(
 @rate_limit(rate=200, per=60)
 async def get_transaction_statistics(
     request: Request,
-    time_period_hours: int = Query(24, ge=1, le=8760),
-    chain_id: int | None = Query(None),
-    session: Session = Depends(get_session),
+    time_period_hours: int | None,
+    chain_id: int | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get transaction statistics"""
     try:
@@ -445,9 +450,9 @@ async def optimize_transaction_routing(
     transaction_type: TransactionType,
     amount: float,
     from_chain: int,
-    to_chain: int | None = None,
-    urgency: TransactionPriority = TransactionPriority.MEDIUM,
-    session: Session = Depends(get_session),
+    to_chain: int | None,
+    urgency: TransactionPriority | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Optimize transaction routing for best performance"""
     try:
@@ -479,7 +484,7 @@ async def get_supported_chains(request: Request) -> list[dict[str, Any]]:
 
 @router.get("/chains/{chain_id}/info", response_model=dict[str, Any])
 @rate_limit(rate=500, per=60)
-async def get_chain_info(request: Request, chain_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+async def get_chain_info(request: Request, chain_id: int, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get information about a specific chain"""
     try:
         info = WalletAdapterFactory.get_chain_info(chain_id)
@@ -496,7 +501,7 @@ async def get_chain_info(request: Request, chain_id: int, session: Session = Dep
 
 @router.get("/health", response_model=dict[str, Any])
 @rate_limit(rate=1000, per=60)
-async def get_cross_chain_health(request: Request, session: Session = Depends(get_session)) -> dict[str, Any]:
+async def get_cross_chain_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get cross-chain integration health status"""
     try:
         supported_chains = WalletAdapterFactory.get_supported_chains()
@@ -525,7 +530,7 @@ async def get_cross_chain_health(request: Request, session: Session = Depends(ge
 
 @router.get("/config", response_model=dict[str, Any])
 @rate_limit(rate=500, per=60)
-async def get_cross_chain_config(request: Request, session: Session = Depends(get_session)) -> dict[str, Any]:
+async def get_cross_chain_config(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get cross-chain integration configuration"""
     try:
         supported_chains = WalletAdapterFactory.get_supported_chains()
@@ -583,7 +588,7 @@ async def get_cross_chain_config(request: Request, session: Session = Depends(ge
 
 @router.get("/bridge/whitelist", response_model=dict[str, Any])
 @rate_limit(rate=500, per=60)
-async def get_bridge_whitelist(request: Request, session: Session = Depends(get_session)) -> dict[str, Any]:
+async def get_bridge_whitelist(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get current bridge whitelist configuration"""
     try:
         bridge_service = CrossChainBridgeService(session)
@@ -597,7 +602,7 @@ async def get_bridge_whitelist(request: Request, session: Session = Depends(get_
 @router.post("/bridge/whitelist/add", response_model=dict[str, Any])
 @rate_limit(rate=50, per=60)
 async def add_bridge_whitelist_entry(
-    request: Request, source_chain_id: int, target_chain_id: int, session: Session = Depends(get_session)
+    request: Request, source_chain_id: int, target_chain_id: int, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Add a cross-chain transfer pair to the bridge whitelist"""
     try:

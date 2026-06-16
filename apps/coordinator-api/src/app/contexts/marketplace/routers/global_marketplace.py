@@ -4,9 +4,9 @@ REST API endpoints for global marketplace operations, multi-region support, and 
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlmodel import Session, func, select
 
 from ....agent_identity.manager import AgentIdentityManager
@@ -25,15 +25,15 @@ router = APIRouter(prefix="/global-marketplace", tags=["Global Marketplace"])
 
 
 # Dependency injection
-def get_global_marketplace_service(session: Session = Depends(get_session)) -> GlobalMarketplaceService:
+def get_global_marketplace_service(session: Annotated[Session, Depends(get_session)]) -> GlobalMarketplaceService:
     return GlobalMarketplaceService(session)
 
 
-def get_region_manager(session: Session = Depends(get_session)) -> RegionManager:
+def get_region_manager(session: Annotated[Session, Depends(get_session)]) -> RegionManager:
     return RegionManager(session)
 
 
-def get_agent_identity_manager(session: Session = Depends(get_session)) -> AgentIdentityManager:
+def get_agent_identity_manager(session: Annotated[Session, Depends(get_session)]) -> AgentIdentityManager:
     return AgentIdentityManager(session)
 
 
@@ -42,9 +42,9 @@ def get_agent_identity_manager(session: Session = Depends(get_session)) -> Agent
 async def create_global_offer(
     offer_request: dict[str, Any],
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    marketplace_service: GlobalMarketplaceService = Depends(get_global_marketplace_service),
-    identity_manager: AgentIdentityManager = Depends(get_agent_identity_manager),
+    session: Annotated[Session, Depends(get_session)],
+    marketplace_service: Annotated[GlobalMarketplaceService, Depends(get_global_marketplace_service)],
+    identity_manager: Annotated[AgentIdentityManager, Depends(get_agent_identity_manager)],
 ) -> dict[str, Any]:
     """Create a new global marketplace offer"""
 
@@ -102,13 +102,13 @@ async def create_global_offer(
 
 @router.get("/offers", response_model=list[dict[str, Any]])
 async def get_global_offers(
-    region: str | None = Query(None, description="Filter by region"),
-    service_type: str | None = Query(None, description="Filter by service type"),
-    status: str | None = Query(None, description="Filter by status"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of offers"),
-    offset: int = Query(0, ge=0, description="Offset for pagination"),
-    session: Session = Depends(get_session),
-    marketplace_service: GlobalMarketplaceService = Depends(get_global_marketplace_service),
+    region: str | None,
+    service_type: str | None,
+    status: str | None,
+    limit: int | None,
+    offset: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    marketplace_service: Annotated[GlobalMarketplaceService, Depends(get_global_marketplace_service)],
 ) -> list[dict[str, Any]]:
     """Get global marketplace offers with filtering"""
 
@@ -160,8 +160,8 @@ async def get_global_offers(
 @router.get("/offers/{offer_id}", response_model=dict[str, Any])
 async def get_global_offer(
     offer_id: str,
-    session: Session = Depends(get_session),
-    marketplace_service: GlobalMarketplaceService = Depends(get_global_marketplace_service),
+    session: Annotated[Session, Depends(get_session)],
+    marketplace_service: Annotated[GlobalMarketplaceService, Depends(get_global_marketplace_service)],
 ) -> dict[str, Any]:
     """Get a specific global marketplace offer"""
 
@@ -208,9 +208,9 @@ async def get_global_offer(
 async def create_global_transaction(
     transaction_request: dict[str, Any],
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    marketplace_service: GlobalMarketplaceService = Depends(get_global_marketplace_service),
-    identity_manager: AgentIdentityManager = Depends(get_agent_identity_manager),
+    session: Annotated[Session, Depends(get_session)],
+    marketplace_service: Annotated[GlobalMarketplaceService, Depends(get_global_marketplace_service)],
+    identity_manager: Annotated[AgentIdentityManager, Depends(get_agent_identity_manager)],
 ) -> dict[str, Any]:
     """Create a new global marketplace transaction"""
 
@@ -273,12 +273,12 @@ async def create_global_transaction(
 
 @router.get("/transactions", response_model=list[dict[str, Any]])
 async def get_global_transactions(
-    user_id: str | None = Query(None, description="Filter by user ID"),
-    status: str | None = Query(None, description="Filter by status"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of transactions"),
-    offset: int = Query(0, ge=0, description="Offset for pagination"),
-    session: Session = Depends(get_session),
-    marketplace_service: GlobalMarketplaceService = Depends(get_global_marketplace_service),
+    user_id: str | None,
+    status: str | None,
+    limit: int | None,
+    offset: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    marketplace_service: Annotated[GlobalMarketplaceService, Depends(get_global_marketplace_service)],
 ) -> list[dict[str, Any]]:
     """Get global marketplace transactions"""
 
@@ -327,8 +327,8 @@ async def get_global_transactions(
 @router.get("/transactions/{transaction_id}", response_model=dict[str, Any])
 async def get_global_transaction(
     transaction_id: str,
-    session: Session = Depends(get_session),
-    marketplace_service: GlobalMarketplaceService = Depends(get_global_marketplace_service),
+    session: Annotated[Session, Depends(get_session)],
+    marketplace_service: Annotated[GlobalMarketplaceService, Depends(get_global_marketplace_service)],
 ) -> dict[str, Any]:
     """Get a specific global marketplace transaction"""
 
@@ -376,9 +376,7 @@ async def get_global_transaction(
 
 # Region Management Endpoints
 @router.get("/regions", response_model=list[dict[str, Any]])
-async def get_regions(
-    status: str | None = Query(None, description="Filter by status"), session: Session = Depends(get_session)
-) -> list[dict[str, Any]]:
+async def get_regions(status: str | None, session: Annotated[Session, Depends(get_session)]) -> list[dict[str, Any]]:
     """Get all marketplace regions"""
 
     try:
@@ -428,8 +426,8 @@ async def get_regions(
 @router.get("/regions/{region_code}/health", response_model=dict[str, Any])
 async def get_region_health(
     region_code: str,
-    session: Session = Depends(get_session),
-    marketplace_service: GlobalMarketplaceService = Depends(get_global_marketplace_service),
+    session: Annotated[Session, Depends(get_session)],
+    marketplace_service: Annotated[GlobalMarketplaceService, Depends(get_global_marketplace_service)],
 ) -> dict[str, Any]:
     """Get health status for a specific region"""
 
@@ -445,8 +443,8 @@ async def get_region_health(
 async def update_region_health(
     region_code: str,
     health_metrics: dict[str, Any],
-    session: Session = Depends(get_session),
-    region_manager: RegionManager = Depends(get_region_manager),
+    session: Annotated[Session, Depends(get_session)],
+    region_manager: Annotated[RegionManager, Depends(get_region_manager)],
 ) -> dict[str, Any]:
     """Update health metrics for a region"""
 
@@ -469,14 +467,14 @@ async def update_region_health(
 # Analytics Endpoints
 @router.get("/analytics", response_model=dict[str, Any])
 async def get_marketplace_analytics(
-    period_type: str = Query("daily", description="Analytics period type"),
-    start_date: datetime = Query(..., description="Start date for analytics"),
-    end_date: datetime = Query(..., description="End date for analytics"),
-    region: str | None = Query("global", description="Region for analytics"),
-    include_cross_chain: bool = Query(False, description="Include cross-chain metrics"),
-    include_regional: bool = Query(False, description="Include regional breakdown"),
-    session: Session = Depends(get_session),
-    marketplace_service: GlobalMarketplaceService = Depends(get_global_marketplace_service),
+    period_type: str | None,
+    start_date: datetime | None,
+    end_date: datetime | None,
+    region: str | None,
+    include_cross_chain: bool | None,
+    include_regional: bool | None,
+    session: Annotated[Session, Depends(get_session)],
+    marketplace_service: Annotated[GlobalMarketplaceService, Depends(get_global_marketplace_service)],
 ) -> dict[str, Any]:
     """Get global marketplace analytics"""
 
@@ -523,8 +521,8 @@ async def get_marketplace_analytics(
 # Configuration Endpoints
 @router.get("/config", response_model=dict[str, Any])
 async def get_global_marketplace_config(
-    category: str | None = Query(None, description="Filter by configuration category"),
-    session: Session = Depends(get_session),
+    category: str | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get global marketplace configuration"""
 
@@ -556,8 +554,8 @@ async def get_global_marketplace_config(
 # Health and Status Endpoints
 @router.get("/health", response_model=dict[str, Any])
 async def get_global_marketplace_health(
-    session: Session = Depends(get_session),
-    marketplace_service: GlobalMarketplaceService = Depends(get_global_marketplace_service),
+    session: Annotated[Session, Depends(get_session)],
+    marketplace_service: Annotated[GlobalMarketplaceService, Depends(get_global_marketplace_service)],
 ) -> dict[str, Any]:
     """Get global marketplace health status"""
 

@@ -4,10 +4,10 @@ REST API for analytics, insights, reporting, and dashboards
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
@@ -124,8 +124,8 @@ class AnalyticsSummaryResponse(BaseModel):
 @rate_limit(rate=20, per=60)
 async def collect_market_data(
     request: Request,
-    period_type: AnalyticsPeriod = Query(default=AnalyticsPeriod.DAILY, description="Collection period"),
-    session: Session = Depends(get_session),
+    period_type: AnalyticsPeriod | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> AnalyticsSummaryResponse:
     """Collect market data for analytics"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -141,11 +141,11 @@ async def collect_market_data(
 @rate_limit(rate=200, per=60)
 async def get_market_insights(
     request: Request,
-    time_period: str = Query(default="daily", description="Time period: daily, weekly, monthly"),
-    insight_type: str | None = Query(default=None, description="Filter by insight type"),
-    impact_level: str | None = Query(default=None, description="Filter by impact level"),
-    limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
-    session: Session = Depends(get_session),
+    time_period: str | None,
+    insight_type: str | None,
+    impact_level: str | None,
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get market insights and analysis"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -173,12 +173,12 @@ async def get_market_insights(
 @rate_limit(rate=200, per=60)
 async def get_market_metrics(
     request: Request,
-    period_type: AnalyticsPeriod = Query(default=AnalyticsPeriod.DAILY, description="Period type"),
-    metric_name: str | None = Query(default=None, description="Filter by metric name"),
-    category: str | None = Query(default=None, description="Filter by category"),
-    geographic_region: str | None = Query(default=None, description="Filter by region"),
-    limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Session = Depends(get_session),
+    period_type: AnalyticsPeriod | None,
+    metric_name: str | None,
+    category: str | None,
+    geographic_region: str | None,
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> list[MetricResponse]:
     """Get market metrics with filters"""
     try:
@@ -215,7 +215,7 @@ async def get_market_metrics(
 
 @router.get("/overview", response_model=MarketOverviewResponse)
 @rate_limit(rate=200, per=60)
-async def get_market_overview(request: Request, session: Session = Depends(get_session)) -> MarketOverviewResponse:
+async def get_market_overview(request: Request, session: Annotated[Session, Depends(get_session)]) -> MarketOverviewResponse:
     """Get comprehensive market overview"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
@@ -234,8 +234,8 @@ async def create_dashboard(
     dashboard_type: str,
     layout: dict[str, Any],
     widgets: list[dict[str, Any]],
-    filters: list[dict[str, Any]] | None = None,
-    session: Session = Depends(get_session),
+    filters: list[dict[str, Any]] | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> DashboardResponse:
     """Create analytics dashboard"""
     try:
@@ -280,7 +280,7 @@ async def create_dashboard(
 async def get_dashboard(
     request: Request,
     dashboard_id: str,
-    session: Session = Depends(get_session),
+    session: Annotated[Session, Depends(get_session)],
 ) -> DashboardResponse:
     """Get dashboard configuration"""
     try:
@@ -314,7 +314,7 @@ async def get_dashboard(
 async def generate_report(
     request: Request,
     report_request: ReportRequest,
-    session: Session = Depends(get_session),
+    session: Annotated[Session, Depends(get_session)],
 ) -> AnalyticsReport:
     """Generate analytics report"""
     try:
@@ -343,7 +343,7 @@ async def generate_report(
 async def get_report(
     request: Request,
     report_id: str,
-    session: Session = Depends(get_session),
+    session: Annotated[Session, Depends(get_session)],
 ) -> AnalyticsReport:
     """Get analytics report"""
     try:
@@ -365,9 +365,9 @@ async def generate_insight(
     insight_type: str,
     title: str,
     description: str,
-    confidence_score: float = Query(ge=0, le=1),
-    impact_level: str = "medium",
-    session: Session = Depends(get_session),
+    confidence_score: float | None,
+    impact_level: str | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> MarketInsight:
     """Generate market insight"""
     try:
@@ -398,7 +398,7 @@ async def generate_insight(
 async def get_insight(
     request: Request,
     insight_id: str,
-    session: Session = Depends(get_session),
+    session: Annotated[Session, Depends(get_session)],
 ) -> MarketInsight:
     """Get specific market insight"""
     try:
@@ -417,9 +417,9 @@ async def get_insight(
 @rate_limit(rate=200, per=60)
 async def get_market_trends(
     request: Request,
-    time_period: str = Query(default="30d", description="Time period: 7d, 30d, 90d, 1y"),
-    metric_categories: list[str] | None = Query(default=None, description="Filter by categories"),
-    session: Session = Depends(get_session),
+    time_period: str | None,
+    metric_categories: list[str] | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get market trends analysis"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -435,9 +435,9 @@ async def get_market_trends(
 @rate_limit(rate=200, per=60)
 async def get_market_segments(
     request: Request,
-    segment_by: str = Query(default="category", description="Segment by: category, region, performance"),
-    min_market_share: float = Query(default=0.01, ge=0, le=1, description="Minimum market share"),
-    session: Session = Depends(get_session),
+    segment_by: str | None,
+    min_market_share: float | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> list[dict[str, Any]]:
     """Get market segment analysis"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -453,9 +453,9 @@ async def get_market_segments(
 @rate_limit(rate=200, per=60)
 async def get_competitor_analysis(
     request: Request,
-    competitor_ids: list[str] | None = Query(default=None, description="Specific competitor IDs"),
-    analysis_depth: str = Query(default="standard", description="Analysis depth: basic, standard, deep"),
-    session: Session = Depends(get_session),
+    competitor_ids: list[str] | None,
+    analysis_depth: str | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get competitive analysis"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -472,9 +472,9 @@ async def get_competitor_analysis(
 async def get_metric_forecast(
     request: Request,
     metric_name: str,
-    forecast_periods: int = Query(default=30, ge=1, le=365, description="Number of periods to forecast"),
-    confidence_interval: float = Query(default=0.95, ge=0.8, le=0.99, description="Confidence interval"),
-    session: Session = Depends(get_session),
+    forecast_periods: int | None,
+    confidence_interval: float | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get metric forecast"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -494,9 +494,9 @@ async def get_metric_forecast(
 @rate_limit(rate=200, per=60)
 async def get_active_alerts(
     request: Request,
-    severity: str | None = Query(default=None, description="Filter by severity: low, medium, high, critical"),
-    category: str | None = Query(default=None, description="Filter by category"),
-    session: Session = Depends(get_session),
+    severity: str | None,
+    category: str | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> list[dict[str, Any]]:
     """Get active market alerts"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -514,7 +514,7 @@ async def acknowledge_alert(
     request: Request,
     alert_id: str,
     acknowledged_by: str,
-    session: Session = Depends(get_session),
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Acknowledge market alert"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -530,9 +530,9 @@ async def acknowledge_alert(
 @rate_limit(rate=200, per=60)
 async def get_performance_benchmarks(
     request: Request,
-    benchmark_type: str = Query(default="industry", description="Benchmark type: industry, custom, historical"),
-    time_period: str = Query(default="30d", description="Time period for comparison"),
-    session: Session = Depends(get_session),
+    benchmark_type: str | None,
+    time_period: str | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get performance benchmarks"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -548,9 +548,9 @@ async def get_performance_benchmarks(
 @rate_limit(rate=200, per=60)
 async def get_custom_queries(
     request: Request,
-    query_type: str | None = Query(default=None, description="Filter by query type"),
-    created_by: str | None = Query(default=None, description="Filter by creator"),
-    session: Session = Depends(get_session),
+    query_type: str | None,
+    created_by: str | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> list[dict[str, Any]]:
     """Get saved custom queries"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -568,8 +568,8 @@ async def create_custom_query(
     request: Request,
     query_name: str,
     query_definition: dict[str, Any],
-    query_type: str = "standard",
-    session: Session = Depends(get_session),
+    query_type: str | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Create custom analytics query"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -588,8 +588,8 @@ async def create_custom_query(
 async def execute_custom_query(
     request: Request,
     query_id: str,
-    parameters: dict[str, Any] | None = None,
-    session: Session = Depends(get_session),
+    parameters: dict[str, Any] | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Execute custom analytics query"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -605,10 +605,10 @@ async def execute_custom_query(
 @rate_limit(rate=50, per=60)
 async def export_analytics_data(
     request: Request,
-    export_format: str = Query(default="json", description="Export format: json, csv, xlsx"),
-    data_types: list[str] = Query(default=["metrics", "insights"], description="Data types to export"),
-    date_range: str = Query(default="30d", description="Date range for export"),
-    session: Session = Depends(get_session),
+    export_format: str | None,
+    data_types: list[str] | None,
+    date_range: str | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Export analytics data"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -626,8 +626,8 @@ async def export_analytics_data(
 @rate_limit(rate=1000, per=60)
 async def get_realtime_metrics(
     request: Request,
-    metric_names: list[str] | None = Query(default=None, description="Specific metric names"),
-    session: Session = Depends(get_session),
+    metric_names: list[str] | None,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get real-time market metrics"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
@@ -641,7 +641,7 @@ async def get_realtime_metrics(
 
 @router.get("/health", response_model=dict[str, Any])
 @rate_limit(rate=100, per=60)
-async def analytics_health_check(request: Request, session: Session = Depends(get_session)) -> dict[str, Any]:
+async def analytics_health_check(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Health check for analytics service"""
     try:
         return {

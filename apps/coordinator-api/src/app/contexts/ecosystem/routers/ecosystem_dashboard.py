@@ -4,9 +4,9 @@ REST API for developer ecosystem metrics and analytics
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -90,7 +90,7 @@ class MetricsFilterRequest(BaseModel):
     compare_period: str | None = None
 
 
-def get_ecosystem_service(session: Session = Depends(get_session)) -> EcosystemService:
+def get_ecosystem_service(session: Annotated[Session, Depends(get_session)]) -> EcosystemService:
     return EcosystemService(session)
 
 
@@ -98,10 +98,10 @@ def get_ecosystem_service(session: Session = Depends(get_session)) -> EcosystemS
 @rate_limit(rate=200, per=60)
 async def get_developer_earnings(
     request: Request,
-    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
-    current_user: dict = Depends(get_current_user),
+    period: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> DeveloperEarningsResponse:
     """Get developer earnings metrics"""
     try:
@@ -116,9 +116,9 @@ async def get_developer_earnings(
 @rate_limit(rate=200, per=60)
 async def get_agent_utilization(
     request: Request,
-    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    period: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> AgentUtilizationResponse:
     """Get agent utilization metrics"""
     try:
@@ -133,9 +133,9 @@ async def get_agent_utilization(
 @rate_limit(rate=200, per=60)
 async def get_treasury_allocation(
     request: Request,
-    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    period: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> TreasuryAllocationResponse:
     """Get DAO treasury allocation metrics"""
     try:
@@ -150,9 +150,9 @@ async def get_treasury_allocation(
 @rate_limit(rate=200, per=60)
 async def get_staking_metrics(
     request: Request,
-    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    period: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> StakingMetricsResponse:
     """Get staking system metrics"""
     try:
@@ -167,9 +167,9 @@ async def get_staking_metrics(
 @rate_limit(rate=200, per=60)
 async def get_bounty_analytics(
     request: Request,
-    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    period: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> BountyAnalyticsResponse:
     """Get bounty system analytics"""
     try:
@@ -184,9 +184,9 @@ async def get_bounty_analytics(
 @rate_limit(rate=100, per=60)
 async def get_ecosystem_overview(
     request: Request,
-    period_type: str = Query(default="daily", pattern="^(hourly|daily|weekly|monthly)$"),
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    period_type: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> EcosystemOverviewResponse:
     """Get comprehensive ecosystem overview"""
     try:
@@ -211,12 +211,12 @@ async def get_ecosystem_overview(
 @rate_limit(rate=200, per=60)
 async def get_ecosystem_metrics(
     request: Request,
-    period_type: str = Query(default="daily", pattern="^(hourly|daily|weekly|monthly)$"),
-    start_date: datetime | None = None,
-    end_date: datetime | None = None,
-    limit: int = Query(default=100, ge=1, le=1000),
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    period_type: str | None,
+    start_date: datetime | None,
+    end_date: datetime | None,
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> dict[str, Any]:
     """Get time-series ecosystem metrics"""
     try:
@@ -233,8 +233,8 @@ async def get_ecosystem_metrics(
 @rate_limit(rate=200, per=60)
 async def get_ecosystem_health_score(
     request: Request,
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> dict[str, Any]:
     """Get overall ecosystem health score"""
     try:
@@ -254,9 +254,9 @@ async def get_ecosystem_health_score(
 @rate_limit(rate=200, per=60)
 async def get_growth_indicators(
     request: Request,
-    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    period: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> dict[str, Any]:
     """Get ecosystem growth indicators"""
     try:
@@ -276,11 +276,11 @@ async def get_growth_indicators(
 @rate_limit(rate=200, per=60)
 async def get_top_performers(
     request: Request,
-    category: str = Query(default="all", pattern="^(developers|agents|stakers|all)$"),
-    period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
-    limit: int = Query(default=50, ge=1, le=100),
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    category: str | None,
+    period: str | None,
+    limit: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> dict[str, Any]:
     """Get top performers in different categories"""
     try:
@@ -295,10 +295,10 @@ async def get_top_performers(
 @rate_limit(rate=200, per=60)
 async def get_ecosystem_predictions(
     request: Request,
-    metric: str = Query(default="all", pattern="^(earnings|staking|bounties|agents|all)$"),
-    horizon: int = Query(default=30, ge=1, le=365),
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    metric: str | None,
+    horizon: int | None,
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> dict[str, Any]:
     """Get ecosystem predictions based on historical data"""
     try:
@@ -319,9 +319,9 @@ async def get_ecosystem_predictions(
 @rate_limit(rate=200, per=60)
 async def get_ecosystem_alerts(
     request: Request,
-    severity: str = Query(default="all", pattern="^(low|medium|high|critical|all)$"),
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    severity: str | None,
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> dict[str, Any]:
     """Get ecosystem alerts and anomalies"""
     try:
@@ -336,12 +336,12 @@ async def get_ecosystem_alerts(
 @rate_limit(rate=200, per=60)
 async def get_ecosystem_comparison(
     request: Request,
-    current_period: str = Query(default="monthly", pattern="^(daily|weekly|monthly)$"),
-    compare_period: str = Query(default="previous", pattern="^(previous|same_last_year|custom)$"),
-    custom_start_date: datetime | None = None,
-    custom_end_date: datetime | None = None,
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    current_period: str | None,
+    compare_period: str | None,
+    custom_start_date: datetime | None,
+    custom_end_date: datetime | None,
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> dict[str, Any]:
     """Compare ecosystem metrics between periods"""
     try:
@@ -366,12 +366,12 @@ async def get_ecosystem_comparison(
 @rate_limit(rate=50, per=60)
 async def export_ecosystem_data(
     request: Request,
-    format: str = Query(default="json", pattern="^(json|csv|xlsx)$"),
-    period_type: str = Query(default="daily", pattern="^(hourly|daily|weekly|monthly)$"),
-    start_date: datetime | None = None,
-    end_date: datetime | None = None,
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    format: str | None,
+    period_type: str | None,
+    start_date: datetime | None,
+    end_date: datetime | None,
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> dict[str, Any]:
     """Export ecosystem data in various formats"""
     try:
@@ -395,8 +395,8 @@ async def export_ecosystem_data(
 @rate_limit(rate=100, per=60)
 async def get_real_time_metrics(
     request: Request,
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> dict[str, Any]:
     """Get real-time ecosystem metrics"""
     try:
@@ -411,8 +411,8 @@ async def get_real_time_metrics(
 @rate_limit(rate=200, per=60)
 async def get_kpi_dashboard(
     request: Request,
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
+    session: Annotated[Session, Depends(get_session)],
+    ecosystem_service: Annotated[EcosystemService, Depends(get_ecosystem_service)],
 ) -> dict[str, Any]:
     """Get KPI dashboard with key performance indicators"""
     try:

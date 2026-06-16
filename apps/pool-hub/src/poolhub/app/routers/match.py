@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from redis.asyncio import Redis
@@ -34,8 +34,8 @@ def _candidate_from_payload(payload: dict[str, Any]) -> MatchCandidate:
 @router.post("/match", response_model=MatchResponse, summary="Find top miners for a job")
 async def match_endpoint(
     payload: MatchRequestPayload,
-    session: AsyncSession = Depends(db_session_dep),
-    redis: Redis = Depends(redis_dep),
+    session: Annotated[AsyncSession, Depends(db_session_dep)],
+    redis: Annotated[Redis, Depends(redis_dep)],
 ) -> MatchResponse:
     start = time.perf_counter()
     match_requests_total.inc()

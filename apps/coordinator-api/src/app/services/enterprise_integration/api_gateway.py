@@ -8,7 +8,7 @@ import secrets
 import time
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Any
+from typing import Annotated, Any
 from uuid import uuid4
 
 import jwt
@@ -426,21 +426,23 @@ async def api_metrics_middleware(request: Request, call_next: Any) -> Any:
 
 
 @app.post("/enterprise/auth")
-async def enterprise_auth(request: EnterpriseAuthRequest, db_session: Any = Depends(get_db_session)) -> Any:
+async def enterprise_auth(request: EnterpriseAuthRequest, db_session: Annotated[Any, Depends(get_db_session)]) -> Any:
     """Authenticate enterprise client"""
     result = await gateway.authenticate_enterprise_client(request, db_session)
     return result
 
 
 @app.post("/enterprise/quota/check")
-async def check_quota(request: APIQuotaRequest, db_session: Any = Depends(get_db_session)) -> Any:
+async def check_quota(request: APIQuotaRequest, db_session: Annotated[Any, Depends(get_db_session)]) -> Any:
     """Check API quota"""
     result = await gateway.check_api_quota(request.tenant_id, request.endpoint, request.method, db_session)
     return result
 
 
 @app.post("/enterprise/integrations")
-async def create_integration(request: EnterpriseIntegrationRequest, db_session: Any = Depends(get_db_session)) -> Any:
+async def create_integration(
+    request: EnterpriseIntegrationRequest, db_session: Annotated[Any, Depends(get_db_session)]
+) -> Any:
     """Create enterprise integration"""
     tenant_id = "demo_tenant"
     result = await gateway.create_enterprise_integration(tenant_id, request, db_session)
@@ -448,7 +450,7 @@ async def create_integration(request: EnterpriseIntegrationRequest, db_session: 
 
 
 @app.get("/enterprise/analytics")
-async def get_analytics(db_session: Any = Depends(get_db_session)) -> Any:
+async def get_analytics(db_session: Annotated[Any, Depends(get_db_session)]) -> Any:
     """Get enterprise analytics dashboard"""
     tenant_id = "demo_tenant"
     result = await gateway.get_enterprise_metrics(tenant_id, db_session)
