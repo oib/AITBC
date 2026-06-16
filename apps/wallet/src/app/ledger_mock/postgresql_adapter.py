@@ -7,7 +7,7 @@ import psycopg2
 from psycopg2 import extensions
 from psycopg2.extras import RealDictCursor
 
-from aitbc.logging import get_logger  # type: ignore
+from aitbc import get_logger
 
 logger = get_logger(__name__)
 

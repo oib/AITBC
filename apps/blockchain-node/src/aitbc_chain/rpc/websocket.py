@@ -106,9 +106,9 @@ async def subscription_websocket(websocket: WebSocket) -> None:
                 while True:
                     await asyncio.sleep(20)
                     await websocket.send_json({"type": "ping", "timestamp": time.time()})
-            except WebSocketDisconnect:
+            except WebSocketDisconnect:  # nosec B110 - expected disconnect
                 pass
-            except Exception:
+            except Exception:  # nosec B110 - intentional silent cleanup
                 pass
 
         from asyncio import create_task, wait

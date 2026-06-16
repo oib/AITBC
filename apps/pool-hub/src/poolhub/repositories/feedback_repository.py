@@ -7,7 +7,7 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aitbc.logging import get_logger  # type: ignore
+from aitbc import get_logger
 
 from ..models import Feedback
 from ..storage.redis_keys import RedisKeys
