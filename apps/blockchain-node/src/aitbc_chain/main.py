@@ -375,7 +375,7 @@ class BlockchainNode:
                                 remote_height = remote_data.get("height", 0)
 
                             gap = remote_height - local_height
-                            if gap > 10:  # Force pull if gap exceeds 10 blocks
+                            if gap >= 3:  # Force pull if gap is 3 or more blocks
                                 logger.warning(
                                     "Block gap too large (%s blocks), forcing pull sync despite push mode",
                                     gap,

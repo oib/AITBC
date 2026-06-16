@@ -27,6 +27,14 @@ class BlockchainTextFormatter(logging.Formatter):
         "request_id",
         "node_id",
         "correlation_id",
+        "local_height",
+        "sync_mode",
+        "lease_remaining_seconds",
+        "imported",
+        "progress",
+        "gap",
+        "force_pull",
+        "reason",
     )
 
     def format(self, record: logging.LogRecord) -> str:
