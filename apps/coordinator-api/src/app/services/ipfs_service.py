@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-import httpx
+import httpx  # type: ignore[import-not-found]
 
 from aitbc.aitbc_logging import get_logger
 
@@ -166,7 +166,7 @@ class IPFSClient:
                     json={"hashToPin": cid, "pinataMetadata": {"name": name}},
                     timeout=30.0,
                 )
-                return response.status_code == 200
+                return response.status_code == 200  # type: ignore[no-any-return]
             return False
         except Exception as e:
             logger.warning("External pinning failed: %s", e)
@@ -178,7 +178,7 @@ class IPFSClient:
             try:
                 response = await self._client.get(f"{self.gateway_url}/ipfs/{cid}", timeout=30.0, follow_redirects=True)
                 if response.status_code == 200:
-                    return response.content
+                    return response.content  # type: ignore[no-any-return]
             except Exception as e:
                 logger.debug("Could not fetch from IPFS gateway: %s", e)
         return None
@@ -189,7 +189,7 @@ class IPFSClient:
             return False
         try:
             response = await self._client.post(f"{self.api_url}/api/v0/pin/add", params={"arg": cid}, timeout=30.0)
-            return response.status_code == 200
+            return response.status_code == 200  # type: ignore[no-any-return]
         except Exception as e:
             logger.warning("Pin failed: %s", e)
             return False
@@ -200,7 +200,7 @@ class IPFSClient:
             return False
         try:
             response = await self._client.post(f"{self.api_url}/api/v0/pin/rm", params={"arg": cid}, timeout=30.0)
-            return response.status_code == 200
+            return response.status_code == 200  # type: ignore[no-any-return]
         except Exception as e:
             logger.warning("Unpin failed: %s", e)
             return False

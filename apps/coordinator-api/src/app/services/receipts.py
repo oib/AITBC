@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from secrets import token_hex
 from typing import Any, cast
 
-from aitbc_crypto.signing import ReceiptSigner  # type: ignore[import-untyped]
+from aitbc_crypto.signing import ReceiptSigner  # type: ignore[import-not-found]
 from sqlmodel import Session
 
 from aitbc import get_logger
