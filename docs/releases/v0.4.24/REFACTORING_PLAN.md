@@ -22,7 +22,7 @@
 | `aitbc.decorators` | ✅ Complete | `decorators/__init__.py` | 6 decorator functions |
 | `aitbc.events` | ✅ Complete | `events/__init__.py` | 11 event classes/functions |
 | `aitbc.monitoring` | ✅ Complete | `monitoring/__init__.py` | 3 monitoring classes |
-| `aitbc.queue` | ✅ Complete | `queue/__init__.py` | 9 queue classes/functions |
+| `aitbc.queues` | ✅ Complete | `queues/__init__.py` | 9 queue classes/functions |
 | `aitbc.state` | ✅ Complete | `state/__init__.py` | 10 state classes |
 | `aitbc.testing` | ✅ Complete | `testing/__init__.py` | 9 testing classes/functions |
 | `aitbc.data_layer` | ✅ Complete | `data_layer/__init__.py` | 4 data layer classes/functions |
@@ -59,7 +59,7 @@
 5. ✅ Created `aitbc.decorators` submodule with 6 decorator functions
 6. ✅ Created `aitbc.events` submodule with 11 event classes/functions
 7. ✅ Created `aitbc.monitoring` submodule with 3 monitoring classes
-8. ✅ Created `aitbc.queue` submodule with 9 queue classes/functions
+8. ✅ Created `aitbc.queues` submodule with 9 queue classes/functions
 9. ✅ Created `aitbc.state` submodule with 10 state classes
 10. ✅ Created `aitbc.testing` submodule with 9 testing classes/functions
 11. ✅ Created `aitbc.data_layer` submodule with 4 data layer classes/functions
