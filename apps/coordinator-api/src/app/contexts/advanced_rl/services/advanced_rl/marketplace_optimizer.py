@@ -7,7 +7,7 @@ import asyncio
 from datetime import UTC, datetime
 from typing import Any
 
-import numpy as np
+import numpy as np  # type: ignore[import-not-found]
 from sqlmodel import Session, select
 
 from aitbc import get_logger

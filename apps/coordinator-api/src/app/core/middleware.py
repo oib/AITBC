@@ -4,9 +4,9 @@ Middleware configuration for Coordinator API.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+from slowapi import Limiter, _rate_limit_exceeded_handler  # type: ignore[import-not-found]
+from slowapi.errors import RateLimitExceeded  # type: ignore[import-not-found]
+from slowapi.util import get_remote_address  # type: ignore[import-not-found]
 
 from aitbc import get_logger
 
@@ -33,6 +33,6 @@ def setup_middleware(app: FastAPI) -> None:
         storage_uri=settings.redis_url,
     )
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     logger.info("Middleware configured successfully")
