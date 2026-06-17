@@ -13,7 +13,7 @@ from app.storage import get_session  # type: ignore[import-not-found]
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 

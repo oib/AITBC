@@ -2,8 +2,7 @@
 
 import pytest
 
-from aitbc import configure_logging, get_logger, setup_logger
-from aitbc.aitbc_logging import BlockchainTextFormatter, StructuredFormatter
+from aitbc.aitbc_logging import BlockchainTextFormatter, StructuredFormatter, configure_logging, get_logger, setup_logger
 
 
 class TestLogging:

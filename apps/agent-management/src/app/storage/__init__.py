@@ -8,7 +8,7 @@ from collections.abc import Generator
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..core.config import settings
 

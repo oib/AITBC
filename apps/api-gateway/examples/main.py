@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 app = FastAPI(

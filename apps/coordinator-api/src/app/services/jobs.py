@@ -5,7 +5,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..contexts.payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner

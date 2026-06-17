@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..database import get_db  # type: ignore
 from ..models import CapacitySnapshot  # type: ignore

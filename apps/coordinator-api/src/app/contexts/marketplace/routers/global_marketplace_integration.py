@@ -10,7 +10,7 @@ from app.domain.multi_chain_transaction import TransactionPriority  # type: igno
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ....agent_identity.manager import AgentIdentityManager
 from ....reputation.engine import CrossChainReputationEngine

@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -15,6 +15,11 @@ from .pooling import (
     create_pooled_sessionmaker,
 )
 from .replica import ReadReplicaManager
+from .service import (
+    DatabaseService,
+    DatabaseServiceFactory,
+    SQLiteDatabaseService,
+)
 from .utils import (
     ensure_database,
     get_database_connection,
@@ -38,4 +43,8 @@ __all__ = [
     "vacuum_database",
     "get_table_info",
     "table_exists",
+    # Core database classes
+    "DatabaseService",
+    "SQLiteDatabaseService",
+    "DatabaseServiceFactory",
 ]

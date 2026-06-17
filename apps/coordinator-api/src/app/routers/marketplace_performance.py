@@ -17,7 +17,7 @@ from app.services.marketplace_scaler import ResourceScaler  # type: ignore[impor
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)

@@ -10,7 +10,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 load_dotenv()
 logger = get_logger(__name__)
