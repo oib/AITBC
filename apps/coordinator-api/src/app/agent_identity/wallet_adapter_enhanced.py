@@ -12,15 +12,9 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from aitbc import (
-    AITBCHTTPClient,
-    Web3Client,
-    derive_ethereum_address,
-    encrypt_private_key,
-    get_logger,
-    sign_transaction_hash,
-    verify_signature,
-)
+from aitbc.aitbc_logging import get_logger
+from aitbc.crypto.crypto import derive_ethereum_address, encrypt_private_key, sign_transaction_hash, verify_signature
+from aitbc.network import AITBCHTTPClient, Web3Client
 
 from ..contexts.agent_identity.domain.agent_identity import ChainType
 

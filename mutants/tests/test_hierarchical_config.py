@@ -3,7 +3,7 @@
 import tempfile
 from pathlib import Path
 
-from aitbc.hierarchical_config import HierarchicalConfig
+from aitbc.config import HierarchicalConfig
 
 
 class TestHierarchicalConfig:

@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ....deps import require_admin_key
 from ....schemas.hermes_decision import (
@@ -30,7 +30,7 @@ router = APIRouter(prefix="/hermes/decision", tags=["hermes Decision Making"])
 async def propose_decision(
     proposal: DecisionProposal,
     session: Annotated[Session, Depends(get_session)],
-    current_user: str = Depends(require_admin_key()),
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> DecisionProposalResponse:
     """Create a new decision proposal for agent voting."""
     try:
@@ -42,7 +42,9 @@ async def propose_decision(
 
 @router.post("/vote", response_model=VoteResponse)
 async def submit_vote(
-    vote: Vote, session: Annotated[Session, Depends(get_session)], current_user: str = Depends(require_admin_key())
+    vote: Vote,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> VoteResponse:
     """Submit an agent vote on a decision."""
     try:
@@ -54,7 +56,9 @@ async def submit_vote(
 
 @router.get("/{decision_id}", response_model=DecisionResult)
 async def get_decision(
-    decision_id: str, session: Annotated[Session, Depends(get_session)], current_user: str = Depends(require_admin_key())
+    decision_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> DecisionResult:
     """Get the current result of a decision."""
     try:
@@ -72,7 +76,7 @@ async def get_decision(
 @router.get("/", response_model=DecisionListResponse)
 async def list_decisions(
     session: Annotated[Session, Depends(get_session)],
-    current_user: str = Depends(require_admin_key()),
+    current_user: Annotated[str, Depends(require_admin_key())],
     decision_type: DecisionType | None = None,
     status: DecisionStatus | None = None,
 ) -> DecisionListResponse:

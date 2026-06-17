@@ -12,7 +12,7 @@ import pytest
 from aitbc_cli.commands.workflow import workflow
 from click.testing import CliRunner
 
-from aitbc import AITBCHTTPClient
+from aitbc.network.http_client import AITBCHTTPClient
 
 
 @pytest.fixture

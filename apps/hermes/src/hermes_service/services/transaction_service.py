@@ -6,7 +6,7 @@ from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 
 class TransactionService:
@@ -30,7 +30,7 @@ class TransactionService:
             Current nonce
         """
         try:
-            from aitbc import AITBCHTTPClient
+            from aitbc.network.http_client import AITBCHTTPClient
 
             http_client = AITBCHTTPClient(base_url=self.rpc_url, timeout=5)
             account_data = http_client.get(f"/rpc/account/{address}")
@@ -50,7 +50,7 @@ class TransactionService:
             Current balance
         """
         try:
-            from aitbc import AITBCHTTPClient
+            from aitbc.network.http_client import AITBCHTTPClient
 
             http_client = AITBCHTTPClient(base_url=self.rpc_url, timeout=5)
             account_data = http_client.get(f"/rpc/account/{address}")

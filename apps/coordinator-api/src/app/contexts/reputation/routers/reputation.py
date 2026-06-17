@@ -12,7 +12,7 @@ from sqlalchemy import and_, desc
 from sqlalchemy.orm import Session
 from sqlmodel import func, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....domain.reputation import (

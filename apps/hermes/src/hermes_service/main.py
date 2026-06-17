@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
-from aitbc import configure_logging, get_logger
+from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 
 from .handlers import HandlerRegistry  # type: ignore[import-not-found]
 from .services.transaction_service import TransactionService  # type: ignore
@@ -23,10 +23,14 @@ logger = get_logger(__name__)
 COORDINATOR_URL = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8011")
 HERMES_AGENT_ID = os.getenv("HERMES_AGENT_ID", "hermes-agent")
 
+# Module-level handler registry
+handler_registry: HandlerRegistry | None = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown events."""
+    global handler_registry
     # Startup
     handler_registry = HandlerRegistry(COORDINATOR_URL, HERMES_AGENT_ID)
     handler_registry.load_all_handlers()
@@ -245,7 +249,7 @@ async def remote_execute_coin_request(
     if not signed_tx:
         raise HTTPException(status_code=500, detail="Failed to generate signed transaction")
     try:
-        from aitbc import AITBCHTTPClient
+        from aitbc.network.http_client import AITBCHTTPClient
 
         http_client = AITBCHTTPClient(base_url=tx_service.rpc_url, timeout=30)
         result = http_client.post("/rpc/transaction", json=signed_tx)

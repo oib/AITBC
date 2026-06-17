@@ -19,7 +19,7 @@ router = APIRouter(tags=["payments"])
 async def create_payment(
     payment_data: JobPaymentCreate,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> JobPaymentView:
     """Create a payment for a job"""
 
@@ -33,7 +33,7 @@ async def create_payment(
 async def get_payment(
     payment_id: str,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> JobPaymentView:
     """Get payment details by ID"""
 
@@ -50,7 +50,7 @@ async def get_payment(
 async def get_job_payment(
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> JobPaymentView:
     """Get payment information for a specific job"""
 
@@ -68,7 +68,7 @@ async def release_payment(
     payment_id: str,
     release_data: EscrowRelease,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> dict[str, Any]:
     """Release payment from escrow (for completed jobs)"""
 
@@ -92,7 +92,7 @@ async def refund_payment(
     payment_id: str,
     refund_data: RefundRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> dict[str, Any]:
     """Refund payment (for failed or cancelled jobs)"""
 
@@ -115,7 +115,7 @@ async def refund_payment(
 async def get_payment_receipt(
     payment_id: str,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> PaymentReceipt:
     """Get payment receipt with verification status"""
 

@@ -5,24 +5,23 @@ API Gateway main application
 Routes requests to microservices
 """
 
-import asyncio
-import hmac
-import os
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+import asyncio  # noqa: E402
+import hmac  # noqa: E402
+import os  # noqa: E402
+from collections.abc import AsyncIterator  # noqa: E402
+from contextlib import asynccontextmanager  # noqa: E402
 
-import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
-from fastapi.responses import JSONResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+import httpx  # noqa: E402
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer  # noqa: E402
 
-from aitbc import (  # type: ignore[attr-defined]
+from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.middleware import (  # noqa: E402
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
     RequestIDMiddleware,
     RequestValidationMiddleware,
-    configure_logging,
-    get_logger,
 )
 
 try:

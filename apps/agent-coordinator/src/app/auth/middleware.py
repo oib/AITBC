@@ -11,7 +11,7 @@ from typing import Annotated, Any, TypeVar, cast
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .jwt_handler import api_key_manager, jwt_handler
 

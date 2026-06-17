@@ -5,7 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ....deps import require_admin_key
 from ....domain import Miner
@@ -19,7 +19,8 @@ router = APIRouter(tags=["marketplace-offers"])
 
 @router.post("/marketplace/sync-offers", summary="Create offers from registered miners")
 async def sync_offers(
-    session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())
+    session: Annotated[Session, Depends(get_session)],
+    admin_key: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:
     """Create marketplace offers from all registered miners"""
     miners = session.execute(select(Miner).where(Miner.status == "ONLINE")).scalars().all()

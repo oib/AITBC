@@ -20,7 +20,7 @@ def load_module_from_path(module_name, file_path):
     return module
 
 
-state = load_module_from_path("aitbc.state", Path("/opt/aitbc/aitbc/state.py"))
+state = load_module_from_path("aitbc.state", Path("/opt/aitbc/aitbc/state/state.py"))
 
 
 # ============================================================================

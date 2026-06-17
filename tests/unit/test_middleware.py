@@ -1,7 +1,7 @@
 """Unit tests for middleware module."""
 
 import pytest
-from app.middleware import register_middleware
+from app.core.middleware import setup_middleware
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -9,10 +9,10 @@ from fastapi.testclient import TestClient
 class TestMiddleware:
     """Tests for middleware registration."""
 
-    def test_register_middleware_adds_middleware(self):
-        """Test that register_middleware registers middleware on app."""
+    def test_setup_middleware_adds_middleware(self):
+        """Test that setup_middleware registers middleware on app."""
         app = FastAPI()
-        register_middleware(app)
+        setup_middleware(app)
 
         # Check that middleware was added
         assert len(app.user_middleware) == 2
@@ -20,7 +20,7 @@ class TestMiddleware:
     def test_security_headers_middleware(self):
         """Test security headers middleware adds headers."""
         app = FastAPI()
-        register_middleware(app)
+        setup_middleware(app)
 
         @app.get("/test")
         async def test_endpoint():
@@ -36,7 +36,7 @@ class TestMiddleware:
     def test_metrics_middleware(self):
         """Test metrics middleware records request."""
         app = FastAPI()
-        register_middleware(app)
+        setup_middleware(app)
 
         @app.get("/metrics-test")
         async def metrics_test():

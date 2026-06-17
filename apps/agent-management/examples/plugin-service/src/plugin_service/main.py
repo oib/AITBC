@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, HTTPException
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 _REGISTRY_PATH = Path(os.getenv("DATA_DIR", "/var/lib/aitbc")) / "plugins.json"

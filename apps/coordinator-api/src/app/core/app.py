@@ -4,7 +4,7 @@ FastAPI application setup for Coordinator API.
 
 from fastapi import FastAPI
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 

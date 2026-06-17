@@ -7,7 +7,7 @@ import argparse
 import os
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -8,7 +8,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ..config import settings
@@ -38,7 +38,9 @@ async def debug_settings(request: Request) -> dict:
 @router.post("/debug/create-test-miner", summary="Create a test miner for debugging")
 @rate_limit(rate=10, per=60)
 async def create_test_miner(
-    request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    admin_key: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, str]:
     """Create a test miner for debugging marketplace sync"""
     try:
@@ -137,7 +139,9 @@ async def get_stats(
 @router.get("/jobs", summary="List jobs")
 @rate_limit(rate=100, per=60)
 async def list_jobs(
-    request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    admin_key: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, list[dict]]:
     from ..domain import Job
 
@@ -159,7 +163,9 @@ async def list_jobs(
 @router.get("/miners", summary="List miners")
 @rate_limit(rate=100, per=60)
 async def list_miners(
-    request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    admin_key: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, list[dict]]:
     from sqlmodel import select
 
@@ -187,7 +193,9 @@ async def list_miners(
 @router.get("/status", summary="Get system status", response_model=None)
 @rate_limit(rate=100, per=60)
 async def get_system_status(
-    request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    admin_key: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:
     """Get comprehensive system status for admin dashboard"""
     try:

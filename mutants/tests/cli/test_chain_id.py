@@ -5,7 +5,7 @@ Tests for chain ID utility functions
 from unittest.mock import Mock, patch
 
 import pytest
-from aitbc import NetworkError
+from aitbc.exceptions import NetworkError
 from aitbc_cli.utils.chain_id import (
     KNOWN_CHAINS,
     get_chain_id,

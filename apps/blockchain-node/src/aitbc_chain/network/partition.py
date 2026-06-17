@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .discovery import NodeStatus, P2PDiscovery
 from .health import PeerHealthMonitor

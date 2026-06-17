@@ -12,7 +12,7 @@ from urllib.parse import urljoin
 
 import aiohttp
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .exceptions import (
     AgentIdentityError,

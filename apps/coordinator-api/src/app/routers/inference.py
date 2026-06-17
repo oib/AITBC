@@ -14,7 +14,7 @@ import json
 from collections.abc import AsyncGenerator
 from typing import Any
 
-import httpx  # type: ignore[import-not-found]
+import httpx
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field

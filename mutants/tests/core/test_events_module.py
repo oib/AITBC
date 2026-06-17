@@ -17,7 +17,7 @@ def load_module_from_path(module_name, file_path):
     return module
 
 
-events = load_module_from_path("aitbc.events", Path("/opt/aitbc/aitbc/events.py"))
+events = load_module_from_path("aitbc.events", Path("/opt/aitbc/aitbc/events/events.py"))
 
 
 # ============================================================================

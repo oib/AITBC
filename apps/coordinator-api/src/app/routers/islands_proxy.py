@@ -2,7 +2,7 @@
 
 from typing import Any
 
-import httpx  # type: ignore[import-not-found]
+import httpx
 from fastapi import APIRouter, HTTPException, Request
 
 from aitbc.rate_limiting import rate_limit

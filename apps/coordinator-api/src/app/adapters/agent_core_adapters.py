@@ -5,8 +5,8 @@ These adapters wrap coordinator-api's native domain models and services.
 
 from typing import Any
 
-from aitbc_agent_core.protocols.database import ISessionProvider  # type: ignore[import-not-found]
-from aitbc_agent_core.protocols.domain import (  # type: ignore[import-not-found]
+from aitbc_agent_core.protocols.database import ISessionProvider
+from aitbc_agent_core.protocols.domain import (
     AgentStatus as ProtocolAgentStatus,
 )
 from aitbc_agent_core.protocols.domain import (
@@ -19,9 +19,9 @@ from aitbc_agent_core.protocols.domain import (
 from aitbc_agent_core.protocols.domain import (
     VerificationLevel as ProtocolVerificationLevel,
 )
-from aitbc_agent_core.protocols.orchestrator import IAgentOrchestrator  # type: ignore[import-not-found]
-from aitbc_agent_core.protocols.security import IAuditor, ISecurityManager  # type: ignore[import-not-found]
-from aitbc_agent_core.protocols.zk_proof import IZKProofService  # type: ignore[import-not-found]
+from aitbc_agent_core.protocols.orchestrator import IAgentOrchestrator
+from aitbc_agent_core.protocols.security import IAuditor, ISecurityManager
+from aitbc_agent_core.protocols.zk_proof import IZKProofService
 
 # Import from coordinator-api's own domain models
 from app.domain.agent import (  # type: ignore[import-not-found]
@@ -38,7 +38,7 @@ from app.services.agent_coordination.security import (  # type: ignore[import-no
 from sqlmodel import Session
 
 
-class AgentExecutionAdapter(IAgentExecution):  # type: ignore[misc]
+class AgentExecutionAdapter(IAgentExecution):
     """Adapter for AgentExecution domain model"""
 
     def __init__(self, execution: AgentExecution):
@@ -64,7 +64,7 @@ class AgentExecutionAdapter(IAgentExecution):  # type: ignore[misc]
         return self._execution.model_dump()  # type: ignore[no-any-return]
 
 
-class AgentStepExecutionAdapter(IAgentStepExecution):  # type: ignore[misc]
+class AgentStepExecutionAdapter(IAgentStepExecution):
     """Adapter for AgentStepExecution domain model"""
 
     def __init__(self, step_execution: AgentStepExecution):
@@ -86,7 +86,7 @@ class AgentStepExecutionAdapter(IAgentStepExecution):  # type: ignore[misc]
         return self._step_execution.model_dump()  # type: ignore[no-any-return]
 
 
-class AgentSecurityManagerAdapter(ISecurityManager):  # type: ignore[misc]
+class AgentSecurityManagerAdapter(ISecurityManager):
     """Adapter for AgentSecurityManager"""
 
     def __init__(self, manager: AgentSecurityManager):
@@ -109,7 +109,7 @@ class AgentSecurityManagerAdapter(ISecurityManager):  # type: ignore[misc]
             await self._manager.audit_event(event_type, details)
 
 
-class AgentAuditorAdapter(IAuditor):  # type: ignore[misc]
+class AgentAuditorAdapter(IAuditor):
     """Adapter for AgentAuditor"""
 
     def __init__(self, auditor: AgentAuditor):
@@ -123,7 +123,7 @@ class AgentAuditorAdapter(IAuditor):  # type: ignore[misc]
             await self._auditor.audit_event(event_type, details)
 
 
-class AgentOrchestratorAdapter(IAgentOrchestrator):  # type: ignore[misc]
+class AgentOrchestratorAdapter(IAgentOrchestrator):
     """Adapter for AIAgentOrchestrator"""
 
     def __init__(self, orchestrator: AIAgentOrchestrator):
@@ -151,7 +151,7 @@ class AgentOrchestratorAdapter(IAgentOrchestrator):  # type: ignore[misc]
         }
 
 
-class ZKProofServiceAdapter(IZKProofService):  # type: ignore[misc]
+class ZKProofServiceAdapter(IZKProofService):
     """Adapter for ZK proof service (mock implementation)"""
 
     def __init__(self, session: Session):
@@ -174,7 +174,7 @@ class ZKProofServiceAdapter(IZKProofService):  # type: ignore[misc]
         return {"verified": True, "verification_time": 0.05, "details": {"mock": True}}
 
 
-class SessionProviderAdapter(ISessionProvider):  # type: ignore[misc]
+class SessionProviderAdapter(ISessionProvider):
     """Adapter for SQLModel session management"""
 
     def __init__(self, session_factory: Any):

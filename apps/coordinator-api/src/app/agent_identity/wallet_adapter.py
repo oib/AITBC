@@ -11,7 +11,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..contexts.agent_identity.domain.agent_identity import AgentWallet, AgentWalletUpdate, ChainType
 
@@ -124,7 +124,7 @@ class AITBCWalletAdapter(WalletAdapter):
 
     async def create_wallet(self, owner_address: str) -> dict[str, Any]:
         """Create a new AITBC wallet for the agent"""
-        from aitbc import derive_ethereum_address
+        from aitbc.crypto.crypto import derive_ethereum_address
 
         private_key = secrets.token_hex(32)
         public_key = derive_ethereum_address(private_key)

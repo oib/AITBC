@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from aitbc.decorators import (
+from aitbc.decorators.decorators import (
     async_timing,
     cache_result,
     handle_exceptions,
@@ -102,7 +102,7 @@ class TestRetry:
 class TestTiming:
     """Tests for timing decorator"""
 
-    @patch("aitbc.decorators.logger")
+    @patch("aitbc.decorators.decorators.logger")
     def test_timing_logs_execution_time(self, mock_logger):
         """Test timing decorator logs execution time"""
 
@@ -116,7 +116,7 @@ class TestTiming:
         mock_logger.info.assert_called_once()
         assert "executed in" in mock_logger.info.call_args[0][0]
 
-    @patch("aitbc.decorators.logger")
+    @patch("aitbc.decorators.decorators.logger")
     def test_timing_preserves_function_name(self, mock_logger):
         """Test timing decorator preserves function name"""
 
@@ -243,7 +243,7 @@ class TestValidateArgs:
 class TestHandleExceptions:
     """Tests for handle_exceptions decorator"""
 
-    @patch("aitbc.decorators.logger")
+    @patch("aitbc.decorators.decorators.logger")
     def test_handle_exceptions_returns_default(self, mock_logger):
         """Test handle_exceptions returns default on exception"""
 
@@ -255,7 +255,7 @@ class TestHandleExceptions:
         assert result == "error"
         mock_logger.error.assert_called_once()
 
-    @patch("aitbc.decorators.logger")
+    @patch("aitbc.decorators.decorators.logger")
     def test_handle_exceptions_no_logging(self, mock_logger):
         """Test handle_exceptions with logging disabled"""
 
@@ -292,7 +292,7 @@ class TestAsyncTiming:
     """Tests for async_timing decorator"""
 
     @pytest.mark.asyncio
-    @patch("aitbc.decorators.logger")
+    @patch("aitbc.decorators.decorators.logger")
     async def test_async_timing_logs_execution_time(self, mock_logger):
         """Test async_timing decorator logs execution time"""
 

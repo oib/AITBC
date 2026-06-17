@@ -12,7 +12,7 @@ import pytest
 
 # Try to load module - skip if dependencies are missing
 try:
-    hierarchical_config = importlib.import_module("aitbc.hierarchical_config")
+    hierarchical_config = importlib.import_module("aitbc.config")
     HAS_DEPENDENCIES = True
 except ImportError as e:
     HAS_DEPENDENCIES = False

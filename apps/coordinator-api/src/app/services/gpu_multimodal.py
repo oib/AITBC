@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..storage import get_session
 from .multimodal_agent import ModalityType  # type: ignore[import-not-found]

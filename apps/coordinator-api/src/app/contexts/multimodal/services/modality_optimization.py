@@ -11,7 +11,7 @@ from typing import Annotated, Any
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ....storage import get_session
 from .multimodal_agent import ModalityType

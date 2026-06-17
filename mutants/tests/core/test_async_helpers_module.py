@@ -18,7 +18,7 @@ def load_module_from_path(module_name, file_path):
     return module
 
 
-async_helpers = load_module_from_path("aitbc.async_helpers", Path("/opt/aitbc/aitbc/async_helpers.py"))
+async_helpers = load_module_from_path("aitbc.async_helpers", Path("/opt/aitbc/aitbc/async_helpers/async_helpers.py"))
 
 
 # ============================================================================

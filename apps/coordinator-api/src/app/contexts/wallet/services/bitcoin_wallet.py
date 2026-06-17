@@ -7,7 +7,8 @@ Uses RPC to connect to Bitcoin Core (or alternative like Block.io)
 import os
 from typing import Any
 
-from aitbc import AITBCHTTPClient, get_logger
+from aitbc.aitbc_logging import get_logger
+from aitbc.network.http_client import AITBCHTTPClient
 
 logger = get_logger(__name__)
 

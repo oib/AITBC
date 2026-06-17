@@ -7,7 +7,7 @@ import sqlite3
 import urllib.parse
 from http.server import BaseHTTPRequestHandler
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .database import get_db_path
 

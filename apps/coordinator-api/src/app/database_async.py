@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .config import settings
 

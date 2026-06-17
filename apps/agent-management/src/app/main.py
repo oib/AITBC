@@ -8,7 +8,7 @@ import uvicorn
 from fastapi import FastAPI
 from sqlalchemy.orm import Session
 
-from aitbc.aitbc_logging import configure_logging, get_logger
+from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 
 # Local imports
 from .core.config import settings
