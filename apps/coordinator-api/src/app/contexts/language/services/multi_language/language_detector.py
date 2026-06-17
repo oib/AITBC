@@ -12,7 +12,7 @@ import langdetect  # type: ignore[import-not-found]
 from langdetect.lang_detect_exception import LangDetectException  # type: ignore[import-not-found]
 from polyglot.detect import Detector  # type: ignore[import-not-found]
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 

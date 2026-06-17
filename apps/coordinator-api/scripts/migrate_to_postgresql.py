@@ -4,7 +4,7 @@
 import sys
 from pathlib import Path
 
-from aitbc import DATA_DIR
+from aitbc.constants import DATA_DIR
 
 # Add the src directory to the path
 sys.path.insert(0, str(Path(__file__).parent / "src"))

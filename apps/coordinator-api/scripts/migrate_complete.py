@@ -7,7 +7,7 @@ from decimal import Decimal
 
 import psycopg2
 
-from aitbc import DATA_DIR
+from aitbc.constants import DATA_DIR
 
 # Database configurations
 SQLITE_DB = str(DATA_DIR / "data/coordinator.db")

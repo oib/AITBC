@@ -11,7 +11,7 @@ from typing import Any
 from app.domain.multi_chain_transaction import TransactionPriority  # type: ignore[import-not-found]
 from sqlmodel import Session, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ....agent_identity.wallet_adapter_enhanced import WalletAdapterFactory
 from ....reputation.engine import CrossChainReputationEngine

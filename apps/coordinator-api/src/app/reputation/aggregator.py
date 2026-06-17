@@ -8,7 +8,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..domain.cross_chain_reputation import CrossChainReputationAggregation, CrossChainReputationConfig
 from ..domain.reputation import AgentReputation, ReputationEvent

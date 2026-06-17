@@ -16,12 +16,14 @@ from .crypto import (
     verify_signature,
 )
 from .security import (
+    SecretManager,
     generate_api_key,
     generate_hmac,
     generate_nonce,
     generate_secure_random_int,
     generate_secure_random_string,
     generate_token,
+    get_secret_manager,
     hash_password,
     validate_api_key,
     validate_token_format,
@@ -53,4 +55,7 @@ __all__ = [
     "generate_nonce",
     "generate_hmac",
     "verify_hmac",
+    # Secret management
+    "SecretManager",
+    "get_secret_manager",
 ]

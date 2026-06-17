@@ -11,7 +11,9 @@ from typing import Any
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
-from aitbc import AsyncAITBCHTTPClient, NetworkError, get_logger
+from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import NetworkError
+from aitbc.network.http_client import AsyncAITBCHTTPClient
 
 from ..models import MatchRequest, MatchResult, Miner
 from ..settings import settings

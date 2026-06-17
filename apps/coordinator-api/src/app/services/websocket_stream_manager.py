@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 from websockets.exceptions import ConnectionClosed
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 if TYPE_CHECKING:
     from websockets.legacy.server import WebSocketServerProtocol

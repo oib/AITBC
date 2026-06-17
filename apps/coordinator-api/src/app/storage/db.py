@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import QueuePool
 from sqlmodel import SQLModel
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..config import settings
 

@@ -8,7 +8,7 @@ from typing import Any
 
 from sqlmodel import Session, and_, func, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ....domain.reputation import (
     AgentReputation,

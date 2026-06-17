@@ -11,7 +11,7 @@ import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from aitbc import configure_logging, get_logger
+from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 
 configure_logging(level="INFO")
 logger = get_logger(__name__)

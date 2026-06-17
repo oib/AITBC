@@ -19,7 +19,7 @@ from app.domain.trading import (  # type: ignore[import-not-found]  # type: igno
 )
 from sqlmodel import Session, or_, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 

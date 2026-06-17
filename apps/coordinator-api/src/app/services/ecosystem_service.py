@@ -9,7 +9,7 @@ from typing import Any
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..domain.bounty import AgentMetrics, AgentStake, Bounty, BountyStatus, BountySubmission, EcosystemMetrics
 

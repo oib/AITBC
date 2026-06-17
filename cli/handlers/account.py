@@ -3,7 +3,8 @@
 import json
 import sys
 
-from aitbc import AITBCHTTPClient, NetworkError, get_logger
+from aitbc import NetworkError, get_logger
+from aitbc.network import AITBCHTTPClient
 
 logger = get_logger(__name__)
 

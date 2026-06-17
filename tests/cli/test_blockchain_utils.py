@@ -11,7 +11,7 @@ from aitbc_cli.utils.blockchain import (
     get_network_status,
 )
 
-from aitbc import NetworkError
+from aitbc.exceptions import NetworkError
 
 
 class TestGetChainInfo:

@@ -7,13 +7,13 @@ Provides environment-based adapter selection and consolidated settings.
 import os
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict  # type: ignore[import-not-found]
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from aitbc import DATA_DIR, LOG_DIR
 from aitbc.config import BaseAITBCConfig
+from aitbc.constants import DATA_DIR, LOG_DIR
 
 
-class DatabaseConfig(BaseSettings):  # type: ignore[misc]
+class DatabaseConfig(BaseSettings):
     """Database configuration with adapter selection."""
 
     adapter: str = "sqlite"  # sqlite, postgresql

@@ -9,7 +9,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from fastapi import WebSocket, WebSocketDisconnect
 
 logger = get_logger(__name__)

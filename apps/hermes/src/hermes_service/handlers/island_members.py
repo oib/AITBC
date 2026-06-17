@@ -3,7 +3,7 @@
 import re
 import subprocess
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 
 def get_island_members() -> set[str]:

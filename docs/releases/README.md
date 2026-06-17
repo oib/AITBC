@@ -85,6 +85,20 @@ Read the release notes newest-first:
 
 ---
 
+## 📊 **Topic Summary**
+
+For a comprehensive topic-based analysis of releases from v0.4.5 through v0.8.0, see the [Release Notes Topic Summary](RELEASE_NOTES_TOPIC_SUMMARY.md). This document organizes releases by major themes:
+
+- **Marketplace & Trading Evolution** - Software marketplace, reputation systems, multi-model Ollama, hardware+software bundles, external blockchain exchange, governance integration
+- **Agent Communication & Coordination** - Structured message protocols, cross-node messaging, WebSocket migration, backend implementation
+- **Blockchain Infrastructure** - Node service fixes, input validation, adaptive sync, MyPy compliance
+- **Security & Performance** - Enterprise-grade security, vulnerability fixes, resource optimization, security hardening
+- **Code Quality & Type Safety** - Major refactoring, MyPy type safety graduation, test coverage improvements, linting fixes
+- **Architecture & Observability** - Codebase cleanup, architecture refactoring, logging standardization, observability enhancement
+- **Cross-Chain & Interoperability** - Bridge contracts, multi-chain wallet, inter-chain trading (planned)
+
+---
+
 ## 🧱 **Purpose**
 
 This directory records versioned release notes, migration context, and milestone summaries.
@@ -99,6 +113,6 @@ This directory records versioned release notes, migration context, and milestone
 
 ---
 
-*Last updated: June 8, 2026*
-*Version: 1.2*
+*Last updated: June 17, 2026*
+*Version: 1.3*
 *Status: Release index*

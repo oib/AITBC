@@ -14,13 +14,8 @@ from prometheus_client.exposition import CONTENT_TYPE_LATEST
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 
-from aitbc import (  # type: ignore[attr-defined]
-    ErrorHandlerMiddleware,
-    PerformanceLoggingMiddleware,
-    RequestIDMiddleware,
-    get_logger,
-)
-from aitbc.aitbc_logging import configure_logging
+from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.middleware import ErrorHandlerMiddleware, PerformanceLoggingMiddleware, RequestIDMiddleware
 
 if TYPE_CHECKING:
     from slowapi.errors import RateLimitExceeded

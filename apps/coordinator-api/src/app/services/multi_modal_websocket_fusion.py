@@ -13,9 +13,9 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 
-import numpy as np  # type: ignore[import-not-found]
+import numpy as np
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .websocket_stream_manager import MessageType, StreamConfig, stream_manager
 
