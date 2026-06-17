@@ -3,10 +3,18 @@ Minimal conftest for pytest discovery
 Imports fixtures from dedicated fixture files for better organization
 """
 
-import pytest
-from click.testing import CliRunner
+import sys
+from pathlib import Path
 
-from aitbc.training_setup import TrainingEnvironment, TrainingSetupError
+# Add coordinator-api src to path for tests that import app.main
+_COORD_SRC = str(Path(__file__).resolve().parent.parent / "apps" / "coordinator-api" / "src")
+if _COORD_SRC not in sys.path:
+    sys.path.insert(0, _COORD_SRC)
+
+import pytest  # noqa: E402
+from click.testing import CliRunner  # noqa: E402
+
+from aitbc.training_setup import TrainingEnvironment, TrainingSetupError  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

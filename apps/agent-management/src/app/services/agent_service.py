@@ -9,7 +9,7 @@ from typing import Any
 
 from sqlmodel import Session, select, update
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from app.domain.agent import (
     AgentExecution,
     AgentExecutionRequest,

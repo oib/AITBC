@@ -12,7 +12,7 @@ from fastapi import BackgroundTasks, HTTPException
 from multichain_exchange_api import SUPPORTED_CHAINS, app, get_db_connection
 from pydantic import BaseModel, Field
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 

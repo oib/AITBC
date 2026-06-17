@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field, SQLModel, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .domain.jobs import Job, JobState
 from .storage import get_session

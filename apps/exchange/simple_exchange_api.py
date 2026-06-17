@@ -11,7 +11,8 @@ import urllib.parse
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from aitbc import DATA_DIR, get_logger
+from aitbc.aitbc_logging import get_logger
+from aitbc.constants import DATA_DIR
 
 logger = get_logger(__name__)
 

@@ -12,7 +12,7 @@ from handlers.account import (
     render_mapping,
 )
 
-from aitbc import NetworkError
+from aitbc.exceptions import NetworkError
 
 
 class TestRenderMapping:

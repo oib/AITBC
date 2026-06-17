@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from aitbc import validate_address, validate_hash
+from aitbc.utils.validation import validate_address, validate_hash
 
 
 class TransactionData(BaseModel):

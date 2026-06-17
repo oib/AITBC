@@ -17,13 +17,12 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
-from aitbc import (  # type: ignore[attr-defined]  # noqa: E402
+from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.middleware import (  # noqa: E402
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
     RequestIDMiddleware,
     RequestValidationMiddleware,
-    configure_logging,
-    get_logger,
 )
 
 from .services.marketplace_service import MarketplaceService  # noqa: E402

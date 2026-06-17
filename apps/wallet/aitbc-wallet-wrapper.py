@@ -6,7 +6,7 @@ Uses centralized aitbc utilities for path configuration
 
 import os
 
-from aitbc import DATA_DIR, ENV_FILE, LOG_DIR, NODE_ENV_FILE
+from aitbc.constants import DATA_DIR, ENV_FILE, LOG_DIR, NODE_ENV_FILE
 
 # Set up environment using aitbc constants
 os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)

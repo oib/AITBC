@@ -14,7 +14,7 @@ import deepl  # type: ignore[import-not-found]
 import google.cloud.translate_v2 as translate  # type: ignore[import-untyped]
 import openai  # type: ignore[import-not-found]
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 if TYPE_CHECKING:
     from .translation_cache import TranslationCache

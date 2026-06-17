@@ -12,7 +12,7 @@ from uuid import uuid4
 import aiohttp
 from pydantic import BaseModel, Field
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 

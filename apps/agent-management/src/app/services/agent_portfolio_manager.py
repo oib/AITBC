@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlmodel import Session
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from app.domain.agent_portfolio import (  # type: ignore[import-not-found]
     AgentPortfolio,
     PortfolioAsset,
