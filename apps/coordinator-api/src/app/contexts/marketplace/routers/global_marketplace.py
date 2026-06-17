@@ -122,7 +122,7 @@ async def get_global_offers(
                 raise HTTPException(status_code=400, detail=f"Invalid status: {status}") from None
 
         offers = await marketplace_service.get_global_offers(
-            region=region, service_type=service_type, status=status_enum, limit=limit, offset=offset
+            region=region, service_type=service_type, status=status_enum, limit=limit or 100, offset=offset or 0
         )
 
         # Convert to response format
@@ -284,7 +284,7 @@ async def get_global_transactions(
 
     try:
         transactions = await marketplace_service.get_global_transactions(
-            user_id=user_id, status=status, limit=limit, offset=offset
+            user_id=user_id, status=status, limit=limit or 100, offset=offset or 0
         )
 
         # Convert to response format
