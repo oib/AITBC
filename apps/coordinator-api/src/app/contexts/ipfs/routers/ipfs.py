@@ -55,7 +55,7 @@ class IPFSDeleteRequest(BaseModel):
 _ipfs_service_instance: IPFSStorageService | None = None
 
 
-def get_ipfs_service() -> None:
+def get_ipfs_service() -> IPFSStorageService:
     """Get IPFS storage service instance (singleton)"""
     global _ipfs_service_instance
     if _ipfs_service_instance is None:
@@ -66,17 +66,17 @@ def get_ipfs_service() -> None:
             "pin_threshold": 100,
         }
         _ipfs_service_instance = IPFSStorageService(config)
-    return _ipfs_service_instance  # type: ignore[return-value]
+    return _ipfs_service_instance
 
 
 @router.post("/upload")
-async def upload_memory(request: IPFSUploadRequest) -> None:
+async def upload_memory(request: IPFSUploadRequest) -> dict[str, Any]:
     """Upload agent memory data to IPFS"""
     try:
-        service = get_ipfs_service()  # type: ignore[func-returns-value]
-        await service.initialize()  # type: ignore[attr-defined]
+        service = get_ipfs_service()
+        await service.initialize()
 
-        result = await service.upload_memory(  # type: ignore[attr-defined]
+        result = await service.upload_memory(
             agent_id=request.agent_id,
             memory_data=request.memory_data,
             memory_type=request.memory_type,
@@ -85,7 +85,7 @@ async def upload_memory(request: IPFSUploadRequest) -> None:
             pin=request.pin,
         )
 
-        return {  # type: ignore[return-value]
+        return {
             "success": True,
             "cid": result.cid,
             "size": result.size,
@@ -99,18 +99,18 @@ async def upload_memory(request: IPFSUploadRequest) -> None:
 
 
 @router.post("/retrieve")
-async def retrieve_memory(request: IPFSRetrieveRequest) -> None:
+async def retrieve_memory(request: IPFSRetrieveRequest) -> dict[str, Any]:
     """Retrieve memory data from IPFS by CID"""
     try:
-        service = get_ipfs_service()  # type: ignore[func-returns-value]
-        await service.initialize()  # type: ignore[attr-defined]
+        service = get_ipfs_service()
+        await service.initialize()
 
-        memory_data, metadata = await service.retrieve_memory(  # type: ignore[attr-defined]
+        memory_data, metadata = await service.retrieve_memory(
             cid=request.cid,
             verify_integrity=request.verify_integrity,
         )
 
-        return {  # type: ignore[return-value]
+        return {
             "success": True,
             "cid": request.cid,
             "memory_data": memory_data,
@@ -131,22 +131,22 @@ async def retrieve_memory(request: IPFSRetrieveRequest) -> None:
 
 
 @router.post("/batch-upload")
-async def batch_upload_memories(request: IPFSBatchUploadRequest) -> None:
+async def batch_upload_memories(request: IPFSBatchUploadRequest) -> dict[str, Any]:
     """Upload multiple memories in batches to IPFS"""
     try:
-        service = get_ipfs_service()  # type: ignore[func-returns-value]
-        await service.initialize()  # type: ignore[attr-defined]
+        service = get_ipfs_service()
+        await service.initialize()
 
         # Convert memories to tuples for the service
         memory_tuples = [(mem.get("data", {}), mem.get("type", "experience"), mem.get("tags", [])) for mem in request.memories]
 
-        results = await service.batch_upload_memories(  # type: ignore[attr-defined]
+        results = await service.batch_upload_memories(
             agent_id=request.agent_id,
             memories=memory_tuples,
             batch_size=request.batch_size,
         )
 
-        return {  # type: ignore[return-value]
+        return {
             "success": True,
             "total_uploaded": len(results),
             "results": [
@@ -164,13 +164,13 @@ async def batch_upload_memories(request: IPFSBatchUploadRequest) -> None:
 
 
 @router.post("/create-deal")
-async def create_filecoin_deal(request: IPFSCreateDealRequest) -> None:
+async def create_filecoin_deal(request: IPFSCreateDealRequest) -> dict[str, Any]:
     """Create Filecoin storage deal for CID persistence"""
     try:
-        service = get_ipfs_service()  # type: ignore[func-returns-value]
-        await service.initialize()  # type: ignore[attr-defined]
+        service = get_ipfs_service()
+        await service.initialize()
 
-        deal_id = await service.create_filecoin_deal(  # type: ignore[attr-defined]
+        deal_id = await service.create_filecoin_deal(
             cid=request.cid,
             duration=request.duration,
         )
@@ -178,7 +178,7 @@ async def create_filecoin_deal(request: IPFSCreateDealRequest) -> None:
         if deal_id is None:
             raise HTTPException(status_code=500, detail="Failed to create Filecoin deal")
 
-        return {  # type: ignore[return-value]
+        return {
             "success": True,
             "deal_id": deal_id,
             "cid": request.cid,
@@ -189,16 +189,16 @@ async def create_filecoin_deal(request: IPFSCreateDealRequest) -> None:
 
 
 @router.get("/list/{agent_id}")
-async def list_agent_memories(  # type: ignore[no-untyped-def]
+async def list_agent_memories(
     agent_id: str,
     limit: int = Query(default=100, ge=1, le=1000),
-):
+) -> dict[str, Any]:
     """List all memory CIDs for an agent"""
     try:
-        service = get_ipfs_service()  # type: ignore[func-returns-value]
-        await service.initialize()  # type: ignore[attr-defined]
+        service = get_ipfs_service()
+        await service.initialize()
 
-        cids = await service.list_agent_memories(agent_id=agent_id, limit=limit)  # type: ignore[attr-defined]
+        cids = await service.list_agent_memories(agent_id=agent_id, limit=limit)
 
         return {
             "success": True,
@@ -211,18 +211,18 @@ async def list_agent_memories(  # type: ignore[no-untyped-def]
 
 
 @router.delete("/delete")
-async def delete_memory(request: IPFSDeleteRequest) -> None:
+async def delete_memory(request: IPFSDeleteRequest) -> dict[str, Any]:
     """Delete/unpin memory from IPFS"""
     try:
-        service = get_ipfs_service()  # type: ignore[func-returns-value]
-        await service.initialize()  # type: ignore[attr-defined]
+        service = get_ipfs_service()
+        await service.initialize()
 
-        success = await service.delete_memory(cid=request.cid)  # type: ignore[attr-defined]
+        success = await service.delete_memory(cid=request.cid)
 
         if not success:
             raise HTTPException(status_code=404, detail=f"Failed to delete CID {request.cid}")
 
-        return {  # type: ignore[return-value]
+        return {
             "success": True,
             "message": f"Memory {request.cid} deleted successfully",
             "cid": request.cid,
@@ -234,15 +234,15 @@ async def delete_memory(request: IPFSDeleteRequest) -> None:
 
 
 @router.get("/stats")
-async def get_storage_stats() -> None:
+async def get_storage_stats() -> dict[str, Any]:
     """Get IPFS storage statistics"""
     try:
-        service = get_ipfs_service()  # type: ignore[func-returns-value]
-        await service.initialize()  # type: ignore[attr-defined]
+        service = get_ipfs_service()
+        await service.initialize()
 
-        stats = await service.get_storage_stats()  # type: ignore[attr-defined]
+        stats = await service.get_storage_stats()
 
-        return {  # type: ignore[return-value]
+        return {
             "success": True,
             "stats": stats,
         }
@@ -251,19 +251,19 @@ async def get_storage_stats() -> None:
 
 
 @router.get("/health")
-async def health_check() -> None:
+async def health_check() -> dict[str, Any]:
     """Health check for IPFS service"""
     try:
-        service = get_ipfs_service()  # type: ignore[func-returns-value]
-        await service.initialize()  # type: ignore[attr-defined]
+        service = get_ipfs_service()
+        await service.initialize()
 
-        return {  # type: ignore[return-value]
+        return {
             "status": "healthy",
             "service": "ipfs-storage",
             "message": "IPFS service is operational",
         }
     except Exception as e:
-        return {  # type: ignore[return-value]
+        return {
             "status": "unhealthy",
             "service": "ipfs-storage",
             "message": f"IPFS service error: {str(e)}",
