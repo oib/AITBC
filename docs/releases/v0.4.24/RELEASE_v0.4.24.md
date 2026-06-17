@@ -175,7 +175,7 @@ AITBC v0.4.24 focuses on completing the architecture refactoring planned in v0.4
 
 ### Minimum Viable v0.4.24
 - [x] `aitbc/__init__.py` split into submodules (<100 lines achieved: 37)
-- [x] `aitbc.queue` module created
+- [x] `aitbc.queues` module created
 - [x] Root lazy loading removed
 - [x] Test collection blockers fixed (all 84 resolved — 0 collection errors remain)
 - [ ] Coverage improved to 50% - **NOT ACHIEVED** (clean core tests: 18%; full suite not measured)
