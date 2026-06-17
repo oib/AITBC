@@ -1,15 +1,14 @@
-"""
-Neural Network Modules for Multi-Modal Fusion
+"""Neural Network Modules for Multi-Modal Fusion
 Contains PyTorch neural network components for multi-modal fusion architectures
 """
 
-import numpy as np  # type: ignore[import-not-found]
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
-class CrossModalAttention(nn.Module):  # type: ignore[misc]
+class CrossModalAttention(nn.Module):
     """Cross-modal attention mechanism for multi-modal fusion"""
 
     def __init__(self, embed_dim: int, num_heads: int = 8):
@@ -41,6 +40,7 @@ class CrossModalAttention(nn.Module):  # type: ignore[misc]
         """
         batch_size, seq_len_q, _ = query_modal.size()
         seq_len_k = key_modal.size(1)
+        seq_len_v = value_modal.size(1)
 
         # Linear projections
         Q = self.query(query_modal)  # (batch_size, seq_len_q, embed_dim)
@@ -50,7 +50,7 @@ class CrossModalAttention(nn.Module):  # type: ignore[misc]
         # Reshape for multi-head attention
         Q = Q.view(batch_size, seq_len_q, self.num_heads, self.head_dim).transpose(1, 2)
         K = K.view(batch_size, seq_len_k, self.num_heads, self.head_dim).transpose(1, 2)
-        V = V.view(batch_size, seq_len_k, self.num_heads, self.head_dim).transpose(1, 2)
+        V = V.view(batch_size, seq_len_v, self.num_heads, self.head_dim).transpose(1, 2)
 
         # Scaled dot-product attention
         scores = torch.matmul(Q, K.transpose(-2, -1)) / np.sqrt(self.head_dim)
@@ -70,7 +70,7 @@ class CrossModalAttention(nn.Module):  # type: ignore[misc]
         return context, attention_weights
 
 
-class MultiModalTransformer(nn.Module):  # type: ignore[misc]
+class MultiModalTransformer(nn.Module):
     """Transformer-based multi-modal fusion architecture"""
 
     def __init__(self, modality_dims: dict[str, int], embed_dim: int = 512, num_layers: int = 6, num_heads: int = 8):
@@ -155,12 +155,12 @@ class MultiModalTransformer(nn.Module):  # type: ignore[misc]
         pooled = torch.mean(global_fused, dim=1)  # Global average pooling
 
         # Output projection
-        output = self.output_projection(pooled)
+        output: torch.Tensor = self.output_projection(pooled)
 
         return output
 
 
-class AdaptiveModalityWeighting(nn.Module):  # type: ignore[misc]
+class AdaptiveModalityWeighting(nn.Module):
     """Dynamic modality weighting based on context and performance"""
 
     def __init__(self, num_modalities: int, embed_dim: int = 256):

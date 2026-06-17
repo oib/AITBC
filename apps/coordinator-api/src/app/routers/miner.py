@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ..deps import get_miner_id, require_miner_key
@@ -24,8 +24,8 @@ async def register(
     req: MinerRegister,
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    miner_id: str = Depends(get_miner_id()),
-    api_key: str = Depends(require_miner_key()),
+    miner_id: Annotated[str, Depends(get_miner_id())],
+    api_key: Annotated[str, Depends(require_miner_key())],
 ) -> dict[str, Any]:
     service = MinerService(session)
     record = service.register(miner_id, req)
@@ -38,8 +38,8 @@ async def heartbeat(
     req: MinerHeartbeat,
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    miner_id: str = Depends(get_miner_id()),
-    api_key: str = Depends(require_miner_key()),
+    miner_id: Annotated[str, Depends(get_miner_id())],
+    api_key: Annotated[str, Depends(require_miner_key())],
 ) -> dict[str, str]:
     try:
         MinerService(session).heartbeat(miner_id, req)
@@ -54,8 +54,8 @@ async def poll(
     request: Request,
     req: PollRequest,
     session: Annotated[Session, Depends(get_session)],
-    api_key: str = Depends(require_miner_key()),
-    miner_id: str = Depends(get_miner_id()),
+    api_key: Annotated[str, Depends(require_miner_key())],
+    miner_id: Annotated[str, Depends(get_miner_id())],
 ) -> AssignedJob | Response:
     job = MinerService(session).poll(miner_id, req.max_wait_seconds)
     if job is None:
@@ -70,7 +70,7 @@ async def submit_result(
     job_id: str,
     req: JobResultSubmit,
     session: Annotated[Session, Depends(get_session)],
-    miner_id: str = Depends(get_miner_id()),
+    miner_id: Annotated[str, Depends(get_miner_id())],
 ) -> dict[str, Any]:
     job_service = JobService(session)
     miner_service = MinerService(session)
@@ -118,7 +118,7 @@ async def submit_failure(
     job_id: str,
     req: JobFailSubmit,
     session: Annotated[Session, Depends(get_session)],
-    miner_id: str = Depends(get_miner_id()),
+    miner_id: Annotated[str, Depends(get_miner_id())],
 ) -> dict[str, str]:
     try:
         service = JobService(session)
@@ -134,7 +134,7 @@ async def list_miner_jobs(
     request: Request,
     miner_id: str,
     session: Annotated[Session, Depends(get_session)],
-    api_key: str = Depends(require_miner_key()),
+    api_key: Annotated[str, Depends(require_miner_key())],
     limit: int = 20,
     offset: int = 0,
     job_type: str | None = None,
@@ -171,7 +171,7 @@ async def get_miner_earnings(
     request: Request,
     miner_id: str,
     session: Annotated[Session, Depends(get_session)],
-    api_key: str = Depends(require_miner_key()),
+    api_key: Annotated[str, Depends(require_miner_key())],
     from_time: str | None = None,
     to_time: str | None = None,
 ) -> dict[str, Any]:
@@ -207,7 +207,7 @@ async def update_miner_capabilities(
     miner_id: str,
     req: MinerRegister,
     session: Annotated[Session, Depends(get_session)],
-    api_key: str = Depends(require_miner_key()),
+    api_key: Annotated[str, Depends(require_miner_key())],
 ) -> dict[str, Any]:
     """Update capabilities for a registered miner"""
     try:
@@ -232,7 +232,7 @@ async def deregister_miner(
     request: Request,
     miner_id: str,
     session: Annotated[Session, Depends(get_session)],
-    api_key: str = Depends(require_miner_key()),
+    api_key: Annotated[str, Depends(require_miner_key())],
 ) -> dict[str, str]:
     """Deregister a miner from the coordinator"""
     try:
@@ -254,7 +254,7 @@ async def fail_job(
     job_id: str,
     fail_req: JobFailSubmit,
     session: Annotated[Session, Depends(get_session)],
-    api_key: str = Depends(require_miner_key()),
+    api_key: Annotated[str, Depends(require_miner_key())],
 ) -> dict[str, str]:
     """Report job failure"""
     try:
@@ -285,7 +285,7 @@ async def complete_job(
     job_id: str,
     complete_req: CompleteJobRequest,
     session: Annotated[Session, Depends(get_session)],
-    api_key: str = Depends(require_miner_key()),
+    api_key: Annotated[str, Depends(require_miner_key())],
 ) -> dict[str, Any]:
     """
     Complete a job by submitting execution results.

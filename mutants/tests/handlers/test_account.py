@@ -7,7 +7,7 @@ import json
 from unittest.mock import Mock, patch
 
 import pytest
-from aitbc import NetworkError
+from aitbc.exceptions import NetworkError
 from handlers.account import (
     handle_account_get,
     render_mapping,

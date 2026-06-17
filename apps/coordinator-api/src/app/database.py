@@ -11,18 +11,18 @@ if settings.get_effective_database_url().startswith("sqlite"):
         settings.get_effective_database_url(),
         connect_args={"check_same_thread": False, "timeout": 30},
         poolclass=StaticPool,
-        echo=settings.database_echo,
-        pool_pre_ping=settings.database_pool_pre_ping,
+        echo=settings.db_echo,
+        pool_pre_ping=settings.db_pool_pre_ping,
     )
 else:
     # PostgreSQL/MySQL with connection pooling using config values
     engine = create_engine(
         settings.get_effective_database_url(),
-        pool_size=settings.database_pool_size,
-        max_overflow=settings.database_max_overflow,
-        pool_pre_ping=settings.database_pool_pre_ping,
-        pool_recycle=settings.database_pool_recycle,
-        echo=settings.database_echo,
+        pool_size=settings.database.pool_size,
+        max_overflow=settings.database.max_overflow,
+        pool_pre_ping=settings.db_pool_pre_ping,
+        pool_recycle=settings.db_pool_recycle,
+        echo=settings.db_echo,
     )
 
 

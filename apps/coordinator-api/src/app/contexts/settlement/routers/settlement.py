@@ -3,7 +3,7 @@ Settlement router for cross-chain settlements
 """
 
 import asyncio
-from typing import Any
+from typing import Annotated, Any
 
 from app.settlement.manager import BridgeManager  # type: ignore[import-not-found]
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -44,7 +44,7 @@ async def initiate_cross_chain_settlement(
     request: Request,
     settlement_request: CrossChainSettlementRequest,
     background_tasks: BackgroundTasks,
-    api_key: str = Depends(get_api_key),
+    api_key: Annotated[str, Depends(get_api_key)],
 ) -> CrossChainSettlementResponse:
     """Initiate a cross-chain settlement"""
     try:
@@ -78,7 +78,11 @@ async def initiate_cross_chain_settlement(
 
 @router.get("/cross-chain/{settlement_id}")
 @rate_limit(rate=200, per=60)
-async def get_settlement_status(request: Request, settlement_id: str, api_key: str = Depends(get_api_key)) -> dict[str, Any]:
+async def get_settlement_status(
+    request: Request,
+    settlement_id: str,
+    api_key: Annotated[str, Depends(get_api_key)],
+) -> dict[str, Any]:
     """Get settlement status"""
     try:
         manager = BridgeManager()
@@ -105,7 +109,10 @@ async def get_settlement_status(request: Request, settlement_id: str, api_key: s
 @router.get("/cross-chain")
 @rate_limit(rate=200, per=60)
 async def list_settlements(
-    request: Request, api_key: str = Depends(get_api_key), limit: int = 50, offset: int = 0
+    request: Request,
+    api_key: Annotated[str, Depends(get_api_key)],
+    limit: int = 50,
+    offset: int = 0,
 ) -> dict[str, Any]:
     """List settlements with pagination"""
     try:
@@ -120,7 +127,11 @@ async def list_settlements(
 
 @router.delete("/cross-chain/{settlement_id}")
 @rate_limit(rate=20, per=60)
-async def cancel_settlement(request: Request, settlement_id: str, api_key: str = Depends(get_api_key)) -> dict[str, str]:
+async def cancel_settlement(
+    request: Request,
+    settlement_id: str,
+    api_key: Annotated[str, Depends(get_api_key)],
+) -> dict[str, str]:
     """Cancel a pending settlement"""
     try:
         manager = BridgeManager()

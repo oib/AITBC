@@ -278,7 +278,7 @@ class GovernanceService:
     def get_voting_power(self, address: str) -> int:
         """Get stake-weighted voting power for an address"""
         try:
-            import httpx  # type: ignore[import-not-found]
+            import httpx
 
             blockchain_rpc_url = "http://localhost:8202"
             response = httpx.get(f"{blockchain_rpc_url}/rpc/accounts/{address}")

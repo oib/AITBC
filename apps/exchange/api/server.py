@@ -5,7 +5,7 @@ Server setup and execution for exchange API.
 import argparse
 from http.server import HTTPServer
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .database import init_db
 from .handlers import ExchangeAPIHandler

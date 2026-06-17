@@ -9,7 +9,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi import status as http_status
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ..contexts.trading.services.trading_marketplace.dynamic_pricing import (

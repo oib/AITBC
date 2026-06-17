@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from aitbc import configure_logging, get_logger
+from aitbc.aitbc_logging import configure_logging, get_logger
 
 from ..database import close_engine, create_engine
 from ..redis_cache import close_redis, create_redis

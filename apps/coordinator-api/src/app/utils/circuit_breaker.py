@@ -9,7 +9,7 @@ from enum import Enum
 from functools import wraps
 from typing import Any
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -208,7 +208,7 @@ class ProtectedServiceClient:
     @circuit_breaker(failure_threshold=3, timeout_seconds=60)
     async def call_api(self, endpoint: str, data: dict[str, Any]) -> dict[str, Any]:
         """Protected API call"""
-        import httpx  # type: ignore[import-not-found]
+        import httpx
 
         async with httpx.AsyncClient() as client:
             response = await client.post(f"{self.base_url}{endpoint}", json=data)

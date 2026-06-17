@@ -57,7 +57,7 @@ async def submit_service_job(
     service_type: ServiceType,
     request_data: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
     user_agent: str = Header(None),
 ) -> ServiceResponse:
     """Submit a job for a specific service type
@@ -128,7 +128,7 @@ async def whisper_transcribe(
     request: Request,
     whisper_request: WhisperRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Transcribe audio file using Whisper"""
 
@@ -161,7 +161,7 @@ async def whisper_translate(
     request: Request,
     whisper_request: WhisperRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Translate audio file using Whisper"""
     # Force task to be translate
@@ -197,7 +197,7 @@ async def stable_diffusion_generate(
     request: Request,
     sd_request: StableDiffusionRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Generate images using Stable Diffusion"""
 
@@ -234,7 +234,7 @@ async def stable_diffusion_img2img(
     request: Request,
     sd_request: StableDiffusionRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Image-to-image generation using Stable Diffusion"""
     # Add img2img specific parameters
@@ -268,7 +268,7 @@ async def llm_inference(
     request: Request,
     llm_request: LLMRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Run inference on a language model"""
 
@@ -300,7 +300,7 @@ async def llm_stream(
     request: Request,
     llm_request: LLMRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Stream LLM inference response"""
     # Force streaming mode
@@ -338,7 +338,7 @@ async def ffmpeg_transcode(
     request: Request,
     ffmpeg_request: FFmpegRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Transcode video using FFmpeg"""
 
@@ -377,7 +377,7 @@ async def blender_render(
     request: Request,
     blender_request: BlenderRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> ServiceResponse:
     """Render scene using Blender"""
 

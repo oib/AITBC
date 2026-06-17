@@ -3,7 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from .. import state

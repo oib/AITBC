@@ -13,11 +13,7 @@ sys.path.insert(0, str(REPO_DIR))
 sys.path.insert(0, str(SERVICE_DIR / "src"))
 
 # Import AITBC utilities
-from aitbc import (  # noqa: E402
-    LOG_DIR,
-    configure_logging,
-    get_logger,
-)
+from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 
 # Configure logging
 configure_logging(

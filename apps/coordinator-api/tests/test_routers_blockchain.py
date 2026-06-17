@@ -45,7 +45,7 @@ class TestBlockchainRouter:
         mock_settings.blockchain_rpc_url = "http://localhost:8082"
         mock_client = Mock()
         mock_client_class.return_value = mock_client
-        from aitbc import NetworkError
+        from aitbc.exceptions import NetworkError
 
         mock_client.get.side_effect = NetworkError("Connection failed")
 

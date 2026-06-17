@@ -8,7 +8,7 @@ isolation, and management across different blockchain networks.
 from datetime import datetime
 from typing import Any
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..keystore.persistent_service import PersistentKeystoreService
 from .manager import ChainManager

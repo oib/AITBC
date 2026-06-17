@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .language_detector import LanguageDetector
 from .quality_assurance import TranslationQualityChecker

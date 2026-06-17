@@ -18,7 +18,7 @@ def load_module_from_path(module_name, file_path):
     return module
 
 
-testing = load_module_from_path("aitbc.testing", Path("/opt/aitbc/aitbc/testing.py"))
+testing = load_module_from_path("aitbc.testing", Path("/opt/aitbc/aitbc/testing/testing.py"))
 
 
 # ============================================================================

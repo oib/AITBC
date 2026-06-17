@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from pydantic import BaseModel, Field, field_validator
 
 from .communication import AgentMessage, MessageType, Priority

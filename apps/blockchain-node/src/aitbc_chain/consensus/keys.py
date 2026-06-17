@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 

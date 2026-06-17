@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..domain.marketplace import MarketplaceOffer
 

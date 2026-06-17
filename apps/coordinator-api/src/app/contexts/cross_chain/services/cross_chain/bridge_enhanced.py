@@ -14,7 +14,7 @@ from uuid import uuid4
 
 from sqlmodel import Session, func, select, update
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .....agent_identity.wallet_adapter_enhanced import (
     EnhancedWalletAdapter,

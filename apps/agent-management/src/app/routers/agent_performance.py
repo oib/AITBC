@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 from app.domain.agent_performance import (  # type: ignore[import-not-found]
     AgentCapability,
