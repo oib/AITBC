@@ -1,9 +1,9 @@
 """Coordinator API configuration with PostgreSQL support"""
 
-from pydantic_settings import BaseSettings  # type: ignore[import-not-found]
+from pydantic_settings import BaseSettings
 
 
-class Settings(BaseSettings):  # type: ignore[misc]
+class Settings(BaseSettings):
     """Application settings"""
 
     # API Configuration

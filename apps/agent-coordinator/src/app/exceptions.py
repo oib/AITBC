@@ -3,7 +3,7 @@ from typing import Any
 
 from fastapi.responses import JSONResponse
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -5,7 +5,9 @@ Blockchain service for AITBC token operations
 import re
 from typing import Any
 
-from aitbc import AITBCHTTPClient, NetworkError, get_logger
+from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import NetworkError
+from aitbc.network.http_client import AITBCHTTPClient
 
 from ....config import settings
 
@@ -48,7 +50,7 @@ async def mint_tokens(address: str, amount: float) -> dict[str, Any]:
             json={"address": address, "amount": amount},
             headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
         )
-        return response  # type: ignore[no-any-return]
+        return response
     except NetworkError as e:
         raise Exception(f"Failed to mint tokens: {e}") from e
 

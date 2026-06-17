@@ -9,7 +9,13 @@ from typing import Any
 
 import yaml
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
+try:
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+
+    HAS_PYDANTIC_SETTINGS = True
+except ImportError:
+    HAS_PYDANTIC_SETTINGS = False
 
 from ..aitbc_logging import get_logger
 from ..constants import CONFIG_DIR, DATA_DIR, ENV_FILE, LOG_DIR
@@ -178,114 +184,119 @@ class HierarchicalConfig:
         self._config_cache = None
 
 
-class ValidatedAITBCConfig(BaseSettings):
-    """
-    Validated AITBC configuration with schema checking.
-    Extends BaseAITBCConfig with additional validation rules.
-    """
+if HAS_PYDANTIC_SETTINGS:
 
-    model_config = SettingsConfigDict(env_file=str(ENV_FILE), env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
-    data_dir: Path = Field(default=DATA_DIR, description="AITBC data directory")
-    config_dir: Path = Field(default=CONFIG_DIR, description="AITBC configuration directory")
-    log_dir: Path = Field(default=LOG_DIR, description="AITBC log directory")
-    app_name: str = Field(default="AITBC Application", description="Application name")
-    app_version: str = Field(default="1.0.0", description="Application version")
-    environment: str = Field(default="development", description="Environment (development/staging/production)")
-    debug: bool = Field(default=False, description="Debug mode")
-    log_level: str = Field(default="INFO", description="Log level (DEBUG/INFO/WARNING/ERROR/CRITICAL)")
-    log_format: str = Field(default="%(asctime)s - %(name)s - %(levelname)s - %(message)s", description="Log format string")
-    host: str = Field(default="0.0.0.0", description="Server host address")
-    port: int = Field(default=8000, description="Server port")
-    workers: int = Field(default=1, description="Number of worker processes")
-    database_url: str | None = Field(default=None, description="Database connection URL")
-    database_pool_size: int = Field(default=10, description="Database connection pool size")
-    secret_key: str | None = Field(default=None, description="Application secret key")
-    jwt_secret: str | None = Field(default=None, description="JWT secret key")
-    jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
-    jwt_expiration_hours: int = Field(default=24, description="JWT token expiration in hours")
-    request_timeout: int = Field(default=30, description="Request timeout in seconds")
-    max_request_size: int = Field(default=10 * 1024 * 1024, description="Max request size in bytes")
+    class ValidatedAITBCConfig(BaseSettings):
+        """
+        Validated AITBC configuration with schema checking.
+        Extends BaseAITBCConfig with additional validation rules.
+        """
 
-    @field_validator("environment")
-    @classmethod
-    def validate_environment(cls, v: str) -> str:
-        """Validate environment value"""
-        valid_environments = ["development", "staging", "production", "test"]
-        if v.lower() not in valid_environments:
-            raise ValueError(f"Environment must be one of: {valid_environments}")
-        return v.lower()
+        model_config = SettingsConfigDict(
+            env_file=str(ENV_FILE), env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+        )
+        data_dir: Path = Field(default=DATA_DIR, description="AITBC data directory")
+        config_dir: Path = Field(default=CONFIG_DIR, description="AITBC configuration directory")
+        log_dir: Path = Field(default=LOG_DIR, description="AITBC log directory")
+        app_name: str = Field(default="AITBC Application", description="Application name")
+        app_version: str = Field(default="1.0.0", description="Application version")
+        environment: str = Field(default="development", description="Environment (development/staging/production)")
+        debug: bool = Field(default=False, description="Debug mode")
+        log_level: str = Field(default="INFO", description="Log level (DEBUG/INFO/WARNING/ERROR/CRITICAL)")
+        log_format: str = Field(
+            default="%(asctime)s - %(name)s - %(levelname)s - %(message)s", description="Log format string"
+        )
+        host: str = Field(default="0.0.0.0", description="Server host address")
+        port: int = Field(default=8000, description="Server port")
+        workers: int = Field(default=1, description="Number of worker processes")
+        database_url: str | None = Field(default=None, description="Database connection URL")
+        database_pool_size: int = Field(default=10, description="Database connection pool size")
+        secret_key: str | None = Field(default=None, description="Application secret key")
+        jwt_secret: str | None = Field(default=None, description="JWT secret key")
+        jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
+        jwt_expiration_hours: int = Field(default=24, description="JWT token expiration in hours")
+        request_timeout: int = Field(default=30, description="Request timeout in seconds")
+        max_request_size: int = Field(default=10 * 1024 * 1024, description="Max request size in bytes")
 
-    @field_validator("log_level")
-    @classmethod
-    def validate_log_level(cls, v: str) -> str:
-        """Validate log level value"""
-        valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-        if v.upper() not in valid_levels:
-            raise ValueError(f"Log level must be one of: {valid_levels}")
-        return v.upper()
+        @field_validator("environment")
+        @classmethod
+        def validate_environment(cls, v: str) -> str:
+            """Validate environment value"""
+            valid_environments = ["development", "staging", "production", "test"]
+            if v.lower() not in valid_environments:
+                raise ValueError(f"Environment must be one of: {valid_environments}")
+            return v.lower()
 
-    @field_validator("port")
-    @classmethod
-    def validate_port(cls, v: int) -> int:
-        """Validate port number"""
-        if not 1 <= v <= 65535:
-            raise ValueError("Port must be between 1 and 65535")
-        return v
+        @field_validator("log_level")
+        @classmethod
+        def validate_log_level(cls, v: str) -> str:
+            """Validate log level value"""
+            valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+            if v.upper() not in valid_levels:
+                raise ValueError(f"Log level must be one of: {valid_levels}")
+            return v.upper()
 
-    @field_validator("workers")
-    @classmethod
-    def validate_workers(cls, v: int) -> int:
-        """Validate worker count"""
-        if v < 1:
-            raise ValueError("Workers must be at least 1")
-        return v
+        @field_validator("port")
+        @classmethod
+        def validate_port(cls, v: int) -> int:
+            """Validate port number"""
+            if not 1 <= v <= 65535:
+                raise ValueError("Port must be between 1 and 65535")
+            return v
 
-    @field_validator("database_pool_size")
-    @classmethod
-    def validate_pool_size(cls, v: int) -> int:
-        """Validate database pool size"""
-        if v < 1:
-            raise ValueError("Pool size must be at least 1")
-        return v
+        @field_validator("workers")
+        @classmethod
+        def validate_workers(cls, v: int) -> int:
+            """Validate worker count"""
+            if v < 1:
+                raise ValueError("Workers must be at least 1")
+            return v
 
-    @field_validator("request_timeout")
-    @classmethod
-    def validate_timeout(cls, v: int) -> int:
-        """Validate request timeout"""
-        if v < 1:
-            raise ValueError("Request timeout must be at least 1 second")
-        return v
+        @field_validator("database_pool_size")
+        @classmethod
+        def validate_pool_size(cls, v: int) -> int:
+            """Validate database pool size"""
+            if v < 1:
+                raise ValueError("Pool size must be at least 1")
+            return v
 
-    @model_validator(mode="after")
-    def validate_production_settings(self) -> "ValidatedAITBCConfig":
-        """Validate production-specific settings"""
-        if self.environment == "production":
-            if self.debug:
-                raise ValueError("Debug mode should not be enabled in production")
-            if not self.secret_key:
-                raise ValueError("Secret key must be set in production")
-            if not self.jwt_secret:
-                raise ValueError("JWT secret must be set in production")
-        return self
+        @field_validator("request_timeout")
+        @classmethod
+        def validate_timeout(cls, v: int) -> int:
+            """Validate request timeout"""
+            if v < 1:
+                raise ValueError("Request timeout must be at least 1 second")
+            return v
 
+        @model_validator(mode="after")
+        def validate_production_settings(self) -> "ValidatedAITBCConfig":
+            """Validate production-specific settings"""
+            if self.environment == "production":
+                if self.debug:
+                    raise ValueError("Debug mode should not be enabled in production")
+                if not self.secret_key:
+                    raise ValueError("Secret key must be set in production")
+                if not self.jwt_secret:
+                    raise ValueError("JWT secret must be set in production")
+            return self
 
-def load_config(config_file: Path | None = None, env_file: Path | None = None) -> ValidatedAITBCConfig:
-    """
-    Load and validate AITBC configuration from multiple sources
+    def load_config(config_file: Path | None = None, env_file: Path | None = None) -> ValidatedAITBCConfig:
+        """
+        Load and validate AITBC configuration from multiple sources
 
-    Args:
-        config_file: Path to configuration file (YAML or JSON)
-        env_file: Path to environment file (.env)
+        Args:
+            config_file: Path to configuration file (YAML or JSON)
+            env_file: Path to environment file (.env)
 
-    Returns:
-        Validated AITBC configuration object
+        Returns:
+            Validated AITBC configuration object
 
-    Raises:
-        ValidationError: If configuration validation fails
-    """
-    hierarchical_loader = HierarchicalConfig(config_file, env_file)
-    hierarchical_loader.load_config()
-    return ValidatedAITBCConfig()
+        Raises:
+            ValidationError: If configuration validation fails
+        """
+        hierarchical_loader = HierarchicalConfig(config_file, env_file)
+        hierarchical_loader.load_config()
+        return ValidatedAITBCConfig()
 
 
 def create_config_template(environment: str = "development") -> dict[str, Any]:

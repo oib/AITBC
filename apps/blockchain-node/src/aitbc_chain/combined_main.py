@@ -8,7 +8,7 @@ from typing import Any
 
 import uvicorn
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from aitbc_chain.app import create_app
 from aitbc_chain.config import settings
 from aitbc_chain.main import _run as run_node

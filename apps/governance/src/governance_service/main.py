@@ -12,13 +12,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aitbc import (
+from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.middleware import (
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
     RequestIDMiddleware,
     RequestValidationMiddleware,
-    configure_logging,
-    get_logger,
 )
 
 from .services.governance_service import GovernanceService

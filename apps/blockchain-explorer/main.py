@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 # Import data layer for toggle between mock and real data
 try:
-    from aitbc import get_data_layer
+    from aitbc.data_layer import get_data_layer
 
     USE_DATA_LAYER = True
 except ImportError:

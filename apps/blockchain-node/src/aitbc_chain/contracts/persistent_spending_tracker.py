@@ -12,7 +12,7 @@ from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String,
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 Base = declarative_base()

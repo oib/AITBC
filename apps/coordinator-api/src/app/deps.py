@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import Header, HTTPException
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .config import settings
 

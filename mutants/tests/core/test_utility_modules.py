@@ -23,7 +23,7 @@ def load_module_from_path(module_name, file_path):
 # Load the modules
 caching = load_module_from_path("aitbc.caching", Path("/opt/aitbc/aitbc/caching.py"))
 
-queue_manager = load_module_from_path("aitbc.queue_manager", Path("/opt/aitbc/aitbc/queue_manager.py"))
+queue_manager = load_module_from_path("aitbc.queue", Path("/opt/aitbc/aitbc/queue/queue_manager.py"))
 
 database = load_module_from_path("aitbc.database", Path("/opt/aitbc/aitbc/database.py"))
 

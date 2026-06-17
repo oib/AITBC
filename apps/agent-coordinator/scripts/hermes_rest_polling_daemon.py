@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 DEFAULT_COORDINATOR_URL = "http://localhost:8107"
 DEFAULT_HERMES_URL = "http://localhost:8103"

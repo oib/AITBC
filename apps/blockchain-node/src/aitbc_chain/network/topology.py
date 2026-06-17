@@ -11,7 +11,7 @@ from typing import Any
 
 import networkx as nx  # type: ignore
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .discovery import P2PDiscovery, PeerNode
 from .health import PeerHealthMonitor

@@ -7,7 +7,7 @@ import hashlib
 import json
 
 import requests
-from aitbc import AITBCHTTPClient
+from aitbc.network.http_client import AITBCHTTPClient
 
 BASE_URL = "https://hub.aitbc.bubuit.net/rpc"
 CHAIN_ID = "ait-mainnet"

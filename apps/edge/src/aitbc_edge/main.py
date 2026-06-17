@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .config import settings
 from .routers import database_router as database

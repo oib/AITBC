@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 REGISTERED_EXPORTERS: list[str] = []
 _exporter_instances: dict[str, Any] = {}

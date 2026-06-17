@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from . import state
 

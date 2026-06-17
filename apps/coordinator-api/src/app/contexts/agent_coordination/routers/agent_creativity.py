@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ....domain.agent_performance import CreativeCapability
 from ....storage import get_session

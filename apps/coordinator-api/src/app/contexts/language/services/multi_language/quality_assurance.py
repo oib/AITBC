@@ -16,7 +16,7 @@ import spacy  # type: ignore[import-not-found]
 from nltk.tokenize import sent_tokenize, word_tokenize  # type: ignore[import-not-found]
 from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu  # type: ignore[import-not-found]
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
