@@ -13,10 +13,10 @@ from .hierarchical_config import (
 try:
     from .hierarchical_config import ValidatedAITBCConfig, load_config
 
-    type BaseAITBCConfig = ValidatedAITBCConfig
+    BaseAITBCConfig: TypeAlias = ValidatedAITBCConfig
 except ImportError:
     ValidatedAITBCConfig = None  # type: ignore[misc,assignment]
-    type BaseAITBCConfig = HierarchicalConfig  # type: ignore[misc,assignment]
+    BaseAITBCConfig: TypeAlias = HierarchicalConfig  # type: ignore[misc,assignment]
     load_config = None  # type: ignore[misc,assignment]
 
 # Import legacy config classes from sibling config.py module

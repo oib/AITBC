@@ -30,7 +30,7 @@ AITBC v0.4.24 focuses on completing the architecture refactoring planned in v0.4
 | Item | Claim | Verified Status |
 |------|-------|-----------------|
 | Architecture refactoring | 15/15 submodules integrated | ✅ **15/15 importable** - graceful fallback for optional deps (pydantic_settings, httpx) |
-| Test coverage | 79% achieved | ⚠️ **18% on clean core tests** - Full suite not measured |
+| Test coverage | 79% achieved | ⚠️ **18% on clean core tests** (6,757 statements, 5,514 missed) - Full suite not measured |
 | Tests passing | 2,381+ passing | ⚠️ **4,585+ collected** (excl. e2e/integration/property), core: 263 passed, 15 skipped |
 | Import migration | 422/428 files migrated | ✅ **Verified: ~421/428 migrated** - Only 7 files retain root imports (intentional backward-compat) |
 
@@ -218,9 +218,9 @@ AITBC v0.4.24 focuses on completing the architecture refactoring planned in v0.4
 
 **Honest Assessment:**
 - ⚠️ Initial completion claims were overstated in release document
-- ⚠️ Test coverage claims (79%) were not properly verified
-- ⚠️ "2,381+ tests passing" was estimated, not measured
-- ✅ Actual verified: 263 passed (8 core submodule test files), 356 passed (agent tests), 4,585+ collected (excluding e2e/integration/property), 141 coordinator API tests, coverage 18%
+- ⚠️ Test coverage claims (79%) were not properly verified — actual: **18%** on clean core tests (6,757 statements, 5,514 missed)
+- ⚠️ "2,381+ tests passing" was estimated, not measured — actual verified: **263 passed** (8 core submodule test files), **356 passed** (agent tests)
+- ✅ Actual verified: 4,585+ collected (excluding e2e/integration/property), 141 coordinator API tests, coverage **18%** (core tests)
 - ✅ Actual verified: MyPy 0 errors after fixes
 - ✅ Actual verified: __init__.py 37 lines, lazy loading removed
 
