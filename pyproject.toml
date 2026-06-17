@@ -183,6 +183,7 @@ select = [
 ignore = [
     "E501",  # line too long, handled by black
     "C901",  # too complex
+    "UP040", # Don't upgrade TypeAlias to `type` statement (breaks MyPy base class usage)
 ]
 
 [tool.ruff.lint.per-file-ignores]
