@@ -3,7 +3,7 @@ Factory for creating shared AgentIntegrationService with app-specific adapters.
 This enables gradual migration from duplicated code to shared implementation.
 """
 
-from aitbc_agent_core import AgentIntegrationService
+from aitbc_agent_core import AgentIntegrationService  # type: ignore[import-not-found]
 from sqlmodel import Session
 
 from ..adapters.agent_core_adapters import (

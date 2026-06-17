@@ -5,7 +5,7 @@ PPO Agent implementation
 import torch.nn as nn
 
 
-class PPOAgent(nn.Module):
+class PPOAgent(nn.Module):  # type: ignore[misc]
     """Proximal Policy Optimization Agent"""
 
     def __init__(self, state_dim: int, action_dim: int, hidden_dim: int = 256):

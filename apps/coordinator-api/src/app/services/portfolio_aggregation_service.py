@@ -7,7 +7,7 @@ import os
 from datetime import UTC, datetime
 from typing import Any
 
-import httpx
+import httpx  # type: ignore[import-not-found]
 
 from aitbc import get_logger
 

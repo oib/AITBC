@@ -208,7 +208,7 @@ class ProtectedServiceClient:
     @circuit_breaker(failure_threshold=3, timeout_seconds=60)
     async def call_api(self, endpoint: str, data: dict[str, Any]) -> dict[str, Any]:
         """Protected API call"""
-        import httpx
+        import httpx  # type: ignore[import-not-found]
 
         async with httpx.AsyncClient() as client:
             response = await client.post(f"{self.base_url}{endpoint}", json=data)

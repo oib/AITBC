@@ -138,11 +138,11 @@ async def get_leaderboard(
     """Get developer leaderboard sorted by reputation score"""
 
     try:
-        developers = await dev_service.get_leaderboard(limit, offset)
+        developers = await dev_service.get_leaderboard(limit or 100, offset or 0)
 
         return [
             {
-                "rank": offset + i + 1,
+                "rank": (offset or 0) + i + 1,
                 "id": dev.id,
                 "wallet_address": dev.wallet_address,
                 "github_handle": dev.github_handle,
@@ -221,7 +221,7 @@ async def list_bounties(
     """List bounty tasks with optional status filter"""
 
     try:
-        bounties = await dev_service.list_bounties(status, limit, offset)
+        bounties = await dev_service.list_bounties(status, limit or 100, offset or 0)
 
         return [
             {
@@ -322,7 +322,7 @@ async def get_my_submissions(
                 "submitted_at": sub.submitted_at.isoformat(),
                 "reviewed_at": sub.reviewed_at.isoformat() if sub.reviewed_at else None,
             }
-            for sub in submissions[offset : offset + limit]
+            for sub in submissions[(offset or 0) : (offset or 0) + (limit or 100)]
         ]
 
     except Exception:

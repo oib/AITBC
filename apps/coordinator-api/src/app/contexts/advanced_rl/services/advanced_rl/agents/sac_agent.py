@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 
 
-class SACAgent(nn.Module):
+class SACAgent(nn.Module):  # type: ignore[misc]
     """Soft Actor-Critic Agent"""
 
     def __init__(self, state_dim: int, action_dim: int, hidden_dim: int = 256):

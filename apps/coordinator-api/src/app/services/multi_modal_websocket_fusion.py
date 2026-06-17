@@ -13,7 +13,7 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 
-import numpy as np
+import numpy as np  # type: ignore[import-not-found]
 
 from aitbc import get_logger
 

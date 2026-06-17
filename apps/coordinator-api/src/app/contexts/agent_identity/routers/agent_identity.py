@@ -309,7 +309,7 @@ async def get_wallet_transaction_history(
 ) -> list[dict[str, Any]]:
     """Get transaction history for agent wallet"""
     try:
-        history = await manager.wallet_adapter.get_wallet_transaction_history(agent_id, chain_id, limit, offset)
+        history = await manager.wallet_adapter.get_wallet_transaction_history(agent_id, chain_id, limit or 50, offset or 0)
         return history
     except Exception:
         raise HTTPException(status_code=500, detail="Operation failed") from None
@@ -497,13 +497,13 @@ async def search_agent_identities(
     """Search agent identities with advanced filters"""
     try:
         result = await manager.search_agent_identities(
-            query=query,
+            query=query or "",
             chains=chains,
             status=status,
             verification_level=verification_level,
             min_reputation=min_reputation,
-            limit=limit,
-            offset=offset,
+            limit=limit or 50,
+            offset=offset or 0,
         )
         return result
     except Exception:

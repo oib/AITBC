@@ -179,7 +179,7 @@ async def get_treasury_transactions(
     """Get treasury transaction history"""
 
     try:
-        transactions = await governance_service.get_treasury_transactions(limit, offset, region)
+        transactions = await governance_service.get_treasury_transactions(limit or 100, offset or 0, region)
         return transactions
 
     except Exception as e:
@@ -283,7 +283,7 @@ async def get_governance_analytics(
     """Get comprehensive governance analytics"""
 
     try:
-        analytics = await governance_service.get_governance_analytics(time_period_days)
+        analytics = await governance_service.get_governance_analytics(time_period_days or 30)
         return analytics
 
     except Exception as e:
@@ -321,7 +321,7 @@ async def create_governance_profile(
     """Create or get a governance profile"""
 
     try:
-        profile = await governance_service.get_or_create_profile(user_id, initial_voting_power)
+        profile = await governance_service.get_or_create_profile(user_id, initial_voting_power or 0.0)
 
         return {
             "success": True,

@@ -53,7 +53,6 @@
 ### 🏠 Core Documentation
 - **[README.md](README.md)** - Main documentation entry point and navigation guide
 - **[MASTER_INDEX.md](MASTER_INDEX.md)** - This file - complete catalog of all documentation
-- **[ROADMAP.md](ROADMAP.md)** - Current open tasks and development roadmap (simplified - only pending items)
 
 ### 📖 Meta Documentation
 Documentation about the documentation system itself
@@ -77,20 +76,6 @@ Documentation about the documentation system itself
   - [Integration Assets README](agents/INTEGRATION_ASSETS_README.md)
   - [Agent API Spec](agents/agent-api-spec.json)
   - [Agent Manifest](agents/agent-manifest.json)
-  - [Agent Integration Guide](agents/AGENT_INTEGRATION_GUIDE.md)
-  - [Agent Configuration](agents/AGENT_CONFIGURATION.md)
-  - [Agent Services](agents/AGENT_SERVICES.md)
-  - [Agent Coordinator](agents/AGENT_COORDINATOR.md)
-  - [Agent Exchange](agents/AGENT_EXCHANGE.md)
-  - [Agent Marketplace](agents/AGENT_MARKETPLACE.md)
-  - [Agent Wallet](agents/AGENT_WALLET.md)
-  - [Agent Infrastructure](agents/AGENT_INFRASTRUCTURE.md)
-  - [Agent Plugins](agents/AGENT_PLUGINS.md)
-  - [Agent Crypto](agents/AGENT_CRYPTO.md)
-  - [Agent Compliance](agents/AGENT_COMPLIANCE.md)
-  - [Agent Mining](agents/AGENT_MINING.md)
-  - [Agent Global AI](agents/AGENT_GLOBAL_AI.md)
-  - [Agent Explorer](agents/AGENT_EXPLORER.md)
 
 ### 📦 **Applications Documentation**
 - **[Apps](apps/)** - Applications documentation (72 items)
@@ -111,9 +96,6 @@ Documentation about the documentation system itself
 ### 🏗️ Architecture Documentation
 - **[Architecture](architecture/)** - System architecture and design patterns (10 items)
 
-###  Backend Documentation
-- **[Backend](backend/)** - Backend system documentation (10 items)
-  - Auto-generated implementation analysis files moved to internal storage (/root/aitbc)
 
 ### ⛓️ Blockchain Documentation
 - **[Blockchain](blockchain/)** - Blockchain documentation (29 items)
@@ -132,8 +114,6 @@ Documentation about the documentation system itself
   - [Local Setup](deployment/local-setup.md) - Local development deployment
   - [Single Server](deployment/single-server.md) - Single server production deployment
   - [Multi Server](deployment/multi-server.md) - Multi-server deployment
-  - [Cloud Deployment](deployment/cloud-deployment.md) - AWS, GCP, Azure deployment
-  - [Docker Deployment](deployment/docker-deployment.md) - Containerized deployment
   - [Configuration](deployment/configuration.md) - Environment configuration
   - [SSL/TLS Setup](deployment/ssl-tls-setup.md) - SSL/TLS configuration
   - [Health Checks](deployment/health-checks.md) - Service health monitoring
@@ -144,8 +124,6 @@ Documentation about the documentation system itself
 ### 🛠️ Development Documentation
 - **[Development](development/)** - Development workflow documentation (35 items)
 
-### 🏢 Enterprise Documentation
-- **[Enterprise](enterprise/)** - Enterprise documentation (1 item)
 
 ### 📖 Getting Started Documentation
 - **[Getting Started](getting-started/)** - Getting started guides and onboarding
@@ -198,16 +176,7 @@ Documentation about the documentation system itself
 ### 🧩 hermes Documentation
 - **[hermes](hermes/)** - hermes agent integration documentation (19 items)
 
-### 📦 Packages Documentation
-- **[Packages](packages/)** - Language-specific packages and SDKs (1 item)
 
-### 📋 Project Documentation
-- **[Project](project/)** - Project documentation (28 items)
-  - [cli/](project/cli/) - Command-line interface documentation
-  - [infrastructure/](project/infrastructure/) - System infrastructure and deployment
-  - [requirements/](project/requirements/) - Project requirements and migration
-  - [completion/](project/completion/) - 100% project completion summary
-  - [workspace/](project/workspace/) - Workspace strategy and organization
 
 ### 📖 Reference Documentation
 - **[Reference](reference/)** - Compact lookup and reference docs (22 items)
@@ -218,12 +187,6 @@ Documentation about the documentation system itself
 
 ### 📋 Releases Documentation
 - **[Releases](releases/)** - Release notes and version history (7 items)
-  - [RELEASE_v0.3.2.md](releases/RELEASE_v0.3.2.md)
-  - [RELEASE_v0.3.1.md](releases/RELEASE_v0.3.1.md)
-  - [RELEASE_v0.3.0.md](releases/RELEASE_v0.3.0.md)
-  - [RELEASE_v0.2.5.md](releases/RELEASE_v0.2.5.md)
-  - [RELEASE_v0.2.4.md](releases/RELEASE_v0.2.4.md)
-  - [RELEASE_v0.2.3.md](releases/RELEASE_v0.2.3.md)
 
 ### 🔒 Security Documentation
 - **[Security](security/)** - Security documentation (34 items)
@@ -269,8 +232,6 @@ Documentation about the documentation system itself
 ### 🌐 Website Documentation
 - **[Website](website)** - Symlink to /website/docs/ (rendered documentation site assets)
 
-### 🔄 Workflows Documentation
-- **[Workflows](workflows/)** - Documentation workflow outcomes (9 items)
 
 ---
 
