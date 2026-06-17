@@ -3,7 +3,7 @@ AITBC Queue Module
 Queue management and job scheduling for AITBC applications
 """
 
-from aitbc.queue.queue_manager import (
+from aitbc.queues.queue_manager import (
     BackgroundTaskManager,
     Job,
     JobPriority,
