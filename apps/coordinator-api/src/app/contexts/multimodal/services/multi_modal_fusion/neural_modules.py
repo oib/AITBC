@@ -3,13 +3,13 @@ Neural Network Modules for Multi-Modal Fusion
 Contains PyTorch neural network components for multi-modal fusion architectures
 """
 
-import numpy as np
+import numpy as np  # type: ignore[import-not-found]
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
-class CrossModalAttention(nn.Module):
+class CrossModalAttention(nn.Module):  # type: ignore[misc]
     """Cross-modal attention mechanism for multi-modal fusion"""
 
     def __init__(self, embed_dim: int, num_heads: int = 8):
@@ -31,7 +31,7 @@ class CrossModalAttention(nn.Module):
         key_modal: torch.Tensor,
         value_modal: torch.Tensor,
         mask: torch.Tensor | None = None,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
             query_modal: (batch_size, seq_len_q, embed_dim)
@@ -67,10 +67,10 @@ class CrossModalAttention(nn.Module):
         # Concatenate heads
         context = context.transpose(1, 2).contiguous().view(batch_size, seq_len_q, self.embed_dim)
 
-        return context, attention_weights  # type: ignore[return-value]
+        return context, attention_weights
 
 
-class MultiModalTransformer(nn.Module):
+class MultiModalTransformer(nn.Module):  # type: ignore[misc]
     """Transformer-based multi-modal fusion architecture"""
 
     def __init__(self, modality_dims: dict[str, int], embed_dim: int = 512, num_layers: int = 6, num_heads: int = 8):
@@ -157,10 +157,10 @@ class MultiModalTransformer(nn.Module):
         # Output projection
         output = self.output_projection(pooled)
 
-        return output  # type: ignore[no-any-return]
+        return output
 
 
-class AdaptiveModalityWeighting(nn.Module):
+class AdaptiveModalityWeighting(nn.Module):  # type: ignore[misc]
     """Dynamic modality weighting based on context and performance"""
 
     def __init__(self, num_modalities: int, embed_dim: int = 256):
@@ -182,7 +182,7 @@ class AdaptiveModalityWeighting(nn.Module):
 
     def forward(
         self, modality_features: torch.Tensor, context: torch.Tensor, performance_scores: torch.Tensor | None = None
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
             modality_features: (batch_size, num_modalities, feature_dim)
@@ -210,4 +210,4 @@ class AdaptiveModalityWeighting(nn.Module):
         # Weighted sum
         fused_features = torch.sum(weighted_features, dim=1)  # (batch_size, feature_dim)
 
-        return fused_features, weights  # type: ignore[return-value]
+        return fused_features, weights
