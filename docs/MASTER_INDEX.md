@@ -134,7 +134,7 @@ Documentation about the documentation system itself
   - `aitbc.events` - Event system
   - `aitbc.monitoring` - Monitoring utilities
   - `aitbc.network` - Network utilities
-  - `aitbc.queue` - Queue management
+  - `aitbc.queues` - Queue management
   - `aitbc.state` - State management
   - `aitbc.testing` - Testing utilities
   - `aitbc.data_layer` - Data abstraction

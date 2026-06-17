@@ -14,5 +14,5 @@ Queue management and job scheduling for AITBC applications.
 ## Usage
 
 ```python
-from aitbc.queue import TaskQueue, JobScheduler
+from aitbc.queues import TaskQueue, JobScheduler
 ```
