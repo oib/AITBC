@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from aitbc.state import (
+from aitbc.state.state import (
     AsyncStateMachine,
     ConfigurableStateMachine,
     StateMachine,
@@ -425,7 +425,7 @@ class TestStateMonitor:
         observer1.assert_called_once_with(transition)
         observer2.assert_called_once_with(transition)
 
-    @patch("aitbc.state.logger")
+    @patch("aitbc.state.state.logger")
     def test_notify_observers_error(self, mock_logger):
         """Test notify_observers handles observer errors"""
         machine = TestableStateMachine("state1")

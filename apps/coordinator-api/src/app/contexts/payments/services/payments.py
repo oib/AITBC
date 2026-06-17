@@ -9,7 +9,9 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
-from aitbc import AITBCHTTPClient, NetworkError, get_logger
+from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import NetworkError
+from aitbc.network.http_client import AITBCHTTPClient
 
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session

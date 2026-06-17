@@ -54,7 +54,7 @@ class TestGetChainInfo:
         """Test chain info with network error"""
         from aitbc_cli.utils.blockchain import get_chain_info
 
-        from aitbc import NetworkError
+        from aitbc.exceptions import NetworkError
 
         mock_client = Mock()
         mock_client_class.return_value = mock_client

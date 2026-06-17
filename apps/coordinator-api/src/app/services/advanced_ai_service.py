@@ -14,7 +14,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .advanced_learning import AdvancedLearningService  # type: ignore[import-not-found]
 from .advanced_rl import AdvancedReinforcementLearningEngine  # type: ignore[import-not-found]

@@ -7,10 +7,10 @@ import asyncio
 from datetime import UTC, datetime
 from typing import Any
 
-import numpy as np  # type: ignore[import-not-found]
+import numpy as np
 from sqlmodel import Session, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ...domain.agent_performance import ReinforcementLearningConfig  # type: ignore[import-not-found]
 from .engine import AdvancedReinforcementLearningEngine

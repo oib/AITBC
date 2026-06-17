@@ -79,7 +79,7 @@ class TestHealthChecker:
 
         checker.register_check("memory", mock_check)
         mock_logger.info.assert_called_once()
-        assert "memory" in mock_logger.info.call_args[0][0]
+        assert mock_logger.info.call_args[0][1] == "memory"
 
     def test_run_checks_all_healthy(self):
         """Test run_checks when all checks pass"""

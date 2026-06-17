@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..models import CapacitySnapshot, Feedback, MatchResult, Miner, MinerStatus, SLAMetric, SLAViolation
 

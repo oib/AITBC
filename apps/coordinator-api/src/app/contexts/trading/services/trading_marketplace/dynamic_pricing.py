@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 

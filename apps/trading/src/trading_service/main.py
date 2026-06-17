@@ -16,13 +16,12 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aitbc import (
+from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.middleware import (
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
     RequestIDMiddleware,
     RequestValidationMiddleware,
-    configure_logging,
-    get_logger,
 )
 
 from .services.trading_service import TradingService

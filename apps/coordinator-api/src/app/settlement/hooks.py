@@ -7,7 +7,7 @@ import os
 from datetime import UTC, datetime
 from typing import Any
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..domain.job import Job
 from .bridges.base import BridgeStatus, SettlementMessage, SettlementResult

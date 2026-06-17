@@ -1,6 +1,6 @@
 from typing import Any
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 from fastapi import APIRouter, Depends, HTTPException, Request
 

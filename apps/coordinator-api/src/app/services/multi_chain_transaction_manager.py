@@ -13,7 +13,7 @@ from uuid import uuid4
 from sqlalchemy import desc
 from sqlmodel import Session, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory
 from ..contexts.cross_chain.services.cross_chain.bridge_enhanced import CrossChainBridgeService

@@ -5,7 +5,7 @@ Rainbow DQN Agent implementation
 import torch.nn as nn
 
 
-class RainbowDQNAgent(nn.Module):  # type: ignore[misc]
+class RainbowDQNAgent(nn.Module):
     """Rainbow DQN Agent with multiple improvements"""
 
     def __init__(self, state_dim: int, action_dim: int, hidden_dim: int = 512, num_atoms: int = 51):

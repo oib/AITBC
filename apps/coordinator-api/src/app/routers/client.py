@@ -5,7 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from aitbc import AITBCHTTPClient, NetworkError, get_logger
+from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import NetworkError
+from aitbc.network.http_client import AITBCHTTPClient
 from aitbc.rate_limiting import rate_limit
 
 from ..config import settings
@@ -27,7 +29,7 @@ async def submit_job(
     req: JobCreate,
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> JobView:
     service = JobService(session)
     job = service.create_job(client_id, req)
@@ -57,7 +59,7 @@ async def get_job(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> JobView:
     service = JobService(session)
     try:
@@ -73,7 +75,7 @@ async def get_job_result(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> JobResult:
     service = JobService(session)
     try:
@@ -93,7 +95,7 @@ async def cancel_job(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> JobView:
     service = JobService(session)
     try:
@@ -112,7 +114,7 @@ async def get_job_receipt(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> dict:
     service = JobService(session)
     try:
@@ -130,7 +132,7 @@ async def list_job_receipts(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
 ) -> dict:
     service = JobService(session)
     receipts = service.list_receipts(job_id, client_id=client_id)
@@ -143,7 +145,7 @@ async def list_job_receipts(
 async def list_jobs(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
     limit: int = 20,
     offset: int = 0,
     status: str | None = None,
@@ -169,7 +171,7 @@ async def list_jobs(
 async def get_job_history(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
     limit: int = 20,
     offset: int = 0,
     status: str | None = None,
@@ -214,7 +216,7 @@ async def get_job_history(
 async def get_blocks(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    client_id: str = Depends(require_client_key()),
+    client_id: Annotated[str, Depends(require_client_key())],
     limit: int = 20,
     offset: int = 0,
 ) -> dict:

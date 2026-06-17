@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..protocols.communication import AgentMessage
 from ..protocols.message_types import create_task_message

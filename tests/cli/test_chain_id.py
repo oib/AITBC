@@ -13,7 +13,7 @@ from aitbc_cli.utils.chain_id import (
     validate_chain_id,
 )
 
-from aitbc import NetworkError
+from aitbc.exceptions import NetworkError
 
 
 class TestGetDefaultChainId:

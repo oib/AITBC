@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ....domain.dao_governance import DAOMember, DAOProposal, ProposalState, ProposalType, TreasuryAllocation, Vote
 from ....schemas.dao_governance import AllocationCreate, MemberCreate, ProposalCreate, VoteCreate

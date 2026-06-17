@@ -12,7 +12,8 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, cast
 
-from aitbc import DATA_DIR, KEYSTORE_DIR, get_logger
+from aitbc.aitbc_logging import get_logger
+from aitbc.constants import DATA_DIR, KEYSTORE_DIR
 
 from ..config import settings
 

@@ -23,7 +23,7 @@ class AITBCHTTPClient:
     def __init__(
         self,
         base_url: str = "",
-        timeout: int = 30,
+        timeout: int | float = 30,
         headers: dict[str, str] | None = None,
         max_retries: int = 3,
         enable_cache: bool = False,
@@ -407,7 +407,7 @@ class AsyncAITBCHTTPClient:
     def __init__(
         self,
         base_url: str = "",
-        timeout: int = 30,
+        timeout: int | float = 30,
         headers: dict[str, str] | None = None,
         max_retries: int = 3,
         enable_cache: bool = False,

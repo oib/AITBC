@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .bid_strategy_engine import BidResult  # type: ignore[import-not-found]
 from .task_decomposition import (  # type: ignore[import-not-found]

@@ -2,8 +2,8 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-05-30
-**Version**: 7.1 (May 30, 2026 Update - directory consolidation, getting-started optimization, artifact cleanup)
+**Last Updated**: 2026-06-17
+**Version**: 7.3 (June 17, 2026 Update - v0.4.24 release, 15 submodules documented)
 
 ---
 
@@ -42,9 +42,9 @@
 ## 📊 Directory Statistics
 
 - **Total Directories**: 21
-- **Total Files**: 460+ markdown files
+- **Total Files**: 461+ markdown files
 - **Apps Documentation**: 72 items
-- **Release Notes**: 7 items (latest 5 releases retained)
+- **Release Notes**: 3 items (latest 5 releases retained)
 
 ---
 
@@ -123,7 +123,22 @@ Documentation about the documentation system itself
 
 ### 🛠️ Development Documentation
 - **[Development](development/)** - Development workflow documentation (35 items)
-
+- **[AITBC Core Package](reference/packages.md)** - Core package module structure
+  - `aitbc.api` - API utilities
+  - `aitbc.async_helpers` - Async utilities
+  - `aitbc.blockchain` - Blockchain services
+  - `aitbc.config` - Configuration management
+  - `aitbc.crypto` - Cryptography utilities
+  - `aitbc.database` - Database utilities
+  - `aitbc.decorators` - Decorators
+  - `aitbc.events` - Event system
+  - `aitbc.monitoring` - Monitoring utilities
+  - `aitbc.network` - Network utilities
+  - `aitbc.queue` - Queue management
+  - `aitbc.state` - State management
+  - `aitbc.testing` - Testing utilities
+  - `aitbc.data_layer` - Data abstraction
+  - `aitbc.utils` - General utilities
 
 ### 📖 Getting Started Documentation
 - **[Getting Started](getting-started/)** - Getting started guides and onboarding
@@ -186,7 +201,8 @@ Documentation about the documentation system itself
   - [Packages](reference/packages.md) - Language-specific packages and SDKs
 
 ### 📋 Releases Documentation
-- **[Releases](releases/)** - Release notes and version history (7 items)
+- **[Releases](releases/)** - Release notes and version history (3 items)
+  - [Release v0.4.23](releases/v0.4.23/) - **Latest** - Architecture refactoring, logging standardization, observability
 
 ### 🔒 Security Documentation
 - **[Security](security/)** - Security documentation (34 items)
@@ -287,6 +303,6 @@ All cross-references have been updated to reflect these changes.
 
 ---
 
-**Last Updated**: 2026-05-30
-**Documentation Version**: 7.0
-**Status**: Production Ready with optimized getting-started structure
+**Last Updated**: 2026-06-16
+**Documentation Version**: 7.2
+**Status**: Production Ready with v0.4.23 release documentation

@@ -27,6 +27,7 @@ from .paths import (
     resolve_path,
 )
 from .time_utils import (
+    Timer,
     add_duration,
     calculate_deadline,
     format_duration,
@@ -83,6 +84,7 @@ __all__ = [
     "validate_chain_id",
     "validate_uuid",
     # Time utils
+    "Timer",
     "get_utc_now",
     "get_timestamp_utc",
     "format_iso8601",

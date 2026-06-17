@@ -6,7 +6,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ....models.hermes import ErrorReportModel, HealthCheckModel, RecoveryResultModel
 from ....schemas.hermes_health import ErrorReport, HealthCheck, HealthStatus, RecoveryResult

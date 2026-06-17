@@ -7,7 +7,7 @@ with multi-chain support.
 
 import uvicorn
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from app.main import app
 from app.settings import settings
 

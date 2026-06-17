@@ -5,7 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ....deps import require_admin_key
 from ....schemas.hermes_resource import (
@@ -28,7 +28,9 @@ router = APIRouter(prefix="/hermes/resource", tags=["hermes Resource Management"
 
 @router.post("/register")
 async def register_resource(
-    resource: Resource, session: Annotated[Session, Depends(get_session)], current_user: str = Depends(require_admin_key())
+    resource: Resource,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:
     """Register a new resource for autonomous management."""
     try:
@@ -43,7 +45,7 @@ async def register_resource(
 async def allocate_resource(
     allocation_request: ResourceAllocationRequest,
     session: Annotated[Session, Depends(get_session)],
-    current_user: str = Depends(require_admin_key()),
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> ResourceAllocationResponse:
     """Allocate resources based on strategy."""
     try:
@@ -57,7 +59,7 @@ async def allocate_resource(
 async def release_resource(
     release_request: ResourceReleaseRequest,
     session: Annotated[Session, Depends(get_session)],
-    current_user: str = Depends(require_admin_key()),
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> ResourceReleaseResponse:
     """Release allocated resources."""
     try:
@@ -69,7 +71,8 @@ async def release_resource(
 
 @router.post("/pricing/adjust", response_model=PricingAdjustment | None)
 async def adjust_pricing(
-    session: Annotated[Session, Depends(get_session)], current_user: str = Depends(require_admin_key())
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> PricingAdjustment | None:
     """Automatically adjust pricing based on utilization."""
     try:
@@ -81,7 +84,8 @@ async def adjust_pricing(
 
 @router.get("/pools", response_model=list[ResourcePool])
 async def get_resource_pools(
-    session: Annotated[Session, Depends(get_session)], current_user: str = Depends(require_admin_key())
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[str, Depends(require_admin_key())],
 ) -> list[ResourcePool]:
     """Get all resource pools."""
     try:
@@ -94,7 +98,7 @@ async def get_resource_pools(
 @router.get("/allocations")
 async def get_allocations(
     session: Annotated[Session, Depends(get_session)],
-    current_user: str = Depends(require_admin_key()),
+    current_user: Annotated[str, Depends(require_admin_key())],
     agent_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get allocations with optional filtering."""

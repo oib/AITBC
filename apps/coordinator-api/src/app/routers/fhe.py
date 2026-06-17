@@ -10,7 +10,7 @@ Provides REST API for:
 
 from typing import Any
 
-import numpy as np  # type: ignore[import-not-found]
+import numpy as np
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 

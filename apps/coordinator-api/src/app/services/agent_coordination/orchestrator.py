@@ -13,7 +13,7 @@ from app.contexts.trading.services.trading_marketplace.bid_strategy import (
     BidResult,  # type: ignore[import-not-found]
 )
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposition
 

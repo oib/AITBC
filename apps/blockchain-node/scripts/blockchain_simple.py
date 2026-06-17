@@ -4,7 +4,8 @@ Blockchain Node Service for AITBC Production
 
 import os
 
-from aitbc import CONFIG_DIR, DATA_DIR, LOG_DIR, get_logger
+from aitbc.aitbc_logging import get_logger
+from aitbc.constants import CONFIG_DIR, DATA_DIR, LOG_DIR
 
 logger = get_logger(__name__)
 

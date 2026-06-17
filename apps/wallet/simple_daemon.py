@@ -17,7 +17,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
-from aitbc import KEYSTORE_DIR
+from aitbc.constants import KEYSTORE_DIR
 from aitbc.crypto import encrypt_private_key
 
 # Add CLI utils to path
@@ -275,7 +275,7 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] | None = No
         # Fallback: create a simple wallet if CLI not available
         import secrets
 
-        from aitbc import derive_ethereum_address
+        from aitbc.crypto.crypto import derive_ethereum_address
 
         private_key = secrets.token_hex(32)
         public_key = derive_ethereum_address(private_key)
@@ -434,7 +434,7 @@ async def create_wallet(request: dict[str, Any] | None = None):
         # Fallback: create a simple wallet
         import secrets
 
-        from aitbc import derive_ethereum_address
+        from aitbc.crypto.crypto import derive_ethereum_address
 
         private_key = secrets.token_hex(32)
         public_key = derive_ethereum_address(private_key)

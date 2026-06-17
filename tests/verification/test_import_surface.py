@@ -9,15 +9,7 @@ import aitbc_sdk
 
 import aitbc
 from aitbc.aitbc_logging import get_logger as direct_get_logger
-from aitbc import (
-    BLOCKCHAIN_RPC_PORT,
-    DATA_DIR,
-    ENV_FILE,
-    KEYSTORE_DIR,
-    LOG_DIR,
-    NODE_ENV_FILE,
-    PACKAGE_VERSION,
-)
+from aitbc.constants import BLOCKCHAIN_RPC_PORT, DATA_DIR, ENV_FILE, KEYSTORE_DIR, LOG_DIR, NODE_ENV_FILE, PACKAGE_VERSION
 from aitbc.exceptions import NetworkError, ValidationError
 from aitbc.network.http_client import AITBCHTTPClient
 from aitbc.testing import MockFactory

@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from .config_pg import settings  # type: ignore[import-not-found]
 

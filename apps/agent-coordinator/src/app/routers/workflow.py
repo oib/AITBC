@@ -10,7 +10,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 from ..workflow import get_orchestrator
 

@@ -19,7 +19,7 @@ def load_module_from_path(module_name, file_path):
     return module
 
 
-decorators = load_module_from_path("aitbc.decorators", Path("/opt/aitbc/aitbc/decorators.py"))
+decorators = load_module_from_path("aitbc.decorators", Path("/opt/aitbc/aitbc/decorators/decorators.py"))
 
 
 # ============================================================================

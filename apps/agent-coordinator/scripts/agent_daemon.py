@@ -18,7 +18,8 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-from aitbc import DATA_DIR, KEYSTORE_DIR, get_logger
+from aitbc.aitbc_logging import get_logger
+from aitbc.constants import DATA_DIR, KEYSTORE_DIR
 
 logger = get_logger(__name__)
 

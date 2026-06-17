@@ -3,7 +3,7 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 from fastapi import FastAPI
 
 from . import state

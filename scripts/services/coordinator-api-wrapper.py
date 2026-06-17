@@ -17,11 +17,7 @@ sys.path.insert(0, str(SDK_DIR))
 sys.path.insert(0, str(CRYPTO_DIR))
 
 # Import AITBC utilities
-from aitbc import (  # noqa: E402
-    LOG_DIR,
-    configure_logging,
-    get_logger,
-)
+from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 
 # Configure logging
 configure_logging(
@@ -44,6 +40,8 @@ logger.info(f"Executing: {' '.join(exec_cmd)}")
 
 # Ensure PYTHONPATH is set for the child process
 env = os.environ.copy()
-env["PYTHONPATH"] = "/opt/aitbc:/opt/aitbc/apps/coordinator-api/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src"
+env["PYTHONPATH"] = (
+    "/opt/aitbc:/opt/aitbc/apps/coordinator-api/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src"
+)
 
 os.execvpe(exec_cmd[0], exec_cmd, env)
