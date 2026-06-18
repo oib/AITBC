@@ -7,7 +7,7 @@ Provides structured error responses for consistent API error handling.
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ErrorDetail(BaseModel):
@@ -21,12 +21,8 @@ class ErrorDetail(BaseModel):
 class ErrorResponse(BaseModel):
     """Standardized error response for all API errors."""
 
-    error: dict[str, Any] = Field(..., description="Error information")
-    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat() + "Z")
-    request_id: str | None = Field(None, description="Request ID for tracing")
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "error": {
                     "code": "VALIDATION_ERROR",
@@ -38,6 +34,11 @@ class ErrorResponse(BaseModel):
                 "request_id": "req_abc123",
             }
         }
+    )
+
+    error: dict[str, Any] = Field(..., description="Error information")
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat() + "Z")
+    request_id: str | None = Field(None, description="Request ID for tracing")
 
 
 class AITBCError(Exception):
