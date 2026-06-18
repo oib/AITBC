@@ -2,7 +2,7 @@
 
 import os
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -79,7 +79,7 @@ def create_deposit(eth_tx_hash: str, eth_from_address: str, eth_amount: str, ait
                 eth_amount,
                 ait_recipient,
                 BridgeDepositStatus.PENDING,
-                datetime.utcnow().isoformat(),
+                datetime.now(UTC).isoformat(),
             ),
         )
         conn.commit()
@@ -128,7 +128,7 @@ def update_deposit(
 
     if status is not None:
         updates.append("processed_at = ?")
-        params.append(datetime.utcnow().isoformat())
+        params.append(datetime.now(UTC).isoformat())
 
     params.append(eth_tx_hash)
 

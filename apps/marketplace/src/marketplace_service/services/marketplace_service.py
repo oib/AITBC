@@ -276,7 +276,7 @@ class MarketplaceService:
 
     async def register_software_service(self, data: dict[str, Any]) -> dict[str, Any]:
         """Register or update a software service"""
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         from sqlalchemy import select
 
@@ -295,7 +295,7 @@ class MarketplaceService:
                 for key, value in data.items():
                     if hasattr(existing, key) and value is not None:
                         setattr(existing, key, value)
-                existing.updated_at = datetime.utcnow()
+                existing.updated_at = datetime.now(UTC)
                 await self.session.commit()
                 await self.session.refresh(existing)
                 logger.info("Updated software service: %s", plugin_id)
@@ -531,7 +531,7 @@ class MarketplaceService:
     async def mark_ratings_synced(self, rating_ids: list[str]) -> int:
         """Mark ratings as synced"""
         try:
-            from datetime import datetime
+            from datetime import UTC, datetime
 
             from sqlalchemy import select
 
@@ -539,7 +539,7 @@ class MarketplaceService:
             result = await self.session.execute(stmt)
             ratings = result.scalars().all()
             for rating in ratings:
-                rating.synced_at = datetime.utcnow()
+                rating.synced_at = datetime.now(UTC)
             await self.session.commit()
             logger.info("Marked %s ratings as synced", len(ratings))
             return len(ratings)
@@ -550,7 +550,7 @@ class MarketplaceService:
     async def sync_ratings_from_remote(self, remote_ratings: list[dict[str, Any]]) -> dict[str, Any]:
         """Sync ratings from remote node"""
         try:
-            from datetime import datetime
+            from datetime import UTC, datetime
 
             from sqlalchemy import select
 
@@ -569,7 +569,7 @@ class MarketplaceService:
                     if remote_created > existing.created_at:
                         existing.rating = remote_rating["rating"]
                         existing.comment = remote_rating["comment"]
-                        existing.synced_at = datetime.utcnow()
+                        existing.synced_at = datetime.now(UTC)
                         updated_count += 1
                     else:
                         skipped_count += 1
@@ -581,7 +581,7 @@ class MarketplaceService:
                         reviewer_id=remote_rating["reviewer_id"],
                         comment=remote_rating["comment"],
                         created_at=datetime.fromisoformat(remote_rating["created_at"]),
-                        synced_at=datetime.utcnow(),
+                        synced_at=datetime.now(UTC),
                         source_node=remote_rating.get("source_node", "remote"),
                     )
                     self.session.add(new_rating)
