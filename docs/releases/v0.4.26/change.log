@@ -622,6 +622,167 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 2. Fail the build on any violation.
 3. Store the validated `openapi.json` as a CI artifact for downstream SDK generation.
 
+### Goal 42: Pick One Dependency Source of Truth (P1)
+
+**Problem**: The repo has root Poetry files, `uv.lock`, app-level `poetry.lock` files, and top-level `requirements*.txt` with looser versions. These are maintained independently and can diverge silently. <ref_snippet file="/opt/aitbc/pyproject.toml" lines="1" /> <ref_snippet file="/opt/aitbc/requirements.txt" lines="1" /> <ref_snippet file="/opt/aitbc/apps/hermes/pyproject.toml" lines="8" />
+
+**Impact**: CI installs from one file while developers use another; deployments may get different dependency trees; security upgrades are applied inconsistently.
+
+**Approach**:
+1. Pick one primary lock workflow (proposed: root `pyproject.toml` + `uv.lock`).
+2. Generate all secondary files (`requirements*.txt`, app-level lockfiles) from the primary in CI, never by hand.
+3. Add a CI check that fails if any generated lockfile is out of sync with the primary.
+4. Document the workflow in `docs/development/DEPENDENCIES.md` (Goal 21).
+
+---
+
+### Goal 43: Align Python/Package Constraints Across Apps (P1)
+
+**Problem**: Apps declare inconsistent Python version constraints:
+- Some apps: `^3.13`
+- Others: `>=3.13.5,<3.14`
+- Root: excludes `3.14.1`
+
+**Impact**: CI and service deploys may resolve to different Python or package versions, causing "works on my machine" failures.
+
+**Approach**:
+1. Audit all `pyproject.toml` files for `requires-python` and package version constraints.
+2. Standardize on a single constraint string across root and all apps.
+3. Add a CI lint check that verifies all `pyproject.toml` files use the same Python version spec.
+
+---
+
+### Goal 44: Add First-Class Container Artifacts or Remove Docker Claims from Docs (P2)
+
+**Problem**: Docker docs exist (`docs/governance/09-DEPLOYMENT.md:256`), but no `Dockerfile` or `docker-compose.yml` is tracked in the repo. Operators are told to create Docker files manually.
+
+**Impact**: Docker deployment is theoretical; operators must reverse-engineer the runtime environment from systemd units and READMEs.
+
+**Approach**:
+1. **Option A**: Create a production `Dockerfile` and `docker-compose.yml` that mirrors the systemd service topology.
+2. **Option B**: Remove Docker references from docs and explicitly document that the platform deploys via systemd only.
+3. If Option A, ensure the container uses the same dependency lockfile as the host install (Goal 42).
+4. Add a CI step that builds the image to catch Dockerfile regressions.
+
+---
+
+### Goal 45: Harden Systemd Units Consistently (P0)
+
+**Problem**: Several systemd units run as `root` with weak sandboxing:
+- `aitbc-agent-daemon.service` — `User=root`, limited security directives
+- `aitbc-miner.service` — `User=root`
+- `aitbc-agent-management.service` — `User=root`
+
+**Impact**: Compromised services have full root access; sandboxing is inconsistent across the fleet.
+
+**Approach**:
+1. Standardize all units on:
+   - `NoNewPrivileges=true`
+   - `ProtectSystem=strict` (or `full` where needed)
+   - `PrivateTmp=true`
+   - `ReadWritePaths=` for only the required data directories
+   - `CapabilityBoundingSet=` stripped to minimum
+   - Dedicated non-root service users (e.g., `aitbc-agent`, `aitbc-miner`)
+2. Create service users in `scripts/setup_service_users.sh`.
+3. Audit all 21 active service units against a hardened template.
+4. Add a CI check that validates systemd units against the template using `systemd-analyze security`.
+
+---
+
+### Goal 46: Move Inline Secrets Out of Service Files (P0)
+
+**Problem**: Secrets are embedded directly in `.service` files:
+- `aitbc-miner.service:13` — inline `AUTH_TOKEN`
+- `aitbc-governance.service:17` — DB password
+- `aitbc-blockchain-p2p.service:14` — DB URL with credentials
+
+**Impact**: Secrets are world-readable if the service file is exposed; rotation requires editing unit files and reloading systemd.
+
+**Approach**:
+1. Replace inline secrets with `EnvironmentFile=/etc/aitbc/<service>.env` references.
+2. Move all secret values to `/etc/aitbc/*.env` files with `chmod 600`.
+3. Update setup scripts to generate these env files during installation.
+4. Add `.gitignore` and secret-scanning rules for `/etc/aitbc/` patterns.
+5. Document secret rotation procedure in `docs/operations/SECRET_ROTATION.md`.
+
+---
+
+### Goal 47: Make Recovery Fail Loudly (P1)
+
+**Problem**: `aitbc-recovery.service` ends with `|| true`, so secret-loading or relinking failures always report success to systemd. <ref_snippet file="/opt/aitbc/scripts/systemd/aitbc-recovery.service" lines="8" />
+
+**Impact**: systemd considers the service healthy even when recovery steps failed; operators may not notice a broken node.
+
+**Approach**:
+1. Remove `|| true` from the recovery service `ExecStart` command.
+2. Ensure each step in the recovery script exits non-zero on failure.
+3. Add `OnFailure=` notification to the unit (e.g., email or webhook alert).
+4. Add a test that simulates a recovery failure and verifies systemd reports `failed`.
+
+---
+
+### Goal 48: Add ShellCheck/shfmt to CI (P1)
+
+**Problem**: There are many deployment and maintenance shell scripts with unsafe patterns:
+- `scripts/service-management/run-local-services.sh:12` — potential unsafe operations
+- `scripts/workflow-hermes/01_preflight_setup_hermes.sh:135` — destructive operations like `fuser -k` and `rm -rf`
+
+**Impact**: Shell scripts can corrupt data, kill wrong processes, or fail silently on different environments.
+
+**Approach**:
+1. Add `shellcheck` and `shfmt` to CI.
+2. Start with the two scripts above; fix all flagged issues (SC20xx warnings, unquoted variables, etc.).
+3. Gradually expand to all `.sh` files in `scripts/`.
+4. Fail CI on new shell script additions that do not pass ShellCheck.
+
+---
+
+### Goal 49: Add Dry-Run and Confirmation Modes to Destructive Scripts (P1)
+
+**Problem**: Operational scripts delete chain data, keystores, or kill ports without requiring confirmation:
+- `fuser -k` in hermes setup
+- `rm -rf` in various maintenance scripts
+
+**Impact**: Accidental execution in production can destroy wallets, chain state, or interrupt active services.
+
+**Approach**:
+1. Add `--dry-run` mode to all destructive scripts: print what would be deleted/killed without executing.
+2. Add `--yes` / `--confirm` flag requirement for production mode; default to interactive confirmation.
+3. Prefer `mv` to backup directory over `rm -rf` where feasible.
+4. Document the safety pattern in `docs/operations/SCRIPT_SAFETY.md`.
+
+---
+
+### Goal 50: Standardize Observability (P1)
+
+**Problem**: There are multiple competing metric/tracing modules:
+- `aitbc/metrics.py`
+- `aitbc/monitoring/monitoring.py`
+- `aitbc/tracing_opentelemetry.py`
+- `aitbc/distributed_tracing.py`
+
+**Impact**: Inconsistent telemetry; some services emit Prometheus metrics, others OpenTelemetry traces, others custom stats. Dashboards and alerts must handle multiple formats.
+
+**Approach**:
+1. Pick one observability path (proposed: OpenTelemetry traces + Prometheus metrics via OTLP).
+2. Deprecate the other modules with re-export aliases and warnings.
+3. Ensure all FastAPI services use the same middleware for trace IDs, request timing, and DB spans.
+4. Standardize service labels (`service.name`, `service.version`, `deployment.environment`) across all units.
+5. Document the chosen stack in `docs/operations/OBSERVABILITY.md`.
+
+---
+
+### Goal 51: Lock Down Telemetry Bind Addresses (P1)
+
+**Problem**: `otel-collector-config.yaml` binds OTLP and Prometheus endpoints to `0.0.0.0`. <ref_snippet file="/opt/aitbc/otel-collector-config.yaml" lines="5" />
+
+**Impact**: Telemetry ports may be exposed to untrusted networks if the host has a public interface.
+
+**Approach**:
+1. Change bind addresses to `127.0.0.1` (localhost-only) or an explicit internal network interface.
+2. If `0.0.0.0` is required (e.g., for a sidecar or bridge), document the security model and require firewall rules.
+3. Add a CI check that greps for `0.0.0.0` in `otel-collector-config.yaml` and any other telemetry config files, failing unless explicitly whitelisted.
+
 ---
 
 ## Quick Checks Summary (Pre-Release Baseline)
@@ -649,6 +810,15 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 | Hardcoded mock RPC/keys | ⚠️ 2 findings | `"mock_rpc_url"` and `"mock_private_key"` in cross-chain integration |
 | Auth inconsistency | ⚠️ 2 services | Coordinator uses API keys; blockchain RPC uses `X-Wallet-Address` only |
 | CORS credentials risk | ⚠️ 1 config | `allow_credentials=True` with configured origins; no prod assertion |
+| Dependency drift | ⚠️ 4+ files | Root Poetry, `uv.lock`, app `poetry.lock`, `requirements*.txt` all coexist |
+| Python constraints | ⚠️ 3+ variants | `^3.13`, `>=3.13.5,<3.14`, root excludes `3.14.1` |
+| Docker artifacts | ⚠️ Missing | Docs reference Docker but no `Dockerfile` or `compose.yml` tracked |
+| Systemd hardening | ⚠️ 3+ units | `agent-daemon`, `miner`, `agent-management` run as `root` |
+| Inline secrets in units | ⚠️ 3+ services | `AUTH_TOKEN`, DB password, DB URL with creds in `.service` files |
+| Recovery silence | ⚠️ 1 service | `aitbc-recovery.service` uses `|| true` |
+| Shell script safety | ⚠️ 2+ scripts | `fuser -k`, `rm -rf` without confirmation or dry-run |
+| Observability fragmentation | ⚠️ 4 modules | `metrics.py`, `monitoring.py`, `tracing_opentelemetry.py`, `distributed_tracing.py` |
+| Telemetry binds | ⚠️ 1 config | `otel-collector-config.yaml` binds `0.0.0.0` |
 
 ---
 
@@ -718,6 +888,21 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 | 4-5 | Migrate Pydantic v1 `class Config:` to v2 `ConfigDict` | — | Zero `class Config:` deprecation warnings in coordinator-api | P2 |
 | 5 | Remove `sys.path.insert` and hardcoded paths from runtime wrappers | — | Wrappers use env vars or installed entry points | P2 |
 
+### Phase 5: Deployability & Operations Hardening (Week 5)
+
+| Day | Task | Owner | Verification | Priority |
+|-----|------|-------|--------------|----------|
+| 1-2 | Pick one dependency source of truth; generate secondary files from it | — | CI check fails if any lockfile is out of sync | P1 |
+| 2-3 | Align Python/package constraints across all apps | — | All `pyproject.toml` files use identical `requires-python` | P1 |
+| 3-4 | Harden systemd units (non-root users, `NoNewPrivileges`, `ProtectSystem`) | — | `systemd-analyze security` passes for all 21 units | P0 |
+| 3-4 | Move inline secrets out of service files into `/etc/aitbc/*.env` | — | `git grep -E "(AUTH_TOKEN|password|private_key)" -- "*.service"` == 0 | P0 |
+| 4-5 | Make recovery service fail loudly (remove `|| true`) | — | Simulated failure → systemd reports `failed` | P1 |
+| 4-5 | Add ShellCheck/shfmt to CI; fix flagged scripts | — | All `.sh` in `scripts/` pass ShellCheck | P1 |
+| 5 | Add dry-run and confirmation modes to destructive operational scripts | — | `fuser -k` and `rm -rf` require `--yes` or `--dry-run` | P1 |
+| 5 | Standardize observability (one telemetry stack) | — | Only one metrics/tracing module imported by each service | P1 |
+| 5 | Lock down telemetry bind addresses (`0.0.0.0` → `127.0.0.1`) | — | CI grep for `0.0.0.0` in telemetry configs fails | P1 |
+| 5 | Add Dockerfile/compose or remove Docker claims from docs | — | Either image builds in CI, or docs say "systemd only" | P2 |
+
 ---
 
 ## Success Criteria
@@ -754,6 +939,16 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 - [ ] Mock crypto paths disabled in production
 - [ ] No `"mock_rpc_url"` or `"mock_private_key"` literals in production code
 - [ ] OpenAPI CI check passes (no duplicates, missing auth, or missing schemas)
+- [ ] One dependency lockfile is the source of truth (all others generated from it)
+- [ ] Python constraints aligned across all app `pyproject.toml` files
+- [ ] Systemd units hardened (non-root, `NoNewPrivileges`, `ProtectSystem`)
+- [ ] No inline secrets in `.service` files (all in `/etc/aitbc/*.env`)
+- [ ] Recovery service fails loudly (no `|| true`)
+- [ ] All shell scripts pass ShellCheck
+- [ ] Destructive scripts have `--dry-run` and require `--yes`
+- [ ] One observability stack across all services
+- [ ] Telemetry bind addresses locked to localhost or documented internal nets
+- [ ] Dockerfile/compose exists, or docs state "systemd only"
 
 ### Stretch Goals
 - [ ] Full `mypy aitbc/` passes with 0 errors (may be v0.4.27)
@@ -767,6 +962,9 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 - [ ] Full test suite collects without SQLModel metadata conflicts
 - [ ] OpenAPI spec is auto-validated in CI on every PR
 - [ ] Route security matrix documented and enforced by middleware
+- [ ] `systemd-analyze security` passes for all 21 service units
+- [ ] All `.service` files reference only `EnvironmentFile` for secrets
+- [ ] OpenTelemetry collector config does not bind `0.0.0.0` without explicit whitelist
 
 ---
 
@@ -796,6 +994,16 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 | Removing double-prefix paths breaks existing client URLs | Medium | Medium | Announce path changes; add 308 redirects for one release cycle |
 | Mock crypto removal breaks demo scripts | Low | Low | Move demo content to `examples/` with explicit `debug=True` requirement |
 | OpenAPI CI check flakes on optional router load order | Low | Low | Generate spec after all routers are loaded; use deterministic startup order |
+| Consolidating dependency files breaks app installs | Medium | Medium | Test install path on a fresh VM/container before merging |
+| Python constraint alignment breaks older app installs | Low | Low | Ensure minimum is still `>=3.13`; only tighten upper bounds |
+| Docker support diverts effort from systemd hardening | Medium | Low | Prioritize systemd first; Docker as stretch goal only |
+| Systemd hardening breaks services that need root access | Medium | High | Audit each service's actual FS needs; use `ReadWritePaths=` granularly |
+| Moving secrets to env files breaks existing deploy scripts | Medium | Medium | Update setup scripts in same PR; provide migration guide |
+| Removing `|| true` from recovery makes transient failures fatal | Low | Medium | Retry logic inside the script before final exit; fail only on persistent errors |
+| ShellCheck fixes change script semantics | Low | Medium | Review each ShellCheck fix manually; test scripts in staging environment |
+| Dry-run modes add complexity to scripts | Low | Low | Keep dry-run implementation simple (print commands, skip execution) |
+| Observability consolidation loses custom metrics | Low | Medium | Map old metric names to new ones; maintain alias labels during transition |
+| Telemetry bind lockdown breaks sidecar collectors | Low | Medium | Document required bind addresses; whitelist in CI check |
 
 ---
 

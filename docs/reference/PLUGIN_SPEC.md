@@ -1,8 +1,10 @@
 # AITBC Plugin Interface Specification
 
+> **Status: DEPRECATED (2026-06-18)** — The standalone `plugins/` directory and `aitbc.plugins` module were removed in v0.4.25. Real Ollama integration now lives in `apps/coordinator-api/src/app/routers/inference.py`, `apps/coordinator-api/src/app/services/gpu_worker.py`, and `apps/miner/production_miner.py`. The marketplace plugin registry endpoints (`/v1/marketplace/plugins/*`) remain functional.
+
 ## Overview
 
-The AITBC platform supports a plugin architecture that allows developers to extend functionality through well-defined interfaces. This specification defines the plugin interface, lifecycle, and integration patterns.
+This document preserves the original plugin specification for reference. The AITBC platform previously supported a plugin architecture for extending functionality through well-defined interfaces.
 
 ## Plugin Architecture
 
@@ -410,9 +412,11 @@ my-plugin/
 
 ```python
 # my-plugin/plugin.py
-from aitbc.plugins import BasePlugin, PluginMetadata, PluginContext
+# NOTE: aitbc.plugins module removed in v0.4.25. This example is for reference only.
+# from aitbc.plugins import BasePlugin, PluginMetadata, PluginContext
 
-class MyPlugin(BasePlugin):
+class MyPlugin:
+    """Example plugin structure (historical reference)."""
     def get_metadata(self) -> PluginMetadata:
         return PluginMetadata(
             name="my-plugin",
