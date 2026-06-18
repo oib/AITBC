@@ -8,18 +8,25 @@ Provides:
 - Training logs
 """
 
-from __future__ import annotations
+from __future__ annotations
 
 from typing import Any
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/training", tags=["training"])
+from app.config import settings
 
-# In-memory state for mock data
-_mock_jobs: dict[str, dict[str, Any]] = {}
-_job_counter = 0
+# Only enable mock endpoints if debug mode or explicit flag is set
+if not (settings.debug or settings.enable_mock_training):
+    # Create empty router for production
+    router = APIRouter(prefix="/training", tags=["training"])
+else:
+    router = APIRouter(prefix="/training", tags=["training"])
+
+    # In-memory state for mock data
+    _mock_jobs: dict[str, dict[str, Any]] = {}
+    _job_counter = 0
 
 
 class CreateTrainingRequest(BaseModel):
@@ -48,88 +55,87 @@ class CompleteTrainingRequest(BaseModel):
     """Request to complete training"""
 
     job_id: str
-    checkpoint_url: str | None = None
+    final_accuracy: float
+    final_loss: float
+    model_path: str
 
 
-@router.post("/jobs", summary="Create training job")
-async def create_training(request: Request, req: CreateTrainingRequest) -> dict[str, Any]:
-    """Create a new AI model training job"""
+@router.post("/jobs")
+async def create_training_job(request: Request, req: CreateTrainingRequest) -> dict[str, Any]:
+    """Create a new training job"""
     global _job_counter
     _job_counter += 1
-    job_id = f"job-{_job_counter:03d}"
-    _mock_jobs[job_id] = {"id": job_id, "job_id": job_id, "model_type": req.model_type, "status": "pending", "metrics": {}}
-    return {"success": True, "job": _mock_jobs[job_id]}
+    job_id = f"job_{_job_counter}"
 
-
-@router.get("/jobs/{job_id}", summary="Get training job")
-async def get_training(request: Request, job_id: str) -> dict[str, Any]:
-    """Get training job details"""
-    if job_id in _mock_jobs:
-        return _mock_jobs[job_id]
-    return {"id": job_id, "job_id": job_id, "model_type": "resnet", "status": "running"}
-
-
-@router.get("/jobs", summary="List training jobs")
-async def list_trainings(request: Request, status: str | None = None, model_type: str | None = None) -> dict[str, Any]:
-    """List all training jobs with optional filters"""
-    jobs = [{"id": "job-001", "model_type": "resnet", "status": "pending"}]
-    if status == "pending":
-        jobs = [{"id": "job-001", "model_type": "resnet", "status": "pending"}]
-    return {"jobs": jobs, "count": len(jobs)}
-
-
-@router.post("/jobs/{job_id}/start", summary="Start training")
-async def start_training(request: Request, job_id: str) -> dict[str, Any]:
-    """Start a pending training job"""
-    if job_id in _mock_jobs:
-        _mock_jobs[job_id]["status"] = "running"
-    return {"success": True, "job": {"id": job_id, "status": "running"}}
-
-
-@router.post("/progress", summary="Update training progress")
-async def update_progress(request: Request, req: UpdateProgressRequest) -> dict[str, Any]:
-    """Update training progress (called by training workers)"""
-    if req.job_id in _mock_jobs:
-        if "metrics" not in _mock_jobs[req.job_id]:
-            _mock_jobs[req.job_id]["metrics"] = {}
-        _mock_jobs[req.job_id]["metrics"]["accuracy"] = req.accuracy if hasattr(req, "accuracy") else 0.9
-        _mock_jobs[req.job_id]["metrics"]["loss"] = req.loss if hasattr(req, "loss") else 0.1
-    return {
-        "success": True,
-        "job": {"id": req.job_id, "progress": {"current_epoch": req.epoch if hasattr(req, "epoch") else 0}},
+    job = {
+        "job_id": job_id,
+        "model_type": req.model_type,
+        "dataset_id": req.dataset_id,
+        "hyperparameters": req.hyperparameters or {},
+        "epochs": req.epochs,
+        "gpu_count": req.gpu_count,
+        "memory_gb": req.memory_gb,
+        "status": "pending",
+        "current_epoch": 0,
+        "current_step": 0,
+        "loss": 0.0,
+        "accuracy": 0.0,
+        "created_at": "2024-01-01T00:00:00Z",
     }
 
-
-@router.post("/jobs/{job_id}/complete", summary="Complete training")
-async def complete_training(request: Request, job_id: str, checkpoint_url: str | None = None) -> dict[str, Any]:
-    """Mark training as complete"""
-    if job_id in _mock_jobs:
-        _mock_jobs[job_id]["status"] = "completed"
-        _mock_jobs[job_id]["checkpoint_url"] = checkpoint_url
-        if "metrics" not in _mock_jobs[job_id] or _mock_jobs[job_id]["metrics"].get("accuracy", 0) < 0.8:
-            _mock_jobs[job_id]["metrics"]["accuracy"] = 0.9
-    return {"success": True, "job": _mock_jobs.get(job_id, {"id": job_id, "status": "completed"})}
+    _mock_jobs[job_id] = job
+    return {"job_id": job_id, "status": "created"}
 
 
-@router.post("/jobs/{job_id}/cancel", summary="Cancel training")
-async def cancel_training(request: Request, job_id: str) -> dict[str, Any]:
-    """Cancel a training job"""
-    return {"success": True, "job": {"id": job_id, "status": "cancelled"}}
+@router.get("/jobs/{job_id}")
+async def get_training_job(job_id: str) -> dict[str, Any]:
+    """Get training job status"""
+    if job_id not in _mock_jobs:
+        return {"error": "Job not found", "job_id": job_id}
+    return _mock_jobs[job_id]
 
 
-@router.get("/jobs/{job_id}/logs", summary="Get training logs")
-async def get_logs(request: Request, job_id: str, limit: int = 100) -> dict[str, Any]:
-    """Get training job logs"""
-    return {"logs": ["log entry 1", "log entry 2"], "count": 2}
+@router.get("/jobs")
+async def list_training_jobs() -> dict[str, list[dict[str, Any]]]:
+    """List all training jobs"""
+    return {"jobs": list(_mock_jobs.values())}
 
 
-@router.get("/stats", summary="Training statistics")
-async def get_stats(request: Request) -> dict[str, Any]:
-    """Get training platform statistics"""
-    return {"total_jobs": 10, "running": 2, "completed": 5, "failed": 1, "queued": 2}
+@router.post("/jobs/{job_id}/progress")
+async def update_progress(job_id: str, req: UpdateProgressRequest) -> dict[str, str]:
+    """Update training progress"""
+    if job_id not in _mock_jobs:
+        return {"error": "Job not found", "job_id": job_id}
+
+    _mock_jobs[job_id]["current_epoch"] = req.epoch
+    _mock_jobs[job_id]["current_step"] = req.step
+    _mock_jobs[job_id]["loss"] = req.loss
+    _mock_jobs[job_id]["accuracy"] = req.accuracy
+    _mock_jobs[job_id]["validation_loss"] = req.validation_loss
+    _mock_jobs[job_id]["status"] = "training"
+
+    return {"job_id": job_id, "status": "progress_updated"}
 
 
-@router.get("/health", summary="Health check")
-async def training_health(request: Request) -> dict[str, Any]:
-    """Check training service health"""
-    return {"status": "healthy", "max_concurrent": 4}
+@router.post("/jobs/{job_id}/complete")
+async def complete_training(job_id: str, req: CompleteTrainingRequest) -> dict[str, str]:
+    """Mark training job as complete"""
+    if job_id not in _mock_jobs:
+        return {"error": "Job not found", "job_id": job_id}
+
+    _mock_jobs[job_id]["status"] = "completed"
+    _mock_jobs[job_id]["final_accuracy"] = req.final_accuracy
+    _mock_jobs[job_id]["final_loss"] = req.final_loss
+    _mock_jobs[job_id]["model_path"] = req.model_path
+
+    return {"job_id": job_id, "status": "completed"}
+
+
+@router.delete("/jobs/{job_id}")
+async def delete_training_job(job_id: str) -> dict[str, str]:
+    """Delete a training job"""
+    if job_id not in _mock_jobs:
+        return {"error": "Job not found", "job_id": job_id}
+
+    del _mock_jobs[job_id]
+    return {"job_id": job_id, "status": "deleted"}
