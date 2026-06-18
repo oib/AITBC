@@ -24,7 +24,9 @@ if not (settings.debug or settings.enable_mock_training):
 else:
     router = APIRouter(prefix="/training", tags=["training"])
 
-    # In-memory state for mock data
+    # TODO(v0.5.0): Replace with Redis-backed job queue.
+    # This in-memory state is temporary and is lost on service restart.
+    # See docs/releases/v0.5.0/change.log for DB/Redis migration plan.
     _mock_jobs: dict[str, dict[str, Any]] = {}
     _job_counter = 0
 
