@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import os
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -97,7 +98,7 @@ def list_wallets(
         keystore_meta = record.metadata if isinstance(record.metadata, dict) else {}
         ledger_meta = ledger_record.metadata if (ledger_record and isinstance(ledger_record.metadata, dict)) else {}
         meta = {**ledger_meta, **keystore_meta}
-        chain_id = meta.get("chain_id", "ait-mainnet") if isinstance(meta, dict) else "ait-mainnet"
+        chain_id = meta.get("chain_id", os.getenv("CHAIN_ID", "")) if isinstance(meta, dict) else os.getenv("CHAIN_ID", "")
         descriptors.append(
             WalletDescriptor(
                 wallet_id=record.wallet_id,
@@ -175,7 +176,7 @@ def get_wallet_balance(
     address = meta.get("address") or meta.get("original_address") or record.public_key
 
     balance = 0
-    chain_id = meta.get("chain_id", "ait-mainnet")
+    chain_id = meta.get("chain_id", os.getenv("CHAIN_ID", ""))
     try:
         rpc_url = _settings.blockchain_rpc_url
         resp = _httpx.get(f"{rpc_url}/rpc/account/{address}", timeout=5)

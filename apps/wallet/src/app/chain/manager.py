@@ -107,11 +107,13 @@ class ChainManager:
 
     def _create_default_chain(self) -> None:
         """Create default chain configuration"""
+        import os
+        chain_id = os.getenv("CHAIN_ID", "")
         default_chain = ChainConfig(
-            chain_id="ait-devnet",
-            name="AITBC Development Network",
-            coordinator_url="http://localhost:8011",
-            coordinator_api_key="dev-coordinator-key",
+            chain_id=chain_id,
+            name="AITBC Network",
+            coordinator_url="http://localhost:8203",
+            coordinator_api_key="coordinator-key",
             ledger_db_path=str(_DATA_DIR / "wallet_ledger_devnet.db"),
             keystore_path=str(_DATA_DIR / "keystore_devnet"),
         )

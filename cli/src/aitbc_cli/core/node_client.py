@@ -85,7 +85,7 @@ class NodeClient:
             response = await self._client.get(health_url)
             if response.status_code == 200:
                 health_data = response.json()
-                chains = health_data.get("supported_chains", ["ait-devnet"])
+                chains = health_data.get("supported_chains", [os.getenv("CHAIN_ID", "")])
 
                 result = []
                 for cid in chains:
@@ -137,7 +137,7 @@ class NodeClient:
             response = await self._client.get(health_url)
             if response.status_code == 200:
                 health_data = response.json()
-                chains = health_data.get("supported_chains", ["ait-devnet"])
+                chains = health_data.get("supported_chains", [os.getenv("CHAIN_ID", "")])
                 if chain_id in chains:
                     block_height = 0
                     try:

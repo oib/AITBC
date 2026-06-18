@@ -1,6 +1,7 @@
 """Genesis block and wallet generation commands for AITBC CLI"""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -42,7 +43,7 @@ def init(
         from ..config import get_config
 
         config = get_config()
-        chain_id = getattr(config, "chain_id", "ait-mainnet")
+        chain_id = getattr(config, "chain_id", os.getenv("CHAIN_ID", ""))
 
     script_path = Path("/opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py")
 
@@ -89,7 +90,7 @@ def verify(ctx, chain_id: str):
         from ..config import get_config
 
         config = get_config()
-        chain_id = getattr(config, "chain_id", "ait-mainnet")
+        chain_id = getattr(config, "chain_id", os.getenv("CHAIN_ID", ""))
 
     import json
     import sqlite3
@@ -265,7 +266,7 @@ def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None,
         from ..config import get_config
 
         config = get_config()
-        chain_id = getattr(config, "chain_id", "ait-mainnet")
+        chain_id = getattr(config, "chain_id", os.getenv("CHAIN_ID", ""))
 
     # Auto-detect rpc_url from config if not provided
     if not rpc_url:

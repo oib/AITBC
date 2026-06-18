@@ -52,13 +52,13 @@ class TestHandleAccountGet:
 
         args = Mock()
         args.address = "ait123"
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
         def output_format(args):
             return "text"
 
-        handle_account_get(args, "http://localhost:8006", output_format)
+        handle_account_get(args, "http://localhost:8202", output_format)
 
         mock_client.get.assert_called_once()
         mock_logger.info.assert_called()
@@ -73,13 +73,13 @@ class TestHandleAccountGet:
 
         args = Mock()
         args.address = "ait123"
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = "ait-mainnet"
 
         def output_format(args):
             return "text"
 
-        handle_account_get(args, "http://localhost:8006", output_format)
+        handle_account_get(args, "http://localhost:8202", output_format)
 
         # Check that chain_id was passed in params
         call_args = mock_client.get.call_args
@@ -92,12 +92,12 @@ class TestHandleAccountGet:
         """Test account retrieval with missing address"""
         args = Mock()
         args.address = None
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
 
         def output_format(args):
             return "text"
 
-        handle_account_get(args, "http://localhost:8006", output_format)
+        handle_account_get(args, "http://localhost:8202", output_format)
 
         mock_logger.error.assert_called()
         mock_exit.assert_called_with(1)
@@ -111,13 +111,13 @@ class TestHandleAccountGet:
 
         args = Mock()
         args.address = "ait123"
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
         def output_format(args):
             return "text"
 
-        handle_account_get(args, "http://localhost:8006", output_format)
+        handle_account_get(args, "http://localhost:8202", output_format)
 
         mock_logger.error.assert_called()
         mock_exit.assert_called_with(1)
@@ -131,13 +131,13 @@ class TestHandleAccountGet:
 
         args = Mock()
         args.address = "ait123"
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
         def output_format(args):
             return "text"
 
-        handle_account_get(args, "http://localhost:8006", output_format)
+        handle_account_get(args, "http://localhost:8202", output_format)
 
         mock_logger.error.assert_called()
         mock_exit.assert_called_with(1)
@@ -152,13 +152,13 @@ class TestHandleAccountGet:
 
         args = Mock()
         args.address = "ait123"
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
         def output_format(args):
             return "json"
 
-        handle_account_get(args, "http://localhost:8006", output_format)
+        handle_account_get(args, "http://localhost:8202", output_format)
 
         # Check that JSON output was logged
         mock_logger.info.assert_called()
@@ -184,7 +184,7 @@ class TestHandleAccountGet:
         def output_format(args):
             return "text"
 
-        default_rpc = "http://default:8006"
+        default_rpc = "http://default:8202"
         handle_account_get(args, default_rpc, output_format)
 
         # Check that default RPC was used

@@ -19,7 +19,7 @@ class TestGetChainInfo:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        mock_health = {"supported_chains": ["ait-mainnet", "ait-testnet"], "proposer_id": "proposer_123"}
+        mock_health = {"supported_chains": ["ait-mainnet", "ait-hub.aitbc.bubuit.net"], "proposer_id": "proposer_123"}
         mock_head = {"height": 1000, "hash": "0xabc123", "timestamp": "2024-01-01T00:00:00Z", "tx_count": 50}
 
         mock_client.get.side_effect = [mock_health, mock_head]

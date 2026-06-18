@@ -24,7 +24,7 @@ class TestGetChainInfo:
         mock_client_class.return_value = mock_client
 
         mock_client.get.side_effect = [
-            {"supported_chains": ["ait-mainnet", "ait-testnet"], "proposer_id": "node1"},
+            {"supported_chains": ["ait-mainnet", "ait-hub.aitbc.bubuit.net"], "proposer_id": "node1"},
             {"height": 1000, "hash": "0xabc123", "timestamp": "2024-01-01T00:00:00Z", "tx_count": 50},
         ]
 
@@ -32,7 +32,7 @@ class TestGetChainInfo:
 
         assert result is not None
         assert result["chain_id"] == "ait-mainnet"
-        assert result["supported_chains"] == "ait-mainnet, ait-testnet"
+        assert result["supported_chains"] == "ait-mainnet, ait-hub.aitbc.bubuit.net"
         assert result["height"] == 1000
         assert result["hash"] == "0xabc123"
         assert result["tx_count"] == 50

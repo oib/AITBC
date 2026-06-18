@@ -18,8 +18,8 @@ logger = get_logger(__name__)
 
 
 class CrossChainSwapRequest(BaseModel):
-    from_chain: str = Field(..., regex="^(ait-devnet|ait-testnet)$")
-    to_chain: str = Field(..., regex="^(ait-devnet|ait-testnet)$")
+    from_chain: str = Field(..., regex="^[a-z0-9.-]+$")
+    to_chain: str = Field(..., regex="^[a-z0-9.-]+$")
     from_token: str = Field(..., min_length=1)
     to_token: str = Field(..., min_length=1)
     amount: float = Field(..., gt=0)
@@ -29,8 +29,8 @@ class CrossChainSwapRequest(BaseModel):
 
 
 class BridgeRequest(BaseModel):
-    source_chain: str = Field(..., regex="^(ait-devnet|ait-testnet)$")
-    target_chain: str = Field(..., regex="^(ait-devnet|ait-testnet)$")
+    source_chain: str = Field(..., regex="^[a-z0-9.-]+$")
+    target_chain: str = Field(..., regex="^[a-z0-9.-]+$")
     token: str = Field(..., min_length=1)
     amount: float = Field(..., gt=0)
     recipient_address: str = Field(..., min_length=1)
@@ -40,7 +40,7 @@ class CrossChainOrder(BaseModel):
     order_type: str = Field(..., regex="^(BUY|SELL)$")
     amount: float = Field(..., gt=0)
     price: float = Field(..., gt=0)
-    chain_id: str = Field(..., regex="^(ait-devnet|ait-testnet)$")
+    chain_id: str = Field(..., regex="^[a-z0-9.-]+$")
     cross_chain: bool = Field(default=True)
     target_chain: str | None = None
     user_address: str = Field(..., min_length=1)

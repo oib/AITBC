@@ -17,25 +17,18 @@ Deployed in the AITBC Incus container:
 ```
 website/
 ├── index.html              # Homepage — platform overview
+├── explorer.html           # Blockchain explorer UI (NEW)
 ├── exchange.html           # ETH-AIT Bridge and token pricing
-├── favicon.svg             # Site favicon
+├── favicon.svg             # Site favicon (symlink to AITBC.svg)
+├── AITBC.svg               # Logo
+├── style.css               # Main stylesheet
 ├── exchange-price.json     # Price data for exchange page
-├── DEPLOYMENT.md           # Deployment documentation (legacy)
-├── assets/
-│   ├── css/
-│   │   └── style.css       # Main stylesheet
-│   ├── AITBC.svg           # Logo
-│   └── js/                 # (currently empty)
-└── agent/
-    ├── index.html          # Agent API documentation
-    ├── live_api.py         # Agent API server
-    ├── health              # Health check endpoint (static)
-    └── README.md           # Agent API documentation
+└── DEPLOYMENT.md           # Deployment documentation (legacy)
 ```
 
 ## Agent-First Endpoints
 
-The website provides machine-readable discovery endpoints for autonomous agents.
+The website provides machine-readable discovery endpoints for autonomous agents through the main AITBC infrastructure.
 
 ### Static Endpoints (Fast, Cached)
 
@@ -149,4 +142,4 @@ git push
 ## Support
 
 - Repository: https://github.com/oib/AITBC
-- Documentation: `/agent/index.html` (served at `http://hub.aitbc.bubuit.net/agent/`)
+- Documentation: Agent API documentation is served through the main AITBC infrastructure

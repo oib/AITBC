@@ -9,7 +9,7 @@ CLI_CMD="${REPO_ROOT}/aitbc-cli"
 
 # Test 1: Basic connectivity
 echo "1. Testing connectivity..."
-curl -s http://localhost:8006/rpc/head >/dev/null && echo "✅ RPC accessible" || echo "❌ RPC failed"
+curl -s http://localhost:8202/rpc/head >/dev/null && echo "✅ RPC accessible" || echo "❌ RPC failed"
 ssh -i ~/.ssh/id_ed25519_aitbc -o StrictHostKeyChecking=no root@aitbc1 'curl -s http://localhost:8007/rpc/head' >/dev/null && echo "✅ Remote RPC accessible" || echo "❌ Remote RPC failed"
 
 # Test 2: Wallet operations
@@ -35,10 +35,10 @@ echo "6. Testing mining operations..."
 
 # Test 7: AI services
 echo "7. Testing AI services..."
-curl -s http://localhost:8006/rpc/ai/stats >/dev/null && echo "✅ AI services work" || echo "❌ AI services failed"
+curl -s http://localhost:8202/rpc/ai/stats >/dev/null && echo "✅ AI services work" || echo "❌ AI services failed"
 
 # Test 8: Marketplace
 echo "8. Testing marketplace..."
-curl -s http://localhost:8006/rpc/marketplace/listings >/dev/null && echo "✅ Marketplace works" || echo "❌ Marketplace failed"
+curl -s http://localhost:8202/rpc/marketplace/listings >/dev/null && echo "✅ Marketplace works" || echo "❌ Marketplace failed"
 
 echo "=== Integration Tests Complete ==="

@@ -53,7 +53,7 @@ class TestChainRegistry:
 
         assert len(registry.chains) > 0
         assert "ait-devnet" in registry.chains
-        assert "ait-testnet" in registry.chains
+        assert "ait-hub.aitbc.bubuit.net" in registry.chains
 
     def test_get_chain_exists(self):
         """Test getting existing chain"""
@@ -94,7 +94,7 @@ class TestChainRegistry:
 
         assert isinstance(chain_ids, list)
         assert "ait-devnet" in chain_ids
-        assert "ait-testnet" in chain_ids
+        assert "ait-hub.aitbc.bubuit.net" in chain_ids
 
     def test_get_testnet_chains(self):
         """Test getting testnet chains"""
@@ -104,6 +104,7 @@ class TestChainRegistry:
         testnet_chains = registry.get_testnet_chains()
 
         assert len(testnet_chains) > 0
+        assert "ait-devnet" in testnet_chains
         for chain in testnet_chains.values():
             assert chain.is_testnet is True
 

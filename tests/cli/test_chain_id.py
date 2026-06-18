@@ -6,7 +6,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 from aitbc_cli.utils.chain_id import (
-    KNOWN_CHAINS,
     get_chain_id,
     get_chain_id_from_health,
     get_default_chain_id,
@@ -19,11 +18,29 @@ from aitbc.exceptions import NetworkError
 class TestGetDefaultChainId:
     """Test get_default_chain_id function"""
 
-    def test_get_default_chain_id(self):
-        """Test getting default chain ID"""
+    def test_get_default_chain_id_from_env(self):
+        """Test getting default chain ID from environment variable"""
+        import os
+        
+        # Set environment variable
+        os.environ["CHAIN_ID"] = "ait-hub.aitbc.bubuit.net"
         result = get_default_chain_id()
+        
+        assert result == "ait-hub.aitbc.bubuit.net"
+        
+        # Clean up
+        del os.environ["CHAIN_ID"]
 
-        assert result == "ait-mainnet"
+    def test_get_default_chain_id_no_env(self):
+        """Test getting default chain ID when no environment variable set"""
+        import os
+        
+        # Ensure no environment variable
+        os.environ.pop("CHAIN_ID", None)
+        result = get_default_chain_id()
+        
+        # Should return empty string when no default available
+        assert result == ""
 
 
 class TestValidateChainId:
@@ -31,20 +48,24 @@ class TestValidateChainId:
 
     def test_validate_known_chain(self):
         """Test validation of known chain IDs"""
-        for chain in KNOWN_CHAINS:
+        # Test some common chain ID formats
+        known_chains = ["ait-mainnet", "ait-devnet", "ait-hub.aitbc.bubuit.net"]
+        for chain in known_chains:
             assert validate_chain_id(chain) is True
 
     def test_validate_unknown_chain(self):
-        """Test validation of unknown chain ID"""
-        assert validate_chain_id("unknown-chain") is False
+        """Test validation of unknown chain ID (now valid format)"""
+        # With new format validation, any non-empty string is valid
+        assert validate_chain_id("unknown-chain") is True
 
     def test_validate_empty_string(self):
         """Test validation of empty string"""
         assert validate_chain_id("") is False
 
     def test_validate_case_sensitive(self):
-        """Test that validation is case-sensitive"""
-        assert validate_chain_id("AIT-MAINNET") is False
+        """Test that validation accepts different cases"""
+        # With new format validation, case doesn't matter for format validation
+        assert validate_chain_id("AIT-MAINNET") is True
         assert validate_chain_id("ait-mainnet") is True
 
 
@@ -57,9 +78,9 @@ class TestGetChainIdFromHealth:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        mock_client.get.return_value = {"supported_chains": ["ait-mainnet", "ait-testnet"]}
+        mock_client.get.return_value = {"supported_chains": ["ait-mainnet", "ait-hub.aitbc.bubuit.net"]}
 
-        result = get_chain_id_from_health("http://localhost:8006")
+        result = get_chain_id_from_health("http://localhost:8202")
 
         assert result == "ait-mainnet"
 
@@ -71,7 +92,7 @@ class TestGetChainIdFromHealth:
 
         mock_client.get.return_value = {"supported_chains": []}
 
-        result = get_chain_id_from_health("http://localhost:8006")
+        result = get_chain_id_from_health("http://localhost:8202")
 
         assert result == "ait-mainnet"  # Fallback to default
 
@@ -83,7 +104,7 @@ class TestGetChainIdFromHealth:
 
         mock_client.get.return_value = {}
 
-        result = get_chain_id_from_health("http://localhost:8006")
+        result = get_chain_id_from_health("http://localhost:8202")
 
         assert result == "ait-mainnet"  # Fallback to default
 
@@ -92,7 +113,7 @@ class TestGetChainIdFromHealth:
         """Test chain ID detection with network error"""
         mock_client_class.side_effect = NetworkError("Connection failed")
 
-        result = get_chain_id_from_health("http://localhost:8006")
+        result = get_chain_id_from_health("http://localhost:8202")
 
         assert result == "ait-mainnet"  # Fallback to default
 
@@ -101,7 +122,7 @@ class TestGetChainIdFromHealth:
         """Test chain ID detection with generic error"""
         mock_client_class.side_effect = Exception("Unexpected error")
 
-        result = get_chain_id_from_health("http://localhost:8006")
+        result = get_chain_id_from_health("http://localhost:8202")
 
         assert result == "ait-mainnet"  # Fallback to default
 
@@ -111,12 +132,12 @@ class TestGetChainIdFromHealth:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        mock_client.get.return_value = {"supported_chains": ["ait-testnet"]}
+        mock_client.get.return_value = {"supported_chains": ["ait-hub.aitbc.bubuit.net"]}
 
-        result = get_chain_id_from_health("http://localhost:8006", timeout=10)
+        result = get_chain_id_from_health("http://localhost:8202", timeout=10)
 
-        assert result == "ait-testnet"
-        mock_client_class.assert_called_once_with(base_url="http://localhost:8006", timeout=10)
+        assert result == "ait-hub.aitbc.bubuit.net"
+        mock_client_class.assert_called_once_with(base_url="http://localhost:8202", timeout=10)
 
 
 class TestGetChainId:
@@ -125,15 +146,15 @@ class TestGetChainId:
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")
     def test_get_chain_id_with_override_known(self, mock_get_from_health):
         """Test getting chain ID with known override"""
-        result = get_chain_id("http://localhost:8006", override="ait-testnet")
+        result = get_chain_id("http://localhost:8202", override="ait-hub.aitbc.bubuit.net")
 
-        assert result == "ait-testnet"
+        assert result == "ait-hub.aitbc.bubuit.net"
         mock_get_from_health.assert_not_called()
 
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")
     def test_get_chain_id_with_override_unknown(self, mock_get_from_health):
         """Test getting chain ID with unknown override (still used)"""
-        result = get_chain_id("http://localhost:8006", override="new-chain")
+        result = get_chain_id("http://localhost:8202", override="new-chain")
 
         assert result == "new-chain"
         mock_get_from_health.assert_not_called()
@@ -143,46 +164,30 @@ class TestGetChainId:
         """Test getting chain ID without override (uses auto-detection)"""
         mock_get_from_health.return_value = "ait-mainnet"
 
-        result = get_chain_id("http://localhost:8006")
+        result = get_chain_id("http://localhost:8202")
 
         assert result == "ait-mainnet"
-        mock_get_from_health.assert_called_once_with("http://localhost:8006", 5)
+        mock_get_from_health.assert_called_once_with("http://localhost:8202", 5)
 
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")
     def test_get_chain_id_with_custom_timeout(self, mock_get_from_health):
         """Test getting chain ID with custom timeout"""
-        mock_get_from_health.return_value = "ait-testnet"
+        mock_get_from_health.return_value = "ait-hub.aitbc.bubuit.net"
 
-        result = get_chain_id("http://localhost:8006", timeout=15)
+        result = get_chain_id("http://localhost:8202", timeout=15)
 
-        assert result == "ait-testnet"
-        mock_get_from_health.assert_called_once_with("http://localhost:8006", 15)
+        assert result == "ait-hub.aitbc.bubuit.net"
+        mock_get_from_health.assert_called_once_with("http://localhost:8202", 15)
 
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")
     def test_get_chain_id_override_none(self, mock_get_from_health):
         """Test getting chain ID with override=None"""
         mock_get_from_health.return_value = "ait-mainnet"
 
-        result = get_chain_id("http://localhost:8006", override=None)
+        result = get_chain_id("http://localhost:8202", override=None)
 
         assert result == "ait-mainnet"
         mock_get_from_health.assert_called_once()
-
-
-class TestKnownChains:
-    """Test KNOWN_CHAINS constant"""
-
-    def test_known_chains_list(self):
-        """Test that KNOWN_CHAINS is a list"""
-        assert isinstance(KNOWN_CHAINS, list)
-
-    def test_known_chains_not_empty(self):
-        """Test that KNOWN_CHAINS is not empty"""
-        assert len(KNOWN_CHAINS) > 0
-
-    def test_known_chains_contains_mainnet(self):
-        """Test that KNOWN_CHAINS contains mainnet"""
-        assert "ait-mainnet" in KNOWN_CHAINS
 
 
 if __name__ == "__main__":

@@ -141,7 +141,7 @@ class TestHandleMarketGet:
         args.chain_id = None
         args.listing_id = 1
 
-        handle_market_get(args, "http://localhost:8006")
+        handle_market_get(args, "http://localhost:8202")
 
         mock_get.assert_called_once()
 
@@ -153,7 +153,7 @@ class TestHandleMarketGet:
         args.chain_id = None
         args.listing_id = None
 
-        handle_market_get(args, "http://localhost:8006")
+        handle_market_get(args, "http://localhost:8202")
 
         mock_logger.error.assert_called()
 
