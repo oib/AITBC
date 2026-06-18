@@ -60,12 +60,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: pip install bandit semgrep
-      - run: bandit -r aitbc/ apps/ cli/ -f json -o bandit-report.json || true
-      - run: semgrep --config=auto aitbc/ apps/ cli/ --json --output=semgrep-report.json || true
+      - run: pip install bandit semgrep trufflehog
+      - run: bandit -r aitbc/ apps/ cli/ -f json -o bandit-report.json
+      - run: semgrep --config=auto aitbc/ apps/ cli/ --json --output=semgrep-report.json
+      - run: trufflehog git --json --output trufflehog-report.json .
+      - name: Check for secrets in code
+        run: |
+          if git grep -i "private_key\|password\|secret\|api_key\|token" -- '*.py' '*.yaml' '*.yml' '*.json' '*.env.example' | grep -v "test-key\|example\|placeholder\|changeme\|TODO\|FIXME"; then
+            echo "Potential secrets found in code"
+            exit 1
+          fi
+        continue-on-error: true
+      - name: Check for hardcoded mock values
+        run: |
+          if git grep '"mock_rpc_url"\|"mock_private_key"' -- '*.py'; then
+            echo "Hardcoded mock RPC/private key values found in code"
+            exit 1
+          fi
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -73,4 +90,28 @@ jobs:
           path: |
             bandit-report.json
             semgrep-report.json
+            trufflehog-report.json
           retention-days: 30
+
+  openapi:
+    name: OpenAPI Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install openapi-spec-validator
+      - name: Validate coordinator-api OpenAPI spec
+        run: |
+          cd apps/coordinator-api
+          python -c "
+          import sys
+          sys.path.insert(0, 'src')
+          from app.main import create_app
+          app = create_app()
+          spec = app.openapi()
+          from openapi_spec_validator import validate_spec
+          validate_spec(spec)
+          print('OpenAPI spec is valid')
+          "

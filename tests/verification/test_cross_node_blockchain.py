@@ -11,7 +11,7 @@ import time
 from datetime import UTC, datetime
 
 from aitbc.exceptions import NetworkError
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 
 # Test configuration
 NODES = {"aitbc": {"rpc_url": "https://hub.aitbc.bubuit.net/rpc", "name": "hub (remote)"}}

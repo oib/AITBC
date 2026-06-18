@@ -62,8 +62,8 @@ class AgentReputation(SQLModel, table=True):
 
     # Geographic and service info
     geographic_region: str = Field(default="", max_length=50)
-    service_categories: list[str] = Field(default=[], sa_column=Column(JSON))
-    specialization_tags: list[str] = Field(default=[], sa_column=Column(JSON))
+    service_categories: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    specialization_tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -71,9 +71,9 @@ class AgentReputation(SQLModel, table=True):
     last_activity: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional metadata
-    reputation_history: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
-    achievements: list[str] = Field(default=[], sa_column=Column(JSON))
-    certifications: list[str] = Field(default=[], sa_column=Column(JSON))
+    reputation_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    achievements: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    certifications: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class TrustScoreCalculation(SQLModel, table=True):
@@ -107,7 +107,7 @@ class TrustScoreCalculation(SQLModel, table=True):
     effective_period: int = Field(default=86400)  # seconds
 
     # Additional data
-    calculation_details: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    calculation_details: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class ReputationEvent(SQLModel, table=True):
@@ -136,7 +136,7 @@ class ReputationEvent(SQLModel, table=True):
     related_dispute_id: str | None = None
 
     # Event metadata
-    event_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    event_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     verification_status: str = Field(default="pending")  # pending, verified, rejected
 
     # Timestamps
@@ -180,8 +180,8 @@ class AgentEconomicProfile(SQLModel, table=True):
     last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Historical data
-    earnings_history: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
-    performance_history: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    earnings_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    performance_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class CommunityFeedback(SQLModel, table=True):
@@ -206,7 +206,7 @@ class CommunityFeedback(SQLModel, table=True):
 
     # Feedback content
     feedback_text: str = Field(default="", max_length=1000)
-    feedback_tags: list[str] = Field(default=[], sa_column=Column(JSON))
+    feedback_tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Verification
     verified_transaction: bool = Field(default=False)
@@ -222,7 +222,7 @@ class CommunityFeedback(SQLModel, table=True):
     helpful_votes: int = Field(default=0)
 
     # Additional metadata
-    feedback_context: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    feedback_context: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class ReputationLevelThreshold(SQLModel, table=True):
@@ -252,5 +252,5 @@ class ReputationLevelThreshold(SQLModel, table=True):
     is_active: bool = Field(default=True)
 
     # Additional configuration
-    level_requirements: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    level_benefits: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    level_requirements: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    level_benefits: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))

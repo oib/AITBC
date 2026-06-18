@@ -169,7 +169,7 @@ async def achieve_consensus(request: Request, task_id: str, request_data: Consen
     }
 
 
-@router.get("/api/v1/dashboard", response_model=dict)
+@router.get("/dashboard", response_model=dict)
 @rate_limit(rate=200, per=60)
 async def get_dashboard(request: Request) -> None:
     """Get monitoring dashboard data."""
