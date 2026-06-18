@@ -6,7 +6,9 @@
 
 ## Description
 
-Shared domain models and value objects used across the AITBC project. Not a deployable service. Imported as a dependency.
+Poetry package providing shared domain models (SQLModel-based) for AITBC microservices. Used as a dependency by apps (e.g., `agent-management`). Installed via `poetry add ../../shared-domain`, not deployed as a standalone service.
+
+Depends on the root `aitbc` package (`{path = "../../../"}`) and `sqlmodel`.
 
 ## Node Type
 
@@ -18,7 +20,7 @@ no
 
 ## Service
 
-No systemd service file
+No systemd service file — imported as a library by other apps.
 
 ## Core Service
 
