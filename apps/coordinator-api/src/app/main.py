@@ -38,7 +38,7 @@ from .contexts.ipfs.routers import router as ipfs
 from .contexts.marketplace.routers import marketplace, marketplace_gpu, marketplace_offers
 from .contexts.payments.routers import payments
 from .contexts.portfolio.routers import portfolio_router
-from .database_async import close_async_db, init_async_db
+from .database_async import close_async_db
 from .exceptions import AITBCError, ErrorResponse
 from .routers import (
     admin,
@@ -60,7 +60,6 @@ from .routers import (
     users,
     web_vitals,
 )
-from .storage.db import init_db
 from .utils.alerting import alert_dispatcher
 from .utils.cache import cache_manager
 from .utils.metrics import build_live_metrics_payload, metrics_collector
@@ -98,7 +97,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     lifecycle_state.set_state(lifecycle_state.STARTING)
     try:
         # Consolidated database initialization
-        from .storage.db import init_db, init_async_db
+        from .storage.db import init_async_db, init_db
 
         try:
             init_db()
@@ -146,10 +145,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.warning("Found duplicate route registrations: %s", duplicates)
             # Note: This will be enforced once Agent B removes duplicate router registrations (Goal 12)
             # For now, we only log warnings to avoid breaking the current system
-        from pathlib import Path
+        import anyio
 
-        audit_dir = Path(settings.audit_log_dir)
-        audit_dir.mkdir(parents=True, exist_ok=True)
+        audit_dir = anyio.Path(settings.audit_log_dir)
+        await audit_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Audit logging directory: %s", audit_dir)
         logger.info("Rate limiting configuration:")
         logger.info("  Jobs submit: %s", settings.rate_limit_jobs_submit)
@@ -217,11 +216,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     limiter = Limiter(key_func=get_remote_address)
-    
+
     # Disable docs and redoc in production
     docs_url = "/docs" if settings.debug else None
     redoc_url = "/redoc" if settings.debug else None
-    
+
     app = FastAPI(
         title="AITBC Coordinator API",
         description="API for coordinating AI training jobs and blockchain operations",
