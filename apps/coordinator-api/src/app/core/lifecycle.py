@@ -9,20 +9,16 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import TaskRegistry
 
 logger = get_logger(__name__)
 
 
-class BackgroundTaskManager:
+class BackgroundTaskManager(TaskRegistry):
     """
-    Manages lifecycle of background async tasks
-    Ensures proper startup and graceful shutdown
+    Coordinator-specific task manager, extending the shared TaskRegistry.
+    Provides backward-compatible API for existing coordinator code.
     """
-
-    def __init__(self) -> None:
-        """Initialize task manager"""
-        self._tasks: dict[str, asyncio.Task] = {}
-        self._running = False
 
     async def start_task(self, name: str, coro, *args: Any, **kwargs: Any) -> None:
         """
@@ -30,73 +26,23 @@ class BackgroundTaskManager:
 
         Args:
             name: Task name for tracking
-            coro: Coroutine to run
+            coro: Coroutine function (not a coroutine object)
             *args: Arguments for coroutine
             **kwargs: Keyword arguments for coroutine
         """
-        if name in self._tasks:
-            logger.warning("Task %s already running, skipping", name)
-            return
-
-        task = asyncio.create_task(coro(*args, **kwargs), name=name)
-        self._tasks[name] = task
-        logger.info("Started background task: %s", name)
+        self.create_task(lambda: coro(*args, **kwargs), name=name)
 
     async def stop_task(self, name: str, timeout: float = 5.0) -> None:
-        """
-        Stop a specific background task with timeout
-
-        Args:
-            name: Task name to stop
-            timeout: Seconds to wait for graceful shutdown
-        """
-        if name not in self._tasks:
-            logger.warning("Task %s not found, cannot stop", name)
-            return
-
-        task = self._tasks[name]
-        task.cancel()
-
-        try:
-            await asyncio.wait_for(task, timeout=timeout)
-        except asyncio.CancelledError:
-            logger.info("Task %s cancelled gracefully", name)
-        except asyncio.TimeoutError:
-            logger.warning("Task %s did not stop within %s seconds, forcing shutdown", name, timeout)
-        finally:
-            del self._tasks[name]
+        """Stop a specific background task"""
+        await self.cancel(name, timeout=timeout)
 
     async def stop_all(self, timeout: float = 5.0) -> None:
-        """
-        Stop all background tasks
-
-        Args:
-            timeout: Seconds to wait for each task to stop
-        """
-        logger.info("Stopping %s background tasks", len(self._tasks))
-        for name in list(self._tasks.keys()):
-            await self.stop_task(name, timeout)
-        logger.info("All background tasks stopped")
+        """Stop all background tasks"""
+        await self.cancel_all(timeout=timeout)
 
     def get_task_status(self) -> dict[str, str]:
-        """
-        Get status of all managed tasks
-
-        Returns:
-            Dictionary mapping task names to their status
-        """
-        status = {}
-        for name, task in self._tasks.items():
-            if task.done():
-                if task.cancelled():
-                    status[name] = "cancelled"
-                elif task.exception():
-                    status[name] = f"error: {type(task.exception()).__name__}"
-                else:
-                    status[name] = "completed"
-            else:
-                status[name] = "running"
-        return status
+        """Get status of all managed tasks"""
+        return self.get_status()
 
 
 # Global task manager instance
