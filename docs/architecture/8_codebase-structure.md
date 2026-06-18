@@ -251,8 +251,8 @@ website/
 
 | Directory | Purpose |
 |-----------|---------|
-| `cli/` | AITBC CLI package (12 command groups, 90+ subcommands, 141 unit + 24 integration tests, CI/CD, man page, plugins) |
-| `plugins/ollama/` | Ollama LLM integration (client plugin, miner plugin, service layer) |
+| `cli/` | AITBC CLI package (12 command groups, 90+ subcommands, 141 unit + 24 integration tests, CI/CD, man page) |
+| `examples/nginx/` | Nginx reverse-proxy configuration for production |
 | `extensions/` | Firefox wallet extension source code |
 | `contracts/` | Standalone Solidity contracts (ZKReceiptVerifier) |
 | `systemd/` | Systemd unit files for all AITBC services |

@@ -97,7 +97,7 @@ agent-coordinator/
 pytest tests/
 
 # Run specific test
-pytest tests/test_agent_registry.py
+pytest tests/test_agent_coordinator.py
 
 # Run with coverage
 pytest --cov=src tests/
