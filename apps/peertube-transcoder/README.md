@@ -2,7 +2,7 @@
 
 ## Status
 
-**experimental**
+**deprecated** (see [DEPRECATED.md](DEPRECATED.md))
 
 ## Description
 
