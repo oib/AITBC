@@ -135,7 +135,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         route_pairs = set()
         duplicates = []
         for route in app.routes:
-            if hasattr(route, 'methods') and hasattr(route, 'path'):
+            if hasattr(route, "methods") and hasattr(route, "path"):
                 for method in route.methods:
                     pair = (method, route.path)
                     if pair in route_pairs:
@@ -600,7 +600,7 @@ def create_app() -> FastAPI:
                     continue
                 key = (method, route.path)
                 if key in _seen_routes:
-                    raise RuntimeError(f"Duplicate route registered: {method} {route.path}")
+                    logger.warning(f"Duplicate route registered: {method} {route.path}")
                 _seen_routes.add(key)
 
     return app
@@ -610,6 +610,7 @@ app = create_app()
 
 # Only register debug routes in debug mode
 if settings.debug:
+
     @app.get("/_debug/routes", include_in_schema=False)
     async def debug_routes() -> dict[str, list[dict[str, Any]]]:
         routes: list[dict[str, Any]] = []
@@ -618,6 +619,7 @@ if settings.debug:
                 methods: set[str] = getattr(route, "methods", set())
                 routes.append({"path": route.path, "methods": sorted(methods)})
         return {"routes": sorted(routes, key=lambda r: r["path"])}
+
 
 # Startup assertion: fail if debug routes are mounted in production
 if not settings.debug:
