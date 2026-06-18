@@ -1,9 +1,28 @@
-# Blockchain Node
+# blockchain-node
 
-**Documentation has moved to:** [docs/apps/blockchain/blockchain-node.md](../../docs/apps/blockchain/blockchain-node.md)
+## Status
+
+**active**
+
+## Description
+
+Core blockchain node implementing consensus (PoA/PBFT), P2P networking, RPC API, and sync. The foundational layer of the AITBC network. Requires PostgreSQL and Redis.
+
+## Node Type
+
+hub, island
+
+## GPU Required
+
+no
+
+## Service
+
+4 systemd service(s): aitbc-blockchain-node.service, aitbc-blockchain-p2p.service, aitbc-blockchain-rpc.service, aitbc-blockchain-sync.service
+
+## Source
+
+`src/` directory with 89 Python file(s)
 
 ---
-
-This file has been migrated to the central documentation location. Please update your bookmarks and references to point to the new location.
-
-For the complete documentation including architecture, setup, API reference, and troubleshooting, see the [Blockchain Node documentation](../../docs/apps/blockchain/blockchain-node.md).
+*Last updated: 2026-06-17*
