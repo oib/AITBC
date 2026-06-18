@@ -12,7 +12,7 @@ from enum import StrEnum
 from typing import Any
 
 import websockets
-from websockets.server import WebSocketServerProtocol  # type: ignore[attr-defined]
+from websockets.server import WebSocketServerProtocol
 
 from aitbc.aitbc_logging import get_logger
 
