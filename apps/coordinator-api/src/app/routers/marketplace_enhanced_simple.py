@@ -9,12 +9,13 @@ from sqlmodel import Session
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from ..auth import AdminDep  # NEW: JWT auth
 from ..contexts.marketplace.services.marketplace_enhanced_simple import (
     EnhancedMarketplaceService,
     LicenseType,
     VerificationType,
 )
-from ..deps import require_admin_key
+# from ..deps import require_admin_key  # OLD: API key auth (deprecated)
 from ..storage import get_session
 
 logger = get_logger(__name__)
@@ -58,7 +59,9 @@ async def create_royalty_distribution(
     royalty_request: RoyaltyDistributionRequest,
     offer_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    # OLD: current_user: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Create royalty distribution for marketplace offer"""
     try:
@@ -79,7 +82,9 @@ async def calculate_royalties(
     offer_id: str,
     sale_amount: float,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    # OLD: current_user: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Calculate royalties for a sale"""
     try:
@@ -98,7 +103,9 @@ async def create_model_license(
     license_request: ModelLicenseRequest,
     offer_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    # OLD: current_user: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Create model license for marketplace offer"""
     try:
@@ -123,7 +130,9 @@ async def verify_model(
     verification_request: ModelVerificationRequest,
     offer_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    # OLD: current_user: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Verify model quality and performance"""
     try:
@@ -141,7 +150,9 @@ async def get_marketplace_analytics(
     request: Request,
     analytics_request: MarketplaceAnalyticsRequest,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    # OLD: current_user: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Get marketplace analytics and insights"""
     try:
@@ -151,3 +162,34 @@ async def get_marketplace_analytics(
     except Exception as e:
         logger.error("Error getting marketplace analytics: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# ============================================================================
+# MIGRATION NOTES: API Key to JWT Auth
+# ============================================================================
+#
+# Migration completed: 2025-01-XX
+#
+# Changes made:
+# 1. Import change:
+#    OLD: from ..deps import require_admin_key
+#    NEW: from ..auth import AdminDep
+#
+# 2. Dependency changes (5 endpoints):
+#    - create_royalty_distribution: current_user -> user: AdminDep
+#    - calculate_royalties: current_user -> user: AdminDep
+#    - create_model_license: current_user -> user: AdminDep
+#    - verify_model: current_user -> user: AdminDep
+#    - get_marketplace_analytics: current_user -> user: AdminDep
+#
+# 3. JWT benefits:
+#    - user["sub"]: Admin user ID
+#    - user["role"]: Role verification (admin)
+#    - user["exp"]: Token expiration
+#    - Centralized auth via security matrix
+#
+# 4. Client code change:
+#    OLD: headers = {"X-Api-Key": "your-api-key"}
+#    NEW: headers = {"Authorization": f"Bearer {token}"}
+#
+# ============================================================================
