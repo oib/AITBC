@@ -10,7 +10,7 @@ API gateway for routing and aggregating requests across AITBC services. Provides
 
 ## Node Type
 
-hub
+all
 
 ## GPU Required
 
