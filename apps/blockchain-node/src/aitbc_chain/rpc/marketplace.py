@@ -7,11 +7,14 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from aitbc.security_hardening import SecurityValidator, log_security_event
+from aitbc.security import SecurityAuditor, SecurityValidator
 
 from ..metrics import metrics_registry
 
 router = APIRouter()
+
+# Security auditor for logging
+security_auditor = SecurityAuditor()
 
 # In-memory storage for marketplace listings
 _marketplace_listings: list[dict[str, Any]] = []
@@ -92,7 +95,7 @@ async def marketplace_create(request: MarketplaceCreateRequest) -> dict[str, Any
 
         # Security validation: validate amount
         if not SecurityValidator.validate_amount(request.price):
-            log_security_event(
+            security_auditor.log_event(
                 action="marketplace_create_invalid_amount", details={"price": request.price}, severity="WARNING"
             )
             raise HTTPException(status_code=400, detail="Invalid price: must be a non-negative number")
@@ -100,7 +103,7 @@ async def marketplace_create(request: MarketplaceCreateRequest) -> dict[str, Any
         # Sanitize description
         description = SecurityValidator.sanitize_html(request.description)
 
-        log_security_event(
+        security_auditor.log_event(
             action="marketplace_listing_created",
             details={"seller_address": request.seller_address, "item_type": request.item_type, "price": request.price},
             severity="INFO",
