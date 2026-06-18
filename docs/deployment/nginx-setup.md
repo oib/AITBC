@@ -88,8 +88,8 @@ sudo certbot --nginx -d your-domain.com
 The nginx configuration routes requests as follows:
 
 ```
-/api/      → localhost:8200 (API Gateway)
-/rpc/      → localhost:8202 (Blockchain RPC)
+/api/      → localhost:8201 (API Gateway)
+/rpc/      → localhost:8202 (Blockchain RPC, bundled in blockchain-node)
 /c/        → localhost:8203 (Coordinator API - failover)
 ```
 
@@ -106,9 +106,6 @@ curl http://localhost/rpc/health
 
 # Test Coordinator API
 curl http://localhost/c/health
-
-# Test Agent Registry
-curl http://localhost/agent/health
 
 # Test nginx health
 curl http://localhost/health
@@ -224,7 +221,7 @@ sudo systemctl status aitbc-blockchain-node
 sudo systemctl status aitbc-coordinator-api
 
 # Check service binding
-ss -lntup | grep 8200
+ss -lntup | grep 8201
 ss -lntup | grep 8202
 ss -lntup | grep 8203
 ```
