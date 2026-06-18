@@ -27,6 +27,16 @@
 This directory contains the comprehensive test suite documentation for the AITBC platform.
 It covers unit tests, integration tests, end-to-end tests, security tests, and load tests.
 
+### **Document Index**
+
+- **[MICROSERVICES_TESTING_GUIDE.md](./MICROSERVICES_TESTING_GUIDE.md)** — Testing procedures for the microservices architecture (post-Coordinator-API monolith breakup)
+- **[TEST_COVERAGE_REQUIREMENTS.md](./TEST_COVERAGE_REQUIREMENTS.md)** — Coverage targets and service-specific requirements
+- **[e2e-test-environment.md](./e2e-test-environment.md)** — E2E test environment setup
+- **[e2e-test-execution.md](./e2e-test-execution.md)** — E2E test execution guide
+- **[e2e-test-scenarios.md](./e2e-test-scenarios.md)** — E2E test scenarios
+- **[test-infrastructure.md](./test-infrastructure.md)** — Test infrastructure overview
+- **[USAGE_GUIDE.md](./USAGE_GUIDE.md)** — General test usage guide
+
 ## Recent Updates (April 13, 2026)
 
 ### ✅ Test Cleanup Completed
