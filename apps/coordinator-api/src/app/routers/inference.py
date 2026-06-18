@@ -63,7 +63,36 @@ async def generate(request: Request, req: InferenceRequest) -> dict[str, Any]:
 
     Supports models like llama2, mistral, codellama, etc.
     """
-    return {"success": True, "response": "Mock generated text response", "model": req.model}
+    payload = {
+        "model": req.model,
+        "prompt": req.prompt,
+        "stream": False,
+        "options": {"temperature": req.temperature, "num_predict": req.max_tokens},
+    }
+    if req.system:
+        payload["system"] = req.system
+    if req.context:
+        payload["context"] = req.context
+
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload)
+            response.raise_for_status()
+            result = response.json()
+            return {
+                "success": True,
+                "response": result.get("response", ""),
+                "model": req.model,
+                "context": result.get("context"),
+                "total_duration": result.get("total_duration"),
+                "eval_count": result.get("eval_count"),
+            }
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Ollama service not available") from None
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"Ollama error: {e.response.text}") from None
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Inference failed: {str(e)}") from e
 
 
 @router.post("/generate/stream", summary="Generate text (streaming)")
@@ -168,14 +197,48 @@ async def batch_generate(request: Request, req: BatchInferenceRequest) -> dict[s
 @router.get("/models", summary="List available models")
 async def list_models(request: Request) -> dict[str, Any]:
     """List all available AI models in Ollama"""
-    return {"models": [], "count": 0}
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
+            response.raise_for_status()
+            data = response.json()
+            models = data.get("models", [])
+            return {
+                "models": [
+                    {
+                        "name": m.get("name"),
+                        "size": m.get("size"),
+                        "parameter_size": m.get("details", {}).get("parameter_size"),
+                        "quantization": m.get("details", {}).get("quantization_level"),
+                        "format": m.get("details", {}).get("format"),
+                    }
+                    for m in models
+                ],
+                "count": len(models),
+            }
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Ollama service not available") from None
+    except Exception:
+        return {"models": [], "count": 0}
 
 
 @router.post("/models/{model_name}/pull", summary="Pull model")
 async def pull_model(request: Request, model_name: str) -> dict[str, Any]:
     """Pull a model from Ollama registry"""
     try:
-        return {"model_name": model_name, "status": "pulled"}
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.post(f"{OLLAMA_BASE_URL}/api/pull", json={"name": model_name})
+            response.raise_for_status()
+            result = response.json()
+            return {
+                "model_name": model_name,
+                "status": result.get("status", "pulled"),
+                "completed": result.get("completed", True),
+            }
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Ollama service not available") from None
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"Ollama pull error: {e.response.text}") from None
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to pull model: {str(e)}") from e
 
@@ -183,4 +246,10 @@ async def pull_model(request: Request, model_name: str) -> dict[str, Any]:
 @router.get("/health", summary="Health check")
 async def inference_health(request: Request) -> dict[str, Any]:
     """Check inference service health"""
-    return {"status": "healthy", "ollama_available": True, "service": "inference"}
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
+            ollama_available = response.status_code == 200
+    except Exception:
+        ollama_available = False
+    return {"status": "healthy", "ollama_available": ollama_available, "service": "inference"}
