@@ -253,73 +253,42 @@ This document covers deployment procedures for the Governance Service, including
    export VOTING_CONTRACT_ADDRESS=<VOTING_ADDRESS>
    ```
 
-## Docker Deployment (Optional)
+## Deployment Method
 
-### Dockerfile
+**AITBC deploys exclusively via systemd** and does not support Docker or containerization. All services are managed as systemd units for production deployments.
 
-Create `/opt/aitbc/apps/governance/Dockerfile`:
+### Systemd Service Management
 
-```dockerfile
-FROM python:3.13-slim
-
-WORKDIR /app
-
-COPY pyproject.toml poetry.lock ./
-RUN pip install poetry && poetry config virtualenvs.create false
-RUN poetry install --no-dev --only governance
-
-COPY . .
-
-RUN mkdir -p /var/lib/aitbc/data
-
-EXPOSE 8105
-
-CMD ["python", "-m", "governance_service.main"]
-```
-
-### Docker Compose
-
-Create `/opt/aitbc/apps/governance/docker-compose.yml`:
-
-```yaml
-version: '3.8'
-
-services:
-  governance:
-    build: .
-    ports:
-      - "8105:8105"
-    environment:
-      - DB_TYPE=postgresql
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=aitbc_governance
-      - DB_USER=aitbc_governance
-      - DB_PASS=governance_password
-    depends_on:
-      - postgres
-    volumes:
-      - /var/lib/aitbc/data:/var/lib/aitbc/data
-
-  postgres:
-    image: postgres:15
-    environment:
-      - POSTGRES_DB=aitbc_governance
-      - POSTGRES_USER=aitbc_governance
-      - POSTGRES_PASSWORD=governance_password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
-```
-
-### Run with Docker
+The governance service is managed via systemd:
 
 ```bash
-cd /opt/aitbc/apps/governance
-docker-compose up -d
+# Start service
+sudo systemctl start aitbc-governance
+
+# Stop service
+sudo systemctl stop aitbc-governance
+
+# Restart service
+sudo systemctl restart aitbc-governance
+
+# Enable service at boot
+sudo systemctl enable aitbc-governance
+
+# View service status
+sudo systemctl status aitbc-governance
+
+# View service logs
+sudo journalctl -u aitbc-governance -f
 ```
+
+### Service Configuration
+
+Service configuration is managed through:
+- Systemd unit files in `/etc/systemd/system/`
+- Environment files in `/etc/aitbc/`
+- Configuration via environment variables
+
+See the main deployment guide for complete systemd setup instructions.
 
 ## Monitoring
 
