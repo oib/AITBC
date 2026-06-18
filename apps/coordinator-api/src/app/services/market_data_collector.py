@@ -12,7 +12,7 @@ from enum import StrEnum
 from typing import Any
 
 import websockets
-from websockets.server import WebSocketServerProtocol
+from websockets.server import ServerProtocol as WebSocketServerProtocol
 
 from aitbc.aitbc_logging import get_logger
 
@@ -493,7 +493,7 @@ class MarketDataCollector:
     async def _start_websocket_server(self) -> None:
         """Start WebSocket server for real-time data streaming"""
 
-        async def handle_websocket(websocket: Any, path: str) -> None:
+        async def handle_websocket(websocket) -> None:
             """Handle WebSocket connections"""
             try:
                 connection_id = f"{websocket.remote_address}_{datetime.now(UTC).timestamp()}"
@@ -512,7 +512,7 @@ class MarketDataCollector:
                 logger.error("Error handling WebSocket connection: %s", e)
 
         try:
-            self.websocket_server = await websockets.serve(handle_websocket, "localhost", self.websocket_port)  # type: ignore[assignment, arg-type]
+            self.websocket_server = await websockets.serve(handle_websocket, "localhost", self.websocket_port)
             logger.info("WebSocket server started on port %s", self.websocket_port)
         except Exception as e:
             logger.error("Failed to start WebSocket server: %s", e)
@@ -535,7 +535,7 @@ class MarketDataCollector:
         disconnected = []
         for connection_id, websocket in self.websocket_connections.items():
             try:
-                await websocket.send(message_str)
+                websocket.send_text(message_str.encode())
             except websockets.exceptions.ConnectionClosed:
                 disconnected.append(connection_id)
             except Exception as e:
