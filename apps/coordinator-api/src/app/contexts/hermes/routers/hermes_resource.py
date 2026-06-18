@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ....deps import require_admin_key
+from ....auth import AdminDep
 from ....schemas.hermes_resource import (
     PricingAdjustment,
     Resource,
@@ -30,7 +30,7 @@ router = APIRouter(prefix="/hermes/resource", tags=["hermes Resource Management"
 async def register_resource(
     resource: Resource,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:
     """Register a new resource for autonomous management."""
     try:
@@ -45,7 +45,7 @@ async def register_resource(
 async def allocate_resource(
     allocation_request: ResourceAllocationRequest,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> ResourceAllocationResponse:
     """Allocate resources based on strategy."""
     try:
@@ -59,7 +59,7 @@ async def allocate_resource(
 async def release_resource(
     release_request: ResourceReleaseRequest,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> ResourceReleaseResponse:
     """Release allocated resources."""
     try:
@@ -72,7 +72,7 @@ async def release_resource(
 @router.post("/pricing/adjust", response_model=PricingAdjustment | None)
 async def adjust_pricing(
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> PricingAdjustment | None:
     """Automatically adjust pricing based on utilization."""
     try:
@@ -85,7 +85,7 @@ async def adjust_pricing(
 @router.get("/pools", response_model=list[ResourcePool])
 async def get_resource_pools(
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> list[ResourcePool]:
     """Get all resource pools."""
     try:
@@ -98,7 +98,7 @@ async def get_resource_pools(
 @router.get("/allocations")
 async def get_allocations(
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
     agent_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get allocations with optional filtering."""

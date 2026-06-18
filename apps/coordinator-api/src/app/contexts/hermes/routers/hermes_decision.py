@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ....deps import require_admin_key
+from ....auth import AdminDep
 from ....schemas.hermes_decision import (
     DecisionListResponse,
     DecisionProposal,
@@ -30,7 +30,7 @@ router = APIRouter(prefix="/hermes/decision", tags=["hermes Decision Making"])
 async def propose_decision(
     proposal: DecisionProposal,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> DecisionProposalResponse:
     """Create a new decision proposal for agent voting."""
     try:
@@ -44,7 +44,7 @@ async def propose_decision(
 async def submit_vote(
     vote: Vote,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> VoteResponse:
     """Submit an agent vote on a decision."""
     try:
@@ -58,7 +58,7 @@ async def submit_vote(
 async def get_decision(
     decision_id: str,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> DecisionResult:
     """Get the current result of a decision."""
     try:
@@ -76,7 +76,7 @@ async def get_decision(
 @router.get("/", response_model=DecisionListResponse)
 async def list_decisions(
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
     decision_type: DecisionType | None = None,
     status: DecisionStatus | None = None,
 ) -> DecisionListResponse:
