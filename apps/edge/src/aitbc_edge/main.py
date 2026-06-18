@@ -1,5 +1,6 @@
 """Main FastAPI application for Edge API Service"""
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -76,6 +77,6 @@ if __name__ == "__main__":
         "aitbc_edge.main:app",
         host=settings.api_host,
         port=settings.api_port,
-        reload=True,
+        reload=os.getenv("UVICORN_RELOAD", "false").lower() in ("true", "1", "yes"),
         log_level=settings.log_level.lower(),
     )
