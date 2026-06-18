@@ -7,7 +7,7 @@ Test plan for the AgentStaking smart contract (`/opt/aitbc/contracts/contracts/A
 - Contract: AgentStaking.sol (Solidity ^0.8.19)
 - Service: staking_service.py (Python)
 - Database: SQLModel with AgentStake, AgentMetrics, StakingPool models
-- Blockchain: ait-testnet (multi-chain mode)
+- Blockchain: ait-hub.aitbc.bubuit.net (multi-chain mode)
 
 ## Test Categories
 

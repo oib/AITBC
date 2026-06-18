@@ -33,9 +33,9 @@ class TestHandleContractList:
         mock_get.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
 
-        handle_contract_list(args, "http://localhost:8006")
+        handle_contract_list(args, "http://localhost:8202")
 
         mock_get.assert_called_once()
         mock_logger.info.assert_called()
@@ -50,9 +50,9 @@ class TestHandleContractList:
         mock_get.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
 
-        handle_contract_list(args, "http://localhost:8006")
+        handle_contract_list(args, "http://localhost:8202")
 
         mock_logger.info.assert_called()
 
@@ -68,7 +68,7 @@ class TestHandleContractList:
         args = Mock()
         args.rpc_url = None
 
-        handle_contract_list(args, "http://default:8006")
+        handle_contract_list(args, "http://default:8202")
 
         mock_get.assert_called_once()
 
@@ -81,9 +81,9 @@ class TestHandleContractList:
         mock_get.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
 
-        handle_contract_list(args, "http://localhost:8006")
+        handle_contract_list(args, "http://localhost:8202")
 
         mock_logger.error.assert_called()
 
@@ -94,9 +94,9 @@ class TestHandleContractList:
         mock_get.side_effect = Exception("Connection error")
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
 
-        handle_contract_list(args, "http://localhost:8006")
+        handle_contract_list(args, "http://localhost:8202")
 
         mock_logger.error.assert_called()
 
@@ -114,7 +114,7 @@ class TestHandleContractDeploy:
         mock_post.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.name = "test-contract"
         args.type = "zk-verifier"
         args.password = "testpass"
@@ -125,7 +125,7 @@ class TestHandleContractDeploy:
         def render_mapping(title, data):
             pass
 
-        handle_contract_deploy(args, "http://localhost:8006", read_password, render_mapping)
+        handle_contract_deploy(args, "http://localhost:8202", read_password, render_mapping)
 
         mock_post.assert_called_once()
 
@@ -133,7 +133,7 @@ class TestHandleContractDeploy:
     def test_handle_contract_deploy_missing_name(self, mock_logger):
         """Test contract deployment with missing name"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.name = None
         args.type = "zk-verifier"
 
@@ -143,7 +143,7 @@ class TestHandleContractDeploy:
         def render_mapping(title, data):
             pass
 
-        handle_contract_deploy(args, "http://localhost:8006", read_password, render_mapping)
+        handle_contract_deploy(args, "http://localhost:8202", read_password, render_mapping)
 
         mock_logger.error.assert_called()
 
@@ -151,7 +151,7 @@ class TestHandleContractDeploy:
     def test_handle_contract_deploy_missing_password(self, mock_logger):
         """Test contract deployment with missing password"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.name = "test-contract"
         args.type = "zk-verifier"
 
@@ -161,7 +161,7 @@ class TestHandleContractDeploy:
         def render_mapping(title, data):
             pass
 
-        handle_contract_deploy(args, "http://localhost:8006", read_password, render_mapping)
+        handle_contract_deploy(args, "http://localhost:8202", read_password, render_mapping)
 
         mock_logger.error.assert_called()
 
@@ -174,7 +174,7 @@ class TestHandleContractDeploy:
         mock_post.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.name = "test-contract"
         args.type = "zk-verifier"
         args.password = "testpass"
@@ -185,7 +185,7 @@ class TestHandleContractDeploy:
         def render_mapping(title, data):
             pass
 
-        handle_contract_deploy(args, "http://localhost:8006", read_password, render_mapping)
+        handle_contract_deploy(args, "http://localhost:8202", read_password, render_mapping)
 
         mock_logger.error.assert_called()
 
@@ -203,7 +203,7 @@ class TestHandleContractCall:
         mock_post.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.address = "0x123"
         args.method = "verify"
         args.password = "testpass"
@@ -212,7 +212,7 @@ class TestHandleContractCall:
         def read_password(args):
             return "testpass"
 
-        handle_contract_call(args, "http://localhost:8006", read_password)
+        handle_contract_call(args, "http://localhost:8202", read_password)
 
         mock_post.assert_called_once()
         mock_logger.info.assert_called()
@@ -221,14 +221,14 @@ class TestHandleContractCall:
     def test_handle_contract_call_missing_address(self, mock_logger):
         """Test contract call with missing address"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.address = None
         args.method = "verify"
 
         def read_password(args):
             return "testpass"
 
-        handle_contract_call(args, "http://localhost:8006", read_password)
+        handle_contract_call(args, "http://localhost:8202", read_password)
 
         mock_logger.error.assert_called()
 
@@ -236,14 +236,14 @@ class TestHandleContractCall:
     def test_handle_contract_call_missing_method(self, mock_logger):
         """Test contract call with missing method"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.address = "0x123"
         args.method = None
 
         def read_password(args):
             return "testpass"
 
-        handle_contract_call(args, "http://localhost:8006", read_password)
+        handle_contract_call(args, "http://localhost:8202", read_password)
 
         mock_logger.error.assert_called()
 
@@ -257,7 +257,7 @@ class TestHandleContractCall:
         mock_post.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.address = "0x123"
         args.method = "verify"
         args.password = "testpass"
@@ -266,7 +266,7 @@ class TestHandleContractCall:
         def read_password(args):
             return "testpass"
 
-        handle_contract_call(args, "http://localhost:8006", read_password)
+        handle_contract_call(args, "http://localhost:8202", read_password)
 
         mock_post.assert_called_once()
 
@@ -284,7 +284,7 @@ class TestHandleContractVerify:
         mock_post.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.address = "0x123"
         args.password = "testpass"
         args.proof_file = None
@@ -292,7 +292,7 @@ class TestHandleContractVerify:
         def read_password(args):
             return "testpass"
 
-        handle_contract_verify(args, "http://localhost:8006", read_password)
+        handle_contract_verify(args, "http://localhost:8202", read_password)
 
         mock_post.assert_called_once()
         mock_logger.info.assert_called()
@@ -301,13 +301,13 @@ class TestHandleContractVerify:
     def test_handle_contract_verify_missing_address(self, mock_logger):
         """Test contract verification with missing address"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.address = None
 
         def read_password(args):
             return "testpass"
 
-        handle_contract_verify(args, "http://localhost:8006", read_password)
+        handle_contract_verify(args, "http://localhost:8202", read_password)
 
         mock_logger.error.assert_called()
 
