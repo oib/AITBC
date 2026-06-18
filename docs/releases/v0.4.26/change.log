@@ -470,6 +470,160 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 
 ---
 
+### Goal 32: Add Duplicate-Route Guard at Startup (P0)
+
+**Problem**: App introspection found real duplicate method/path registrations across the coordinator API. Confirmed duplicates include `/v1/training/*`, `/v1/cross-chain/*`, `/v1/status`, `/v1/jobs`, portfolio, islands, marketplace, and swarm routes. The source is repeated `include_router` calls in `main.py` at lines 318, 337, 358, and 415. <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/main.py" lines="253-420" />
+
+**Impact**: Duplicate routes cause FastAPI to silently overwrite earlier handlers; requests may reach the wrong endpoint, and OpenAPI documentation becomes inconsistent.
+
+**Approach**:
+1. Build a startup guard that introspects `app.routes` after registration and fails if any `(method, path)` pair appears more than once.
+2. Deduplicate `include_router()` calls in `main.py` (see also Goal 12).
+3. Add an OpenAPI CI check that parses the generated spec and fails on duplicate operationIds or paths.
+
+---
+
+### Goal 33: Move Mock/Prototype Routers Behind Non-Production Flags (P1)
+
+**Problem**: Several routers expose in-memory mock or prototype behavior on production paths:
+- `apps/coordinator-api/src/app/routers/training.py:20` — in-memory training jobs
+- `apps/coordinator-api/src/app/routers/hermes.py:21` — Hermes message stubs
+- `apps/coordinator-api/src/app/contexts/agent_coordination/routers/swarm.py:12` — swarm nodes/tasks stubs
+- `apps/blockchain-node/src/aitbc_chain/rpc/contracts_stub.py:8` — contract stubs
+
+**Impact**: Production deployments may accidentally serve mock data, leading to incorrect client behavior and security confusion.
+
+**Approach**:
+1. Gate each mock router behind an explicit feature flag (e.g., `ENABLE_MOCK_TRAINING=1`) or mount them only when `settings.debug == True`.
+2. Add a startup assertion that fails if any mock route is mounted in a production environment.
+3. Document which routes are real vs mock in `docs/api/MOCK_ROUTES.md`.
+
+---
+
+### Goal 34: Replace Module-Global Mock State with Persistent Backing (P1)
+
+**Problem**: Several routes rely on module-global mutable state (`_mock_jobs`, `_mock_agents`, `_mock_nodes`) that is lost on restart and inconsistent across workers:
+- `training.py` — `_mock_jobs` dict
+- `hermes.py` — `_mock_agents` / `_mock_nodes`
+- `swarm.py` — in-memory node registry
+
+**Impact**: State vanishes on deploy, causing job/agent/node records to disappear. Multi-worker deployments see split-brain data.
+
+**Approach**:
+1. Replace all `_mock_*` globals with database or Redis-backed storage.
+2. If a route is genuinely temporary, move it behind the mock flag from Goal 33 and document that it is not persistent.
+3. Add tests that verify state survives an app restart (or, for mock routes, explicitly assert that it does not).
+
+---
+
+### Goal 35: Strengthen API Contract Validation (P1)
+
+**Problem**: Across 861 FastAPI route decorators, only 338 specify `response_model=`. Many public endpoints return broad `dict[str, Any]`, which provides no contract to clients and breaks code generation. <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/main.py" lines="253-420" />
+
+**Impact**: Clients receive unpredictable shapes; frontend and SDK code must defensively parse. OpenAPI spec is incomplete.
+
+**Approach**:
+1. Require `response_model=` on all public endpoints (non-admin, non-debug).
+2. Add a custom lint or CI check that greps for route decorators missing `response_model` in `apps/coordinator-api/src/app/routers/` and `apps/coordinator-api/src/app/contexts/`.
+3. Create response schemas for the most critical paths first: training, marketplace, blockchain, and auth.
+4. Update the OpenAPI CI check (Goal 41) to fail on missing `response_model` for protected prefixes.
+
+---
+
+### Goal 36: Normalize Auth Across Blockchain RPC and Coordinator (P0)
+
+**Problem**: Auth is inconsistent between services:
+- Blockchain RPC (`auth.py`) only trusts `X-Wallet-Address` with an env flag; no JWT support. <ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/auth.py" lines="15" />
+- Coordinator prototype routes (e.g., `training.py:55`) appear unauthenticated.
+- There is no single route security matrix documenting which routes require which auth mechanism.
+
+**Impact**: Some production routes are unprotected; others use ad-hoc schemes. Auditing and compliance are difficult.
+
+**Approach**:
+1. Create a `RouteSecurityMatrix` dataclass mapping prefixes to required auth classes (API key, JWT, wallet signature, or public).
+2. Apply the matrix in a single middleware that runs before every request.
+3. Add JWT support to blockchain RPC auth or delegate to the coordinator's auth layer.
+4. Ensure all `/v1/*` routes (except health and public docs) are covered by the matrix.
+5. Document the matrix in `docs/security/ROUTE_MATRIX.md`.
+
+---
+
+### Goal 37: Clean Up Versioned Path Prefixes (P1)
+
+**Problem**: `swarm.py` defines `/api/v1/dashboard` inside a router that is already mounted under `/v1`. The same router is included both with and without a prefix in `main.py` (lines 312 and 419), producing paths like `/v1/api/v1/dashboard`. <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/contexts/agent_coordination/routers/swarm.py" lines="172" />
+
+**Impact**: Double-prefix paths are confusing, break client expectations, and bloat the OpenAPI spec.
+
+**Approach**:
+1. Audit all router definitions for embedded `/api/v1/` or `/v1/` prefixes.
+2. Remove embedded version prefixes from router modules; let `main.py` control versioning.
+3. Add a startup assertion that no final route path contains `/v1/v1/` or `/api/v1/api/v1/`.
+4. Update tests and client code to use the canonical single-prefix paths.
+
+---
+
+### Goal 38: Make CORS Production Assertions Testable (P1)
+
+**Problem**: Coordinator CORS is configured with `allow_origins` from `config.py` and `allow_credentials=True` in `main.py`. <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/config.py" lines="102" /> <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/main.py" lines="209" /> There is no test or startup assertion that prevents a wildcard (`*`) or dev-only origin from being used with credentials in production.
+
+**Impact**: Misconfigured production deployments could allow cross-origin credential leaks.
+
+**Approach**:
+1. Add a startup assertion in `create_app()`: if `allow_credentials=True`, then `allow_origins` must not contain `*` or any `localhost` / `127.0.0.1` origin when `settings.environment == "production"`.
+2. Add a unit test that verifies the assertion triggers with a bad config and passes with a good one.
+3. Document the rule in `docs/security/CORS.md`.
+
+---
+
+### Goal 39: Fail Closed for Mock Crypto Paths (P1)
+
+**Problem**: Several routes contain hardcoded mock cryptographic data that should never be reachable in production:
+- `contracts.py:42` — mock contract addresses
+- `confidential.py:166` — mock ciphertext/DEKs
+- `hooks.py:188` — placeholder settlement signatures
+- `base.py:221` — mock bridge results
+
+**Impact**: Accidental exposure of mock crypto paths undermines trust in the platform's security claims.
+
+**Approach**:
+1. Gate all mock-crypto endpoints behind `settings.debug == True` or a dedicated `ENABLE_MOCK_CRYPTO=1` flag.
+2. Add a CI check that greps for `"mock_contract"`, `"mock_ciphertext"`, `"placeholder_signature"`, `"mock_bridge"` in production router files and fails if found.
+3. Remove mock data from production modules entirely; keep them in `tests/` or `examples/` only.
+
+---
+
+### Goal 40: Replace Hardcoded Mock RPC/Private Key Paths in Cross-Chain APIs (P0)
+
+**Problem**: `cross_chain_integration.py` uses literal mock strings for critical infrastructure:
+- Line 95: `"mock_rpc_url"`
+- Line 168: `"mock_private_key"`
+
+**Impact**: These are not placeholders — they are active default values. A misconfigured deployment would connect to a non-existent RPC and sign with a known string.
+
+**Approach**:
+1. Remove the literal defaults. Make `rpc_url` and `private_key` required fields that raise `RuntimeError` if missing.
+2. Move test fixtures that need mock values into `tests/` or a `conftest.py` override.
+3. Add a secret-scanning rule that flags `"mock_private_key"` and `"mock_rpc_url"` in non-test files.
+
+---
+
+### Goal 41: Add OpenAPI CI Check (P1)
+
+**Problem**: There is no automated validation of the generated OpenAPI spec. Duplicate paths, missing auth metadata, and mock routes enabled in production can all slip through.
+
+**Impact**: Client SDKs, documentation, and compliance audits rely on an accurate spec.
+
+**Approach**:
+1. In CI, generate `openapi.json` from the app and run a validator script that checks:
+   - Zero duplicate `(method, path)` pairs.
+   - All routes under `/v1/` (except explicitly public ones) have `security` metadata.
+   - No mock-route operationIds are present when `APP_ENV=production`.
+   - All public endpoints have `response_model` equivalents reflected in the schema.
+2. Fail the build on any violation.
+3. Store the validated `openapi.json` as a CI artifact for downstream SDK generation.
+
+---
+
 ## Quick Checks Summary (Pre-Release Baseline)
 
 | Check | Result | Notes |
@@ -488,6 +642,13 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 | Float money fields | ⚠️ 3+ files | `cross_chain_bridge.py`, `bounty.py`, `rewards.py` use `float` for amounts |
 | Blocking in async | ⚠️ 3+ files | `requests.get`, `time.sleep` inside `async def` in hermes, http_client, SDK |
 | Pydantic v1 Config | ⚠️ 2+ files | `class Config:` deprecation warnings in exceptions.py, wallet schemas |
+| Duplicate routes | ⚠️ 861 routes, 338 response_model | `/v1/training/*`, `/v1/cross-chain/*`, `/v1/status`, `/v1/jobs` duplicated |
+| Mock routes in prod | ⚠️ 4+ routers | `training.py`, `hermes.py`, `swarm.py`, `contracts_stub.py` serve mock data |
+| Module-global mock state | ⚠️ 3+ files | `_mock_jobs`, `_mock_agents`, `_mock_nodes` are in-memory only |
+| Mock crypto paths | ⚠️ 4+ files | mock contract addresses, ciphertext, settlement signatures, bridge results |
+| Hardcoded mock RPC/keys | ⚠️ 2 findings | `"mock_rpc_url"` and `"mock_private_key"` in cross-chain integration |
+| Auth inconsistency | ⚠️ 2 services | Coordinator uses API keys; blockchain RPC uses `X-Wallet-Address` only |
+| CORS credentials risk | ⚠️ 1 config | `allow_credentials=True` with configured origins; no prod assertion |
 
 ---
 
@@ -506,6 +667,9 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 | 4-5 | Replace fallback secrets (`access_control.py`, `poolhub/settings.py`, `auth.py`) | — | Bandit B105 clean; no default secrets outside tests | P0 |
 | 4-5 | Replace float money fields with `Decimal` in `cross_chain_bridge`, `bounty`, `rewards` | — | `Decimal` fields in financial models; no `float` for money | P0 |
 | 5 | Sanitize API 500 responses (remove `str(exc)` from client JSON) | — | HTTP 500 responses contain only opaque error codes | P0 |
+| 5 | Add duplicate-route guard at startup (Goal 32) | — | Zero duplicate `(method, path)` pairs in app.routes | P0 |
+| 5 | Replace hardcoded mock RPC/private key paths in cross-chain APIs | — | `rpc_url` and `private_key` are required; no `"mock_*"` literals | P0 |
+| 5 | Normalize auth: route security matrix + JWT support in blockchain RPC | — | All `/v1/*` routes covered by matrix; RPC supports JWT | P0 |
 
 ### Phase 2: Data Layer, Runtime Correctness & Test Integrity (Week 2)
 
@@ -532,6 +696,13 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 | 4-5 | Add lifecycle management for fire-and-forget async tasks | — | `TaskRegistry` tracks all background tasks; clean shutdown | P1 |
 | 5 | Audit and replace blocking calls in async services | — | `requests` → `httpx.AsyncClient`; `time.sleep` → `asyncio.sleep` | P1 |
 | 5 | Fix duplicate SQLModel metadata / enforce isolated imports | — | Full test suite collects with zero metadata conflicts | P1 |
+| 5 | Move mock/prototype routers behind non-production flags | — | Mock routes return 404 in production; 200 only when explicitly enabled | P1 |
+| 5 | Replace module-global mock state with DB/Redis backing | — | `_mock_jobs`, `_mock_agents`, `_mock_nodes` use persistent storage | P1 |
+| 5 | Strengthen API contract validation (response_model on public endpoints) | — | All public endpoints have explicit `response_model`; 338 → 861 | P1 |
+| 5 | Clean up versioned path prefixes (remove double `/v1/v1/`) | — | Startup assertion: no path contains `/v1/v1/` | P1 |
+| 5 | Make CORS production assertions testable | — | Test fails when wildcard + credentials in prod; passes with proper origins | P1 |
+| 5 | Fail closed for mock crypto paths | — | Mock crypto endpoints disabled in production; CI grep catches new ones | P1 |
+| 5 | Add OpenAPI CI check (duplicate paths, auth, mock routes, missing schemas) | — | CI validates `openapi.json` before build passes | P1 |
 
 ### Phase 4: Tooling, Architecture & Hygiene (Week 4)
 
@@ -573,6 +744,16 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 - [ ] Mutable defaults fixed in Pydantic/SQLModel models
 - [ ] Coordinator DB setup consolidated (single canonical boundary)
 - [ ] Blocking calls removed from async service paths
+- [ ] Duplicate-route guard active at startup (zero duplicate method/path pairs)
+- [ ] Mock/prototype routers gated behind non-production flags
+- [ ] Module-global mock state replaced with persistent backing
+- [ ] All public endpoints have explicit `response_model` declarations
+- [ ] Auth normalized across coordinator and blockchain RPC (route security matrix)
+- [ ] No double-prefix versioned paths (`/v1/v1/`) in any route
+- [ ] CORS production assertions prevent wildcard + credentials
+- [ ] Mock crypto paths disabled in production
+- [ ] No `"mock_rpc_url"` or `"mock_private_key"` literals in production code
+- [ ] OpenAPI CI check passes (no duplicates, missing auth, or missing schemas)
 
 ### Stretch Goals
 - [ ] Full `mypy aitbc/` passes with 0 errors (may be v0.4.27)
@@ -584,6 +765,8 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 - [ ] Zero hardcoded `/opt/aitbc` paths in source code
 - [ ] Pydantic v1 `class Config:` fully migrated to v2 `ConfigDict`
 - [ ] Full test suite collects without SQLModel metadata conflicts
+- [ ] OpenAPI spec is auto-validated in CI on every PR
+- [ ] Route security matrix documented and enforced by middleware
 
 ---
 
@@ -605,6 +788,14 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 | Async task registry crashes on shutdown | Low | Medium | Graceful cancellation with timeout; log failures but do not hang |
 | Timezone-aware timestamps break SQLite queries | Low | Medium | Test timestamp comparison logic in SQLite/PostgreSQL after migration |
 | Consolidating DB modules breaks app startup | Medium | High | Run coordinator-api integration tests before and after consolidation |
+| Duplicate-route guard breaks intentionally shadowed routes | Low | Medium | Review all duplicate `include_router` calls first; only keep intentional overrides |
+| Gating mock routes breaks internal test clients | Medium | Medium | Update test `conftest.py` to set `ENABLE_MOCK_*=1`; document flag usage |
+| Replacing `_mock_*` globals with DB breaks unit-test speed | Medium | Low | Use an in-memory SQLite or Redis for test fixtures; keep DB layer thin |
+| Adding response_model to all endpoints causes serialization regressions | Medium | High | Add endpoints incrementally; run integration tests after each batch |
+| Auth normalization breaks blockchain RPC clients | Medium | High | Maintain backward-compatible `X-Wallet-Address` header during transition period |
+| Removing double-prefix paths breaks existing client URLs | Medium | Medium | Announce path changes; add 308 redirects for one release cycle |
+| Mock crypto removal breaks demo scripts | Low | Low | Move demo content to `examples/` with explicit `debug=True` requirement |
+| OpenAPI CI check flakes on optional router load order | Low | Low | Generate spec after all routers are loaded; use deterministic startup order |
 
 ---
 
