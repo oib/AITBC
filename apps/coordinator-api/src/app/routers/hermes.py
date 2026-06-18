@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.config import settings
 
@@ -34,36 +34,44 @@ else:
 class RegisterAgentRequest(BaseModel):
     """Request to register agent"""
 
-    agent_id: str
-    public_key: str
-    capabilities: list[str] = Field(default_factory=list)
+    agent_id: str = Field(..., min_length=1, max_length=100)
+    public_key: str = Field(..., min_length=1)
+    capabilities: list[str] = Field(default_factory=list, max_length=50)
 
 
 class SendMessageRequest(BaseModel):
     """Request to send message"""
 
-    sender: str
-    recipient: str
-    content: str
-    message_type: str = "direct"
-    encrypted: bool = False
-    reply_to: str | None = None
+    sender: str = Field(..., min_length=1)
+    recipient: str = Field(..., min_length=1)
+    content: str = Field(..., min_length=1, max_length=10000)
+    message_type: str = Field(default="direct", max_length=50)
+    encrypted: bool = Field(default=False)
+    reply_to: str | None = Field(default=None, max_length=100)
     metadata: dict[str, Any] | None = None
+
+    @field_validator("message_type")
+    @classmethod
+    def validate_message_type(cls, v: str) -> str:
+        valid_types = {"direct", "broadcast", "system", "notification"}
+        if v.lower() not in valid_types:
+            raise ValueError(f"message_type must be one of: {', '.join(valid_types)}")
+        return v.lower()
 
 
 class BroadcastRequest(BaseModel):
     """Request to broadcast"""
 
-    sender: str
-    content: str
-    encrypted: bool = False
+    sender: str = Field(..., min_length=1)
+    content: str = Field(..., min_length=1, max_length=10000)
+    encrypted: bool = Field(default=False)
 
 
 class MarkReadRequest(BaseModel):
     """Request to mark message as read"""
 
-    agent_id: str
-    message_id: str
+    agent_id: str = Field(..., min_length=1)
+    message_id: str = Field(..., min_length=1)
 
 
 @router.post("/agents/register", summary="Register agent")

@@ -5,7 +5,7 @@ Monitoring and metrics collection for AITBC applications
 
 import time
 from collections import defaultdict
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -31,7 +31,7 @@ class MetricsCollector:
             value: Value to increment by
         """
         self.counters[metric] += value
-        self.timestamps[metric] = datetime.now()
+        self.timestamps[metric] = datetime.now(UTC)
 
     def decrement(self, metric: str, value: int = 1) -> None:
         """
@@ -42,7 +42,7 @@ class MetricsCollector:
             value: Value to decrement by
         """
         self.counters[metric] -= value
-        self.timestamps[metric] = datetime.now()
+        self.timestamps[metric] = datetime.now(UTC)
 
     def timing(self, metric: str, duration: float) -> None:
         """
@@ -53,7 +53,7 @@ class MetricsCollector:
             duration: Duration in seconds
         """
         self.timers[metric].append(duration)
-        self.timestamps[metric] = datetime.now()
+        self.timestamps[metric] = datetime.now(UTC)
 
     def set_gauge(self, metric: str, value: float) -> None:
         """
@@ -64,7 +64,7 @@ class MetricsCollector:
             value: Gauge value
         """
         self.gauges[metric] = value
-        self.timestamps[metric] = datetime.now()
+        self.timestamps[metric] = datetime.now(UTC)
 
     def get_counter(self, metric: str) -> int:
         """
@@ -219,7 +219,7 @@ class HealthChecker:
         Returns:
             Dictionary of all check results
         """
-        self.last_check = datetime.now()
+        self.last_check = datetime.now(UTC)
         results = {}
 
         for name in self.checks:

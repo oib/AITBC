@@ -22,7 +22,7 @@ from ..services.creative_capabilities_service import (
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/v1/agent-creativity", tags=["agent-creativity"])
+router = APIRouter(prefix="/agent-creativity", tags=["agent-creativity"])
 
 
 class CreativeCapabilityCreate(BaseModel):

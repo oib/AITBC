@@ -5,7 +5,7 @@ Provides feature flag management for gradual rollouts
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .aitbc_logging import get_logger
@@ -124,13 +124,13 @@ class FeatureFlagManager:
                 enabled=True,
                 description="",
                 rollout_percentage=rollout_percentage,
-                enabled_since=datetime.now(),
+                enabled_since=datetime.now(UTC),
             )
         else:
             self._flags[feature_name].enabled = True
             self._flags[feature_name].rollout_percentage = rollout_percentage
             if not self._flags[feature_name].enabled_since:
-                self._flags[feature_name].enabled_since = datetime.now()
+                self._flags[feature_name].enabled_since = datetime.now(UTC)
         logger.info("Enabled feature flag %s with %s% rollout", feature_name, rollout_percentage)
         self.save_flags()
 

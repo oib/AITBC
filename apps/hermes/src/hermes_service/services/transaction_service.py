@@ -30,7 +30,7 @@ class TransactionService:
             Current nonce
         """
         try:
-            from aitbc.network.http_client import AITBCHTTPClient
+            from aitbc.network import AITBCHTTPClient
 
             http_client = AITBCHTTPClient(base_url=self.rpc_url, timeout=5)
             account_data = http_client.get(f"/rpc/account/{address}")
@@ -50,7 +50,7 @@ class TransactionService:
             Current balance
         """
         try:
-            from aitbc.network.http_client import AITBCHTTPClient
+            from aitbc.network import AITBCHTTPClient
 
             http_client = AITBCHTTPClient(base_url=self.rpc_url, timeout=5)
             account_data = http_client.get(f"/rpc/account/{address}")

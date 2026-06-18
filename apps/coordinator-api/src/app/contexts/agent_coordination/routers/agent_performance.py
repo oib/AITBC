@@ -27,7 +27,7 @@ from ....storage import get_session
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/v1/agent-performance", tags=["agent-performance"])
+router = APIRouter(prefix="/agent-performance", tags=["agent-performance"])
 
 
 class PerformanceProfileRequest(BaseModel):

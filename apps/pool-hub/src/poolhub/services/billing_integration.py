@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
-from aitbc.network.http_client import AsyncAITBCHTTPClient
+from aitbc.network import AsyncAITBCHTTPClient
 
 from ..models import MatchRequest, MatchResult, Miner
 from ..settings import settings

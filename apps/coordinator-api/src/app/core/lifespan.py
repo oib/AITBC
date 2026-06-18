@@ -9,6 +9,8 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
+from .lifecycle import get_lifecycle_state, get_task_manager, managed_lifespan
+
 logger = get_logger(__name__)
 
 
@@ -18,6 +20,9 @@ async def lifespan(app: Any) -> AsyncIterator[None]:
     from .config import settings  # type: ignore[import-not-found]
     from .database_async import close_async_db, init_async_db  # type: ignore[import-not-found]
     from .storage.db import init_db  # type: ignore[import-not-found]
+
+    lifecycle_state = get_lifecycle_state()
+    lifecycle_state.set_state(lifecycle_state.STARTING)
 
     logger.info("Starting Coordinator API")
     try:
@@ -73,11 +78,21 @@ async def lifespan(app: Any) -> AsyncIterator[None]:
         logger.info("Audit logging: %s", settings.audit_log_dir)
         logger.info("=== Startup Complete ===")
         logger.info("🚀 Coordinator API is ready to serve requests")
+
+        lifecycle_state.set_state(lifecycle_state.RUNNING)
         yield
     finally:
+        lifecycle_state.set_state(lifecycle_state.SHUTTING_DOWN)
         logger.info("Shutting down Coordinator API")
         try:
             close_async_db()
             logger.info("Async database closed")
         except Exception as e:
             logger.warning("Error closing async database: %s", e)
+
+        # Stop all background tasks
+        task_manager = get_task_manager()
+        await task_manager.stop_all()
+
+        lifecycle_state.set_state(lifecycle_state.STOPPED)
+        logger.info("Shutdown complete")

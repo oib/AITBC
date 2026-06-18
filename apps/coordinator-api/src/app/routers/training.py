@@ -13,7 +13,7 @@ from __future__ annotations
 from typing import Any
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.config import settings
 
@@ -32,12 +32,20 @@ else:
 class CreateTrainingRequest(BaseModel):
     """Request to create training job"""
 
-    model_type: str = Field(..., description="Type of model: llm, vision, audio, etc.")
-    dataset_id: str
+    model_type: str = Field(..., min_length=1, max_length=50, description="Type of model: llm, vision, audio, etc.")
+    dataset_id: str = Field(..., min_length=1)
     hyperparameters: dict[str, Any] | None = None
     epochs: int = Field(default=10, ge=1, le=1000)
     gpu_count: int = Field(default=1, ge=0, le=8)
     memory_gb: int = Field(default=16, ge=4, le=128)
+
+    @field_validator("model_type")
+    @classmethod
+    def validate_model_type(cls, v: str) -> str:
+        valid_types = {"llm", "vision", "audio", "multimodal", "reinforcement"}
+        if v.lower() not in valid_types:
+            raise ValueError(f"model_type must be one of: {', '.join(valid_types)}")
+        return v.lower()
 
 
 class UpdateProgressRequest(BaseModel):

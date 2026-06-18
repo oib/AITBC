@@ -34,7 +34,7 @@ from ..services.market_data_collector import MarketDataCollector
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/v1/pricing", tags=["dynamic-pricing"])
+router = APIRouter(prefix="/pricing", tags=["dynamic-pricing"])
 pricing_engine = None
 market_collector = None
 

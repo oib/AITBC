@@ -12,7 +12,7 @@ import pytest
 from aitbc_cli.commands.edge import edge
 from click.testing import CliRunner
 
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 
 
 @pytest.fixture

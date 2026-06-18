@@ -88,11 +88,14 @@ async def get_wallet_balance(
     wallet_address: str,
     chain_id: int | None,
     token_address: str | None,
+    rpc_url: str | None = None,
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get wallet balance with multi-token support"""
     try:
-        adapter = WalletAdapterFactory.create_adapter(chain_id, "mock_rpc_url")
+        if not rpc_url:
+            raise HTTPException(status_code=400, detail="rpc_url parameter is required")
+        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
         if not await adapter.validate_address(wallet_address):
             raise HTTPException(status_code=400, detail="Invalid wallet address")
         balance_data = await adapter.get_balance(wallet_address, token_address)
@@ -113,11 +116,14 @@ async def execute_wallet_transaction(
     data: dict[str, Any] | None,
     gas_limit: int | None,
     gas_price: int | None,
+    rpc_url: str | None = None,
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Execute a transaction from wallet"""
     try:
-        adapter = WalletAdapterFactory.create_adapter(chain_id, "mock_rpc_url")
+        if not rpc_url:
+            raise HTTPException(status_code=400, detail="rpc_url parameter is required")
+        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
         if not await adapter.validate_address(wallet_address) or not await adapter.validate_address(to_address):
             raise HTTPException(status_code=400, detail="Invalid addresses provided")
         transaction_data = await adapter.execute_transaction(
@@ -144,11 +150,14 @@ async def get_wallet_transaction_history(
     offset: int | None,
     from_block: int | None,
     to_block: int | None,
+    rpc_url: str | None = None,
     session: Annotated[Session, Depends(get_session)],
 ) -> list[dict[str, Any]]:
     """Get wallet transaction history"""
     try:
-        adapter = WalletAdapterFactory.create_adapter(chain_id, "mock_rpc_url")
+        if not rpc_url:
+            raise HTTPException(status_code=400, detail="rpc_url parameter is required")
+        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
         if not await adapter.validate_address(wallet_address):
             raise HTTPException(status_code=400, detail="Invalid wallet address")
         transactions = await adapter.get_transaction_history(wallet_address, limit, offset, from_block, to_block)
@@ -160,12 +169,15 @@ async def get_wallet_transaction_history(
 @router.post("/wallets/{wallet_address}/sign", response_model=dict[str, Any])
 @rate_limit(rate=50, per=60)
 async def sign_message(
-    request: Request, wallet_address: str, chain_id: int, message: str, session: Annotated[Session, Depends(get_session)]
+    request: Request, wallet_address: str, chain_id: int, message: str, private_key: str | None = None, rpc_url: str | None = None, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Sign a message with wallet"""
     try:
-        adapter = WalletAdapterFactory.create_adapter(chain_id, "mock_rpc_url")
-        private_key = "mock_private_key"
+        if not rpc_url:
+            raise HTTPException(status_code=400, detail="rpc_url parameter is required")
+        if not private_key:
+            raise HTTPException(status_code=400, detail="private_key parameter is required")
+        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
         signature_data = await adapter.secure_sign_message(message, private_key)
         return signature_data  # type: ignore[no-any-return]
     except Exception:
@@ -180,11 +192,14 @@ async def verify_signature(
     signature: str,
     address: str,
     chain_id: int,
+    rpc_url: str | None = None,
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Verify a message signature"""
     try:
-        adapter = WalletAdapterFactory.create_adapter(chain_id, "mock_rpc_url")
+        if not rpc_url:
+            raise HTTPException(status_code=400, detail="rpc_url parameter is required")
+        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
         is_valid = await adapter.verify_signature(message, signature, address)
         return {
             "valid": is_valid,

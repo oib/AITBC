@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import ed25519, padding, rsa
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 from aitbc_agent import bounty, data_oracle, dispute, extended, ipfs, knowledge, zk
 from aitbc_agent.contract_integration import (
     AgentContractIntegration,

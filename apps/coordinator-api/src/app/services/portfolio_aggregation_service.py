@@ -63,7 +63,7 @@ class PortfolioAggregationService:
     async def _get_wallet_balances(self, agent_address: str | None = None) -> dict[str, Any]:
         """Fetch wallet balances from wallet service"""
         try:
-            response = await self.http_client.get(f"{self.wallet_service_url}/v1/wallets")
+            response = await self.http_client.get(f"{self.wallet_service_url}/wallets")
             if response.status_code == 200:
                 data = response.json()
                 wallets = data.get("items", [])
@@ -83,7 +83,7 @@ class PortfolioAggregationService:
     async def _get_exchange_rates(self) -> dict[str, Any]:
         """Fetch exchange rates from exchange service"""
         try:
-            response = await self.http_client.get(f"{self.exchange_service_url}/v1/exchange/rates")
+            response = await self.http_client.get(f"{self.exchange_service_url}/exchange/rates")
             if response.status_code == 200:
                 return dict(response.json())
             else:
@@ -96,7 +96,7 @@ class PortfolioAggregationService:
     async def _get_marketplace_stats(self) -> dict[str, Any]:
         """Fetch marketplace statistics from marketplace service"""
         try:
-            response = await self.http_client.get(f"{self.marketplace_service_url}/v1/marketplace/analytics?period_type=daily")
+            response = await self.http_client.get(f"{self.marketplace_service_url}/marketplace/analytics?period_type=daily")
             if response.status_code == 200:
                 data = response.json()
                 return {
@@ -115,7 +115,7 @@ class PortfolioAggregationService:
     async def _get_trading_analytics(self, agent_address: str | None = None) -> dict[str, Any]:
         """Fetch trading analytics from trading service"""
         try:
-            url = f"{self.trading_service_url}/v1/trading/analytics"
+            url = f"{self.trading_service_url}/trading/analytics"
             if agent_address:
                 url += f"?agent_address={agent_address}"
             response = await self.http_client.get(url)

@@ -13,6 +13,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ..auth import AdminDep  # NEW: JWT auth
 from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService
+
 # from ..deps import require_admin_key  # OLD: API key auth (deprecated)
 from ..domain import MarketplaceOffer  # type: ignore[attr-defined]
 from ..schemas.marketplace_enhanced import (

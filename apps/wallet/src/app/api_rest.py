@@ -318,7 +318,7 @@ def send_transaction(
         raise
     except Exception as exc:
         logger.error("Unexpected error in transaction submission", extra={"wallet_id": wallet_id, "error": str(exc)})
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error - see server logs") from exc
 
 
 @router.post("/wallets/{wallet_id}/faucet", response_model=WalletTransactionResponse, summary="Request faucet funds")
@@ -374,7 +374,7 @@ async def faucet_request(
         raise
     except Exception as exc:
         logger.error("Faucet request failed", extra={"wallet_id": wallet_id, "error": str(exc)})
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error - see server logs") from exc
 
 
 # Multi-Chain Endpoints - Temporarily disabled due to missing chain manager dependencies

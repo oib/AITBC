@@ -4,7 +4,7 @@ Tests for enhanced secret management and blockchain-specific validation
 """
 
 import pytest
-from aitbc.crypto.security import SecretManager
+from aitbc.crypto import SecretManager
 from aitbc.security_hardening import SecurityValidator
 
 
