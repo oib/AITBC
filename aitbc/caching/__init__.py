@@ -7,7 +7,7 @@ from aitbc.aitbc_logging import get_logger
 from .blockchain_cache import BlockchainCache
 from .blockchain_decorator import cached_blockchain
 from .cache_entry import CacheEntry
-from .decorators import cached, cached_lru, generate_cache_key
+from .decorators import _generate_cache_key, cached, cached_lru, generate_cache_key
 from .invalidator import CacheInvalidator
 from .lru_cache import LRUCache
 from .metrics import CacheMetrics, get_cache_metrics
@@ -70,4 +70,5 @@ __all__ = [
     "RedisCache",
     "get_cache",
     "generate_cache_key",
+    "_generate_cache_key",  # Internal utility, tests depend on it
 ]

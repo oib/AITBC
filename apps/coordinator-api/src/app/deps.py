@@ -19,9 +19,13 @@ logger = get_logger(__name__)
 
 
 def _validate_api_key(allowed_keys: list[str], api_key: str | None) -> str:
-    import os
-
-    if os.getenv("APP_ENV", "dev") == "dev":
+    warnings.warn(
+        "API key auth is deprecated. Use JWT auth from app.auth instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    # Only bypass in explicit dev/test, not production
+    if settings.environment in ("development", "dev", "testing", "test"):
         logger.debug("Development mode - allowing API key %s", "*" * 32 if api_key else "None")
         return api_key or "dev_key"
     allowed = {key.strip() for key in allowed_keys if key}

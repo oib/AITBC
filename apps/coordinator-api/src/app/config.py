@@ -85,7 +85,8 @@ class Settings(BaseAITBCConfig):
         # Allow empty API keys in development/test environments
         import os
 
-        if os.getenv("APP_ENV", "dev") != "production" and not v:
+        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
+        if env not in ("production", "prod") and not v:
             return v
         if not v:
             raise ValueError("API keys cannot be empty in production")
@@ -121,8 +122,8 @@ class Settings(BaseAITBCConfig):
     @classmethod
     def validate_cors_origins(cls, v: list[str]) -> list[str]:
         import os
-        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "dev"))
-        if env == "production":
+        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
+        if env in ("production", "prod"):
             localhost_origins = [origin for origin in v if "localhost" in origin or "127.0.0.1" in origin]
             if localhost_origins:
                 raise ValueError(f"CORS cannot allow localhost origins in production: {localhost_origins}")
@@ -160,9 +161,9 @@ class Settings(BaseAITBCConfig):
     @classmethod
     def validate_blockchain_rpc_url(cls, v: str) -> str:
         import os
-        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "dev"))
+        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
         if "localhost" in v or "127.0.0.1" in v:
-            if env == "production":
+            if env in ("production", "prod"):
                 raise ValueError("BLOCKCHAIN_RPC_URL cannot be localhost in production")
         return v
 
@@ -180,8 +181,8 @@ class Settings(BaseAITBCConfig):
     @classmethod
     def validate_mock_flags(cls, v: bool) -> bool:
         import os
-        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "dev"))
-        if v and env == "production":
+        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
+        if v and env in ("production", "prod"):
             raise ValueError("Mock endpoints cannot be enabled in production")
         return v
 
