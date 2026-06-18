@@ -196,7 +196,7 @@ if settings.debug:
         """Get miners list."""
         return []  # type: ignore[return-value]
 
-    @router.get("/dashboard", response_model=list)
+    @router.get("/dashboard/history", response_model=list)
     async def get_history_dashboard() -> None:
         """Get historical dashboard data."""
         return []  # type: ignore[return-value]
