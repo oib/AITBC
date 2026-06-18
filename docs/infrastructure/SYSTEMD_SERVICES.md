@@ -62,13 +62,12 @@ journalctl -u aitbc-agent-daemon.service -n 5 --no-pager
 - `aitbc-adaptive-learning.service` - Adaptive Learning (Port 8010)
 
 #### Agent Services
-- `aitbc-agent-registry.service` - Agent discovery
 - `aitbc-agent-coordinator.service` - Task coordination
 - `aitbc-edge.service` - Edge API services
 
 #### Blockchain Services
 - `aitbc-blockchain-node.service` - Blockchain Node with P2P (Port 8005)
-- `aitbc-blockchain-rpc.service` - RPC API (Port 8202)
+- `aitbc-blockchain-rpc.service` - RPC API (Port 8202), bundled inside blockchain-node src/
 
 #### Supporting Services
 - `aitbc-explorer.service` - Blockchain explorer
@@ -249,23 +248,21 @@ python3 -m aitbc_chain.main --help
 
 ### Startup Order
 ```
-1. aitbc-agent-registry.service
-2. aitbc-agent-coordinator.service
-3. aitbc-coordinator-api.service
-4. aitbc-blockchain-node.service
-5. aitbc-blockchain-rpc.service
-6. aitbc-exchange-api.service
-7. aitbc-wallet.service
+1. aitbc-agent-coordinator.service
+2. aitbc-coordinator-api.service
+3. aitbc-blockchain-node.service
+4. aitbc-blockchain-rpc.service
+5. aitbc-exchange-api.service
+6. aitbc-wallet.service
 ```
 
 ### Dependency Chain
 ```
 network.target
-├── aitbc-agent-registry.service
-├── aitbc-agent-coordinator.service (requires: registry)
+├── aitbc-agent-coordinator.service
 ├── aitbc-coordinator-api.service
 ├── aitbc-blockchain-node.service
-├── aitbc-blockchain-rpc.service (requires: node)
+├── aitbc-blockchain-rpc.service (requires: node, bundled in blockchain-node)
 ├── aitbc-exchange-api.service (requires: coordinator-api)
 └── aitbc-wallet.service (requires: coordinator-api)
 ```
