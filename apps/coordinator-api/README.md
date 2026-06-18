@@ -10,7 +10,7 @@ Central API coordinator exposing REST endpoints for agents, miners, marketplace,
 
 ## Node Type
 
-hub
+all
 
 ## GPU Required
 
