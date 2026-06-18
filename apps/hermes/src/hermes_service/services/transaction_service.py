@@ -15,7 +15,7 @@ class TransactionService:
     def __init__(self) -> None:
         self.logger = get_logger(__name__)
         self.rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
-        self.chain_id = os.getenv("CHAIN_ID", "ait-mainnet")
+        self.chain_id = os.getenv("CHAIN_ID", "")
         self.genesis_private_key = os.getenv("GENESIS_PRIVATE_KEY")
         self.genesis_address = os.getenv("GENESIS_ADDRESS")
 

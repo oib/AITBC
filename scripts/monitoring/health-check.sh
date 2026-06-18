@@ -31,7 +31,7 @@ check_service "Coordinator API" "http://localhost:8000/health"
 check_service "Exchange API" "http://localhost:8001/api/health"
 check_service "Marketplace API" "http://localhost:8007/health"
 check_service "Wallet API" "http://localhost:8003/health"
-check_service "Explorer" "http://localhost:8004/health"
+check_service "Explorer" "http://localhost:8100/health"
 
 # Check blockchain node and RPC
 echo ""

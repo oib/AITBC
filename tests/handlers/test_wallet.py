@@ -108,7 +108,7 @@ class TestHandleWalletBalance:
     def test_handle_wallet_balance_all(self, mock_exit, mock_logger):
         """Test wallet balance for all wallets"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.all = True
 
         def list_wallets():
@@ -120,7 +120,7 @@ class TestHandleWalletBalance:
         def first(*args):
             return args[0] if args else None
 
-        handle_wallet_balance(args, "http://localhost:8006", list_wallets, get_balance, first)
+        handle_wallet_balance(args, "http://localhost:8202", list_wallets, get_balance, first)
 
         mock_logger.info.assert_called()
 
@@ -129,7 +129,7 @@ class TestHandleWalletBalance:
     def test_handle_wallet_balance_single(self, mock_exit, mock_logger):
         """Test wallet balance for single wallet"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.all = False
         args.wallet_name = "wallet1"
         args.wallet_name_opt = None
@@ -143,7 +143,7 @@ class TestHandleWalletBalance:
         def first(*args):
             return args[0] if args else None
 
-        handle_wallet_balance(args, "http://localhost:8006", list_wallets, get_balance, first)
+        handle_wallet_balance(args, "http://localhost:8202", list_wallets, get_balance, first)
 
         mock_logger.info.assert_called()
 
@@ -152,7 +152,7 @@ class TestHandleWalletBalance:
     def test_handle_wallet_balance_missing_name(self, mock_exit, mock_logger):
         """Test wallet balance with missing wallet name"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.all = False
         args.wallet_name = None
         args.wallet_name_opt = None
@@ -166,7 +166,7 @@ class TestHandleWalletBalance:
         def first(*args):
             return args[0] if args else None
 
-        handle_wallet_balance(args, "http://localhost:8006", list_wallets, get_balance, first)
+        handle_wallet_balance(args, "http://localhost:8202", list_wallets, get_balance, first)
 
         mock_exit.assert_called_with(1)
 
@@ -181,7 +181,7 @@ class TestHandleWalletTransactions:
         args = Mock()
         args.wallet_name = "wallet1"
         args.wallet_name_opt = None
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.limit = 10
 
         def first(*args):
@@ -204,7 +204,7 @@ class TestHandleWalletTransactions:
         args = Mock()
         args.wallet_name = "wallet1"
         args.wallet_name_opt = None
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.limit = 10
 
         def first(*args):
@@ -227,7 +227,7 @@ class TestHandleWalletTransactions:
         args = Mock()
         args.wallet_name = None
         args.wallet_name_opt = None
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.limit = 10
 
         def first(*args):

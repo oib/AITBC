@@ -5,6 +5,7 @@ Handles decentralized peer-to-peer mesh communication between blockchain nodes
 
 import asyncio
 import json
+import os
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -47,7 +48,7 @@ class P2PNetworkService:
         self.host = host
         self.port = port
         self.node_id = node_id
-        self.chain_id = chain_id or island_chain_id or "ait-mainnet"
+        self.chain_id = chain_id or island_chain_id or os.getenv("CHAIN_ID", "")
         self.island_id = island_id
         self.island_name = island_name
         self.is_hub = is_hub

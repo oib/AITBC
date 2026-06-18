@@ -55,8 +55,8 @@ class ChainSettings(BaseSettings):
         Returns:
             Path to chain-specific database file.
         """
-        # Resolve chain_id: parameter > settings > default
-        resolved_chain_id = chain_id or self.chain_id or "ait-mainnet"
+        # Resolve chain_id: parameter > settings > environment > empty
+        resolved_chain_id = chain_id or self.chain_id or os.getenv("CHAIN_ID", "")
 
         # Build chain-specific path: DATA_DIR/data/{chain_id}/chain.db
         return DATA_DIR / "data" / resolved_chain_id / "chain.db"
@@ -114,11 +114,14 @@ class ChainSettings(BaseSettings):
 
     # Sync settings
     trusted_proposers: str = ""  # comma-separated list of trusted proposer IDs
-    genesis_candidates: ClassVar[list[str]] = [
-        str(DATA_DIR / "data" / "genesis.json"),
-        f"{DATA_DIR}/data/{chain_id}/genesis.json",
-        f"{DATA_DIR}/data/ait-mainnet/genesis.json",
-    ]
+    @classmethod
+    def get_genesis_candidates(cls, chain_id: str) -> list[str]:
+        """Get genesis file candidates for a specific chain ID"""
+        return [
+            str(DATA_DIR / "data" / "genesis.json"),
+            f"{DATA_DIR}/data/{chain_id}/genesis.json",
+            f"{DATA_DIR}/data/{os.getenv('CHAIN_ID', '')}/genesis.json",
+        ]
     max_reorg_depth: int = 10  # max blocks to reorg on conflict
     sync_validate_signatures: bool = True  # validate proposer signatures on import
 

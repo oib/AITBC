@@ -157,7 +157,7 @@ class HubManager:
             genesis_candidates = [
                 str(settings.db_path.parent / "genesis.json"),
                 f"{DATA_DIR}/data/{settings.chain_id}/genesis.json",
-                f"{DATA_DIR}/data/ait-mainnet/genesis.json",
+                f"{DATA_DIR}/data/{os.getenv('CHAIN_ID', '')}/genesis.json",
             ]
             for genesis_path in genesis_candidates:
                 if os.path.exists(genesis_path):

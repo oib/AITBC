@@ -298,7 +298,7 @@ health_endpoints=(
     "http://localhost:8000/health:Coordinator API"
     "http://localhost:8001/health:Exchange API"
     "http://localhost:8003/health:Blockchain RPC"
-    "http://localhost:8004/health:Blockchain Node 2"
+    "http://localhost:8100/health:Blockchain Explorer"
     "http://localhost:8005/health:Blockchain RPC 2"
     "http://localhost:8080/health:Container Coordinator API"
     "http://localhost:8083/health:Container Wallet Daemon"

@@ -20,14 +20,14 @@ app = FastAPI(title="AITBC Multi-Chain Exchange", version="2.0.0")
 app.add_middleware(RateLimitMiddleware, rate=100, per=60)
 logger = get_logger(__name__)
 DB_PATH = os.path.join(os.path.dirname(__file__), "exchange_multichain.db")
+chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 SUPPORTED_CHAINS = {
-    "ait-devnet": {
-        "name": "AITBC Development Network",
+    chain_id: {
+        "name": "AITBC Hub Network",
         "status": "active",
-        "blockchain_url": "http://localhost:8007",
-        "token_symbol": "AITBC-DEV",
+        "blockchain_url": "http://localhost:8202",
+        "token_symbol": "AITBC-HUB",
     },
-    "ait-testnet": {"name": "AITBC Test Network", "status": "inactive", "blockchain_url": None, "token_symbol": "AITBC-TEST"},
 }
 
 
@@ -35,12 +35,12 @@ class OrderRequest(BaseModel):
     order_type: str = Field(..., regex="^(BUY|SELL)$")
     amount: float = Field(..., gt=0)
     price: float = Field(..., gt=0)
-    chain_id: str = Field(..., regex="^(ait-devnet|ait-testnet)$")
+    chain_id: str = Field(..., regex="^[a-z0-9.-]+$")
     user_address: str = Field(..., min_length=1)
 
 
 class ChainOrderRequest(BaseModel):
-    chain_id: str = Field(..., regex="^(ait-devnet|ait-testnet)$")
+    chain_id: str = Field(..., regex="^[a-z0-9.-]+$")
     order_type: str = Field(..., regex="^(BUY|SELL)$")
 
 
@@ -48,7 +48,7 @@ class MultiChainTradeRequest(BaseModel):
     buy_order_id: int | None = None
     sell_order_id: int | None = None
     amount: float = Field(..., gt=0)
-    chain_id: str = Field(..., regex="^(ait-devnet|ait-testnet)$")
+    chain_id: str = Field(..., regex="^[a-z0-9.-]+$")
 
 
 def get_db_connection():
@@ -67,10 +67,10 @@ def init_database():
             "\n            CREATE TABLE IF NOT EXISTS chains (\n                chain_id TEXT PRIMARY KEY,\n                name TEXT NOT NULL,\n                status TEXT NOT NULL CHECK(status IN ('active', 'inactive', 'maintenance')),\n                blockchain_url TEXT,\n                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n                enabled BOOLEAN DEFAULT 1\n            )\n        "
         )
         cursor.execute(
-            "\n            CREATE TABLE IF NOT EXISTS orders (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                order_type TEXT NOT NULL CHECK(order_type IN ('BUY', 'SELL')),\n                amount REAL NOT NULL,\n                price REAL NOT NULL,\n                total REAL NOT NULL,\n                filled REAL DEFAULT 0,\n                remaining REAL NOT NULL,\n                status TEXT DEFAULT 'open' CHECK(status IN ('open', 'filled', 'cancelled')),\n                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n                user_address TEXT,\n                tx_hash TEXT,\n                chain_id TEXT NOT NULL DEFAULT 'ait-devnet',\n                blockchain_tx_hash TEXT,\n                chain_status TEXT DEFAULT 'pending' CHECK(chain_status IN ('pending', 'confirmed', 'failed'))\n            )\n        "
+            "\n            CREATE TABLE IF NOT EXISTS orders (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                order_type TEXT NOT NULL CHECK(order_type IN ('BUY', 'SELL')),\n                amount REAL NOT NULL,\n                price REAL NOT NULL,\n                total REAL NOT NULL,\n                filled REAL DEFAULT 0,\n                remaining REAL NOT NULL,\n                status TEXT DEFAULT 'open' CHECK(status IN ('open', 'filled', 'cancelled')),\n                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n                user_address TEXT,\n                tx_hash TEXT,\n                chain_id TEXT NOT NULL,\n                blockchain_tx_hash TEXT,\n                chain_status TEXT DEFAULT 'pending' CHECK(chain_status IN ('pending', 'confirmed', 'failed'))\n            )\n        "
         )
         cursor.execute(
-            "\n            CREATE TABLE IF NOT EXISTS trades (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                buy_order_id INTEGER,\n                sell_order_id INTEGER,\n                amount REAL NOT NULL,\n                price REAL NOT NULL,\n                total REAL NOT NULL,\n                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n                chain_id TEXT NOT NULL DEFAULT 'ait-devnet',\n                blockchain_tx_hash TEXT,\n                chain_status TEXT DEFAULT 'pending' CHECK(chain_status IN ('pending', 'confirmed', 'failed'))\n            )\n        "
+            "\n            CREATE TABLE IF NOT EXISTS trades (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                buy_order_id INTEGER,\n                sell_order_id INTEGER,\n                amount REAL NOT NULL,\n                price REAL NOT NULL,\n                total REAL NOT NULL,\n                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n                chain_id TEXT NOT NULL,\n                blockchain_tx_hash TEXT,\n                chain_status TEXT DEFAULT 'pending' CHECK(chain_status IN ('pending', 'confirmed', 'failed'))\n            )\n        "
         )
         for chain_id, chain_info in SUPPORTED_CHAINS.items():
             cursor.execute(

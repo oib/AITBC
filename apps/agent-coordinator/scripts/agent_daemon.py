@@ -7,6 +7,7 @@ Listens for blockchain transactions addressed to an agent wallet and autonomousl
 import argparse
 import hashlib
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -25,8 +26,8 @@ logger = get_logger(__name__)
 
 # Default configuration
 DEFAULT_KEYSTORE_DIR = KEYSTORE_DIR
-DEFAULT_DB_PATH = str(DATA_DIR / "data/ait-mainnet/chain.db")
-DEFAULT_RPC_URL = "http://localhost:8006"
+DEFAULT_DB_PATH = str(DATA_DIR / f"data/{os.getenv('CHAIN_ID', '')}/chain.db")
+DEFAULT_RPC_URL = "http://localhost:8202"
 DEFAULT_POLL_INTERVAL = 10
 
 
@@ -88,7 +89,7 @@ def decrypt_wallet(keystore_path: Path, password: str) -> bytes:
 
 
 def create_tx(
-    private_bytes: bytes, from_addr: str, to_addr: str, amount: float, fee: float, payload: str, chain_id: str = "ait-mainnet"
+    private_bytes: bytes, from_addr: str, to_addr: str, amount: float, fee: float, payload: str, chain_id: str = ""
 ) -> dict:
     """Create and sign a transaction"""
     priv_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_bytes)
@@ -125,7 +126,7 @@ def main():
     parser.add_argument("--poll-interval", type=int, default=DEFAULT_POLL_INTERVAL, help="Poll interval in seconds")
     parser.add_argument("--reply-message", default="pong", help="Message to send as reply")
     parser.add_argument("--trigger-message", default="ping", help="Message that triggers reply")
-    parser.add_argument("--chain-id", default="ait-mainnet", help="Chain ID for transactions (default: ait-mainnet)")
+    parser.add_argument("--chain-id", default=os.getenv("CHAIN_ID", ""), help="Chain ID for transactions (default: from CHAIN_ID env var)")
 
     args = parser.parse_args()
 

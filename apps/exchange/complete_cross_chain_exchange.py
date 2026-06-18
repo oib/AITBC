@@ -23,20 +23,14 @@ app = FastAPI(title="AITBC Complete Cross-Chain Exchange", version="3.0.0")
 app.add_middleware(RateLimitMiddleware, rate=100, per=60)
 logger = get_logger(__name__)
 DB_PATH = os.path.join(os.path.dirname(__file__), "exchange_multichain.db")
+chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 SUPPORTED_CHAINS = {
-    "ait-devnet": {
-        "name": "AITBC Development Network",
+    chain_id: {
+        "name": "AITBC Hub Network",
         "status": "active",
-        "blockchain_url": "http://localhost:8007",
-        "token_symbol": "AITBC-DEV",
+        "blockchain_url": "http://localhost:8202",
+        "token_symbol": "AITBC-HUB",
         "bridge_contract": "0x1234567890123456789012345678901234567890",
-    },
-    "ait-testnet": {
-        "name": "AITBC Test Network",
-        "status": "inactive",
-        "blockchain_url": None,
-        "token_symbol": "AITBC-TEST",
-        "bridge_contract": "0x0987654321098765432109876543210987654321",
     },
 }
 
@@ -45,13 +39,13 @@ class OrderRequest(BaseModel):
     order_type: str = Field(..., regex="^(BUY|SELL)$")
     amount: float = Field(..., gt=0)
     price: float = Field(..., gt=0)
-    chain_id: str = Field(..., regex="^(ait-devnet|ait-testnet)$")
+    chain_id: str = Field(..., regex="^[a-z0-9.-]+$")
     user_address: str = Field(..., min_length=1)
 
 
 class CrossChainSwapRequest(BaseModel):
-    from_chain: str = Field(..., regex="^(ait-devnet|ait-testnet)$")
-    to_chain: str = Field(..., regex="^(ait-devnet|ait-testnet)$")
+    from_chain: str = Field(..., regex="^[a-z0-9.-]+$")
+    to_chain: str = Field(..., regex="^[a-z0-9.-]+$")
     from_token: str = Field(..., min_length=1)
     to_token: str = Field(..., min_length=1)
     amount: float = Field(..., gt=0)
@@ -61,8 +55,8 @@ class CrossChainSwapRequest(BaseModel):
 
 
 class BridgeRequest(BaseModel):
-    source_chain: str = Field(..., regex="^(ait-devnet|ait-testnet)$")
-    target_chain: str = Field(..., regex="^(ait-devnet|ait-testnet)$")
+    source_chain: str = Field(..., regex="^[a-z0-9.-]+$")
+    target_chain: str = Field(..., regex="^[a-z0-9.-]+$")
     token: str = Field(..., min_length=1)
     amount: float = Field(..., gt=0)
     recipient_address: str = Field(..., min_length=1)
@@ -84,10 +78,10 @@ def init_database():
             "\n            CREATE TABLE IF NOT EXISTS chains (\n                chain_id TEXT PRIMARY KEY,\n                name TEXT NOT NULL,\n                status TEXT NOT NULL CHECK(status IN ('active', 'inactive', 'maintenance')),\n                blockchain_url TEXT,\n                token_symbol TEXT,\n                bridge_contract TEXT,\n                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n            )\n        "
         )
         cursor.execute(
-            "\n            CREATE TABLE IF NOT EXISTS orders (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                order_type TEXT NOT NULL CHECK(order_type IN ('BUY', 'SELL')),\n                amount REAL NOT NULL,\n                price REAL NOT NULL,\n                total REAL NOT NULL,\n                filled REAL DEFAULT 0,\n                remaining REAL NOT NULL,\n                status TEXT DEFAULT 'open' CHECK(status IN ('open', 'filled', 'cancelled')),\n                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n                user_address TEXT,\n                tx_hash TEXT,\n                chain_id TEXT NOT NULL DEFAULT 'ait-devnet',\n                blockchain_tx_hash TEXT,\n                chain_status TEXT DEFAULT 'pending' CHECK(chain_status IN ('pending', 'confirmed', 'failed'))\n            )\n        "
+            "\n            CREATE TABLE IF NOT EXISTS orders (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                order_type TEXT NOT NULL CHECK(order_type IN ('BUY', 'SELL')),\n                amount REAL NOT NULL,\n                price REAL NOT NULL,\n                total REAL NOT NULL,\n                filled REAL DEFAULT 0,\n                remaining REAL NOT NULL,\n                status TEXT DEFAULT 'open' CHECK(status IN ('open', 'filled', 'cancelled')),\n                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n                user_address TEXT,\n                tx_hash TEXT,\n                chain_id TEXT NOT NULL,\n                blockchain_tx_hash TEXT,\n                chain_status TEXT DEFAULT 'pending' CHECK(chain_status IN ('pending', 'confirmed', 'failed'))\n            )\n        "
         )
         cursor.execute(
-            "\n            CREATE TABLE IF NOT EXISTS trades (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                buy_order_id INTEGER,\n                sell_order_id INTEGER,\n                amount REAL NOT NULL,\n                price REAL NOT NULL,\n                total REAL NOT NULL,\n                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n                chain_id TEXT NOT NULL DEFAULT 'ait-devnet',\n                blockchain_tx_hash TEXT,\n                chain_status TEXT DEFAULT 'pending' CHECK(chain_status IN ('pending', 'confirmed', 'failed'))\n            )\n        "
+            "\n            CREATE TABLE IF NOT EXISTS trades (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                buy_order_id INTEGER,\n                sell_order_id INTEGER,\n                amount REAL NOT NULL,\n                price REAL NOT NULL,\n                total REAL NOT NULL,\n                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n                chain_id TEXT NOT NULL,\n                blockchain_tx_hash TEXT,\n                chain_status TEXT DEFAULT 'pending' CHECK(chain_status IN ('pending', 'confirmed', 'failed'))\n            )\n        "
         )
         cursor.execute(
             "\n            CREATE TABLE IF NOT EXISTS cross_chain_swaps (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                swap_id TEXT UNIQUE NOT NULL,\n                from_chain TEXT NOT NULL,\n                to_chain TEXT NOT NULL,\n                from_token TEXT NOT NULL,\n                to_token TEXT NOT NULL,\n                amount REAL NOT NULL,\n                min_amount REAL NOT NULL,\n                expected_amount REAL NOT NULL,\n                actual_amount REAL DEFAULT NULL,\n                user_address TEXT NOT NULL,\n                status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'executing', 'completed', 'failed', 'refunded')),\n                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n                completed_at TIMESTAMP NULL,\n                from_tx_hash TEXT NULL,\n                to_tx_hash TEXT NULL,\n                bridge_fee REAL DEFAULT 0,\n                slippage REAL DEFAULT 0,\n                error_message TEXT NULL\n            )\n        "
@@ -112,7 +106,7 @@ def init_database():
             )
         cursor.execute(
             "\n            INSERT OR IGNORE INTO cross_chain_pools \n            (pool_id, token_a, token_b, chain_a, chain_b, reserve_a, reserve_b, total_liquidity)\n            VALUES (?, ?, ?, ?, ?, ?, ?, ?)\n        ",
-            ("ait-devnet-ait-testnet-AITBC", "AITBC", "AITBC", "ait-devnet", "ait-testnet", 1000, 1000, 2000),
+            (f"{chain_id}-ait-hub.aitbc.bubuit.net-AITBC", "AITBC", "AITBC", chain_id, "ait-hub.aitbc.bubuit.net", 1000, 1000, 2000),
         )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_chain_id ON orders(chain_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_trades_chain_id ON trades(chain_id)")
