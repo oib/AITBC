@@ -7,14 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from aitbc.security_hardening import (
-    RateLimiter,
-    SecurityAuditLog,
-    SecurityAuditor,
-    SecurityValidator,
-    get_security_auditor,
-    log_security_event,
-)
+from aitbc.security import SecurityAuditLog, SecurityAuditor, SecurityValidator
 
 
 class TestSecurityValidator:
@@ -152,7 +145,7 @@ class TestSecurityAuditor:
         auditor = SecurityAuditor()
 
         assert auditor.log_file is None
-        assert auditor._logs == []
+        assert auditor.audit_logs == []
 
     def test_initialization_with_file(self):
         """Test SecurityAuditor with log file"""
@@ -162,210 +155,102 @@ class TestSecurityAuditor:
 
             assert auditor.log_file == log_file
 
-    @patch("aitbc.security_hardening.logger")
-    def test_log_security_event(self, mock_logger):
-        """Test log_security_event"""
+    @patch("aitbc.security.audit.logger")
+    def test_log_event(self, mock_logger):
+        """Test log_event"""
         auditor = SecurityAuditor()
 
-        auditor.log_security_event(action="test_action", user="test_user", ip_address="127.0.0.1", details={"key": "value"})
+        auditor.log_event(action="test_action", user="test_user", ip_address="127.0.0.1", details={"key": "value"})
 
-        assert len(auditor._logs) == 1
-        assert auditor._logs[0].action == "test_action"
+        assert len(auditor.audit_logs) == 1
+        assert auditor.audit_logs[0].action == "test_action"
         mock_logger.info.assert_called_once()
 
-    def test_log_security_event_with_file(self):
-        """Test log_security_event writes to file"""
+    def test_log_event_with_file(self):
+        """Test log_event writes to file"""
         with tempfile.TemporaryDirectory() as tmpdir:
             log_file = Path(tmpdir) / "audit.log"
             auditor = SecurityAuditor(log_file)
 
-            auditor.log_security_event(action="test_action")
+            auditor.log_event(action="test_action")
 
             assert log_file.exists()
             with open(log_file) as f:
                 content = f.read()
                 assert "test_action" in content
 
-    def test_get_logs_no_filter(self):
-        """Test get_logs without filters"""
+    def test_get_recent_logs(self):
+        """Test get_recent_logs"""
         auditor = SecurityAuditor()
-        auditor.log_security_event(action="action1")
-        auditor.log_security_event(action="action2")
+        auditor.log_event(action="action1")
+        auditor.log_event(action="action2")
 
-        logs = auditor.get_logs()
+        logs = auditor.get_recent_logs(hours=24)
 
         assert len(logs) == 2
 
-    def test_get_logs_with_action_filter(self):
-        """Test get_logs with action filter"""
+    def test_get_logs_by_user(self):
+        """Test get_logs_by_user"""
         auditor = SecurityAuditor()
-        auditor.log_security_event(action="action1")
-        auditor.log_security_event(action="action2")
+        auditor.log_event(action="test", user="user1")
+        auditor.log_event(action="test", user="user2")
 
-        logs = auditor.get_logs(action="action1")
-
-        assert len(logs) == 1
-        assert logs[0].action == "action1"
-
-    def test_get_logs_with_user_filter(self):
-        """Test get_logs with user filter"""
-        auditor = SecurityAuditor()
-        auditor.log_security_event(action="test", user="user1")
-        auditor.log_security_event(action="test", user="user2")
-
-        logs = auditor.get_logs(user="user1")
+        logs = auditor.get_logs_by_user("user1")
 
         assert len(logs) == 1
         assert logs[0].user == "user1"
 
-    def test_get_logs_with_severity_filter(self):
-        """Test get_logs with severity filter"""
+    def test_get_logs_by_action(self):
+        """Test get_logs_by_action"""
         auditor = SecurityAuditor()
-        auditor.log_security_event(action="test", severity="INFO")
-        auditor.log_security_event(action="test", severity="CRITICAL")
+        auditor.log_event(action="action1")
+        auditor.log_event(action="action2")
 
-        logs = auditor.get_logs(severity="CRITICAL")
+        logs = auditor.get_logs_by_action("action1")
 
         assert len(logs) == 1
-        assert logs[0].severity == "CRITICAL"
+        assert logs[0].action == "action1"
 
-    def test_get_logs_with_limit(self):
-        """Test get_logs with limit"""
+    def test_get_logs_by_severity(self):
+        """Test get_logs_by_severity"""
         auditor = SecurityAuditor()
-        for i in range(10):
-            auditor.log_security_event(action=f"action{i}")
+        auditor.log_event(action="test", severity="INFO")
+        auditor.log_event(action="test", severity="WARNING")
 
-        logs = auditor.get_logs(limit=5)
+        logs = auditor.get_logs_by_severity("INFO")
 
-        assert len(logs) == 5
+        assert len(logs) == 1
+        assert logs[0].severity == "INFO"
 
-    def test_get_critical_logs(self):
-        """Test get_critical_logs"""
+    def test_clear_old_logs(self):
+        """Test clear_old_logs"""
         auditor = SecurityAuditor()
-        auditor.log_security_event(action="test", severity="INFO")
-        auditor.log_security_event(action="test", severity="CRITICAL")
-        auditor.log_security_event(action="test", severity="CRITICAL")
+        auditor.log_event(action="test")
 
-        logs = auditor.get_critical_logs()
+        cleared = auditor.clear_old_logs(days=30)
 
-        assert len(logs) == 2
-        assert all(log.severity == "CRITICAL" for log in logs)
+        assert cleared == 0  # Logs are recent
 
+    def test_get_statistics(self):
+        """Test get_statistics"""
+        auditor = SecurityAuditor()
+        auditor.log_event(action="test", user="user1", severity="INFO")
+        auditor.log_event(action="test", user="user2", severity="WARNING")
 
-class TestRateLimiter:
-    """Tests for RateLimiter"""
+        stats = auditor.get_statistics()
 
-    def test_initialization(self):
-        """Test RateLimiter initialization"""
-        limiter = RateLimiter(rate=10, per=60)
+        assert stats["total_logs"] == 2
+        assert stats["unique_users"] == 2
+        assert stats["unique_actions"] == 1
+        assert stats["severity_breakdown"]["INFO"] == 1
+        assert stats["severity_breakdown"]["WARNING"] == 1
 
-        assert limiter.rate == 10
-        assert limiter.per == 60
-        assert limiter._requests == {}
+    def test_get_statistics_empty(self):
+        """Test get_statistics with no logs"""
+        auditor = SecurityAuditor()
 
-    def test_is_allowed_first_request(self):
-        """Test is_allowed for first request"""
-        limiter = RateLimiter(rate=10, per=60)
+        stats = auditor.get_statistics()
 
-        assert limiter.is_allowed("user1") is True
-
-    def test_is_allowed_within_limit(self):
-        """Test is_allowed within rate limit"""
-        limiter = RateLimiter(rate=10, per=60)
-
-        for _ in range(5):
-            assert limiter.is_allowed("user1") is True
-
-    def test_is_allowed_exceeded(self):
-        """Test is_allowed when rate exceeded"""
-        limiter = RateLimiter(rate=5, per=60)
-
-        # Make 5 requests
-        for _ in range(5):
-            limiter.is_allowed("user1")
-
-        # 6th request should be denied
-        assert limiter.is_allowed("user1") is False
-
-    @patch("aitbc.security_hardening.logger")
-    def test_is_allowed_logs_warning(self, mock_logger):
-        """Test is_allowed logs warning when exceeded"""
-        limiter = RateLimiter(rate=2, per=60)
-
-        limiter.is_allowed("user1")
-        limiter.is_allowed("user1")
-        limiter.is_allowed("user1")  # Should trigger warning
-
-        mock_logger.warning.assert_called_once()
-
-    def test_is_allowed_old_requests_expire(self):
-        """Test old requests expire after time window"""
-        limiter = RateLimiter(rate=2, per=1)
-
-        limiter.is_allowed("user1")
-        limiter.is_allowed("user1")
-
-        # Wait for expiration
-        import time
-
-        time.sleep(1.1)
-
-        # Should be allowed again
-        assert limiter.is_allowed("user1") is True
-
-    def test_reset(self):
-        """Test reset rate limit"""
-        limiter = RateLimiter(rate=5, per=60)
-
-        limiter.is_allowed("user1")
-        limiter.reset("user1")
-
-        # Should be allowed again after reset
-        assert limiter.is_allowed("user1") is True
-
-    @patch("aitbc.security_hardening.logger")
-    def test_reset_logs_info(self, mock_logger):
-        """Test reset logs info message"""
-        limiter = RateLimiter(rate=5, per=60)
-
-        limiter.is_allowed("user1")
-        limiter.reset("user1")
-
-        mock_logger.info.assert_called_once()
-
-    def test_get_remaining_requests(self):
-        """Test get_remaining_requests"""
-        limiter = RateLimiter(rate=10, per=60)
-
-        remaining = limiter.get_remaining_requests("user1")
-        assert remaining == 10
-
-        limiter.is_allowed("user1")
-        remaining = limiter.get_remaining_requests("user1")
-        assert remaining == 9
-
-    def test_get_remaining_requests_no_requests(self):
-        """Test get_remaining_requests for new identifier"""
-        limiter = RateLimiter(rate=10, per=60)
-
-        remaining = limiter.get_remaining_requests("new_user")
-        assert remaining == 10
-
-
-class TestGlobalSecurityAuditor:
-    """Tests for global security auditor functions"""
-
-    @patch("aitbc.security_hardening.logger")
-    def test_log_security_event_global(self, mock_logger):
-        """Test log_security_event using global auditor"""
-        log_security_event(action="test_action")
-
-        auditor = get_security_auditor()
-        assert len(auditor._logs) == 1
-
-    def test_get_security_auditor_singleton(self):
-        """Test get_security_auditor returns singleton"""
-        auditor1 = get_security_auditor()
-        auditor2 = get_security_auditor()
-
-        assert auditor1 is auditor2
+        assert stats["total_logs"] == 0
+        assert stats["unique_users"] == 0
+        assert stats["unique_actions"] == 0

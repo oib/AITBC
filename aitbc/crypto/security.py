@@ -414,9 +414,10 @@ class SecretManager:
                 time.sleep(interval_secs)
                 cleaned = self.cleanup_expired_secrets()
                 if cleaned:
-                    from aitbc.security_hardening import log_security_event
+                    from aitbc.security import SecurityAuditor
 
-                    log_security_event(action="secret_rotation_cleanup", details={"cleaned_count": cleaned}, severity="INFO")
+                    auditor = SecurityAuditor()
+                    auditor.log_event(action="secret_rotation_cleanup", details={"cleaned_count": cleaned}, severity="INFO")
 
         thread = threading.Thread(target=_rotation_loop, daemon=True, name="secret-rotation-scheduler")
         thread.start()
