@@ -9,7 +9,7 @@ from typing import Any
 import requests
 
 from ..aitbc_logging import get_logger
-from ..exceptions import CircuitBreakerOpenError, NetworkError, RateLimitError
+from ..exceptions import CircuitBreakerOpenError, NetworkError, RateLimitError, RetryError
 from .cache_layer import CacheLayer
 from .circuit_breaker import CircuitBreaker
 from .rate_limiter import RateLimiter
@@ -135,6 +135,9 @@ class AITBCHTTPClient:
             return result
         except (RateLimitError, CircuitBreakerOpenError):
             raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"GET request failed: {e}") from e
         except requests.RequestException as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"GET request failed: {e}") from e
@@ -187,6 +190,9 @@ class AITBCHTTPClient:
             return result
         except (RateLimitError, CircuitBreakerOpenError):
             raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"POST request failed: {e}") from e
         except requests.RequestException as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"POST request failed: {e}") from e
@@ -239,6 +245,9 @@ class AITBCHTTPClient:
             return result
         except (RateLimitError, CircuitBreakerOpenError):
             raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"PUT request failed: {e}") from e
         except requests.RequestException as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"PUT request failed: {e}") from e
@@ -286,6 +295,9 @@ class AITBCHTTPClient:
             return result
         except (RateLimitError, CircuitBreakerOpenError):
             raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"DELETE request failed: {e}") from e
         except requests.RequestException as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"DELETE request failed: {e}") from e
@@ -414,6 +426,9 @@ class AsyncAITBCHTTPClient:
             return result
         except (RateLimitError, CircuitBreakerOpenError):
             raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"GET request failed: {e}") from e
         except requests.RequestException as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"GET request failed: {e}") from e
