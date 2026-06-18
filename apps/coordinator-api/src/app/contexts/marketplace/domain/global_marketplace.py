@@ -73,11 +73,6 @@ class MarketplaceRegion(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    # Indexes
-    __table_args__ = {
-        "extend_existing": True,
-    }
-    # Indexes are created separately via SQLAlchemy Index objects
 
 
 class GlobalMarketplaceConfig(SQLModel, table=True):
@@ -107,10 +102,6 @@ class GlobalMarketplaceConfig(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_modified_by: str | None = Field(default=None)
 
-    # Indexes
-    __table_args__ = {
-        "extend_existing": True,
-    }
 
 
 class GlobalMarketplaceOffer(SQLModel, table=True):
@@ -156,10 +147,6 @@ class GlobalMarketplaceOffer(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = Field(default=None)
 
-    # Indexes
-    __table_args__ = {
-        "extend_existing": True,
-    }
 
 
 class GlobalMarketplaceTransaction(SQLModel, table=True):
@@ -208,18 +195,6 @@ class GlobalMarketplaceTransaction(SQLModel, table=True):
     # Transaction metadata
     transaction_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    # Indexes
-    __table_args__ = {
-        "extend_existing": True,
-        # # # "indexes": [
-        #    #        # Index(        Index("idx_global_tx_buyer", "buyer_id"),)
-        #    #        # Index(        Index("idx_global_tx_seller", "seller_id"),)
-        #    #        # Index(        Index("idx_global_tx_offer", "offer_id"),)
-        #    #        # Index(        Index("idx_global_tx_status", "status"),)
-        #    #        # Index(        Index("idx_global_tx_created", "created_at"),)
-        #    #        # Index(        Index("idx_global_tx_chain", "source_chain", "target_chain"),)
-        ###        ]
-    }
 
 
 class GlobalMarketplaceAnalytics(SQLModel, table=True):
@@ -268,15 +243,6 @@ class GlobalMarketplaceAnalytics(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    # Indexes
-    __table_args__ = {
-        "extend_existing": True,
-        # # # "indexes": [
-        #    #        # Index(        Index("idx_global_analytics_period", "period_type", "period_start"),)
-        #    #        # Index(        Index("idx_global_analytics_region", "region"),)
-        #    #        # Index(        Index("idx_global_analytics_created", "created_at"),)
-        ###        ]
-    }
 
 
 class GlobalMarketplaceGovernance(SQLModel, table=True):
@@ -317,15 +283,6 @@ class GlobalMarketplaceGovernance(SQLModel, table=True):
     effective_from: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = Field(default=None)
 
-    # Indexes
-    __table_args__ = {
-        "extend_existing": True,
-        # # # "indexes": [
-        #    #        # Index(        Index("idx_global_gov_rule_type", "rule_type"),)
-        #    #        # Index(        Index("idx_global_gov_active", "is_active"),)
-        #    #        # Index(        Index("idx_global_gov_effective", "effective_from", "expires_at"),)
-        ###        ]
-    }
 
 
 # Request/Response Models for API

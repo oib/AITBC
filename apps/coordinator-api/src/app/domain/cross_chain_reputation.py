@@ -75,14 +75,6 @@ class CrossChainReputationAggregation(SQLModel, table=True):
     last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    # Indexes
-    __table_args__ = {
-        #        # Index(        Index("idx_cross_chain_agg_agent", "agent_id"),)
-        #        # Index(        Index("idx_cross_chain_agg_score", "aggregated_score"),)
-        #        # Index(        Index("idx_cross_chain_agg_updated", "last_updated"),)
-        #        # Index(        Index("idx_cross_chain_agg_status", "verification_status"),)
-    }
-
 
 class CrossChainReputationEvent(SQLModel, table=True):
     """Cross-chain reputation events and synchronizations"""
@@ -113,14 +105,6 @@ class CrossChainReputationEvent(SQLModel, table=True):
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     processed_at: datetime | None = None
-
-    # Indexes
-    __table_args__ = {
-        #        # Index(        Index("idx_cross_chain_event_agent", "agent_id"),)
-        #        # Index(        Index("idx_cross_chain_event_chains", "source_chain_id", "target_chain_id"),)
-        #        # Index(        Index("idx_cross_chain_event_type", "event_type"),)
-        #        # Index(        Index("idx_cross_chain_event_created", "created_at"),)
-    }
 
 
 class ReputationMetrics(SQLModel, table=True):
