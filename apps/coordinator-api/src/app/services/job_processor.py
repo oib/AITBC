@@ -14,11 +14,12 @@ import asyncio
 import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
+from ..core.lifecycle import get_lifecycle_state, get_task_manager
 from ..domain.models import JobState  # type: ignore[import-not-found]
 from .jobs import JobService
 
@@ -61,7 +62,7 @@ class AIInferenceEngine:
             "max_tokens": max_tokens,
             "processing_time_ms": processing_time * 1000,
             "tokens_generated": max_tokens,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
 
@@ -81,6 +82,8 @@ class JobProcessor:
         self._executor = ThreadPoolExecutor(max_workers=max_concurrent)
         self._ai_engine = AIInferenceEngine()
         self._processed_count = 0
+        self._lifecycle_state = get_lifecycle_state()
+        self._task_manager = get_task_manager()
 
     async def start(self) -> None:
         """Start the job processor loop"""
@@ -88,7 +91,7 @@ class JobProcessor:
         logger.info(
             "Job processor started", extra={"poll_interval": self._poll_interval, "max_concurrent": self._max_concurrent}
         )
-        while self._running:
+        while self._running and not self._lifecycle_state.is_shutting_down():
             try:
                 await self._process_next_batch()
             except Exception as e:

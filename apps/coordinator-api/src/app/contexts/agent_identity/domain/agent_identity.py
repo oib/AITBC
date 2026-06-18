@@ -88,7 +88,12 @@ class CrossChainMapping(SQLModel, table=True):
     """Mapping of agent identity across different blockchains"""
 
     __tablename__ = "cross_chain_mappings"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = {
+        "extend_existing": True,
+        #        # Index("idx_cross_chain_agent_chain", "agent_id", "chain_id"),
+        #        # Index("idx_cross_chain_address", "chain_address"),
+        #        # Index("idx_cross_chain_verified", "is_verified"),
+    }
 
     id: str = Field(default_factory=lambda: f"mapping_{uuid4().hex[:8]}", primary_key=True)
     agent_id: str = Field(index=True)
@@ -117,19 +122,18 @@ class CrossChainMapping(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    # Unique constraint
-    __table_args__ = {
-        #        # Index(        Index("idx_cross_chain_agent_chain", "agent_id", "chain_id"),)
-        #        # Index(        Index("idx_cross_chain_address", "chain_address"),)
-        #        # Index(        Index("idx_cross_chain_verified", "is_verified"),)
-    }
-
 
 class IdentityVerification(SQLModel, table=True):
     """Verification records for cross-chain identities"""
 
     __tablename__ = "identity_verifications"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = {
+        "extend_existing": True,
+        #        # Index("idx_identity_verify_agent_chain", "agent_id", "chain_id"),
+        #        # Index("idx_identity_verify_verifier", "verifier_address"),
+        #        # Index("idx_identity_verify_hash", "proof_hash"),
+        #        # Index("idx_identity_verify_result", "verification_result"),
+    }
 
     id: str = Field(default_factory=lambda: f"verify_{uuid4().hex[:8]}", primary_key=True)
     agent_id: str = Field(index=True)
@@ -157,20 +161,17 @@ class IdentityVerification(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    # Indexes
-    __table_args__ = {
-        #        # Index(        Index("idx_identity_verify_agent_chain", "agent_id", "chain_id"),)
-        #        # Index(        Index("idx_identity_verify_verifier", "verifier_address"),)
-        #        # Index(        Index("idx_identity_verify_hash", "proof_hash"),)
-        #        # Index(        Index("idx_identity_verify_result", "verification_result"),)
-    }
-
 
 class AgentWallet(SQLModel, table=True):
     """Agent wallet information for cross-chain operations"""
 
     __tablename__ = "agent_wallets"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = {
+        "extend_existing": True,
+        #        # Index("idx_agent_wallet_agent_chain", "agent_id", "chain_id"),
+        #        # Index("idx_agent_wallet_address", "chain_address"),
+        #        # Index("idx_agent_wallet_active", "is_active"),
+    }
 
     id: str = Field(default_factory=lambda: f"wallet_{uuid4().hex[:8]}", primary_key=True)
     agent_id: str = Field(index=True)
@@ -202,13 +203,6 @@ class AgentWallet(SQLModel, table=True):
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-    # Indexes
-    __table_args__ = {
-        #        # Index(        Index("idx_agent_wallet_agent_chain", "agent_id", "chain_id"),)
-        #        # Index(        Index("idx_agent_wallet_address", "chain_address"),)
-        #        # Index(        Index("idx_agent_wallet_active", "is_active"),)
-    }
 
 
 # Request/Response Models for API

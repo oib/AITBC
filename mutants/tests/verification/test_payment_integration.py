@@ -7,7 +7,7 @@ Tests job creation with payments, escrow, release, and refund flows
 import asyncio
 import json
 
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 from aitbc.aitbc_logging import get_logger
 
 # Configure logging

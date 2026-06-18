@@ -9,7 +9,7 @@ import time
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 from aitbc_cli.commands.workflow import workflow
 from click.testing import CliRunner
 
