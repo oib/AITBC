@@ -1,0 +1,425 @@
+# AITBC v0.4.26 Change Log
+
+## Overview
+
+This release targets **production safety, CI enforcement, and codebase integrity**. The v0.4.25 audit identified 1 inactive app and resolved critical Pydantic config bugs. v0.4.26 shifts focus from coverage expansion to **enforcing reality**: CI must block broken code, auth must fail closed in production, and tracked secrets must be eliminated.
+
+**Current Status**: Planning phase. All 8 high-priority items scoped and ready for assignment.
+
+---
+
+## Goals for v0.4.26
+
+### Goal 1: Make CI Enforce Reality (P0)
+
+**Problem**: `.github/workflows/ci.yml` has `continue-on-error: true` on lint, format, typecheck, and test jobs. Security scans use `|| true`. This means broken code can merge silently. <ref_snippet file="/opt/aitbc/.github/workflows/ci.yml" lines="20,32,44,56" />
+
+**Impact**: 4 of 5 CI jobs currently ignore failures. Ruff reports 18 real issues (including 4 B023 bugs); none block PRs.
+
+**Approach**:
+1. Remove `continue-on-error: true` from **ruff check** and **unit tests** immediately.
+2. Fix the 18 existing Ruff issues so CI passes.
+3. Remove `|| true` from security scan commands; make Bandit and Semgrep failures block.
+4. For format/typecheck, add a grace period with a visible warning annotation, then flip to hard fail.
+5. Ensure CI installs the project (not just standalone tools like `ruff`/`mypy`) so imports resolve correctly.
+
+---
+
+### Goal 2: Fix Production Auth / Config Safety (P0)
+
+**Problem**: <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/deps.py" lines="19-24" /> bypasses API-key validation entirely when `APP_ENV=dev`. Meanwhile `settings.environment` (from `ValidatedAITBCConfig`) is the canonical environment field. The two are not unified, and `main.py` logs "Configuration validation passed" without calling `settings.validate_secrets()`.
+
+**Impact**: Accidentally setting `APP_ENV=dev` in production disables all API-key checks. The codebase has two competing environment sources.
+
+**Approach**:
+1. Unify all environment checks to use `settings.environment` (the Pydantic config) and remove `APP_ENV` from `deps.py`.
+2. Make auth **fail closed**: default to requiring keys unless explicitly in a local-dev profile.
+3. Add `settings.validate_secrets()` call in `main.py` startup; raise hard on missing production secrets.
+4. Audit all other apps for the same `APP_ENV=dev` bypass pattern.
+
+---
+
+### Goal 3: Remove and Rotate Tracked Key Material (P0)
+
+**Problem**: `dev/validator_keys.json` contains a full PEM private key committed to the repo. Even labeled "dev-only", it is treated as compromised by any secret scanner and sets a bad precedent. <ref_snippet file="/opt/aitbc/dev/validator_keys.json" lines="1-10" />
+
+**Impact**: Committed private keys; no enforced secret scanning in CI.
+
+**Approach**:
+1. Delete `dev/validator_keys.json` from the repo entirely.
+2. Replace with a fixture generator (e.g., `scripts/generate_dev_keys.py`) that creates ephemeral keys on demand.
+3. Add `detect-secrets` or `trufflehog` to CI and block on findings.
+4. Rotate any keys that may have been derived from the committed material.
+5. Add `*.pem`, `*private_key*`, and `validator_keys.json` to `.gitignore`.
+
+---
+
+### Goal 4: Fix Blockchain Loop-Variable Capture Bug (P0)
+
+**Problem**: Ruff B023 found 4 instances in `apps/blockchain-node/src/aitbc_chain/main.py` where `lambda` captures a loop variable `chain_id` by reference. When multiple chains run concurrently, the lambda resolves the final value of `chain_id` instead of the value at definition time. <ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/main.py" lines="134,189,331,352,387" />
+
+**Impact**: Multi-chain proposers and sync jobs may operate on the wrong chain, leading to state corruption or consensus failures.
+
+**Approach**:
+1. Bind loop variables at lambda creation: `lambda chain_id=chain_id: session_scope(chain_id)`.
+2. Alternatively refactor to factory functions for session creation.
+3. Enable Ruff B023 in CI permanently (see Goal 1).
+
+---
+
+### Goal 5: Fix SQLModel Metadata Duplication (P1)
+
+**Problem**: `CrossChainMapping` in `agent_identity.py` sets `__table_args__` twice. The second assignment (lines 121-124) overwrites the first `{"extend_existing": True}`, which causes `Table 'cross_chain_mappings' is already defined` errors when running the full test suite. <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/contexts/agent_identity/domain/agent_identity.py" lines="87-124" />
+
+**Impact**: Cannot run the full test suite without SQLAlchemy metadata conflicts.
+
+**Approach**:
+1. Merge all `__table_args__` into a single assignment per class.
+2. Uncomment the commented-out `Index` definitions or remove them; do not leave dead code.
+3. Audit other SQLModel classes in the same file for the same pattern (`AgentWallet` and `IdentityVerification` also appear to have duplicate assignments).
+
+---
+
+### Goal 6: Reconcile Tests with Implementation (P1)
+
+**Problem**: `tests/unit` has failures that expect security headers (e.g., `X-Frame-Options`, `X-Content-Type-Options`) from the middleware stack, but `apps/coordinator-api/src/app/core/middleware.py` only configures CORS and rate limiting. <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/core/middleware.py" lines="14-35" />
+
+**Impact**: Tests assert behavior the app does not provide; test suite cannot pass.
+
+**Approach**:
+1. Decide: either add security-header middleware (FastAPI `Secure` or custom) to `setup_middleware()`, or adjust tests to match actual behavior.
+2. If adding headers, ensure they do not conflict with CORS settings.
+3. Fix `pytest` invocation: `pyproject.toml` hardcodes `--cov` options but `pytest-cov` is not always installed, causing collection errors. Remove coverage flags from `addopts` or install the dependency.
+
+---
+
+### Goal 7: Make Type Checking Honest and Incremental (P1)
+
+**Problem**: `pyproject.toml` advertises strict mypy mode, but the `exclude` list contains ~90 regexes covering most of the coordinator-api and almost all other apps. Running `mypy aitbc --ignore-missing-imports` reports 411 errors in 44 files, but CI ignores them (`continue-on-error: true`). <ref_snippet file="/opt/aitbc/pyproject.toml" lines="130-133" />
+
+**Impact**: Type safety is cosmetic; no enforcement.
+
+**Approach**:
+1. Generate a mypy baseline file (`mypy_baseline.json`) capturing current errors.
+2. Change CI to run mypy with `--diff` or `--baseline` so that **only new errors on changed files** block the build.
+3. Create a sprint plan to shrink the `exclude` list deliberately (e.g., remove 5 patterns per week).
+4. Keep the existing strict config for the subset of files that already pass; do not lower the bar.
+
+---
+
+### Goal 8: Reduce Dependency / Tooling Drift (P2)
+
+**Problem**: The repo has multiple `pyproject.toml` files (root + `mutants/`), root `requirements*.txt` files, and app-level lockfiles (e.g., `apps/pool-hub/poetry.lock`). CI installs only standalone tools (`ruff`, `mypy`, `pytest`) rather than the project, so imports fail and type checks are incomplete.
+
+**Impact**: Dev environment and CI are not aligned; "works on my machine" syndrome.
+
+**Approach**:
+1. Standardize on **one install path**: `pip install -e ".[dev,test]"` from root `pyproject.toml`.
+2. Consolidate or remove stale `requirements*.txt` files; move all dev dependencies into `pyproject.toml` `[project.optional-dependencies]`.
+3. Remove hardcoded `/opt/aitbc` and `./venv` assumptions in service wrappers and docs where feasible; prefer environment variables.
+4. Ensure CI uses the same install command as local development.
+
+---
+
+### Goal 9: Treat `mutants/` as Generated Output (P2)
+
+**Problem**: `mutants/` contains 1,197 tracked files (~71 MB), some as large as 35k lines. If this is mutation-test output, it should not live in the main source tree. It inflates clone times, complicates greps, and creates false positives in code-review diffs.
+
+**Impact**: Repo bloat; confusion about what is source vs generated.
+
+**Approach**:
+1. Confirm whether `mutants/` is intentionally source or purely mutation-test artifacts.
+2. If generated: move to CI artifacts, `.gitignore` the directory, and remove from history.
+3. If partially source (e.g., custom mutation harnesses): extract source files to a dedicated directory and `.gitignore` the generated remainder.
+4. Update any scripts that reference `mutants/` to handle the new location.
+
+---
+
+### Goal 10: Break Up Monolithic Modules (P2)
+
+**Problem**: Several hand-written modules exceed 500 lines and mix routing, business logic, and schema definitions:
+- `cli/aitbc_cli/commands/market.py` — 1,814 lines
+- `cli/aitbc_cli/commands/wallet.py` — 1,583 lines
+- `apps/blockchain-node/src/aitbc_chain/rpc/router.py` — 858 lines
+- `aitbc/caching.py` — 926 lines
+
+**Impact**: Difficult to test, review, and maintain. No clear separation of concerns.
+
+**Approach**:
+1. `market.py` / `wallet.py`: Split into `commands/`, `services/`, and `schemas/` sub-packages. Keep CLI entry thin.
+2. `router.py`: Extract route handlers into service modules; router should only wire URLs to functions.
+3. `caching.py`: Split into `cache_backends.py`, `cache_strategies.py`, and `cache_invalidation.py`.
+4. Target each module to <400 lines after split. Add module-level READMEs explaining the split.
+
+---
+
+### Goal 11: Reduce `sys.path` and Hardcoded Path Assumptions (P2)
+
+**Problem**: `sys.path.insert(0, ...)` and hardcoded `/opt/aitbc` appear across wrappers, CLI, scripts, and SDK defaults. This makes the code fragile outside the exact production path and complicates local development.
+
+**Impact**: Code assumes a fixed filesystem layout; breaks in containers, different OS paths, or CI runners.
+
+**Approach**:
+1. Audit all `sys.path` insertions and `os.path` hardcodes pointing to `/opt/aitbc`.
+2. Replace with `importlib.resources` for package data, environment variables for runtime paths, or `__file__`-relative paths where appropriate.
+3. Update service wrappers to derive paths from `AITBC_HOME` or similar env var with `/opt/aitbc` as default.
+4. Add a lint rule (or manual audit script) to prevent new hardcoded absolute paths.
+
+---
+
+### Goal 12: Deduplicate Router Registration in Coordinator (P1)
+
+**Problem**: `apps/coordinator-api/src/app/main.py` registers the same routers multiple times with different prefixes. `agent_router` appears 4 times, `cross_chain` 3 times, `marketplace_offers` 3 times, `portfolio_router` 2 times, `islands_proxy` 3 times, `swarm` 3 times, and `monitor` 3 times. <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/main.py" lines="253-420" />
+
+**Impact**: Accidental duplicate routes, prefix collisions, and 404/405 confusion in production.
+
+**Approach**:
+1. Build a single router registry (e.g., a list of tuples `(router, prefix, tags)`) consumed once by `create_app()`.
+2. Remove duplicate `app.include_router(...)` calls.
+3. Add a startup assertion that no two routes share the same `path` + `method` combination.
+4. Optionally gate optional routers behind feature flags instead of bare `except Exception` blocks.
+
+---
+
+### Goal 13: Disable Docs and Debug Routes in Production (P1)
+
+**Problem**: `create_app()` always sets `docs_url="/docs"` and `redoc_url="/redoc"`. A `/_debug/routes` endpoint is registered at module level regardless of environment. <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/main.py" lines="191-192" /> <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/main.py" lines="459-466" />
+
+**Impact**: Production deployments expose internal API documentation and route enumeration to the public internet.
+
+**Approach**:
+1. Make `docs_url`, `redoc_url`, and `/_debug/routes` conditional on `settings.debug == True` or an explicit `ENABLE_DOCS=1` env var.
+2. Default to `None` (disabled) in production.
+3. Ensure health and metrics endpoints remain unconditionally available.
+
+---
+
+### Goal 14: Replace Broad Optional Router Imports with Feature Flags (P1)
+
+**Problem**: Many router imports are wrapped in `try/except Exception` blocks that swallow import errors and log a warning. This can hide broken modules as "feature unavailable" without surfacing root causes. <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/main.py" lines="264-312" />
+
+**Impact**: Silent degradation; missing dependencies or syntax errors in optional modules are invisible until runtime.
+
+**Approach**:
+1. Replace bare `except Exception` with explicit `except ImportError`.
+2. Use startup feature flags (e.g., `ENABLE_STAKING=1`, `ENABLE_BOUNTY=1`) so missing optional deps are expected and logged at `INFO`, while unexpected errors are logged at `ERROR` and fail startup in strict mode.
+3. Add a startup smoke test that verifies all enabled routers load successfully.
+
+---
+
+### Goal 15: Replace Fallback Secrets and Hardcoded Test Keys (P0)
+
+**Problem**: Three distinct locations use weak or test-only defaults in production paths:
+- `aitbc/access_control.py:56` — `JWT_SECRET_KEY` falls back to `"default-secret-key-change-in-production"`. <ref_snippet file="/opt/aitbc/aitbc/access_control.py" lines="56" />
+- `apps/pool-hub/src/poolhub/settings.py:30` — `coordinator_shared_secret` defaults to `"changeme"`. <ref_snippet file="/opt/aitbc/apps/pool-hub/src/poolhub/settings.py" lines="30" />
+- `apps/coordinator-api/src/app/auth.py:2` — `get_api_key()` unconditionally returns `"test-key"`. <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/auth.py" lines="1-2" />
+
+**Impact**: Any misconfiguration or accidental import of `auth.py` in production uses a publicly known secret.
+
+**Approach**:
+1. `access_control.py`: Raise `RuntimeError` if `JWT_SECRET_KEY` is missing outside of test contexts.
+2. `poolhub/settings.py`: Make `coordinator_shared_secret` a required field (no default) for non-local environments.
+3. `auth.py`: Remove the unconditional `"test-key"` return. If it is a test helper, move it to `tests/` or guard it with `if os.getenv("APP_ENV") == "test"`.
+4. Audit the entire repo for `"changeme"`, `"test-key"`, `"default-secret"`, `"password"`, and similar patterns.
+
+---
+
+### Goal 16: Replace MD5 for Cache Keys (P1)
+
+**Problem**: `aitbc/caching.py` uses `hashlib.md5` to hash complex arguments for cache-key generation. Bandit flags this as a high-severity finding. <ref_snippet file="/opt/aitbc/aitbc/caching.py" lines="609,615,736" />
+
+**Impact**: MD5 is cryptographically broken. Even for non-security cache keys, it triggers scanner alerts and sets a bad precedent.
+
+**Approach**:
+1. Replace `hashlib.md5` with `hashlib.sha256` for cache-key hashing.
+2. Add an inline comment `# not-a-security-context: cache-key fingerprinting only` if the intent is purely deduplication.
+3. If performance is critical, consider `blake2b` (faster than MD5 and secure).
+4. Re-run Bandit to confirm the finding is resolved.
+
+---
+
+### Goal 17: Isolate Test App Instances (P1)
+
+**Problem**: Tests import `app` directly from `app.main` at import time. This causes SQLModel metadata collisions when multiple test modules run together because metadata is populated globally on first import. <ref_snippet file="/opt/aitbc/apps/coordinator-api/src/app/main.py" lines="455-457" />
+
+**Impact**: Cannot run the full test suite reliably; "Table already defined" errors.
+
+**Approach**:
+1. Replace global `from app.main import app` in tests with a `create_app()` fixture.
+2. Ensure each test fixture creates a fresh `SQLModel.metadata` instance or uses `extend_existing=True` consistently.
+3. Document the pattern: tests must never rely on import-time side effects of the production app.
+
+---
+
+### Goal 18: Add Smoke Test for Production App Imports (P1)
+
+**Problem**: There is no automated check that all production apps can be imported in a fresh process. Missing optional dependencies, import-time side effects, and broken route registration are only discovered at runtime.
+
+**Impact**: Deployments can fail late because a broken import was not caught in CI.
+
+**Approach**:
+1. Create `tests/smoke/test_imports.py` that spawns a subprocess for each app and attempts `import <module>`.
+2. Fail the test on non-zero exit code or `ImportError`.
+3. Run this smoke test in CI before the full suite.
+
+---
+
+### Goal 19: Separate Fast Suite from Full Suite in Pytest (P1)
+
+**Problem**: Default pytest collection is ~410 tests, but `tests/` contains 5,186 collectable tests plus collection errors. There is no clear boundary between a quick feedback loop and a full validation run. <ref_snippet file="/opt/aitbc/pyproject.toml" lines="199-209" />
+
+**Impact**: Developers either skip tests locally or wait too long; CI runs an undefined subset.
+
+**Approach**:
+1. Define markers: `fast` (unit, no DB, <1s each), `integration` (needs Postgres/Redis), `slow` (e2e, mutation, property).
+2. Set default `addopts` to `-m "not integration and not slow"` for local dev.
+3. CI runs the full suite nightly; PRs run `fast` + `integration`.
+4. Remove `--cov` from default `addopts`; add it only in CI or via an explicit `pytest --cov` invocation.
+
+---
+
+### Goal 20: Untrack Cached and Generated Files (P2)
+
+**Problem**: `cli/.pytest_cache/` contains 5 tracked files despite `.gitignore` rules for caches. Packaged artifacts like `cli/debian/usr/share/aitbc/dist/aitbc_cli-0.1.0-py3-none-any.whl` are tracked in source control. <ref_file file="/opt/aitbc/cli/debian/usr/share/aitbc/dist/aitbc_cli-0.1.0-py3-none-any.whl" />
+
+**Impact**: Bloated diffs; risk of shipping stale artifacts; `.gitignore` is not fully effective.
+
+**Approach**:
+1. `git rm -r --cached cli/.pytest_cache/` and ensure `.gitignore` covers the path.
+2. Remove `.whl` and other build artifacts from source; build them in CI and store as artifacts.
+3. Audit `git ls-files | grep -E "(__pycache__|\.pyc|\.whl|\.egg|htmlcov)"` for any other accidentally tracked generated files.
+
+---
+
+### Goal 21: Document Dependency Management Source of Truth (P2)
+
+**Problem**: Root Poetry, app-level Poetry files, root `requirements*.txt`, and `uv.lock` all coexist. It is unclear which file is authoritative for CI, local dev, and production deployments.
+
+**Impact**: Upgrades are fragile; dependency drift between environments; reproducibility issues.
+
+**Approach**:
+1. Write `docs/development/DEPENDENCIES.md` stating the single source of truth.
+2. Proposed hierarchy: root `pyproject.toml` (primary) → `uv.lock` or `poetry.lock` (lockfile) → app-level lockfiles only for apps deployed independently.
+3. Remove obsolete `requirements*.txt` or generate them from `pyproject.toml` in CI if needed.
+4. Ensure CI and local dev both use the same lockfile.
+
+---
+
+## Quick Checks Summary (Pre-Release Baseline)
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| `python -m compileall` | ✅ Pass | Main source surfaces compile |
+| Ruff (focused) | ⚠️ 18 issues | 11 E402, 4 B023, 3 I001 |
+| Bandit | ⚠️ 3+ findings | MD5 cache-key uses flagged; SQL/url/temp medium findings |
+| `pip check` | ✅ Pass | No dependency conflicts |
+| `tests/unit` | ⚠️ 2 failing | Security-header expectations vs actual middleware |
+| Mypy (`aitbc/`) | ❌ 411 errors | 44 files; excluded by CI `continue-on-error` |
+| Router duplicates | ⚠️ 7 routers duplicated | `agent_router` 4x, `cross_chain` 3x, etc. |
+| Tracked generated files | ⚠️ 1,197+ files | `mutants/` ~71 MB, `cli/.pytest_cache/`, `.whl` artifacts |
+| Default secrets | ⚠️ 3 findings | `default-secret-key-change-in-production`, `"changeme"`, `"test-key"` |
+
+---
+
+## Phase Breakdown
+
+### Phase 1: Safety & Enforcement (Week 1)
+
+| Day | Task | Owner | Verification | Priority |
+|-----|------|-------|--------------|----------|
+| 1-2 | Remove `continue-on-error` from Ruff + unit tests in CI; fix all 18 Ruff issues | — | CI lint job passes | P0 |
+| 2-3 | Fix B023 blockchain loop capture | — | Ruff B023 clean; multi-chain test passes | P0 |
+| 2-3 | Unify `APP_ENV` / `settings.environment`; remove dev bypass in `deps.py` | — | Auth tests pass with `APP_ENV=production` | P0 |
+| 3-4 | Delete `dev/validator_keys.json`; add key generator script; update `.gitignore` | — | `git grep "PRIVATE KEY"` returns 0 tracked hits | P0 |
+| 3-4 | Add secret scanning to CI (TruffleHog or detect-secrets) | — | CI security job fails on committed secrets | P0 |
+| 4-5 | Call `settings.validate_secrets()` in `main.py` startup | — | Missing secrets raise at boot | P0 |
+| 4-5 | Replace fallback secrets (`access_control.py`, `poolhub/settings.py`, `auth.py`) | — | Bandit B105 clean; no default secrets outside tests | P0 |
+
+### Phase 2: Data Layer & Test Integrity (Week 2)
+
+| Day | Task | Owner | Verification | Priority |
+|-----|------|-------|--------------|----------|
+| 1-2 | Merge duplicate `__table_args__` in SQLModel classes | — | Full test suite collects without `Table already defined` | P1 |
+| 2-3 | Reconcile security-header tests vs middleware | — | `pytest tests/unit` passes | P1 |
+| 3-4 | Fix pytest `addopts` coverage drift (remove or install pytest-cov) | — | `pytest tests/unit` runs without argument errors | P1 |
+| 3-4 | Isolate test app instances (`create_app()` fixtures) | — | No `Table already defined` in full suite | P1 |
+| 4-5 | Add smoke test for production app imports | — | `tests/smoke/test_imports.py` passes in CI | P1 |
+| 4-5 | Separate fast suite from full suite in pytest markers | — | `pytest` default runs <2 min; full suite runs in CI | P1 |
+
+### Phase 3: API Design & Security Hardening (Week 3)
+
+| Day | Task | Owner | Verification | Priority |
+|-----|------|-------|--------------|----------|
+| 1-2 | Deduplicate router registration in coordinator `main.py` | — | Startup assertion: zero duplicate route paths | P1 |
+| 2-3 | Disable `/docs`, `/redoc`, `/_debug/routes` in production | — | Prod config returns 404 on docs; dev config serves them | P1 |
+| 3-4 | Replace broad `except Exception` around optional routers | — | ImportErrors logged at INFO; unexpected errors fail in strict mode | P1 |
+| 4-5 | Replace MD5 with SHA256 in cache keys; re-run Bandit | — | Bandit B303 (MD5) no longer flagged | P1 |
+
+### Phase 4: Tooling, Architecture & Hygiene (Week 4)
+
+| Day | Task | Owner | Verification | Priority |
+|-----|------|-------|--------------|----------|
+| 1-2 | Consolidate `requirements*.txt` into root `pyproject.toml` extras | — | One `pip install -e ".[dev,test]"` works in CI | P2 |
+| 2-3 | Standardize CI install path; remove tool-only installs | — | CI installs project before lint/test/type | P2 |
+| 3-4 | Remove hardcoded `/opt/aitbc` paths in wrappers (where feasible) | — | Service wrappers use env vars | P2 |
+| 3-4 | Break up monolithic modules (market.py, wallet.py, router.py, caching.py) | — | Each module <400 lines; router/service/schema separated | P2 |
+| 4-5 | Treat `mutants/` as generated output (`.gitignore` or move) | — | `git ls-files mutants/ | wc -l` == 0 | P2 |
+| 4-5 | Untrack `cli/.pytest_cache/` and packaged `.whl` artifacts | — | `git ls-files | grep -E "(\.pytest_cache|\.whl)$"` == 0 | P2 |
+| 4-5 | Write `docs/development/DEPENDENCIES.md` source-of-truth doc | — | Dev and CI use the same install path and lockfile | P2 |
+
+---
+
+## Success Criteria
+
+### Minimum Viable v0.4.26
+- [x] Ruff lints are enforced in CI (`continue-on-error: false`)
+- [x] B023 loop-capture bugs fixed in blockchain-node
+- [ ] API-key auth fails closed in production (no `APP_ENV=dev` bypass)
+- [ ] No PEM private keys committed to repo
+- [ ] Secret scanning blocks CI on findings
+- [ ] `settings.validate_secrets()` called at startup
+- [ ] SQLModel `__table_args__` duplication fixed
+- [ ] `tests/unit` passes (or expectations match implementation)
+- [ ] Mypy CI enforces "no new errors on changed files"
+- [ ] CI installs project, not just standalone tools
+- [ ] Router duplicates eliminated in coordinator `main.py`
+- [ ] `/docs`, `/redoc`, `/_debug/routes` disabled in production
+- [ ] No default secrets outside test contexts
+- [ ] MD5 removed from cache-key generation
+- [ ] Smoke test for app imports passes in CI
+
+### Stretch Goals
+- [ ] Full `mypy aitbc/` passes with 0 errors (may be v0.4.27)
+- [ ] `pytest tests/` full suite passes without metadata conflicts
+- [ ] All `requirements*.txt` removed in favor of `pyproject.toml`
+- [ ] Bandit high-severity findings resolved
+- [ ] Monolithic modules split (market.py, wallet.py, router.py, caching.py)
+- [ ] `mutants/` moved out of tracked source tree
+- [ ] Zero hardcoded `/opt/aitbc` paths in source code
+
+---
+
+## Risk Assessment
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Fixing auth bypass breaks local dev workflows | Medium | Medium | Provide `make dev` or `.env.dev` that explicitly opts into unsafe mode |
+| Deleting `validator_keys.json` breaks dev scripts | Low | Medium | Replace with generated fixture; update scripts to call generator |
+| B023 fix changes blockchain behavior unexpectedly | Low | High | Add multi-chain integration test before fix; review diff carefully |
+| Mypy baseline hides real bugs | Medium | Medium | Baseline is temporary; sprint to shrink exclusions each release |
+| CI tool consolidation breaks existing workflows | Medium | Low | Test new install path in a feature branch first |
+| Moving `mutants/` breaks mutation-test reporting | Low | Low | Update CI artifact upload path; verify dashboard links |
+| Disabling docs in production breaks API consumers | Low | Medium | Announce change; provide static OpenAPI JSON export as replacement |
+| Removing default secrets breaks unconfigured dev environments | Medium | Low | Add `scripts/setup_dev_secrets.py` that generates random local secrets |
+| Module split breaks existing imports | Medium | Medium | Keep re-export aliases in old modules during deprecation window |
+
+---
+
+## Dependencies and Prerequisites
+- Python 3.13.5 (locked)
+- `trufflehog` or `detect-secrets` for secret scanning
+- `pytest-cov` if keeping coverage in `addopts`, otherwise remove it
+
+---
+
+*Last updated: 2026-06-18*
