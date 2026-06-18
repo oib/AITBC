@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from ..auth import AdminDep  # NEW: JWT auth
 from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketplaceService
-from ..deps import require_admin_key
+# from ..deps import require_admin_key  # OLD: API key auth (deprecated)
 from ..domain import MarketplaceOffer  # type: ignore[attr-defined]
 from ..schemas.marketplace_enhanced import (
     MarketplaceAnalyticsResponse,
@@ -37,14 +38,16 @@ async def create_royalty_distribution(
     offer_id: str,
     royalty_tiers: RoyaltyDistributionRequest,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    # OLD: current_user: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> RoyaltyDistributionResponse:  # type: ignore[arg-type]
     """Create sophisticated royalty distribution for marketplace offer"""
     try:
         offer = session.get(MarketplaceOffer, offer_id)
         if not offer:
             raise HTTPException(status_code=404, detail="Offer not found")
-        if offer.provider != current_user:
+        if offer.provider != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         enhanced_service = EnhancedMarketplaceService(session)  # type: ignore[arg-type]
         result = await enhanced_service.create_royalty_distribution(
@@ -69,14 +72,16 @@ async def calculate_royalties(
     sale_amount: float,
     transaction_id: str | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    # OLD: current_user: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> dict:  # type: ignore[arg-type]
     """Calculate and distribute royalties for a sale"""
     try:
         offer = session.get(MarketplaceOffer, offer_id)
         if not offer:
             raise HTTPException(status_code=404, detail="Offer not found")
-        if offer.provider != current_user:
+        if offer.provider != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         enhanced_service = EnhancedMarketplaceService(session)  # type: ignore[arg-type]
         royalties = await enhanced_service.calculate_royalties(
@@ -95,14 +100,16 @@ async def create_model_license(
     offer_id: str,
     license_request: ModelLicenseRequest,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    # OLD: current_user: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> ModelLicenseResponse:  # type: ignore[arg-type]
     """Create model license and IP protection"""
     try:
         offer = session.get(MarketplaceOffer, offer_id)
         if not offer:
             raise HTTPException(status_code=404, detail="Offer not found")
-        if offer.provider != current_user:
+        if offer.provider != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         enhanced_service = EnhancedMarketplaceService(session)  # type: ignore[arg-type]
         result = await enhanced_service.create_model_license(
@@ -132,14 +139,16 @@ async def verify_model(
     offer_id: str,
     verification_request: ModelVerificationRequest,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    # OLD: current_user: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> ModelVerificationResponse:  # type: ignore[arg-type]
     """Perform advanced model verification"""
     try:
         offer = session.get(MarketplaceOffer, offer_id)
         if not offer:
             raise HTTPException(status_code=404, detail="Offer not found")
-        if offer.provider != current_user:
+        if offer.provider != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         enhanced_service = EnhancedMarketplaceService(session)  # type: ignore[arg-type]
         result = await enhanced_service.verify_model(
@@ -164,7 +173,9 @@ async def get_marketplace_analytics(
     period_days: int | None,
     metrics: list[str] | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    # OLD: current_user: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> MarketplaceAnalyticsResponse:  # type: ignore[arg-type]
     """Get comprehensive marketplace analytics"""
     try:
@@ -179,3 +190,38 @@ async def get_marketplace_analytics(
     except Exception as e:
         logger.error("Error getting marketplace analytics: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# ============================================================================
+# MIGRATION NOTES: API Key to JWT Auth
+# ============================================================================
+#
+# Migration completed: 2025-01-XX
+#
+# Changes made:
+# 1. Import change:
+#    OLD: from ..deps import require_admin_key
+#    NEW: from ..auth import AdminDep
+#
+# 2. Dependency changes (5 endpoints):
+#    - create_royalty_distribution: current_user -> user: AdminDep
+#    - calculate_royalties: current_user -> user: AdminDep
+#    - create_model_license: current_user -> user: AdminDep
+#    - verify_model: current_user -> user: AdminDep
+#    - get_marketplace_analytics: current_user -> user: AdminDep
+#
+# 3. Ownership checks updated:
+#    OLD: offer.provider != current_user
+#    NEW: offer.provider != user["sub"]
+#
+# 4. JWT benefits:
+#    - user["sub"]: Admin user ID
+#    - user["role"]: Role verification (admin)
+#    - user["exp"]: Token expiration
+#    - Centralized auth via security matrix
+#
+# 5. Client code change:
+#    OLD: headers = {"X-Api-Key": "your-api-key"}
+#    NEW: headers = {"Authorization": f"Bearer {token}"}
+#
+# ============================================================================

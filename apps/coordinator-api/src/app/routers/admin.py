@@ -11,8 +11,10 @@ from sqlmodel import select
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from ..auth import AdminDep  # NEW: JWT auth
 from ..config import settings
-from ..deps import require_admin_key
+
+# from ..deps import require_admin_key  # OLD: API key auth (deprecated)
 from ..services import JobService, MinerService
 from ..storage import get_session
 from ..utils.cache import cached, get_cache_config
@@ -40,7 +42,9 @@ async def debug_settings(request: Request) -> dict:
 async def create_test_miner(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    admin_key: Annotated[str, Depends(require_admin_key())],
+    # OLD: admin_key: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> dict[str, str]:
     """Create a test miner for debugging marketplace sync"""
     try:
@@ -109,13 +113,13 @@ async def test_key(request: Request, api_key: str = Header(default=None, alias="
 @rate_limit(rate=100, per=60)
 @cached(**get_cache_config("job_list"))
 async def get_stats(
-    request: Request, session: Annotated[Session, Depends(get_session)], api_key: str = Header(default=None, alias="X-Api-Key")
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    # OLD: api_key: str = Header(default=None, alias="X-Api-Key")
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> dict[str, int]:
-    logger.debug("API key validation check")
-    logger.debug("Allowed admin keys count: %d", len(settings.admin_api_keys))
-    if not api_key or api_key not in settings.admin_api_keys:
-        raise HTTPException(status_code=401, detail="invalid api key")
-    logger.debug("API key validation successful!")
+    logger.debug("JWT auth validation successful for admin: %s", user["sub"])
     JobService(session)
     from sqlmodel import func, select
 
@@ -141,7 +145,9 @@ async def get_stats(
 async def list_jobs(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    admin_key: Annotated[str, Depends(require_admin_key())],
+    # OLD: admin_key: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> dict[str, list[dict]]:
     from ..domain import Job
 
@@ -165,7 +171,9 @@ async def list_jobs(
 async def list_miners(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    admin_key: Annotated[str, Depends(require_admin_key())],
+    # OLD: admin_key: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> dict[str, list[dict]]:
     from sqlmodel import select
 
@@ -195,7 +203,9 @@ async def list_miners(
 async def get_system_status(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    admin_key: Annotated[str, Depends(require_admin_key())],
+    # OLD: admin_key: Annotated[str, Depends(require_admin_key())],
+    # NEW: JWT auth with admin role
+    user: AdminDep,
 ) -> dict[str, Any]:
     """Get comprehensive system status for admin dashboard"""
     try:
@@ -215,7 +225,6 @@ async def get_system_status(
             len(miners), 1
         )
         import sys
-        from datetime import datetime
 
         import psutil
 
@@ -245,3 +254,38 @@ async def get_system_status(
     except Exception:
         logger.error("Failed to get system status")
         return {"status": "error", "error": "Failed to get system status"}
+
+
+# ============================================================================
+# MIGRATION NOTES: API Key to JWT Auth
+# ============================================================================
+#
+# Migration completed: 2025-01-XX
+#
+# Changes made:
+# 1. Import change:
+#    OLD: from ..deps import require_admin_key
+#    NEW: from ..auth import AdminDep
+#
+# 2. Dependency changes:
+#    - create_test_miner: admin_key -> user: AdminDep
+#    - get_stats: api_key header -> user: AdminDep
+#    - list_jobs: admin_key -> user: AdminDep
+#    - list_miners: admin_key -> user: AdminDep
+#    - get_system_status: admin_key -> user: AdminDep
+#
+# 3. Routes NOT migrated (kept as-is):
+#    - /debug-settings: Public endpoint (no auth)
+#    - /test-key: API key testing endpoint (kept for debugging)
+#
+# 4. JWT benefits:
+#    - user["sub"]: Admin user ID
+#    - user["role"]: Role verification (admin)
+#    - user["exp"]: Token expiration
+#    - Centralized auth via security matrix
+#
+# 5. Client code change:
+#    OLD: headers = {"X-Api-Key": "your-api-key"}
+#    NEW: headers = {"Authorization": f"Bearer {token}"}
+#
+# ============================================================================
