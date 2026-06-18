@@ -20,6 +20,10 @@ no
 
 No systemd service file
 
+## Core Service
+
+no
+
 ## Source
 
 `src/` directory with 1 Python file(s)

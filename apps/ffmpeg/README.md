@@ -20,6 +20,10 @@ island
 
 1 systemd service(s): aitbc-ffmpeg.service
 
+## Core Service
+
+no
+
 ## Source
 
 `main.py` entry point
