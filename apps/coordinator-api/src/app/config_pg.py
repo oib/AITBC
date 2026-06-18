@@ -1,6 +1,8 @@
 """Coordinator API configuration with PostgreSQL support"""
 
-from pydantic import ConfigDict
+from typing import Any
+
+from pydantic import ConfigDict, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -12,6 +14,20 @@ class Settings(BaseSettings):
     api_port: int = 8203
     api_prefix: str = "/v1"
     debug: bool = False
+
+    @field_validator("debug", mode="before")
+    @classmethod
+    def _parse_bool_env(cls, v: Any) -> bool:
+        """Parse boolean-ish env values (true/1/yes vs false/0/no/release)."""
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, str):
+            lowered = v.strip().lower()
+            if lowered in ("true", "1", "yes", "on"):
+                return True
+            if lowered in ("false", "0", "no", "off", "release"):
+                return False
+        return bool(v)
 
     # Database Configuration
     database_url: str = "postgresql://localhost:5432/aitbc_coordinator"
@@ -78,4 +94,5 @@ try:
     settings.validate_secrets()
 except ValueError as e:
     import warnings
+
     warnings.warn(f"Configuration validation: {e}", UserWarning, stacklevel=1)

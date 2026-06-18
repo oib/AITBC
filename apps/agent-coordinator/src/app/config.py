@@ -5,6 +5,8 @@ Configuration Management for AITBC Agent Coordinator
 import os
 from typing import Any
 
+from pydantic import field_validator
+
 try:
     from pydantic_settings import BaseSettings, SettingsConfigDict
 except ImportError:
@@ -117,6 +119,20 @@ class Settings(BaseSettings):
     max_concurrent_tasks: int = 100
     task_batch_size: int = 10
     load_balancer_cache_size: int = 1000
+
+    @field_validator("debug", mode="before")
+    @classmethod
+    def _parse_bool_env(cls, v: Any) -> bool:
+        """Parse boolean-ish env values (true/1/yes vs false/0/no/release)."""
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, str):
+            lowered = v.strip().lower()
+            if lowered in ("true", "1", "yes", "on"):
+                return True
+            if lowered in ("false", "0", "no", "off", "release"):
+                return False
+        return bool(v)
 
     if SettingsConfigDict is None:
 
