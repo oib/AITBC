@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from .blockchain import BlockchainSetup
-from .exceptions import FundingError, PrerequisitesError
+from .exceptions import PrerequisitesError
 from .messaging import MessagingSetup
 from .services import ServiceDeployment
 from .stage_runner import StageRunner
@@ -144,3 +144,16 @@ class TrainingEnvironment:
         }
         log.info("Complete environment setup finished")
         return results
+
+    # Backward compatibility aliases
+    def setup_full_environment(self) -> dict[str, Any]:
+        """Alias for setup_complete_environment (backward compatibility)."""
+        return self.setup_complete_environment()
+
+    def run_stage_from_json(self, json_path: str) -> dict[str, Any]:
+        """Alias for stage_runner.run_stage_from_json (backward compatibility)."""
+        return self.stage_runner.run_stage_from_json(json_path)
+
+    def get_wallet_name(self, index: int) -> str:
+        """Alias for BlockchainSetup.get_wallet_name (backward compatibility)."""
+        return self.blockchain_setup.get_wallet_name(index)
