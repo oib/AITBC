@@ -34,13 +34,13 @@ class TestHandleMessagingDeploy:
         mock_post.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
         def render_mapping(title, data):
             pass
 
-        handle_messaging_deploy(args, "http://localhost:8006", render_mapping)
+        handle_messaging_deploy(args, "http://localhost:8202", render_mapping)
 
         mock_post.assert_called_once()
 
@@ -54,13 +54,13 @@ class TestHandleMessagingDeploy:
         mock_post.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
         def render_mapping(title, data):
             pass
 
-        handle_messaging_deploy(args, "http://localhost:8006", render_mapping)
+        handle_messaging_deploy(args, "http://localhost:8202", render_mapping)
 
         mock_exit.assert_called_with(1)
 
@@ -79,7 +79,7 @@ class TestHandleMessagingState:
         mock_get.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
         def output_format(args):
@@ -88,7 +88,7 @@ class TestHandleMessagingState:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_state(args, "http://localhost:8006", output_format, render_mapping)
+        handle_messaging_state(args, "http://localhost:8202", output_format, render_mapping)
 
         mock_get.assert_called_once()
 
@@ -103,7 +103,7 @@ class TestHandleMessagingState:
         mock_get.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
         def output_format(args):
@@ -112,7 +112,7 @@ class TestHandleMessagingState:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_state(args, "http://localhost:8006", output_format, render_mapping)
+        handle_messaging_state(args, "http://localhost:8202", output_format, render_mapping)
 
         mock_get.assert_called_once()
 
@@ -131,7 +131,7 @@ class TestHandleMessagingTopics:
         mock_get.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
         def output_format(args):
@@ -140,7 +140,7 @@ class TestHandleMessagingTopics:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_topics(args, "http://localhost:8006", output_format, render_mapping)
+        handle_messaging_topics(args, "http://localhost:8202", output_format, render_mapping)
 
         mock_get.assert_called_once()
 
@@ -155,7 +155,7 @@ class TestHandleMessagingTopics:
         mock_get.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
         def output_format(args):
@@ -164,7 +164,7 @@ class TestHandleMessagingTopics:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_topics(args, "http://localhost:8006", output_format, render_mapping)
+        handle_messaging_topics(args, "http://localhost:8202", output_format, render_mapping)
 
         mock_get.assert_called_once()
 
@@ -183,7 +183,7 @@ class TestHandleMessagingCreateTopic:
         mock_post.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.title = "New Topic"
         args.content = "Topic content"
@@ -196,7 +196,7 @@ class TestHandleMessagingCreateTopic:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_create_topic(args, "http://localhost:8006", read_password, render_mapping)
+        handle_messaging_create_topic(args, "http://localhost:8202", read_password, render_mapping)
 
         mock_post.assert_called_once()
 
@@ -205,7 +205,7 @@ class TestHandleMessagingCreateTopic:
     def test_handle_messaging_create_topic_missing_params(self, mock_exit, mock_logger):
         """Test topic creation with missing parameters"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.title = None
         args.content = None
@@ -218,7 +218,7 @@ class TestHandleMessagingCreateTopic:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_create_topic(args, "http://localhost:8006", read_password, render_mapping)
+        handle_messaging_create_topic(args, "http://localhost:8202", read_password, render_mapping)
 
         mock_exit.assert_called_with(1)
 
@@ -237,7 +237,7 @@ class TestHandleMessagingMessages:
         mock_get.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.topic_id = 1
 
@@ -247,7 +247,7 @@ class TestHandleMessagingMessages:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_messages(args, "http://localhost:8006", output_format, render_mapping)
+        handle_messaging_messages(args, "http://localhost:8202", output_format, render_mapping)
 
         mock_get.assert_called_once()
 
@@ -256,7 +256,7 @@ class TestHandleMessagingMessages:
     def test_handle_messaging_messages_missing_topic_id(self, mock_exit, mock_logger):
         """Test messages query with missing topic ID"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.topic_id = None
 
@@ -266,7 +266,7 @@ class TestHandleMessagingMessages:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_messages(args, "http://localhost:8006", output_format, render_mapping)
+        handle_messaging_messages(args, "http://localhost:8202", output_format, render_mapping)
 
         mock_exit.assert_called_with(1)
 
@@ -285,7 +285,7 @@ class TestHandleMessagingPost:
         mock_post.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.topic_id = 1
         args.content = "Message content"
@@ -298,7 +298,7 @@ class TestHandleMessagingPost:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_post(args, "http://localhost:8006", read_password, render_mapping)
+        handle_messaging_post(args, "http://localhost:8202", read_password, render_mapping)
 
         mock_post.assert_called_once()
 
@@ -307,7 +307,7 @@ class TestHandleMessagingPost:
     def test_handle_messaging_post_missing_params(self, mock_exit, mock_logger):
         """Test message posting with missing parameters"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.topic_id = None
         args.content = None
@@ -320,7 +320,7 @@ class TestHandleMessagingPost:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_post(args, "http://localhost:8006", read_password, render_mapping)
+        handle_messaging_post(args, "http://localhost:8202", read_password, render_mapping)
 
         mock_exit.assert_called_with(1)
 
@@ -339,7 +339,7 @@ class TestHandleMessagingVote:
         mock_post.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.message_id = 1
         args.vote = "up"
@@ -352,7 +352,7 @@ class TestHandleMessagingVote:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_vote(args, "http://localhost:8006", read_password, render_mapping)
+        handle_messaging_vote(args, "http://localhost:8202", read_password, render_mapping)
 
         mock_post.assert_called_once()
 
@@ -361,7 +361,7 @@ class TestHandleMessagingVote:
     def test_handle_messaging_vote_missing_params(self, mock_exit, mock_logger):
         """Test voting with missing parameters"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.message_id = None
         args.vote = None
@@ -374,7 +374,7 @@ class TestHandleMessagingVote:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_vote(args, "http://localhost:8006", read_password, render_mapping)
+        handle_messaging_vote(args, "http://localhost:8202", read_password, render_mapping)
 
         mock_exit.assert_called_with(1)
 
@@ -393,7 +393,7 @@ class TestHandleMessagingSearch:
         mock_get.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.query = "search term"
 
@@ -403,7 +403,7 @@ class TestHandleMessagingSearch:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_search(args, "http://localhost:8006", output_format, render_mapping)
+        handle_messaging_search(args, "http://localhost:8202", output_format, render_mapping)
 
         mock_get.assert_called_once()
 
@@ -412,7 +412,7 @@ class TestHandleMessagingSearch:
     def test_handle_messaging_search_missing_query(self, mock_exit, mock_logger):
         """Test message search with missing query"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.query = None
 
@@ -422,7 +422,7 @@ class TestHandleMessagingSearch:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_search(args, "http://localhost:8006", output_format, render_mapping)
+        handle_messaging_search(args, "http://localhost:8202", output_format, render_mapping)
 
         mock_exit.assert_called_with(1)
 
@@ -441,7 +441,7 @@ class TestHandleMessagingReputation:
         mock_get.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.agent_id = "agent1"
 
@@ -451,7 +451,7 @@ class TestHandleMessagingReputation:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_reputation(args, "http://localhost:8006", output_format, render_mapping)
+        handle_messaging_reputation(args, "http://localhost:8202", output_format, render_mapping)
 
         mock_get.assert_called_once()
 
@@ -460,7 +460,7 @@ class TestHandleMessagingReputation:
     def test_handle_messaging_reputation_missing_agent_id(self, mock_exit, mock_logger):
         """Test reputation query with missing agent ID"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.agent_id = None
 
@@ -470,7 +470,7 @@ class TestHandleMessagingReputation:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_reputation(args, "http://localhost:8006", output_format, render_mapping)
+        handle_messaging_reputation(args, "http://localhost:8202", output_format, render_mapping)
 
         mock_exit.assert_called_with(1)
 
@@ -489,7 +489,7 @@ class TestHandleMessagingModerate:
         mock_post.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.message_id = 1
         args.action = "approve"
@@ -502,7 +502,7 @@ class TestHandleMessagingModerate:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_moderate(args, "http://localhost:8006", read_password, render_mapping)
+        handle_messaging_moderate(args, "http://localhost:8202", read_password, render_mapping)
 
         mock_post.assert_called_once()
 
@@ -511,7 +511,7 @@ class TestHandleMessagingModerate:
     def test_handle_messaging_moderate_missing_params(self, mock_exit, mock_logger):
         """Test moderation with missing parameters"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.message_id = None
         args.action = None
@@ -524,7 +524,7 @@ class TestHandleMessagingModerate:
         def render_mapping(title, data):
             pass
 
-        handle_messaging_moderate(args, "http://localhost:8006", read_password, render_mapping)
+        handle_messaging_moderate(args, "http://localhost:8202", read_password, render_mapping)
 
         mock_exit.assert_called_with(1)
 
