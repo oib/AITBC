@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+import aitbc.database as database
+
 
 # Load modules directly by file path to avoid namespace conflicts
 def load_module_from_path(module_name, file_path):
@@ -24,8 +26,6 @@ def load_module_from_path(module_name, file_path):
 caching = load_module_from_path("aitbc.caching", Path("/opt/aitbc/aitbc/caching.py"))
 
 queue_manager = load_module_from_path("aitbc.queues", Path("/opt/aitbc/aitbc/queues/queue_manager.py"))
-
-database = load_module_from_path("aitbc.database", Path("/opt/aitbc/aitbc/database.py"))
 
 # Note: Async tests use @pytest.mark.asyncio decorator individually
 
