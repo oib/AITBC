@@ -13,6 +13,7 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.async_tasks import TaskRegistry
 
 from .handlers import HandlerRegistry  # type: ignore[import-not-found]
 from .services.transaction_service import TransactionService  # type: ignore
@@ -26,6 +27,7 @@ HERMES_AGENT_ID = os.getenv("HERMES_AGENT_ID", "hermes-agent")
 
 # Module-level handler registry
 handler_registry: HandlerRegistry | None = None
+_task_registry = TaskRegistry()
 
 
 @asynccontextmanager
@@ -36,10 +38,12 @@ async def lifespan(app: FastAPI):
     handler_registry = HandlerRegistry(COORDINATOR_URL, HERMES_AGENT_ID)
     handler_registry.load_all_handlers()
     init_db()
-    asyncio.create_task(expire_old_requests())
+    _task_registry.create_task(expire_old_requests, name="expire_old_requests")
     logger.info("Hermes service started")
     yield
     # Shutdown
+    logger.info("Hermes service shutting down, cancelling background tasks...")
+    await _task_registry.cancel_all(timeout=5.0)
     logger.info("Hermes service stopped")
 
 
