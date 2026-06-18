@@ -1,7 +1,7 @@
 """Service for Hermes distributed decision making."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -38,7 +38,7 @@ class DecisionService:
             "title": proposal.title,
             "description": proposal.description,
             "proposed_by": proposal.proposed_by,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(UTC),
             "voting_deadline": proposal.voting_deadline,
             "min_participation": proposal.min_participation,
             "required_approval": proposal.required_approval,
@@ -61,7 +61,7 @@ class DecisionService:
         if vote.decision_id not in self.decisions:
             return VoteResponse(vote_id="", decision_id=vote.decision_id, status="error", message="Decision not found")
         decision = self.decisions[vote.decision_id]
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         deadline = decision["voting_deadline"]
         if deadline.tzinfo is not None:
             now = datetime.now(deadline.tzinfo)
@@ -79,7 +79,7 @@ class DecisionService:
             "vote": vote.vote,
             "weight": vote.weight,
             "reason": vote.reason,
-            "voted_at": datetime.utcnow(),
+            "voted_at": datetime.now(UTC),
         }
         self.votes[vote.decision_id].append(vote_record)
         decision["status"] = DecisionStatus.IN_PROGRESS
@@ -106,7 +106,7 @@ class DecisionService:
         approval_rate = weighted_approve / max(weighted_approve + weighted_reject, 1.0)
         final_decision = None
         concluded_at = None
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         deadline = decision["voting_deadline"]
         if deadline.tzinfo is not None:
             now = datetime.now(deadline.tzinfo)

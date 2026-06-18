@@ -3,7 +3,7 @@
 import json
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from ..services import TransactionService  # type: ignore
@@ -71,14 +71,14 @@ class RequestCoinsHandler(BaseHandler):
         if not wallet_address:
             self.logger.error("Could not parse wallet address from request")
             return {"status": "error", "error": "Could not parse wallet address from request"}
-        request_id = f"req-{msg_id}" if msg_id else f"req-{datetime.utcnow().timestamp()}"
+        request_id = f"req-{msg_id}" if msg_id else f"req-{datetime.now(UTC).timestamp()}"
         approval_request = {
             "id": request_id,
             "sender": sender,
             "recipient": self.agent_id,
             "amount": amount,
             "wallet_address": wallet_address,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(UTC),
         }
         approval_decision = self.strategy.approve(approval_request)
         signed_transaction = None
@@ -98,10 +98,10 @@ class RequestCoinsHandler(BaseHandler):
                     status=CoinRequestStatus.APPROVED if approval_decision["approved"] else CoinRequestStatus.PENDING,
                     approval_mode=self.approval_mode,
                     approved_by=self.strategy.__class__.__name__,
-                    approved_at=datetime.utcnow() if approval_decision["approved"] else None,
+                    approved_at=datetime.now(UTC) if approval_decision["approved"] else None,
                     rejection_reason=approval_decision["reason"] if not approval_decision["approved"] else None,
-                    created_at=datetime.utcnow(),
-                    expires_at=datetime.utcnow() + timedelta(days=30),
+                    created_at=datetime.now(UTC),
+                    expires_at=datetime.now(UTC) + timedelta(days=30),
                     signed_transaction=signed_transaction,
                     audit_log=f"Mode: {self.approval_mode}, Decision: {approval_decision['approved']}, Reason: {approval_decision['reason']}",
                 )

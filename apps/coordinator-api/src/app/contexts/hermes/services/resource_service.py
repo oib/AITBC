@@ -1,7 +1,7 @@
 """Service for Hermes autonomous resource management."""
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -77,13 +77,13 @@ class ResourceService:
             selected_resource.status = ResourceStatus.ALLOCATED
         expires_at = None
         if request.duration_hours:
-            expires_at = datetime.utcnow() + timedelta(hours=request.duration_hours)
+            expires_at = datetime.now(UTC) + timedelta(hours=request.duration_hours)
         self.allocations[allocation_id] = {
             "allocation_id": allocation_id,
             "resource_id": selected_resource.resource_id,
             "agent_id": request.agent_id,
             "capacity": request.required_capacity,
-            "allocated_at": datetime.utcnow(),
+            "allocated_at": datetime.now(UTC),
             "expires_at": expires_at,
             "strategy": request.strategy,
             "priority": request.priority,
@@ -194,7 +194,7 @@ class ResourceService:
             new_price=new_price,
             adjustment_factor=adjustment_factor,
             reason=reason,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
         )
         logger.info("Pricing adjusted: %s - %s -> %s (%s)", resource_type.value, current_price, new_price, reason)
         return adjustment

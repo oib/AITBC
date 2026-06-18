@@ -9,7 +9,7 @@ import logging.handlers
 import os
 import sys
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -58,7 +58,7 @@ class StructuredFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as structured JSON"""
         log_entry = {
-            "timestamp": f"{datetime.utcnow().isoformat()}Z",
+            "timestamp": f"{datetime.now(UTC).isoformat()}Z",
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
