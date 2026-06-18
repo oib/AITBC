@@ -1,6 +1,7 @@
 """Configuration settings for blockchain event bridge."""
 
-from pydantic import Field
+import os
+from pydantic import ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -44,10 +45,16 @@ class Settings(BaseSettings):
     enable_polling: bool = Field(default=False)
     polling_interval_seconds: int = Field(default=60)
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    @field_validator("blockchain_rpc_url")
+    @classmethod
+    def validate_blockchain_rpc_url(cls, v: str) -> str:
+        if "localhost" in v or "127.0.0.1" in v:
+            env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "dev"))
+            if env == "production":
+                raise ValueError("BLOCKCHAIN_RPC_URL cannot be localhost in production")
+        return v
+
+    model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
 settings = Settings()

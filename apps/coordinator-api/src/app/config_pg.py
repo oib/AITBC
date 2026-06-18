@@ -1,5 +1,6 @@
 """Coordinator API configuration with PostgreSQL support"""
 
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -59,9 +60,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     def validate_secrets(self) -> None:
         """Validate that all required secrets are provided"""
