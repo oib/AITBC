@@ -278,6 +278,39 @@ Old environment variable names are still supported with fallback chains:
 - Whisper: `WHISPER_PORT` → `WHISPER_BIND_PORT`
 - Transcoder: `TRANSCODER_PORT` → `TRANSCODER_BIND_PORT`
 
+## Production Anti-Patterns
+
+### Uvicorn `reload=True` in Production
+
+**Issue**: Uvicorn's `reload=True` enables a development file-watcher that constantly polls the filesystem for source changes. When deployed under systemd in production, this causes sustained high CPU usage (observed: **~37% CPU** on a single core).
+
+**Affected services** (fixed):
+- `agent-coordinator`: `apps/agent-coordinator/src/app/main.py` — `reload=True` hardcoded
+- `edge`: `apps/edge/src/aitbc_edge/main.py` — `reload=True` hardcoded
+
+**Fix**: Replace hardcoded `reload=True` with an environment variable:
+
+```python
+import os
+
+uvicorn.run(
+    "app.main:app",
+    host=settings.host,
+    port=settings.port,
+    reload=os.getenv("UVICORN_RELOAD", "false").lower() in ("true", "1", "yes"),
+    log_level="info",
+)
+```
+
+This defaults to `False` in production while allowing `UVICORN_RELOAD=true` for local development.
+
+**Detection**: Look for duplicate `python` processes running the same module, or sustained high CPU from a uvicorn worker even when idle.
+
+**Audit command**:
+```bash
+grep -r "reload\s*=\s*True" /opt/aitbc/apps --include="*.py"
+```
+
 ## Code Quality Status
 
 ### Ruff Linting
@@ -292,4 +325,4 @@ Old environment variable names are still supported with fallback chains:
 
 ---
 
-*Last updated: 2026-06-15 - Full strict MyPy mode enabled (12/12 strict options), all primary applications (pool-hub, wallet, edge, hermes, agent-management, agent-coordinator) pass strict mode, comprehensive type parameter fixes applied across 12+ applications, pre-commit hooks implemented, multi-node deployment bind fixes completed, environment variable standardization completed, Ruff linting 0 errors*
+*Last updated: 2026-06-19 - Uvicorn `reload=True` production anti-pattern fixed in agent-coordinator and edge, added `UVICORN_RELOAD` env var support, full strict MyPy mode enabled (12/12 strict options), all primary applications pass strict mode, pre-commit hooks implemented, multi-node deployment bind fixes completed, Ruff linting 0 errors*
