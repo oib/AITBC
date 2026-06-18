@@ -79,7 +79,7 @@ logger.info("Processing request", method=request.method, path=request.url.path)
 # Manual binding for cross-service calls
 correlation_id = request.headers.get("X-Request-ID", "unknown")
 with log_context(request_id=correlation_id, chain_id="mainnet"):
-    logger.info("Forwarding to downstream service", target="blockchain-rpc")
+    logger.info("Forwarding to downstream service", target="blockchain-node-rpc")
 ```
 
 ### Error Logging
