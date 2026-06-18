@@ -1,18 +1,19 @@
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
-[tool.poetry]
+[project]
 name = "aitbc-shared"
 version = "0.1.0"
 description = "Shared ORM models and utilities for AITBC applications"
-authors = ["AITBC Team"]
+authors = [{name = "AITBC Team"}]
 readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "sqlmodel>=0.0.22",
+    "sqlalchemy>=2.0.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-sqlmodel = "^0.0.22"
-sqlalchemy = "^2.0.0"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aitbc_shared*"]
