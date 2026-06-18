@@ -1013,6 +1013,10 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 - `pytest-cov` if keeping coverage in `addopts`, otherwise remove it
 - `httpx` for async HTTP client migration (Goal 28)
 - `bandit` >= 1.7.7 for B303 (MD5) and B105 (hardcoded secrets) detection
+- `uv` or `poetry` for unified dependency lock workflow (Goal 42)
+- `shellcheck` and `shfmt` for shell script validation (Goal 48)
+- `systemd-analyze` for unit security auditing (Goal 45)
+- `docker` and `docker-compose` (optional, Goal 44)
 
 ---
 
