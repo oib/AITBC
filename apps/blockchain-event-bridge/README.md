@@ -1,9 +1,28 @@
-# Blockchain Event Bridge
+# blockchain-event-bridge
 
-**Documentation has moved to:** [docs/apps/blockchain/blockchain-event-bridge.md](../../docs/apps/blockchain/blockchain-event-bridge.md)
+## Status
+
+**active**
+
+## Description
+
+Bridges blockchain events to internal message queues and services. Listens for on-chain events and propagates them to interested subscribers in real-time.
+
+## Node Type
+
+hub
+
+## GPU Required
+
+no
+
+## Service
+
+1 systemd service(s): aitbc-blockchain-event-bridge.service
+
+## Source
+
+`src/` directory with 16 Python file(s)
 
 ---
-
-This file has been migrated to the central documentation location. Please update your bookmarks and references to point to the new location.
-
-For the complete documentation, see the [Blockchain Event Bridge documentation](../../docs/apps/blockchain/blockchain-event-bridge.md).
+*Last updated: 2026-06-17*
