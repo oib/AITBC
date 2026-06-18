@@ -2,7 +2,7 @@
 
 ## Status
 
-**deprecated** (see [DEPRECATED.md](DEPRECATED.md))
+**archived** — planned for reactivation after v0.5 (see [DEPRECATED.md](DEPRECATED.md))
 
 ## Description
 
