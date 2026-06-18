@@ -14,7 +14,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....domain.bounty import BountyStatus, BountyTier, SubmissionStatus
-from ....routers.users import get_current_user
+from ....auth import AuthDep
 from ....services.bounty_service import BountyService
 from ....storage import get_session
 from ...blockchain.services.blockchain import BlockchainService
@@ -187,12 +187,12 @@ async def create_bounty(
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
     blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
-    current_user: Annotated[dict, Depends(get_current_user)],
+    user: AuthDep,
 ) -> BountyResponse:
     """Create a new bounty"""
     try:
-        logger.info("Creating bounty: %s by user %s", request.title, current_user["address"])  # type: ignore[attr-defined]
-        bounty = await bounty_service.create_bounty(creator_id=current_user["address"], **request.dict())  # type: ignore[attr-defined]
+        logger.info("Creating bounty: %s by user %s", request.title, user["sub"])  # type: ignore[attr-defined]
+        bounty = await bounty_service.create_bounty(creator_id=user["sub"], **request.dict())  # type: ignore[attr-defined]
         background_tasks.add_task(
             blockchain_service.deploy_bounty_contract, bounty.bounty_id, bounty.reward_amount, bounty.tier, bounty.deadline
         )  # type: ignore[attr-defined]
@@ -263,11 +263,11 @@ async def submit_bounty_solution(
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
     blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
-    current_user: Annotated[dict, Depends(get_current_user)],
+    user: AuthDep,
 ) -> BountySubmissionResponse:
     """Submit a solution to a bounty"""
     try:
-        logger.info("Submitting solution for bounty %s by %s", bounty_id, current_user["address"])
+        logger.info("Submitting solution for bounty %s by %s", bounty_id, user["sub"])
         bounty = await bounty_service.get_bounty(bounty_id)
         if not bounty:
             raise HTTPException(status_code=404, detail="Bounty not found")
@@ -276,7 +276,7 @@ async def submit_bounty_solution(
         if datetime.now(UTC) > bounty.deadline:
             raise HTTPException(status_code=400, detail="Bounty deadline has passed")
         submission = await bounty_service.create_submission(
-            bounty_id=bounty_id, submitter_address=current_user["address"], **request.dict()
+            bounty_id=bounty_id, submitter_address=user["sub"], **request.dict()
         )  # type: ignore[attr-defined]
         background_tasks.add_task(
             blockchain_service.submit_bounty_solution,
@@ -302,15 +302,15 @@ async def get_bounty_submissions(
     bounty_id: str,
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
-    current_user: Annotated[dict, Depends(get_current_user)],
+    user: AuthDep,
 ) -> list[BountySubmissionResponse]:
     """Get all submissions for a bounty"""
     try:
         bounty = await bounty_service.get_bounty(bounty_id)
         if not bounty:
             raise HTTPException(status_code=404, detail="Bounty not found")
-        if bounty.creator_id != current_user["address"]:
-            if not current_user.get("is_admin", False):
+        if bounty.creator_id != user["sub"]:
+            if not user.get("role") == "admin":
                 raise HTTPException(status_code=403, detail="Not authorized to view submissions")
         submissions = await bounty_service.get_bounty_submissions(bounty_id)
         return [BountySubmissionResponse.from_orm(sub) for sub in submissions]  # type: ignore[pydantic-orm]
@@ -331,11 +331,11 @@ async def verify_bounty_submission(
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
     blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
-    current_user: Annotated[dict, Depends(get_current_user)],
+    user: AuthDep,
 ) -> dict[str, str]:
     """Verify a bounty submission (oracle/admin only)"""
     try:
-        if not current_user.get("is_admin", False):
+        if not user.get("role") == "admin":
             raise HTTPException(status_code=403, detail="Not authorized to verify submissions")
         await bounty_service.verify_submission(
             bounty_id=bounty_id,
@@ -363,21 +363,21 @@ async def dispute_bounty_submission(
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
     blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
-    current_user: Annotated[dict, Depends(get_current_user)],
+    user: AuthDep,
 ) -> dict[str, str]:
     """Dispute a bounty submission"""
     try:
         await bounty_service.create_dispute(
             bounty_id=bounty_id,
             submission_id=request.submission_id,
-            disputer_address=current_user["address"],
+            disputer_address=user["sub"],
             dispute_reason=request.dispute_reason,
         )  # type: ignore[attr-defined]
         background_tasks.add_task(
             blockchain_service.dispute_submission,
             bounty_id,
             request.submission_id,
-            current_user["address"],
+            user["sub"],
             request.dispute_reason,
         )  # type: ignore[attr-defined]
         return {"message": "Dispute created successfully"}
@@ -395,12 +395,12 @@ async def get_my_created_bounties(
     limit: int | None,
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
-    current_user: Annotated[dict, Depends(get_current_user)],
+    user: AuthDep,
 ) -> list[BountyResponse]:
     """Get bounties created by the current user"""
     try:
         bounties = await bounty_service.get_user_created_bounties(
-            user_address=current_user["address"], status=status, page=page, limit=limit
+            user_address=user["sub"], status=status, page=page, limit=limit
         )
         return [BountyResponse.from_orm(bounty) for bounty in bounties]  # type: ignore[pydantic-orm]
     except Exception as e:
@@ -417,12 +417,12 @@ async def get_my_submissions(
     limit: int | None,
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
-    current_user: Annotated[dict, Depends(get_current_user)],
+    user: AuthDep,
 ) -> list[BountySubmissionResponse]:
     """Get submissions made by the current user"""
     try:
         submissions = await bounty_service.get_user_submissions(
-            user_address=current_user["address"], status=status, page=page, limit=limit
+            user_address=user["sub"], status=status, page=page, limit=limit
         )
         return [BountySubmissionResponse.from_orm(sub) for sub in submissions]  # type: ignore[pydantic-orm]
     except Exception as e:
@@ -474,14 +474,14 @@ async def expire_bounty(
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
     blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
-    current_user: Annotated[dict, Depends(get_current_user)],
+    user: AuthDep,
 ) -> dict[str, str]:
     """Expire a bounty (creator only)"""
     try:
         bounty = await bounty_service.get_bounty(bounty_id)
         if not bounty:
             raise HTTPException(status_code=404, detail="Bounty not found")
-        if bounty.creator_id != current_user["address"]:
+        if bounty.creator_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Not authorized to expire bounty")
         if bounty.status != BountyStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Bounty is not active")
