@@ -19,12 +19,8 @@
     <div class="container">
         <header>
             <div class="header-nav">
-                <a href="/" class="api-badge">Home</a>
-                <a href="/exchange.html" class="api-badge">Exchange</a>
-                <button onclick="refreshData()" class="api-badge" style="cursor: pointer; border: none; background: var(--surface);">
-                    <i data-lucide="refresh-cw" style="width: 1rem; height: 1rem; vertical-align: middle; margin-right: 0.25rem;"></i>
-                    Refresh
-                </button>
+                <a href="/">Home</a>
+                <a href="/exchange.html">Exchange</a>
             </div>
             <h1>AITBC Blockchain Explorer</h1>
             <p class="subtitle">Real-time blockchain data visualization and search</p>
@@ -57,103 +53,23 @@
             </div>
         </div>
 
-        <!-- Advanced Search -->
+        <!-- Search -->
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                <h2>Advanced Search</h2>
-                <div style="display: flex; gap: 0.5rem;">
-                    <button onclick="toggleAdvancedSearch()" style="font-size: 0.875rem; color: var(--primary); background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.25rem;">
-                        <i data-lucide="settings" style="width: 1rem; height: 1rem;"></i>
-                        Advanced
-                    </button>
-                    <button onclick="clearSearch()" style="font-size: 0.875rem; color: var(--text-muted); background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.25rem;">
-                        <i data-lucide="x" style="width: 1rem; height: 1rem;"></i>
-                        Clear
-                    </button>
-                </div>
-            </div>
-
-            <!-- Simple Search -->
-            <div id="simple-search" style="display: flex; gap: 0.75rem;">
-                <input type="text" id="search-input" placeholder="Search by block height, hash, address, or transaction hash"
-                       class="endpoint" style="flex: 1;" onkeypress="if(event.key === 'Enter') performSearch()">
-                <button onclick="performSearch()" class="api-badge" style="cursor: pointer; border: none; background: var(--primary); color: white;">
-                    <i data-lucide="search" style="width: 1rem; height: 1rem; margin-right: 0.5rem; vertical-align: middle;"></i>
-                    Search
+                <h2>Search</h2>
+                <button onclick="clearSearch()" style="font-size: 0.875rem; color: var(--text-muted); background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.25rem;">
+                    <i data-lucide="x" style="width: 1rem; height: 1rem;"></i>
+                    Clear
                 </button>
             </div>
 
-            <!-- Advanced Search Panel -->
-            <div id="advanced-search" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--code); border-radius: 6px;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                    <!-- Address Search -->
-                    <div>
-                        <label style="display: block; font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--text-muted);">Address</label>
-                        <input type="text" id="search-address" placeholder="0x..."
-                               class="endpoint">
-                    </div>
-
-                    <!-- Amount Range -->
-                    <div>
-                        <label style="display: block; font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--text-muted);">Amount Range</label>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <input type="number" id="amount-min" placeholder="Min" step="0.001"
-                                   class="endpoint">
-                            <input type="number" id="amount-max" placeholder="Max" step="0.001"
-                                   class="endpoint">
-                        </div>
-                    </div>
-
-                    <!-- Transaction Type -->
-                    <div>
-                        <label style="display: block; font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--text-muted);">Transaction Type</label>
-                        <select id="tx-type" class="endpoint">
-                            <option value="">All Types</option>
-                            <option value="transfer">Transfer</option>
-                            <option value="stake">Stake</option>
-                            <option value="smart_contract">Smart Contract</option>
-                        </select>
-                    </div>
-
-                    <!-- Time Range -->
-                    <div>
-                        <label style="display: block; font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--text-muted);">From Date</label>
-                        <input type="datetime-local" id="since-date"
-                               class="endpoint">
-                    </div>
-
-                    <div>
-                        <label style="display: block; font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--text-muted);">To Date</label>
-                        <input type="datetime-local" id="until-date"
-                               class="endpoint">
-                    </div>
-
-                    <!-- Validator -->
-                    <div>
-                        <label style="display: block; font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--text-muted);">Validator</label>
-                        <input type="text" id="validator" placeholder="Validator address..."
-                               class="endpoint">
-                    </div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button onclick="performAdvancedSearch('transactions')" class="api-badge" style="cursor: pointer; border: none; background: var(--primary); color: white;">
-                            Search Transactions
-                        </button>
-                        <button onclick="performAdvancedSearch('blocks')" class="api-badge" style="cursor: pointer; border: none; background: var(--success); color: white;">
-                            Search Blocks
-                        </button>
-                    </div>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button onclick="exportSearchResults('csv')" class="api-badge" style="cursor: pointer; border: none; background: var(--surface); color: var(--text);">
-                            Export CSV
-                        </button>
-                        <button onclick="exportSearchResults('json')" class="api-badge" style="cursor: pointer; border: none; background: var(--surface); color: var(--text);">
-                            Export JSON
-                        </button>
-                    </div>
-                </div>
+            <div style="display: flex; gap: 0.75rem;">
+                <input type="text" id="search-input" placeholder="Search by block height, hash, or transaction hash"
+                       class="endpoint" style="flex: 1;" onkeypress="if(event.key === 'Enter') performSearch()">
+                <button onclick="performSearch()" style="cursor: pointer; border: 1px solid transparent; background: var(--primary); color: white; padding: 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center;">
+                    <i data-lucide="search" style="width: 1rem; height: 1rem; margin-right: 0.5rem; vertical-align: middle;"></i>
+                    Search
+                </button>
             </div>
         </div>
 
@@ -218,6 +134,14 @@
             }
         }
 
+        // Auto-refresh every 30 seconds to recover from temporary disconnections
+        setInterval(() => {
+            if (document.getElementById('node-status').textContent === 'Disconnected') {
+                console.log('Auto-retrying connection...');
+                refreshData();
+            }
+        }, 30000);
+
         // Load latest blocks
         async function loadLatestBlocks() {
             try {
@@ -261,37 +185,28 @@
             }
         }
 
-        // Toggle advanced search
-        function toggleAdvancedSearch() {
-            const panel = document.getElementById('advanced-search');
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-        }
-
         // Clear search
         function clearSearch() {
             document.getElementById('search-input').value = '';
-            document.getElementById('search-address').value = '';
-            document.getElementById('amount-min').value = '';
-            document.getElementById('amount-max').value = '';
-            document.getElementById('tx-type').value = '';
-            document.getElementById('since-date').value = '';
-            document.getElementById('until-date').value = '';
-            document.getElementById('validator').value = '';
             document.getElementById('results-section').style.display = 'none';
         }
 
         // Perform simple search
         async function performSearch() {
-            const query = document.getElementById('search-input').value.trim();
+            let query = document.getElementById('search-input').value.trim();
             console.log('Search query:', query);
             if (!query) {
                 console.log('Empty query, returning');
                 return;
             }
 
+            // Strip # prefix if present (e.g., user enters "#27381")
+            query = query.replace(/^#/, '');
+            console.log('Query after stripping #:', query);
+
             // Try to determine if it's a block height, hash, or address
             const isNumber = /^\d+$/.test(query);
-            const isHash = /^[a-fA-F0-9]{64}$/.test(query);
+            const isHash = /^(0x)?[a-fA-F0-9]{64}$/.test(query);
 
             console.log('Is number:', isNumber, 'Is hash:', isHash);
 
@@ -319,8 +234,11 @@
         // Search by hash (could be block or transaction)
         async function searchByHash(hash) {
             console.log('searchByHash called with:', hash);
+            // Strip 0x prefix if present for API calls
+            const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
+            console.log('Clean hash for API:', cleanHash);
             // First try to search as block
-            const blockResponse = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${hash}?chain_id=${currentChain}`);
+            const blockResponse = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${cleanHash}?chain_id=${currentChain}`);
             console.log('Block by hash response status:', blockResponse.status);
             if (blockResponse.ok) {
                 const blockData = await blockResponse.json();
@@ -331,20 +249,7 @@
                 }
             }
             
-            console.log('Block not found by hash, showing current block instead');
-            // If not found as block, show current block with note (transaction search not available)
-            const currentBlockResponse = await fetch(`${EXPLORER_API_URL}/api/chain/head?chain_id=${currentChain}`);
-            if (currentBlockResponse.ok) {
-                const currentBlock = await currentBlockResponse.json();
-                console.log('Current block data:', currentBlock);
-                if (currentBlock && currentBlock.height) {
-                    currentBlock.note = `Note: Hash "${hash.substring(0, 16)}..." not found. Transaction search not available. Showing current block #${currentBlock.height}.`;
-                    displayResults([currentBlock], 'block');
-                    return;
-                }
-            }
-            
-            console.log('Failed to get current block, showing no results');
+            console.log('Block not found by hash');
             displayResults([], 'block');
         }
 
@@ -357,10 +262,6 @@
                 const data = await response.json();
                 console.log('Response data:', data);
                 if (data && data.height) {
-                    // Add a note if the returned block is different from the searched height
-                    if (data.searched_height && data.searched_height !== data.height) {
-                        data.note = `Note: Only current block available. Searched for #${data.searched_height}, showing current block #${data.height}.`;
-                    }
                     displayResults([data], 'block');
                 } else {
                     console.log('No valid block data in response');
@@ -375,8 +276,10 @@
         // Search transaction by hash
         async function searchTransaction(hash) {
             console.log('searchTransaction called with:', hash);
+            // Strip 0x prefix if present for API calls
+            const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
             try {
-                const response = await fetch(`${EXPLORER_API_URL}/api/transactions/${hash}?chain_id=${currentChain}`);
+                const response = await fetch(`${EXPLORER_API_URL}/api/transactions/${cleanHash}?chain_id=${currentChain}`);
                 console.log('Transaction response status:', response.status);
                 const data = await response.json();
                 console.log('Transaction data:', data);
@@ -404,38 +307,6 @@
             }
         }
 
-        // Perform advanced search
-        async function performAdvancedSearch(type) {
-            const params = new URLSearchParams();
-            params.append('chain_id', currentChain);
-
-            const address = document.getElementById('search-address').value;
-            const amountMin = document.getElementById('amount-min').value;
-            const amountMax = document.getElementById('amount-max').value;
-            const txType = document.getElementById('tx-type').value;
-            const sinceDate = document.getElementById('since-date').value;
-            const untilDate = document.getElementById('until-date').value;
-            const validator = document.getElementById('validator').value;
-
-            if (address) params.append('address', address);
-            if (amountMin) params.append('amount_min', amountMin);
-            if (amountMax) params.append('amount_max', amountMax);
-            if (txType) params.append('tx_type', txType);
-            if (sinceDate) params.append('since', sinceDate);
-            if (untilDate) params.append('until', untilDate);
-            if (validator) params.append('validator', validator);
-
-            try {
-                const endpoint = type === 'transactions' ? '/api/transactions/search' : '/api/blocks/search';
-                const response = await fetch(`${EXPLORER_API_URL}${endpoint}?${params}`);
-                const data = await response.json();
-                displayResults(data.results || [], type);
-            } catch (error) {
-                console.error('Error performing advanced search:', error);
-                displayError('Search failed');
-            }
-        }
-
         // Display results
         function displayResults(results, type) {
             console.log('displayResults called with:', results.length, 'results of type:', type);
@@ -447,7 +318,7 @@
             count.textContent = `${results.length} ${type}${results.length !== 1 ? 's' : ''} found`;
 
             if (results.length === 0) {
-                container.innerHTML = '<p style="color: var(--text-muted);">No results found. Note: Only the current block is available. Try searching by block height.</p>';
+                container.innerHTML = '<p style="color: var(--text-muted);">No results found.</p>';
                 return;
             }
 
@@ -463,7 +334,7 @@
             console.log('Valid results after filtering:', validResults.length);
 
             if (validResults.length === 0) {
-                container.innerHTML = '<p style="color: var(--text-muted);">No valid results found. Note: Only the current block is available. Try searching by block height.</p>';
+                container.innerHTML = '<p style="color: var(--text-muted);">No valid results found.</p>';
                 return;
             }
 
@@ -477,7 +348,38 @@
                         timestamp = new Date(item.timestamp * 1000).toLocaleString();
                     }
                 }
-                
+
+                // Build details based on type
+                let details = '';
+                if (type === 'block') {
+                    details = `
+                        <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-muted); word-break: break-all;">
+                            Hash: ${item.hash || 'N/A'}
+                        </div>
+                        <div style="margin-top: 0.25rem; font-size: 0.875rem; color: var(--text-muted);">
+                            Validator: ${item.validator || 'unknown'}
+                        </div>
+                        <div style="margin-top: 0.25rem; font-size: 0.875rem; color: var(--text-muted);">
+                            Transactions: ${item.tx_count || 0}
+                        </div>
+                    `;
+                } else {
+                    details = `
+                        <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-muted); word-break: break-all;">
+                            Hash: ${item.hash || 'N/A'}
+                        </div>
+                        <div style="margin-top: 0.25rem; font-size: 0.875rem; color: var(--text-muted);">
+                            Block: ${item.block_height || 'N/A'}
+                        </div>
+                        <div style="margin-top: 0.25rem; font-size: 0.875rem; color: var(--text-muted);">
+                            From: ${item.from || 'N/A'}
+                        </div>
+                        <div style="margin-top: 0.25rem; font-size: 0.875rem; color: var(--text-muted);">
+                            To: ${item.to || 'N/A'}
+                        </div>
+                    `;
+                }
+
                 return `
                 <div class="endpoint fade-in" style="padding: 1rem;">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -488,6 +390,7 @@
                             ${timestamp}
                         </div>
                     </div>
+                    ${details}
                     ${item.note ? `<div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">${item.note}</div>` : ''}
                 </div>
             `;
@@ -503,12 +406,6 @@
             section.style.display = 'block';
             count.textContent = '';
             container.innerHTML = `<p style="color: var(--error-color);">${message}</p>`;
-        }
-
-        // Export search results
-        function exportSearchResults(format) {
-            // Implementation would depend on current results
-            alert(`Export as ${format.toUpperCase()} - to be implemented`);
         }
 
         // Export blockchain
