@@ -109,7 +109,6 @@ async def get_async_engine() -> AsyncEngine:
         _async_engine = create_async_engine(
             async_url,
             echo=settings.db_echo,
-            poolclass=QueuePool,
             pool_size=settings.db_pool_size,
             max_overflow=settings.db_max_overflow,
             pool_recycle=settings.db_pool_recycle,
