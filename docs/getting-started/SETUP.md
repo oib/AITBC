@@ -1,10 +1,12 @@
 # AITBC Setup Guide
 
-**Last Updated:** 2026-06-12
+**Last Updated:** 2026-06-18
 
 Quick reference guide for AITBC setup and onboarding.
 
 > **🟢 Service Status**: All core services are operational as of June 7, 2026. See [Service Status](../infrastructure/SYSTEMD_SERVICES.md#current-service-status) for details.
+
+> **⚠️ v0.4.26 Update**: JWT authentication is now required. `setup.sh` automatically generates `JWT_SECRET` and `SECRET_KEY`. If upgrading from an earlier version, run `/opt/aitbc/scripts/utils/load-keystore-secrets.sh` after updating the credential files.
 
 ## 5-Minute Quick Start
 
@@ -290,6 +292,48 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8203
 /etc/aitbc/       # Configuration files
 ```
 
+## Required Secrets
+
+The following secrets are generated automatically by `setup.sh` and stored in `/etc/aitbc/credentials/` (mode 600). They are loaded at runtime into `/run/aitbc/secrets/.env` (tmpfs, cleared on reboot) by `load-keystore-secrets.sh`.
+
+| Secret | Environment Variable | Used By | Description |
+|--------|---------------------|---------|-------------|
+| `api_hash_secret` | `API_KEY_HASH_SECRET` | API Gateway | Hash secret for API key validation |
+| `jwt_secret` | `JWT_SECRET` | Coordinator API | JWT token signing/verification |
+| `secret_key` | `SECRET_KEY` | Coordinator API | Application secret key |
+| `keystore_password` | `KEYSTORE_PASSWORD` | Wallet service | Keystore encryption password |
+| `proposer_id` | `proposer_id` | Blockchain node | Node proposer identity |
+
+### Regenerating Secrets
+
+If secrets are missing (e.g. after a fresh clone on an existing node):
+
+```bash
+# Regenerate all secrets
+sudo /opt/aitbc/scripts/deployment/setup.sh
+
+# Or regenerate individual secrets manually
+python3 -c "import secrets; print(secrets.token_hex(32))" | sudo tee /etc/aitbc/credentials/jwt_secret
+chmod 600 /etc/aitbc/credentials/jwt_secret
+sudo /opt/aitbc/scripts/utils/load-keystore-secrets.sh
+sudo systemctl restart aitbc-coordinator-api
+```
+
+### Upgrading from v0.4.25 or Earlier
+
+Earlier versions did not generate `JWT_SECRET` or `SECRET_KEY`. After upgrading:
+
+```bash
+# 1. Generate the new secrets
+sudo /opt/aitbc/scripts/utils/load-keystore-secrets.sh
+
+# 2. Verify they were added to the runtime env file
+grep -E "JWT_SECRET|SECRET_KEY" /run/aitbc/secrets/.env
+
+# 3. Restart the coordinator-api
+sudo systemctl restart aitbc-coordinator-api
+```
+
 ## Service User Security
 
 AITBC uses a streamlined service user strategy based on network exposure for security isolation:
@@ -353,12 +397,13 @@ For comprehensive AITBC capabilities and use cases, see [Scenarios Documentation
 
 #### ModuleNotFoundError: No module named 'pydantic-settings'
 
-The blockchain-node service requires `pydantic-settings` which may not be included in all dependency profiles.
+`pydantic-settings` is a core dependency (required by multiple apps including coordinator-api and blockchain-node). It is included in `requirements.txt` since v0.4.26. If you see this error, reinstall dependencies:
 
 ```bash
-# Install missing dependency
-/opt/aitbc/venv/bin/pip install pydantic-settings
-systemctl restart aitbc-blockchain-node
+cd /opt/aitbc
+source venv/bin/activate
+pip install -r requirements.txt
+systemctl restart aitbc-coordinator-api aitbc-blockchain-node
 ```
 
 #### PermissionError: Permission denied on /var/lib/aitbc/data
