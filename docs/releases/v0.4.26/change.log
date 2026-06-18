@@ -303,6 +303,171 @@ This release targets **production safety, CI enforcement, and codebase integrity
 3. Remove obsolete `requirements*.txt` or generate them from `pyproject.toml` in CI if needed.
 4. Ensure CI and local dev both use the same lockfile.
 
+### Goal 22: Use Timezone-Aware Timestamps for Persisted Data (P1)
+
+**Problem**: Naive `datetime.now()` (no timezone) appears in several core modules that persist or audit data:
+- `aitbc/caching.py` — `CacheEntry.__post_init__`, expiration checks, decorator timing <ref_snippet file="/opt/aitbc/aitbc/caching.py" lines="50-64" />
+- `aitbc/feature_flags.py` — `enabled_since` timestamps <ref_snippet file="/opt/aitbc/aitbc/feature_flags.py" lines="127,133" />
+- `aitbc/monitoring/monitoring.py` — metric timestamps and health-check timestamps <ref_snippet file="/opt/aitbc/aitbc/monitoring/monitoring.py" lines="34,45,56,67,222" />
+
+**Impact**: Naive timestamps stored in SQLite/PostgreSQL become ambiguous across DST changes and multi-node deployments. Sorting and TTL logic may behave incorrectly if the host timezone changes.
+
+**Approach**:
+1. Bulk-replace `datetime.now()` with `datetime.now(UTC)` in core library files.
+2. Ensure existing `datetime.utcnow()` migrations from v0.4.25 were thorough; grep for any remaining naive `now()` calls.
+3. Add a Ruff or custom lint rule to prevent naive `datetime.now()` in `aitbc/` and `apps/`.
+
+---
+
+### Goal 23: Add Lifecycle Management for Fire-and-Forget Async Tasks (P1)
+
+**Problem**: Bare `asyncio.create_task(...)` calls appear in multiple services with no cancellation, error logging, or shutdown cleanup:
+- `apps/blockchain-node/src/aitbc_chain/main.py:333` — proposer background tasks
+- `aitbc/queues/queue_manager.py:170` — background workers
+- `apps/hermes/src/hermes_service/main.py:38` — old-request expiration loop
+
+**Impact**: Silent background failures; uncaught exceptions in tasks are never logged. On shutdown, tasks may continue running or leave resources dangling.
+
+**Approach**:
+1. Create a `TaskRegistry` context manager in `aitbc/async_tasks.py` that tracks `create_task()` calls.
+2. On shutdown, cancel all tracked tasks with a timeout.
+3. Wrap each task coroutine in a decorator that logs unhandled exceptions and restarts the task if configured.
+4. Replace all bare `create_task()` calls in the listed files with the registry.
+
+---
+
+### Goal 24: Consolidate Coordinator DB Setup (P1)
+
+**Problem**: The coordinator-api has overlapping database boundary modules:
+- `apps/coordinator-api/src/app/database.py`
+- `apps/coordinator-api/src/app/storage/db.py`
+- `apps/coordinator-api/src/app/database_async.py`
+- `apps/coordinator-api/src/app/storage/db_pg.py`
+
+Some startup paths call `create_all()` directly, which races with Alembic migrations and causes `Table already defined` errors in tests.
+
+**Impact**: Confusion about which engine/session to use; metadata conflicts in test collection.
+
+**Approach**:
+1. Audit all four modules and identify which one is the canonical boundary.
+2. Deprecate the others with re-export aliases and deprecation warnings.
+3. Move any startup `create_all()` into a one-time migration bootstrap script, not into `lifespan()` or module import.
+4. Ensure the canonical module supports both sync and async contexts if both are genuinely needed; otherwise, pick one.
+
+---
+
+### Goal 25: Replace Float Money/Token Fields with Decimal or Integer Minor Units (P0)
+
+**Problem**: Financial amounts throughout the coordinator-api are typed as `float`:
+- `cross_chain_bridge.py:65` — bridge amounts
+- `bounty.py:89` — reward amounts
+- `rewards.py:97` — fee and reward calculations
+
+**Impact**: Floating-point arithmetic causes rounding errors in token balances, rewards distribution, and fee calculations. This is a correctness bug in financial code.
+
+**Approach**:
+1. Replace `float` fields with `Decimal` (or integer minor units where precision is fixed).
+2. Update Pydantic/SQLModel field definitions to use `Decimal` with explicit `max_digits` and `decimal_places`.
+3. Add a regression test that verifies `0.1 + 0.2 == 0.3` equivalent passes for token math.
+4. Audit all `float` fields in `apps/coordinator-api/src/app/domain/` and `apps/blockchain-node/src/aitbc_chain/` for financial use.
+
+---
+
+### Goal 26: Fix Mutable Defaults in Pydantic/SQLModel Models (P1)
+
+**Problem**: Several models use mutable defaults (`default={}`, `default=[]`) instead of `default_factory`:
+- `apps/coordinator-api/src/app/domain/rewards.py:120` — `default={}` for a dict field
+- `apps/coordinator-api/src/app/config.py:62` — list defaults
+
+**Impact**: Shared mutable state across model instances; one instance mutating the default affects all future instances.
+
+**Approach**:
+1. Replace all `default={}` with `default_factory=dict` and `default=[]` with `default_factory=list`.
+2. Add a Ruff rule (if available) or a custom pre-commit check to catch mutable defaults in Pydantic/SQLModel classes.
+3. Run full test suite after fixes to ensure no serialization regressions.
+
+---
+
+### Goal 27: Stop Returning Internal Exception Details from API 500s (P0)
+
+**Problem**: The coordinator’s global exception handler exposes the exception message and type to clients:
+- `apps/coordinator-api/src/app/main.py:477` — `str(exc)` returned in JSON error response
+- `apps/blockchain-node/src/aitbc_chain/rpc/gpu_resources.py:81` — `detail=str(e)` in RPC errors
+
+**Impact**: Information leakage; attackers can use exception strings to fingerprint internal code paths and dependencies.
+
+**Approach**:
+1. Replace all `str(exc)` / `str(e)` in HTTP 500 responses with stable, opaque error codes (e.g., `ERR_INTERNAL_001`).
+2. Log the full exception details (message, traceback, request ID) server-side only.
+3. Add a middleware or exception handler in `main.py` that sanitizes 500 responses before they reach the client.
+4. Audit `apps/blockchain-node/src/aitbc_chain/rpc/` for the same pattern.
+
+---
+
+### Goal 28: Audit Blocking Calls Inside Async Services (P1)
+
+**Problem**: Synchronous blocking calls appear in async service runtime paths:
+- `apps/hermes/src/hermes_service/main.py:92` — `requests.get()` in health check
+- `aitbc/network/http_client.py:155` — `time.sleep()` in retry logic
+- `packages/py/aitbc-sdk/src/aitbc_sdk/receipts.py:198` — blocking I/O in SDK
+
+**Impact**: These block the asyncio event loop, causing latency spikes and reduced throughput under load.
+
+**Approach**:
+1. Replace `requests` with `httpx.AsyncClient` in all async services.
+2. Replace `time.sleep()` in async contexts with `asyncio.sleep()`.
+3. For the SDK, either provide an async API or document that it must be called in `run_in_executor`.
+4. Add a lint check (e.g., grep for `requests\.` and `time\.sleep` inside `async def` functions) in CI.
+
+---
+
+### Goal 29: Migrate Deprecated Pydantic v1 `Config` to v2 `ConfigDict` (P2)
+
+**Problem**: Pydantic v2 deprecation warnings surfaced around:
+- `apps/coordinator-api/src/app/exceptions.py:21`
+- `apps/coordinator-api/src/app/schemas/wallet.py:12`
+
+These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
+
+**Impact**: Noise in logs; future Pydantic versions may drop v1 `Config` support entirely.
+
+**Approach**:
+1. Replace `class Config:` with `model_config = ConfigDict(...)` in the listed files.
+2. Grep the entire `apps/coordinator-api/` tree for remaining `class Config:` patterns.
+3. Run tests to verify serialization behavior remains identical after migration.
+
+---
+
+### Goal 30: Fix Duplicate SQLModel Metadata/Import Behavior (P1)
+
+**Problem**: Full test collection hits duplicate table/model registration. In addition to the `__table_args__` overwrite in `agent_identity.py` (Goal 5), the coordinator imports `app` globally at test time, populating `SQLModel.metadata` before other modules load.
+
+**Impact**: "Table already defined" errors; inability to run the full test suite reliably.
+
+**Approach**:
+1. Enforce the pattern from Goal 17 (isolated `create_app()` fixtures) across all test modules.
+2. Add a startup assertion in `create_app()` that fails fast if duplicate table registration is detected.
+3. Canonicalize module import paths so tests never import the production app at module level.
+4. Run the full test suite after fixes to verify zero metadata conflicts.
+
+**Overlap note**: This extends Goals 5 and 17 with broader enforcement.
+
+---
+
+### Goal 31: Remove Hardcoded Paths and `sys.path.insert` from Runtime Wrappers (P2)
+
+**Problem**: Hardcoded `/opt/aitbc` and `sys.path.insert(0, ...)` appear in service wrappers and startup scripts. This was partially covered in Goal 11 (general path cleanup), but the runtime wrappers are a specific hotspot.
+
+**Impact**: Brittle deployments; duplicate imports; model registration races when paths are inserted multiple times.
+
+**Approach**:
+1. Audit all `sys.path.insert` calls in `apps/*/scripts/`, `scripts/services/`, and wrapper files.
+2. Replace with installed package entry points (e.g., `python -m aitbc_chain.main`).
+3. Derive `REPO_DIR` from an environment variable (`AITBC_HOME`) with a sensible default, never hardcoded.
+4. Document the new pattern in `docs/development/SERVICE_WRAPPERS.md`.
+
+**Overlap note**: This is a focused follow-up to Goal 11 for runtime wrappers specifically.
+
 ---
 
 ## Quick Checks Summary (Pre-Release Baseline)
@@ -318,6 +483,11 @@ This release targets **production safety, CI enforcement, and codebase integrity
 | Router duplicates | ⚠️ 7 routers duplicated | `agent_router` 4x, `cross_chain` 3x, etc. |
 | Tracked generated files | ⚠️ 1,197+ files | `mutants/` ~71 MB, `cli/.pytest_cache/`, `.whl` artifacts |
 | Default secrets | ⚠️ 3 findings | `default-secret-key-change-in-production`, `"changeme"`, `"test-key"` |
+| Naive timestamps | ⚠️ 17+ findings | `datetime.now()` without timezone in caching, feature_flags, monitoring |
+| Mutable defaults | ⚠️ 2+ findings | `default={}` and list defaults in Pydantic/SQLModel models |
+| Float money fields | ⚠️ 3+ files | `cross_chain_bridge.py`, `bounty.py`, `rewards.py` use `float` for amounts |
+| Blocking in async | ⚠️ 3+ files | `requests.get`, `time.sleep` inside `async def` in hermes, http_client, SDK |
+| Pydantic v1 Config | ⚠️ 2+ files | `class Config:` deprecation warnings in exceptions.py, wallet schemas |
 
 ---
 
@@ -334,8 +504,10 @@ This release targets **production safety, CI enforcement, and codebase integrity
 | 3-4 | Add secret scanning to CI (TruffleHog or detect-secrets) | — | CI security job fails on committed secrets | P0 |
 | 4-5 | Call `settings.validate_secrets()` in `main.py` startup | — | Missing secrets raise at boot | P0 |
 | 4-5 | Replace fallback secrets (`access_control.py`, `poolhub/settings.py`, `auth.py`) | — | Bandit B105 clean; no default secrets outside tests | P0 |
+| 4-5 | Replace float money fields with `Decimal` in `cross_chain_bridge`, `bounty`, `rewards` | — | `Decimal` fields in financial models; no `float` for money | P0 |
+| 5 | Sanitize API 500 responses (remove `str(exc)` from client JSON) | — | HTTP 500 responses contain only opaque error codes | P0 |
 
-### Phase 2: Data Layer & Test Integrity (Week 2)
+### Phase 2: Data Layer, Runtime Correctness & Test Integrity (Week 2)
 
 | Day | Task | Owner | Verification | Priority |
 |-----|------|-------|--------------|----------|
@@ -345,8 +517,11 @@ This release targets **production safety, CI enforcement, and codebase integrity
 | 3-4 | Isolate test app instances (`create_app()` fixtures) | — | No `Table already defined` in full suite | P1 |
 | 4-5 | Add smoke test for production app imports | — | `tests/smoke/test_imports.py` passes in CI | P1 |
 | 4-5 | Separate fast suite from full suite in pytest markers | — | `pytest` default runs <2 min; full suite runs in CI | P1 |
+| 4-5 | Consolidate coordinator DB setup (pick one canonical boundary) | — | Only one engine/session module imported across codebase | P1 |
+| 5 | Fix mutable defaults in Pydantic/SQLModel models | — | Ruff or custom check catches `default={}` / `default=[]` | P1 |
+| 5 | Use timezone-aware timestamps (`datetime.now(UTC)`) in core libs | — | Zero naive `datetime.now()` in `aitbc/` and `apps/` | P1 |
 
-### Phase 3: API Design & Security Hardening (Week 3)
+### Phase 3: API Design, Async Runtime & Security Hardening (Week 3)
 
 | Day | Task | Owner | Verification | Priority |
 |-----|------|-------|--------------|----------|
@@ -354,6 +529,9 @@ This release targets **production safety, CI enforcement, and codebase integrity
 | 2-3 | Disable `/docs`, `/redoc`, `/_debug/routes` in production | — | Prod config returns 404 on docs; dev config serves them | P1 |
 | 3-4 | Replace broad `except Exception` around optional routers | — | ImportErrors logged at INFO; unexpected errors fail in strict mode | P1 |
 | 4-5 | Replace MD5 with SHA256 in cache keys; re-run Bandit | — | Bandit B303 (MD5) no longer flagged | P1 |
+| 4-5 | Add lifecycle management for fire-and-forget async tasks | — | `TaskRegistry` tracks all background tasks; clean shutdown | P1 |
+| 5 | Audit and replace blocking calls in async services | — | `requests` → `httpx.AsyncClient`; `time.sleep` → `asyncio.sleep` | P1 |
+| 5 | Fix duplicate SQLModel metadata / enforce isolated imports | — | Full test suite collects with zero metadata conflicts | P1 |
 
 ### Phase 4: Tooling, Architecture & Hygiene (Week 4)
 
@@ -366,6 +544,8 @@ This release targets **production safety, CI enforcement, and codebase integrity
 | 4-5 | Treat `mutants/` as generated output (`.gitignore` or move) | — | `git ls-files mutants/ | wc -l` == 0 | P2 |
 | 4-5 | Untrack `cli/.pytest_cache/` and packaged `.whl` artifacts | — | `git ls-files | grep -E "(\.pytest_cache|\.whl)$"` == 0 | P2 |
 | 4-5 | Write `docs/development/DEPENDENCIES.md` source-of-truth doc | — | Dev and CI use the same install path and lockfile | P2 |
+| 4-5 | Migrate Pydantic v1 `class Config:` to v2 `ConfigDict` | — | Zero `class Config:` deprecation warnings in coordinator-api | P2 |
+| 5 | Remove `sys.path.insert` and hardcoded paths from runtime wrappers | — | Wrappers use env vars or installed entry points | P2 |
 
 ---
 
@@ -387,6 +567,12 @@ This release targets **production safety, CI enforcement, and codebase integrity
 - [ ] No default secrets outside test contexts
 - [ ] MD5 removed from cache-key generation
 - [ ] Smoke test for app imports passes in CI
+- [ ] Float money fields replaced with `Decimal` (no `float` for tokens)
+- [ ] API 500 responses sanitized (no internal exception details to client)
+- [ ] Timezone-aware timestamps in core libraries (zero naive `datetime.now()`)
+- [ ] Mutable defaults fixed in Pydantic/SQLModel models
+- [ ] Coordinator DB setup consolidated (single canonical boundary)
+- [ ] Blocking calls removed from async service paths
 
 ### Stretch Goals
 - [ ] Full `mypy aitbc/` passes with 0 errors (may be v0.4.27)
@@ -396,6 +582,8 @@ This release targets **production safety, CI enforcement, and codebase integrity
 - [ ] Monolithic modules split (market.py, wallet.py, router.py, caching.py)
 - [ ] `mutants/` moved out of tracked source tree
 - [ ] Zero hardcoded `/opt/aitbc` paths in source code
+- [ ] Pydantic v1 `class Config:` fully migrated to v2 `ConfigDict`
+- [ ] Full test suite collects without SQLModel metadata conflicts
 
 ---
 
@@ -412,6 +600,11 @@ This release targets **production safety, CI enforcement, and codebase integrity
 | Disabling docs in production breaks API consumers | Low | Medium | Announce change; provide static OpenAPI JSON export as replacement |
 | Removing default secrets breaks unconfigured dev environments | Medium | Low | Add `scripts/setup_dev_secrets.py` that generates random local secrets |
 | Module split breaks existing imports | Medium | Medium | Keep re-export aliases in old modules during deprecation window |
+| Decimal migration breaks serialization | Medium | High | Add comprehensive regression tests for token math before merge |
+| Sanitizing 500s hides debugging info | Low | Medium | Ensure server-side logs retain full tracebacks with request IDs |
+| Async task registry crashes on shutdown | Low | Medium | Graceful cancellation with timeout; log failures but do not hang |
+| Timezone-aware timestamps break SQLite queries | Low | Medium | Test timestamp comparison logic in SQLite/PostgreSQL after migration |
+| Consolidating DB modules breaks app startup | Medium | High | Run coordinator-api integration tests before and after consolidation |
 
 ---
 
@@ -419,6 +612,8 @@ This release targets **production safety, CI enforcement, and codebase integrity
 - Python 3.13.5 (locked)
 - `trufflehog` or `detect-secrets` for secret scanning
 - `pytest-cov` if keeping coverage in `addopts`, otherwise remove it
+- `httpx` for async HTTP client migration (Goal 28)
+- `bandit` >= 1.7.7 for B303 (MD5) and B105 (hardcoded secrets) detection
 
 ---
 
