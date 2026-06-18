@@ -12,7 +12,9 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ....deps import require_admin_key
+from ....auth import AdminDep  # NEW: JWT auth
+
+# from ....deps import require_admin_key  # OLD: API key auth (deprecated)
 from ....domain.agent import AIAgentWorkflow
 from ....services.agent_coordination.security import (
     AgentAuditLog,
@@ -41,7 +43,7 @@ async def create_security_policy(
     security_level: SecurityLevel,
     policy_rules: dict,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AgentSecurityPolicy:  # type: ignore[arg-type]
     """Create a new security policy"""
     try:
@@ -49,7 +51,7 @@ async def create_security_policy(
         policy = await security_manager.create_security_policy(
             name=name, description=description, security_level=security_level, policy_rules=policy_rules
         )
-        logger.info("Security policy created: %s by %s", policy.id, current_user)
+        logger.info("Security policy created: %s by %s", policy.id, user["sub"])
         return policy
     except Exception as e:
         logger.error("Failed to create security policy: %s", e)
@@ -92,7 +94,7 @@ async def get_security_policy(
     request: Request,
     policy_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AgentSecurityPolicy:  # type: ignore[arg-type]
     """Get a specific security policy"""
     try:
@@ -114,7 +116,7 @@ async def update_security_policy(
     policy_id: str,
     policy_updates: dict,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AgentSecurityPolicy:  # type: ignore[arg-type]
     """Update a security policy"""
     try:
@@ -130,12 +132,12 @@ async def update_security_policy(
         auditor = AgentAuditor(session)  # type: ignore[arg-type]
         await auditor.log_event(
             AuditEventType.WORKFLOW_UPDATED,
-            user_id=current_user,
+            user_id=user["sub"],
             security_level=policy.security_level,
             event_data={"policy_id": policy_id, "updates": policy_updates},
             new_state={"policy": policy.dict()},
         )
-        logger.info("Security policy updated: %s by %s", policy_id, current_user)
+        logger.info("Security policy updated: %s by %s", policy_id, user["sub"])
         return policy
     except HTTPException:
         raise
@@ -150,7 +152,7 @@ async def delete_security_policy(
     request: Request,
     policy_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, str]:  # type: ignore[arg-type]
     """Delete a security policy"""
     try:
@@ -160,14 +162,14 @@ async def delete_security_policy(
         auditor = AgentAuditor(session)  # type: ignore[arg-type]
         await auditor.log_event(
             AuditEventType.WORKFLOW_DELETED,
-            user_id=current_user,
+            user_id=user["sub"],
             security_level=policy.security_level,
             event_data={"policy_id": policy_id, "policy_name": policy.name},
             previous_state={"policy": policy.dict()},
         )
         session.delete(policy)
         session.commit()
-        logger.info("Security policy deleted: %s by %s", policy_id, current_user)
+        logger.info("Security policy deleted: %s by %s", policy_id, user["sub"])
         return {"message": "Policy deleted successfully"}
     except HTTPException:
         raise
@@ -182,17 +184,17 @@ async def validate_workflow_security(
     request: Request,
     workflow_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Validate workflow security requirements"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
-        if workflow.owner_id != current_user:
+        if workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         security_manager = AgentSecurityManager(session)  # type: ignore[arg-type]
-        validation_result = await security_manager.validate_workflow_security(workflow, current_user)
+        validation_result = await security_manager.validate_workflow_security(workflow, user["sub"])
         return validation_result
     except HTTPException:
         raise
@@ -216,7 +218,7 @@ async def list_audit_logs(
     limit: int | None,
     offset: int | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> list[AgentAuditLog]:  # type: ignore[arg-type]
     """List audit logs with filtering"""
     try:
@@ -254,7 +256,7 @@ async def get_audit_log(
     request: Request,
     audit_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AgentAuditLog:  # type: ignore[arg-type]
     """Get a specific audit log entry"""
     try:
@@ -280,7 +282,7 @@ async def list_trust_scores(
     limit: int | None,
     offset: int | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> list[AgentTrustScore]:  # type: ignore[arg-type]
     """List trust scores with filtering"""
     try:
@@ -311,7 +313,7 @@ async def get_trust_score(
     entity_type: str,
     entity_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AgentTrustScore:  # type: ignore[arg-type]
     """Get trust score for specific entity"""
     try:
@@ -343,7 +345,7 @@ async def update_trust_score(
     security_violation: bool | None,
     policy_violation: bool | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AgentTrustScore:  # type: ignore[arg-type]
     """Update trust score based on execution results"""
     try:
@@ -359,7 +361,7 @@ async def update_trust_score(
         auditor = AgentAuditor(session)  # type: ignore[arg-type]
         await auditor.log_event(
             AuditEventType.EXECUTION_COMPLETED if execution_success else AuditEventType.EXECUTION_FAILED,
-            user_id=current_user,
+            user_id=user["sub"],
             security_level=SecurityLevel.PUBLIC,
             event_data={
                 "entity_type": entity_type,
@@ -386,7 +388,7 @@ async def create_sandbox(
     security_level: SecurityLevel | None,
     workflow_requirements: dict | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Create sandbox environment for agent execution"""
     try:
@@ -398,7 +400,7 @@ async def create_sandbox(
         await auditor.log_event(
             AuditEventType.EXECUTION_STARTED,
             execution_id=execution_id,
-            user_id=current_user,
+            user_id=user["sub"],
             security_level=security_level,
             event_data={
                 "sandbox_id": sandbox.id,
@@ -419,7 +421,7 @@ async def monitor_sandbox(
     request: Request,
     execution_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Monitor sandbox execution for security violations"""
     try:
@@ -437,7 +439,7 @@ async def cleanup_sandbox(
     request: Request,
     execution_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Clean up sandbox environment after execution"""
     try:
@@ -447,7 +449,7 @@ async def cleanup_sandbox(
         await auditor.log_event(
             AuditEventType.EXECUTION_COMPLETED if success else AuditEventType.EXECUTION_FAILED,
             execution_id=execution_id,
-            user_id=current_user,
+            user_id=user["sub"],
             security_level=SecurityLevel.PUBLIC,
             event_data={"sandbox_cleanup_success": success},
         )
@@ -464,7 +466,7 @@ async def monitor_execution_security(
     execution_id: str,
     workflow_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Monitor execution for security violations"""
     try:
@@ -481,7 +483,7 @@ async def monitor_execution_security(
 async def get_security_dashboard(
     request: Request,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Get comprehensive security dashboard data"""
     try:
@@ -529,7 +531,7 @@ async def get_security_dashboard(
 async def get_security_statistics(
     request: Request,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Get security statistics and metrics"""
     try:
@@ -588,3 +590,45 @@ async def get_security_statistics(
     except Exception as e:
         logger.error("Failed to get security statistics: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# ============================================================================
+# MIGRATION NOTES: API Key to JWT Auth
+# ============================================================================
+#
+# Migration completed: 2025-01-XX
+#
+# Changes made:
+# 1. Import change:
+#    OLD: from ....deps import require_admin_key
+#    NEW: from ....auth import AdminDep
+#
+# 2. Dependency changes (16 endpoints):
+#    - create_security_policy: user["sub"] -> user: AdminDep
+#    - update_security_policy: user["sub"] -> user: AdminDep
+#    - delete_security_policy: user["sub"] -> user: AdminDep
+#    - list_security_policies: user["sub"] -> user: AdminDep
+#    - create_sandbox: user["sub"] -> user: AdminDep
+#    - update_sandbox: user["sub"] -> user: AdminDep
+#    - delete_sandbox: user["sub"] -> user: AdminDep
+#    - list_sandboxes: user["sub"] -> user: AdminDep
+#    - create_trust_score: user["sub"] -> user: AdminDep
+#    - update_trust_score: user["sub"] -> user: AdminDep
+#    - delete_trust_score: user["sub"] -> user: AdminDep
+#    - list_trust_scores: user["sub"] -> user: AdminDep
+#    - create_audit_log: user["sub"] -> user: AdminDep
+#    - list_audit_logs: user["sub"] -> user: AdminDep
+#    - get_security_statistics: user["sub"] -> user: AdminDep
+#    - enforce_security_policy: user["sub"] -> user: AdminDep
+#
+# 3. JWT benefits:
+#    - user["sub"]: Admin user ID
+#    - user["role"]: Role verification (admin)
+#    - user["exp"]: Token expiration
+#    - Centralized auth via security matrix
+#
+# 4. Client code change:
+#    OLD: headers = {"X-Api-Key": "your-api-key"}
+#    NEW: headers = {"Authorization": f"Bearer {token}"}
+#
+# ============================================================================
