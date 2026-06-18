@@ -17,7 +17,6 @@ jobs:
           python-version: '3.13'
       - run: pip install ruff
       - run: ruff check .
-        continue-on-error: true
 
   format:
     name: Format Check
@@ -29,7 +28,6 @@ jobs:
           python-version: '3.13'
       - run: pip install black
       - run: black --check .
-        continue-on-error: true
 
   typecheck:
     name: Type Check
@@ -41,7 +39,6 @@ jobs:
           python-version: '3.13'
       - run: pip install mypy
       - run: mypy aitbc/ cli/ --ignore-missing-imports
-        continue-on-error: true
 
   test:
     name: Test
@@ -53,7 +50,6 @@ jobs:
           python-version: '3.13'
       - run: pip install pytest pytest-cov
       - run: pytest --cov=aitbc --cov-report=xml -x
-        continue-on-error: true
 
   security:
     name: Security Scan
@@ -75,14 +71,12 @@ jobs:
             echo "Potential secrets found in code"
             exit 1
           fi
-        continue-on-error: true
       - name: Check for hardcoded mock values
         run: |
           if git grep '"mock_rpc_url"\|"mock_private_key"' -- '*.py'; then
             echo "Hardcoded mock RPC/private key values found in code"
             exit 1
           fi
-        continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
