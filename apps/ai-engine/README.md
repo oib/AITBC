@@ -20,6 +20,10 @@ island, hub
 
 4 systemd service(s): aitbc-ai.service, aitbc-learning.service, aitbc-modality-optimization.service, aitbc-multimodal.service
 
+## Core Service
+
+no
+
 ## Source
 
 `src/` directory with 2 Python file(s)
