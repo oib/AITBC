@@ -7,8 +7,10 @@ from pathlib import Path
 
 import psycopg2  # type: ignore
 
+from aitbc.constants import DATA_DIR
+
 # Database configurations
-SQLITE_DB = "data/wallet_ledger.db"
+SQLITE_DB = str(DATA_DIR / "data" / "wallet_ledger.db")
 PG_CONFIG = {"host": "localhost", "database": "aitbc_wallet", "user": "aitbc_user", "password": "aitbc_password", "port": 5432}
 
 
