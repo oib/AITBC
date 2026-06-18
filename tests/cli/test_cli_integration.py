@@ -89,6 +89,7 @@ def mock_config():
     mock_cfg.app_name = "AITBC CLI"
     mock_cfg.app_version = "2.1.0"
     mock_cfg.config_file = None
+    mock_cfg.jwt_secret = "test-jwt-secret-change-in-production"
 
     orig_get_config = config_module.get_config
     config_module.get_config = lambda *a, **k: mock_cfg
