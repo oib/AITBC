@@ -538,16 +538,6 @@ def create_app() -> FastAPI:
         )
         return JSONResponse(status_code=422, content=error_response.model_dump())
 
-    @app.get("/health", tags=["health"], summary="Root health endpoint for CLI compatibility")
-    async def root_health() -> dict[str, str]:
-        import sys
-
-        return {
-            "status": "ok",
-            "env": settings.environment,
-            "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-        }
-
     @app.get("/health", tags=["health"], summary="Service healthcheck")
     async def health() -> dict[str, str]:
         import sys
