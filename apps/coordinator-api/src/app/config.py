@@ -149,6 +149,12 @@ class Settings(BaseAITBCConfig):
     test_mode: bool = Field(default=False, description="Test mode")
     test_database_url: str | None = None
 
+    # Feature Flags
+    debug: bool = Field(default=False, description="Debug mode for development features")
+    enable_mock_training: bool = Field(default=False, description="Enable mock training endpoints")
+    enable_mock_hermes: bool = Field(default=False, description="Enable mock Hermes endpoints")
+    enable_mock_swarm: bool = Field(default=False, description="Enable mock swarm endpoints")
+
     def get_effective_database_url(self) -> str:
         """Get the effective database URL with test mode support."""
         # Use test database if in test mode and test_database_url is set

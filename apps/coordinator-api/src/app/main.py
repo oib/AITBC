@@ -184,12 +184,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     limiter = Limiter(key_func=get_remote_address)
+    
+    # Disable docs and redoc in production
+    docs_url = "/docs" if settings.debug else None
+    redoc_url = "/redoc" if settings.debug else None
+    
     app = FastAPI(
         title="AITBC Coordinator API",
         description="API for coordinating AI training jobs and blockchain operations",
         version="1.0.0",
-        docs_url="/docs",
-        redoc_url="/redoc",
+        docs_url=docs_url,
+        redoc_url=redoc_url,
         lifespan=lifespan,
         openapi_components={"securitySchemes": {"ApiKeyAuth": {"type": "apiKey", "in": "header", "name": "X-Api-Key"}}},
         openapi_tags=[
@@ -572,12 +577,19 @@ def create_app() -> FastAPI:
 
 app = create_app()
 
+# Only register debug routes in debug mode
+if settings.debug:
+    @app.get("/_debug/routes", include_in_schema=False)
+    async def debug_routes() -> dict[str, list[dict[str, Any]]]:
+        routes: list[dict[str, Any]] = []
+        for route in app.routes:
+            if hasattr(route, "path"):
+                methods: set[str] = getattr(route, "methods", set())
+                routes.append({"path": route.path, "methods": sorted(methods)})
+        return {"routes": sorted(routes, key=lambda r: r["path"])}
 
-@app.get("/_debug/routes", include_in_schema=False)
-async def debug_routes() -> dict[str, list[dict[str, Any]]]:
-    routes: list[dict[str, Any]] = []
+# Startup assertion: fail if debug routes are mounted in production
+if not settings.debug:
     for route in app.routes:
-        if hasattr(route, "path"):
-            methods: set[str] = getattr(route, "methods", set())
-            routes.append({"path": route.path, "methods": sorted(methods)})
-    return {"routes": sorted(routes, key=lambda r: r["path"])}
+        if hasattr(route, "path") and route.path.startswith("/_debug"):
+            raise RuntimeError(f"Debug route {route.path} mounted in production environment")
