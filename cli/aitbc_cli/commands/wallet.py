@@ -151,7 +151,7 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
     from ..utils.chain_id import get_chain_id
 
     config = get_config()
-    default_rpc_url = config.blockchain_rpc_url if hasattr(config, "blockchain_rpc_url") else "http://localhost:8006"
+    default_rpc_url = config.blockchain_rpc_url if hasattr(config, "blockchain_rpc_url") else "http://localhost:8202"
     ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
 
     # Initialize dual-mode adapter
@@ -730,7 +730,7 @@ def send(ctx, to_address: str, amount: float, fee: float, password: str | None, 
         from ..config import get_config
 
         config = get_config()
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
         # Use hub RPC for cross-node transaction propagation
         rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
@@ -902,7 +902,8 @@ def stake(ctx, amount: float, duration: int):
     from ..config import get_config
 
     config = get_config()
-    rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+    rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
+    # Use hub RPC for cross-node transaction propagation
     rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
     # Get chain_id
@@ -968,7 +969,8 @@ def unstake(ctx, stake_id: str):
     from ..config import get_config
 
     config = get_config()
-    rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+    rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
+    # Use hub RPC for cross-node transaction propagation
     rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
     # Get chain_id
@@ -1027,7 +1029,8 @@ def staking_info(ctx):
     from ..config import get_config
 
     config = get_config()
-    rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+    rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
+    # Use hub RPC for cross-node transaction propagation
     rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
     # Get chain_id
@@ -1466,7 +1469,7 @@ def fund(ctx, address: str, amount: int, chain_id: str):
     from ..utils.chain_id import get_chain_id
 
     config = get_config()
-    rpc_url = config.blockchain_rpc_url if hasattr(config, "blockchain_rpc_url") else "http://localhost:8006"
+    rpc_url = config.blockchain_rpc_url if hasattr(config, "blockchain_rpc_url") else "http://localhost:8202"
 
     # Get chain_id
     if not chain_id:

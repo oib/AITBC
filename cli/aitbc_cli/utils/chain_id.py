@@ -31,7 +31,7 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
     """Auto-detect chain ID from blockchain node's /health endpoint.
 
     Args:
-        rpc_url: The blockchain node RPC URL (e.g., http://localhost:8006)
+        rpc_url: The blockchain node RPC URL (e.g., http://localhost:8202)
         timeout: Request timeout in seconds
 
     Returns:

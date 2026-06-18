@@ -483,7 +483,8 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
+        # Use hub RPC for cross-node transaction propagation
         rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
         # Get chain_id
@@ -545,7 +546,8 @@ def proposal(ctx, proposal_id: str, title: str, description: str, category: str,
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
+        # Use hub RPC for cross-node transaction propagation
         rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
         # Get chain_id
@@ -610,7 +612,7 @@ def get_proposal(ctx, proposal_id: str, format: str):
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
         rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
         # Get chain_id
