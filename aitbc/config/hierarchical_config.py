@@ -227,6 +227,21 @@ if HAS_PYDANTIC_SETTINGS:
                 raise ValueError(f"Environment must be one of: {valid_environments}")
             return v.lower()
 
+        @field_validator("debug", mode="before")
+        @classmethod
+        def parse_debug(cls, v: bool | str) -> bool:
+            """Parse debug from bool or string (e.g., NODE_ENV values)."""
+            if isinstance(v, bool):
+                return v
+            if isinstance(v, str):
+                v_lower = v.lower()
+                if v_lower in ("release", "production", "prod", "false", "no", "0", "off"):
+                    return False
+                if v_lower in ("development", "dev", "true", "yes", "1", "on"):
+                    return True
+                return False
+            return False
+
         @field_validator("log_level")
         @classmethod
         def validate_log_level(cls, v: str) -> str:
