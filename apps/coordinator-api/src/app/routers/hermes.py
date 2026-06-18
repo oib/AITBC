@@ -8,7 +8,7 @@ Provides:
 - Message status tracking
 """
 
-from __future__ annotations
+from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any
