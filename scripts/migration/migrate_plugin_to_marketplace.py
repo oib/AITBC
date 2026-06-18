@@ -8,7 +8,7 @@ import json
 import os
 import shutil
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Add aitbc to path
@@ -87,8 +87,8 @@ async def migrate_to_database(plugin_data):
                     gpu_offer_id=data.get("gpu_offer_id"),
                     description=data.get("description", ""),
                     status=data.get("status", "active"),
-                    registered_at=datetime.fromisoformat(data.get("registered_at", datetime.utcnow().isoformat())),
-                    updated_at=datetime.fromisoformat(data.get("updated_at", datetime.utcnow().isoformat())),
+                    registered_at=datetime.fromisoformat(data.get("registered_at", datetime.now(UTC).isoformat())),
+                    updated_at=datetime.fromisoformat(data.get("updated_at", datetime.now(UTC).isoformat())),
                 )
 
                 session.add(service)
