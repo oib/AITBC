@@ -17,40 +17,7 @@
     <link rel="alternate" type="application/json" href="/agent/openapi.json" title="AITBC API Specification">
 
     <!-- Structured Data for AI/Agent Crawlers -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "AITBC Blockchain Network",
-      "applicationCategory": "BlockchainApplication",
-      "operatingSystem": "Linux",
-      "programmingLanguage": "Python",
-      "license": "https://github.com/oib/AITBC/blob/main/LICENSE",
-      "codeRepository": "https://github.com/oib/AITBC",
-      "featureList": [
-        "Multi-island blockchain architecture",
-        "Proof-of-Authority consensus",
-        "Agent-first REST API",
-        "Auto-discovery endpoints",
-        "Cross-island communication",
-        "GPU marketplace integration"
-      ],
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
-      },
-      "hasPart": [
-        {
-          "@type": "WebAPI",
-          "name": "AITBC Agent API",
-          "description": "Machine-readable API for autonomous agents",
-          "documentation": "https://aitbc.bubuit.net/agent/openapi.json",
-          "endpointUrl": "https://aitbc.bubuit.net/agent/discovery.json"
-        }
-      ]
-    }
-    </script>
+    <script src="load-structured-data.js"></script>
 </head>
 <body>
     <div class="container">
