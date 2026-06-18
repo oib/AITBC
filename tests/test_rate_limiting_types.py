@@ -16,12 +16,11 @@ from aitbc.rate_limiting import (
     rate_limit,
     reset_rate_limit,
 )
-from aitbc.security_hardening import RateLimiter
 
 
 def test_get_rate_limiter_return_type() -> None:
-    """Test get_rate_limiter returns RateLimiter"""
-    limiter: RateLimiter = get_rate_limiter("test", rate=10, per=60)
+    """Test get_rate_limiter returns rate limiter"""
+    limiter = get_rate_limiter("test", rate=10, per=60)
     assert limiter.rate == 10
 
 

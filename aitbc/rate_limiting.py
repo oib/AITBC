@@ -13,7 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from .aitbc_logging import get_logger
-from .security_hardening import RateLimiter
+from .security import RateLimiter
 
 logger = get_logger(__name__)
 _rate_limiters: dict[str, RateLimiter] = {}
