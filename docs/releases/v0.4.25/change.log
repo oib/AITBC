@@ -506,5 +506,74 @@ pytest tests/unit/test_core.py tests/security/test_security.py tests/core/test_h
 
 ---
 
+## Session: 2026-06-18 — Post-Audit Cleanup
+
+### 19. Fix Inference Router Mock Endpoints — **FIXED**
+**Impact**: `POST /inference/generate`, `GET /inference/models`, `POST /inference/models/{name}/pull`, `GET /inference/health` all returned mock data
+**File**: `apps/coordinator-api/src/app/routers/inference.py`
+**Fix applied**: All four stubbed endpoints now call actual Ollama via httpx
+- `/inference/generate` → `POST /api/generate` with `stream=False`
+- `/inference/models` → `GET /api/tags`, returns model list with details
+- `/inference/models/{name}/pull` → `POST /api/pull`
+- `/inference/health` → Actually pings Ollama (was always `True`)
+**Verification**: Imports verified, streaming and batch endpoints unchanged (already functional)
+
+### 20. Delete plugins/ Directory — **FIXED**
+**Impact**: `plugins/` contained standalone demo scripts that bypassed coordinator-api
+**Deleted**: 6 files (example_plugin.py + ollama/*)
+**Rationale**: Real Ollama integration lives in coordinator-api, gpu_worker, and miner. plugins/example_plugin.py imported `aitbc.plugins` which no longer existed.
+**Commit**: `c0fb6632`
+
+### 21. Remove Dead Legacy aitbc/database.py — **FIXED**
+**Impact**: 647-line monolith shadowed `aitbc/database/` subpackage
+**Deleted**: `aitbc/database.py`
+**Fix**: Added missing `get_top_queries()` to `aitbc/database/monitoring.py`. Updated `tests/core/test_utility_modules.py` to import subpackage normally.
+**Verification**: `tests/test_database.py`, `tests/test_database_optimization.py`, `tests/core/test_utility_modules.py` all pass
+**Commit**: `ba3f444e`
+
+### 22. Replace All datetime.utcnow() → datetime.now(UTC) — **FIXED**
+**Impact**: 52 occurrences across 19 files in `aitbc/` and `apps/`
+**Files**: `aitbc/access_control.py`, `aitbc/aitbc_logging.py`, `aitbc/alerting.py`, `aitbc/log_utils/logging.py`, `apps/coordinator-api/.../hermes/services/*.py`, `apps/hermes/...`, `apps/marketplace/...`, etc.
+**Verification**: `grep -r "datetime.utcnow()" aitbc/ apps/` → 0 remaining
+**Commit**: `6d0c84de`
+
+### 23. Fix Pydantic Debug Config Collection Errors — **FIXED**
+**Impact**: 5 test files failing collection with `ValidationError: debug — Input should be a valid boolean`
+**Root cause**: `NODE_ENV=release` string passed to bool field
+**Fix**: Added `@field_validator("debug", mode="before")` to `aitbc/config/hierarchical_config.py`
+**Files now collecting**: `tests/test_coordinator_api.py`, `test_coordinator_api_extended.py`, `test_coordinator_api_utils.py`, `test_coordinator_api_v1.py`, `cli/test_cli_integration.py`
+**Verification**: 152 tests collected and run (4 pre-existing assertion failures, not collection errors)
+**Commit**: `7dcf5526`
+
+### 24. Update Documentation — **FIXED**
+**Impact**: 57 doc files had stale references to deleted/renamed code
+**Changes**:
+- `docs/apps/plugins/` — **Deleted entire directory** (7 files)
+- `docs/apps/README.md` — Removed Plugins category
+- `docs/README.md` — Removed plugin links section
+- `docs/MASTER_INDEX.md` — Updated plugins entry → "Removed (2026-06-18)"
+- `docs/infrastructure/SYSTEMD_SERVICES.md` — Removed agent-registry.service, updated startup order
+- `docs/development/logging-patterns.md` — Updated service reference
+- `docs/deployment/nginx-setup.md` — Fixed port references, removed agent_registry examples
+- `docs/architecture/REFACTORING_PLANS.md` → `docs/releases/v0.4.26/REFACTORING_PLANS.md`
+**Commit**: `b1a6654c`
+
+### 25. Update Nginx Configs — **FIXED**
+**Repo**: `examples/nginx/nginx-aitbc.conf` — Removed agent_registry upstream and /agent/ locations
+**Production**: `/etc/nginx/sites-available/aitbc` — Same fix applied live
+**Status**: `nginx -t` passed, `nginx -s reload` applied
+**Commit**: `4f098e9a`
+
+### 26. Document Monolithic File Refactoring Plans — **FIXED**
+**File**: `docs/releases/v0.4.26/REFACTORING_PLANS.md` (232 lines)
+**Documents**: 8 files >400 lines with target architecture and migration steps
+- P0: `caching.py` (926 lines) → `cache/` subpackage
+- P0: `network/http_client.py` (654 lines) → `client/`, `circuit_breaker/`, etc.
+- P1: `crypto/security.py`, `security_hardening.py`, `agent_registry/src/registration.py`
+- P2: `training_setup/environment.py`, `testing/testing.py`, `queues/queue_manager.py`
+**Commit**: `4b04e191`
+
+---
+
 ## Next Session Priority (v0.4.25 Week 1)
 *This change log is a living document. Update as development progresses.*
