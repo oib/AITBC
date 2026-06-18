@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -43,7 +43,7 @@ class DecisionService:
             required_approval=proposal.required_approval,
             status=DecisionStatus.PENDING,
             meta_data=json.dumps(proposal.metadata or {}),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )  # type: ignore[arg-type]
         session.add(decision)
         session.commit()
@@ -61,7 +61,7 @@ class DecisionService:
         decision = session.query(DecisionModel).filter_by(id=vote.decision_id).first()
         if not decision:
             return VoteResponse(vote_id="", decision_id=vote.decision_id, status="error", message="Decision not found")
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         deadline = decision.voting_deadline
         if deadline.tzinfo is not None:  # type: ignore[union-attr]
             now = datetime.now(deadline.tzinfo)  # type: ignore[union-attr]
@@ -78,7 +78,7 @@ class DecisionService:
             vote=vote.vote,
             weight=vote.weight,
             reason=vote.reason,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )  # type: ignore[arg-type]
         session.add(vote_record)
         decision.status = DecisionStatus.IN_PROGRESS
@@ -107,7 +107,7 @@ class DecisionService:
         approval_rate = weighted_approve / max(weighted_approve + weighted_reject, 1.0)
         final_decision = None
         concluded_at = None
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         deadline = decision.voting_deadline
         if deadline.tzinfo is not None:  # type: ignore[union-attr]
             now = datetime.now(deadline.tzinfo)  # type: ignore[union-attr]
