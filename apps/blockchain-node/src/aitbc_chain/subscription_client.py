@@ -331,7 +331,7 @@ class SubscriptionClient:
                     "sync_mode": "push",
                 },
             )
-            sync = ChainSync(session_factory=lambda: session_scope(self._chain_id), chain_id=self._chain_id)  # type: ignore[arg-type, return-value]
+            sync = ChainSync(session_factory=lambda chain_id=self._chain_id: session_scope(chain_id), chain_id=self._chain_id)  # type: ignore[arg-type, return-value]
             result = sync.import_block(block_data, transactions=block_data.get("transactions"))
             if result.accepted:
                 logger.info(
