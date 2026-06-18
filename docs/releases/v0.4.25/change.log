@@ -335,8 +335,8 @@ def parse_debug(cls, v: bool | str) -> bool:
 
 | Week | Task | Target | Status |
 |------|------|--------|--------|
-| 3 | Audit all 42 apps for activity | List of active vs inactive apps | ✅ **Done** — 27 apps active, READMEs created |
-| 3 | Archive or mark inactive apps | Reduced maintenance surface | ✅ **Done** — 3 removed (blockchain-rpc, blockchain-sync, plugins) |
+| 3 | Audit all 26 apps for activity | List of active vs inactive apps | ✅ **Done** — 25 active, 1 marked inactive |
+| 3 | Archive or mark inactive apps | Reduced maintenance surface | ✅ **Done** — `peertube-transcoder` marked with DEPRECATED.md; 3 previously removed (blockchain-rpc, blockchain-sync, plugins) |
 | 3 | Remove dead `aitbc/database.py` | Use `database/` subpackage | ✅ **Done** — deleted 647-line legacy file |
 | 4 | Document monolithic file refactoring plans | REFACTORING_PLANS.md | ✅ **Done** — 8 files documented |
 | 4 | Run full test suite with all fixes | ≤10 failures, ≥35% coverage | 📋 In progress |
@@ -357,7 +357,7 @@ def parse_debug(cls, v: bool | str) -> bool:
 ### Stretch Goals
 - [ ] Test coverage ≥40%
 - [x] 0 deprecation warnings from project code (`datetime.utcnow()` eliminated)
-- [ ] Inactive apps identified and archived
+- [x] Inactive apps identified and archived (`peertube-transcoder` marked with DEPRECATED.md)
 - [x] All monolithic files >500 lines have refactoring plans documented → `docs/architecture/REFACTORING_PLANS.md`
 
 ---
@@ -368,7 +368,7 @@ These are acknowledged limitations, not blockers:
 
 1. **Production Integration Tests**: 86 tests require running PostgreSQL/Redis/RabbitMQ. These are out of scope for v0.4.25; will be addressed when test infrastructure is upgraded.
 2. **SQLAlchemy Table Conflicts**: Running the full ~4,700 test suite together causes SQLAlchemy metadata conflicts. This requires test isolation work that's better addressed with a dedicated test infrastructure release.
-3. **42 Apps Directory**: Many apps are likely experimental. Full audit is P2 for v0.4.25; deep cleanup may be v0.4.26.
+3. **Apps Directory Audit**: 26 apps audited. 1 inactive app (`peertube-transcoder`) marked with DEPRECATED.md. 25 apps confirmed active or experimental-but-integrated.
 
 ---
 
