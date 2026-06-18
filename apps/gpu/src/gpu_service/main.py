@@ -295,23 +295,24 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
             if provider_address:
                 try:
                     blockchain_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
-                    import requests
+                    import httpx
 
-                    account_info = requests.get(f"{blockchain_url}/rpc/account/{provider_address}", timeout=30).json()
-                    correct_nonce = account_info.get("nonce", 0) if isinstance(account_info, dict) else 0
-                    blockchain_tx["nonce"] = correct_nonce
-                    logger.info("Using nonce %s for address %s", correct_nonce, provider_address)
-                    response = requests.post(
-                        f"{blockchain_url}/rpc/transaction",
-                        json=blockchain_tx,
-                        headers={"Content-Type": "application/json"},
-                        timeout=30,
-                    )
-                    response.raise_for_status()
-                    result = response.json()
-                    blockchain_tx_hash = result.get("transaction_hash")
-                    if blockchain_tx_hash:
-                        logger.info("GPU registered on blockchain: %s", blockchain_tx_hash)
+                    async with httpx.AsyncClient(timeout=30) as client:
+                        account_info_response = await client.get(f"{blockchain_url}/rpc/account/{provider_address}")
+                        account_info = account_info_response.json()
+                        correct_nonce = account_info.get("nonce", 0) if isinstance(account_info, dict) else 0
+                        blockchain_tx["nonce"] = correct_nonce
+                        logger.info("Using nonce %s for address %s", correct_nonce, provider_address)
+                        response = await client.post(
+                            f"{blockchain_url}/rpc/transaction",
+                            json=blockchain_tx,
+                            headers={"Content-Type": "application/json"},
+                        )
+                        response.raise_for_status()
+                        result = response.json()
+                        blockchain_tx_hash = result.get("transaction_hash")
+                        if blockchain_tx_hash:
+                            logger.info("GPU registered on blockchain: %s", blockchain_tx_hash)
                 except Exception as blockchain_error:
                     logger.warning("Blockchain submission failed, falling back to local storage: %s", blockchain_error)
                     logger.warning("Error type: %s", type(blockchain_error))

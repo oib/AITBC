@@ -9,7 +9,7 @@ from aitbc.rate_limiting import rate_limit
 router = APIRouter(tags=["Monitor"])
 
 
-@router.get("/api/v1/dashboard", response_model=dict[str, Any])
+@router.get("/dashboard", response_model=dict[str, Any])
 @rate_limit(rate=100, per=60)
 async def get_dashboard(request: Request) -> dict[str, Any]:
     """Get monitoring dashboard data."""

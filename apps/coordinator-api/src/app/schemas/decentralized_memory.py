@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..domain.decentralized_memory import MemoryType, StorageStatus
 
@@ -22,8 +22,7 @@ class MemoryNodeResponse(BaseModel):
     metadata: dict[str, str]
     tags: list[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MemoryQueryRequest(BaseModel):

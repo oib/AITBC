@@ -22,7 +22,7 @@ from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/v1/marketplace/performance", tags=["marketplace-performance"])
+router = APIRouter(prefix="/marketplace/performance", tags=["marketplace-performance"])
 gpu_optimizer = MarketplaceGPUOptimizer()
 distributed_coordinator = DistributedProcessingCoordinator()
 cache_optimizer = MarketplaceDataOptimizer()

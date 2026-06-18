@@ -120,7 +120,11 @@ class ZKProofService:
             if not self.enabled:
                 return {"verified": False, "error": "ZK proof service not enabled"}
             if test_mode:
-                logger.info("Test mode enabled: accepting mock proof without cryptographic verification")
+                logger.warning("Test mode enabled: accepting mock proof without cryptographic verification - THIS IS INSECURE")
+                # Fail closed in production: only allow test_mode in non-production environments
+                from ..config import settings
+                if settings.environment == "production":
+                    return {"verified": False, "error": "Test mode not allowed in production"}
                 return {"verified": True, "computation_correct": True, "privacy_preserved": True, "test_mode": True}
             if verification_key:
                 vkey = verification_key

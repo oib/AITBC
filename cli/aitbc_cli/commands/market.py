@@ -112,7 +112,7 @@ def get_wallet_address() -> str:
 def get_account_nonce(address: str, chain_id: str) -> int:
     """Query blockchain for current account nonce"""
     try:
-        from aitbc.network.http_client import AITBCHTTPClient
+        from aitbc.network import AITBCHTTPClient
 
         config = get_config()
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
