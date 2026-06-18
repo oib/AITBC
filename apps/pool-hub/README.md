@@ -1,9 +1,28 @@
-# Pool Hub
+# pool-hub
 
-**Documentation has moved to:** [docs/apps/marketplace/pool-hub.md](../../docs/apps/marketplace/pool-hub.md)
+## Status
+
+**active**
+
+## Description
+
+Mining pool hub for aggregating miner contributions and distributing rewards. Manages pool configuration, worker tracking, and payout scheduling.
+
+## Node Type
+
+hub
+
+## GPU Required
+
+no
+
+## Service
+
+No systemd service file
+
+## Source
+
+`src/` directory with 37 Python file(s)
 
 ---
-
-This file has been migrated to the central documentation location. Please update your bookmarks and references to point to the new location.
-
-For the complete documentation, see the [Pool Hub documentation](../../docs/apps/marketplace/pool-hub.md).
+*Last updated: 2026-06-17*
