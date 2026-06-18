@@ -86,10 +86,10 @@ async def create_enhanced_wallet(
 async def get_wallet_balance(
     request: Request,
     wallet_address: str,
-    chain_id: int | None,
-    token_address: str | None,
-    rpc_url: str | None = None,
     session: Annotated[Session, Depends(get_session)],
+    chain_id: int | None = None,
+    token_address: str | None = None,
+    rpc_url: str | None = None,
 ) -> dict[str, Any]:
     """Get wallet balance with multi-token support"""
     try:
@@ -109,15 +109,15 @@ async def get_wallet_balance(
 async def execute_wallet_transaction(
     request: Request,
     wallet_address: str,
-    chain_id: int,
     to_address: str,
     amount: float,
-    token_address: str | None,
-    data: dict[str, Any] | None,
-    gas_limit: int | None,
-    gas_price: int | None,
-    rpc_url: str | None = None,
     session: Annotated[Session, Depends(get_session)],
+    chain_id: int = None,
+    token_address: str | None = None,
+    data: dict[str, Any] | None = None,
+    gas_limit: int | None = None,
+    gas_price: int | None = None,
+    rpc_url: str | None = None,
 ) -> dict[str, Any]:
     """Execute a transaction from wallet"""
     try:
@@ -145,13 +145,13 @@ async def execute_wallet_transaction(
 async def get_wallet_transaction_history(
     request: Request,
     wallet_address: str,
-    chain_id: int,
-    limit: int | None,
-    offset: int | None,
-    from_block: int | None,
-    to_block: int | None,
-    rpc_url: str | None = None,
     session: Annotated[Session, Depends(get_session)],
+    chain_id: int = None,
+    limit: int | None = None,
+    offset: int | None = None,
+    from_block: int | None = None,
+    to_block: int | None = None,
+    rpc_url: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get wallet transaction history"""
     try:
@@ -169,7 +169,13 @@ async def get_wallet_transaction_history(
 @router.post("/wallets/{wallet_address}/sign", response_model=dict[str, Any])
 @rate_limit(rate=50, per=60)
 async def sign_message(
-    request: Request, wallet_address: str, chain_id: int, message: str, private_key: str | None = None, rpc_url: str | None = None, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    wallet_address: str,
+    message: str,
+    session: Annotated[Session, Depends(get_session)],
+    chain_id: int = None,
+    private_key: str | None = None,
+    rpc_url: str | None = None,
 ) -> dict[str, Any]:
     """Sign a message with wallet"""
     try:
@@ -191,9 +197,9 @@ async def verify_signature(
     message: str,
     signature: str,
     address: str,
-    chain_id: int,
-    rpc_url: str | None = None,
     session: Annotated[Session, Depends(get_session)],
+    chain_id: int = None,
+    rpc_url: str | None = None,
 ) -> dict[str, Any]:
     """Verify a message signature"""
     try:
@@ -217,15 +223,15 @@ async def verify_signature(
 async def create_bridge_request(
     request: Request,
     user_address: str,
-    source_chain_id: int,
-    target_chain_id: int,
-    amount: float,
-    token_address: str | None,
-    target_address: str | None,
-    protocol: BridgeProtocol | None,
-    security_level: BridgeSecurityLevel | None,
-    deadline_minutes: int | None,
     session: Annotated[Session, Depends(get_session)],
+    source_chain_id: int = None,
+    target_chain_id: int = None,
+    amount: float = None,
+    token_address: str | None = None,
+    target_address: str | None = None,
+    protocol: BridgeProtocol | None = None,
+    security_level: BridgeSecurityLevel | None = None,
+    deadline_minutes: int | None = None,
 ) -> dict[str, Any]:
     """Create a cross-chain bridge request"""
     try:
