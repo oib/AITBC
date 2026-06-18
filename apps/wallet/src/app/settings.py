@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
 
 from aitbc.constants import DATA_DIR
@@ -32,9 +33,16 @@ class Settings(BaseSettings):
             raise ValueError("COORDINATOR_API_KEY must be set to a valid value and cannot be a template placeholder")
         return v
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    @field_validator("blockchain_rpc_url")
+    @classmethod
+    def validate_blockchain_rpc_url(cls, v: str) -> str:
+        if "localhost" in v or "127.0.0.1" in v:
+            env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "dev"))
+            if env == "production":
+                raise ValueError("BLOCKCHAIN_RPC_URL cannot be localhost in production")
+        return v
+
+    model_config = ConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
 
 settings = Settings()
