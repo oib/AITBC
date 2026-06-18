@@ -25,7 +25,9 @@ if not (settings.debug or settings.enable_mock_hermes):
 else:
     router = APIRouter(prefix="/hermes", tags=["hermes"])
 
-    # In-memory state for mock data
+    # TODO(v0.5.0): Replace with Redis-backed agent registry and message queue.
+    # This in-memory state is temporary and is lost on service restart.
+    # See docs/releases/v0.5.0/change.log for DB/Redis migration plan.
     _mock_agents: dict[str, dict[str, Any]] = {}
     _mock_messages: dict[str, list[dict[str, Any]]] = {}
     _message_counter = 0

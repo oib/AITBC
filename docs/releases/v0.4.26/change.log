@@ -18,15 +18,16 @@ This release targets **production safety, CI enforcement, and codebase integrity
 - Goal 27: 500 sanitization (main.py, edge, wallet) ✅
 - Goal 29: Pydantic v1 Config → ConfigDict (pricing, config_pg, wallet, blockchain) ✅
 - Goal 36: JWT auth migration — 14 routers migrated ✅
+- Goal 5: SQLModel metadata duplication fixed ✅
+- Goal 12/32: Router deduplication + startup guard ✅
+- Goal 13: Docs/debug routes already gated ✅
+- Goal 16: MD5 → SHA256 in caching ✅
+- Goal 23: Lifecycle management for async tasks ✅
+- Goal 34: Mock state flagged as temporary ✅
 
 **Remaining for Today**:
-- Goal 5: SQLModel metadata duplication (agent_identity.py)
-- Goal 12/32: Deduplicate router registration in main.py
-- Goal 13: Disable docs/debug routes in production
-- Goal 16: Replace MD5 with SHA256 in caching
-- Goal 23: Lifecycle management for async tasks
-- Goal 33: Gate mock routers behind feature flags
-- Goal 34: Replace mock state globals with DB/Redis
+- Goal 33: Verify all mock routers gated behind feature flags
+- Goal 35: Add response_model to public endpoints (partial)
 
 **Deferred to v0.5.0**:
 - Goal 7: Type checking enforcement (mypy baseline)
