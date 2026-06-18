@@ -20,6 +20,10 @@ no
 
 No systemd service file
 
+## Core Service
+
+no
+
 ## Source
 
 Circom circuits with Python compilation scripts
