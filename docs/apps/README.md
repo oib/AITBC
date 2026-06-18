@@ -32,7 +32,6 @@ Complete documentation for all AITBC applications and services.
 - [Marketplace](marketplace/) - Marketplace and pool hub
 - [Wallet](wallet/) - Multi-chain wallet services
 - [Infrastructure](infrastructure/) - Monitoring, load balancing, and infrastructure
-- [Plugins](plugins/) - Plugin system (analytics, marketplace, registry, security)
 - [Crypto](crypto/) - Cryptographic services (zk-circuits)
 - [Compliance](compliance/) - Compliance services
 - [Mining](miner/) - Mining services
