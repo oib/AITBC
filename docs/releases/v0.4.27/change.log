@@ -1,0 +1,107 @@
+# AITBC v0.4.27 Patch Release Plan — Today/Tomorrow
+
+## Overview
+
+v0.4.27 is a **patch release** that delivers the quick wins identified during v0.4.26 but deferred due to scope. These are tasks that can be completed in a single session — no architecture changes, no new infrastructure, just completion of pending work.
+
+**Target Date**: 2025-01-16 (today/tomorrow)
+**Theme**: "Finish What We Started"
+**Scope**: Only quick wins — anything requiring design review goes to v0.5.0
+
+---
+
+## Done Today ✅
+
+### JWT Auth Migration — Remaining High-Risk Routers (Agent A)
+
+| Router | Action | Effort |
+|--------|--------|--------|
+| `routers/admin.py` | Replace `require_admin_key()` with `AdminDep` | ~30 min |
+| `routers/cache_management.py` | Replace `require_admin_key()` with `AdminDep` | ~20 min |
+| `routers/marketplace_enhanced.py` | Replace `require_admin_key()` with `AdminDep` | ~30 min |
+| `routers/marketplace_enhanced_simple.py` | Replace `require_admin_key()` with `AdminDep` | ~20 min |
+| `contexts/payments/routers/payments.py` | Replace `require_admin_key()` with `AdminDep` | ~30 min |
+| `contexts/security/routers/security_router.py` | Replace `require_admin_key()` with `AdminDep` | ~30 min |
+
+**Total**: ~3 hours for all 6 routers. Straightforward refactoring using established pattern.
+
+### Delete deps.py (Agent A)
+
+After all routers are migrated, `deps.py` has zero callers. Delete it.
+
+**Effort**: 5 minutes + verify nothing breaks.
+
+### Shell Scripts — Add ShellCheck to CI (Agent B)
+
+| Script | Issues | Fix |
+|--------|--------|-----|
+| `scripts/service-management/stop-services.sh` | Missing quoting | Add `"$var"` |
+| `scripts/service-management/fix-services.sh` | `cd` without check | Add `|| exit` |
+| `scripts/workflow/*.sh` | Various quoting | Batch fix |
+
+**Effort**: ~1 hour to add ShellCheck to CI and fix all scripts.
+
+### Security — Add detect-secrets to CI (Agent B)
+
+Add `detect-secrets` hook to CI workflow. Scan all commits for secrets.
+
+**Effort**: ~30 min
+
+### Code Quality — Fix Ruff Warnings (Agent B)
+
+Fix remaining ruff warnings in non-excluded files.
+
+**Effort**: ~1 hour
+
+---
+
+## Summary: What Gets Done Today
+
+| Task | Owner | Effort | Status |
+|------|-------|--------|--------|
+| Migrate 6 routers to JWT | Agent A | ~3h | ⏳ Ready to start |
+| Delete deps.py | Agent A | 5m | ⏳ Blocked on routers |
+| ShellCheck in CI | Agent B | ~1h | ⏳ Ready to start |
+| Fix shell scripts | Agent B | ~1h | ⏳ Ready to start |
+| detect-secrets in CI | Agent B | ~30m | ⏳ Ready to start |
+| Fix ruff warnings | Agent B | ~1h | ⏳ Ready to start |
+
+**Total realistic time**: ~6 hours of work, can be parallelized (Agent A + Agent B).
+
+---
+
+## Deferred to v0.5.0 (Not Today)
+
+These items are **intentionally excluded** from v0.4.27 because they require design, testing, or infrastructure:
+
+| Task | Why Deferred |
+|------|-------------|
+| DB/Redis backing for mock state | Requires Redis schema design, migration testing, multi-instance coordination |
+| Systemd hardening | Requires testing on actual systemd systems; can't verify in dev container |
+| Observability (/metrics, Prometheus) | Requires deploying monitoring stack; not a code-only change |
+| Load tests | Requires load testing infrastructure; not a quick fix |
+| Secret rotation policy | Requires Vault/Secrets Manager deployment; ops task |
+| Smart contract mainnet | v1.0.0 only |
+| External security audit | v1.0.0 only |
+
+---
+
+## Acceptance Criteria for v0.4.27
+
+- [ ] Zero `require_*_key()` references in codebase
+- [ ] `deps.py` deleted
+- [ ] ShellCheck passes in CI
+- [ ] `detect-secrets` passes in CI
+- [ ] Ruff clean (zero warnings)
+- [ ] All files compile (`python3 -m py_compile`)
+- [ ] Git commit with all changes
+
+---
+
+## After v0.4.27
+
+Tag v0.4.27, then pick up v0.5.0 for:
+- DB/Redis state backing
+- Systemd hardening
+- Observability
+- Load testing
