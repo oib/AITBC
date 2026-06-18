@@ -41,16 +41,14 @@ jobs:
       - name: Run pip-audit
         run: |
           echo "=== pip-audit Security Scan ==="
-          pip-audit -r requirements.txt --desc || true
-          pip-audit -r requirements.txt --format json --output pip-audit-report.json || true
-        continue-on-error: true
+          pip-audit -r requirements.txt --desc
+          pip-audit -r requirements.txt --format json --output pip-audit-report.json
 
       - name: Run safety check
         run: |
           echo "=== Safety Security Scan ==="
-          safety check --file requirements.txt --json --output safety-report.json || true
-          safety check --file requirements.txt --output safety-report.txt || true
-        continue-on-error: true
+          safety check --file requirements.txt --json --output safety-report.json
+          safety check --file requirements.txt --output safety-report.txt
 
       - name: Upload security reports
         uses: actions/upload-artifact@v4
@@ -154,7 +152,7 @@ jobs:
 
           # Check for security issues in updated dependencies
           echo "=== Security check on updated dependencies ==="
-          safety check --file requirements.txt.new --continue-on-error || true
+          safety check --file requirements.txt.new
 
           # Show changes
           echo "=== Dependency Changes ==="
@@ -178,7 +176,6 @@ jobs:
             echo "No dependency updates needed"
             echo "created=false" >> $GITHUB_OUTPUT
           fi
-        continue-on-error: true
 
       - name: Create Pull Request
         if: steps.create-pr.outputs.created == 'true'
