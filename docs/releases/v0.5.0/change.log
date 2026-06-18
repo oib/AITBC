@@ -1,0 +1,267 @@
+# AITBC v0.5.0 Release Plan — Bridge to Production
+
+## Overview
+
+v0.5.0 completes the deferred work from v0.4.26 and bridges the codebase toward v1.0.0 mainnet readiness. This is the **last feature release before v1.0.0** — after v0.5.0, only mainnet integration and security audit remain.
+
+**Target Date**: Q1 2025
+**Theme**: "Finish the Foundation"
+**Success Criteria**: All v0.4.26 deferred items resolved; codebase passes internal security review.
+
+---
+
+## P0: Complete JWT Auth Migration (Agent A)
+
+### Problem
+6 high-risk routers still use API key auth. These must be migrated before API keys can be removed entirely.
+
+### Remaining Routers
+
+| Router | Current Auth | Target | Status |
+|--------|-------------|--------|--------|
+| `routers/admin.py` | `require_admin_key()` | `AdminDep` | 🔴 Not started |
+| `routers/cache_management.py` | `require_admin_key()` | `AdminDep` | 🔴 Not started |
+| `routers/marketplace_enhanced.py` | `require_admin_key()` | `AdminDep` | 🔴 Not started |
+| `routers/marketplace_enhanced_simple.py` | `require_admin_key()` | `AdminDep` | 🔴 Not started |
+| `contexts/payments/routers/payments.py` | `require_admin_key()` | `AdminDep` | 🔴 Not started |
+| `contexts/security/routers/security_router.py` | `require_admin_key()` | `AdminDep` | 🔴 Not started |
+
+### Acceptance Criteria
+- [ ] All 6 routers migrated to JWT dependencies
+- [ ] No `from ..deps import require_*` in any router
+- [ ] All routes compile and tests pass
+
+---
+
+## P0: Remove Legacy API Key Infrastructure
+
+### Problem
+`deps.py` still exists with deprecated but functional API key validation. For production, it must be deleted entirely.
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Delete `apps/coordinator-api/src/app/deps.py` | 🔴 Blocked | Agent A |
+| Remove `X-Api-Key` header handling from middleware | 🔴 Blocked | TBD |
+| Update all test fixtures to generate JWT tokens | 🔴 Not started | TBD |
+| Update `client_jwt_example.py` to be the canonical auth example | 🔴 Not started | TBD |
+| Remove `APIKeyValidator` class from all contexts | 🔴 Not started | TBD |
+
+### Acceptance Criteria
+- [ ] `deps.py` deleted from repo
+- [ ] No `X-Api-Key` reference anywhere in codebase
+- [ ] All tests use JWT exclusively
+
+---
+
+## P0: DB/Redis Backing for Mock State
+
+### Problem
+Mock routers still use module-global `dict()` for state. This was deferred in v0.4.26. Production requires persistent state.
+
+### Affected Routers
+
+| Router | State Type | Replacement |
+|--------|-----------|-------------|
+| `routers/swarm.py` | `dict` of swarm configs | Redis hash |
+| `routers/training.py` | `dict` of training jobs | Redis sorted set |
+| `routers/hermes.py` | `dict` of message queues | Redis streams |
+| `contexts/marketplace/services/marketplace_service.py` | In-memory offer cache | Redis cache |
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Audit all mock routers for `dict()` state | 🔴 Not started | Agent A |
+| Add Redis models for swarm/training/hermes state | 🔴 Not started | TBD |
+| Add cache invalidation on state mutation | 🔴 Not started | TBD |
+| Ensure `debug=false` disables mock state creation | 🟡 Partial | Agent B |
+
+### Acceptance Criteria
+- [ ] No module-global `dict()` for persistent state
+- [ ] State survives service restart
+- [ ] Multiple coordinator instances share state via Redis
+
+---
+
+## P1: Systemd Hardening
+
+### Problem
+Systemd units were deferred in v0.4.26. Production services need security isolation.
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Audit all `.service` files in `systemd/` | 🔴 Not started | Agent B |
+| Add `PrivateTmp=yes` to all services | 🔴 Not started | Agent B |
+| Add `NoNewPrivileges=yes` to all services | 🔴 Not started | Agent B |
+| Add `ProtectSystem=strict` to all services | 🔴 Not started | Agent B |
+| Add `ProtectHome=yes` to all services | 🔴 Not started | Agent B |
+| Move secrets to `/etc/aitbc/%N.env` | 🔴 Not started | Agent B |
+| Add `WatchdogSec=30` + `NotifyAccess=all` | 🔴 Not started | Agent B |
+| Add `Restart=on-failure`, `RestartSec=5` | 🔴 Not started | Agent B |
+| Create `aitbc` user (non-root) for all services | 🔴 Not started | DevOps |
+
+### Acceptance Criteria
+- [ ] `systemd-analyze security` shows no "unsafe" services
+- [ ] No secrets in `/etc/systemd/system/*.service`
+- [ ] All services run as `aitbc` user
+- [ ] Services auto-restart on crash
+
+---
+
+## P1: Observability Standardization
+
+### Problem
+No centralized monitoring. Each service logs differently. No metrics exported.
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Add `/metrics` endpoint to coordinator API | 🔴 Not started | TBD |
+| Add `/metrics` endpoint to blockchain node | 🔴 Not started | TBD |
+| Add `/metrics` endpoint to marketplace | 🔴 Not started | TBD |
+| Standardize log format to JSON | 🔴 Not started | TBD |
+| Add structured logging (request_id, trace_id) | 🔴 Not started | TBD |
+| Create `docker-compose.monitoring.yml` (Prometheus + Grafana) | 🔴 Not started | DevOps |
+| Add request latency histograms | 🔴 Not started | TBD |
+| Add error rate counters | 🔴 Not started | TBD |
+
+### Acceptance Criteria
+- [ ] All services expose `/metrics` in Prometheus format
+- [ ] Logs are parseable JSON with standard fields
+- [ ] Grafana dashboard shows basic health (up/down, latency, errors)
+
+---
+
+## P1: Secret Management
+
+### Problem
+Secrets are still scattered. Production needs unified management.
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Create `scripts/generate_dev_keys.py` for local ephemeral keys | 🟡 Partial | Agent B |
+| Add `detect-secrets` to CI | 🔴 Not started | TBD |
+| Document secret rotation policy | 🔴 Not started | TBD |
+| Audit all env vars for secret leakage | 🔴 Not started | Agent B |
+| Add secret masking to all loggers | 🔴 Not started | TBD |
+| Create `docs/operations/SECRETS.md` runbook | 🔴 Not started | TBD |
+
+### Acceptance Criteria
+- [ ] `detect-secrets` passes in CI
+- [ ] No plaintext secrets in logs
+- [ ] Local dev auto-generates keys on first run
+- [ ] Secret rotation documented
+
+---
+
+## P1: Performance Baseline
+
+### Problem
+No load tests exist. Unknown capacity limits.
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Add `tests/load/test_coordinator.py` (k6 or locust) | 🔴 Not started | QA |
+| Test job submit endpoint at 100 req/s | 🔴 Not started | QA |
+| Test miner heartbeat at 1000 req/s | 🔴 Not started | QA |
+| Profile DB queries for N+1 issues | 🔴 Not started | Agent A |
+| Add DB connection pool limits | 🔴 Not started | TBD |
+| Document baseline capacity | 🔴 Not started | QA |
+
+### Acceptance Criteria
+- [ ] Load tests run in CI (nightly)
+- [ ] Documented: max RPS per endpoint
+- [ ] DB query count < 10 per API call
+
+---
+
+## P2: Documentation & Tooling
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Add ShellCheck to CI | 🔴 Not started | Agent B |
+| Add shfmt to CI | 🔴 Not started | Agent B |
+| Fix all shell script issues | 🔴 Not started | Agent B |
+| Create `docs/deployment/STAGING.md` | 🔴 Not started | TBD |
+| Update `docs/deployment/DEPENDENCIES.md` | 🟡 Partial | Agent B |
+| Create `scripts/check-production-readiness.py` | 🔴 Not started | TBD |
+
+---
+
+## P2: Code Quality Cleanup
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Fix remaining ruff warnings | 🟡 Partial | Agent B |
+| Fix mypy errors in non-excluded files | 🔴 Not started | TBD |
+| Remove dead code (unused imports, functions) | 🔴 Not started | TBD |
+| Add type hints to all public APIs | 🔴 Not started | TBD |
+
+---
+
+## Blocked on v1.0.0 (Intentionally Deferred)
+
+These items are **explicitly out of scope** for v0.5.0 — they belong in v1.0.0:
+
+- Smart contract mainnet deployment
+- Real ETH gas handling
+- External security audit
+- Multi-provider RPC failover
+- HashiCorp Vault integration
+- OAuth2 / social login
+
+---
+
+## Release Checklist
+
+Before tagging v0.5.0:
+
+- [ ] All JWT migration complete (0 `require_*_key()` references)
+- [ ] `deps.py` deleted
+- [ ] DB/Redis state backing complete (0 module-global `dict()`)
+- [ ] Systemd units hardened
+- [ ] `/metrics` endpoints on all services
+- [ ] `detect-secrets` passes in CI
+- [ ] Load tests run and pass
+- [ ] ShellCheck passes in CI
+- [ ] No P0/P1 security issues in internal review
+- [ ] CHANGELOG.md updated
+
+---
+
+## Risk Assessment
+
+| Risk | Impact | Likelihood | Mitigation |
+|------|--------|-----------|------------|
+| JWT migration breaks existing clients | High | Medium | Deprecation period, client SDK update guide |
+| Redis dependency adds ops complexity | Medium | High | Document Redis setup, add health checks |
+| Systemd hardening breaks dev workflows | Medium | Medium | Keep dev scripts working, only harden systemd units |
+| Load tests reveal fundamental scaling issues | High | Low | Start load tests early in cycle, not at end |
+
+---
+
+## After v0.5.0
+
+Once v0.5.0 is tagged, the path to v1.0.0 is:
+
+1. **Security audit** (external)
+2. **Mainnet contract deployment**
+3. **Final load testing**
+4. **v1.0.0 tag**
+
+---
+
+*This is a living document. Update task status as work progresses.*
