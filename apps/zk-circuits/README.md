@@ -1,9 +1,28 @@
-# ZK Circuits
+# zk-circuits
 
-**Documentation has moved to:** [docs/apps/crypto/zk-circuits.md](../../docs/apps/crypto/zk-circuits.md)
+## Status
+
+**experimental**
+
+## Description
+
+Zero-knowledge proof circuits written in Circom for ML inference verification, training verification, and receipt validation. Includes Groth16 verifier contracts and benchmarking.
+
+## Node Type
+
+hub, island
+
+## GPU Required
+
+no
+
+## Service
+
+No systemd service file
+
+## Source
+
+Circom circuits with Python compilation scripts
 
 ---
-
-This file has been migrated to the central documentation location. Please update your bookmarks and references to point to the new location.
-
-For the complete documentation, see the [ZK Circuits documentation](../../docs/apps/crypto/zk-circuits.md).
+*Last updated: 2026-06-17*

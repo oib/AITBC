@@ -1,9 +1,28 @@
-# Coordinator API
+# coordinator-api
 
-**Documentation has moved to:** [docs/apps/coordinator/coordinator-api.md](../../docs/apps/coordinator/coordinator-api.md)
+## Status
+
+**active**
+
+## Description
+
+Central API coordinator exposing REST endpoints for agents, miners, marketplace, governance, and all core services. Built on FastAPI with SQLAlchemy and Pydantic. The primary integration hub.
+
+## Node Type
+
+hub
+
+## GPU Required
+
+no
+
+## Service
+
+1 systemd service(s): aitbc-coordinator-api.service
+
+## Source
+
+`src/` directory with 508 Python file(s)
 
 ---
-
-This file has been migrated to the central documentation location. Please update your bookmarks and references to point to the new location.
-
-For the complete documentation, see the [Coordinator API documentation](../../docs/apps/coordinator/coordinator-api.md).
+*Last updated: 2026-06-17*
