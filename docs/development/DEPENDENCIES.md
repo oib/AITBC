@@ -88,6 +88,18 @@ Individual apps in `apps/` may have their own `pyproject.toml` files for app-spe
 
 This constraint is enforced in the root `pyproject.toml` and should be mirrored in all app-level `pyproject.toml` files.
 
+## Generating Secondary Files
+
+For backward compatibility, secondary files can be generated from the primary source:
+
+```bash
+# Generate requirements.txt from pyproject.toml
+python scripts/generate_requirements.py
+
+# This is for legacy compatibility only
+# New installations should use pip install -e ".[dev]"
+```
+
 ## Troubleshooting
 
 ### Import Errors in CI
