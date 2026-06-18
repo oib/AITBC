@@ -8,6 +8,8 @@ from typing import Any
 
 import httpx
 
+from aitbc.async_tasks import TaskRegistry
+
 from .config import settings
 from .consensus import PoAProposer, ProposerConfig
 from .database import init_db, session_scope
@@ -97,6 +99,7 @@ class BlockchainNode:
     def __init__(self) -> None:
         self._stop_event = asyncio.Event()
         self._proposers: dict[str, PoAProposer] = {}
+        self._task_registry = TaskRegistry()
 
     @staticmethod
     def _env_value(*names: str) -> str | None:
@@ -162,7 +165,7 @@ class BlockchainNode:
                 except Exception as exc:
                     logger.error("Error processing transaction from gossip: %s", exc)
 
-        asyncio.create_task(process_txs())
+        self._task_registry.create_task(process_txs, name="gossip_process_txs")
         for chain_id in chains:
             try:
                 block_topic = f"blocks.{chain_id}"
@@ -233,7 +236,10 @@ class BlockchainNode:
                         except Exception as exc:
                             logger.error("Error processing block from gossip for chain %s: %s", chain_id_param, exc)
 
-                asyncio.create_task(process_blocks_for_chain(chain_id_param=chain_id, block_sub_param=block_sub))
+                self._task_registry.create_task(
+                    lambda c=chain_id, b=block_sub: process_blocks_for_chain(chain_id_param=c, block_sub_param=b),
+                    name=f"gossip_blocks_{chain_id}",
+                )
             except Exception as e:
                 logger.error("Failed to subscribe to blocks.%s: %s", chain_id, e)
         logger.info("Gossip subscribers setup completed")
@@ -294,12 +300,15 @@ class BlockchainNode:
                 chain_id = self._supported_chains()[0]
                 if hub_url:
                     subscription_client = SubscriptionClient(hub_url, node_id, chain_id)
-                    asyncio.create_task(subscription_client.start())
+                    self._task_registry.create_task(subscription_client.start, name="subscription_client")
                     logger.info("Subscription client started for node %s", node_id)
                 else:
                     logger.warning("Subscription client not started: no hub URL configured")
             if settings.periodic_sync_enabled:
-                asyncio.create_task(self._periodic_sync_task(subscription_client))
+                self._task_registry.create_task(
+                    lambda sc=subscription_client: self._periodic_sync_task(sc),
+                    name="periodic_sync",
+                )
         else:
             logger.warning("Unknown blockchain_mode: %s, defaulting to follower behavior", settings.blockchain_mode)
         await self._setup_gossip_subscribers()
@@ -330,7 +339,7 @@ class BlockchainNode:
 
             proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=lambda chain_id=chain_id: session_scope(chain_id))  # type: ignore[arg-type]
             self._proposers[chain_id] = proposer
-            asyncio.create_task(proposer.start())
+            self._task_registry.create_task(proposer.start, name=f"proposer_{chain_id}")
 
     async def _periodic_sync_task(self, subscription_client: SubscriptionClient | None = None) -> None:
         """Periodic pull sync task for follower nodes. Skips pull when WebSocket push is active, but forces pull if gap grows."""
@@ -411,6 +420,8 @@ class BlockchainNode:
                 continue
 
     async def _shutdown(self) -> None:
+        logger.info("Shutting down blockchain node, cancelling background tasks...")
+        await self._task_registry.cancel_all(timeout=10.0)
         for _chain_id, proposer in list(self._proposers.items()):
             await proposer.stop()
         self._proposers.clear()
