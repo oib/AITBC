@@ -27,7 +27,11 @@ class CacheEntry:
         """Check if cache entry is expired"""
         if self.expires_at is None:
             return False
-        return datetime.now(UTC) > self.expires_at
+        now = datetime.now(UTC)
+        if self.expires_at.tzinfo is None:
+            # Compare naive datetime by treating both as naive
+            return now.replace(tzinfo=None) > self.expires_at
+        return now > self.expires_at
 
     def update_access(self):
         """Update last access time"""
