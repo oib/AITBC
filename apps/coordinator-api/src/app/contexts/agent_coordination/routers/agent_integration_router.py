@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ....deps import require_admin_key
+from ....auth import AdminDep
 from ....domain.agent import AgentExecution, AIAgentWorkflow, VerificationLevel
 from ....services.agent_coordination.integration import (
     AgentDeploymentConfig,
@@ -38,20 +38,20 @@ async def create_deployment_config(
     deployment_name: str,
     deployment_config: dict,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AgentDeploymentConfig:  # type: ignore[arg-type]
     """Create deployment configuration for agent workflow"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
-        if workflow.owner_id != current_user:
+        if workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         deployment_manager = AgentDeploymentManager(session)
         config = await deployment_manager.create_deployment_config(
             workflow_id=workflow_id, deployment_name=deployment_name, deployment_config=deployment_config
         )
-        logger.info("Deployment config created by %s", current_user)
+        logger.info("Deployment config created by %s", user["sub"])
         return config
     except HTTPException:
         raise
@@ -67,7 +67,7 @@ async def list_deployment_configs(
     workflow_id: str | None,
     status: DeploymentStatus | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> list[AgentDeploymentConfig]:  # type: ignore[arg-type]
     """List deployment configurations with filtering"""
     try:
@@ -80,7 +80,7 @@ async def list_deployment_configs(
         user_configs = []
         for config in configs:
             workflow = session.get(AIAgentWorkflow, config.workflow_id)
-            if workflow and workflow.owner_id == current_user:
+            if workflow and workflow.owner_id == user["sub"]:
                 user_configs.append(config)
         return user_configs  # type: ignore[return-value]
     except Exception as e:
@@ -94,7 +94,7 @@ async def get_deployment_config(
     request: Request,
     config_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AgentDeploymentConfig:  # type: ignore[arg-type]
     """Get specific deployment configuration"""
     try:
@@ -102,7 +102,7 @@ async def get_deployment_config(
         if not config:
             raise HTTPException(status_code=404, detail="Deployment config not found")
         workflow = session.get(AIAgentWorkflow, config.workflow_id)
-        if not workflow or workflow.owner_id != current_user:
+        if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         return config
     except HTTPException:
@@ -119,7 +119,7 @@ async def deploy_workflow(
     config_id: str,
     target_environment: str | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Deploy agent workflow to target environment"""
     try:
@@ -127,13 +127,13 @@ async def deploy_workflow(
         if not config:
             raise HTTPException(status_code=404, detail="Deployment config not found")
         workflow = session.get(AIAgentWorkflow, config.workflow_id)
-        if not workflow or workflow.owner_id != current_user:
+        if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         deployment_manager = AgentDeploymentManager(session)
         deployment_result = await deployment_manager.deploy_agent_workflow(
             deployment_config_id=config_id, target_environment=target_environment
         )
-        logger.info("Workflow deployed: %s to %s by %s", config_id, target_environment, current_user)
+        logger.info("Workflow deployed: %s to %s by %s", config_id, target_environment, user["sub"])
         return deployment_result
     except HTTPException:
         raise
@@ -148,7 +148,7 @@ async def get_deployment_health(
     request: Request,
     config_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Get health status of deployment"""
     try:
@@ -156,7 +156,7 @@ async def get_deployment_health(
         if not config:
             raise HTTPException(status_code=404, detail="Deployment config not found")
         workflow = session.get(AIAgentWorkflow, config.workflow_id)
-        if not workflow or workflow.owner_id != current_user:
+        if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         deployment_manager = AgentDeploymentManager(session)
         health_result = await deployment_manager.monitor_deployment_health(config_id)
@@ -175,7 +175,7 @@ async def scale_deployment(
     config_id: str,
     target_instances: int,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Scale deployment to target number of instances"""
     try:
@@ -183,13 +183,13 @@ async def scale_deployment(
         if not config:
             raise HTTPException(status_code=404, detail="Deployment config not found")
         workflow = session.get(AIAgentWorkflow, config.workflow_id)
-        if not workflow or workflow.owner_id != current_user:
+        if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         deployment_manager = AgentDeploymentManager(session)
         scaling_result = await deployment_manager.scale_deployment(
             deployment_config_id=config_id, target_instances=target_instances
         )
-        logger.info("Deployment scaled: %s to %s instances by %s", config_id, target_instances, current_user)
+        logger.info("Deployment scaled: %s to %s instances by %s", config_id, target_instances, user["sub"])
         return scaling_result
     except HTTPException:
         raise
@@ -204,7 +204,7 @@ async def rollback_deployment(
     request: Request,
     config_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Rollback deployment to previous version"""
     try:
@@ -212,11 +212,11 @@ async def rollback_deployment(
         if not config:
             raise HTTPException(status_code=404, detail="Deployment config not found")
         workflow = session.get(AIAgentWorkflow, config.workflow_id)
-        if not workflow or workflow.owner_id != current_user:
+        if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         deployment_manager = AgentDeploymentManager(session)
         rollback_result = await deployment_manager.rollback_deployment(config_id)
-        logger.info("Deployment rolled back: %s by %s", config_id, current_user)
+        logger.info("Deployment rolled back: %s by %s", config_id, user["sub"])
         return rollback_result
     except HTTPException:
         raise
@@ -233,7 +233,7 @@ async def list_deployment_instances(
     environment: str | None,
     status: DeploymentStatus | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> list[AgentDeploymentInstance]:  # type: ignore[arg-type]
     """List deployment instances with filtering"""
     try:
@@ -250,7 +250,7 @@ async def list_deployment_instances(
             config = session.get(AgentDeploymentConfig, instance.deployment_id)
             if config:
                 workflow = session.get(AIAgentWorkflow, config.workflow_id)
-                if workflow and workflow.owner_id == current_user:
+                if workflow and workflow.owner_id == user["sub"]:
                     user_instances.append(instance)
         return user_instances  # type: ignore[return-value]
     except Exception as e:
@@ -264,7 +264,7 @@ async def get_deployment_instance(
     request: Request,
     instance_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AgentDeploymentInstance:  # type: ignore[arg-type]
     """Get specific deployment instance"""
     try:
@@ -275,7 +275,7 @@ async def get_deployment_instance(
         if not config:
             raise HTTPException(status_code=404, detail="Deployment config not found")
         workflow = session.get(AIAgentWorkflow, config.workflow_id)
-        if not workflow or workflow.owner_id != current_user:
+        if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         return instance
     except HTTPException:
@@ -292,7 +292,7 @@ async def integrate_with_zk_system(
     execution_id: str,
     verification_level: VerificationLevel | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Integrate agent execution with ZK proof system"""
     try:
@@ -300,13 +300,13 @@ async def integrate_with_zk_system(
         if not execution:
             raise HTTPException(status_code=404, detail="Execution not found")
         workflow = session.get(AIAgentWorkflow, execution.workflow_id)
-        if not workflow or workflow.owner_id != current_user:
+        if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         integration_manager = AgentIntegrationManager(session)
         integration_result = await integration_manager.integrate_with_zk_system(
             execution_id=execution_id, verification_level=verification_level
         )
-        logger.info("ZK integration completed: %s by %s", execution_id, current_user)
+        logger.info("ZK integration completed: %s by %s", execution_id, user["sub"])
         return integration_result
     except HTTPException:
         raise
@@ -322,7 +322,7 @@ async def get_deployment_metrics(
     deployment_id: str,
     time_range: str | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Get metrics for deployment over time range"""
     try:
@@ -330,7 +330,7 @@ async def get_deployment_metrics(
         if not config:
             raise HTTPException(status_code=404, detail="Deployment config not found")
         workflow = session.get(AIAgentWorkflow, config.workflow_id)
-        if not workflow or workflow.owner_id != current_user:
+        if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         monitoring_manager = AgentMonitoringManager(session)
         metrics = await monitoring_manager.get_deployment_metrics(deployment_config_id=deployment_id, time_range=time_range)
@@ -350,20 +350,20 @@ async def deploy_to_production(
     deployment_config: dict,
     integration_config: dict | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Deploy agent workflow to production with full integration"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
-        if workflow.owner_id != current_user:
+        if workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         production_manager = AgentProductionManager(session)
         production_result = await production_manager.deploy_to_production(
             workflow_id=workflow_id, deployment_config=deployment_config, integration_config=integration_config
         )
-        logger.info("Production deployment completed: %s by %s", workflow_id, current_user)
+        logger.info("Production deployment completed: %s by %s", workflow_id, user["sub"])
         return production_result
     except HTTPException:
         raise
@@ -377,12 +377,12 @@ async def deploy_to_production(
 async def get_production_dashboard(
     request: Request,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Get comprehensive production dashboard data"""
     try:
         user_configs = session.execute(
-            select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == current_user)
+            select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"])
         ).all()
         dashboard_data = {
             "total_deployments": len(user_configs),
@@ -423,12 +423,12 @@ async def get_production_dashboard(
 async def get_production_health(
     request: Request,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Get overall production health status"""
     try:
         user_configs = session.execute(
-            select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == current_user)
+            select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"])
         ).all()
         health_status = {
             "overall_health": "healthy",
@@ -483,7 +483,7 @@ async def get_production_alerts(
     request: Request,
     severity: str | None,
     limit: int | None,
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:
     """Get production alerts and notifications"""
     try:
