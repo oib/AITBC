@@ -29,23 +29,27 @@ class ChainRegistry:
 
     def _load_default_chains(self) -> None:
         """Load default chain configurations"""
-        # AITBC Devnet
-        self.chains["ait-devnet"] = ChainConfig(
-            chain_id="ait-devnet",
-            name="AITBC Development Network",
-            rpc_url="http://localhost:8025",
-            explorer_url="http://localhost:8026",
-            is_testnet=True,
-            native_currency="AITBC",
-        )
+        import os
+        
+        # Load chain from environment
+        chain_id = os.getenv("CHAIN_ID", "")
+        if chain_id:
+            self.chains[chain_id] = ChainConfig(
+                chain_id=chain_id,
+                name="AITBC Network",
+                rpc_url="http://localhost:8202",
+                explorer_url=None,
+                is_testnet=False,
+                native_currency="AITBC",
+            )
 
-        # AITBC Testnet
-        self.chains["ait-testnet"] = ChainConfig(
-            chain_id="ait-testnet",
-            name="AITBC Test Network",
-            rpc_url="http://localhost:8027",
-            explorer_url="http://localhost:8028",
-            is_testnet=True,
+        # AITBC Hub (actual chain on this hub)
+        self.chains["ait-hub.aitbc.bubuit.net"] = ChainConfig(
+            chain_id="ait-hub.aitbc.bubuit.net",
+            name="AITBC Hub Network",
+            rpc_url="http://localhost:8202",
+            explorer_url=None,
+            is_testnet=False,
             native_currency="AITBC",
         )
 

@@ -5,6 +5,7 @@ Production-ready wallet adapter for cross-chain operations with advanced securit
 
 import hashlib
 import json
+import os
 import secrets
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
@@ -584,7 +585,8 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
     def __init__(self, rpc_url: str, security_level: SecurityLevel = SecurityLevel.MEDIUM, chain_id: int = 1000):
         super().__init__(chain_id, ChainType.AITBC, rpc_url, security_level)
         self.chain_id = chain_id
-        self.aitbc_chain_id = "ait-mainnet" if chain_id == 1000 else "ait-testnet"
+        # Use environment variable for actual chain ID string
+        self.aitbc_chain_id = os.getenv("CHAIN_ID", "")
         self._http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
 
     async def create_wallet(self, owner_address: str, security_config: dict[str, Any]) -> dict[str, Any]:

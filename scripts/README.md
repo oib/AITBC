@@ -119,7 +119,7 @@ The scripts test these health endpoints:
 [SUCCESS] Exchange API (port 8001): RUNNING
 [SUCCESS] Marketplace API (port 8002): RUNNING
 [SUCCESS] Wallet API (port 8003): RUNNING
-[SUCCESS] Explorer (port 8004): RUNNING
+[SUCCESS] Explorer (port 8100): RUNNING
 [SUCCESS] Blockchain RPC (port 8006): RUNNING
 [SUCCESS] Web UI (port 8007): RUNNING
 [SUCCESS] GPU Service (port 8010): RUNNING

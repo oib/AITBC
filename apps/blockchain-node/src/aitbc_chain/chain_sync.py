@@ -5,6 +5,7 @@ Keeps blockchain nodes synchronized by sharing blocks via P2P and Redis gossip
 
 import asyncio
 import json
+import os
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -41,7 +42,7 @@ class ChainSyncService:
         self.source_port = source_port or rpc_port
         self.import_host = import_host
         self.import_port = import_port or rpc_port
-        self.chain_id = chain_id or getattr(chain_settings, "chain_id", "") or "ait-mainnet"
+        self.chain_id = chain_id or getattr(chain_settings, "chain_id", "") or os.getenv("CHAIN_ID", "")
         self._stop_event = asyncio.Event()
         self._redis: Any = None
         self._receiver_ready = asyncio.Event()
@@ -275,7 +276,7 @@ def main() -> None:
     parser.add_argument("--source-port", type=int, help="Port to poll for head/blocks")
     parser.add_argument("--import-host", default="127.0.0.1", help="Host to import blocks into")
     parser.add_argument("--import-port", type=int, help="Port to import blocks into")
-    parser.add_argument("--chain-id", default="", help="Chain ID to sync (e.g., ait-testnet)")
+    parser.add_argument("--chain-id", default="", help="Chain ID to sync (from CHAIN_ID env var)")
     args = parser.parse_args()
     try:
         asyncio.run(

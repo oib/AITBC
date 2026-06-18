@@ -30,7 +30,7 @@ class TestHandleAnalyticsMetrics:
         def render_mapping(title, data):
             pass
 
-        handle_analytics_metrics(args, "http://localhost:8006", output_format, render_mapping)
+        handle_analytics_metrics(args, "http://localhost:8202", output_format, render_mapping)
 
         mock_logger.info.assert_called()
 
@@ -45,7 +45,7 @@ class TestHandleAnalyticsMetrics:
 
         mock_render = Mock()
 
-        handle_analytics_metrics(args, "http://localhost:8006", output_format, mock_render)
+        handle_analytics_metrics(args, "http://localhost:8202", output_format, mock_render)
 
         mock_render.assert_called_once()
 
@@ -60,7 +60,7 @@ class TestHandleAnalyticsMetrics:
 
         mock_render = Mock()
 
-        handle_analytics_metrics(args, "http://localhost:8006", output_format, mock_render)
+        handle_analytics_metrics(args, "http://localhost:8202", output_format, mock_render)
 
         mock_render.assert_called_once()
 
@@ -80,7 +80,7 @@ class TestHandleAnalyticsReport:
         def render_mapping(title, data):
             pass
 
-        handle_analytics_report(args, "http://localhost:8006", output_format, render_mapping)
+        handle_analytics_report(args, "http://localhost:8202", output_format, render_mapping)
 
         mock_logger.info.assert_called()
 
@@ -95,7 +95,7 @@ class TestHandleAnalyticsReport:
 
         mock_render = Mock()
 
-        handle_analytics_report(args, "http://localhost:8006", output_format, mock_render)
+        handle_analytics_report(args, "http://localhost:8202", output_format, mock_render)
 
         mock_render.assert_called_once()
 
@@ -110,7 +110,7 @@ class TestHandleAnalyticsReport:
 
         mock_render = Mock()
 
-        handle_analytics_report(args, "http://localhost:8006", output_format, mock_render)
+        handle_analytics_report(args, "http://localhost:8202", output_format, mock_render)
 
         mock_render.assert_called_once()
 
@@ -127,7 +127,7 @@ class TestHandleAnalyticsExport:
         def render_mapping(title, data):
             pass
 
-        handle_analytics_export(args, "http://localhost:8006", render_mapping)
+        handle_analytics_export(args, "http://localhost:8202", render_mapping)
 
         mock_logger.info.assert_called()
 
@@ -140,7 +140,7 @@ class TestHandleAnalyticsExport:
         def render_mapping(title, data):
             pass
 
-        handle_analytics_export(args, "http://localhost:8006", render_mapping)
+        handle_analytics_export(args, "http://localhost:8202", render_mapping)
 
         mock_logger.info.assert_called()
 
@@ -153,7 +153,7 @@ class TestHandleAnalyticsExport:
         def render_mapping(title, data):
             pass
 
-        handle_analytics_export(args, "http://localhost:8006", render_mapping)
+        handle_analytics_export(args, "http://localhost:8202", render_mapping)
 
         mock_logger.info.assert_called()
 
@@ -171,7 +171,7 @@ class TestHandleAnalyticsPredict:
         def render_mapping(title, data):
             pass
 
-        handle_analytics_predict(args, "http://localhost:8006", render_mapping)
+        handle_analytics_predict(args, "http://localhost:8202", render_mapping)
 
         mock_logger.info.assert_called()
 
@@ -185,7 +185,7 @@ class TestHandleAnalyticsPredict:
         def render_mapping(title, data):
             pass
 
-        handle_analytics_predict(args, "http://localhost:8006", render_mapping)
+        handle_analytics_predict(args, "http://localhost:8202", render_mapping)
 
         mock_logger.info.assert_called()
 
@@ -203,7 +203,7 @@ class TestHandleAnalyticsOptimize:
         def render_mapping(title, data):
             pass
 
-        handle_analytics_optimize(args, "http://localhost:8006", render_mapping)
+        handle_analytics_optimize(args, "http://localhost:8202", render_mapping)
 
         mock_logger.info.assert_called()
 
@@ -217,7 +217,7 @@ class TestHandleAnalyticsOptimize:
         def render_mapping(title, data):
             pass
 
-        handle_analytics_optimize(args, "http://localhost:8006", render_mapping)
+        handle_analytics_optimize(args, "http://localhost:8202", render_mapping)
 
         mock_logger.info.assert_called()
 

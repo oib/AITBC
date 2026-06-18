@@ -28,8 +28,8 @@ wallet_app = FastAPI(title="AITBC Wallet Daemon", debug=False)
 
 # Configuration
 KEYSTORE_PATH = KEYSTORE_DIR
-BLOCKCHAIN_RPC_URL = "http://localhost:8006"
-CHAIN_ID = "ait-mainnet"
+BLOCKCHAIN_RPC_URL = "http://localhost:8202"
+CHAIN_ID = os.getenv("CHAIN_ID", "")
 WALLET_PASSWORD = os.getenv("WALLET_IMPORT_PASSWORD", "")
 
 
@@ -47,10 +47,10 @@ def _encrypt_if_password(private_key: str) -> tuple[str, bool]:
 chains_data = {
     "chains": [
         {
-            "chain_id": "ait-mainnet",
-            "name": "AITBC Mainnet",
+            "chain_id": os.getenv("CHAIN_ID", ""),
+            "name": "AITBC Network",
             "status": "active",
-            "coordinator_url": "http://localhost:8011",
+            "coordinator_url": "http://localhost:8203",
             "blockchain_url": BLOCKCHAIN_RPC_URL,
             "created_at": "2026-01-01T00:00:00Z",
             "updated_at": datetime.now().isoformat(),
@@ -375,13 +375,13 @@ async def migrate_wallet():
         {
             "success": True,
             "source_wallet": {
-                "chain_id": "ait-devnet",
+                "chain_id": os.getenv("CHAIN_ID", ""),
                 "wallet_id": "test-wallet",
                 "public_key": "test-public-key",
                 "address": "test-address",
             },
             "target_wallet": {
-                "chain_id": "ait-testnet",
+                "chain_id": os.getenv("CHAIN_ID", ""),
                 "wallet_id": "test-wallet",
                 "public_key": "test-public-key",
                 "address": "test-address",
@@ -407,7 +407,7 @@ async def create_wallet(request: dict[str, Any] | None = None):
 
     wallet_name = request.get("wallet_name", request.get("name", f"wallet-{datetime.now().timestamp()}"))
     password = request.get("password", "")
-    chain_id = request.get("chain_id", "ait-mainnet")
+    chain_id = request.get("chain_id", os.getenv("CHAIN_ID", ""))
 
     try:
         import io

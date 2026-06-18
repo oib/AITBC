@@ -70,7 +70,7 @@ class SimpleMarketplaceUser(HttpUser):
 
 
 # Set default host on blockchain class
-BlockchainLoadUser.host = "http://localhost:8006"
+BlockchainLoadUser.host = "http://localhost:8202"
 
 # Allow hosts to be overridden via environment variables
 if os.getenv("MARKETPLACE_HOST"):

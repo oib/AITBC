@@ -32,7 +32,7 @@ class TestLoadIslandCredentials:
             "island_id": "island123",
             "island_name": "Test Island",
             "island_chain_id": "ait-mainnet",
-            "credentials": {"rpc_endpoint": "http://localhost:8006"},
+            "credentials": {"rpc_endpoint": "http://localhost:8202"},
         }
         mock_file.return_value.read.return_value = json.dumps(credentials_data)
 
@@ -85,11 +85,11 @@ class TestGetRpcEndpoint:
     @patch("aitbc_cli.utils.island_credentials.load_island_credentials")
     def test_get_rpc_endpoint_success(self, mock_load):
         """Test getting RPC endpoint successfully"""
-        mock_load.return_value = {"credentials": {"rpc_endpoint": "http://localhost:8006"}}
+        mock_load.return_value = {"credentials": {"rpc_endpoint": "http://localhost:8202"}}
 
         result = get_rpc_endpoint()
 
-        assert result == "http://localhost:8006"
+        assert result == "http://localhost:8202"
 
     @patch("aitbc_cli.utils.island_credentials.load_island_credentials")
     def test_get_rpc_endpoint_missing(self, mock_load):

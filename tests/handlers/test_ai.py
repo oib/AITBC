@@ -33,7 +33,7 @@ class TestHandleAiSubmit:
         mock_post.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.wallet_name = "wallet1"
         args.wallet = None
@@ -56,7 +56,7 @@ class TestHandleAiSubmit:
         def render_mapping(title, data):
             pass
 
-        handle_ai_submit(args, "http://localhost:8006", "http://localhost:8203", first, read_password, render_mapping)
+        handle_ai_submit(args, "http://localhost:8202", "http://localhost:8203", first, read_password, render_mapping)
 
         mock_post.assert_called_once()
 
@@ -65,7 +65,7 @@ class TestHandleAiSubmit:
     def test_handle_ai_submit_missing_params(self, mock_exit, mock_click):
         """Test AI job submission with missing parameters"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.wallet_name = None
         args.wallet = None
@@ -83,7 +83,7 @@ class TestHandleAiSubmit:
         def render_mapping(title, data):
             pass
 
-        handle_ai_submit(args, "http://localhost:8006", "http://localhost:8203", first, read_password, render_mapping)
+        handle_ai_submit(args, "http://localhost:8202", "http://localhost:8203", first, read_password, render_mapping)
 
         mock_exit.assert_called_with(1)
 
@@ -111,7 +111,7 @@ class TestHandleAiJobs:
         def render_mapping(title, data):
             pass
 
-        handle_ai_jobs(args, "http://localhost:8006", "http://localhost:8203", output_format, render_mapping)
+        handle_ai_jobs(args, "http://localhost:8202", "http://localhost:8203", output_format, render_mapping)
 
         mock_get.assert_called_once()
 
@@ -135,7 +135,7 @@ class TestHandleAiJobs:
         def render_mapping(title, data):
             pass
 
-        handle_ai_jobs(args, "http://localhost:8006", "http://localhost:8203", output_format, render_mapping)
+        handle_ai_jobs(args, "http://localhost:8202", "http://localhost:8203", output_format, render_mapping)
 
         mock_get.assert_called_once()
 
@@ -158,7 +158,7 @@ class TestHandleAiJobs:
         def render_mapping(title, data):
             pass
 
-        handle_ai_jobs(args, "http://localhost:8006", "http://localhost:8203", output_format, render_mapping)
+        handle_ai_jobs(args, "http://localhost:8202", "http://localhost:8203", output_format, render_mapping)
 
         mock_get.assert_called_once()
 
@@ -177,7 +177,7 @@ class TestHandleAiJob:
         mock_get.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.job_id_arg = "job_1"
         args.job_id = None
@@ -191,7 +191,7 @@ class TestHandleAiJob:
         def render_mapping(title, data):
             pass
 
-        handle_ai_job(args, "http://localhost:8006", output_format, render_mapping, first)
+        handle_ai_job(args, "http://localhost:8202", output_format, render_mapping, first)
 
         mock_get.assert_called_once()
 
@@ -200,7 +200,7 @@ class TestHandleAiJob:
     def test_handle_ai_job_missing_id(self, mock_exit, mock_click):
         """Test AI job details with missing job ID"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.job_id_arg = None
         args.job_id = None
@@ -214,7 +214,7 @@ class TestHandleAiJob:
         def render_mapping(title, data):
             pass
 
-        handle_ai_job(args, "http://localhost:8006", output_format, render_mapping, first)
+        handle_ai_job(args, "http://localhost:8202", output_format, render_mapping, first)
 
         mock_exit.assert_called_with(1)
 
@@ -233,7 +233,7 @@ class TestHandleAiStats:
         mock_get.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
         def output_format(args):
@@ -242,7 +242,7 @@ class TestHandleAiStats:
         def render_mapping(title, data):
             pass
 
-        handle_ai_stats(args, "http://localhost:8006", output_format, render_mapping)
+        handle_ai_stats(args, "http://localhost:8202", output_format, render_mapping)
 
         mock_get.assert_called_once()
 
@@ -360,7 +360,7 @@ class TestHandleAiStatus:
 
         args = Mock()
         args.coordinator_url = "http://localhost:8203"
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
         def output_format(args):
@@ -369,7 +369,7 @@ class TestHandleAiStatus:
         def render_mapping(title, data):
             pass
 
-        handle_ai_status(args, "http://localhost:8203", "http://localhost:8006", output_format, render_mapping)
+        handle_ai_status(args, "http://localhost:8203", "http://localhost:8202", output_format, render_mapping)
 
         assert mock_get.call_count == 2
 
@@ -389,7 +389,7 @@ class TestHandleAiStatus:
 
         args = Mock()
         args.coordinator_url = "http://localhost:8203"
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
         def output_format(args):
@@ -398,7 +398,7 @@ class TestHandleAiStatus:
         def render_mapping(title, data):
             pass
 
-        handle_ai_status(args, "http://localhost:8203", "http://localhost:8006", output_format, render_mapping)
+        handle_ai_status(args, "http://localhost:8203", "http://localhost:8202", output_format, render_mapping)
 
         assert mock_get.call_count == 2
 

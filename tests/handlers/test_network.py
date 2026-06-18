@@ -23,7 +23,7 @@ class TestHandleNetworkStatus:
     def test_handle_network_status_success(self, mock_echo):
         """Test successful network status query"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
 
         def get_network_snapshot(rpc_url):
             return {
@@ -36,7 +36,7 @@ class TestHandleNetworkStatus:
                 ],
             }
 
-        handle_network_status(args, "http://localhost:8006", get_network_snapshot)
+        handle_network_status(args, "http://localhost:8202", get_network_snapshot)
 
         mock_echo.assert_called()
 
@@ -48,17 +48,17 @@ class TestHandleNetworkPeers:
     def test_handle_network_peers_success(self, mock_logger):
         """Test successful network peers query"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
 
         def get_network_snapshot(rpc_url):
             return {
                 "nodes": [
-                    {"name": "peer1", "rpc_url": "http://localhost:8006", "healthy": True, "error": None},
+                    {"name": "peer1", "rpc_url": "http://localhost:8202", "healthy": True, "error": None},
                     {"name": "peer2", "rpc_url": "http://localhost:8007", "healthy": False, "error": "timeout"},
                 ]
             }
 
-        handle_network_peers(args, "http://localhost:8006", get_network_snapshot)
+        handle_network_peers(args, "http://localhost:8202", get_network_snapshot)
 
         mock_logger.info.assert_called()
 
@@ -70,7 +70,7 @@ class TestHandleNetworkSync:
     def test_handle_network_sync_success(self, mock_echo):
         """Test successful network sync status query"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
 
         def get_network_snapshot(rpc_url):
             return {
@@ -78,7 +78,7 @@ class TestHandleNetworkSync:
                 "nodes": [{"name": "local", "height": 100, "timestamp": "2024-01-01"}, {"name": "peer1", "height": 100}],
             }
 
-        handle_network_sync(args, "http://localhost:8006", get_network_snapshot)
+        handle_network_sync(args, "http://localhost:8202", get_network_snapshot)
 
         mock_echo.assert_called()
 
@@ -90,15 +90,15 @@ class TestHandleNetworkPing:
     def test_handle_network_ping_success(self, mock_print):
         """Test successful network ping"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
-        args.node_opt = "localhost:8007"
+        args.rpc_url = "http://localhost:8202"
+        args.node_opt = "localhost:8203"
         args.node = None
 
         def read_blockchain_env():
-            return {"rpc_bind_port": "8006", "chain_id": "ait-testnet"}
+            return {"rpc_bind_port": "8202", "chain_id": "ait-hub.aitbc.bubuit.net"}
 
         def normalize_rpc_url(url):
-            return ("http", "localhost", 8006)
+            return ("http", "localhost", 8202)
 
         def first(*args):
             for arg in args:
@@ -109,7 +109,7 @@ class TestHandleNetworkPing:
         def probe_rpc_node(name, url, chain_id):
             return {"healthy": True, "rpc_url": url, "latency_ms": 10}
 
-        handle_network_ping(args, "http://localhost:8006", read_blockchain_env, normalize_rpc_url, first, probe_rpc_node)
+        handle_network_ping(args, "http://localhost:8202", read_blockchain_env, normalize_rpc_url, first, probe_rpc_node)
 
         mock_print.assert_called()
 
@@ -121,7 +121,7 @@ class TestHandleNetworkPropagate:
     def test_handle_network_propagate_success(self, mock_print):
         """Test successful network data propagation"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.data_opt = None
         args.data = "test-data"
 
@@ -131,7 +131,7 @@ class TestHandleNetworkPropagate:
         def first(*args):
             return args[0] if args else None
 
-        handle_network_propagate(args, "http://localhost:8006", get_network_snapshot, first)
+        handle_network_propagate(args, "http://localhost:8202", get_network_snapshot, first)
 
         mock_print.assert_called()
 
@@ -150,14 +150,14 @@ class TestHandleNetworkForceSync:
         mock_post.return_value = mock_response
 
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.peer = "peer1"
 
         def render_mapping(title, data):
             pass
 
-        handle_network_force_sync(args, "http://localhost:8006", render_mapping)
+        handle_network_force_sync(args, "http://localhost:8202", render_mapping)
 
         mock_post.assert_called_once()
 
@@ -166,14 +166,14 @@ class TestHandleNetworkForceSync:
     def test_handle_network_force_sync_missing_peer(self, mock_exit, mock_logger):
         """Test network force sync with missing peer"""
         args = Mock()
-        args.rpc_url = "http://localhost:8006"
+        args.rpc_url = "http://localhost:8202"
         args.chain_id = None
         args.peer = None
 
         def render_mapping(title, data):
             pass
 
-        handle_network_force_sync(args, "http://localhost:8006", render_mapping)
+        handle_network_force_sync(args, "http://localhost:8202", render_mapping)
 
         mock_exit.assert_called_with(1)
 

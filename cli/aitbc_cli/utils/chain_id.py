@@ -6,25 +6,32 @@ from blockchain nodes, supporting multichain operations.
 
 from .http_client import AITBCHTTPClient, NetworkError
 
-# Known chain IDs
-KNOWN_CHAINS = ["ait-mainnet", "ait-devnet", "ait-testnet", "ait-healthchain"]
-
 
 def get_default_chain_id() -> str:
-    """Return the default chain ID (ait-mainnet for production)."""
-    return "ait-mainnet"
+    """Return the default chain ID from environment."""
+    import os
+    
+    # Get from environment variable (set in /etc/aitbc/blockchain.env)
+    chain_id = os.getenv("CHAIN_ID")
+    if chain_id:
+        return chain_id
+    
+    # No default available - empty string
+    return ""
 
 
 def validate_chain_id(chain_id: str) -> bool:
-    """Validate a chain ID against known chains.
+    """Validate a chain ID format (basic validation, not against hardcoded list).
 
     Args:
         chain_id: The chain ID to validate
 
     Returns:
-        True if the chain ID is known, False otherwise
+        True if the chain ID format is valid, False otherwise
     """
-    return chain_id in KNOWN_CHAINS
+    # Basic format validation - chain IDs should be non-empty strings
+    # Actual chain validity is determined by the blockchain node
+    return bool(chain_id and isinstance(chain_id, str) and len(chain_id) > 0)
 
 
 def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
@@ -50,8 +57,14 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
     except Exception:
         pass
 
-    # Fallback to default if detection fails
-    return get_default_chain_id()
+    # Fallback to environment variable if detection fails
+    import os
+    chain_id = os.getenv("CHAIN_ID")
+    if chain_id:
+        return chain_id
+    
+    # Final fallback - empty string to indicate no chain detected
+    return ""
 
 
 def get_chain_id(rpc_url: str, override: str | None = None, timeout: int = 5) -> str:
