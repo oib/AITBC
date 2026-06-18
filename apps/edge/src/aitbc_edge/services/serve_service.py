@@ -1,6 +1,6 @@
 """Edge serve service for Edge API Service"""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -68,7 +68,7 @@ class ServeService:
 
             if req and req.status in ["queued", "running"]:
                 req.status = "cancelled"
-                req.completed_at = datetime.utcnow()
+                req.completed_at = datetime.now(UTC)
                 await session.commit()
                 return True
             return False

@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -28,7 +28,7 @@ class HealthService:
             agent_id=health_check.agent_id,
             service_name=health_check.service_name,
             status=health_check.status,
-            timestamp=health_check.timestamp or datetime.utcnow(),
+            timestamp=health_check.timestamp or datetime.now(UTC),
             response_time_ms=health_check.response_time_ms,
             error_message=health_check.error_message,
             meta_data=json.dumps(health_check.metadata or {}),
@@ -50,7 +50,7 @@ class HealthService:
             error_type=error_report.error_type,
             severity=error_report.severity,
             error_message=error_report.error_message,
-            timestamp=error_report.timestamp or datetime.utcnow(),
+            timestamp=error_report.timestamp or datetime.now(UTC),
             context=json.dumps(error_report.context or {}),
         )
         session.add(error_record)
@@ -119,7 +119,7 @@ class HealthService:
             action_id=str(action_id),
             success="true" if success else "false",
             message=message,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
         )
         session.add(recovery_record)
         session.commit()

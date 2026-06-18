@@ -531,7 +531,7 @@ class TestBackgroundTaskManager:
         """Test wait_for_task raises ValueError for nonexistent task"""
         manager = BackgroundTaskManager()
 
-        with pytest.raises(ValueError, match="Task not found"):
+        with pytest.raises(ValueError, match="Task .* not found"):
             await manager.wait_for_task("nonexistent")
 
     @pytest.mark.asyncio
@@ -682,11 +682,32 @@ class TestDebounceDecorator:
             call_count[0] += 1
             return 42
 
-        sync_func()
+        await sync_func()
         await asyncio.sleep(0.05)
-        sync_func()
+        await sync_func()
         await asyncio.sleep(0.05)
-        sync_func()
+        await sync_func()
+
+        # Wait for all debounced calls to complete
+        await asyncio.sleep(0.15)
+
+        assert call_count[0] == 3
+
+    @pytest.mark.asyncio
+    async def test_debounce_async_func(self):
+        """Test debounce decorator with async function"""
+        call_count = [0]
+
+        @debounce(delay=0.1)
+        async def async_func():
+            call_count[0] += 1
+            return 42
+
+        await async_func()
+        await asyncio.sleep(0.05)
+        await async_func()
+        await asyncio.sleep(0.05)
+        await async_func()
 
         # Wait for all debounced calls to complete
         await asyncio.sleep(0.15)
@@ -713,6 +734,44 @@ class TestThrottleDecorator:
         await asyncio.sleep(0.1)
         await test_func()
         await test_func()
+
+        # Should execute all calls but with throttling
+        assert call_count[0] == 4
+
+    @pytest.mark.asyncio
+    async def test_throttle_sync_func(self):
+        """Test throttle decorator with sync function"""
+        call_count = [0]
+
+        @throttle(calls_per_second=2.0)
+        def sync_func():
+            call_count[0] += 1
+            return 42
+
+        await sync_func()
+        await sync_func()
+        await asyncio.sleep(0.1)
+        await sync_func()
+        await sync_func()
+
+        # Should execute all calls but with throttling
+        assert call_count[0] == 4
+
+    @pytest.mark.asyncio
+    async def test_throttle_async_func(self):
+        """Test throttle decorator with async function"""
+        call_count = [0]
+
+        @throttle(calls_per_second=2.0)
+        async def async_func():
+            call_count[0] += 1
+            return 42
+
+        await async_func()
+        await async_func()
+        await asyncio.sleep(0.1)
+        await async_func()
+        await async_func()
 
         # Should execute all calls but with throttling
         assert call_count[0] == 4
