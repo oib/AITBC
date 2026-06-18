@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlmodel import delete, select
@@ -81,13 +81,13 @@ class DatabaseService:
 
             # Update sync status in single transaction
             db.sync_status = "syncing"
-            db.updated_at = datetime.utcnow()
+            db.updated_at = datetime.now(UTC)
 
             # Simulate sync process (in production, this would actually sync data)
             db.sync_status = "idle"
-            db.last_sync_at = datetime.utcnow()
+            db.last_sync_at = datetime.now(UTC)
             db.records_synced = db.records_synced + 100  # Simulated
-            db.updated_at = datetime.utcnow()
+            db.updated_at = datetime.now(UTC)
 
             await session.commit()
 

@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -42,7 +42,7 @@ class ResourceService:
             existing.allocated = resource.allocated  # type: ignore[assignment]
             existing.utilization = resource.utilization  # type: ignore[assignment]
             existing.meta_data = json.dumps(resource.metadata or {})
-            existing.updated_at = datetime.utcnow()
+            existing.updated_at = datetime.now(UTC)
         else:
             resource_record = ResourceModel(
                 id=str(uuid.uuid4()),
@@ -87,7 +87,7 @@ class ResourceService:
             selected_resource.status = ResourceStatus.ALLOCATED
         expires_at = None
         if request.duration_hours:
-            expires_at = datetime.utcnow() + timedelta(hours=request.duration_hours)
+            expires_at = datetime.now(UTC) + timedelta(hours=request.duration_hours)
         allocation_record = ResourceAllocationModel(
             id=str(uuid.uuid4()),
             allocation_id=allocation_id,
@@ -96,7 +96,7 @@ class ResourceService:
             capacity=request.required_capacity,
             strategy=request.strategy,
             priority=request.priority,
-            allocated_at=datetime.utcnow(),
+            allocated_at=datetime.now(UTC),
             expires_at=expires_at,
         )  # type: ignore[arg-type]
         session.add(allocation_record)
@@ -197,7 +197,7 @@ class ResourceService:
             new_price=new_price,
             adjustment_factor=adjustment_factor,
             reason=reason,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
         )  # type: ignore[arg-type]
         session.add(adjustment)
         session.commit()

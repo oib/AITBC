@@ -1,7 +1,7 @@
 """AI approval strategy - uses Ollama to evaluate requests."""
 
 import os
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import requests
@@ -21,7 +21,7 @@ class AIApprovalStrategy(ApprovalStrategy):
 
     def get_request_history(self, sender: str, days: int = 1) -> list[Any]:
         """Get request history for sender from last N days."""
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(UTC) - timedelta(days=days)
 
         with get_db_session() as session:
             requests = session.query(CoinRequest).filter(CoinRequest.sender == sender, CoinRequest.created_at >= cutoff).all()

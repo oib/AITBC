@@ -6,7 +6,7 @@ Alerting and notification system for AITBC applications
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -182,16 +182,16 @@ class AlertRule:
         if not self.enabled:
             return False
         if self.last_fired:
-            time_since_last = (datetime.utcnow() - self.last_fired).total_seconds()
+            time_since_last = (datetime.now(UTC) - self.last_fired).total_seconds()
             if time_since_last < self.cooldown:
                 return False
         return self.condition()
 
     def fire(self) -> Alert:
         """Create alert from this rule"""
-        self.last_fired = datetime.utcnow()
+        self.last_fired = datetime.now(UTC)
         return Alert(
-            id=f"{self.name}-{int(datetime.utcnow().timestamp())}",
+            id=f"{self.name}-{int(datetime.now(UTC).timestamp())}",
             severity=self.severity,
             title=self.title_template,
             message=self.message_template,
@@ -285,7 +285,7 @@ class AlertManager:
             alert = self.active_alerts[alert_id]
             alert.status = AlertStatus.ACKNOWLEDGED
             alert.acknowledged_by = acknowledged_by
-            alert.acknowledged_at = datetime.utcnow()
+            alert.acknowledged_at = datetime.now(UTC)
             logger.info("Alert acknowledged: %s by %s", alert_id, acknowledged_by)
             return True
         return False
@@ -303,7 +303,7 @@ class AlertManager:
         if alert_id in self.active_alerts:
             alert = self.active_alerts[alert_id]
             alert.status = AlertStatus.RESOLVED
-            alert.resolved_at = datetime.utcnow()
+            alert.resolved_at = datetime.now(UTC)
             del self.active_alerts[alert_id]
             logger.info("Alert resolved: %s", alert_id)
             return True
