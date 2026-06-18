@@ -3,7 +3,7 @@ Tests for caching utilities
 """
 
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 from aitbc.caching import (
@@ -31,7 +31,7 @@ class TestCacheEntry:
 
     def test_cache_entry_with_expiration(self):
         """Test CacheEntry with expiration"""
-        expires = datetime.now() + timedelta(seconds=60)
+        expires = datetime.now(UTC) + timedelta(seconds=60)
         entry = CacheEntry(value="test_value", expires_at=expires)
         assert entry.expires_at == expires
 
@@ -42,13 +42,13 @@ class TestCacheEntry:
 
     def test_is_expired_not_expired(self):
         """Test is_expired when not yet expired"""
-        expires = datetime.now() + timedelta(seconds=60)
+        expires = datetime.now(UTC) + timedelta(seconds=60)
         entry = CacheEntry(value="test_value", expires_at=expires)
         assert entry.is_expired() is False
 
     def test_is_expired_expired(self):
         """Test is_expired when expired"""
-        expires = datetime.now() - timedelta(seconds=1)
+        expires = datetime.now(UTC) - timedelta(seconds=1)
         entry = CacheEntry(value="test_value", expires_at=expires)
         assert entry.is_expired() is True
 
@@ -148,7 +148,7 @@ class TestLRUCache:
         stats = cache.get_stats()
         assert stats["hit_rate"] == 0
 
-    @patch("aitbc.caching.logger")
+    @patch("aitbc.caching.lru_cache.logger")
     def test_print_stats(self, mock_logger):
         """Test print stats logs output"""
         cache = LRUCache()
@@ -201,7 +201,7 @@ class TestTTLCache:
         cache = TTLCache(default_ttl=60)
         cache.set("key1", "value1")
         # Manually set expiration to past
-        cache.cache["key1"].expires_at = datetime.now() - timedelta(seconds=1)
+        cache.cache["key1"].expires_at = datetime.now(UTC) - timedelta(seconds=1)
         result = cache.get("key1")
         assert result is None
         assert cache._misses == 1
@@ -212,7 +212,7 @@ class TestTTLCache:
         cache.set("key1", "value1")
         entry = cache.cache["key1"]
         assert entry.expires_at is not None
-        assert entry.expires_at > datetime.now()
+        assert entry.expires_at > datetime.now(UTC)
 
     def test_set_with_custom_ttl(self):
         """Test set with custom TTL"""
@@ -220,7 +220,7 @@ class TestTTLCache:
         cache.set("key1", "value1", ttl=30)
         entry = cache.cache["key1"]
         assert entry.expires_at is not None
-        expected_expires = datetime.now() + timedelta(seconds=30)
+        expected_expires = datetime.now(UTC) + timedelta(seconds=30)
         assert abs((entry.expires_at - expected_expires).total_seconds()) < 1
 
     def test_set_overwrite(self):
@@ -244,7 +244,7 @@ class TestTTLCache:
         cache.set("key2", "value2")
 
         # Expire key1
-        cache.cache["key1"].expires_at = datetime.now() - timedelta(seconds=1)
+        cache.cache["key1"].expires_at = datetime.now(UTC) - timedelta(seconds=1)
 
         removed = cache.cleanup_expired()
         assert removed == 1
