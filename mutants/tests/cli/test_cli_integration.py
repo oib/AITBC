@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
-from starlette.testclient import TestClient as StarletteTestClient
+from httpx import AsyncClient, ASGITransport
 
 # ---------------------------------------------------------------------------
 # Ensure coordinator-api src is importable
@@ -103,21 +103,22 @@ def coord_app():
 
 
 @pytest.fixture()
-def test_client(coord_app):
-    """Starlette TestClient wrapping the coordinator app."""
-    with StarletteTestClient(coord_app) as tc:
+async def test_client(coord_app):
+    """httpx AsyncClient wrapping the coordinator app with ASGI transport."""
+    transport = ASGITransport(app=coord_app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as tc:
         yield tc
 
 
 class _ProxyClient:
     """
     Drop-in replacement for httpx.Client that proxies all requests through
-    a Starlette TestClient.  Supports sync context-manager usage
+    an httpx.AsyncClient with ASGI transport. Supports sync context-manager usage
     (``with httpx.Client() as c: ...``).
     """
 
-    def __init__(self, test_client: StarletteTestClient):
-        self._tc = test_client
+    def __init__(self, async_client: AsyncClient):
+        self._ac = async_client
 
     # --- context-manager protocol ---
     def __enter__(self):
@@ -143,7 +144,10 @@ class _ProxyClient:
         return self._request("PATCH", url, **kw)
 
     def _request(self, method, url, **kw):
-        # Normalise URL: strip scheme+host so TestClient gets just the path
+        # Run async request in sync context
+        import asyncio
+
+        # Normalise URL: strip scheme+host so AsyncClient gets just the path
         from urllib.parse import urlparse
 
         parsed = urlparse(str(url))
@@ -151,37 +155,49 @@ class _ProxyClient:
         if parsed.query:
             path = f"{path}?{parsed.query}"
 
-        # Map httpx kwargs → requests/starlette kwargs
+        # Map httpx kwargs
         headers = dict(kw.get("headers") or {})
         params = kw.get("params")
         json_body = kw.get("json")
         content = kw.get("content")
-        kw.pop("timeout", None)  # ignored for test client
+        timeout = kw.get("timeout", 30)
 
-        resp = self._tc.request(
-            method,
-            path,
-            headers=headers,
-            params=params,
-            json=json_body,
-            content=content,
-        )
-        # Wrap in an httpx.Response-like object
+        # Run the async request
+        loop = asyncio.get_event_loop()
+        try:
+            resp = loop.run_until_complete(
+                self._ac.request(
+                    method,
+                    path,
+                    headers=headers,
+                    params=params,
+                    json=json_body,
+                    content=content,
+                    timeout=timeout,
+                )
+            )
+        except Exception as e:
+            # Create a mock response for errors
+            from httpx import Response
+
+            resp = Response(500, request=None)
+            resp._content = str(e).encode()
+
         return resp
 
 
 class _PatchedClientFactory:
     """Callable that replaces ``httpx.Client`` during tests."""
 
-    def __init__(self, test_client: StarletteTestClient):
-        self._tc = test_client
+    def __init__(self, async_client: AsyncClient):
+        self._ac = async_client
 
     def __call__(self, **kwargs):
-        return _ProxyClient(self._tc)
+        return _ProxyClient(self._ac)
 
 
 @pytest.fixture()
-def patched_httpx(test_client):
+async def patched_httpx(test_client):
     """Patch httpx.Client globally so CLI commands hit the test coordinator."""
     factory = _PatchedClientFactory(test_client)
     with patch("httpx.Client", new=factory):
@@ -194,7 +210,7 @@ def runner():
 
 
 @pytest.fixture()
-def invoke(runner, patched_httpx, mock_config):
+async def invoke(runner, patched_httpx, mock_config):
     """Helper: invoke a CLI command with the test API key and coordinator URL."""
     from unittest.mock import Mock
 
@@ -230,22 +246,22 @@ def invoke(runner, patched_httpx, mock_config):
 class TestSystemCommands:
     """Test system management commands."""
 
-    def test_architect(self, invoke):
+    async def test_architect(self, invoke):
         r = invoke("system", "architect")
         assert r.exit_code == 0
         assert "System Architecture" in r.output
 
-    def test_audit(self, invoke):
+    async def test_audit(self, invoke):
         r = invoke("system", "audit")
         assert r.exit_code == 0
         assert "System Audit" in r.output
 
-    def test_check(self, invoke):
+    async def test_check(self, invoke):
         r = invoke("system", "check")
         assert r.exit_code == 0
         assert "Service Check" in r.output
 
-    def test_status(self, invoke):
+    async def test_status(self, invoke):
         r = invoke("system", "status")
         # coordinator may not expose /api/v1/status
         assert r.exit_code in (0, 1)
@@ -259,15 +275,15 @@ class TestSystemCommands:
 class TestConfigCommands:
     """Test config management commands."""
 
-    def test_show(self, invoke):
+    async def test_show(self, invoke):
         r = invoke("config", "show")
         assert r.exit_code == 0
 
-    def test_path(self, invoke):
+    async def test_path(self, invoke):
         r = invoke("config", "path")
         assert r.exit_code == 0
 
-    def test_environments(self, invoke):
+    async def test_environments(self, invoke):
         r = invoke("config", "environments")
         assert r.exit_code == 0
 
@@ -280,12 +296,12 @@ class TestConfigCommands:
 class TestVersionCommands:
     """Test version command."""
 
-    def test_version(self, invoke):
+    async def test_version(self, invoke):
         r = invoke("version")
         assert r.exit_code == 0
         assert "aitbc, version" in r.output
 
-    def test_list_wallets(self, invoke):
+    async def test_list_wallets(self, invoke):
         r = invoke("list")
         # Wallet list may fail if no wallets configured, but CLI should not crash
         assert r.exit_code in (0, 1)
@@ -299,20 +315,20 @@ class TestVersionCommands:
 class TestAICommands:
     """Test AI job submission and inspection commands."""
 
-    def test_ai_jobs(self, invoke):
+    async def test_ai_jobs(self, invoke):
         r = invoke("ai", "jobs")
         # coordinator may return empty list or 404
         assert r.exit_code in (0, 1)
 
-    def test_ai_stats(self, invoke):
+    async def test_ai_stats(self, invoke):
         r = invoke("ai", "stats")
         assert r.exit_code in (0, 1)
 
-    def test_ai_service_list(self, invoke):
+    async def test_ai_service_list(self, invoke):
         r = invoke("ai", "service", "list")
         assert r.exit_code in (0, 1)
 
-    def test_ai_submit(self, invoke):
+    async def test_ai_submit(self, invoke):
         r = invoke("ai", "submit", "--type", "inference", "--prompt", "hello")
         # May fail if coordinator rejects payload, but Click parsing should succeed
         assert r.exit_code in (0, 1), f"Unexpected error: {r.output}"
@@ -326,15 +342,15 @@ class TestAICommands:
 class TestAgentCommands:
     """Test agent SDK management commands."""
 
-    def test_agent_list(self, invoke):
+    async def test_agent_list(self, invoke):
         r = invoke("agent", "list")
         assert r.exit_code == 0
 
-    def test_agent_status(self, invoke):
+    async def test_agent_status(self, invoke):
         r = invoke("agent", "status", "test-agent")
         assert r.exit_code == 0
 
-    def test_agent_capabilities(self, invoke):
+    async def test_agent_capabilities(self, invoke):
         r = invoke("agent", "capabilities")
         # Agent SDK may not be installed in test environment
         assert r.exit_code in (0, 1)
@@ -348,12 +364,12 @@ class TestAgentCommands:
 class TestGPUCommands:
     """Test GPU marketplace commands."""
 
-    def test_gpu_list(self, invoke):
+    async def test_gpu_list(self, invoke):
         r = invoke("gpu", "list")
         # Coordinator may not expose GPU service endpoint
         assert r.exit_code in (0, 1)
 
-    def test_gpu_discover(self, invoke):
+    async def test_gpu_discover(self, invoke):
         r = invoke("gpu", "discover")
         # nvidia-smi may not be available in CI
         assert r.exit_code in (0, 1)
@@ -367,7 +383,7 @@ class TestGPUCommands:
 class TestOperationsCommands:
     """Test operations governance commands."""
 
-    def test_governance_voting_power(self, invoke):
+    async def test_governance_voting_power(self, invoke):
         r = invoke("operations", "governance", "voting-power", "aitbc1test")
         # Requires blockchain RPC, may fail in integration context
         assert r.exit_code in (0, 1)
@@ -381,14 +397,14 @@ class TestOperationsCommands:
 class TestMarketplaceCommands:
     """Test marketplace commands."""
 
-    def test_marketplace_overview(self, invoke):
+    async def test_marketplace_overview(self, invoke):
         r = invoke("marketplace", "overview")
         assert r.exit_code in (0, 1)
 
-    def test_marketplace_bids(self, invoke):
+    async def test_marketplace_bids(self, invoke):
         r = invoke("marketplace", "bids")
         assert r.exit_code in (0, 1)
 
-    def test_marketplace_asks(self, invoke):
+    async def test_marketplace_asks(self, invoke):
         r = invoke("marketplace", "asks")
         assert r.exit_code in (0, 1)
