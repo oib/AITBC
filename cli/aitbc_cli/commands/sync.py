@@ -13,8 +13,8 @@ def sync():
 
 
 @sync.command()
-@click.option("--source", default="http://127.0.0.1:8006", help="Source RPC URL (leader node)")
-@click.option("--import-url", default="http://127.0.0.1:8006", help="Local RPC URL for import")
+@click.option("--source", default="http://127.0.0.1:8202", help="Source RPC URL (leader node)")
+@click.option("--import-url", default="http://127.0.0.1:8202", help="Local RPC URL for import")
 @click.option("--batch-size", type=int, default=100, help="Blocks per batch (default: 100)")
 @click.option("--poll-interval", type=float, default=0.2, help="Seconds between batches (default: 0.2)")
 def bulk(source, import_url, batch_size, poll_interval):

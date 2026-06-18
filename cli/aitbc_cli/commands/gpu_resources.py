@@ -49,7 +49,7 @@ def register_onchain(
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
         rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
         # Get chain_id
@@ -109,7 +109,7 @@ def query_gpu(ctx, gpu_id: str, format: str):
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
         rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
         # Get chain_id
@@ -147,7 +147,7 @@ def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float, total_
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
         rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
         # Get chain_id
@@ -204,7 +204,7 @@ def get_allocations(ctx, gpu_id: str, format: str):
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
         rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
         # Get chain_id
@@ -238,7 +238,7 @@ def list_gpus(ctx, status: str | None, format: str):
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
         rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
         # Get chain_id

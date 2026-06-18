@@ -27,7 +27,7 @@ def marketplace(ctx, chain_id: str | None):
     from ..utils.chain_id import get_chain_id
 
     config = load_multichain_config()
-    default_rpc_url = config.blockchain_rpc_url if hasattr(config, "blockchain_rpc_url") else "http://localhost:8006"
+    default_rpc_url = config.blockchain_rpc_url if hasattr(config, "blockchain_rpc_url") else "http://localhost:8202"
     ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
 
 
