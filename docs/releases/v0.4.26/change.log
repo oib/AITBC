@@ -652,17 +652,17 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 
 ---
 
-### Goal 44: Add First-Class Container Artifacts or Remove Docker Claims from Docs (P2)
+### Goal 44: Remove Docker Claims from Documentation (P2)
 
-**Problem**: Docker docs exist (`docs/governance/09-DEPLOYMENT.md:256`), but no `Dockerfile` or `docker-compose.yml` is tracked in the repo. Operators are told to create Docker files manually.
+**Problem**: Docker docs exist (`docs/governance/09-DEPLOYMENT.md:256`), but AITBC is a Docker-free project. Operators are told to create Docker files manually, which is misleading.
 
-**Impact**: Docker deployment is theoretical; operators must reverse-engineer the runtime environment from systemd units and READMEs.
+**Impact**: Operators waste time trying to build container images for a platform that deploys exclusively via systemd.
 
 **Approach**:
-1. **Option A**: Create a production `Dockerfile` and `docker-compose.yml` that mirrors the systemd service topology.
-2. **Option B**: Remove Docker references from docs and explicitly document that the platform deploys via systemd only.
-3. If Option A, ensure the container uses the same dependency lockfile as the host install (Goal 42).
-4. Add a CI step that builds the image to catch Dockerfile regressions.
+1. Remove all Docker references from `docs/governance/09-DEPLOYMENT.md` and any other docs.
+2. Explicitly document that AITBC deploys via systemd only and does not support Docker or containerization.
+3. Add a CI check (or simple grep) that fails if any new `Dockerfile`, `docker-compose.yml`, or Docker references are added to the repo.
+4. Update the deployment guide to focus on systemd unit management, service user setup, and environment file configuration.
 
 ---
 
@@ -812,7 +812,7 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 | CORS credentials risk | ⚠️ 1 config | `allow_credentials=True` with configured origins; no prod assertion |
 | Dependency drift | ⚠️ 4+ files | Root Poetry, `uv.lock`, app `poetry.lock`, `requirements*.txt` all coexist |
 | Python constraints | ⚠️ 3+ variants | `^3.13`, `>=3.13.5,<3.14`, root excludes `3.14.1` |
-| Docker artifacts | ⚠️ Missing | Docs reference Docker but no `Dockerfile` or `compose.yml` tracked |
+| Docker references | ⚠️ Stale | Docs tell operators to create Docker files; project is Docker-free |
 | Systemd hardening | ⚠️ 3+ units | `agent-daemon`, `miner`, `agent-management` run as `root` |
 | Inline secrets in units | ⚠️ 3+ services | `AUTH_TOKEN`, DB password, DB URL with creds in `.service` files |
 | Recovery silence | ⚠️ 1 service | `aitbc-recovery.service` uses `|| true` |
@@ -901,7 +901,7 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 | 5 | Add dry-run and confirmation modes to destructive operational scripts | — | `fuser -k` and `rm -rf` require `--yes` or `--dry-run` | P1 |
 | 5 | Standardize observability (one telemetry stack) | — | Only one metrics/tracing module imported by each service | P1 |
 | 5 | Lock down telemetry bind addresses (`0.0.0.0` → `127.0.0.1`) | — | CI grep for `0.0.0.0` in telemetry configs fails | P1 |
-| 5 | Add Dockerfile/compose or remove Docker claims from docs | — | Either image builds in CI, or docs say "systemd only" | P2 |
+| 5 | Remove Docker claims from docs; add CI check against Docker files | — | `git ls-files | grep -E "(Dockerfile|docker-compose)"` == 0; docs state "systemd only" | P2 |
 
 ---
 
@@ -948,7 +948,7 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 - [ ] Destructive scripts have `--dry-run` and require `--yes`
 - [ ] One observability stack across all services
 - [ ] Telemetry bind addresses locked to localhost or documented internal nets
-- [ ] Dockerfile/compose exists, or docs state "systemd only"
+- [ ] Docs explicitly state "systemd only"; no Docker references remain
 
 ### Stretch Goals
 - [ ] Full `mypy aitbc/` passes with 0 errors (may be v0.4.27)
@@ -996,7 +996,6 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 | OpenAPI CI check flakes on optional router load order | Low | Low | Generate spec after all routers are loaded; use deterministic startup order |
 | Consolidating dependency files breaks app installs | Medium | Medium | Test install path on a fresh VM/container before merging |
 | Python constraint alignment breaks older app installs | Low | Low | Ensure minimum is still `>=3.13`; only tighten upper bounds |
-| Docker support diverts effort from systemd hardening | Medium | Low | Prioritize systemd first; Docker as stretch goal only |
 | Systemd hardening breaks services that need root access | Medium | High | Audit each service's actual FS needs; use `ReadWritePaths=` granularly |
 | Moving secrets to env files breaks existing deploy scripts | Medium | Medium | Update setup scripts in same PR; provide migration guide |
 | Removing `|| true` from recovery makes transient failures fatal | Low | Medium | Retry logic inside the script before final exit; fail only on persistent errors |
@@ -1016,7 +1015,6 @@ These files use the v1 `class Config:` inner class instead of v2 `ConfigDict`.
 - `uv` or `poetry` for unified dependency lock workflow (Goal 42)
 - `shellcheck` and `shfmt` for shell script validation (Goal 48)
 - `systemd-analyze` for unit security auditing (Goal 45)
-- `docker` and `docker-compose` (optional, Goal 44)
 
 ---
 
