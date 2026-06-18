@@ -265,9 +265,11 @@ def parse_debug(cls, v: bool | str) -> bool:
 | Deprecation | Count | Files | Status |
 |-------------|-------|-------|--------|
 | `datetime.utcnow()` → `datetime.now(UTC)` | 1,000+ warnings | `aitbc/alerting.py`, `aitbc/access_control.py`, `aitbc/aitbc_logging.py`, `aitbc/log_utils/logging.py`, `aitbc/hierarchical_config.py`, many test files | ✅ **FIXED** |
-| SQLAlchemy 2.0 `declarative_base()` | 1 warning | `apps/hermes/src/hermes_service/storage/schema.py` | 📋 Planned |
-| `websockets.legacy` | 1 warning | Dependency deprecation | 📋 Planned |
-| `starlette.testclient` + `httpx` | 2 warnings | Test files using deprecated combo | 📋 Planned |
+| SQLAlchemy 2.0 `declarative_base()` | 2 warnings | `apps/hermes/src/hermes_service/storage/schema.py`, `apps/coordinator-api/src/app/models/hermes.py` | ✅ **FIXED** |
+| WebSocket `WebSocketServerProtocol` + `send()` | 2 warnings | `apps/coordinator-api/src/app/services/market_data_collector.py`, `apps/coordinator-api/src/app/services/websocket_stream_manager.py` | ✅ **FIXED** |
+| Pydantic class-based `Config` | 4 warnings | `apps/coordinator-api/src/app/schemas/wallet.py` (2), `apps/coordinator-api/src/app/exceptions.py` | ✅ **FIXED** |
+| `websockets.legacy` | 1 warning | Dependency deprecation (external) | 📋 External |
+| `starlette.testclient` + `httpx` | 1 warning | Test file `tests/cli/test_cli_integration.py` | 📋 Test migration |
 
 **Approach**: Bulk find-and-replace `datetime.utcnow()` → `datetime.now(datetime.UTC)`. This is safe in Python 3.13.
 **Verification**: All core library files now use `datetime.now(UTC)`. **0 deprecation warnings** from project code (dependencies exempt).
