@@ -5,6 +5,8 @@ from pathlib import Path
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
+from aitbc.constants import DATA_DIR
+
 
 class Settings(BaseSettings):
     """Runtime configuration for the wallet daemon service."""
@@ -19,7 +21,7 @@ class Settings(BaseSettings):
     blockchain_rpc_url: str = Field(default="http://localhost:8202", alias="BLOCKCHAIN_RPC_URL")
 
     rest_prefix: str = Field(default="/v1", alias="REST_PREFIX")
-    ledger_db_path: Path = Field(default=Path("./data/wallet_ledger.db"), alias="LEDGER_DB_PATH")
+    ledger_db_path: Path = Field(default=DATA_DIR / "data" / "wallet_ledger.db", alias="LEDGER_DB_PATH")
     host: str = Field(default="0.0.0.0", alias="HOST")
     port: int = Field(default=8108, alias="PORT")
 

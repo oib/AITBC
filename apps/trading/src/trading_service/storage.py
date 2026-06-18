@@ -10,11 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import SQLModel
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.constants import DATA_DIR
 
 logger = get_logger(__name__)
 
 # Database URL from environment variable or default
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/trading_service.db")
+DEFAULT_DB = f"sqlite+aiosqlite:///{DATA_DIR}/data/trading_service.db"
+DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DB)
 
 # Create async engine
 engine = create_async_engine(DATABASE_URL, echo=False)
