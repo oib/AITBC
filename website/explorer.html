@@ -14,6 +14,7 @@
     <!-- External libraries for explorer functionality -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="explorer.js"></script>
 </head>
 <body>
     <div class="container">
@@ -26,28 +27,28 @@
             <p class="subtitle">Real-time blockchain data visualization and search</p>
         </header>
 
-    <div class="container" style="max-width: 1200px; padding: 2rem 1rem;">
+    <div class="container explorer-container">
         <!-- Chain Stats -->
         <div class="grid">
             <div class="card">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div class="stat-card">
                     <div>
-                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Current Height</p>
-                        <p class="endpoint" id="chain-height" style="font-size: 1.875rem; font-weight: bold; color: var(--text);">-</p>
+                        <p class="stat-label">Current Height</p>
+                        <p class="endpoint stat-value" id="chain-height">-</p>
                     </div>
-                    <div style="background: var(--code); border: 1px solid var(--border); padding: 0.75rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: var(--success);">
-                        <i data-lucide="trending-up" style="width: 1.5rem; height: 1.5rem;"></i>
+                    <div class="stat-icon">
+                        <i data-lucide="trending-up" class="icon-md"></i>
                     </div>
                 </div>
             </div>
             <div class="card">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div class="stat-card">
                     <div>
-                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Node Status</p>
-                        <p class="endpoint" id="node-status" style="font-size: 1.125rem; color: var(--text);">-</p>
+                        <p class="stat-label">Node Status</p>
+                        <p class="endpoint node-status-value" id="node-status">-</p>
                     </div>
-                    <div style="background: var(--code); border: 1px solid var(--border); padding: 0.75rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: var(--secondary);">
-                        <i data-lucide="activity" style="width: 1.5rem; height: 1rem;"></i>
+                    <div class="stat-icon stat-icon-secondary">
+                        <i data-lucide="activity" class="icon-lg"></i>
                     </div>
                 </div>
             </div>
@@ -55,29 +56,25 @@
 
         <!-- Search -->
         <div class="card">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+            <div class="search-header">
                 <h2>Search</h2>
-                <button onclick="clearSearch()" style="font-size: 0.875rem; color: var(--text-muted); background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.25rem;">
-                    <i data-lucide="x" style="width: 1rem; height: 1rem;"></i>
+                <button id="clear-search-btn" class="btn-secondary">
+                    <i data-lucide="x" class="icon-sm"></i>
                     Clear
                 </button>
             </div>
 
-            <div style="display: flex; gap: 0.75rem;">
+            <div class="search-row">
                 <input type="text" id="search-input" placeholder="Search by block height, hash, or transaction hash"
-                       class="endpoint" style="flex: 1;" onkeypress="if(event.key === 'Enter') performSearch()">
-                <button onclick="performSearch()" style="cursor: pointer; border: 1px solid transparent; background: var(--primary); color: white; padding: 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center;">
-                    <i data-lucide="search" style="width: 1rem; height: 1rem; margin-right: 0.5rem; vertical-align: middle;"></i>
-                    Search
-                </button>
+                       class="endpoint flex-1">
             </div>
         </div>
 
         <!-- Results Section -->
-        <div id="results-section" class="card" style="display: none;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+        <div id="results-section" class="card hidden">
+            <div class="results-header">
                 <h2>Search Results</h2>
-                <span id="results-count" style="color: var(--text-muted); font-size: 0.875rem;"></span>
+                <span id="results-count" class="result-count"></span>
             </div>
             <div id="results-container">
                 <!-- Results will be dynamically inserted here -->
@@ -86,432 +83,19 @@
 
         <!-- Latest Blocks -->
         <div class="card">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+            <div class="blocks-header">
                 <h2>Latest Blocks</h2>
-                <div style="display: flex; gap: 0.5rem;">
-                    <button onclick="exportBlockchain()" style="font-size: 0.875rem; color: var(--primary); background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.25rem;">
-                        <i data-lucide="download" style="width: 1rem; height: 1rem;"></i>
+                <div class="flex-row">
+                    <button id="export-blockchain-btn" class="btn-secondary">
+                        <i data-lucide="download" class="icon-sm"></i>
                         Export Blockchain
                     </button>
                 </div>
             </div>
             <div id="blocks-container">
-                <p style="color: var(--text-muted);">Loading blocks...</p>
+                <p class="loading-blocks">Loading blocks...</p>
             </div>
         </div>
     </div>
-
-    <script>
-        // Initialize icons
-        lucide.createIcons();
-
-        // Configuration - API endpoint
-        const EXPLORER_API_URL = '/explorer-api'; // Use nginx proxy
-        let currentChain = 'ait-hub.aitbc.bubuit.net';
-
-        // Refresh data
-        async function refreshData() {
-            await updateChainStats();
-            await loadLatestBlocks();
-        }
-
-        // Update chain stats
-        async function updateChainStats() {
-            try {
-                const response = await fetch(`${EXPLORER_API_URL}/api/chain/head?chain_id=${currentChain}`);
-                const data = await response.json();
-                
-                if (data.height) {
-                    document.getElementById('chain-height').textContent = data.height;
-                }
-                
-                document.getElementById('node-status').textContent = 'Connected';
-                document.getElementById('node-status').style.color = 'var(--success)';
-            } catch (error) {
-                console.error('Error updating chain stats:', error);
-                document.getElementById('node-status').textContent = 'Disconnected';
-                document.getElementById('node-status').style.color = 'var(--error-color)';
-            }
-        }
-
-        // Auto-refresh every 30 seconds to recover from temporary disconnections
-        setInterval(() => {
-            if (document.getElementById('node-status').textContent === 'Disconnected') {
-                console.log('Auto-retrying connection...');
-                refreshData();
-            }
-        }, 30000);
-
-        // Load latest blocks
-        async function loadLatestBlocks() {
-            try {
-                const response = await fetch(`${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=10`);
-                const data = await response.json();
-                
-                const container = document.getElementById('blocks-container');
-                if (data.blocks && data.blocks.length > 0) {
-                    container.innerHTML = data.blocks.map(block => {
-                        // Handle both timestamp formats (ISO string and Unix timestamp)
-                        let timestamp = 'N/A';
-                        if (block.timestamp) {
-                            if (typeof block.timestamp === 'string') {
-                                timestamp = new Date(block.timestamp).toLocaleString();
-                            } else if (typeof block.timestamp === 'number') {
-                                timestamp = new Date(block.timestamp * 1000).toLocaleString();
-                            }
-                        }
-                        
-                        return `
-                        <div class="endpoint fade-in" style="padding: 1rem;">
-                            <div style="display: flex; align-items: center; gap: 1rem;">
-                                <span class="badge" style="background: var(--primary); color: white;">#${block.height}</span>
-                                <span style="font-size: 0.875rem; word-break: break-all;">${block.hash || 'N/A'}</span>
-                            </div>
-                            <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-muted);">
-                                ${timestamp} UTC
-                            </div>
-                            <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-muted);">
-                                Transactions: ${block.tx_count || 0}
-                            </div>
-                        </div>
-                    `;
-                    }).join('');
-                } else {
-                    container.innerHTML = '<p style="color: var(--text-muted);">No blocks available</p>';
-                }
-            } catch (error) {
-                console.error('Error loading blocks:', error);
-                document.getElementById('blocks-container').innerHTML = '<p style="color: var(--error-color);">Error loading blocks</p>';
-            }
-        }
-
-        // Clear search
-        function clearSearch() {
-            document.getElementById('search-input').value = '';
-            document.getElementById('results-section').style.display = 'none';
-        }
-
-        // Perform simple search
-        async function performSearch() {
-            let query = document.getElementById('search-input').value.trim();
-            console.log('Search query:', query);
-            if (!query) {
-                console.log('Empty query, returning');
-                return;
-            }
-
-            // Strip # prefix if present (e.g., user enters "#27381")
-            query = query.replace(/^#/, '');
-            console.log('Query after stripping #:', query);
-
-            // Try to determine if it's a block height, hash, or address
-            const isNumber = /^\d+$/.test(query);
-            const isHash = /^(0x)?[a-fA-F0-9]{64}$/.test(query);
-
-            console.log('Is number:', isNumber, 'Is hash:', isHash);
-
-            if (isNumber) {
-                // Search by block height
-                console.log('Searching by block height:', parseInt(query));
-                await searchBlock(parseInt(query));
-            } else if (isHash) {
-                // Search by hash - try both block and transaction
-                console.log('Searching by hash:', query);
-                await searchByHash(query);
-            } else {
-                // Search by address or try as block height if it looks like a number with extra chars
-                const cleanNumber = query.replace(/[^0-9]/g, '');
-                if (cleanNumber && cleanNumber === query) {
-                    console.log('Searching by block height (cleaned):', parseInt(cleanNumber));
-                    await searchBlock(parseInt(cleanNumber));
-                } else {
-                    console.log('Searching by address:', query);
-                    await searchByAddress(query);
-                }
-            }
-        }
-
-        // Search by hash (could be block or transaction)
-        async function searchByHash(hash) {
-            console.log('searchByHash called with:', hash);
-            // Strip 0x prefix if present for API calls
-            const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
-            console.log('Clean hash for API:', cleanHash);
-            // First try to search as block
-            const blockResponse = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${cleanHash}?chain_id=${currentChain}`);
-            console.log('Block by hash response status:', blockResponse.status);
-            if (blockResponse.ok) {
-                const blockData = await blockResponse.json();
-                console.log('Block by hash data:', blockData);
-                if (blockData && blockData.height) {
-                    displayResults([blockData], 'block');
-                    return;
-                }
-            }
-            
-            console.log('Block not found by hash');
-            displayResults([], 'block');
-        }
-
-        // Search block by height
-        async function searchBlock(height) {
-            console.log('searchBlock called with height:', height);
-            try {
-                const response = await fetch(`${EXPLORER_API_URL}/api/blocks/${height}?chain_id=${currentChain}`);
-                console.log('Response status:', response.status);
-                const data = await response.json();
-                console.log('Response data:', data);
-                if (data && data.height) {
-                    displayResults([data], 'block');
-                } else {
-                    console.log('No valid block data in response');
-                    displayResults([], 'block');
-                }
-            } catch (error) {
-                console.error('Error searching block:', error);
-                displayError('Block not found');
-            }
-        }
-
-        // Search transaction by hash
-        async function searchTransaction(hash) {
-            console.log('searchTransaction called with:', hash);
-            // Strip 0x prefix if present for API calls
-            const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
-            try {
-                const response = await fetch(`${EXPLORER_API_URL}/api/transactions/${cleanHash}?chain_id=${currentChain}`);
-                console.log('Transaction response status:', response.status);
-                const data = await response.json();
-                console.log('Transaction data:', data);
-                if (data && data.hash) {
-                    displayResults([data], 'transaction');
-                } else {
-                    console.log('No valid transaction data');
-                    displayResults([], 'transaction');
-                }
-            } catch (error) {
-                console.error('Error searching transaction:', error);
-                displayError('Transaction not found');
-            }
-        }
-
-        // Search by address
-        async function searchByAddress(address) {
-            try {
-                const response = await fetch(`${EXPLORER_API_URL}/api/transactions/search?address=${address}&chain_id=${currentChain}`);
-                const data = await response.json();
-                displayResults(data.transactions || [], 'transaction');
-            } catch (error) {
-                console.error('Error searching by address:', error);
-                displayError('No transactions found for address');
-            }
-        }
-
-        // Display results
-        function displayResults(results, type) {
-            console.log('displayResults called with:', results.length, 'results of type:', type);
-            const section = document.getElementById('results-section');
-            const container = document.getElementById('results-container');
-            const count = document.getElementById('results-count');
-
-            section.style.display = 'block';
-            count.textContent = `${results.length} ${type}${results.length !== 1 ? 's' : ''} found`;
-
-            if (results.length === 0) {
-                container.innerHTML = '<p style="color: var(--text-muted);">No results found.</p>';
-                return;
-            }
-
-            // Filter out results that don't have the required data
-            const validResults = results.filter(item => {
-                if (type === 'block') {
-                    return item && item.height;
-                } else {
-                    return item && item.hash;
-                }
-            });
-
-            console.log('Valid results after filtering:', validResults.length);
-
-            if (validResults.length === 0) {
-                container.innerHTML = '<p style="color: var(--text-muted);">No valid results found.</p>';
-                return;
-            }
-
-            container.innerHTML = validResults.map(item => {
-                // Handle both timestamp formats
-                let timestamp = '-';
-                if (item.timestamp) {
-                    if (typeof item.timestamp === 'string') {
-                        timestamp = new Date(item.timestamp).toLocaleString();
-                    } else if (typeof item.timestamp === 'number') {
-                        timestamp = new Date(item.timestamp * 1000).toLocaleString();
-                    }
-                }
-
-                // Build details based on type
-                let details = '';
-                if (type === 'block') {
-                    details = `
-                        <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-muted); word-break: break-all;">
-                            Hash: ${item.hash || 'N/A'}
-                        </div>
-                        <div style="margin-top: 0.25rem; font-size: 0.875rem; color: var(--text-muted);">
-                            Validator: ${item.validator || 'unknown'}
-                        </div>
-                        <div style="margin-top: 0.25rem; font-size: 0.875rem; color: var(--text-muted);">
-                            Transactions: ${item.tx_count || 0}
-                        </div>
-                    `;
-                } else {
-                    details = `
-                        <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-muted); word-break: break-all;">
-                            Hash: ${item.hash || 'N/A'}
-                        </div>
-                        <div style="margin-top: 0.25rem; font-size: 0.875rem; color: var(--text-muted);">
-                            Block: ${item.block_height || 'N/A'}
-                        </div>
-                        <div style="margin-top: 0.25rem; font-size: 0.875rem; color: var(--text-muted);">
-                            From: ${item.from || 'N/A'}
-                        </div>
-                        <div style="margin-top: 0.25rem; font-size: 0.875rem; color: var(--text-muted);">
-                            To: ${item.to || 'N/A'}
-                        </div>
-                    `;
-                }
-
-                return `
-                <div class="endpoint fade-in" style="padding: 1rem;">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <span class="badge" style="background: var(--primary); color: white;">${type === 'block' ? '#' + item.height : item.hash || 'N/A'}</span>
-                        </div>
-                        <div style="font-size: 0.875rem; color: var(--text-muted);">
-                            ${timestamp}
-                        </div>
-                    </div>
-                    ${details}
-                    ${item.note ? `<div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">${item.note}</div>` : ''}
-                </div>
-            `;
-            }).join('');
-        }
-
-        // Display error
-        function displayError(message) {
-            const section = document.getElementById('results-section');
-            const container = document.getElementById('results-container');
-            const count = document.getElementById('results-count');
-
-            section.style.display = 'block';
-            count.textContent = '';
-            container.innerHTML = `<p style="color: var(--error-color);">${message}</p>`;
-        }
-
-        // Export blockchain
-        async function exportBlockchain() {
-            try {
-                // Get current block height first
-                const headResponse = await fetch(`${EXPLORER_API_URL}/api/chain/head?chain_id=${currentChain}`);
-                const headData = await headResponse.json();
-                
-                if (!headData.height) {
-                    alert('Unable to get blockchain height');
-                    return;
-                }
-                
-                const maxHeight = headData.height;
-                const exportCount = prompt(`Blockchain height: ${maxHeight}\n\nHow many recent blocks to export? (max 1000)`, '100');
-                const count = Math.min(parseInt(exportCount) || 100, 1000);
-                
-                if (count <= 0) {
-                    alert('Invalid block count');
-                    return;
-                }
-                
-                // Ask for format
-                const format = prompt('Export format: "csv" or "json"?', 'csv');
-                if (format !== 'csv' && format !== 'json') {
-                    alert('Invalid format');
-                    return;
-                }
-                
-                // Fetch blocks
-                const blocks = [];
-                const startHeight = Math.max(maxHeight - count + 1, 1);
-                
-                for (let height = startHeight; height <= maxHeight; height++) {
-                    try {
-                        const response = await fetch(`${EXPLORER_API_URL}/api/blocks/${height}?chain_id=${currentChain}`);
-                        const data = await response.json();
-                        if (data && data.height) {
-                            blocks.push(data);
-                        }
-                    } catch (error) {
-                        console.error(`Error fetching block ${height}:`, error);
-                    }
-                }
-                
-                if (blocks.length === 0) {
-                    alert('No blocks fetched');
-                    return;
-                }
-                
-                // Export
-                if (format === 'csv') {
-                    exportBlocksAsCSV(blocks);
-                } else {
-                    exportBlocksAsJSON(blocks);
-                }
-                
-                alert(`Exported ${blocks.length} blocks`);
-                
-            } catch (error) {
-                console.error('Error exporting blockchain:', error);
-                alert('Error exporting blockchain');
-            }
-        }
-
-        function exportBlocksAsCSV(blocks) {
-            const headers = ['Height', 'Hash', 'Validator', 'Transaction Count', 'Timestamp'];
-            const rows = blocks.map(block => [
-                block.height,
-                block.hash,
-                block.validator,
-                block.tx_count,
-                block.timestamp
-            ]);
-            
-            const csvContent = [
-                headers.join(','),
-                ...rows.map(row => row.join(','))
-            ].join('\n');
-            
-            downloadFile(csvContent, 'latest_blocks.csv', 'text/csv');
-        }
-
-        function exportBlocksAsJSON(blocks) {
-            const jsonContent = JSON.stringify(blocks, null, 2);
-            downloadFile(jsonContent, 'latest_blocks.json', 'application/json');
-        }
-
-        function downloadFile(content, filename, mimeType) {
-            const blob = new Blob([content], { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        // Auto-refresh every 30 seconds
-        setInterval(refreshData, 30000);
-
-        // Initial load
-        refreshData();
-    </script>
 </body>
 </html>
