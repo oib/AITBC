@@ -81,6 +81,11 @@ class TestJob:
         assert job.kwargs == {"key": "value"}
         assert job.status == JobStatus.PENDING
 
+    def test_job_fails_without_func(self):
+        """Test Job raises ValueError when func is None"""
+        with pytest.raises(ValueError, match="func is required"):
+            Job(priority=JobPriority.MEDIUM.value, func=None)
+
     def test_job_defaults(self):
         """Test Job with default values"""
 
@@ -302,6 +307,10 @@ class TestJobScheduler:
         await scheduler.start()
         assert scheduler.running is True
 
+        # Test early return when already running
+        await scheduler.start()
+        assert scheduler.running is True
+
         await scheduler.stop()
         assert scheduler.running is False
 
@@ -325,6 +334,67 @@ class TestJobScheduler:
 
         await scheduler.stop()
         assert executed[0] is True
+
+    @pytest.mark.asyncio
+    async def test_run_scheduled_async_job(self):
+        """Test scheduled async job execution"""
+        scheduler = JobScheduler()
+
+        executed = [False]
+
+        async def test_async():
+            executed[0] = True
+            return 42
+
+        await scheduler.schedule(test_async, delay=0.1)
+        await scheduler.start()
+
+        import asyncio
+
+        await asyncio.sleep(0.2)
+
+        await scheduler.stop()
+        assert executed[0] is True
+
+    @pytest.mark.asyncio
+    async def test_run_interval_job(self):
+        """Test interval job execution and rescheduling"""
+        scheduler = JobScheduler()
+
+        executed = []
+
+        async def test_async():
+            executed.append(True)
+            if len(executed) >= 2:
+                await scheduler.stop()
+
+        await scheduler.schedule(test_async, delay=0.05, interval=0.05)
+        await scheduler.start()
+
+        import asyncio
+
+        await asyncio.sleep(0.3)
+
+        assert len(executed) >= 2
+
+    @pytest.mark.asyncio
+    async def test_scheduler_exception_handling(self):
+        """Test exception handling in scheduler"""
+        scheduler = JobScheduler()
+
+        def failing_func():
+            raise ValueError("Test error")
+
+        await scheduler.schedule(failing_func, delay=0.1)
+        await scheduler.start()
+
+        import asyncio
+
+        await asyncio.sleep(0.2)
+
+        await scheduler.stop()
+        # Scheduler should not crash
+        assert True
 
 
 class TestBackgroundTaskManager:
@@ -456,6 +526,27 @@ class TestBackgroundTaskManager:
         with pytest.raises(TimeoutError):
             await manager.wait_for_task(task_id, timeout=0.1)
 
+    @pytest.mark.asyncio
+    async def test_wait_for_task_not_found(self):
+        """Test wait_for_task raises ValueError for nonexistent task"""
+        manager = BackgroundTaskManager()
+
+        with pytest.raises(ValueError, match="Task not found"):
+            await manager.wait_for_task("nonexistent")
+
+    @pytest.mark.asyncio
+    async def test_wait_for_failed_task(self):
+        """Test wait_for_task raises exception for failed task"""
+        manager = BackgroundTaskManager()
+
+        def failing_func():
+            raise ValueError("Task failed")
+
+        task_id = await manager.run_task(failing_func)
+
+        with pytest.raises(Exception, match="Task failed"):
+            await manager.wait_for_task(task_id)
+
 
 class TestWorkerPool:
     """Test WorkerPool class"""
@@ -475,6 +566,10 @@ class TestWorkerPool:
         await pool.start()
         assert pool.running is True
         assert len(pool.workers) == 2
+
+        # Test early return when already running
+        await pool.start()
+        assert pool.running is True
 
         await pool.stop()
         assert pool.running is False
@@ -575,6 +670,27 @@ class TestDebounceDecorator:
         await asyncio.sleep(0.15)
 
         # Current implementation executes each call after delay (not true debounce)
+        assert call_count[0] == 3
+
+    @pytest.mark.asyncio
+    async def test_debounce_sync_func(self):
+        """Test debounce decorator with sync function"""
+        call_count = [0]
+
+        @debounce(delay=0.1)
+        def sync_func():
+            call_count[0] += 1
+            return 42
+
+        sync_func()
+        await asyncio.sleep(0.05)
+        sync_func()
+        await asyncio.sleep(0.05)
+        sync_func()
+
+        # Wait for all debounced calls to complete
+        await asyncio.sleep(0.15)
+
         assert call_count[0] == 3
 
 
