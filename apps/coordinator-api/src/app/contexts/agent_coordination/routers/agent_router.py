@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ....deps import require_admin_key
+from ....auth import AdminDep
 from ....domain.agent import (
     AgentExecutionRequest,
     AgentExecutionResponse,
@@ -34,11 +34,11 @@ router = APIRouter(tags=["AI Agents"])
 async def create_workflow(
     workflow_data: AgentWorkflowCreate,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AIAgentWorkflow:  # type: ignore[arg-type]
     """Create a new AI agent workflow"""
     try:
-        workflow = AIAgentWorkflow(owner_id=current_user, **workflow_data.dict())
+        workflow = AIAgentWorkflow(owner_id=user["sub"], **workflow_data.dict())
         session.add(workflow)
         session.commit()
         session.refresh(workflow)
@@ -55,7 +55,7 @@ async def list_workflows(
     is_public: bool | None,
     tags: list[str] | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> list[AIAgentWorkflow]:  # type: ignore[arg-type]
     """List agent workflows with filtering"""
     try:
@@ -63,7 +63,7 @@ async def list_workflows(
         if owner_id:
             query = query.where(AIAgentWorkflow.owner_id == owner_id)
         elif not is_public:
-            query = query.where((AIAgentWorkflow.owner_id == current_user.id) | AIAgentWorkflow.is_public)  # type: ignore[attr-defined]
+            query = query.where((AIAgentWorkflow.owner_id == user["sub"]) | AIAgentWorkflow.is_public)
         if is_public is not None:
             query = query.where(AIAgentWorkflow.is_public == is_public)
         if tags:
@@ -82,14 +82,14 @@ async def get_workflow(
     workflow_id: str,
     request: Request,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AIAgentWorkflow:  # type: ignore[arg-type]
     """Get a specific agent workflow"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
-        if workflow.owner_id != current_user and (not workflow.is_public):
+        if workflow.owner_id != user["sub"] and (not workflow.is_public):
             raise HTTPException(status_code=403, detail="Access denied")
         return workflow
     except HTTPException:
@@ -106,14 +106,14 @@ async def update_workflow(
     workflow_data: AgentWorkflowUpdate,
     request: Request,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AIAgentWorkflow:  # type: ignore[arg-type]
     """Update an agent workflow"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
-        if workflow.owner_id != current_user.id:  # type: ignore[attr-defined]
+        if workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         update_data = workflow_data.dict(exclude_unset=True)
         for field, value in update_data.items():
@@ -134,14 +134,14 @@ async def update_workflow(
 async def delete_workflow(
     workflow_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, str]:  # type: ignore[arg-type]
     """Delete an agent workflow"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
-        if workflow.owner_id != current_user.id:  # type: ignore[attr-defined]
+        if workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         session.delete(workflow)
         session.commit()
@@ -160,14 +160,14 @@ async def execute_workflow(
     execution_request: AgentExecutionRequest,
     background_tasks: BackgroundTasks,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AgentExecutionResponse:  # type: ignore[arg-type]
     """Execute an AI agent workflow"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
-        if workflow.owner_id != current_user.id and (not workflow.is_public):  # type: ignore[attr-defined]
+        if workflow.owner_id != user["sub"] and (not workflow.is_public):
             raise HTTPException(status_code=403, detail="Access denied")
         request = AgentExecutionRequest(
             workflow_id=workflow_id,
@@ -180,7 +180,7 @@ async def execute_workflow(
 
         coordinator_client = CoordinatorClient()
         orchestrator = AIAgentOrchestrator(session, coordinator_client)  # type: ignore[arg-type]
-        response = await orchestrator.execute_workflow(request, current_user.id)  # type: ignore[attr-defined]
+        response = await orchestrator.execute_workflow(request, user["sub"])
         logger.info("Started agent execution: %s", response.execution_id)
         return response
     except HTTPException:
@@ -194,7 +194,7 @@ async def execute_workflow(
 async def get_execution_status(
     execution_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AgentExecutionStatus:  # type: ignore[arg-type]
     """Get execution status"""
     try:
@@ -205,7 +205,7 @@ async def get_execution_status(
         orchestrator = AIAgentOrchestrator(session, coordinator_client)
         status = await orchestrator.get_execution_status(execution_id)
         workflow = session.get(AIAgentWorkflow, status.workflow_id)
-        if workflow.owner_id != current_user.id:  # type: ignore[union-attr, attr-defined]
+        if workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         return status  # type: ignore[no-any-return]
     except HTTPException:
@@ -222,7 +222,7 @@ async def list_executions(
     limit: int | None,
     offset: int | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> list[AgentExecutionStatus]:  # type: ignore[arg-type]
     """List agent executions with filtering"""
     try:
@@ -231,7 +231,7 @@ async def list_executions(
         query = select(AgentExecution)
         if workflow_id:
             workflow = session.get(AIAgentWorkflow, workflow_id)
-            if not workflow or workflow.owner_id != current_user.id:  # type: ignore[attr-defined]
+            if not workflow or workflow.owner_id != user["sub"]:
                 raise HTTPException(status_code=403, detail="Access denied")
             query = query.where(AgentExecution.workflow_id == workflow_id)
         if status:
@@ -250,14 +250,14 @@ async def cancel_workflow(
     workflow_id: str,
     execution_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Cancel a workflow execution"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
-        if workflow.owner_id != current_user.id:  # type: ignore[attr-defined]
+        if workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         from app.services.agent_coordination.coordinator_client import CoordinatorClient  # type: ignore[import-not-found]
 
@@ -281,14 +281,14 @@ async def list_workflow_executions(
     limit: int | None,
     offset: int | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> list[AgentExecutionStatus]:  # type: ignore[arg-type]
     """List executions for a specific workflow"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
-        if workflow.owner_id != current_user.id and (not workflow.is_public):  # type: ignore[attr-defined]
+        if workflow.owner_id != user["sub"] and (not workflow.is_public):
             raise HTTPException(status_code=403, detail="Access denied")
         from app.domain.agent import AgentExecution  # type: ignore[import-not-found]
 
