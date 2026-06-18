@@ -199,7 +199,7 @@ async def translate_with_fallback(request):
 ```python
 def log_security_check(request, policy):
     log_entry = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "command": request.command_name,
         "security_level": request.security_level.value,
         "translation_mode": policy.translation_mode.value,
