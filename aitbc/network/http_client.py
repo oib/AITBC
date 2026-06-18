@@ -14,6 +14,17 @@ warnings.warn(
 )
 
 # Re-export from new modules for backward compatibility
+from .cache_layer import CacheLayer
+from .circuit_breaker import CircuitBreaker
 from .client import AITBCHTTPClient, AsyncAITBCHTTPClient
+from .rate_limiter import RateLimiter
+from .retry_policy import RetryPolicy
 
-__all__ = ["AITBCHTTPClient", "AsyncAITBCHTTPClient"]
+__all__ = [
+    "AITBCHTTPClient",
+    "AsyncAITBCHTTPClient",
+    "CircuitBreaker",
+    "RateLimiter",
+    "RetryPolicy",
+    "CacheLayer",
+]
