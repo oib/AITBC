@@ -3,7 +3,7 @@ Simple test agent endpoint to verify task distribution
 Listens on port 9997 and accepts task execution requests
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import uvicorn
@@ -41,7 +41,7 @@ class TaskResponse(BaseModel):
 @app.get("/")
 async def root():
     """Health check endpoint"""
-    return {"status": "running", "agent_id": "test-agent-9997", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "running", "agent_id": "test-agent-9997", "timestamp": datetime.now(UTC).isoformat()}
 
 
 @app.get("/health")
@@ -54,7 +54,7 @@ async def health():
 async def execute_task(task: TaskMessage):
     """Execute a task sent by the task distributor"""
     try:
-        print(f"[{datetime.utcnow()}] Received task:")
+        print(f"[{datetime.now(UTC)}] Received task:")
         print(f"  Task ID: {task.id}")
         print(f"  From: {task.sender_id}")
         print(f"  Type: {task.message_type}")
@@ -72,15 +72,15 @@ async def execute_task(task: TaskMessage):
             status="success",
             task_id=task.id,
             agent_id="test-agent-9997",
-            executed_at=datetime.utcnow().isoformat(),
+            executed_at=datetime.now(UTC).isoformat(),
             result=result,
         )
 
-        print(f"[{datetime.utcnow()}] Task executed successfully")
+        print(f"[{datetime.now(UTC)}] Task executed successfully")
         return response
 
     except Exception as e:
-        print(f"[{datetime.utcnow()}] Error executing task: {e}")
+        print(f"[{datetime.now(UTC)}] Error executing task: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

@@ -4,7 +4,7 @@ Provides authentication, authorization, and access control mechanisms
 """
 
 import os
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from functools import wraps
 from typing import Any
 
@@ -84,7 +84,7 @@ class AccessController:
         if not self.jwt_available:
             raise AccessControlError("JWT not available")
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         expiry = now + timedelta(seconds=self.token_expiry)
 
         claims = {"sub": user_id, "roles": roles, "iat": now.timestamp(), "exp": expiry.timestamp(), "iss": "aitbc"}
