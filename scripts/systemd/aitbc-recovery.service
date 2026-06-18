@@ -5,7 +5,7 @@ Before=aitbc-blockchain-node.service aitbc-coordinator-api.service aitbc-marketp
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c '/opt/aitbc/scripts/utils/link-systemd.sh && /opt/aitbc/scripts/utils/load-keystore-secrets.sh || true'
+ExecStart=/bin/bash -c '/opt/aitbc/scripts/utils/link-systemd.sh && /opt/aitbc/scripts/utils/load-keystore-secrets.sh'
 RemainAfterExit=yes
 StandardOutput=journal
 StandardError=journal
