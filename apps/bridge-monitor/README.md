@@ -20,6 +20,10 @@ no
 
 1 systemd service(s): aitbc-bridge-monitor.service
 
+## Core Service
+
+no
+
 ## Source
 
 `src/` directory with 3 Python file(s)

@@ -14,11 +14,15 @@ island
 
 ## GPU Required
 
-**Yes**
+**Optional**
 
 ## Service
 
 1 systemd service(s): aitbc-whisper.service
+
+## Core Service
+
+no
 
 ## Source
 
