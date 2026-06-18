@@ -1,9 +1,28 @@
-# Wallet
+# wallet
 
-**Documentation has moved to:** [docs/apps/wallet/wallet.md](../../docs/apps/wallet/wallet.md)
+## Status
+
+**active**
+
+## Description
+
+Multi-chain wallet daemon with keystore management, transaction signing, and chain-aware operations. Supports multiple blockchain networks and asset types.
+
+## Node Type
+
+all
+
+## GPU Required
+
+no
+
+## Service
+
+1 systemd service(s): aitbc-wallet.service
+
+## Source
+
+`src/` directory with 29 Python file(s)
 
 ---
-
-This file has been migrated to the central documentation location. Please update your bookmarks and references to point to the new location.
-
-For the complete documentation, see the [Wallet documentation](../../docs/apps/wallet/wallet.md).
+*Last updated: 2026-06-17*
