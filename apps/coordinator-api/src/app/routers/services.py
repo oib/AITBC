@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from aitbc.rate_limiting import rate_limit
 
-from ..deps import require_client_key
+from ..auth import ClientDep
 from ..models.services import (
     BlenderEngine,
     BlenderRequest,
@@ -57,7 +57,7 @@ async def submit_service_job(
     service_type: ServiceType,
     request_data: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
     user_agent: str = Header(None),
 ) -> ServiceResponse:
     """Submit a job for a specific service type
@@ -109,7 +109,7 @@ async def submit_service_job(
 
     # Submit job
     service = JobService(session)
-    job = service.create_job(client_id, job_create)
+    job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
         job_id=job.job_id, service_type=service_type, status=job.state.value, estimated_completion=job.expires_at.isoformat()
@@ -128,7 +128,7 @@ async def whisper_transcribe(
     request: Request,
     whisper_request: WhisperRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> ServiceResponse:
     """Transcribe audio file using Whisper"""
 
@@ -140,7 +140,7 @@ async def whisper_transcribe(
     job_create = JobCreate(payload=job_payload, constraints=whisper_request.get_constraints(), ttl_seconds=900)
 
     service = JobService(session)
-    job = service.create_job(client_id, job_create)
+    job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
         job_id=job.job_id,
@@ -161,7 +161,7 @@ async def whisper_translate(
     request: Request,
     whisper_request: WhisperRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> ServiceResponse:
     """Translate audio file using Whisper"""
     # Force task to be translate
@@ -175,7 +175,7 @@ async def whisper_translate(
     job_create = JobCreate(payload=job_payload, constraints=whisper_request.get_constraints(), ttl_seconds=900)
 
     service = JobService(session)
-    job = service.create_job(client_id, job_create)
+    job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
         job_id=job.job_id,
@@ -197,7 +197,7 @@ async def stable_diffusion_generate(
     request: Request,
     sd_request: StableDiffusionRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> ServiceResponse:
     """Generate images using Stable Diffusion"""
 
@@ -213,7 +213,7 @@ async def stable_diffusion_generate(
     )
 
     service = JobService(session)
-    job = service.create_job(client_id, job_create)
+    job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
         job_id=job.job_id,
@@ -234,7 +234,7 @@ async def stable_diffusion_img2img(
     request: Request,
     sd_request: StableDiffusionRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> ServiceResponse:
     """Image-to-image generation using Stable Diffusion"""
     # Add img2img specific parameters
@@ -249,7 +249,7 @@ async def stable_diffusion_img2img(
     job_create = JobCreate(payload=job_payload, constraints=sd_request.get_constraints(), ttl_seconds=600)
 
     service = JobService(session)
-    job = service.create_job(client_id, job_create)
+    job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
         job_id=job.job_id,
@@ -268,7 +268,7 @@ async def llm_inference(
     request: Request,
     llm_request: LLMRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> ServiceResponse:
     """Run inference on a language model"""
 
@@ -284,7 +284,7 @@ async def llm_inference(
     )
 
     service = JobService(session)
-    job = service.create_job(client_id, job_create)
+    job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
         job_id=job.job_id,
@@ -300,7 +300,7 @@ async def llm_stream(
     request: Request,
     llm_request: LLMRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> ServiceResponse:
     """Stream LLM inference response"""
     # Force streaming mode
@@ -314,7 +314,7 @@ async def llm_stream(
     job_create = JobCreate(payload=job_payload, constraints=llm_request.get_constraints(), ttl_seconds=300)
 
     service = JobService(session)
-    job = service.create_job(client_id, job_create)
+    job = service.create_job(user["sub"], job_create)
 
     # Return streaming response
     # This would implement WebSocket or Server-Sent Events
@@ -338,7 +338,7 @@ async def ffmpeg_transcode(
     request: Request,
     ffmpeg_request: FFmpegRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> ServiceResponse:
     """Transcode video using FFmpeg"""
 
@@ -355,7 +355,7 @@ async def ffmpeg_transcode(
     )
 
     service = JobService(session)
-    job = service.create_job(client_id, job_create)
+    job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
         job_id=job.job_id,
@@ -377,7 +377,7 @@ async def blender_render(
     request: Request,
     blender_request: BlenderRequest,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> ServiceResponse:
     """Render scene using Blender"""
 
@@ -394,7 +394,7 @@ async def blender_render(
     job_create = JobCreate(payload=job_payload, constraints=blender_request.get_constraints(), ttl_seconds=ttl_seconds)
 
     service = JobService(session)
-    job = service.create_job(client_id, job_create)
+    job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
         job_id=job.job_id,
