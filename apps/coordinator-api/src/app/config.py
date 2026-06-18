@@ -5,6 +5,7 @@ Provides environment-based adapter selection and consolidated settings.
 """
 
 import os
+from typing import Any
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -122,6 +123,7 @@ class Settings(BaseAITBCConfig):
     @classmethod
     def validate_cors_origins(cls, v: list[str]) -> list[str]:
         import os
+
         env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
         if env in ("production", "prod"):
             localhost_origins = [origin for origin in v if "localhost" in origin or "127.0.0.1" in origin]
@@ -161,6 +163,7 @@ class Settings(BaseAITBCConfig):
     @classmethod
     def validate_blockchain_rpc_url(cls, v: str) -> str:
         import os
+
         env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
         if "localhost" in v or "127.0.0.1" in v:
             if env in ("production", "prod"):
@@ -177,10 +180,25 @@ class Settings(BaseAITBCConfig):
     enable_mock_hermes: bool = Field(default=False, description="Enable mock Hermes endpoints")
     enable_mock_swarm: bool = Field(default=False, description="Enable mock swarm endpoints")
 
+    @field_validator("debug", "enable_mock_training", "enable_mock_hermes", "enable_mock_swarm", mode="before")
+    @classmethod
+    def _parse_bool_env(cls, v: Any) -> bool:
+        """Parse boolean-ish env values (true/1/yes vs false/0/no/release)."""
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, str):
+            lowered = v.strip().lower()
+            if lowered in ("true", "1", "yes", "on"):
+                return True
+            if lowered in ("false", "0", "no", "off", "release"):
+                return False
+        return bool(v)
+
     @field_validator("enable_mock_training", "enable_mock_hermes", "enable_mock_swarm")
     @classmethod
     def validate_mock_flags(cls, v: bool) -> bool:
         import os
+
         env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
         if v and env in ("production", "prod"):
             raise ValueError("Mock endpoints cannot be enabled in production")
