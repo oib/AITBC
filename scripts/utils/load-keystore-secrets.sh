@@ -83,6 +83,8 @@ load_secret "api_hash_secret" "API_KEY_HASH_SECRET"
 load_secret "proposer_id" "proposer_id"
 load_secret "keystore_password" "KEYSTORE_PASSWORD"
 load_secret "coordinator_api_key" "COORDINATOR_API_KEY"
+load_secret "jwt_secret" "JWT_SECRET"
+load_secret "secret_key" "SECRET_KEY"
 
 # Load PostgreSQL database passwords
 for db_user in aitbc_user aitbc_marketplace aitbc_governance aitbc_trading aitbc_gpu aitbc_ai aitbc_mempool; do
