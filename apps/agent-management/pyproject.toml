@@ -7,19 +7,15 @@ readme = "README.md"
 packages = [{include = "app", from = "src"}]
 
 [tool.poetry.dependencies]
-python = ">=3.13.5,<3.14"
+python = ">=3.13.5,<3.14.1 || >3.14.1,<3.15"
 aitbc = {path = "../../../"}
 aitbc-shared-domain = {path = "../../shared-domain"}
 aitbc-shared-core = {path = "../../shared-core"}
-fastapi = ">=0.104.0"
-uvicorn = ">=0.24.0"
-sqlmodel = ">=0.0.14"
+# All other dependencies managed centrally in root pyproject.toml
+# This file only defines package structure for agent-management
 
 [tool.poetry.group.dev.dependencies]
-pytest = ">=9.0.3"
-pytest-asyncio = ">=1.3.0"
-pytest-cov = ">=6.0.0"
-httpx = ">=0.28.1"
+# Dev dependencies managed centrally in root pyproject.toml
 
 [build-system]
 requires = ["poetry-core"]
