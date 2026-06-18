@@ -14,7 +14,9 @@ log = logging.getLogger(__name__)
 class BlockchainSetup:
     """Blockchain and wallet setup for training environment"""
 
-    def __init__(self, aitbc_dir: str = "/opt/aitbc", genesis_password_path: str = "/var/lib/aitbc/keystore/.genesis_password"):
+    def __init__(
+        self, aitbc_dir: str = "/opt/aitbc", genesis_password_path: str = "/var/lib/aitbc/keystore/.genesis_password"
+    ):
         """
         Initialize blockchain setup
 
@@ -105,7 +107,9 @@ class BlockchainSetup:
             log.warning("Genesis balance check failed: %s", e)
         return {"status": "completed", "funding_source": "genesis", "note": "Genesis wallet used as funding source"}
 
-    def fund_training_wallet(self, wallet_name: str, faucet_amount: int = 1000, password: str = "training123") -> dict[str, Any]:
+    def fund_training_wallet(
+        self, wallet_name: str, faucet_amount: int = 1000, password: str = "training123"
+    ) -> dict[str, Any]:
         """
         Fund a training wallet from genesis.
 
@@ -185,3 +189,15 @@ class BlockchainSetup:
         except Exception as e:
             log.warning("Balance check failed: %s", e)
             return {"status": "failed", "error": str(e)}
+
+    def get_wallet_name(self, index: int) -> str:
+        """
+        Get training wallet name by index.
+
+        Args:
+            index: Wallet index
+
+        Returns:
+            Wallet name (e.g., "training-w1", "training-w10")
+        """
+        return f"training-w{index}"
