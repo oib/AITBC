@@ -71,13 +71,13 @@ class TradeRequest(SQLModel, table=True):
     description: str = Field(default="", max_length=1000)
 
     # Requirements and specifications
-    requirements: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    specifications: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    constraints: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    requirements: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    specifications: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    constraints: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Pricing and terms
-    budget_range: dict[str, float] = Field(default={}, sa_column=Column(JSON))  # min, max
-    preferred_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    budget_range: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))  # min, max
+    preferred_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     negotiation_flexible: bool = Field(default=True)
 
     # Timing and duration
@@ -87,8 +87,8 @@ class TradeRequest(SQLModel, table=True):
     urgency_level: str = Field(default="normal")  # low, normal, high, urgent
 
     # Geographic and service constraints
-    preferred_regions: list[str] = Field(default=[], sa_column=Column(JSON))
-    excluded_regions: list[str] = Field(default=[], sa_column=Column(JSON))
+    preferred_regions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    excluded_regions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     service_level_required: str = Field(default="standard")  # basic, standard, premium
 
     # Status and metadata
@@ -107,8 +107,8 @@ class TradeRequest(SQLModel, table=True):
     last_activity: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional metadata
-    tags: list[str] = Field(default=[], sa_column=Column(JSON))
-    trading_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    trading_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class TradeMatch(SQLModel, table=True):
@@ -137,8 +137,8 @@ class TradeMatch(SQLModel, table=True):
     geographic_compatibility: float = Field(ge=0, le=100)
 
     # Seller offer details
-    seller_offer: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    proposed_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    seller_offer: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    proposed_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Status and interaction
     status: TradeStatus = Field(default=TradeStatus.MATCHING)
@@ -148,7 +148,7 @@ class TradeMatch(SQLModel, table=True):
     # Negotiation initiation
     negotiation_initiated: bool = Field(default=False)
     negotiation_initiator: str | None = None  # buyer, seller
-    initial_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    initial_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -157,8 +157,8 @@ class TradeMatch(SQLModel, table=True):
     last_interaction: datetime | None = None
 
     # Additional data
-    match_factors: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    interaction_history: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    match_factors: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    interaction_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class TradeNegotiation(SQLModel, table=True):
@@ -181,15 +181,15 @@ class TradeNegotiation(SQLModel, table=True):
     max_rounds: int = Field(default=5)
 
     # Terms and conditions
-    current_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    initial_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    final_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    current_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    initial_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    final_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Negotiation parameters
-    price_range: dict[str, float] = Field(default={}, sa_column=Column(JSON))
-    service_level_agreements: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    delivery_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    payment_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    price_range: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    service_level_agreements: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    delivery_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    payment_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Negotiation metrics
     concession_count: int = Field(default=0)
@@ -210,8 +210,8 @@ class TradeNegotiation(SQLModel, table=True):
     last_offer_at: datetime | None = None
 
     # Additional data
-    negotiation_history: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
-    ai_recommendations: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    negotiation_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    ai_recommendations: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class TradeAgreement(SQLModel, table=True):
@@ -234,25 +234,25 @@ class TradeAgreement(SQLModel, table=True):
     description: str = Field(default="", max_length=1000)
 
     # Final terms and conditions
-    agreed_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    specifications: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    service_level_agreement: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    agreed_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    specifications: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    service_level_agreement: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Pricing and payment
     total_price: float = Field(ge=0)
     currency: str = Field(default="AITBC")
-    payment_schedule: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    payment_schedule: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     settlement_type: SettlementType
 
     # Delivery and performance
-    delivery_timeline: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    performance_metrics: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    quality_standards: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    delivery_timeline: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    performance_metrics: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    quality_standards: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Legal and compliance
     terms_and_conditions: str = Field(default="", max_length=5000)
-    compliance_requirements: list[str] = Field(default=[], sa_column=Column(JSON))
-    dispute_resolution: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    compliance_requirements: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    dispute_resolution: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Status and execution
     status: TradeStatus = Field(default=TradeStatus.AGREED)
@@ -268,8 +268,8 @@ class TradeAgreement(SQLModel, table=True):
     completed_at: datetime | None = None
 
     # Additional data
-    agreement_document: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    attachments: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    agreement_document: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    attachments: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class TradeSettlement(SQLModel, table=True):
@@ -300,11 +300,11 @@ class TradeSettlement(SQLModel, table=True):
     # Escrow details (if applicable)
     escrow_enabled: bool = Field(default=False)
     escrow_address: str | None = None
-    escrow_release_conditions: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    escrow_release_conditions: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Milestone payments (if applicable)
-    milestone_payments: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
-    completed_milestones: list[str] = Field(default=[], sa_column=Column(JSON))
+    milestone_payments: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    completed_milestones: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Fees and deductions
     platform_fee: float = Field(default=0.0)
@@ -321,12 +321,12 @@ class TradeSettlement(SQLModel, table=True):
 
     # Dispute and resolution
     dispute_raised: bool = Field(default=False)
-    dispute_details: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    resolution_details: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    dispute_details: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    resolution_details: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Additional data
-    settlement_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    audit_trail: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    settlement_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    audit_trail: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class TradeFeedback(SQLModel, table=True):
@@ -352,7 +352,7 @@ class TradeFeedback(SQLModel, table=True):
 
     # Feedback content
     feedback_text: str = Field(default="", max_length=1000)
-    feedback_tags: list[str] = Field(default=[], sa_column=Column(JSON))
+    feedback_tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Trade specifics
     trade_category: str = Field(default="general")
@@ -370,8 +370,8 @@ class TradeFeedback(SQLModel, table=True):
     trade_completed_at: datetime
 
     # Additional data
-    feedback_context: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    performance_metrics: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    feedback_context: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    performance_metrics: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class TradingAnalytics(SQLModel, table=True):
@@ -399,7 +399,7 @@ class TradingAnalytics(SQLModel, table=True):
     total_platform_fees: float = Field(default=0.0)
 
     # Trade type distribution
-    trade_type_distribution: dict[str, int] = Field(default={}, sa_column=Column(JSON))
+    trade_type_distribution: dict[str, int] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Agent metrics
     active_buyers: int = Field(default=0)
@@ -413,7 +413,7 @@ class TradingAnalytics(SQLModel, table=True):
     success_rate: float = Field(default=0.0, ge=0, le=100.0)
 
     # Geographic distribution
-    regional_distribution: dict[str, int] = Field(default={}, sa_column=Column(JSON))
+    regional_distribution: dict[str, int] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Quality metrics
     average_rating: float = Field(default=0.0, ge=1.0, le=5.0)
@@ -425,5 +425,5 @@ class TradingAnalytics(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional analytics data
-    analytics_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    trends_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    analytics_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    trends_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))

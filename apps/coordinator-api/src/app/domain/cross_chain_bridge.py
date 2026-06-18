@@ -7,6 +7,7 @@ Domain models for cross-chain asset transfers, bridge requests, and validator ma
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 
 from sqlalchemy import JSON, Column
@@ -62,10 +63,10 @@ class BridgeRequest(SQLModel, table=True):
     target_token: str = Field(index=True)  # Target token address
     source_chain_id: int = Field(index=True)
     target_chain_id: int = Field(index=True)
-    amount: float = Field(default=0.0)
-    bridge_fee: float = Field(default=0.0)
-    total_amount: float = Field(default=0.0)  # Amount including fee
-    exchange_rate: float = Field(default=1.0)  # Exchange rate between tokens
+    amount: Decimal = Field(default=Decimal("0.0"))
+    bridge_fee: Decimal = Field(default=Decimal("0.0"))
+    total_amount: Decimal = Field(default=Decimal("0.0"))  # Amount including fee
+    exchange_rate: Decimal = Field(default=Decimal("1.0"))  # Exchange rate between tokens
     status: BridgeRequestStatus = Field(default=BridgeRequestStatus.PENDING, index=True)
     zk_proof: str | None = Field(default=None)  # Zero-knowledge proof
     merkle_proof: str | None = Field(default=None)  # Merkle proof for completion
@@ -97,10 +98,10 @@ class SupportedToken(SQLModel, table=True):
     token_symbol: str = Field(index=True)
     token_name: str = Field(default="")
     decimals: int = Field(default=18)
-    bridge_limit: float = Field(default=1000000.0)  # Maximum bridge amount
-    fee_percentage: float = Field(default=0.5)  # Bridge fee percentage
-    min_amount: float = Field(default=0.01)  # Minimum bridge amount
-    max_amount: float = Field(default=1000000.0)  # Maximum bridge amount
+    bridge_limit: Decimal = Field(default=Decimal("1000000.0"))  # Maximum bridge amount
+    fee_percentage: Decimal = Field(default=Decimal("0.5"))  # Bridge fee percentage
+    min_amount: Decimal = Field(default=Decimal("0.01"))  # Minimum bridge amount
+    max_amount: Decimal = Field(default=Decimal("1000000.0"))  # Maximum bridge amount
     requires_whitelist: bool = Field(default=False)
     is_active: bool = Field(default=True, index=True)
     is_wrapped: bool = Field(default=False)  # Whether it's a wrapped token
@@ -130,11 +131,11 @@ class ChainConfig(SQLModel, table=True):
     avg_block_time: int = Field(default=12)  # Average block time
     finality_time: int = Field(default=300)  # Time to finality in seconds
     gas_token: str = Field(default="")
-    max_gas_price: float = Field(default=0.0)  # Maximum gas price
+    max_gas_price: Decimal = Field(default=Decimal("0.0"))  # Maximum gas price
     is_active: bool = Field(default=True, index=True)
     is_testnet: bool = Field(default=False)
     requires_validator: bool = Field(default=True)  # Whether validator confirmation is required
-    validator_threshold: float = Field(default=0.67)  # Validator threshold percentage
+    validator_threshold: Decimal = Field(default=Decimal("0.67"))  # Validator threshold percentage
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -148,14 +149,14 @@ class Validator(SQLModel, table=True):
     validator_address: str = Field(index=True)
     validator_name: str = Field(default="")
     weight: int = Field(default=1)  # Validator weight
-    commission_rate: float = Field(default=0.0)  # Commission rate
+    commission_rate: Decimal = Field(default=Decimal("0.0"))  # Commission rate
     total_validations: int = Field(default=0)  # Total number of validations
     successful_validations: int = Field(default=0)  # Successful validations
     failed_validations: int = Field(default=0)  # Failed validations
-    slashed_amount: float = Field(default=0.0)  # Total amount slashed
-    earned_fees: float = Field(default=0.0)  # Total fees earned
-    reputation_score: float = Field(default=100.0)  # Reputation score (0-100)
-    uptime_percentage: float = Field(default=100.0)  # Uptime percentage
+    slashed_amount: Decimal = Field(default=Decimal("0.0"))  # Total amount slashed
+    earned_fees: Decimal = Field(default=Decimal("0.0"))  # Total fees earned
+    reputation_score: Decimal = Field(default=Decimal("100.0"))  # Reputation score (0-100)
+    uptime_percentage: Decimal = Field(default=Decimal("100.0"))  # Uptime percentage
     last_validation: datetime | None = Field(default=None)
     last_seen: datetime | None = Field(default=None)
     status: ValidatorStatus = Field(default=ValidatorStatus.ACTIVE, index=True)
@@ -182,8 +183,8 @@ class BridgeTransaction(SQLModel, table=True):
     block_number: int | None = Field(default=None)
     block_hash: str | None = Field(default=None)
     gas_used: int | None = Field(default=None)
-    gas_price: float | None = Field(default=None)
-    transaction_cost: float | None = Field(default=None)
+    gas_price: Decimal | None = Field(default=None)
+    transaction_cost: Decimal | None = Field(default=None)
     signature: str | None = Field(default=None)  # Validator signature
     merkle_proof: list[str] | None = Field(default_factory=list, sa_column=Column(JSON))
     confirmations: int = Field(default=0)  # Number of confirmations

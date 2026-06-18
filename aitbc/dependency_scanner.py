@@ -6,7 +6,7 @@ Provides automated vulnerability scanning for Python dependencies
 import json
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -144,7 +144,7 @@ class DependencyScanner:
             severity = vuln.severity.upper()
             severity_counts[severity] = severity_counts.get(severity, 0) + 1
         return {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "dependency_vulnerabilities": len(pip_audit_results),
             "security_issues": len(bandit_results),
             "severity_breakdown": severity_counts,

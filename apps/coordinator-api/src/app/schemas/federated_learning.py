@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from ..domain.federated_learning import TrainingStatus
 
@@ -25,8 +25,7 @@ class FederatedSessionResponse(BaseModel):
     status: TrainingStatus
     global_model_cid: str | None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class JoinSessionRequest(BaseModel):

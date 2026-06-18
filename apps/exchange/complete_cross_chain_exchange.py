@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
-from aitbc.network.http_client import AsyncAITBCHTTPClient
+from aitbc.network import AsyncAITBCHTTPClient
 from aitbc.rate_limiting import RateLimitMiddleware
 
 app = FastAPI(title="AITBC Complete Cross-Chain Exchange", version="3.0.0")

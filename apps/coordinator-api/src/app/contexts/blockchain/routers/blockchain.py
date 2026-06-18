@@ -6,7 +6,7 @@ from fastapi import APIRouter
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["blockchain"])

@@ -14,7 +14,7 @@ from aitbc_cli.commands.resource import resource
 from aitbc_cli.utils.http_client import NetworkError
 from click.testing import CliRunner
 
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 
 
 def extract_json_from_output(output):

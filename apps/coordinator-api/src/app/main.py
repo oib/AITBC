@@ -89,15 +89,24 @@ except ImportError:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifecycle events for the Coordinator API."""
+    from .core.lifecycle import get_lifecycle_state, get_task_manager
+
+    lifecycle_state = get_lifecycle_state()
+    task_manager = get_task_manager()
+
     logger.info("Starting Coordinator API")
+    lifecycle_state.set_state(lifecycle_state.STARTING)
     try:
+        # Consolidated database initialization
+        from .storage.db import init_db, init_async_db
+
         try:
             init_db()
             logger.info("Database initialized successfully")
         except Exception as e:
             logger.warning("Database initialization failed (non-fatal): %s", e)
         try:
-            init_async_db()
+            await init_async_db()
             logger.info("Async database initialized successfully")
         except Exception as e:
             logger.warning("Async database initialization failed (non-fatal): %s", e)
@@ -120,7 +129,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.warning("Database warmup failed: %s", e)
         if settings.environment == "production":
             logger.info("Production environment detected, validating configuration")
+            settings.validate_secrets()
             logger.info("Configuration validation passed")
+
+        # Check for duplicate routes
+        route_pairs = set()
+        duplicates = []
+        for route in app.routes:
+            if hasattr(route, 'methods') and hasattr(route, 'path'):
+                for method in route.methods:
+                    pair = (method, route.path)
+                    if pair in route_pairs:
+                        duplicates.append(pair)
+                    route_pairs.add(pair)
+        if duplicates:
+            logger.warning("Found duplicate route registrations: %s", duplicates)
+            # Note: This will be enforced once Agent B removes duplicate router registrations (Goal 12)
+            # For now, we only log warnings to avoid breaking the current system
         from pathlib import Path
 
         audit_dir = Path(settings.audit_log_dir)
@@ -150,36 +175,44 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("=== Startup Complete ===")
         logger.info("Health check endpoints initialized")
         logger.info("🚀 Coordinator API is ready to serve requests")
+
+        lifecycle_state.set_state(lifecycle_state.RUNNING)
+        yield
     except Exception as e:
         logger.error("Failed to start Coordinator API: %s", e)
         raise
-    yield
-    logger.info("Shutting down Coordinator API")
-    try:
-        logger.info("Initiating graceful shutdown sequence...")
-        logger.info("Stopping new request processing")
-        import asyncio
+    finally:
+        lifecycle_state.set_state(lifecycle_state.SHUTTING_DOWN)
+        logger.info("Shutting down Coordinator API")
+        try:
+            logger.info("Initiating graceful shutdown sequence...")
+            logger.info("Stopping new request processing")
+            import asyncio
 
-        logger.info("Waiting for in-flight requests to complete...")
-        await asyncio.sleep(1)
-        logger.info("Closing database connections...")
-        try:
-            logger.info("Database connections closed successfully")
+            logger.info("Waiting for in-flight requests to complete...")
+            await asyncio.sleep(1)
+            logger.info("Closing database connections...")
+            try:
+                logger.info("Database connections closed successfully")
+            except Exception as e:
+                logger.warning("Error closing database connections: %s", e)
+            try:
+                await close_async_db()
+                logger.info("Async database connections closed successfully")
+            except Exception as e:
+                logger.warning("Error closing async database connections: %s", e)
+            logger.info("Stopping background tasks...")
+            await task_manager.stop_all()
+            logger.info("Cleaning up rate limiting state...")
+            logger.info("Cleaning up audit resources...")
+            logger.info("=== Coordinator API Shutdown Summary ===")
+            logger.info("All resources cleaned up successfully")
+            logger.info("Graceful shutdown completed")
+            logger.info("=== Shutdown Complete ===")
         except Exception as e:
-            logger.warning("Error closing database connections: %s", e)
-        try:
-            await close_async_db()
-            logger.info("Async database connections closed successfully")
-        except Exception as e:
-            logger.warning("Error closing async database connections: %s", e)
-        logger.info("Cleaning up rate limiting state...")
-        logger.info("Cleaning up audit resources...")
-        logger.info("=== Coordinator API Shutdown Summary ===")
-        logger.info("All resources cleaned up successfully")
-        logger.info("Graceful shutdown completed")
-        logger.info("=== Shutdown Complete ===")
-    except Exception as e:
-        logger.error("Error during shutdown: %s", e)
+            logger.error("Error during shutdown: %s", e)
+
+        lifecycle_state.set_state(lifecycle_state.STOPPED)
 
 
 def create_app() -> FastAPI:
@@ -356,7 +389,6 @@ def create_app() -> FastAPI:
     app.include_router(hermes_resource, prefix="/v1")
     app.include_router(monitoring_dashboard, prefix="/v1")
     app.include_router(agent_router, prefix="/v1/agents")
-    app.include_router(agent_router, prefix="/api/v1/agents")
     app.include_router(agent_identity, prefix="/v1")
     app.include_router(developer_platform, prefix="/v1")
     app.include_router(governance_enhanced, prefix="/v1")
@@ -473,7 +505,7 @@ def create_app() -> FastAPI:
         """Rate limiting metrics endpoint."""
         return Response(content=generate_latest(rate_limit_registry), media_type=CONTENT_TYPE_LATEST)
 
-    @app.get("/v1/metrics", tags=["health"], summary="Live JSON metrics for dashboard consumption")
+    @app.get("/metrics", tags=["health"], summary="Live JSON metrics for dashboard consumption")
     async def live_metrics() -> dict[str, Any]:
         return build_live_metrics_payload(
             cache_stats=cache_manager.get_stats(), dispatcher=alert_dispatcher, collector=metrics_collector
@@ -488,10 +520,11 @@ def create_app() -> FastAPI:
                 "code": "INTERNAL_SERVER_ERROR",
                 "message": "An unexpected error occurred",
                 "status": 500,
-                "details": [{"field": "internal", "message": str(exc), "code": type(exc).__name__}],
+                "details": [{"field": "internal", "message": "Internal error - see server logs", "code": "INTERNAL_ERROR"}],
             },
             request_id=request_id,
         )
+        logger.error("Internal server error", extra={"request_id": request_id, "error_type": type(exc).__name__})
         return JSONResponse(status_code=500, content=error_response.model_dump())
 
     @app.exception_handler(AITBCError)
@@ -529,7 +562,7 @@ def create_app() -> FastAPI:
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         }
 
-    @app.get("/v1/health", tags=["health"], summary="Service healthcheck")
+    @app.get("/health", tags=["health"], summary="Service healthcheck")
     async def health() -> dict[str, str]:
         import sys
 

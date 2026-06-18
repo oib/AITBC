@@ -7,7 +7,7 @@ import pytest
 import requests
 
 from aitbc.exceptions import CircuitBreakerOpenError, RateLimitError, RetryError
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 
 
 class TestInit:

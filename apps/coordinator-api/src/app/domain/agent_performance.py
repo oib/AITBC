@@ -75,29 +75,29 @@ class AgentPerformanceProfile(SQLModel, table=True):
 
     # Performance metrics
     overall_score: float = Field(default=0.0, ge=0, le=100)
-    performance_metrics: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    performance_metrics: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Learning capabilities
-    learning_strategies: list[str] = Field(default=[], sa_column=Column(JSON))
+    learning_strategies: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     adaptation_rate: float = Field(default=0.0, ge=0, le=1.0)
     generalization_score: float = Field(default=0.0, ge=0, le=1.0)
 
     # Resource utilization
-    resource_efficiency: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    resource_efficiency: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     cost_per_task: float = Field(default=0.0)
     throughput: float = Field(default=0.0)
     average_latency: float = Field(default=0.0)
 
     # Specialization areas
-    specialization_areas: list[str] = Field(default=[], sa_column=Column(JSON))
-    expertise_levels: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    specialization_areas: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    expertise_levels: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Performance history
-    performance_history: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
-    improvement_trends: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    performance_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    improvement_trends: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Benchmarking
-    benchmark_scores: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    benchmark_scores: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     ranking_position: int | None = None
     percentile_rank: float | None = None
 
@@ -107,7 +107,7 @@ class AgentPerformanceProfile(SQLModel, table=True):
     last_assessed: datetime | None = None
 
     # Additional data
-    profile_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    profile_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     performance_notes: str = Field(default="", max_length=1000)
 
 
@@ -126,14 +126,14 @@ class MetaLearningModel(SQLModel, table=True):
     model_version: str = Field(default="1.0.0")
 
     # Learning configuration
-    base_algorithms: list[str] = Field(default=[], sa_column=Column(JSON))
+    base_algorithms: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     meta_strategy: LearningStrategy
-    adaptation_targets: list[str] = Field(default=[], sa_column=Column(JSON))
+    adaptation_targets: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Training data
-    training_tasks: list[str] = Field(default=[], sa_column=Column(JSON))
-    task_distributions: dict[str, float] = Field(default={}, sa_column=Column(JSON))
-    meta_features: list[str] = Field(default=[], sa_column=Column(JSON))
+    training_tasks: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    task_distributions: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    meta_features: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Model performance
     meta_accuracy: float = Field(default=0.0, ge=0, le=1.0)
@@ -158,8 +158,8 @@ class MetaLearningModel(SQLModel, table=True):
     deployed_at: datetime | None = None
 
     # Additional data
-    model_profile_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    training_logs: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    model_profile_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    training_logs: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class ResourceAllocation(SQLModel, table=True):
@@ -189,7 +189,7 @@ class ResourceAllocation(SQLModel, table=True):
     priority_level: str = Field(default="normal")  # low, normal, high, critical
 
     # Performance metrics
-    actual_performance: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    actual_performance: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     efficiency_score: float = Field(default=0.0, ge=0, le=1.0)
     cost_efficiency: float = Field(default=0.0, ge=0, le=1.0)
 
@@ -209,8 +209,8 @@ class ResourceAllocation(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional data
-    allocation_profile_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    resource_utilization: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    allocation_profile_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    resource_utilization: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class PerformanceOptimization(SQLModel, table=True):
@@ -228,18 +228,18 @@ class PerformanceOptimization(SQLModel, table=True):
     target_metric: PerformanceMetric
 
     # Before optimization
-    baseline_performance: dict[str, float] = Field(default={}, sa_column=Column(JSON))
-    baseline_resources: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    baseline_performance: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    baseline_resources: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     baseline_cost: float = Field(default=0.0)
 
     # Optimization configuration
-    optimization_parameters: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    optimization_parameters: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     optimization_algorithm: str = Field(default="auto")
-    search_space: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    search_space: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # After optimization
-    optimized_performance: dict[str, float] = Field(default={}, sa_column=Column(JSON))
-    optimized_resources: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    optimized_performance: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    optimized_resources: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     optimized_cost: float = Field(default=0.0)
 
     # Improvement metrics
@@ -264,8 +264,8 @@ class PerformanceOptimization(SQLModel, table=True):
     completed_at: datetime | None = None
 
     # Additional data
-    optimization_profile_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    performance_logs: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    optimization_profile_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    performance_logs: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class AgentCapability(SQLModel, table=True):
@@ -289,7 +289,7 @@ class AgentCapability(SQLModel, table=True):
     experience_years: float = Field(default=0.0)
 
     # Capability metrics
-    performance_metrics: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    performance_metrics: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     success_rate: float = Field(default=0.0, ge=0, le=1.0)
     average_quality: float = Field(default=0.0, ge=0, le=5.0)
 
@@ -299,9 +299,9 @@ class AgentCapability(SQLModel, table=True):
     knowledge_retention: float = Field(default=0.0, ge=0, le=1.0)
 
     # Specialization
-    specializations: list[str] = Field(default=[], sa_column=Column(JSON))
-    sub_capabilities: list[str] = Field(default=[], sa_column=Column(JSON))
-    tool_proficiency: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    specializations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    sub_capabilities: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    tool_proficiency: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Development history
     acquired_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -318,8 +318,8 @@ class AgentCapability(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional data
-    capability_profile_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    training_history: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    capability_profile_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    training_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class FusionModel(SQLModel, table=True):
@@ -337,16 +337,16 @@ class FusionModel(SQLModel, table=True):
     model_version: str = Field(default="1.0.0")
 
     # Component models
-    base_models: list[str] = Field(default=[], sa_column=Column(JSON))
-    model_weights: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    base_models: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    model_weights: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     fusion_strategy: str = Field(default="weighted_average")
 
     # Input modalities
-    input_modalities: list[str] = Field(default=[], sa_column=Column(JSON))
-    modality_weights: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    input_modalities: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    modality_weights: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Performance metrics
-    fusion_performance: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    fusion_performance: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     synergy_score: float = Field(default=0.0, ge=0, le=1.0)
     robustness_score: float = Field(default=0.0, ge=0, le=1.0)
 
@@ -356,8 +356,8 @@ class FusionModel(SQLModel, table=True):
     inference_time: float = Field(default=0.0)  # seconds
 
     # Training data
-    training_datasets: list[str] = Field(default=[], sa_column=Column(JSON))
-    data_requirements: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    training_datasets: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    data_requirements: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Deployment status
     status: str = Field(default="training")  # training, ready, deployed, deprecated
@@ -371,8 +371,8 @@ class FusionModel(SQLModel, table=True):
     deployed_at: datetime | None = None
 
     # Additional data
-    fusion_profile_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    training_logs: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    fusion_profile_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    training_logs: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class ReinforcementLearningConfig(SQLModel, table=True):
@@ -405,19 +405,19 @@ class ReinforcementLearningConfig(SQLModel, table=True):
     save_frequency: int = Field(default=100)
 
     # Performance metrics
-    reward_history: list[float] = Field(default=[], sa_column=Column(JSON))
-    success_rate_history: list[float] = Field(default=[], sa_column=Column(JSON))
+    reward_history: list[float] = Field(default_factory=list, sa_column=Column(JSON))
+    success_rate_history: list[float] = Field(default_factory=list, sa_column=Column(JSON))
     convergence_episode: int | None = None
 
     # Policy details
     policy_type: str = Field(default="stochastic")  # stochastic, deterministic
-    action_space: list[str] = Field(default=[], sa_column=Column(JSON))
-    state_space: list[str] = Field(default=[], sa_column=Column(JSON))
+    action_space: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    state_space: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Status and deployment
     status: str = Field(default="training")  # training, ready, deployed, deprecated
     training_progress: float = Field(default=0.0, ge=0, le=1.0)
-    deployment_performance: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    deployment_performance: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -426,8 +426,8 @@ class ReinforcementLearningConfig(SQLModel, table=True):
     deployed_at: datetime | None = None
 
     # Additional data
-    rl_profile_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    training_logs: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    rl_profile_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    training_logs: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class CreativeCapability(SQLModel, table=True):
@@ -451,7 +451,7 @@ class CreativeCapability(SQLModel, table=True):
     coherence_score: float = Field(default=0.0, ge=0, le=1.0)
 
     # Generation capabilities
-    generation_models: list[str] = Field(default=[], sa_column=Column(JSON))
+    generation_models: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     style_variety: int = Field(default=1)
     output_quality: float = Field(default=0.0, ge=0, le=5.0)
 
@@ -461,14 +461,14 @@ class CreativeCapability(SQLModel, table=True):
     cross_domain_transfer: float = Field(default=0.0, ge=0, le=1.0)
 
     # Specialization
-    creative_specializations: list[str] = Field(default=[], sa_column=Column(JSON))
-    tool_proficiency: dict[str, float] = Field(default={}, sa_column=Column(JSON))
-    domain_knowledge: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    creative_specializations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    tool_proficiency: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    domain_knowledge: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Performance tracking
     creations_generated: int = Field(default=0)
-    user_ratings: list[float] = Field(default=[], sa_column=Column(JSON))
-    expert_evaluations: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    user_ratings: list[float] = Field(default_factory=list, sa_column=Column(JSON))
+    expert_evaluations: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Status and certification
     status: str = Field(default="developing")  # developing, ready, certified, deprecated
@@ -480,5 +480,5 @@ class CreativeCapability(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional data
-    creative_profile_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    portfolio_samples: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    creative_profile_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    portfolio_samples: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))

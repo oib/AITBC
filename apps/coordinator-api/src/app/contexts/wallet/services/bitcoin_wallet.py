@@ -8,7 +8,7 @@ import os
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 
 logger = get_logger(__name__)
 

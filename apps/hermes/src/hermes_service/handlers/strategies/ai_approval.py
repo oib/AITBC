@@ -4,7 +4,7 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import requests
+import httpx
 
 from ...storage import CoinRequest, get_db_session  # type: ignore
 from .base_approval import ApprovalStrategy
@@ -28,7 +28,7 @@ class AIApprovalStrategy(ApprovalStrategy):
 
             return [{"amount": r.amount, "status": r.status.value, "created_at": r.created_at.isoformat()} for r in requests]
 
-    def approve(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def approve(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Use AI to evaluate and approve/reject request.
 
@@ -52,9 +52,11 @@ class AIApprovalStrategy(ApprovalStrategy):
 
         try:
             # Query Ollama
-            response = requests.post(
-                f"{self.ollama_url}/api/generate", json={"model": self.model, "prompt": prompt, "stream": False}, timeout=30
-            )
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    f"{self.ollama_url}/api/generate",
+                    json={"model": self.model, "prompt": prompt, "stream": False},
+                )
 
             if response.status_code != 200:
                 reason = f"Ollama API error: {response.status_code}"

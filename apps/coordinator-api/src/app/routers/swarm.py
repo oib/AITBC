@@ -13,7 +13,7 @@ from __future__ annotations
 from typing import Any
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.config import settings
 
@@ -28,39 +28,47 @@ else:
 class RegisterNodeRequest(BaseModel):
     """Request to register a node"""
 
-    node_id: str
-    address: str
-    capabilities: list[str] = Field(default_factory=list)
-    cpu_cores: int = 4
-    memory_gb: int = 16
-    gpu_count: int = 0
+    node_id: str = Field(..., min_length=1, max_length=100)
+    address: str = Field(..., min_length=1)
+    capabilities: list[str] = Field(default_factory=list, max_length=50)
+    cpu_cores: int = Field(default=4, ge=1, le=128)
+    memory_gb: int = Field(default=16, ge=1, le=1024)
+    gpu_count: int = Field(default=0, ge=0, le=16)
 
 
 class SubmitTaskRequest(BaseModel):
     """Request to submit a task"""
 
-    task_type: str
-    payload: dict[str, Any]
-    required_capabilities: list[str] | None = None
+    task_type: str = Field(..., min_length=1, max_length=50)
+    payload: dict[str, Any] = Field(..., min_length=1)
+    required_capabilities: list[str] | None = Field(default=None, max_length=20)
     priority: int = Field(default=1, ge=1, le=10)
 
 
 class ReportTaskRequest(BaseModel):
     """Request to report task status"""
 
-    task_id: str
-    node_id: str
-    status: str
+    task_id: str = Field(..., min_length=1)
+    node_id: str = Field(..., min_length=1)
+    status: str = Field(..., min_length=1)
     result: dict[str, Any] | None = None
-    error: str | None = None
+    error: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        valid_statuses = {"pending", "running", "completed", "failed", "cancelled"}
+        if v.lower() not in valid_statuses:
+            raise ValueError(f"status must be one of: {', '.join(valid_statuses)}")
+        return v.lower()
 
 
 class CreateClusterRequest(BaseModel):
     """Request to create a cluster"""
 
-    name: str
-    description: str = ""
-    node_ids: list[str] = Field(default_factory=list)
+    name: str = Field(..., min_length=1, max_length=100)
+    description: str = Field(default="", max_length=500)
+    node_ids: list[str] = Field(default_factory=list, max_length=100)
 
 
 @router.post("/nodes/register", summary="Register compute node")

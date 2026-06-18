@@ -39,7 +39,7 @@ from ..services.certification import (
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/v1/certification", tags=["certification"])
+router = APIRouter(prefix="/certification", tags=["certification"])
 
 
 class CertificationRequest(BaseModel):

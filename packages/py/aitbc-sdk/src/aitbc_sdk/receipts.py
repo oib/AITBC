@@ -10,7 +10,7 @@ import httpx
 from aitbc_crypto.signing import ReceiptVerifier
 
 from aitbc.exceptions import NetworkError
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 
 
 @dataclass

@@ -2,11 +2,14 @@
 
 import os
 
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Edge API settings"""
+
+    model_config = ConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
     # API settings
     api_host: str = "0.0.0.0"
@@ -34,10 +37,6 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = "INFO"
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
 
 
 settings = Settings()

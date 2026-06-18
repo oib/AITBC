@@ -90,21 +90,21 @@ class AgentCertification(SQLModel, table=True):
     last_renewed_at: datetime | None = None
 
     # Requirements and verification
-    requirements_met: list[str] = Field(default=[], sa_column=Column(JSON))
-    verification_results: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    supporting_documents: list[str] = Field(default=[], sa_column=Column(JSON))
+    requirements_met: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    verification_results: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    supporting_documents: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Benefits and privileges
-    granted_privileges: list[str] = Field(default=[], sa_column=Column(JSON))
-    access_levels: list[str] = Field(default=[], sa_column=Column(JSON))
-    special_capabilities: list[str] = Field(default=[], sa_column=Column(JSON))
+    granted_privileges: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    access_levels: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    special_capabilities: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Audit trail
-    audit_log: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    audit_log: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
     last_verified_at: datetime | None = None
 
     # Additional data
-    cert_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    cert_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     notes: str = Field(default="", max_length=1000)
 
 
@@ -123,18 +123,18 @@ class CertificationRequirement(SQLModel, table=True):
     description: str = Field(default="", max_length=500)
 
     # Criteria and thresholds
-    criteria: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    criteria: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     minimum_threshold: float | None = None
     maximum_threshold: float | None = None
-    required_values: list[str] = Field(default=[], sa_column=Column(JSON))
+    required_values: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Verification method
     verification_method: str = Field(default="automated")  # automated, manual, hybrid
     verification_frequency: str = Field(default="once")  # once, monthly, quarterly, annually
 
     # Dependencies and prerequisites
-    prerequisites: list[str] = Field(default=[], sa_column=Column(JSON))
-    depends_on: list[str] = Field(default=[], sa_column=Column(JSON))
+    prerequisites: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    depends_on: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Status and configuration
     is_active: bool = Field(default=True)
@@ -148,7 +148,7 @@ class CertificationRequirement(SQLModel, table=True):
     expiry_date: datetime | None = None
 
     # Additional data
-    cert_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    cert_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class VerificationRecord(SQLModel, table=True):
@@ -178,13 +178,13 @@ class VerificationRecord(SQLModel, table=True):
     # Results and outcomes
     status: str = Field(default="pending")  # pending, in_progress, passed, failed, cancelled
     result_score: float | None = None
-    result_details: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    failure_reasons: list[str] = Field(default=[], sa_column=Column(JSON))
+    result_details: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    failure_reasons: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Verification data
-    input_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    output_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    evidence: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    input_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    output_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    evidence: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Review and approval
     reviewed_by: str | None = None
@@ -194,11 +194,11 @@ class VerificationRecord(SQLModel, table=True):
 
     # Audit and compliance
     compliance_score: float | None = None
-    risk_assessment: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    audit_trail: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    risk_assessment: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    audit_trail: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Additional data
-    cert_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    cert_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     notes: str = Field(default="", max_length=1000)
 
 
@@ -217,24 +217,24 @@ class PartnershipProgram(SQLModel, table=True):
     description: str = Field(default="", max_length=1000)
 
     # Program configuration
-    tier_levels: list[str] = Field(default=[], sa_column=Column(JSON))
-    benefits_by_tier: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    requirements_by_tier: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    tier_levels: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    benefits_by_tier: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    requirements_by_tier: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Eligibility criteria
-    eligibility_requirements: list[str] = Field(default=[], sa_column=Column(JSON))
-    minimum_criteria: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    exclusion_criteria: list[str] = Field(default=[], sa_column=Column(JSON))
+    eligibility_requirements: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    minimum_criteria: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    exclusion_criteria: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Program benefits
-    financial_benefits: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    non_financial_benefits: list[str] = Field(default=[], sa_column=Column(JSON))
-    exclusive_access: list[str] = Field(default=[], sa_column=Column(JSON))
+    financial_benefits: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    non_financial_benefits: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    exclusive_access: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Partnership terms
-    agreement_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    commission_structure: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    performance_metrics: list[str] = Field(default=[], sa_column=Column(JSON))
+    agreement_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    commission_structure: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    performance_metrics: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Status and management
     status: str = Field(default="active")  # active, inactive, suspended, terminated
@@ -248,8 +248,8 @@ class PartnershipProgram(SQLModel, table=True):
     expires_at: datetime | None = None
 
     # Additional data
-    program_cert_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    contact_info: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    program_cert_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    contact_info: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class AgentPartnership(SQLModel, table=True):
@@ -271,15 +271,15 @@ class AgentPartnership(SQLModel, table=True):
     applied_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     approved_by: str | None = None
     approved_at: datetime | None = None
-    rejection_reasons: list[str] = Field(default=[], sa_column=Column(JSON))
+    rejection_reasons: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Performance and metrics
     performance_score: float = Field(default=0.0)
-    performance_metrics: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    performance_metrics: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     contribution_value: float = Field(default=0.0)
 
     # Benefits and compensation
-    earned_benefits: list[str] = Field(default=[], sa_column=Column(JSON))
+    earned_benefits: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     total_earnings: float = Field(default=0.0)
     pending_payments: float = Field(default=0.0)
 
@@ -299,7 +299,7 @@ class AgentPartnership(SQLModel, table=True):
     last_activity: datetime | None = None
 
     # Additional data
-    partnership_cert_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    partnership_cert_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     notes: str = Field(default="", max_length=1000)
 
 
@@ -319,9 +319,9 @@ class AchievementBadge(SQLModel, table=True):
     badge_icon: str = Field(default="", max_length=200)  # Icon identifier or URL
 
     # Badge criteria
-    achievement_criteria: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    required_metrics: list[str] = Field(default=[], sa_column=Column(JSON))
-    threshold_values: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    achievement_criteria: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    required_metrics: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    threshold_values: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Badge properties
     rarity: str = Field(default="common")  # common, uncommon, rare, epic, legendary
@@ -329,8 +329,8 @@ class AchievementBadge(SQLModel, table=True):
     category: str = Field(default="general")  # performance, contribution, specialization, excellence
 
     # Visual design
-    color_scheme: dict[str, str] = Field(default={}, sa_column=Column(JSON))
-    display_properties: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    color_scheme: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    display_properties: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Status and availability
     is_active: bool = Field(default=True)
@@ -345,7 +345,7 @@ class AchievementBadge(SQLModel, table=True):
     available_until: datetime | None = None
 
     # Additional data
-    badge_cert_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    badge_cert_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     requirements_text: str = Field(default="", max_length=1000)
 
 
@@ -367,9 +367,9 @@ class AgentBadge(SQLModel, table=True):
     award_reason: str = Field(default="", max_length=500)
 
     # Achievement context
-    achievement_context: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    metrics_at_award: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    supporting_evidence: list[str] = Field(default=[], sa_column=Column(JSON))
+    achievement_context: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    metrics_at_award: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    supporting_evidence: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Badge status
     is_displayed: bool = Field(default=True)
@@ -383,7 +383,7 @@ class AgentBadge(SQLModel, table=True):
     # Expiration and renewal
     expires_at: datetime | None = None
     is_permanent: bool = Field(default=True)
-    renewal_criteria: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    renewal_criteria: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Social features
     share_count: int = Field(default=0)
@@ -396,7 +396,7 @@ class AgentBadge(SQLModel, table=True):
     last_viewed_at: datetime | None = None
 
     # Additional data
-    badge_cert_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    badge_cert_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     notes: str = Field(default="", max_length=1000)
 
 
@@ -423,19 +423,19 @@ class CertificationAudit(SQLModel, table=True):
     # Audit execution
     auditor_id: str = Field(index=True)
     audit_methodology: str = Field(default="", max_length=500)
-    checklists: list[str] = Field(default=[], sa_column=Column(JSON))
+    checklists: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Findings and results
     overall_score: float | None = None
     compliance_score: float | None = None
     risk_score: float | None = None
 
-    findings: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
-    violations: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
-    recommendations: list[str] = Field(default=[], sa_column=Column(JSON))
+    findings: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    violations: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    recommendations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Actions and resolutions
-    corrective_actions: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    corrective_actions: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
     follow_up_required: bool = Field(default=False)
     follow_up_date: datetime | None = None
 
@@ -446,12 +446,12 @@ class CertificationAudit(SQLModel, table=True):
     # Reporting and documentation
     report_generated: bool = Field(default=False)
     report_url: str | None = None
-    evidence_documents: list[str] = Field(default=[], sa_column=Column(JSON))
+    evidence_documents: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional data
-    audit_cert_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    audit_cert_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     notes: str = Field(default="", max_length=2000)

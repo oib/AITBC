@@ -84,7 +84,7 @@ class MarketMetric(SQLModel, table=True):
     trade_type: str | None = None
 
     # Metadata
-    metric_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    metric_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
     recorded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -92,8 +92,8 @@ class MarketMetric(SQLModel, table=True):
     period_end: datetime
 
     # Additional data
-    breakdown: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    comparisons: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    breakdown: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    comparisons: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class MarketInsight(SQLModel, table=True):
@@ -113,18 +113,18 @@ class MarketInsight(SQLModel, table=True):
     urgency_level: str = Field(default="normal")  # low, normal, high, urgent
 
     # Related metrics and context
-    related_metrics: list[str] = Field(default=[], sa_column=Column(JSON))
-    affected_entities: list[str] = Field(default=[], sa_column=Column(JSON))
+    related_metrics: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    affected_entities: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     time_horizon: str = Field(default="short_term")  # immediate, short_term, medium_term, long_term
 
     # Analysis details
     analysis_method: str = Field(default="statistical")
-    data_sources: list[str] = Field(default=[], sa_column=Column(JSON))
-    assumptions: list[str] = Field(default=[], sa_column=Column(JSON))
+    data_sources: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    assumptions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Recommendations and actions
-    recommendations: list[str] = Field(default=[], sa_column=Column(JSON))
-    suggested_actions: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    recommendations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    suggested_actions: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Status and tracking
     status: str = Field(default="active")  # active, resolved, expired
@@ -139,8 +139,8 @@ class MarketInsight(SQLModel, table=True):
     expires_at: datetime | None = None
 
     # Additional data
-    insight_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    visualization_config: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    insight_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    visualization_config: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class AnalyticsReport(SQLModel, table=True):
@@ -161,17 +161,17 @@ class AnalyticsReport(SQLModel, table=True):
     period_type: AnalyticsPeriod
     start_date: datetime
     end_date: datetime
-    filters: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    filters: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Report content
     summary: str = Field(default="", max_length=2000)
-    key_findings: list[str] = Field(default=[], sa_column=Column(JSON))
-    recommendations: list[str] = Field(default=[], sa_column=Column(JSON))
+    key_findings: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    recommendations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Report data
-    data_sections: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
-    charts: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
-    tables: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    data_sections: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    charts: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    tables: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Generation details
     generated_by: str = Field(default="system")  # system, user, scheduled
@@ -181,7 +181,7 @@ class AnalyticsReport(SQLModel, table=True):
     # Status and delivery
     status: str = Field(default="generated")  # generating, generated, failed, delivered
     delivery_method: str = Field(default="api")  # api, email, dashboard
-    recipients: list[str] = Field(default=[], sa_column=Column(JSON))
+    recipients: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -190,7 +190,7 @@ class AnalyticsReport(SQLModel, table=True):
     delivered_at: datetime | None = None
 
     # Additional data
-    report_metric_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    report_metric_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     template_used: str | None = None
 
 
@@ -209,19 +209,19 @@ class DashboardConfig(SQLModel, table=True):
     dashboard_type: str = Field(default="custom")  # default, custom, executive, operational
 
     # Layout and configuration
-    layout: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    widgets: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
-    filters: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    layout: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    widgets: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    filters: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Data sources and refresh
-    data_sources: list[str] = Field(default=[], sa_column=Column(JSON))
+    data_sources: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     refresh_interval: int = Field(default=300)  # seconds
     auto_refresh: bool = Field(default=True)
 
     # Access and permissions
     owner_id: str = Field(index=True)
-    viewers: list[str] = Field(default=[], sa_column=Column(JSON))
-    editors: list[str] = Field(default=[], sa_column=Column(JSON))
+    viewers: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    editors: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     is_public: bool = Field(default=False)
 
     # Status and versioning
@@ -235,8 +235,8 @@ class DashboardConfig(SQLModel, table=True):
     last_viewed_at: datetime | None = None
 
     # Additional data
-    dashboard_settings: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    theme_config: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    dashboard_settings: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    theme_config: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class DataCollectionJob(SQLModel, table=True):
@@ -254,9 +254,9 @@ class DataCollectionJob(SQLModel, table=True):
     description: str = Field(default="", max_length=500)
 
     # Job parameters
-    parameters: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    data_sources: list[str] = Field(default=[], sa_column=Column(JSON))
-    target_metrics: list[str] = Field(default=[], sa_column=Column(JSON))
+    parameters: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    data_sources: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    target_metrics: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Schedule and execution
     schedule_type: str = Field(default="manual")  # manual, scheduled, triggered
@@ -272,8 +272,8 @@ class DataCollectionJob(SQLModel, table=True):
     # Results and output
     records_processed: int = Field(default=0)
     records_generated: int = Field(default=0)
-    errors: list[str] = Field(default=[], sa_column=Column(JSON))
-    output_files: list[str] = Field(default=[], sa_column=Column(JSON))
+    errors: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    output_files: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Performance metrics
     execution_time: float = Field(default=0.0)  # seconds
@@ -285,8 +285,8 @@ class DataCollectionJob(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional data
-    job_metric_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    execution_log: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    job_metric_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    execution_log: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class AlertRule(SQLModel, table=True):
@@ -304,24 +304,24 @@ class AlertRule(SQLModel, table=True):
     rule_type: str = Field(default="threshold")  # threshold, anomaly, trend, pattern
 
     # Conditions and triggers
-    conditions: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    conditions: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
     threshold_value: float | None = None
     comparison_operator: str = Field(default="greater_than")  # greater_than, less_than, equals, contains
 
     # Target metrics and entities
-    target_metrics: list[str] = Field(default=[], sa_column=Column(JSON))
-    target_entities: list[str] = Field(default=[], sa_column=Column(JSON))
-    geographic_scope: list[str] = Field(default=[], sa_column=Column(JSON))
+    target_metrics: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    target_entities: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    geographic_scope: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Alert configuration
     severity: str = Field(default="medium")  # low, medium, high, critical
     cooldown_period: int = Field(default=300)  # seconds
     auto_resolve: bool = Field(default=False)
-    resolve_conditions: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    resolve_conditions: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Notification settings
-    notification_channels: list[str] = Field(default=[], sa_column=Column(JSON))
-    notification_recipients: list[str] = Field(default=[], sa_column=Column(JSON))
+    notification_channels: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    notification_recipients: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     message_template: str = Field(default="", max_length=1000)
 
     # Status and scheduling
@@ -335,8 +335,8 @@ class AlertRule(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional data
-    rule_metric_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    test_results: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    rule_metric_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    test_results: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class AnalyticsAlert(SQLModel, table=True):
@@ -363,12 +363,12 @@ class AnalyticsAlert(SQLModel, table=True):
     trigger_value: float | None = None
     threshold_value: float | None = None
     deviation_percentage: float | None = None
-    affected_metrics: list[str] = Field(default=[], sa_column=Column(JSON))
+    affected_metrics: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Context and entities
-    geographic_regions: list[str] = Field(default=[], sa_column=Column(JSON))
-    affected_agents: list[str] = Field(default=[], sa_column=Column(JSON))
-    time_period: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    geographic_regions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    affected_agents: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    time_period: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Status and resolution
     status: str = Field(default="active")  # active, acknowledged, resolved, false_positive
@@ -379,8 +379,8 @@ class AnalyticsAlert(SQLModel, table=True):
     resolution_notes: str = Field(default="", max_length=1000)
 
     # Notifications
-    notifications_sent: list[str] = Field(default=[], sa_column=Column(JSON))
-    delivery_status: dict[str, str] = Field(default={}, sa_column=Column(JSON))
+    notifications_sent: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    delivery_status: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -388,8 +388,8 @@ class AnalyticsAlert(SQLModel, table=True):
     expires_at: datetime | None = None
 
     # Additional data
-    alert_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    related_insights: list[str] = Field(default=[], sa_column=Column(JSON))
+    alert_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    related_insights: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class UserPreference(SQLModel, table=True):
@@ -414,17 +414,17 @@ class UserPreference(SQLModel, table=True):
     time_format: str = Field(default="24h")
 
     # Metric preferences
-    favorite_metrics: list[str] = Field(default=[], sa_column=Column(JSON))
-    metric_units: dict[str, str] = Field(default={}, sa_column=Column(JSON))
+    favorite_metrics: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    metric_units: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     default_period: AnalyticsPeriod = Field(default=AnalyticsPeriod.DAILY)
 
     # Alert preferences
     alert_severity_threshold: str = Field(default="medium")  # low, medium, high, critical
-    quiet_hours: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    alert_channels: list[str] = Field(default=[], sa_column=Column(JSON))
+    quiet_hours: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    alert_channels: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Report preferences
-    auto_subscribe_reports: list[str] = Field(default=[], sa_column=Column(JSON))
+    auto_subscribe_reports: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     report_format: str = Field(default="json")  # json, csv, pdf, html
     include_charts: bool = Field(default=True)
 
@@ -439,5 +439,5 @@ class UserPreference(SQLModel, table=True):
     last_login: datetime | None = None
 
     # Additional preferences
-    custom_settings: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    ui_preferences: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    custom_settings: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    ui_preferences: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))

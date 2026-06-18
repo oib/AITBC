@@ -335,10 +335,10 @@ class QuotaMiddleware:
         self.quota_service = quota_service
         self.logger = __import__("logging").getLogger(f"aitbc.{self.__class__.__name__}")
         self.endpoint_costs = {
-            "/api/v1/jobs": {"resource": "compute_hours", "cost": 0.1},
-            "/api/v1/models": {"resource": "storage_gb", "cost": 0.1},
-            "/api/v1/data": {"resource": "storage_gb", "cost": 0.05},
-            "/api/v1/analytics": {"resource": "api_calls", "cost": 1},
+            "/jobs": {"resource": "compute_hours", "cost": 0.1},
+            "/models": {"resource": "storage_gb", "cost": 0.1},
+            "/data": {"resource": "storage_gb", "cost": 0.05},
+            "/analytics": {"resource": "api_calls", "cost": 1},
         }
 
     async def check_endpoint_quota(self, endpoint: str, estimated_cost: float = 0) -> None:

@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
-from aitbc.network.http_client import AsyncAITBCHTTPClient
+from aitbc.network import AsyncAITBCHTTPClient
 
 app = FastAPI(title="Simple AITBC Explorer", version="0.1.0")
 logger = get_logger(__name__)

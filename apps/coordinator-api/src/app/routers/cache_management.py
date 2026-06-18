@@ -2,14 +2,15 @@
 Cache monitoring and management endpoints
 """
 
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ..auth import AdminDep  # NEW: JWT auth
+
 # from ..deps import require_admin_key  # OLD: API key auth (deprecated)
 from ..utils.cache_management import clear_cache, get_cache_stats, warm_cache
 

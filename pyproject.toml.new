@@ -1,0 +1,86 @@
+[tool.mypy]
+python_version = "3.13"
+plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
+
+# Enable stricter type checking for incremental migration
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+strict_optional = true
+
+# Start with honest type checking on core modules only
+# Incrementally expand this list as type errors are fixed
+exclude = [
+    # Exclude modules with known missing dependencies (opentelemetry)
+    "^aitbc/tracing\\.py$",
+    "^aitbc/tracing_opentelemetry\\.py$",
+    
+    # Exclude large legacy modules for incremental migration
+    "^aitbc/agent_bridge/",
+    "^aitbc/agent_compliance/",
+    "^aitbc/agent_protocols/",
+    "^aitbc/agent_registry/",
+    "^aitbc/agent_trading/",
+    "^aitbc/oracles/",
+    "^aitbc/training_setup/",
+    
+    # Exclude all apps except coordinator-api core (incremental)
+    "^apps/(?!coordinator-api)",
+    
+    # Exclude test files
+    "^tests/",
+    "^cli/",
+    
+    # Exclude packages except aitbc-shared (incremental)
+    "^packages/(?!aitbc-shared)",
+    
+    # Exclude generated/migration files
+    "^contracts/",
+    "^plugins/",
+    "^scripts/",
+    "^apps/coordinator-api/alembic/",
+    "^apps/coordinator-api/migrations/",
+    
+    # Exclude test/example/demo files
+    "^apps/coordinator-api/tests/",
+    "^apps/coordinator-api/scripts/",
+    "^apps/coordinator-api/integration_test\\.py$",
+    "^apps/coordinator-api/demo_client_miner_workflow\\.py$",
+    "^apps/coordinator-api/init_db\\.py$",
+    "^apps/coordinator-api/examples/",
+    
+    # Exclude large coordinator-api contexts for incremental migration
+    "^apps/coordinator-api/src/app/contexts/advanced_rl/",
+    "^apps/coordinator-api/src/app/contexts/ai_analytics/",
+    "^apps/coordinator-api/src/app/contexts/community/",
+    "^apps/coordinator-api/src/app/contexts/confidential/",
+    "^apps/coordinator-api/src/app/contexts/ecosystem/",
+    "^apps/coordinator-api/src/app/contexts/governance/",
+    "^apps/coordinator-api/src/app/contexts/hermes/",
+    "^apps/coordinator-api/src/app/contexts/infrastructure/",
+    "^apps/coordinator-api/src/app/contexts/language/",
+    "^apps/coordinator-api/src/app/contexts/marketplace/",
+    "^apps/coordinator-api/src/app/contexts/multimodal/",
+    "^apps/coordinator-api/src/app/contexts/security/",
+    "^apps/coordinator-api/src/app/contexts/staking/",
+    
+    # Exclude large coordinator-api services for incremental migration
+    "^apps/coordinator-api/src/app/services/agent_coordination/",
+    "^apps/coordinator-api/src/app/services/ecosystem_service\\.py$",
+    "^apps/coordinator-api/src/app/services/enterprise_integration/",
+    "^apps/coordinator-api/src/app/services/gpu_multimodal\\.py$",
+    "^apps/coordinator-api/src/app/services/multi_chain_transaction_manager\\.py$",
+    "^apps/coordinator-api/src/app/services/portfolio_service\\.py$",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "aitbc.*",
+    "apps.coordinator_api.*",
+]
+ignore_missing_imports = false
+
+# NOTE: Use `mypy --follow-imports=skip <file>` to check individual files during development
+# Gradually remove files from the exclude list as type errors are fixed

@@ -4,7 +4,7 @@ Security audit logging for sensitive operations
 
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -60,7 +60,7 @@ class SecurityAuditor:
             severity: Severity level (INFO, WARNING, ERROR, CRITICAL)
         """
         log_entry = SecurityAuditLog(
-            timestamp=datetime.now(),
+            timestamp=datetime.now(UTC),
             action=action,
             user=user,
             ip_address=ip_address,
@@ -111,7 +111,7 @@ class SecurityAuditor:
         Returns:
             List of recent audit log entries
         """
-        cutoff_time = datetime.now() - timedelta(hours=hours)
+        cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
         return [log for log in self.audit_logs if log.timestamp >= cutoff_time]
 
     def get_logs_by_user(self, user: str) -> list[SecurityAuditLog]:
@@ -160,7 +160,7 @@ class SecurityAuditor:
         Returns:
             Number of logs cleared
         """
-        cutoff_time = datetime.now() - timedelta(days=days)
+        cutoff_time = datetime.now(UTC) - timedelta(days=days)
         original_count = len(self.audit_logs)
         self.audit_logs = [log for log in self.audit_logs if log.timestamp >= cutoff_time]
         return original_count - len(self.audit_logs)
