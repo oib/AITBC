@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ....deps import require_admin_key
+from ....auth import AdminDep
 from ....schemas.hermes_health import ErrorReport, HealthCheck, RecoveryResult
 from ....storage import get_session
 from ..services.health_service_db import health_service
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/hermes/health", tags=["hermes Health Monitoring"])
 async def report_health(
     health_check: HealthCheck,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict:
     """Report health status for an agent or service."""
     try:
@@ -36,7 +36,7 @@ async def report_health(
 async def report_error(
     error_report: ErrorReport,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> dict:
     """Report an error for self-healing analysis."""
     try:
@@ -50,7 +50,7 @@ async def report_error(
 @router.get("/status")
 async def get_health_status(
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
     agent_id: str | None = None,
     service_name: str | None = None,
 ) -> list[HealthCheck]:
@@ -65,7 +65,7 @@ async def get_health_status(
 @router.get("/recovery-history")
 async def get_recovery_history(
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
     agent_id: str | None = None,
     limit: int = 100,
 ) -> list[RecoveryResult]:
