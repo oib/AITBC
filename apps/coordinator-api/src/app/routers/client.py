@@ -7,13 +7,13 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 from aitbc.rate_limiting import rate_limit
 
 from ..config import settings
 from ..contexts.payments.services.payments import PaymentService
 from ..custom_types import JobState
-from ..deps import require_client_key
+from ..auth import ClientDep
 from ..schemas import JobCreate, JobPaymentCreate, JobResult, JobView
 from ..services import JobService
 from ..storage import get_session
@@ -29,10 +29,10 @@ async def submit_job(
     req: JobCreate,
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> JobView:
     service = JobService(session)
-    job = service.create_job(client_id, req)
+    job = service.create_job(user["sub"], req)
     if req.payment_amount and req.payment_amount > 0:
         try:
             payment_service = PaymentService(session)
@@ -59,11 +59,11 @@ async def get_job(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> JobView:
     service = JobService(session)
     try:
-        job = service.get_job(job_id, client_id=client_id)
+        job = service.get_job(job_id, client_id=user["sub"])
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     return service.to_view(job)  # type: ignore[no-any-return]
@@ -75,11 +75,11 @@ async def get_job_result(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> JobResult:
     service = JobService(session)
     try:
-        job = service.get_job(job_id, client_id=client_id)
+        job = service.get_job(job_id, client_id=user["sub"])
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     if job.state not in {JobState.completed, JobState.failed, JobState.canceled, JobState.expired}:
@@ -95,11 +95,11 @@ async def cancel_job(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> JobView:
     service = JobService(session)
     try:
-        job = service.get_job(job_id, client_id=client_id)
+        job = service.get_job(job_id, client_id=user["sub"])
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     if job.state not in {JobState.queued, JobState.running}:
@@ -114,11 +114,11 @@ async def get_job_receipt(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> dict:
     service = JobService(session)
     try:
-        job = service.get_job(job_id, client_id=client_id)
+        job = service.get_job(job_id, client_id=user["sub"])
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     if not job.receipt:
@@ -132,10 +132,10 @@ async def list_job_receipts(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
 ) -> dict:
     service = JobService(session)
-    receipts = service.list_receipts(job_id, client_id=client_id)
+    receipts = service.list_receipts(job_id, client_id=user["sub"])
     return {"items": [row.payload for row in receipts]}
 
 
@@ -145,7 +145,7 @@ async def list_job_receipts(
 async def list_jobs(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
     limit: int = 20,
     offset: int = 0,
     status: str | None = None,
@@ -161,7 +161,7 @@ async def list_jobs(
             pass
     if job_type:
         filters["job_type"] = job_type  # type: ignore[assignment]
-    jobs = service.list_jobs(client_id=client_id, limit=limit, offset=offset, **filters)
+    jobs = service.list_jobs(client_id=user["sub"], limit=limit, offset=offset, **filters)
     return {"items": [service.to_view(job) for job in jobs], "total": len(jobs), "limit": limit, "offset": offset}
 
 
@@ -171,7 +171,7 @@ async def list_jobs(
 async def get_job_history(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
     limit: int = 20,
     offset: int = 0,
     status: str | None = None,
@@ -190,7 +190,7 @@ async def get_job_history(
     if job_type:
         filters["job_type"] = job_type  # type: ignore[assignment]
     try:
-        jobs = service.list_jobs(client_id=client_id, limit=limit, offset=offset, **filters)
+        jobs = service.list_jobs(client_id=user["sub"], limit=limit, offset=offset, **filters)
         return {
             "items": [service.to_view(job) for job in jobs],
             "total": len(jobs),
@@ -216,7 +216,7 @@ async def get_job_history(
 async def get_blocks(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    client_id: Annotated[str, Depends(require_client_key())],
+    user: ClientDep,
     limit: int = 20,
     offset: int = 0,
 ) -> dict:
