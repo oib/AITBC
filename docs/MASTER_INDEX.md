@@ -259,7 +259,7 @@ The following directories were consolidated to improve documentation organizatio
 2. **contracts/** - Converted from symlink to proper directory
 3. **testing/** - Converted from symlink to proper directory
 4. **mobile/ → deployment/** - Mobile documentation merged into deployment
-5. **plugins/ → apps/plugins/** - Plugin documentation moved to apps directory
+5. **plugins/** — Removed (2026-06-18). Functionality superseded by coordinator-api inference endpoints, gpu_worker, and miner production code.
 6. **governance/ → blockchain/governance/** - Governance documentation merged into blockchain
 7. **nodes/ → deployment/** - Node operations documentation merged into deployment
 8. **policies/ → security/policies/** - Policy documentation merged into security

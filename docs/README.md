@@ -387,12 +387,6 @@ Complete documentation for all AITBC applications and services
 - [Multi-Region Load Balancer](apps/infrastructure/multi-region-load-balancer.md) - Load balancing across regions
 - [Global Infrastructure](apps/infrastructure/global-infrastructure.md) - Global infrastructure management
 
-**Plugins**
-- [Plugin Analytics](apps/plugins/plugin-analytics.md) - Analytics plugin
-- [Plugin Marketplace](apps/plugins/plugin-marketplace.md) - Marketplace plugin
-- [Plugin Registry](apps/plugins/plugin-registry.md) - Plugin registry
-- [Plugin Security](apps/plugins/plugin-security.md) - Security plugin
-
 **Crypto**
 - [ZK Circuits](apps/crypto/zk-circuits.md) - Zero-knowledge circuits for privacy
 
