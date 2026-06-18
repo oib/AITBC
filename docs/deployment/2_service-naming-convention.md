@@ -12,8 +12,8 @@ All AITBC systemd services now follow the `aitbc-` prefix convention for consist
 |----------|----------|------|-------------|
 | blockchain-node.service | aitbc-blockchain-node-1.service | 8081 | Blockchain Node 1 |
 | blockchain-node-2.service | aitbc-blockchain-node-2.service | 8082 | Blockchain Node 2 |
-| blockchain-rpc.service | aitbc-blockchain-rpc-1.service | - | RPC API for Node 1 |
-| blockchain-rpc-2.service | aitbc-blockchain-rpc-2.service | - | RPC API for Node 2 |
+| blockchain-rpc.service | aitbc-blockchain-rpc-1.service | 8202 | RPC API for Node 1 (bundled in blockchain-node) |
+| blockchain-rpc-2.service | aitbc-blockchain-rpc-2.service | - | RPC API for Node 2 (bundled in blockchain-node) |
 | coordinator-api.service | aitbc-coordinator-api.service | 8203 | Coordinator API |
 | exchange-mock-api.service | aitbc-exchange-mock-api.service | - | Exchange Mock API |
 

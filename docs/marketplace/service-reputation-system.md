@@ -26,7 +26,7 @@ class ServiceRating(SQLModel, table=True):
     rating: float  # 1.0 to 5.0
     reviewer_id: str  # Wallet address or user ID
     comment: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     synced_at: Optional[datetime] = None  # Timestamp when synced to remote
     source_node: str = "local"  # Origin node identifier
 ```
