@@ -13,8 +13,10 @@ from pathlib import Path
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.constants import DATA_DIR
 
 logger = get_logger(__name__)
+_DATA_DIR = DATA_DIR / "data"
 
 
 class ChainStatus(Enum):
@@ -80,7 +82,7 @@ class ChainManager:
     """Central manager for multi-chain operations"""
 
     def __init__(self, config_path: Path | None = None):
-        self.config_path = config_path or Path("./data/chains.json")
+        self.config_path = config_path or _DATA_DIR / "chains.json"
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
         self.chains: dict[str, ChainConfig] = {}
         self.default_chain_id: str | None = None
@@ -110,8 +112,8 @@ class ChainManager:
             name="AITBC Development Network",
             coordinator_url="http://localhost:8011",
             coordinator_api_key="dev-coordinator-key",
-            ledger_db_path="./data/wallet_ledger_devnet.db",
-            keystore_path="./data/keystore_devnet",
+            ledger_db_path=str(_DATA_DIR / "wallet_ledger_devnet.db"),
+            keystore_path=str(_DATA_DIR / "keystore_devnet"),
         )
         self.chains[default_chain.chain_id] = default_chain
         self.default_chain_id = default_chain.chain_id

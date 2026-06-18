@@ -22,6 +22,8 @@ from ..crypto.encryption import EncryptionError, EncryptionSuite
 from ..security import validate_password_rules, wipe_buffer
 from ..settings import settings
 
+_DEFAULT_DB = settings.ledger_db_path.parent / "keystore.db"
+
 
 @dataclass
 class WalletRecord:
@@ -42,7 +44,7 @@ class PersistentKeystoreService:
 
     def __init__(self, db_path: Path | None = None, encryption: EncryptionSuite | None = None) -> None:
         # SECURITY FIX: Validate path is within allowed directory to prevent directory traversal
-        default_path = Path("./data/keystore.db").resolve()
+        default_path = _DEFAULT_DB.resolve()
         if db_path is None:
             self.db_path = default_path
         else:
