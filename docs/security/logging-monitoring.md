@@ -11,9 +11,10 @@ security_logger = logging.getLogger('security')
 
 def log_security_event(event_type: str, details: dict):
     """Log security event"""
+    from datetime import UTC, datetime
     security_logger.info({
         "event_type": event_type,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "details": details
     })
 ```
@@ -23,11 +24,12 @@ def log_security_event(event_type: str, details: dict):
 ```python
 def log_audit(action: str, user: str, resource: str):
     """Log audit event"""
+    from datetime import UTC, datetime
     audit_logger.info({
         "action": action,
         "user": user,
         "resource": resource,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "ip_address": get_client_ip()
     })
 ```

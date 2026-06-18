@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..domain.wallet import TransactionStatus, WalletType
 
@@ -10,15 +10,14 @@ class WalletCreate(BaseModel):
 
 
 class WalletResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     agent_id: str
     address: str
     public_key: str
     wallet_type: WalletType
     is_active: bool
-
-    class Config:
-        from_attributes = True
 
 
 class TransactionRequest(BaseModel):
@@ -31,10 +30,9 @@ class TransactionRequest(BaseModel):
 
 
 class TransactionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     chain_id: int
     tx_hash: str | None
     status: TransactionStatus
-
-    class Config:
-        from_attributes = True

@@ -34,11 +34,8 @@ All systemd service wrappers in their respective app directories use sys.path.in
 - `aitbc-agent-management-wrapper.py`
 - `aitbc-agent-coordinator-wrapper.py`
 - `aitbc-agent-daemon-wrapper.py`
-- `aitbc-agent-registry-wrapper.py`
 - `aitbc-blockchain-node-wrapper.py`
-- `aitbc-blockchain-rpc-wrapper.py`
 - `aitbc-blockchain-p2p-wrapper.py`
-- `aitbc-blockchain-sync-wrapper.py`
 - `aitbc-blockchain-event-bridge-wrapper.py`
 - `aitbc-coordinator-api-wrapper.py`
 - `aitbc-exchange-api-wrapper.py`
@@ -46,7 +43,6 @@ All systemd service wrappers in their respective app directories use sys.path.in
 - `aitbc-hermes-wrapper.py`
 - `aitbc-marketplace-wrapper.py`
 - `aitbc-monitoring-wrapper.py`
-- `aitbc-plugin-wrapper.py`
 - `aitbc-wallet-wrapper.py`
 
 ### Tests (~25 files)

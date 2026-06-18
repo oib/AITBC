@@ -14,15 +14,17 @@ from collections import deque
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from websockets.exceptions import ConnectionClosed
 
 from aitbc.aitbc_logging import get_logger
 
-if TYPE_CHECKING:
-    from websockets.legacy.server import WebSocketServerProtocol
-WebSocketServerProtocol = Any  # type: ignore[assignment, misc]
+try:
+    from websockets.server import ServerProtocol as WebSocketServerProtocol
+except ImportError:
+    # Fallback for older websockets versions
+    from websockets.legacy.server import WebSocketServerProtocol  # type: ignore
 
 logger = get_logger(__name__)
 
@@ -263,8 +265,9 @@ class WebSocketStream:
                         message_str = json.dumps(message_data, separators=(",", ":"))
                 else:
                     message_str = json.dumps(message_data)
-                await asyncio.wait_for(self.websocket.send(message_str), timeout=self.config.send_timeout)
-                return True
+                    message_bytes = message_str.encode()
+                    await asyncio.wait_for(self.websocket.send_text(message_bytes), timeout=self.config.send_timeout)
+                    return True
         except TimeoutError:
             logger.warning("Send timeout for stream %s", self.stream_id)
             return False

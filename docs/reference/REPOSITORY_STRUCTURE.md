@@ -19,14 +19,12 @@ This is the authoritative layout of the repository root at `/opt/aitbc`.
 ├── extensions/
 ├── infra/
 ├── packages/
-├── plugins/
 ├── scripts/
 ├── systemd/
 ├── tests/
 ├── website/
 ├── build/            # generated output
-├── venv/             # local virtualenv
-└── agent_registry.db # runtime database
+└── venv/             # local virtualenv
 ```
 
 ### Main directories at a glance
@@ -36,7 +34,6 @@ This is the authoritative layout of the repository root at `/opt/aitbc`.
 - **`dev/`** — developer utilities and local helpers
 - **`docs/`** — documentation tree, including `guides/`, `project/`, `infrastructure/`, `reference/`, and `workflows/`
 - **`packages/py/`** — shared Python libraries (`aitbc-agent-sdk`, `aitbc-core`, `aitbc-crypto`, `aitbc-sdk`)
-- **`plugins/`** — plugin integrations such as Ollama
 - **`scripts/`** — CI, deployment, development, monitoring, service, testing, utility, and wrapper scripts
 - **`systemd/`** — standardized service units
 - **`tests/`** — repository-wide test suites and fixtures
