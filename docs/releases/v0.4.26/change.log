@@ -23,11 +23,21 @@ This release targets **production safety, CI enforcement, and codebase integrity
 - Goal 13: Docs/debug routes already gated ✅
 - Goal 16: MD5 → SHA256 in caching ✅
 - Goal 23: Lifecycle management for async tasks ✅
+- Goal 33: Mock routers gated behind settings.debug (monitor.py fixed) ✅
 - Goal 34: Mock state flagged as temporary ✅
 
-**Remaining for Today**:
-- Goal 33: Verify all mock routers gated behind feature flags
+**Quick Wins (today)**:
+- main.py: ruff clean (whitespace + ASYNC240 fixed) ✅
+- dependency-security.yml: removed `|| true` from pip-audit/safety ✅
+- Goal 18: Smoke tests created (tests/smoke/test_imports.py — 22 modules passing) ✅
+
+**Test Results**: 561 passed, 1 skipped — all green ✅
+
+**Remaining for v0.4.27 (tomorrow)**:
 - Goal 35: Add response_model to public endpoints (partial)
+- Goal 36: Auth normalization (remaining routers)
+- Goal 37: Clean up versioned path prefixes
+- Goal 40: Replace hardcoded mock RPC/private key paths
 
 **Deferred to v0.5.0**:
 - Goal 7: Type checking enforcement (mypy baseline)
@@ -36,13 +46,11 @@ This release targets **production safety, CI enforcement, and codebase integrity
 - Goal 10: Module splitting (market.py, wallet.py)
 - Goal 11/31: sys.path hardcodes
 - Goal 17/30: Test app instance isolation
-- Goal 18: Smoke tests
 - Goal 19: Fast vs full test suite
 - Goal 20: Untrack generated files
 - Goal 21: Dependency source of truth doc
 - Goal 24: DB setup consolidation
 - Goal 28: Blocking calls in async services
-- Goal 35: response_model on all endpoints
 - Goal 36+: Auth normalization (remaining routers)
 
 ---
