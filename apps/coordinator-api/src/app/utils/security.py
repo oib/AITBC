@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import os
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -107,7 +107,7 @@ class APIKeyRotator:
     @staticmethod
     def generate_api_key() -> str:
         """Generate a new API key."""
-        return hashlib.sha256(f"{datetime.utcnow().isoformat()}_{os.urandom(32).hex()}".encode()).hexdigest()
+        return hashlib.sha256(f"{datetime.now(UTC).isoformat()}_{os.urandom(32).hex()}".encode()).hexdigest()
 
     @staticmethod
     def validate_api_key_format(api_key: str) -> bool:

@@ -1,7 +1,7 @@
 """Service for Hermes self-healing and health monitoring."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -46,7 +46,7 @@ class HealthService:
     def report_error(self, error_report: ErrorReport, session: Session) -> str:
         """Report an error for self-healing analysis."""
         error_id = str(uuid.uuid4())
-        error_report.timestamp = datetime.utcnow()
+        error_report.timestamp = datetime.now(UTC)
         self.error_reports.append(error_report)
         logger.warning(
             "Error reported: %s - %s - %s (%s)",
@@ -150,7 +150,7 @@ class HealthService:
             message = f"Recovery action failed: {str(e)}"
             logger.error("Recovery action failed: %s", e)
         return RecoveryResult(
-            action_id=action_id, agent_id=agent_id, success=success, message=message, timestamp=datetime.utcnow()
+            action_id=action_id, agent_id=agent_id, success=success, message=message, timestamp=datetime.now(UTC)
         )
 
     def get_health_status(self, agent_id: str | None = None, service_name: str | None = None) -> list[HealthCheck]:
