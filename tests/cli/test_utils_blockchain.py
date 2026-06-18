@@ -18,7 +18,7 @@ class TestGetChainInfo:
 
         mock_http_client = Mock()
         mock_http_client.get.side_effect = [
-            {"supported_chains": ["ait-devnet", "ait-testnet"], "proposer_id": "node1"},
+            {"supported_chains": ["ait-devnet", "ait-hub.aitbc.bubuit.net"], "proposer_id": "node1"},
             {"height": 1000, "hash": "0xabc123", "timestamp": "2024-01-01T00:00:00", "tx_count": 50},
         ]
         mock_client.return_value = mock_http_client

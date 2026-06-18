@@ -51,7 +51,7 @@ class CLIConfig(BaseAITBCConfig):
     coordinator_url: str = Field(default="http://localhost:8203", description="Coordinator API URL (deprecated)")
 
     # Chain configuration
-    chain_id: str = Field(default="ait-mainnet", description="Default chain ID for multichain operations")
+    chain_id: str = Field(default="", description="Default chain ID for multichain operations (from CHAIN_ID env var)")
     hub_discovery_url: str | None = Field(
         default=None, description="Hub discovery DNS for cross-node operations (from HUB_DISCOVERY_URL env var)"
     )
