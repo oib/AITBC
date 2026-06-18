@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ....deps import require_admin_key
+from ....auth import AdminDep
 from ....schemas.hermes_enhanced import (
     AgentCollaborationRequest,
     AgentCollaborationResponse,
@@ -42,7 +42,7 @@ async def route_agent_skill(
     request: Request,
     routing_request: SkillRoutingRequest,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> SkillRoutingResponse:
     """Sophisticated agent skill routing"""
     try:
@@ -69,7 +69,7 @@ async def intelligent_job_offloading(
     request: Request,
     offloading_request: JobOffloadingRequest,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> JobOffloadingResponse:
     """Intelligent job offloading strategies"""
     try:
@@ -97,7 +97,7 @@ async def coordinate_agent_collaboration(
     request: Request,
     collaboration_request: AgentCollaborationRequest,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> AgentCollaborationResponse:
     """Agent collaboration and coordination"""
     try:
@@ -125,7 +125,7 @@ async def optimize_hybrid_execution(
     request: Request,
     execution_request: HybridExecutionRequest,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> HybridExecutionResponse:
     """Hybrid execution optimization"""
     try:
@@ -152,7 +152,7 @@ async def deploy_to_edge(
     request: Request,
     deployment_request: EdgeDeploymentRequest,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> EdgeDeploymentResponse:
     """Deploy agent to edge computing infrastructure"""
     try:
@@ -180,7 +180,7 @@ async def coordinate_edge_to_cloud(
     request: Request,
     coordination_request: EdgeCoordinationRequest,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> EdgeCoordinationResponse:
     """Coordinate edge-to-cloud agent operations"""
     try:
@@ -208,7 +208,7 @@ async def develop_hermes_ecosystem(
     request: Request,
     ecosystem_request: EcosystemDevelopmentRequest,
     session: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[str, Depends(require_admin_key())],
+    user: AdminDep,
 ) -> EcosystemDevelopmentResponse:
     """Build comprehensive hermes ecosystem"""
     try:
