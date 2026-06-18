@@ -4,6 +4,7 @@ Manages trading operations
 """
 
 import asyncio
+import os
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -297,13 +298,13 @@ async def get_blocks_v1(limit: int | None, chain_id: str | None, session: Annota
     This endpoint returns placeholder data until trading service becomes production.
     In production, this would query blockchain RPC for actual block data.
     """
-    return {"blocks": [], "limit": limit, "chain_id": chain_id or "ait-devnet", "total": 0}
+    return {"blocks": [], "limit": limit, "chain_id": chain_id or os.getenv("CHAIN_ID", ""), "total": 0}
 
 
 @app.get("/api/v1/blocks")
 async def get_blocks_api(limit: int | None, chain_id: str | None, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """List recent blocks (api/v1 path for CLI compatibility)"""
-    return {"blocks": [], "limit": limit, "chain_id": chain_id or "ait-devnet", "total": 0}
+    return {"blocks": [], "limit": limit, "chain_id": chain_id or os.getenv("CHAIN_ID", ""), "total": 0}
 
 
 @app.get("/v1/blocks/{block_id}")
@@ -335,7 +336,7 @@ async def get_transaction_explorer(
     tx_hash: str, chain_id: str | None, session: Annotated[AsyncSession, Depends(get_session_dep)]
 ):
     """Get transaction details by hash (explorer path for CLI compatibility)"""
-    return {"tx_hash": tx_hash, "chain_id": chain_id or "ait-devnet", "error": "Transaction not found"}
+    return {"tx_hash": tx_hash, "chain_id": chain_id or os.getenv("CHAIN_ID", ""), "error": "Transaction not found"}
 
 
 class ExchangePaymentRequest(BaseModel):

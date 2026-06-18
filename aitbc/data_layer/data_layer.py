@@ -42,7 +42,7 @@ class DataLayer:
         until: str | None = None,
         limit: int = 50,
         offset: int = 0,
-        chain_id: str = "ait-devnet",
+        chain_id: str = os.getenv("CHAIN_ID", ""),
         rpc_url: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get transactions from either mock or real data source"""
@@ -61,7 +61,7 @@ class DataLayer:
         min_tx: int | None = None,
         limit: int = 50,
         offset: int = 0,
-        chain_id: str = "ait-devnet",
+        chain_id: str = os.getenv("CHAIN_ID", ""),
         rpc_url: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get blocks from either mock or real data source"""
@@ -168,7 +168,7 @@ if HAS_HTTPX:
             until: str | None = None,
             limit: int = 50,
             offset: int = 0,
-            chain_id: str = "ait-devnet",
+            chain_id: str = os.getenv("CHAIN_ID", ""),
             rpc_url: str | None = None,
         ) -> list[dict[str, Any]]:
             """Fetch real transactions from blockchain RPC"""
@@ -209,7 +209,7 @@ if HAS_HTTPX:
             min_tx: int | None = None,
             limit: int = 50,
             offset: int = 0,
-            chain_id: str = "ait-devnet",
+            chain_id: str = os.getenv("CHAIN_ID", ""),
             rpc_url: str | None = None,
         ) -> list[dict[str, Any]]:
             """Fetch real blocks from blockchain RPC"""

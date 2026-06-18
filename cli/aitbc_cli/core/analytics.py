@@ -3,6 +3,7 @@ Chain analytics and monitoring system
 """
 
 import asyncio
+import os
 import statistics
 from collections import defaultdict, deque
 from dataclasses import asdict, dataclass
@@ -219,12 +220,11 @@ class ChainAnalytics:
         if not self.metrics_history:
             # Return mock data for testing
             return {
-                "total_chains": 2,
-                "active_chains": 2,
-                "chains_by_type": {"ait-devnet": 1, "ait-testnet": 1},
+                "total_chains": 1,
+                "active_chains": 1,
+                "chains_by_type": {os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net"): 1},
                 "performance_comparison": {
-                    "ait-devnet": {"tps": 2.5, "block_time": 8.5, "health_score": 85.0},
-                    "ait-testnet": {"tps": 1.8, "block_time": 12.3, "health_score": 72.0},
+                    os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net"): {"tps": 2.5, "block_time": 8.5, "health_score": 85.0},
                 },
                 "resource_usage": {
                     "total_memory_mb": 2048.0,

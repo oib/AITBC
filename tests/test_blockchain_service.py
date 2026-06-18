@@ -83,9 +83,9 @@ class TestRPCBlockchainService:
     def test_initialization(self):
         """Test RPCBlockchainService initialization"""
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient") as mock_client_class:
-            service = RPCBlockchainService("http://localhost:8006", timeout=30)
-            assert service.rpc_url == "http://localhost:8006"
-            mock_client_class.assert_called_once_with(base_url="http://localhost:8006", timeout=30)
+            service = RPCBlockchainService("http://localhost:8202", timeout=30)
+            assert service.rpc_url == "http://localhost:8202"
+            mock_client_class.assert_called_once_with(base_url="http://localhost:8202", timeout=30)
 
     def test_get_block_by_height(self):
         """Test get block by height"""
@@ -104,7 +104,7 @@ class TestRPCBlockchainService:
         mock_client.get.return_value = mock_response
 
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient", return_value=mock_client):
-            service = RPCBlockchainService("http://localhost:8006")
+            service = RPCBlockchainService("http://localhost:8202")
             block = service.get_block(100)
 
             assert block.height == 100
@@ -125,7 +125,7 @@ class TestRPCBlockchainService:
         mock_client.get.return_value = mock_response
 
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient", return_value=mock_client):
-            service = RPCBlockchainService("http://localhost:8006")
+            service = RPCBlockchainService("http://localhost:8202")
             block = service.get_block("0xblockhash")
 
             assert block.height == 100
@@ -139,7 +139,7 @@ class TestRPCBlockchainService:
         mock_client.get.return_value = mock_response
 
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient", return_value=mock_client):
-            service = RPCBlockchainService("http://localhost:8006")
+            service = RPCBlockchainService("http://localhost:8202")
             block = service.get_block(100)
 
             assert block.transactions == []
@@ -153,7 +153,7 @@ class TestRPCBlockchainService:
         mock_client.get.side_effect = Exception("Network error")
 
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient", return_value=mock_client):
-            service = RPCBlockchainService("http://localhost:8006")
+            service = RPCBlockchainService("http://localhost:8202")
 
             with pytest.raises(Exception):  # noqa: B017
                 service.get_block(100)
@@ -174,7 +174,7 @@ class TestRPCBlockchainService:
         mock_client.get.return_value = mock_response
 
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient", return_value=mock_client):
-            service = RPCBlockchainService("http://localhost:8006")
+            service = RPCBlockchainService("http://localhost:8202")
             block = service.get_head_block()
 
             assert block.height == 200
@@ -201,7 +201,7 @@ class TestRPCBlockchainService:
         mock_client.get.return_value = mock_response
 
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient", return_value=mock_client):
-            service = RPCBlockchainService("http://localhost:8006")
+            service = RPCBlockchainService("http://localhost:8202")
             tx = service.get_transaction("0xtx123")
 
             assert tx.hash == "0xtx123"
@@ -217,7 +217,7 @@ class TestRPCBlockchainService:
         mock_client.get.return_value = mock_response
 
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient", return_value=mock_client):
-            service = RPCBlockchainService("http://localhost:8006")
+            service = RPCBlockchainService("http://localhost:8202")
             tx = service.get_transaction("0xtx")
 
             assert tx.gas_price is None
@@ -232,7 +232,7 @@ class TestRPCBlockchainService:
         mock_client.get.return_value = mock_response
 
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient", return_value=mock_client):
-            service = RPCBlockchainService("http://localhost:8006")
+            service = RPCBlockchainService("http://localhost:8202")
             account = service.get_account_balance("0xaccount")
 
             assert account.address == "0xaccount"
@@ -248,7 +248,7 @@ class TestRPCBlockchainService:
         mock_client.get.return_value = mock_response
 
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient", return_value=mock_client):
-            service = RPCBlockchainService("http://localhost:8006")
+            service = RPCBlockchainService("http://localhost:8202")
             account = service.get_account_balance("0xaccount")
 
             assert account.balance == 0
@@ -262,7 +262,7 @@ class TestRPCBlockchainService:
         mock_client.post.return_value = mock_response
 
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient", return_value=mock_client):
-            service = RPCBlockchainService("http://localhost:8006")
+            service = RPCBlockchainService("http://localhost:8202")
             tx_hash = service.send_transaction({"from": "0xfrom", "to": "0xto"})
 
             assert tx_hash == "0xtxhash"
@@ -276,7 +276,7 @@ class TestRPCBlockchainService:
         mock_client.post.return_value = mock_response
 
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient", return_value=mock_client):
-            service = RPCBlockchainService("http://localhost:8006")
+            service = RPCBlockchainService("http://localhost:8202")
             tx_hash = service.send_transaction({})
 
             assert tx_hash == "0xtxhash"
@@ -289,7 +289,7 @@ class TestRPCBlockchainService:
         mock_client.post.return_value = mock_response
 
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient", return_value=mock_client):
-            service = RPCBlockchainService("http://localhost:8006")
+            service = RPCBlockchainService("http://localhost:8202")
 
             with pytest.raises(ValueError, match="Transaction hash not found"):
                 service.send_transaction({})
@@ -302,7 +302,7 @@ class TestRPCBlockchainService:
         mock_client.get.return_value = mock_response
 
         with patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient", return_value=mock_client):
-            service = RPCBlockchainService("http://localhost:8006")
+            service = RPCBlockchainService("http://localhost:8202")
             status = service.get_status()
 
             assert status["status"] == "syncing"
@@ -317,32 +317,32 @@ class TestBlockchainServiceFactory:
         """Test create RPC service"""
         with patch("aitbc.blockchain.blockchain_service.RPCBlockchainService") as mock_service_class:
             factory = BlockchainServiceFactory()
-            factory.create_rpc_service("http://localhost:8006", timeout=60)
+            factory.create_rpc_service("http://localhost:8202", timeout=60)
 
-            mock_service_class.assert_called_once_with("http://localhost:8006", 60)
+            mock_service_class.assert_called_once_with("http://localhost:8202", 60)
 
     def test_create_service_rpc(self):
         """Test create service with RPC type"""
         with patch("aitbc.blockchain.blockchain_service.BlockchainServiceFactory.create_rpc_service") as mock_create:
             factory = BlockchainServiceFactory()
-            factory.create_service("rpc", rpc_url="http://localhost:8006")
+            factory.create_service("rpc", rpc_url="http://localhost:8202")
 
-            mock_create.assert_called_once_with(rpc_url="http://localhost:8006")
+            mock_create.assert_called_once_with(rpc_url="http://localhost:8202")
 
     def test_create_service_unknown_type(self):
         """Test create service with unknown type raises error"""
         factory = BlockchainServiceFactory()
 
         with pytest.raises(ValueError, match="Unknown service type"):
-            factory.create_service("unknown", rpc_url="http://localhost:8006")
+            factory.create_service("unknown", rpc_url="http://localhost:8202")
 
     def test_create_service_default_kwargs(self):
         """Test create service passes kwargs correctly"""
         with patch("aitbc.blockchain.blockchain_service.BlockchainServiceFactory.create_rpc_service") as mock_create:
             factory = BlockchainServiceFactory()
-            factory.create_service("rpc", rpc_url="http://localhost:8006", timeout=45)
+            factory.create_service("rpc", rpc_url="http://localhost:8202", timeout=45)
 
-            mock_create.assert_called_once_with(rpc_url="http://localhost:8006", timeout=45)
+            mock_create.assert_called_once_with(rpc_url="http://localhost:8202", timeout=45)
 
 
 class TestBlockchainServiceAbstract:

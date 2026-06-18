@@ -2,6 +2,8 @@
 Blockchain utility functions for AITBC CLI
 """
 
+import os
+
 from aitbc import get_logger
 
 from .http_client import AITBCHTTPClient, NetworkError
@@ -17,8 +19,8 @@ def get_chain_info(rpc_url: str = "http://localhost:8202") -> dict | None:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         health = http_client.get("/health")
         chains = health.get("supported_chains", [])
-        result["chain_id"] = chains[0] if chains else "ait-mainnet"
-        result["supported_chains"] = ", ".join(chains) if chains else "ait-mainnet"
+        result["chain_id"] = chains[0] if chains else os.getenv("CHAIN_ID", "")
+        result["supported_chains"] = ", ".join(chains) if chains else os.getenv("CHAIN_ID", "")
         result["proposer_id"] = health.get("proposer_id", "")
         # Get head block for height
         head = http_client.get("/rpc/head")
