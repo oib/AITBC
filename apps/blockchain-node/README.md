@@ -10,7 +10,7 @@ Core blockchain node implementing consensus (PoA/PBFT), P2P networking, RPC API,
 
 ## Node Type
 
-hub, island
+all
 
 ## GPU Required
 
