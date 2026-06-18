@@ -546,8 +546,8 @@ pytest tests/unit/test_core.py tests/security/test_security.py tests/core/test_h
 **Commit**: `7dcf5526`
 
 ### 24. Update Documentation — **FIXED**
-**Impact**: 57 doc files had stale references to deleted/renamed code
-**Changes**:
+**Impact**: 57+ doc files had stale references to deleted/renamed code
+**Round 1** (commit `b1a6654c`):
 - `docs/apps/plugins/` — **Deleted entire directory** (7 files)
 - `docs/apps/README.md` — Removed Plugins category
 - `docs/README.md` — Removed plugin links section
@@ -556,7 +556,17 @@ pytest tests/unit/test_core.py tests/security/test_security.py tests/core/test_h
 - `docs/development/logging-patterns.md` — Updated service reference
 - `docs/deployment/nginx-setup.md` — Fixed port references, removed agent_registry examples
 - `docs/architecture/REFACTORING_PLANS.md` → `docs/releases/v0.4.26/REFACTORING_PLANS.md`
-**Commit**: `b1a6654c`
+
+**Round 2** (commit `ad4b1bf4`):
+- `docs/reference/REPOSITORY_STRUCTURE.md` — Removed plugins/ from snapshot, removed agent_registry.db
+- `docs/development/SYSPATH_DEBT.md` — Removed deleted wrapper scripts
+- `docs/deployment/2_service-naming-convention.md` — Noted blockchain-rpc bundled in blockchain-node
+- `docs/security/authentication.md` — Code examples updated to `datetime.now(UTC)`
+- `docs/security/logging-monitoring.md` — Code examples updated to `datetime.now(UTC)`
+- `docs/development/EVENT_DRIVEN_CACHE_STRATEGY.md` — Code examples updated to `datetime.now(UTC)`
+- `docs/marketplace/service-reputation-system.md` — Code example updated to `datetime.now(UTC)`
+- `docs/security/policies/CLI_TRANSLATION_SECURITY_POLICY.md` — Code example updated to `datetime.now(UTC)`
+**Commits**: `b1a6654c`, `ad4b1bf4`
 
 ### 25. Update Nginx Configs — **FIXED**
 **Repo**: `examples/nginx/nginx-aitbc.conf` — Removed agent_registry upstream and /agent/ locations
