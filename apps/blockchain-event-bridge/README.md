@@ -20,6 +20,10 @@ no
 
 1 systemd service(s): aitbc-blockchain-event-bridge.service
 
+## Core Service
+
+no
+
 ## Source
 
 `src/` directory with 16 Python file(s)

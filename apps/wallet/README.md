@@ -20,6 +20,10 @@ no
 
 1 systemd service(s): aitbc-wallet.service
 
+## Core Service
+
+yes
+
 ## Source
 
 `src/` directory with 29 Python file(s)

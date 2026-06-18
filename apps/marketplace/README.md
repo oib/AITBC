@@ -20,6 +20,10 @@ no
 
 1 systemd service(s): aitbc-marketplace.service
 
+## Core Service
+
+no
+
 ## Source
 
 `src/` directory with 9 Python file(s)

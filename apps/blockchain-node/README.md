@@ -20,6 +20,10 @@ no
 
 4 systemd service(s): aitbc-blockchain-node.service, aitbc-blockchain-p2p.service, aitbc-blockchain-rpc.service, aitbc-blockchain-sync.service
 
+## Core Service
+
+yes
+
 ## Source
 
 `src/` directory with 89 Python file(s)

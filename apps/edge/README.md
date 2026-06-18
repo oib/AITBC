@@ -20,6 +20,10 @@ island
 
 1 systemd service(s): aitbc-edge.service
 
+## Core Service
+
+no
+
 ## Source
 
 `src/` directory with 25 Python file(s)
