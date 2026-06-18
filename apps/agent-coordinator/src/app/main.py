@@ -1,3 +1,5 @@
+import os
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -54,7 +56,7 @@ def main() -> None:
         "app.main:app",
         host=settings.host,
         port=settings.port,
-        reload=True,
+        reload=os.getenv("UVICORN_RELOAD", "false").lower() in ("true", "1", "yes"),
         log_level="info",
     )
 
