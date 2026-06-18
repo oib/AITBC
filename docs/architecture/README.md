@@ -19,6 +19,7 @@ This directory contains comprehensive architecture documentation for the AITBC p
 ### **Specialized Architecture**
 
 - **[edge_gpu_setup.md](./edge_gpu_setup.md)** - Edge computing and GPU setup architecture
+- **[EXPLORER_MERGE_SUMMARY.md](./EXPLORER_MERGE_SUMMARY.md)** - Historical decision record: merging TypeScript explorer into Python blockchain-explorer
 
 ## 🎯 **Quick Start**
 
