@@ -369,13 +369,6 @@ def create_app() -> FastAPI:
         logger.info("Governance service initialized")
     except Exception as e:
         logger.warning("Failed to include governance router: %s", e)
-    try:
-        from .routers.training import router as training_router
-
-        app.include_router(training_router, prefix="/v1")
-        logger.info("Training router included")
-    except Exception as e:
-        logger.warning("Failed to include Training router: %s", e)
     app.include_router(explorer, prefix="/v1")
     app.include_router(services, prefix="/v1")
     app.include_router(users, prefix="/v1")
@@ -392,7 +385,6 @@ def create_app() -> FastAPI:
     app.include_router(agent_identity, prefix="/v1")
     app.include_router(developer_platform, prefix="/v1")
     app.include_router(governance_enhanced, prefix="/v1")
-    app.include_router(cross_chain, prefix="/v1")
     try:
         from .contexts.staking.routers.staking import router as staking_router
 
@@ -447,14 +439,9 @@ def create_app() -> FastAPI:
         logger.info("Knowledge Graph router included")
     except Exception as e:
         logger.warning("Failed to include Knowledge Graph router: %s", e)
-    app.include_router(marketplace_offers, prefix="/v1")
     app.include_router(blockchain, prefix="/v1")
-    app.include_router(portfolio_router, prefix="/v1")
     app.include_router(edge_gpu, prefix="/v1")
-    app.include_router(islands_proxy, prefix="/v1")
     app.include_router(multi_modal_rl, prefix="/v1")
-    app.include_router(swarm)
-    app.include_router(monitor)
     metrics_app = make_asgi_app()
     app.mount("/metrics", metrics_app)
     rate_limit_registry = CollectorRegistry()
@@ -604,6 +591,18 @@ def create_app() -> FastAPI:
         except Exception as e:
             logger.error("Readiness check failed", extra={"exc": str(e)})
             return JSONResponse(status_code=503, content={"status": "not ready", "error": "Service not ready"})
+
+    # Startup guard: fail if duplicate routes are registered
+    _seen_routes: set[tuple[str, str]] = set()
+    for route in app.routes:
+        if hasattr(route, "methods") and hasattr(route, "path"):
+            for method in route.methods:
+                if method == "HEAD":
+                    continue
+                key = (method, route.path)
+                if key in _seen_routes:
+                    raise RuntimeError(f"Duplicate route registered: {method} {route.path}")
+                _seen_routes.add(key)
 
     return app
 
