@@ -77,6 +77,7 @@ dev/test-nodes/*/data/
 # Logs & Runtime
 # ===================
 *.log
+!docs/releases/*/change.log
 logs/
 *.pid
 *.seed
