@@ -85,6 +85,24 @@ class SecurityHeadersMiddleware:
         response_headers.update(security_headers)
         return response_headers
 
+    async def __call__(self, request, call_next):
+        """
+        ASGI middleware entry point
+
+        Args:
+            request: ASGI request
+            call_next: Next middleware or route handler
+
+        Returns:
+            Response with security headers
+        """
+        response = await call_next(request)
+        if self.headers:
+            security_headers = self.get_headers()
+            for key, value in security_headers.items():
+                response.headers[key] = value
+        return response
+
 
 class CORSMiddleware:
     """

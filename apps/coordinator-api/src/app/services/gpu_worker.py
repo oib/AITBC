@@ -16,12 +16,14 @@ import json
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 
 from aitbc.aitbc_logging import get_logger
+
+from ..core.lifecycle import get_lifecycle_state
 
 logger = get_logger(__name__)
 
@@ -144,6 +146,7 @@ class GPUWorker:
         self._capabilities: GPUCapabilities | None = None
         self._http_client = httpx.AsyncClient(timeout=60.0)
         self._processed_count = 0
+        self._lifecycle_state = get_lifecycle_state()
 
     async def initialize(self) -> bool:
         """Initialize GPU worker and detect capabilities"""
@@ -217,7 +220,7 @@ class GPUWorker:
         """Start the worker loop - poll for and execute jobs"""
         self._running = True
         logger.info("GPU worker %s started", self.worker_id)
-        while self._running:
+        while self._running and not self._lifecycle_state.is_shutting_down():
             try:
                 await self._poll_and_execute(api_key)
             except Exception as e:

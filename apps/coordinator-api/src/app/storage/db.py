@@ -130,3 +130,19 @@ async def get_async_session() -> AsyncSession:
     """Get an async database session."""
     engine = await get_async_engine()
     return async_sessionmaker(engine)()
+
+
+async def init_async_db() -> None:
+    """Initialize async database tables."""
+    engine = await get_async_engine()
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+    except OperationalError as e:
+        if "already exists" in str(e):
+            logger.warning("Index already exists during async create_all (non-fatal): %s", e)
+        else:
+            raise
+    except Exception as e:
+        logger.error("Unexpected error during async create_all: %s", e)
+        raise

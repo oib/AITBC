@@ -8,7 +8,7 @@ import asyncio
 import json
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 
 # Configure logging
 logger = get_logger(__name__)

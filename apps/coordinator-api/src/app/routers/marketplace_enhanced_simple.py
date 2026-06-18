@@ -15,6 +15,7 @@ from ..contexts.marketplace.services.marketplace_enhanced_simple import (
     LicenseType,
     VerificationType,
 )
+
 # from ..deps import require_admin_key  # OLD: API key auth (deprecated)
 from ..storage import get_session
 

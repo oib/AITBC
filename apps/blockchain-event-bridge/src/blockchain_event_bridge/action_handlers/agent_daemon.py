@@ -3,7 +3,7 @@
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.network.http_client import AsyncAITBCHTTPClient
+from aitbc.network import AsyncAITBCHTTPClient
 
 logger = get_logger(__name__)
 

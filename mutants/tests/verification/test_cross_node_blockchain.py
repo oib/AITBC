@@ -10,7 +10,7 @@ import subprocess
 import time
 from datetime import UTC, datetime
 
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 from aitbc.exceptions import NetworkError
 
 # Test configuration

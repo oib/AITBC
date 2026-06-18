@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
@@ -32,8 +32,7 @@ class SLAMetricResponse(BaseModel):
     timestamp: datetime
     metadata: dict[str, str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SLAViolationResponse(BaseModel):
@@ -46,8 +45,7 @@ class SLAViolationResponse(BaseModel):
     created_at: datetime
     resolved_at: datetime | None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CapacitySnapshotResponse(BaseModel):
@@ -62,8 +60,7 @@ class CapacitySnapshotResponse(BaseModel):
     scaling_reason: str
     timestamp: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UsageSyncRequest(BaseModel):

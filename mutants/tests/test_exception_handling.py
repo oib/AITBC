@@ -80,7 +80,7 @@ class TestExceptionChaining:
     def test_network_error_chaining(self):
         """Test network error chaining in HTTP client"""
         from aitbc.exceptions import NetworkError
-        from aitbc.network.http_client import AITBCHTTPClient
+        from aitbc.network import AITBCHTTPClient
 
         # Test with invalid URL that will cause connection errors
         # Use a non-routable IP address to avoid DNS delays
@@ -104,7 +104,7 @@ class TestExceptionChaining:
     def test_retry_error_chaining(self):
         """Test retry error chaining"""
         from aitbc.exceptions import NetworkError, RetryError
-        from aitbc.network.http_client import AITBCHTTPClient
+        from aitbc.network import AITBCHTTPClient
 
         # Test with invalid URL that will cause retry exhaustion
         client = AITBCHTTPClient(
