@@ -61,7 +61,7 @@ API_KEY = os.getenv("API_GATEWAY_KEY", "")
 REQUIRE_AUTH = os.getenv("API_GATEWAY_REQUIRE_AUTH", "false").lower() == "true"
 SERVICES: dict[str, dict[str, object]] = {
     "gpu": {"base_url": os.getenv("GPU_SERVICE_URL", "http://localhost:8101"), "prefix": "/v1/gpu"},
-    "marketplace": {"base_url": os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102"), "prefix": "/v1/marketplace"},
+    "marketplace": {"base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8203"), "prefix": "/v1/marketplace"},
     "hermes": {"base_url": os.getenv("HERMES_SERVICE_URL", "http://localhost:8103"), "prefix": "/v1/hermes"},
     "trading": {"base_url": os.getenv("TRADING_SERVICE_URL", "http://localhost:8104"), "prefix": "/v1/trading"},
     "governance": {"base_url": os.getenv("GOVERNANCE_SERVICE_URL", "http://localhost:8105"), "prefix": "/v1/governance"},
@@ -74,9 +74,9 @@ SERVICES: dict[str, dict[str, object]] = {
     "wallet": {"base_url": os.getenv("WALLET_SERVICE_URL", "http://localhost:8108"), "prefix": "/v1/wallet"},
     "escrow": {"base_url": os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202") + "/rpc", "prefix": "/v1/escrow"},
     "plugin": {
-        "base_url": os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102"),
+        "base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8203"),
         "prefix": "/v1/plugin",
-        "rewrite": {"/v1/plugin/": "/v1/marketplace/offer/"},
+        "rewrite": {"/v1/plugin/": "/v1/marketplace/"},
     },
     "ffmpeg": {"base_url": os.getenv("FFMPEG_SERVICE_URL", "http://localhost:8230"), "prefix": "/v1/ffmpeg"},
 }

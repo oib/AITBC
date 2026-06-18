@@ -184,7 +184,7 @@ def verify(ctx, chain_id: str):
 )
 @click.option("--data-dir", default=None, help="Data directory path (default: /var/lib/aitbc/data)")
 @click.option(
-    "--rpc-url", default=None, help="Blockchain RPC URL for chain ID auto-detection (default: http://localhost:8006)"
+    "--rpc-url", default=None, help="Blockchain RPC URL for chain ID auto-detection (default: http://localhost:8202)"
 )
 @click.pass_context
 def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
@@ -197,7 +197,7 @@ def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
 
         # Try to get chain_id from RPC health endpoint
         if not rpc_url:
-            rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+            rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
 
         try:
             from ..utils.chain_id import get_chain_id
@@ -272,7 +272,7 @@ def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None,
         from ..config import get_config
 
         config = get_config()
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8006")
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
 
     # Use provided data dir or default
     if not data_dir:
