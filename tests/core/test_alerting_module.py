@@ -5,7 +5,7 @@ This module has 0% coverage and 415 statements.
 
 import asyncio
 import importlib.util
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -105,7 +105,7 @@ class TestAlert:
             message="Test message",
             source="test-source",
             acknowledged_by="user1",
-            acknowledged_at=datetime.utcnow(),
+            acknowledged_at=datetime.now(UTC),
         )
         result = alert.to_dict()
         assert result["acknowledged_by"] == "user1"
@@ -118,7 +118,7 @@ class TestAlert:
             title="Test Alert",
             message="Test message",
             source="test-source",
-            resolved_at=datetime.utcnow(),
+            resolved_at=datetime.now(UTC),
         )
         result = alert.to_dict()
         assert result["resolved_at"] is not None
@@ -323,7 +323,7 @@ class TestAlertRule:
             source="test-source",
             cooldown=60,
         )
-        rule.last_fired = datetime.utcnow()
+        rule.last_fired = datetime.now(UTC)
         assert rule.should_fire() is False
 
     def test_should_fire_cooldown_expired(self):
@@ -336,7 +336,7 @@ class TestAlertRule:
             source="test-source",
             cooldown=0.01,
         )
-        rule.last_fired = datetime.utcnow()
+        rule.last_fired = datetime.now(UTC)
         import time
 
         time.sleep(0.02)
