@@ -20,6 +20,10 @@ island
 
 No systemd service file
 
+## Core Service
+
+no
+
 ## Source
 
 `main.py` entry point

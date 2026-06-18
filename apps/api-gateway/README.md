@@ -20,6 +20,10 @@ no
 
 1 systemd service(s): aitbc-api-gateway.service
 
+## Core Service
+
+yes
+
 ## Source
 
 `src/` directory with 2 Python file(s)

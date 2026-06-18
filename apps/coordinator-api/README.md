@@ -20,6 +20,10 @@ no
 
 1 systemd service(s): aitbc-coordinator-api.service
 
+## Core Service
+
+yes
+
 ## Source
 
 `src/` directory with 508 Python file(s)

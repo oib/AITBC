@@ -20,6 +20,10 @@ no
 
 1 systemd service(s): aitbc-trading.service
 
+## Core Service
+
+no
+
 ## Source
 
 `src/` directory with 7 Python file(s)
