@@ -707,6 +707,41 @@ setup_credentials() {
         log "Keystore password already exists"
     fi
 
+    # Generate JWT authentication secrets (required for JWT token signing/verification)
+    if [ ! -f "/etc/aitbc/credentials/jwt_secret" ]; then
+        log "Generating JWT_SECRET..."
+        if python3 -c "import secrets; print(secrets.token_hex(32))" > /etc/aitbc/credentials/jwt_secret 2>/dev/null; then
+            chmod 600 /etc/aitbc/credentials/jwt_secret
+            log "Generated JWT_SECRET"
+        else
+            warning "Failed to generate JWT_SECRET"
+            openssl rand -hex 32 > /etc/aitbc/credentials/jwt_secret 2>/dev/null || {
+                warning "OpenSSL also failed, using timestamp-based fallback"
+                echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)" > /etc/aitbc/credentials/jwt_secret
+            }
+            chmod 600 /etc/aitbc/credentials/jwt_secret
+        fi
+    else
+        log "JWT_SECRET already exists"
+    fi
+
+    if [ ! -f "/etc/aitbc/credentials/secret_key" ]; then
+        log "Generating SECRET_KEY..."
+        if python3 -c "import secrets; print(secrets.token_hex(32))" > /etc/aitbc/credentials/secret_key 2>/dev/null; then
+            chmod 600 /etc/aitbc/credentials/secret_key
+            log "Generated SECRET_KEY"
+        else
+            warning "Failed to generate SECRET_KEY"
+            openssl rand -hex 32 > /etc/aitbc/credentials/secret_key 2>/dev/null || {
+                warning "OpenSSL also failed, using timestamp-based fallback"
+                echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)" > /etc/aitbc/credentials/secret_key
+            }
+            chmod 600 /etc/aitbc/credentials/secret_key
+        fi
+    else
+        log "SECRET_KEY already exists"
+    fi
+
     # Copy proposer_id from blockchain.env to credentials
     if [ -f "/etc/aitbc/blockchain.env" ] && grep -q "^proposer_id=" /etc/aitbc/blockchain.env; then
         grep "^proposer_id=" /etc/aitbc/blockchain.env | cut -d'=' -f2 > /etc/aitbc/credentials/proposer_id
@@ -818,9 +853,6 @@ setup_venvs() {
 
         log "Installing profile: $PROFILE"
         /opt/aitbc/scripts/deployment/install-profiles.sh "$PROFILE" || warning "Failed to install profile $PROFILE"
-
-        # Install pydantic-settings for blockchain-node (required dependency)
-        pip install pydantic-settings || warning "Failed to install pydantic-settings"
     else
         log "install-profiles.sh not found, using manual installation..."
 
