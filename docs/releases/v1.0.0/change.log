@@ -1,269 +1,269 @@
-# AITBC v1.0.0 Change Log — Production Release
+# AITBC v1.0.0 Release Plan — Production Readiness
 
 ## Overview
 
-**v1.0.0 marks the transition from test infrastructure to production-ready blockchain infrastructure.**
+v1.0.0 is the **production readiness milestone**. It is not a feature release — it is the point at which the codebase, infrastructure, and operational practices are hardened enough to handle real user funds on mainnet Ethereum.
 
-This release switches from mock/test Ethereum to real mainnet Ethereum integration, completes the JWT auth migration, enforces CI reality, and hardens the codebase for production deployment.
-
-**Release Date**: 2025-01-15
-**Codename**: "Genesis"
-**Status**: Production Ready
+**Target Date**: Q1 2025
+**Theme**: "Trustworthy Infrastructure"
+**Success Criteria**: A security auditor can review the codebase and find no P0/P1 issues.
 
 ---
 
-## Critical: Switched to Real Ethereum
+## P0: Real Ethereum Mainnet (MUST HAVE)
 
-### Blockchain Mainnet Integration
+### Problem
+The codebase is architected for a local testnet (`localhost:8202`, `network_id=1337`). Switching to mainnet is not just a config change — it requires:
 
-| Component | Before (v0.4.x) | After (v1.0.0) |
-|-----------|-----------------|----------------|
-| Network | Local testnet / mock | Ethereum mainnet |
-| RPC endpoint | `http://localhost:8202` | Configurable mainnet RPC |
-| Token | Test ERC-20 | Real AITBC ERC-20 |
-| Payments | Mock escrow | Real smart contract escrow |
-| Gas handling | Simulated | Real ETH gas with estimation |
-| Block confirmation | Instant | 12 confirmations required |
+- Real gas estimation and fee management
+- 12-block confirmation finality
+- Mainnet RPC failover (multiple providers)
+- Smart contract deployment and verification
 
-### Smart Contract Deployment
+### Work Required
 
-- **AITBC Token**: `0x...` (mainnet)
-- **Escrow Contract**: `0x...` (mainnet)
-- **Bounty Contract**: `0x...` (mainnet)
-- **Staking Contract**: `0x...` (mainnet)
+| Task | Status | Owner |
+|------|--------|-------|
+| Deploy AITBC token contract to mainnet | 🔴 Not started | Blockchain team |
+| Deploy escrow contract to mainnet | 🔴 Not started | Blockchain team |
+| Deploy bounty contract to mainnet | 🔴 Not started | Blockchain team |
+| Deploy staking contract to mainnet | 🔴 Not started | Blockchain team |
+| Add gas estimation to `PaymentService` | 🟡 Partial | Agent A |
+| Add transaction retry with exponential backoff | 🔴 Not started | TBD |
+| Configure mainnet RPC with failover | 🔴 Not started | DevOps |
+| Add `required_confirmations=12` logic | 🔴 Not started | TBD |
+| Update all `blockchain_rpc_url` defaults | 🟡 Partial | Agent B |
+| Remove all testnet-only code paths | 🔴 Not started | TBD |
 
-### Configuration Changes
-
-```python
-# Before
-blockchain_rpc_url: str = "http://127.0.0.1:8202"
-network_id: int = 1337  # Local testnet
-
-# After
-blockchain_rpc_url: str = Field(default="", description="Mainnet RPC URL")
-network_id: int = 1  # Ethereum mainnet
-chain_id: int = 1
-required_confirmations: int = 12
-```
-
-### Environment Requirements
-
-| Variable | Testnet (old) | Mainnet (v1.0.0) |
-|----------|---------------|------------------|
-| `BLOCKCHAIN_RPC_URL` | `http://localhost:8202` | `https://mainnet.infura.io/v3/...` |
-| `NETWORK_ID` | `1337` | `1` |
-| `TOKEN_CONTRACT` | mock address | real mainnet address |
-| `ESCROW_CONTRACT` | mock address | real mainnet address |
+### Acceptance Criteria
+- [ ] All payments use real ETH/ERC-20 on mainnet
+- [ ] No code path references `localhost:8202` in production
+- [ ] Transaction failures are retried, not mocked
+- [ ] Contract addresses are environment-configurable, not hardcoded
 
 ---
 
-## Security & Auth
+## P0: Complete JWT Auth Removal of API Keys (MUST HAVE)
 
-### JWT Auth Migration Complete
+### Problem
+API key auth still exists in `deps.py` as deprecated but functional. For production, API keys must be **completely removed** — not just deprecated.
 
-All router authentication migrated from API keys to JWT:
+### Remaining Work
 
-| Router | Auth Type | Status |
-|--------|-----------|--------|
-| `routers/admin.py` | AdminDep | ✅ Migrated |
-| `routers/client.py` | ClientDep | ✅ Migrated |
-| `routers/miner.py` | MinerDep | ✅ Migrated |
-| `routers/services.py` | ClientDep | ✅ Migrated |
-| `contexts/hermes/*.py` | AdminDep | ✅ Migrated (5 files) |
-| `contexts/agent_coordination/*.py` | AdminDep | ✅ Migrated (2 files) |
-| `contexts/bounty/*.py` | AuthDep | ✅ Migrated |
-| `contexts/ecosystem/*.py` | AuthDep | ✅ Migrated |
+| Task | Status | Owner |
+|------|--------|-------|
+| Migrate remaining 6 high-risk routers (admin, cache, marketplace, payments, security) | 🔴 Not started | Agent A |
+| Delete `deps.py` entirely | 🔴 Not started | Agent A |
+| Remove `X-Api-Key` header handling from middleware | 🔴 Not started | TBD |
+| Update all client SDKs to use JWT | 🔴 Not started | TBD |
+| Generate and rotate JWT secrets for production | 🔴 Not started | DevOps |
+| Document JWT token lifecycle (issue, refresh, revoke) | 🔴 Not started | TBD |
 
-### Deprecation Warnings
-
-`apps/coordinator-api/src/app/deps.py` now emits `DeprecationWarning` for all legacy API key functions:
-- `require_client_key()` → Use `ClientDep`
-- `require_miner_key()` → Use `MinerDep`
-- `require_admin_key()` → Use `AdminDep`
-- `get_miner_id()` → Use `MinerDep`
-- `APIKeyValidator` → Use role-based dependencies
-
-### CI Enforcement
-
-Removed `continue-on-error: true` from all CI jobs:
-- ✅ Lint (ruff)
-- ✅ Format check (black)
-- ✅ Type check (mypy)
-- ✅ Tests (pytest)
-- ✅ Security scans (bandit, semgrep, trufflehog)
+### Acceptance Criteria
+- [ ] No `require_*_key()` functions exist in codebase
+- [ ] No `X-Api-Key` header is accepted anywhere
+- [ ] All tests use JWT tokens
+- [ ] Client documentation shows JWT-only auth
 
 ---
 
-## Infrastructure Hardening
+## P0: Systemd & Infrastructure Hardening (MUST HAVE)
 
-### Nginx Configuration
+### Problem
+Systemd units were **deferred** in v0.4.26. Production cannot run without hardened service definitions.
 
-Updated `examples/nginx/nginx-aitbc.conf` to match production deployment:
-- Added `default_server` directive
-- Set real hostname: `aitbc3.aitbc.bubuit.net`
-- Added `/peertube/` location
-- Added rewrite rules for `/api/` and `/whisper/`
-- Removed outdated `.example` template
+### Work Required
 
-### Database
+| Task | Status | Owner |
+|------|--------|-------|
+| Audit all systemd units for security best practices | 🔴 Not started | Agent B |
+| Add `PrivateTmp=yes`, `NoNewPrivileges=yes`, `ProtectSystem=strict` | 🔴 Not started | Agent B |
+| Move inline secrets out of `.service` files | 🔴 Not started | Agent B |
+| Use `EnvironmentFile=/etc/aitbc/%N.env` for secrets | 🔴 Not started | Agent B |
+| Add systemd watchdog (`WatchdogSec=30`, `NotifyAccess=all`) | 🔴 Not started | Agent B |
+| Limit resources (`MemoryMax`, `CPUQuota`) | 🔴 Not started | Agent B |
+| Add restart policy: `Restart=on-failure`, `RestartSec=5` | 🔴 Not started | Agent B |
 
-- Consolidated DB initialization: `storage.db.init_db()` + `storage.db.init_async_db()`
-- Created `packages/aitbc-shared/` for shared ORM models
-- Resolved SQLAlchemy table conflicts (MarketplaceBid, JobPayment, PaymentEscrow)
-
-### Caching
-
-- Fixed timezone-aware datetime comparisons in `cache_entry.py`
-- All 46 caching tests passing
-- `_generate_cache_key` properly exported
-
----
-
-## Code Quality
-
-### Type Safety
-
-- Pydantic v1 `Config` class → v2 `model_config = ConfigDict(...)`
-- Files updated: pricing.py, config.py, config_pg.py, settings.py
-
-### Timezone Awareness
-
-Replaced `datetime.utcnow()` with `datetime.now(UTC)` across:
-- `cli/commands/coin_requests.py`
-- `tests/core/test_alerting_module.py`
-- `scripts/migration/migrate_plugin_to_marketplace.py`
-
-### Ruff Compliance
-
-- Enabled B008, B023 rules
-- Fixed blockchain lambda capture bug (B023)
-- Fixed 18 ruff issues
+### Acceptance Criteria
+- [ ] All services run as non-root user
+- [ ] No secrets in `/etc/systemd/system/*.service`
+- [ ] `systemctl status` shows clean security profile
+- [ ] OOM conditions are handled gracefully
 
 ---
 
-## Structural Refactoring
+## P1: Secret Management (MUST HAVE)
 
-### Modules Split
+### Problem
+Secrets are scattered across env vars, config files, and systemd units. Production needs a unified secret management strategy.
 
-| Module | Before | After |
-|--------|--------|-------|
-| `security_hardening.py` | 475 lines monolith | `security/` subpackage |
-| `agent_registry/registration.py` | 454 lines | `discovery.py`, `health.py`, `metadata.py` |
-| `training_setup/environment.py` | 414 lines | `blockchain.py`, `messaging.py`, `services.py` |
-| `testing/testing.py` | 406 lines | `factories.py`, `mocks.py`, `assertions.py`, `decorators.py` |
-| `queues/queue_manager.py` | 398 lines | `task.py`, `scheduler.py`, `worker.py`, `decorators.py` |
+### Work Required
 
-### HTTP Client Modernization
+| Task | Status | Owner |
+|------|--------|-------|
+| Deploy HashiCorp Vault or AWS Secrets Manager | 🔴 Not started | DevOps |
+| Create secret rotation policy (90-day max age) | 🔴 Not started | Security |
+| Audit all env vars for secret leakage in logs | 🔴 Not started | Agent B |
+| Add secret masking to logging (`***` for keys) | 🔴 Not started | TBD |
+| Implement `generate_dev_keys.py` for local dev | 🟡 Partial | Agent B |
+| Add `detect-secrets` to CI (block on findings) | 🔴 Not started | TBD |
 
-- Replaced `starlette.testclient.TestClient` with `httpx.AsyncClient` + `ASGITransport`
-- Updated CLI integration tests
-
----
-
-## Operations
-
-### Apps Directory Audit
-
-Archived inactive apps to `apps/archive/`:
-- `ai-engine`
-- `api-gateway`
-- `peertube-transcoder`
-- `zk-circuits`
-
-Documented active apps in `docs/architecture/active_apps.md`.
-
-### Python Constraints
-
-Standardized all apps to:
-```
->=3.13.5,<3.14.1 || >3.14.1,<3.15
-```
-
-### Docker Removed
-
-- Removed Docker claims from documentation
-- Added `Dockerfile` and `docker-compose.yml` to `.gitignore`
-- Confirmed: AITBC deploys via systemd only
+### Acceptance Criteria
+- [ ] No plaintext secrets in repo, CI logs, or systemd units
+- [ ] Secret rotation is documented and automated
+- [ ] Local dev generates ephemeral keys automatically
+- [ ] CI blocks any new committed secret
 
 ---
 
-## Breaking Changes
+## P1: Observability & Monitoring (MUST HAVE)
 
-### Authentication
+### Problem
+Observability standardization was **deferred** in v0.4.26. Production requires monitoring, alerting, and tracing.
 
-API keys are deprecated. All clients must migrate to JWT:
+### Work Required
 
-```python
-# Before (deprecated)
-headers = {"X-Api-Key": "your-api-key"}
+| Task | Status | Owner |
+|------|--------|-------|
+| Deploy Prometheus + Grafana for metrics | 🔴 Not started | DevOps |
+| Add `/metrics` endpoint to all services | 🔴 Not started | TBD |
+| Standardize logging (JSON format, structured) | 🔴 Not started | Agent B |
+| Add distributed tracing (OpenTelemetry/Jaeger) | 🔴 Not started | TBD |
+| Create alerting rules for critical paths | 🔴 Not started | DevOps |
+| Add health check endpoints (`/health`, `/ready`, `/live`) | 🟡 Partial | Agent B |
+| Add request latency histograms | 🔴 Not started | TBD |
 
-# After (required)
-headers = {"Authorization": f"Bearer {token}"}
-```
-
-### Blockchain
-
-Testnet configuration no longer supported. Must use real mainnet RPC.
-
-### Environment Variables
-
-| Removed | Replacement |
-|---------|-------------|
-| `APP_ENV=dev` auth bypass | `settings.environment` with proper validation |
-| `TEST_MODE=true` | Proper test fixtures |
+### Acceptance Criteria
+- [ ] All services expose `/metrics` in Prometheus format
+- [ ] Grafana dashboard shows request rates, errors, latency
+- [ ] Alerts fire on: 5xx spikes, auth failures, blockchain sync lag
+- [ ] Logs are queryable (not just flat files)
 
 ---
 
-## Verification
+## P1: DB/Redis Backing for Mock State (MUST HAVE)
 
-### Test Results
+### Problem
+Mock routers use module-global dictionaries. This was **deferred** in v0.4.26. Production state must be persistent.
 
-| Test Suite | Status |
-|------------|--------|
-| Caching tests | 46/46 passed ✅ |
-| CLI integration | httpx2 migrated ✅ |
-| Router compilation | All files py_compile clean ✅ |
+### Work Required
 
-### Security Audit
+| Task | Status | Owner |
+|------|--------|-------|
+| Audit all mock routers for in-memory state | 🔴 Not started | Agent A |
+| Replace dict state with Redis-backed models | 🔴 Not started | Agent A |
+| Add Redis connection pooling | 🔴 Not started | TBD |
+| Add cache invalidation on state changes | 🔴 Not started | TBD |
+| Ensure mock routers work with `debug=false` | 🟡 Partial | Agent B |
 
-| Check | Status |
-|-------|--------|
-| No committed secrets | ✅ validator_keys.json deleted |
-| CI blocks failures | ✅ continue-on-error removed |
-| Auth fail-closed | ✅ deps.py uses settings.environment |
-| No hardcoded keys | ✅ auth.py raises RuntimeError |
-| No changeme defaults | ✅ pool-hub settings fixed |
-
----
-
-## Deployment Checklist
-
-- [ ] Set `BLOCKCHAIN_RPC_URL` to mainnet RPC
-- [ ] Deploy smart contracts to mainnet
-- [ ] Configure `JWT_SECRET` (32+ byte random)
-- [ ] Set `server_name` in nginx config
-- [ ] Enable HTTPS (uncomment SSL block)
-- [ ] Run `nginx -t && systemctl reload nginx`
-- [ ] Verify all systemd services running
-- [ ] Monitor auth failure rates
-- [ ] Check blockchain confirmation times
+### Acceptance Criteria
+- [ ] No module-global `dict()` used for persistent state
+- [ ] State survives service restart
+- [ ] Multiple service instances share state correctly
 
 ---
 
-## Migration Guide
+## P1: Performance & Load Testing (SHOULD HAVE)
 
-See:
-- `docs/releases/v0.4.26/AUTH_MIGRATION_GUIDE.md` — JWT migration
-- `docs/releases/v0.4.26/AUTH_MIGRATION_SPLIT_PLAN.md` — Agent A/B split
-- `docs/architecture/route_security_matrix.md` — Auth levels
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Add load tests for critical paths (job submit, miner heartbeat) | 🔴 Not started | QA |
+| Profile coordinator API under 1000 req/s | 🔴 Not started | QA |
+| Identify and fix N+1 queries | 🔴 Not started | Agent A |
+| Add database connection pooling limits | 🔴 Not started | TBD |
+| Benchmark blockchain sync performance | 🔴 Not started | Blockchain team |
+
+### Acceptance Criteria
+- [ ] Coordinator API handles 1000 req/s with <100ms p99 latency
+- [ ] Database CPU stays under 70% at peak load
+- [ ] No memory leaks over 24-hour run
 
 ---
 
-## Contributors
+## P2: Documentation & Deployment Automation (SHOULD HAVE)
 
-- Agent A: Security, data integrity, high-risk routers
-- Agent B: Architecture, tooling, operations, medium/low-risk routers
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Create `docs/deployment/PRODUCTION.md` step-by-step guide | 🔴 Not started | TBD |
+| Automate deployment with Ansible/Terraform | 🔴 Not started | DevOps |
+| Add pre-flight check script (`scripts/check-production-readiness.py`) | 🔴 Not started | TBD |
+| Document rollback procedures | 🔴 Not started | TBD |
+| Create runbook for common incidents | 🔴 Not started | TBD |
+| Update README with v1.0.0 architecture diagram | 🔴 Not started | TBD |
 
 ---
 
-*This release marks AITBC's transition from development to production.*
+## P2: Security Audit (SHOULD HAVE)
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| External security audit (smart contracts) | 🔴 Not started | Security |
+| External security audit (API/auth) | 🔴 Not started | Security |
+| Penetration testing on staging | 🔴 Not started | Security |
+| Fix all audit findings before v1.0.0 | 🔴 Not started | TBD |
+
+---
+
+## Deferred to Post-v1.0.0
+
+These items are important but not blockers for v1.0.0:
+
+- OAuth2 / social login support
+- Multi-factor authentication
+- Mobile app SDK
+- Advanced analytics dashboard
+- Cross-chain bridges (Polygon, Arbitrum)
+- GPU marketplace expansion
+
+---
+
+## Release Checklist
+
+Before tagging v1.0.0:
+
+- [ ] All P0 items complete
+- [ ] All P1 items complete
+- [ ] Security audit complete with no P0/P1 findings
+- [ ] Load tests pass at target capacity
+- [ ] Deployment automation tested on staging
+- [ ] Rollback procedure tested
+- [ ] All secrets rotated
+- [ ] Smart contracts deployed and verified on Etherscan
+- [ ] Monitoring dashboards active
+- [ ] Team trained on incident response
+- [ ] Public announcement prepared
+
+---
+
+## Migration from v0.4.26
+
+For operators upgrading from v0.4.26:
+
+1. **Backup**: Snapshot database before migration
+2. **Config**: Replace testnet RPC with mainnet RPC
+3. **Secrets**: Generate new JWT secret, rotate all API keys
+4. **Contracts**: Deploy new smart contracts, update addresses
+5. **Auth**: Update all clients to use JWT
+6. **Monitoring**: Deploy Prometheus/Grafana
+7. **Verify**: Run `scripts/check-production-readiness.py`
+
+---
+
+## Risks
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Smart contract bug on mainnet | Critical (lost funds) | External audit, testnet rehearsal, insurance |
+| JWT secret compromise | High (unauthorized access) | Short expiry, rotation policy, Vault storage |
+| Mainnet RPC downtime | Medium (service disruption) | Multi-provider failover (Infura + Alchemy + QuickNode) |
+| Load beyond capacity | Medium (degraded service) | Auto-scaling, rate limiting, queue backpressure |
+
+---
+
+*This is a living document. Update as work progresses.*
