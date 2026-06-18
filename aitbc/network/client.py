@@ -411,7 +411,9 @@ class AsyncAITBCHTTPClient:
         async def _make_request():
             # Use requests in async context for now (can be upgraded to httpx later)
             loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(None, lambda: requests.get(url, params=params, headers=req_headers, timeout=self.timeout))
+            return await loop.run_in_executor(
+                None, lambda: requests.get(url, params=params, headers=req_headers, timeout=self.timeout)
+            )
 
         try:
             response = await self.retry_policy.execute_async(_make_request)
@@ -468,7 +470,9 @@ class AsyncAITBCHTTPClient:
 
         async def _make_request():
             loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(None, lambda: requests.post(url, data=data, json=json, headers=req_headers, timeout=self.timeout))
+            return await loop.run_in_executor(
+                None, lambda: requests.post(url, data=data, json=json, headers=req_headers, timeout=self.timeout)
+            )
 
         try:
             response = await self.retry_policy.execute_async(_make_request)
@@ -482,6 +486,9 @@ class AsyncAITBCHTTPClient:
             return result
         except (RateLimitError, CircuitBreakerOpenError):
             raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"POST request failed: {e}") from e
         except requests.RequestException as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"POST request failed: {e}") from e
@@ -521,7 +528,9 @@ class AsyncAITBCHTTPClient:
 
         async def _make_request():
             loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(None, lambda: requests.put(url, data=data, json=json, headers=req_headers, timeout=self.timeout))
+            return await loop.run_in_executor(
+                None, lambda: requests.put(url, data=data, json=json, headers=req_headers, timeout=self.timeout)
+            )
 
         try:
             response = await self.retry_policy.execute_async(_make_request)
@@ -535,6 +544,9 @@ class AsyncAITBCHTTPClient:
             return result
         except (RateLimitError, CircuitBreakerOpenError):
             raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"PUT request failed: {e}") from e
         except requests.RequestException as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"PUT request failed: {e}") from e
@@ -569,7 +581,9 @@ class AsyncAITBCHTTPClient:
 
         async def _make_request():
             loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(None, lambda: requests.delete(url, params=params, headers=req_headers, timeout=self.timeout))
+            return await loop.run_in_executor(
+                None, lambda: requests.delete(url, params=params, headers=req_headers, timeout=self.timeout)
+            )
 
         try:
             response = await self.retry_policy.execute_async(_make_request)
@@ -583,6 +597,9 @@ class AsyncAITBCHTTPClient:
             return result
         except (RateLimitError, CircuitBreakerOpenError):
             raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"DELETE request failed: {e}") from e
         except requests.RequestException as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"DELETE request failed: {e}") from e
