@@ -1,0 +1,416 @@
+// Wait for DOM to be ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize icons
+    lucide.createIcons();
+
+    // Configuration - API endpoint
+    const EXPLORER_API_URL = '/explorer-api'; // Use nginx proxy
+    let currentChain = 'ait-hub.aitbc.bubuit.net';
+
+    // Refresh data
+    async function refreshData() {
+        await updateChainStats();
+        await loadLatestBlocks();
+    }
+
+    // Update chain stats
+    async function updateChainStats() {
+        try {
+            const response = await fetch(`${EXPLORER_API_URL}/api/chain/head?chain_id=${currentChain}`);
+            const data = await response.json();
+            
+            if (data.height) {
+                document.getElementById('chain-height').textContent = data.height;
+            }
+            
+            document.getElementById('node-status').textContent = 'Connected';
+            document.getElementById('node-status').style.color = 'var(--success)';
+        } catch (error) {
+            console.error('Error updating chain stats:', error);
+            document.getElementById('node-status').textContent = 'Disconnected';
+            document.getElementById('node-status').style.color = 'var(--error-color)';
+        }
+    }
+
+    // Auto-refresh every 30 seconds to recover from temporary disconnections
+    setInterval(() => {
+        if (document.getElementById('node-status').textContent === 'Disconnected') {
+            console.log('Auto-retrying connection...');
+            refreshData();
+        }
+    }, 30000);
+
+    // Load latest blocks
+    async function loadLatestBlocks() {
+        try {
+            const response = await fetch(`${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=10`);
+            const data = await response.json();
+            
+            const container = document.getElementById('blocks-container');
+            if (data.blocks && data.blocks.length > 0) {
+                container.innerHTML = data.blocks.map(block => {
+                    // Handle both timestamp formats (ISO string and Unix timestamp)
+                    let timestamp = 'N/A';
+                    if (block.timestamp) {
+                        if (typeof block.timestamp === 'string') {
+                            timestamp = new Date(block.timestamp).toLocaleString();
+                        } else if (typeof block.timestamp === 'number') {
+                            timestamp = new Date(block.timestamp * 1000).toLocaleString();
+                        }
+                    }
+                    
+                    return `
+                    <div class="endpoint fade-in block-item">
+                        <div class="block-header">
+                            <span class="badge badge-primary">#${block.height}</span>
+                            <span class="block-hash">${block.hash || 'N/A'}</span>
+                        </div>
+                        <div class="block-timestamp">
+                            ${timestamp} UTC
+                        </div>
+                        <div class="block-meta">
+                            Transactions: ${block.tx_count || 0}
+                        </div>
+                    </div>
+                `;
+                }).join('');
+            } else {
+                container.innerHTML = '<p class="loading-text">No blocks available</p>';
+            }
+        } catch (error) {
+            console.error('Error loading blocks:', error);
+            document.getElementById('blocks-container').innerHTML = '<p class="error-text">Error loading blocks</p>';
+        }
+    }
+
+    // Clear search
+    function clearSearch() {
+        document.getElementById('search-input').value = '';
+        document.getElementById('results-section').style.display = 'none';
+    }
+
+    // Perform simple search
+    async function performSearch() {
+        let query = document.getElementById('search-input').value.trim();
+        console.log('Search query:', query);
+        if (!query) {
+            console.log('Empty query, returning');
+            return;
+        }
+
+        // Strip # prefix if present (e.g., user enters "#27381")
+        query = query.replace(/^#/, '');
+        console.log('Query after stripping #:', query);
+
+        // Try to determine if it's a block height, hash, or address
+        const isNumber = /^\d+$/.test(query);
+        const isHash = /^(0x)?[a-fA-F0-9]{64}$/.test(query);
+
+        console.log('Is number:', isNumber, 'Is hash:', isHash);
+
+        if (isNumber) {
+            // Search by block height
+            console.log('Searching by block height:', parseInt(query));
+            await searchBlock(parseInt(query));
+        } else if (isHash) {
+            // Search by hash - try both block and transaction
+            console.log('Searching by hash:', query);
+            await searchByHash(query);
+        } else {
+            // Search by address or try as block height if it looks like a number with extra chars
+            const cleanNumber = query.replace(/[^0-9]/g, '');
+            if (cleanNumber && cleanNumber === query) {
+                console.log('Searching by block height (cleaned):', parseInt(cleanNumber));
+                await searchBlock(parseInt(cleanNumber));
+            } else {
+                console.log('Searching by address:', query);
+                await searchByAddress(query);
+            }
+        }
+    }
+
+    // Search by hash (could be block or transaction)
+    async function searchByHash(hash) {
+        console.log('searchByHash called with:', hash);
+        // Strip 0x prefix if present for API calls
+        const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
+        console.log('Clean hash for API:', cleanHash);
+        // First try to search as block
+        const blockResponse = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${cleanHash}?chain_id=${currentChain}`);
+        console.log('Block by hash response status:', blockResponse.status);
+        if (blockResponse.ok) {
+            const blockData = await blockResponse.json();
+            console.log('Block by hash data:', blockData);
+            if (blockData && blockData.height) {
+                displayResults([blockData], 'block');
+                return;
+            }
+        }
+        
+        console.log('Block not found by hash');
+        displayResults([], 'block');
+    }
+
+    // Search block by height
+    async function searchBlock(height) {
+        console.log('searchBlock called with height:', height);
+        try {
+            const response = await fetch(`${EXPLORER_API_URL}/api/blocks/${height}?chain_id=${currentChain}`);
+            console.log('Response status:', response.status);
+            const data = await response.json();
+            console.log('Response data:', data);
+            if (data && data.height) {
+                displayResults([data], 'block');
+            } else {
+                console.log('No valid block data in response');
+                displayResults([], 'block');
+            }
+        } catch (error) {
+            console.error('Error searching block:', error);
+            displayError('Block not found');
+        }
+    }
+
+    // Search transaction by hash
+    async function searchTransaction(hash) {
+        console.log('searchTransaction called with:', hash);
+        // Strip 0x prefix if present for API calls
+        const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
+        try {
+            const response = await fetch(`${EXPLORER_API_URL}/api/transactions/${cleanHash}?chain_id=${currentChain}`);
+            console.log('Transaction response status:', response.status);
+            const data = await response.json();
+            console.log('Transaction data:', data);
+            if (data && data.hash) {
+                displayResults([data], 'transaction');
+            } else {
+                console.log('No valid transaction data');
+                displayResults([], 'transaction');
+            }
+        } catch (error) {
+            console.error('Error searching transaction:', error);
+            displayError('Transaction not found');
+        }
+    }
+
+    // Search by address
+    async function searchByAddress(address) {
+        try {
+            const response = await fetch(`${EXPLORER_API_URL}/api/transactions/search?address=${address}&chain_id=${currentChain}`);
+            const data = await response.json();
+            displayResults(data.transactions || [], 'transaction');
+        } catch (error) {
+            console.error('Error searching by address:', error);
+            displayError('No transactions found for address');
+        }
+    }
+
+    // Display results
+    function displayResults(results, type) {
+        console.log('displayResults called with:', results.length, 'results of type:', type);
+        const section = document.getElementById('results-section');
+        const container = document.getElementById('results-container');
+        const count = document.getElementById('results-count');
+
+        section.style.display = 'block';
+        count.textContent = `${results.length} ${type}${results.length !== 1 ? 's' : ''} found`;
+
+        if (results.length === 0) {
+            container.innerHTML = '<p class="loading-text">No results found.</p>';
+            return;
+        }
+
+        // Filter out results that don't have the required data
+        const validResults = results.filter(item => {
+            if (type === 'block') {
+                return item && item.height;
+            } else {
+                return item && item.hash;
+            }
+        });
+
+        console.log('Valid results after filtering:', validResults.length);
+
+        if (validResults.length === 0) {
+            container.innerHTML = '<p class="loading-text">No valid results found.</p>';
+            return;
+        }
+
+        container.innerHTML = validResults.map(item => {
+            // Handle both timestamp formats
+            let timestamp = '-';
+            if (item.timestamp) {
+                if (typeof item.timestamp === 'string') {
+                    timestamp = new Date(item.timestamp).toLocaleString();
+                } else if (typeof item.timestamp === 'number') {
+                    timestamp = new Date(item.timestamp * 1000).toLocaleString();
+                }
+            }
+
+            // Build details based on type
+            let details = '';
+            if (type === 'block') {
+                details = `
+                    <div class="result-hash">
+                        Hash: ${item.hash || 'N/A'}
+                    </div>
+                    <div class="result-detail">
+                        Validator: ${item.validator || 'unknown'}
+                    </div>
+                    <div class="result-detail">
+                        Transactions: ${item.tx_count || 0}
+                    </div>
+                `;
+            } else {
+                details = `
+                    <div class="result-hash">
+                        Hash: ${item.hash || 'N/A'}
+                    </div>
+                    <div class="result-detail">
+                        Block: ${item.block_height || 'N/A'}
+                    </div>
+                    <div class="result-detail">
+                        From: ${item.from || 'N/A'}
+                    </div>
+                    <div class="result-detail">
+                        To: ${item.to || 'N/A'}
+                    </div>
+                `;
+            }
+
+            return `
+            <div class="endpoint fade-in block-item">
+                <div class="block-header">
+                    <div class="flex-center">
+                        <span class="badge badge-primary">${type === 'block' ? '#' + item.height : item.hash || 'N/A'}</span>
+                    </div>
+                    <div class="result-timestamp">
+                        ${timestamp}
+                    </div>
+                </div>
+                ${details}
+                ${item.note ? `<div class="result-note">${item.note}</div>` : ''}
+            </div>
+        `;
+        }).join('');
+    }
+
+    // Display error
+    function displayError(message) {
+        const section = document.getElementById('results-section');
+        const container = document.getElementById('results-container');
+        const count = document.getElementById('results-count');
+
+        section.style.display = 'block';
+        count.textContent = '';
+        container.innerHTML = `<p class="error-text">${message}</p>`;
+    }
+
+    // Export blockchain
+    async function exportBlockchain() {
+        try {
+            // Get current block height first
+            const headResponse = await fetch(`${EXPLORER_API_URL}/api/chain/head?chain_id=${currentChain}`);
+            const headData = await headResponse.json();
+
+            if (!headData.height) {
+                alert('Unable to get blockchain height');
+                return;
+            }
+
+            const maxHeight = headData.height;
+            const exportCount = prompt(`Blockchain height: ${maxHeight}\n\nHow many recent blocks to export? (max 1000)`, '100');
+            const count = Math.min(parseInt(exportCount) || 100, 1000);
+
+            if (count <= 0) {
+                alert('Invalid block count');
+                return;
+            }
+
+            // Ask for format
+            const format = prompt('Export format: "csv" or "json"?', 'csv');
+            if (format !== 'csv' && format !== 'json') {
+                alert('Invalid format');
+                return;
+            }
+
+            // Fetch blocks
+            const blocks = [];
+            const startHeight = Math.max(maxHeight - count + 1, 1);
+            for (let height = startHeight; height <= maxHeight; height++) {
+                try {
+                    const response = await fetch(`${EXPLORER_API_URL}/api/blocks/${height}?chain_id=${currentChain}`);
+                    if (response.ok) {
+                        const block = await response.json();
+                        if (block.height) {
+                            blocks.push(block);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error fetching block ${height}:`, error);
+                }
+            }
+
+            if (blocks.length === 0) {
+                alert('No blocks to export');
+                return;
+            }
+
+            alert(`Exported ${blocks.length} blocks`);
+
+        } catch (error) {
+            console.error('Error exporting blockchain:', error);
+            alert('Error exporting blockchain');
+        }
+    }
+
+    function exportBlocksAsCSV(blocks) {
+        const headers = ['Height', 'Hash', 'Validator', 'Transaction Count', 'Timestamp'];
+        const rows = blocks.map(block => [
+            block.height,
+            block.hash,
+            block.validator,
+            block.tx_count,
+            block.timestamp
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.join(','))
+        ].join('\n');
+
+        downloadFile(csvContent, 'latest_blocks.csv', 'text/csv');
+    }
+
+    function exportBlocksAsJSON(blocks) {
+        const jsonContent = JSON.stringify(blocks, null, 2);
+        downloadFile(jsonContent, 'latest_blocks.json', 'application/json');
+    }
+
+    function downloadFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // Auto-refresh every 30 seconds
+    setInterval(refreshData, 30000);
+
+    // Event listeners
+    document.getElementById('clear-search-btn').addEventListener('click', clearSearch);
+    document.getElementById('export-blockchain-btn').addEventListener('click', exportBlockchain);
+    document.getElementById('search-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+
+    // Initial load
+    refreshData();
+});
