@@ -4,6 +4,7 @@ Handles messaging authentication and configuration setup
 """
 
 import logging
+import secrets
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -92,3 +93,20 @@ class MessagingSetup:
         except Exception as e:
             log.warning("Messaging connection test failed: %s", e)
             return {"status": "failed", "error": str(e)}
+
+    # Backward compatibility aliases
+    def test_messaging_connectivity(self) -> bool:
+        """Alias for verify_messaging_connection (backward compatibility)."""
+        result = self.verify_messaging_connection()
+        return result.get("status") == "completed" and result.get("connection") == "verified"
+
+    def generate_auth_token(self) -> str:
+        """Generate mock auth token for testing (backward compatibility)."""
+        return secrets.token_hex(32)
+
+    def configure_messaging_auth_with_wallet(self, wallet_name: str = None) -> dict[str, Any]:
+        """Alias with optional wallet_name parameter (backward compatibility)."""
+        result = self.configure_messaging_auth()
+        if wallet_name:
+            result["wallet"] = wallet_name
+        return result
