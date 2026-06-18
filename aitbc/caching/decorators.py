@@ -33,13 +33,13 @@ def _generate_cache_key(func_name: str, args: tuple, kwargs: dict) -> str:
         if isinstance(arg, str | int | float | bool | type(None)):
             key_parts.append(str(arg))
         else:
-            key_parts.append(hashlib.md5(json.dumps(arg, sort_keys=True).encode()).hexdigest())
+            key_parts.append(hashlib.sha256(json.dumps(arg, sort_keys=True).encode()).hexdigest())
     for key in sorted(kwargs.keys()):
         value = kwargs[key]
         if isinstance(value, str | int | float | bool | type(None)):
             key_parts.append(f"{key}={value}")
         else:
-            key_parts.append(f"{key}={hashlib.md5(json.dumps(value, sort_keys=True).encode()).hexdigest()}")
+            key_parts.append(f"{key}={hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()}")
     return ":".join(key_parts)
 
 
