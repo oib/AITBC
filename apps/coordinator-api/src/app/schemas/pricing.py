@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PricingStrategy(StrEnum):
@@ -117,8 +117,7 @@ class DynamicPriceResponse(BaseModel):
     next_update: datetime = Field(..., description="Next scheduled price update")
     strategy_used: str = Field(..., description="Strategy used for calculation")
 
-    class Config:
-        json_encoders = {datetime: lambda v: v.isoformat()}
+    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
 
 
 class PricePoint(BaseModel):
@@ -324,8 +323,7 @@ class MarketDataPoint(BaseModel):
     value: float = Field(..., description="Data value")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
-    class Config:
-        json_encoders = {datetime: lambda v: v.isoformat()}
+    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
 
 
 class AggregatedMarketData(BaseModel):
@@ -344,8 +342,7 @@ class AggregatedMarketData(BaseModel):
     data_sources: list[str] = Field(default_factory=list, description="Data sources used")
     confidence_score: float = Field(..., ge=0, le=1, description="Aggregation confidence")
 
-    class Config:
-        json_encoders = {datetime: lambda v: v.isoformat()}
+    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
 
 
 # ---------------------------------------------------------------------------
@@ -361,8 +358,7 @@ class PricingError(BaseModel):
     details: dict[str, Any] | None = Field(None, description="Additional error details")
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Error timestamp")
 
-    class Config:
-        json_encoders = {datetime: lambda v: v.isoformat()}
+    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
 
 
 class ValidationError(BaseModel):
@@ -430,8 +426,7 @@ class PricingAnalytics(BaseModel):
     market_share: float = Field(..., ge=0, le=1, description="Market share")
     customer_satisfaction: float = Field(..., ge=0, le=1, description="Customer satisfaction score")
 
-    class Config:
-        json_encoders = {datetime: lambda v: v.isoformat()}
+    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
 
 
 class StrategyPerformance(BaseModel):
