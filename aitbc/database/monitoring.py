@@ -121,6 +121,10 @@ class QueryMonitor:
         """
         return self.metrics.slow_queries[-limit:]
 
+    def get_top_queries(self, limit: int = 10) -> list[tuple[str, int]]:
+        """Get most frequently executed queries"""
+        return sorted(self.query_counts.items(), key=lambda x: x[1], reverse=True)[:limit]
+
     def reset(self) -> None:
         """Reset all metrics"""
         self.metrics = DatabaseMetrics()
