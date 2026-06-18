@@ -8,14 +8,21 @@ Provides:
 - Health monitoring
 """
 
-from __future__ import annotations
+from __future__ annotations
 
 from typing import Any
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/swarm", tags=["swarm"])
+from app.config import settings
+
+# Only enable mock endpoints if debug mode or explicit flag is set
+if not (settings.debug or settings.enable_mock_swarm):
+    # Create empty router for production
+    router = APIRouter(prefix="/swarm", tags=["swarm"])
+else:
+    router = APIRouter(prefix="/swarm", tags=["swarm"])
 
 
 class RegisterNodeRequest(BaseModel):

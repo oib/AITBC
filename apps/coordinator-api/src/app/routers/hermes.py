@@ -8,7 +8,7 @@ Provides:
 - Message status tracking
 """
 
-from __future__ import annotations
+from __future__ annotations
 
 from datetime import UTC, datetime
 from typing import Any
@@ -16,12 +16,19 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/hermes", tags=["hermes"])
+from app.config import settings
 
-# In-memory state for mock data
-_mock_agents: dict[str, dict[str, Any]] = {}
-_mock_messages: dict[str, list[dict[str, Any]]] = {}
-_message_counter = 0
+# Only enable mock endpoints if debug mode or explicit flag is set
+if not (settings.debug or settings.enable_mock_hermes):
+    # Create empty router for production
+    router = APIRouter(prefix="/hermes", tags=["hermes"])
+else:
+    router = APIRouter(prefix="/hermes", tags=["hermes"])
+
+    # In-memory state for mock data
+    _mock_agents: dict[str, dict[str, Any]] = {}
+    _mock_messages: dict[str, list[dict[str, Any]]] = {}
+    _message_counter = 0
 
 
 class RegisterAgentRequest(BaseModel):
