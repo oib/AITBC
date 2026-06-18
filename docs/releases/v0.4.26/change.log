@@ -4,7 +4,45 @@
 
 This release targets **production safety, CI enforcement, and codebase integrity**. The v0.4.25 audit identified 1 inactive app and resolved critical Pydantic config bugs. v0.4.26 shifts focus from coverage expansion to **enforcing reality**: CI must block broken code, auth must fail closed in production, and tracked secrets must be eliminated.
 
-**Current Status**: Planning phase. All 8 high-priority items scoped and ready for assignment.
+**Current Status**: In progress. CI fixes, auth hardening, and JWT migration completed. Remaining: router deduplication, mock state backing, and production hardening.
+
+**Completed Goals**:
+- Goal 1: CI `continue-on-error` removed ✅
+- Goal 2: `deps.py` uses `settings.environment` ✅
+- Goal 3: `validator_keys.json` deleted, `generate_dev_keys.py` created ✅
+- Goal 4: Blockchain B023 lambda capture fixed ✅
+- Goal 15: Fallback secrets removed (pool-hub changeme, auth.py test-key) ✅
+- Goal 22: Timezone-aware timestamps (caching, alerting, migration) ✅
+- Goal 25: Float money → Decimal (cross_chain, bounty, rewards) ✅
+- Goal 26: Mutable defaults fixed (rewards.py, config.py) ✅
+- Goal 27: 500 sanitization (main.py, edge, wallet) ✅
+- Goal 29: Pydantic v1 Config → ConfigDict (pricing, config_pg, wallet, blockchain) ✅
+- Goal 36: JWT auth migration — 14 routers migrated ✅
+
+**Remaining for Today**:
+- Goal 5: SQLModel metadata duplication (agent_identity.py)
+- Goal 12/32: Deduplicate router registration in main.py
+- Goal 13: Disable docs/debug routes in production
+- Goal 16: Replace MD5 with SHA256 in caching
+- Goal 23: Lifecycle management for async tasks
+- Goal 33: Gate mock routers behind feature flags
+- Goal 34: Replace mock state globals with DB/Redis
+
+**Deferred to v0.5.0**:
+- Goal 7: Type checking enforcement (mypy baseline)
+- Goal 8: Dependency consolidation
+- Goal 9: mutants/ as generated output
+- Goal 10: Module splitting (market.py, wallet.py)
+- Goal 11/31: sys.path hardcodes
+- Goal 17/30: Test app instance isolation
+- Goal 18: Smoke tests
+- Goal 19: Fast vs full test suite
+- Goal 20: Untrack generated files
+- Goal 21: Dependency source of truth doc
+- Goal 24: DB setup consolidation
+- Goal 28: Blocking calls in async services
+- Goal 35: response_model on all endpoints
+- Goal 36+: Auth normalization (remaining routers)
 
 ---
 

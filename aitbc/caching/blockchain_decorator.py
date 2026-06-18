@@ -41,7 +41,7 @@ def _generate_blockchain_cache_key(operation: str, args: tuple, kwargs: dict) ->
     if "contract_address" in kwargs:
         key_parts.append(f"contract:{kwargs['contract_address'].lower()}")
     other_args = str(args) + str(sorted(kwargs.items()))
-    args_hash = hashlib.md5(other_args.encode()).hexdigest()[:8]
+    args_hash = hashlib.sha256(other_args.encode()).hexdigest()[:8]
     key_parts.append(f"hash:{args_hash}")
     return ":".join(key_parts)
 
