@@ -11,7 +11,7 @@ from fastapi import APIRouter, Request
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)

@@ -4,7 +4,7 @@ Query performance monitoring for AITBC database operations.
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -80,7 +80,7 @@ class QueryMonitor:
         query_metrics = QueryMetrics(
             query=query,
             execution_time_ms=execution_time_ms,
-            timestamp=datetime.now(),
+            timestamp=datetime.now(UTC),
             success=success,
             error_message=error_message,
             row_count=row_count,

@@ -1,412 +1,218 @@
-# AITBC v0.4.26 — Agent A Plan
+# Agent A Tasks - v0.4.26
 
-## Agent: Security, Data & API Integrity
+## High-Risk / Complex Refactoring Tasks
 
-**Scope**: Production safety, runtime correctness, auth hardening, data-layer integrity, API contract enforcement, and test reliability.
+### P0: `aitbc/caching.py` (926 lines) — Highest Risk
 
-**Out of scope**: Monolithic module splits, tooling cleanup, systemd hardening, observability stack consolidation, shell scripts, dependency lockfile management (owned by Agent B).
+**Current state**: Single file containing all caching logic — in-memory LRU, TTL, Redis-backed cache, blockchain-specific cache, decorators, invalidation, and metrics.
 
----
+**Target architecture**:
+```
+aitbc/cache/
+  __init__.py          # Re-exports for backward compatibility
+  core.py              # CacheEntry, base cache protocols
+  lru.py               # LRUCache implementation
+  ttl.py               # TTLCache implementation
+  redis_backend.py     # RedisCache + connection handling
+  blockchain.py        # BlockchainCache (specialized)
+  decorators.py        # @cached, @cached_lru, @cached_blockchain
+  invalidation.py      # CacheInvalidator + event handlers
+  metrics.py           # CacheMetrics, get_cache_metrics()
+  utils.py             # Key generators, singleton accessors
+```
 
-## Assigned Goals
+**Migration steps**:
+1. Create `aitbc/cache/` subpackage directory
+2. Move each class/function to its logical module:
+   - `CacheEntry` dataclass → `core.py`
+   - `LRUCache` class → `lru.py`
+   - `TTLCache` class → `ttl.py`
+   - `RedisCache` class → `redis_backend.py`
+   - `BlockchainCache` class → `blockchain.py`
+   - `@cached`, `@cached_lru`, `@cached_blockchain` decorators → `decorators.py`
+   - `CacheInvalidator` class → `invalidation.py`
+   - `CacheMetrics` + `get_cache_metrics`, `get_blockchain_cache`, `get_cache` → `metrics.py`
+   - Key generators (`_generate_cache_key`, `generate_cache_key`) → `utils.py`
+3. Update `aitbc/cache/__init__.py` to re-export everything for backward compatibility:
+   ```python
+   from .core import CacheEntry
+   from .lru import LRUCache
+   from .ttl import TTLCache
+   from .redis_backend import RedisCache
+   from .blockchain import BlockchainCache
+   from .decorators import cached, cached_lru, cached_blockchain
+   from .invalidation import CacheInvalidator
+   from .metrics import CacheMetrics, get_cache_metrics, get_blockchain_cache, get_cache
+   from .utils import _generate_cache_key, generate_cache_key
+   ```
+4. Replace `aitbc/caching.py` with a shim importing from `aitbc/cache/`:
+   ```python
+   # DEPRECATED: Use aitbc.cache instead
+   from aitbc.cache import *
+   import warnings
+   warnings.warn("aitbc.caching is deprecated, use aitbc.cache", DeprecationWarning, stacklevel=2)
+   ```
+5. Deprecation cycle: keep shim for 1 release, then remove
 
-### Goal 1: Make CI Enforce Reality (P0)
+**Classes/Functions to Migrate** (from `aitbc/caching.py`):
+- `CacheEntry` dataclass (lines ~30-55)
+- `BlockchainCache` class (lines ~57-200)
+- `CacheMetrics` class (lines ~202-280)
+- `LRUCache` class (lines ~282-360)
+- `TTLCache` class (lines ~362-440)
+- `cached` decorator (lines ~442-500)
+- `cached_lru` decorator (lines ~502-550)
+- `cached_blockchain` decorator (lines ~552-600)
+- `CacheInvalidator` class (lines ~602-680)
+- Module-level functions:
+  - `get_cache_metrics()` (cached singleton)
+  - `get_blockchain_cache()` (cached singleton)
+  - `get_cache()` (generic cache)
+  - `CacheInvalidator()` singleton
+  - Key generators: `_generate_cache_key()`, `generate_cache_key()`
 
-**Problem**: `.github/workflows/ci.yml` has `continue-on-error: true` on lint, format, typecheck, and test jobs. Security scans use `|| true`.
+**Risk**: High — widely imported (`from aitbc import get_blockchain_cache`, `from aitbc.caching import LRUCache`). Requires careful backward-compat shim.
 
-**Approach**:
-1. Remove `continue-on-error: true` from ruff check and unit tests.
-2. Fix the 18 existing Ruff issues.
-3. Remove `|| true` from security scan commands.
-4. Ensure CI installs the project, not just standalone tools.
-
----
-
-### Goal 2: Fix Production Auth / Config Safety (P0)
-
-**Problem**: `deps.py` bypasses API-key validation when `APP_ENV=dev`. `settings.environment` is the canonical field but is not used everywhere.
-
-**Approach**:
-1. Unify all environment checks to use `settings.environment`.
-2. Make auth fail closed.
-3. Add `settings.validate_secrets()` call in `main.py` startup.
-4. Audit all apps for the same bypass pattern.
-
----
-
-### Goal 3: Remove and Rotate Tracked Key Material (P0)
-
-**Problem**: `dev/validator_keys.json` contains a full PEM private key committed to the repo.
-
-**Approach**:
-1. Delete `dev/validator_keys.json`.
-2. Replace with `scripts/generate_dev_keys.py` fixture generator.
-3. Add secret scanning to CI.
-4. Rotate derived keys.
-5. Add `*.pem`, `*private_key*` to `.gitignore`.
-
----
-
-### Goal 4: Fix Blockchain Loop-Variable Capture Bug (P0)
-
-**Problem**: Ruff B023 found 4 instances in `aitbc_chain/main.py` where lambda captures `chain_id` by reference.
-
-**Approach**:
-1. Bind loop variables at lambda creation: `lambda chain_id=chain_id: session_scope(chain_id)`.
-2. Or refactor to factory functions.
-3. Enable Ruff B023 in CI.
-
----
-
-### Goal 5: Fix SQLModel Metadata Duplication (P1)
-
-**Problem**: `CrossChainMapping` sets `__table_args__` twice, overwriting `extend_existing`.
-
-**Approach**:
-1. Merge all `__table_args__` into a single assignment per class.
-2. Clean up commented-out `Index` definitions.
-3. Audit other SQLModel classes in the same file.
-
----
-
-### Goal 6: Reconcile Tests with Implementation (P1)
-
-**Problem**: `tests/unit` expects security headers that `middleware.py` does not provide.
-
-**Approach**:
-1. Add security-header middleware or adjust tests.
-2. Fix pytest `addopts` coverage drift.
+**Estimated effort**: 2-3 days
 
 ---
 
-### Goal 7: Make Type Checking Honest and Incremental (P1)
+### P0: `aitbc/network/http_client.py` (654 lines) — Medium Risk
 
-**Problem**: mypy `exclude` list has ~90 regexes; 411 errors in 44 files are ignored by CI.
+**Current state**: Single file with HTTP client, circuit breaker, rate limiter, retry logic, caching layer, and both sync/async variants.
 
-**Approach**:
-1. Generate mypy baseline.
-2. Enforce "no new errors" on changed files.
-3. Shrink exclude list deliberately.
+**Target architecture**:
+```
+aitbc/network/
+  __init__.py           # Re-exports
+  client.py             # AITBCHTTPClient + AsyncAITBCHTTPClient
+  circuit_breaker.py    # CircuitBreaker state machine
+  rate_limiter.py       # RateLimiter token bucket
+  retry_policy.py       # Retry logic + backoff strategies
+  cache_layer.py        # HTTP response caching
+```
 
----
+**Migration steps**:
+1. Split classes into separate modules:
+   - `CircuitBreaker` class → `circuit_breaker.py`
+   - `RateLimiter` class → `rate_limiter.py`
+   - `RetryPolicy` class → `retry_policy.py`
+   - `CacheLayer` class → `cache_layer.py`
+   - `AITBCHTTPClient` + `AsyncAITBCHTTPClient` → `client.py`
+2. Keep `http_client.py` as a shim importing from new modules
+3. Update internal imports in apps/ to use new paths
+4. Remove shim after 1 release
 
-### Goal 15: Replace Fallback Secrets and Hardcoded Test Keys (P0)
+**Classes/Functions to Migrate** (from `aitbc/network/http_client.py`):
+- `CircuitBreaker` class (lines ~30-120)
+- `RateLimiter` class (lines ~122-200)
+- `RetryPolicy` class (lines ~202-280)
+- `CacheLayer` class (lines ~282-350)
+- `AITBCHTTPClient` class (lines ~352-500)
+- `AsyncAITBCHTTPClient` class (lines ~502-650)
 
-**Problem**: `default-secret-key-change-in-production`, `"changeme"`, `"test-key"` are active defaults.
+**Risk**: Medium — imported by many apps but mostly as `from aitbc.network import AITBCHTTPClient` (already in `__init__.py`).
 
-**Approach**:
-1. Raise `RuntimeError` if `JWT_SECRET_KEY` is missing.
-2. Make `coordinator_shared_secret` required.
-3. Remove unconditional `"test-key"` return from `auth.py`.
-4. Audit repo for weak default strings.
-
----
-
-### Goal 22: Use Timezone-Aware Timestamps (P1)
-
-**Problem**: Naive `datetime.now()` in `caching.py`, `feature_flags.py`, `monitoring.py`.
-
-**Approach**:
-1. Bulk-replace with `datetime.now(UTC)`.
-2. Add lint rule to prevent naive `now()`.
-
----
-
-### Goal 23: Add Lifecycle Management for Async Tasks (P1)
-
-**Problem**: Bare `asyncio.create_task()` with no cancellation or error logging.
-
-**Approach**:
-1. Create `TaskRegistry` in `aitbc/async_tasks.py`.
-2. Cancel tracked tasks on shutdown.
-3. Log unhandled exceptions.
+**Estimated effort**: 1-2 days
 
 ---
 
-### Goal 24: Consolidate Coordinator DB Setup (P1)
+### P1: `aitbc/crypto/security.py` (490 lines)
 
-**Problem**: Four overlapping DB modules: `database.py`, `storage/db.py`, `database_async.py`, `storage/db_pg.py`.
+**Current state**: Encryption, hashing, key derivation, JWT handling, password validation, and secure random generation all in one file.
 
-**Approach**:
-1. Pick one canonical boundary.
-2. Deprecate others with aliases.
-3. Move `create_all()` out of startup.
+**Target architecture**:
+```
+aitbc/crypto/
+  __init__.py          # Already exists
+  encryption.py        # EncryptionSuite, symmetric encryption
+  hashing.py           # Hashing utilities, HMAC
+  keys.py              # Key derivation, generation
+  jwt_handler.py       # JWT encode/decode/validate
+  password.py          # Password validation, strength checks
+```
 
----
+**Migration steps**:
+1. Split into logical modules (crypto/ already exists)
+2. Update `__init__.py` exports:
+   ```python
+   from .encryption import EncryptionSuite
+   from .hashing import hash_data, verify_hash, hmac_sign, hmac_verify
+   from .keys import generate_key, derive_key
+   from .jwt_handler import JWTHandler, encode_jwt, decode_jwt, validate_jwt
+   from .password import validate_password, generate_password_hash, verify_password
+   ```
+2. Update `__init__.py` exports
+3. Keep backward compat in `security.py` as shim:
+   ```python
+   # DEPRECATED: Use aitbc.crypto instead
+   from aitbc.crypto import *
+   import warnings
+   warnings.warn("aitbc.crypto.security is deprecated, use aitbc.crypto", DeprecationWarning, stacklevel=2)
+   ```
 
-### Goal 25: Replace Float Money Fields with Decimal (P0)
+**Classes/Functions to Migrate** (from `aitbc/crypto/security.py`):
+- `EncryptionSuite` class (lines ~30-150)
+- Hashing functions: `hash_data`, `verify_hash`, `hmac_sign`, `hmac_verify` (lines ~152-200)
+- Key functions: `generate_key`, `derive_key` (lines ~202-260)
+- `JWTHandler` class + `encode_jwt`, `decode_jwt`, `validate_jwt` (lines ~262-380)
+- Password functions: `validate_password`, `generate_password_hash`, `verify_password` (lines ~382-490)
 
-**Problem**: `float` for amounts in `cross_chain_bridge.py`, `bounty.py`, `rewards.py`.
+**Risk**: Low — most imports go through `aitbc.crypto` which already has `__init__.py`.
 
-**Approach**:
-1. Replace with `Decimal`.
-2. Add regression test for token math.
-3. Audit all `float` fields for financial use.
-
----
-
-### Goal 26: Fix Mutable Defaults in Models (P1)
-
-**Problem**: `default={}` and `default=[]` in Pydantic/SQLModel classes.
-
-**Approach**:
-1. Replace with `default_factory=dict` / `default_factory=list`.
-2. Add pre-commit check.
-
----
-
-### Goal 27: Stop Returning Internal Exception Details from 500s (P0)
-
-**Problem**: `str(exc)` leaked to clients in `main.py` and RPC errors.
-
-**Approach**:
-1. Replace with opaque error codes.
-2. Log full details server-side.
-3. Add sanitizing middleware.
-
----
-
-### Goal 28: Audit Blocking Calls in Async Services (P1)
-
-**Problem**: `requests.get()` and `time.sleep()` inside async paths.
-
-**Approach**:
-1. Replace with `httpx.AsyncClient` and `asyncio.sleep()`.
-2. Add lint check.
+**Estimated effort**: 1 day
 
 ---
 
-### Goal 29: Migrate Pydantic v1 Config to v2 ConfigDict (P2)
+## Common Requirements for All Agent A Tasks:
 
-**Problem**: `class Config:` deprecation warnings.
+1. **Tests first**: Write tests for new modules before deprecating shims
+   - Target: 80%+ coverage on new modules
+   - Run existing tests to ensure no regressions
 
-**Approach**:
-1. Replace with `model_config = ConfigDict(...)`.
-2. Run tests to verify behavior.
+2. **Backward compatibility**: Keep shims for 1 release cycle
+   - Add `DeprecationWarning` with `stacklevel=2`
+   - Document migration path in shim docstrings
 
----
+3. **Run full test suite** after each refactor:
+   ```bash
+   pytest tests/ --ignore=tests/test_coordinator_api*.py -x -q
+   ```
 
-### Goal 30: Fix Duplicate SQLModel Metadata (P1)
+5. **Update imports**: Use `search_files` and `patch` to update internal imports across codebase:
+   ```bash
+   # Find all imports to update
+   search_files(pattern="from aitbc.caching import", target="content")
+   search_files(pattern="from aitbc.network.http_client import", target="content")
+   search_files(pattern="from aitbc.crypto.security import", target="content")
+   ```
 
-**Problem**: Global `app` import at test time populates metadata.
-
-**Approach**:
-1. Enforce `create_app()` fixtures.
-2. Add startup assertion for duplicate tables.
-
----
-
-### Goal 32: Add Duplicate-Route Guard (P0)
-
-**Problem**: Duplicate method/path registrations from repeated `include_router` calls.
-
-**Approach**:
-1. Build startup guard that fails on duplicate `(method, path)`.
-2. Coordinate with Agent B (Goal 12) for deduplication.
-
----
-
-### Goal 35: Strengthen API Contract Validation (P1)
-
-**Problem**: Only 338 of 861 routes have `response_model=`.
-
-**Approach**:
-1. Require `response_model=` on all public endpoints.
-2. Add CI lint check.
+6. **Document changes** in `docs/releases/v0.4.26/change.log`:
+   - Add section for each refactored module
+   - Note breaking changes and migration path
 
 ---
 
-### Goal 36: Normalize Auth (P0)
+## Execution Order:
 
-**Problem**: Blockchain RPC uses `X-Wallet-Address` only; coordinator has unauthenticated routes.
+1. **Start with `crypto/security.py`** (lowest risk, crypto/ subpackage already exists)
+   - Already has `aitbc/crypto/` directory with `__init__.py`
+   - Only 490 lines, clear separation of concerns
+   - Good warmup for refactoring patterns
 
-**Approach**:
-1. Create `RouteSecurityMatrix`.
-2. Apply in middleware.
-3. Add JWT support to RPC.
+2. **Then `network/http_client.py`** (medium risk, well-tested)
+   - 654 lines, clear class boundaries
+   - Already has `aitbc/network/` directory with `__init__.py`
+   - Has existing tests (`tests/test_http_client.py`)
 
----
-
-### Goal 37: Clean Up Versioned Path Prefixes (P1)
-
-**Problem**: Double-prefix paths like `/v1/api/v1/dashboard`.
-
-**Approach**:
-1. Remove embedded version prefixes from router modules.
-2. Add assertion for `/v1/v1/`.
-
----
-
-### Goal 38: Make CORS Production Assertions Testable (P1)
-
-**Problem**: No assertion against wildcard + credentials in production.
-
-**Approach**:
-1. Add startup assertion in `create_app()`.
-2. Add unit test.
+3. **Finally `caching.py`** (highest risk, most complex)
+   - 926 lines, many interdependencies
+   - No existing `aitbc/cache/` directory
+   - Most widely used across codebase
+   - Requires most careful shim design
 
 ---
 
-### Goal 39: Fail Closed for Mock Crypto Paths (P1)
-
-**Problem**: Mock contract addresses, ciphertext, signatures in production routes.
-
-**Approach**:
-1. Gate behind `settings.debug` or `ENABLE_MOCK_CRYPTO`.
-2. Add CI grep check.
-
----
-
-### Goal 40: Replace Hardcoded Mock RPC/Private Key Paths (P0)
-
-**Problem**: `"mock_rpc_url"` and `"mock_private_key"` as active defaults.
-
-**Approach**:
-1. Make fields required, raise `RuntimeError` if missing.
-2. Move test fixtures to `tests/`.
-
----
-
-### Goal 41: Add OpenAPI CI Check (P1)
-
-**Problem**: No automated validation of generated OpenAPI spec.
-
-**Approach**:
-1. Validate `openapi.json` in CI for duplicates, auth, mock routes, missing schemas.
-2. Fail build on violation.
-
----
-
-## Cross-Agent Dependencies
-
-| Agent B Task | Why Agent A Depends | Coordination Point |
-|--------------|---------------------|-------------------|
-| Goal 12: Deduplicate router registration | Guard (Goal 32) fails until duplicates removed | Agent B completes deduplication first |
-| Goal 13: Disable docs in production | CORS assertions may need to account for disabled docs | Share `create_app()` changes |
-| Goal 14: Replace broad `except Exception` | Auth normalization may add imports needing explicit handling | Coordinate on `main.py` imports |
-| Goal 33: Mock router flags | Mock crypto gating should use same flag pattern | Agree on shared flag convention |
-| Goal 45: Harden systemd units | Secret removal and 500 sanitization affect logging | Ensure 500s still log through journal |
-
----
-
-## Phase Breakdown
-
-### Phase 1: Safety & Enforcement (Week 1)
-
-| Day | Task | Verification | Priority |
-|-----|------|--------------|----------|
-| 1-2 | Fix CI `continue-on-error`; fix 18 Ruff issues | CI lint job passes | P0 |
-| 2-3 | Fix B023 blockchain loop capture | Ruff B023 clean | P0 |
-| 2-3 | Unify auth; remove `APP_ENV=dev` bypass | Auth tests pass in production mode | P0 |
-| 3-4 | Delete `dev/validator_keys.json`; add generator | Zero tracked PEM keys | P0 |
-| 3-4 | Add secret scanning to CI | CI blocks on committed secrets | P0 |
-| 4-5 | Call `validate_secrets()` at startup | Missing secrets raise at boot | P0 |
-| 4-5 | Replace fallback secrets | Bandit B105 clean | P0 |
-| 4-5 | Replace float money with `Decimal` | No `float` for token amounts | P0 |
-| 5 | Sanitize 500 responses | Opaque error codes only | P0 |
-| 5 | Replace mock RPC/key paths | No `"mock_*"` literals | P0 |
-| 5 | Normalize auth across services | Route security matrix covers all `/v1/*` | P0 |
-
-### Phase 2: Data Layer & Runtime (Week 2)
-
-| Day | Task | Verification | Priority |
-|-----|------|--------------|----------|
-| 1-2 | Fix SQLModel `__table_args__` duplication | No `Table already defined` | P1 |
-| 2-3 | Reconcile tests vs middleware | `pytest tests/unit` passes | P1 |
-| 3-4 | Fix pytest `addopts` drift | No argument errors | P1 |
-| 3-4 | Isolate test app instances | No metadata conflicts | P1 |
-| 4-5 | Consolidate coordinator DB setup | One canonical boundary | P1 |
-| 5 | Fix mutable defaults | Custom check catches them | P1 |
-| 5 | Timezone-aware timestamps | Zero naive `datetime.now()` | P1 |
-
-### Phase 3: API Integrity & Validation (Week 3)
-
-| Day | Task | Verification | Priority |
-|-----|------|--------------|----------|
-| 1-2 | Add duplicate-route guard | Zero duplicate (method, path) | P0 |
-| 2-3 | Disable docs/redoc/debug in production | 404 in prod, 200 in dev | P1 |
-| 3-4 | Add async task lifecycle management | Clean shutdown with registry | P1 |
-| 3-4 | Replace MD5 with SHA256 | Bandit B303 clean | P1 |
-| 4-5 | Remove blocking calls from async paths | `httpx` and `asyncio.sleep` | P1 |
-| 4-5 | Fix duplicate SQLModel metadata | Full suite collects cleanly | P1 |
-| 5 | Strengthen API contracts | All public endpoints have `response_model` | P1 |
-| 5 | Clean up versioned prefixes | No `/v1/v1/` paths | P1 |
-| 5 | CORS production assertions | Test fails on bad config | P1 |
-| 5 | Mock crypto paths gated | Disabled in production | P1 |
-| 5 | OpenAPI CI check | Validates spec before build passes | P1 |
-
-### Phase 4: Type Checking & Pydantic (Week 4)
-
-| Day | Task | Verification | Priority |
-|-----|------|--------------|----------|
-| 1-3 | Generate mypy baseline; enforce incremental | New errors block PR | P1 |
-| 3-4 | Migrate `class Config:` to `ConfigDict` | Zero deprecation warnings | P2 |
-| 4-5 | Shrink mypy exclude list | More modules type-checked | P2 |
-
----
-
-## Success Criteria
-
-### Minimum Viable
-- [ ] Auth fails closed in production
-- [ ] No PEM private keys in repo
-- [ ] Secret scanning blocks CI
-- [ ] `validate_secrets()` at startup
-- [ ] SQLModel metadata fixed
-- [ ] `tests/unit` passes
-- [ ] Mypy enforces incremental
-- [ ] No default secrets outside tests
-- [ ] MD5 removed from cache keys
-- [ ] Float money -> Decimal
-- [ ] 500s sanitized
-- [ ] Timezone-aware timestamps
-- [ ] Mutable defaults fixed
-- [ ] DB setup consolidated
-- [ ] Blocking calls removed from async paths
-- [ ] Duplicate-route guard active
-- [ ] All public endpoints have `response_model`
-- [ ] Auth normalized (route security matrix)
-- [ ] No double-prefix paths
-- [ ] CORS assertions testable
-- [ ] Mock crypto disabled in production
-- [ ] No `"mock_rpc_url"` or `"mock_private_key"` literals
-- [ ] OpenAPI CI check passes
-
-### Stretch Goals
-- [ ] Full `mypy aitbc/` with 0 errors
-- [ ] Full test suite passes
-- [ ] Pydantic v1 `Config` fully migrated
-- [ ] OpenAPI auto-validated on every PR
-- [ ] Route security matrix enforced by middleware
-
----
-
-## Risk Assessment
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Auth fix breaks local dev | Medium | Medium | Provide `.env.dev` for unsafe mode |
-| `validator_keys.json` deletion breaks scripts | Low | Medium | Generator script replaces it |
-| B023 fix changes behavior | Low | High | Multi-chain test before merge |
-| Decimal migration breaks serialization | Medium | High | Regression tests for token math |
-| 500 sanitization hides debugging | Low | Medium | Server-side logs with tracebacks |
-| Async registry crashes on shutdown | Low | Medium | Graceful timeout |
-| Timezone timestamps break SQLite | Low | Medium | Test comparisons after migration |
-| DB consolidation breaks startup | Medium | High | Integration tests before/after |
-| Auth normalization breaks RPC clients | Medium | High | Backward-compatible header during transition |
-| Double-prefix cleanup breaks URLs | Medium | Medium | 308 redirects for one cycle |
-| Mock crypto removal breaks demos | Low | Low | Move to `examples/` with `debug=True` |
-| OpenAPI check flakes | Low | Low | Deterministic startup order |
-
----
-
-## Dependencies
-- Python 3.13.5 (locked)
-- `trufflehog` or `detect-secrets`
-- `pytest-cov` or remove coverage from `addopts`
-- `httpx` for async HTTP migration
-- `bandit` >= 1.7.7 for B303 and B105
-
----
-
-*Generated from v0.4.26 change.log — Last updated: 2026-06-18*
+*Source: `/opt/aitbc/docs/releases/v0.4.26/REFACTORING_PLANS.md` (full)*
+*Reference: `/opt/aitbc/docs/releases/v0.4.26/issue.md` (issue tracking)*
+*Reference: `/opt/aitbc/docs/releases/v0.4.26/change.log` (change tracking)*

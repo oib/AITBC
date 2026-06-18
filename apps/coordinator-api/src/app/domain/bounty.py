@@ -5,6 +5,7 @@ Database models for AI agent bounty system with ZK-proof verification
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -59,14 +60,14 @@ class Bounty(SQLModel, table=True):
     bounty_id: str = Field(primary_key=True, default_factory=lambda: f"bounty_{uuid.uuid4().hex[:8]}")
     title: str = Field(index=True)
     description: str = Field(index=True)
-    reward_amount: float = Field(index=True)
+    reward_amount: Decimal = Field(index=True)
     creator_id: str = Field(index=True)
     tier: BountyTier = Field(default=BountyTier.BRONZE)
     status: BountyStatus = Field(default=BountyStatus.CREATED)
 
     # Performance requirements
     performance_criteria: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    min_accuracy: float = Field(default=90.0)
+    min_accuracy: Decimal = Field(default=Decimal("90.0"))
     max_response_time: int | None = Field(default=None)  # milliseconds
 
     # Timing
@@ -79,16 +80,16 @@ class Bounty(SQLModel, table=True):
 
     # Configuration
     requires_zk_proof: bool = Field(default=True)
-    auto_verify_threshold: float = Field(default=95.0)
+    auto_verify_threshold: Decimal = Field(default=Decimal("95.0"))
 
     # Winner information
     winning_submission_id: str | None = Field(default=None)
     winner_address: str | None = Field(default=None)
 
     # Fees
-    creation_fee: float = Field(default=0.0)
-    success_fee: float = Field(default=0.0)
-    platform_fee: float = Field(default=0.0)
+    creation_fee: Decimal = Field(default=Decimal("0.0"))
+    success_fee: Decimal = Field(default=Decimal("0.0"))
+    platform_fee: Decimal = Field(default=Decimal("0.0"))
 
     # Metadata
     tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
@@ -110,10 +111,10 @@ class BountySubmission(SQLModel, table=True):
     submitter_address: str = Field(index=True)
 
     # Performance metrics
-    accuracy: float = Field(index=True)
+    accuracy: Decimal = Field(index=True)
     response_time: int | None = Field(default=None)  # milliseconds
-    compute_power: float | None = Field(default=None)
-    energy_efficiency: float | None = Field(default=None)
+    compute_power: Decimal | None = Field(default=None)
+    energy_efficiency: Decimal | None = Field(default=None)
 
     # ZK-proof data
     zk_proof: dict[str, Any] | None = Field(default_factory=dict, sa_column=Column(JSON))
@@ -151,28 +152,28 @@ class AgentStake(SQLModel, table=True):
     agent_wallet: str = Field(index=True)
 
     # Stake details
-    amount: float = Field(index=True)
+    amount: Decimal = Field(index=True)
     lock_period: int = Field(default=30)  # days
     start_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
     end_time: datetime
 
     # Status and rewards
     status: StakeStatus = Field(default=StakeStatus.ACTIVE)
-    accumulated_rewards: float = Field(default=0.0)
+    accumulated_rewards: Decimal = Field(default=Decimal("0.0"))
     last_reward_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # APY and performance
-    current_apy: float = Field(default=5.0)  # percentage
+    current_apy: Decimal = Field(default=Decimal("5.0"))  # percentage
     agent_tier: PerformanceTier = Field(default=PerformanceTier.BRONZE)
-    performance_multiplier: float = Field(default=1.0)
+    performance_multiplier: Decimal = Field(default=Decimal("1.0"))
 
     # Configuration
     auto_compound: bool = Field(default=False)
     unbonding_time: datetime | None = Field(default=None)
 
     # Penalties and bonuses
-    early_unbond_penalty: float = Field(default=0.0)
-    lock_bonus_multiplier: float = Field(default=1.0)
+    early_unbond_penalty: Decimal = Field(default=Decimal("0.0"))
+    lock_bonus_multiplier: Decimal = Field(default=Decimal("1.0"))
 
     # Metadata
     stake_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
@@ -187,33 +188,33 @@ class AgentMetrics(SQLModel, table=True):
     agent_wallet: str = Field(primary_key=True, index=True)
 
     # Staking metrics
-    total_staked: float = Field(default=0.0)
+    total_staked: Decimal = Field(default=Decimal("0.0"))
     staker_count: int = Field(default=0)
-    total_rewards_distributed: float = Field(default=0.0)
+    total_rewards_distributed: Decimal = Field(default=Decimal("0.0"))
 
     # Performance metrics
-    average_accuracy: float = Field(default=0.0)
+    average_accuracy: Decimal = Field(default=Decimal("0.0"))
     total_submissions: int = Field(default=0)
     successful_submissions: int = Field(default=0)
-    success_rate: float = Field(default=0.0)
+    success_rate: Decimal = Field(default=Decimal("0.0"))
 
     # Tier and scoring
     current_tier: PerformanceTier = Field(default=PerformanceTier.BRONZE)
-    tier_score: float = Field(default=60.0)
-    reputation_score: float = Field(default=0.0)
+    tier_score: Decimal = Field(default=Decimal("60.0"))
+    reputation_score: Decimal = Field(default=Decimal("0.0"))
 
     # Timing
     last_update_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
     first_submission_time: datetime | None = Field(default=None)
 
     # Additional metrics
-    average_response_time: float | None = Field(default=None)
-    total_compute_time: float | None = Field(default=None)
-    energy_efficiency_score: float | None = Field(default=None)
+    average_response_time: Decimal | None = Field(default=None)
+    total_compute_time: Decimal | None = Field(default=None)
+    energy_efficiency_score: Decimal | None = Field(default=None)
 
     # Historical data
-    weekly_accuracy: list[float] = Field(default_factory=list, sa_column=Column(JSON))
-    monthly_earnings: list[float] = Field(default_factory=list, sa_column=Column(JSON))
+    weekly_accuracy: list[Decimal] = Field(default_factory=list, sa_column=Column(JSON))
+    monthly_earnings: list[Decimal] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Metadata
     agent_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
@@ -231,9 +232,9 @@ class StakingPool(SQLModel, table=True):
     agent_wallet: str = Field(primary_key=True, index=True)
 
     # Pool metrics
-    total_staked: float = Field(default=0.0)
-    total_rewards: float = Field(default=0.0)
-    pool_apy: float = Field(default=5.0)
+    total_staked: Decimal = Field(default=Decimal("0.0"))
+    total_rewards: Decimal = Field(default=Decimal("0.0"))
+    pool_apy: Decimal = Field(default=Decimal("5.0"))
 
     # Staker information
     staker_count: int = Field(default=0)
@@ -244,13 +245,13 @@ class StakingPool(SQLModel, table=True):
     distribution_frequency: int = Field(default=1)  # days
 
     # Pool configuration
-    min_stake_amount: float = Field(default=100.0)
-    max_stake_amount: float = Field(default=100000.0)
+    min_stake_amount: Decimal = Field(default=Decimal("100.0"))
+    max_stake_amount: Decimal = Field(default=Decimal("100000.0"))
     auto_compound_enabled: bool = Field(default=False)
 
     # Performance tracking
-    pool_performance_score: float = Field(default=0.0)
-    volatility_score: float = Field(default=0.0)
+    pool_performance_score: Decimal = Field(default=Decimal("0.0"))
+    volatility_score: Decimal = Field(default=Decimal("0.0"))
 
     # Metadata
     pool_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))

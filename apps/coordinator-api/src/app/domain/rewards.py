@@ -4,6 +4,7 @@ Implements SQLModel definitions for performance-based rewards, incentives, and d
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -52,22 +53,22 @@ class RewardTierConfig(SQLModel, table=True):
     tier: RewardTier
 
     # Threshold requirements
-    min_trust_score: float = Field(ge=0, le=1000)
-    min_performance_rating: float = Field(ge=1.0, le=5.0)
-    min_monthly_earnings: float = Field(ge=0)
+    min_trust_score: Decimal = Field(ge=0, le=1000)
+    min_performance_rating: Decimal = Field(ge=Decimal("1.0"), le=Decimal("5.0"))
+    min_monthly_earnings: Decimal = Field(ge=0)
     min_transaction_count: int = Field(ge=0)
-    min_success_rate: float = Field(ge=0, le=100.0)
+    min_success_rate: Decimal = Field(ge=0, le=Decimal("100.0"))
 
     # Reward multipliers and benefits
-    base_multiplier: float = Field(default=1.0, ge=1.0)
-    performance_bonus_multiplier: float = Field(default=1.0, ge=1.0)
-    loyalty_bonus_multiplier: float = Field(default=1.0, ge=1.0)
-    referral_bonus_multiplier: float = Field(default=1.0, ge=1.0)
+    base_multiplier: Decimal = Field(default=Decimal("1.0"), ge=Decimal("1.0"))
+    performance_bonus_multiplier: Decimal = Field(default=Decimal("1.0"), ge=Decimal("1.0"))
+    loyalty_bonus_multiplier: Decimal = Field(default=Decimal("1.0"), ge=Decimal("1.0"))
+    referral_bonus_multiplier: Decimal = Field(default=Decimal("1.0"), ge=Decimal("1.0"))
 
     # Tier benefits
     max_concurrent_jobs: int = Field(default=1)
-    priority_boost: float = Field(default=1.0)
-    fee_discount: float = Field(default=0.0, ge=0, le=100.0)
+    priority_boost: Decimal = Field(default=Decimal("1.0"))
+    fee_discount: Decimal = Field(default=Decimal("0.0"), ge=0, le=Decimal("100.0"))
     support_level: str = Field(default="basic")
 
     # Timestamps
@@ -76,8 +77,8 @@ class RewardTierConfig(SQLModel, table=True):
     is_active: bool = Field(default=True)
 
     # Additional configuration
-    tier_requirements: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    tier_benefits: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    tier_requirements: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    tier_benefits: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class AgentRewardProfile(SQLModel, table=True):
@@ -91,17 +92,17 @@ class AgentRewardProfile(SQLModel, table=True):
 
     # Current tier and status
     current_tier: RewardTier = Field(default=RewardTier.BRONZE)
-    tier_progress: float = Field(default=0.0, ge=0, le=100.0)  # Progress to next tier
+    tier_progress: Decimal = Field(default=Decimal("0.0"), ge=0, le=Decimal("100.0"))  # Progress to next tier
 
     # Earnings tracking
-    base_earnings: float = Field(default=0.0)
-    bonus_earnings: float = Field(default=0.0)
-    total_earnings: float = Field(default=0.0)
-    lifetime_earnings: float = Field(default=0.0)
+    base_earnings: Decimal = Field(default=Decimal("0.0"))
+    bonus_earnings: Decimal = Field(default=Decimal("0.0"))
+    total_earnings: Decimal = Field(default=Decimal("0.0"))
+    lifetime_earnings: Decimal = Field(default=Decimal("0.0"))
 
     # Performance metrics for rewards
-    performance_score: float = Field(default=0.0)
-    loyalty_score: float = Field(default=0.0)
+    performance_score: Decimal = Field(default=Decimal("0.0"))
+    loyalty_score: Decimal = Field(default=Decimal("0.0"))
     referral_count: int = Field(default=0)
     community_contributions: int = Field(default=0)
 
@@ -117,8 +118,8 @@ class AgentRewardProfile(SQLModel, table=True):
     last_activity: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional metadata
-    reward_preferences: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
-    achievement_history: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
+    reward_preferences: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    achievement_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class RewardCalculation(SQLModel, table=True):
@@ -132,32 +133,32 @@ class RewardCalculation(SQLModel, table=True):
 
     # Calculation details
     reward_type: RewardType
-    base_amount: float = Field(ge=0)
-    tier_multiplier: float = Field(default=1.0, ge=1.0)
+    base_amount: Decimal = Field(ge=0)
+    tier_multiplier: Decimal = Field(default=Decimal("1.0"), ge=Decimal("1.0"))
 
     # Bonus factors
-    performance_bonus: float = Field(default=0.0)
-    loyalty_bonus: float = Field(default=0.0)
-    referral_bonus: float = Field(default=0.0)
-    community_bonus: float = Field(default=0.0)
-    special_bonus: float = Field(default=0.0)
+    performance_bonus: Decimal = Field(default=Decimal("0.0"))
+    loyalty_bonus: Decimal = Field(default=Decimal("0.0"))
+    referral_bonus: Decimal = Field(default=Decimal("0.0"))
+    community_bonus: Decimal = Field(default=Decimal("0.0"))
+    special_bonus: Decimal = Field(default=Decimal("0.0"))
 
     # Final calculation
-    total_reward: float = Field(ge=0)
-    effective_multiplier: float = Field(default=1.0, ge=1.0)
+    total_reward: Decimal = Field(ge=0)
+    effective_multiplier: Decimal = Field(default=Decimal("1.0"), ge=Decimal("1.0"))
 
     # Calculation metadata
     calculation_period: str = Field(default="daily")  # daily, weekly, monthly
     reference_date: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    trust_score_at_calculation: float = Field(ge=0, le=1000)
-    performance_metrics: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    trust_score_at_calculation: Decimal = Field(ge=0, le=Decimal("1000"))
+    performance_metrics: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
     calculated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
 
     # Additional data
-    calculation_details: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    calculation_details: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class RewardDistribution(SQLModel, table=True):
@@ -171,7 +172,7 @@ class RewardDistribution(SQLModel, table=True):
     agent_id: str = Field(index=True, foreign_key="agent_reward_profiles.id")
 
     # Distribution details
-    reward_amount: float = Field(ge=0)
+    reward_amount: Decimal = Field(ge=0)
     reward_type: RewardType
     distribution_method: str = Field(default="automatic")  # automatic, manual, batch
 
@@ -197,7 +198,7 @@ class RewardDistribution(SQLModel, table=True):
     scheduled_at: datetime | None = None
 
     # Additional data
-    distribution_details: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    distribution_details: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class RewardEvent(SQLModel, table=True):
@@ -215,7 +216,7 @@ class RewardEvent(SQLModel, table=True):
     trigger_source: str = Field(max_length=50)  # "system", "manual", "automatic"
 
     # Event impact
-    reward_impact: float = Field(ge=0)  # Total reward amount from this event
+    reward_impact: Decimal = Field(ge=0)  # Total reward amount from this event
     tier_impact: RewardTier | None = None
 
     # Event context
@@ -224,7 +225,7 @@ class RewardEvent(SQLModel, table=True):
     related_distribution_id: str | None = None
 
     # Event metadata
-    event_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    event_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     verification_status: str = Field(default="pending")  # pending, verified, rejected
 
     # Timestamps
@@ -233,7 +234,7 @@ class RewardEvent(SQLModel, table=True):
     expires_at: datetime | None = None
 
     # Additional metadata
-    event_context: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    event_context: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class RewardMilestone(SQLModel, table=True):
@@ -271,7 +272,7 @@ class RewardMilestone(SQLModel, table=True):
     expires_at: datetime | None = None
 
     # Additional data
-    milestone_config: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    milestone_config: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class RewardAnalytics(SQLModel, table=True):
@@ -311,11 +312,11 @@ class RewardAnalytics(SQLModel, table=True):
     calculation_count: int = Field(default=0)
     distribution_count: int = Field(default=0)
     success_rate: float = Field(default=0.0, ge=0, le=100.0)
-    average_processing_time: float = Field(default=0.0)  # milliseconds
+    average_processing_time: Decimal = Field(default=Decimal("0.0"))  # milliseconds
 
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional analytics data
-    analytics_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    analytics_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))

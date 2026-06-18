@@ -117,6 +117,17 @@ class Settings(BaseAITBCConfig):
         description="CORS allowed origins",
     )
 
+    @field_validator("allow_origins")
+    @classmethod
+    def validate_cors_origins(cls, v: list[str]) -> list[str]:
+        import os
+        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "dev"))
+        if env == "production":
+            localhost_origins = [origin for origin in v if "localhost" in origin or "127.0.0.1" in origin]
+            if localhost_origins:
+                raise ValueError(f"CORS cannot allow localhost origins in production: {localhost_origins}")
+        return v
+
     # Job Configuration
     job_ttl_seconds: int = Field(default=900, description="Job TTL in seconds")
     heartbeat_interval_seconds: int = Field(default=10, description="Heartbeat interval in seconds")
@@ -145,6 +156,16 @@ class Settings(BaseAITBCConfig):
     # Blockchain RPC
     blockchain_rpc_url: str = Field(default="http://localhost:8082", description="Blockchain RPC URL")
 
+    @field_validator("blockchain_rpc_url")
+    @classmethod
+    def validate_blockchain_rpc_url(cls, v: str) -> str:
+        import os
+        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "dev"))
+        if "localhost" in v or "127.0.0.1" in v:
+            if env == "production":
+                raise ValueError("BLOCKCHAIN_RPC_URL cannot be localhost in production")
+        return v
+
     # Test Configuration
     test_mode: bool = Field(default=False, description="Test mode")
     test_database_url: str | None = None
@@ -154,6 +175,15 @@ class Settings(BaseAITBCConfig):
     enable_mock_training: bool = Field(default=False, description="Enable mock training endpoints")
     enable_mock_hermes: bool = Field(default=False, description="Enable mock Hermes endpoints")
     enable_mock_swarm: bool = Field(default=False, description="Enable mock swarm endpoints")
+
+    @field_validator("enable_mock_training", "enable_mock_hermes", "enable_mock_swarm")
+    @classmethod
+    def validate_mock_flags(cls, v: bool) -> bool:
+        import os
+        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "dev"))
+        if v and env == "production":
+            raise ValueError("Mock endpoints cannot be enabled in production")
+        return v
 
     def get_effective_database_url(self) -> str:
         """Get the effective database URL with test mode support."""

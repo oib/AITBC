@@ -68,13 +68,18 @@ class MockFHEProvider(FHEProvider):
 
     def generate_context(self, scheme: str, **kwargs: Any) -> FHEContext:
         """Generate mock FHE context"""
+        import os
+
+        # Generate random mock keys instead of hardcoded values
+        mock_public_key = os.urandom(32)
+        mock_private_key = os.urandom(32)
         return FHEContext(
             scheme="mock",
             poly_modulus_degree=kwargs.get("poly_modulus_degree", 8192),
             coeff_modulus=kwargs.get("coeff_modulus", [60, 40, 60]),
             scale=kwargs.get("scale", 2**40),
-            public_key=b"mock_public_key",
-            private_key=b"mock_private_key",
+            public_key=mock_public_key,
+            private_key=mock_private_key,
             provider_specific={"mock": True},
         )
 

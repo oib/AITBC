@@ -7,7 +7,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
-from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.network import AITBCHTTPClient
 
 from ....config import settings
 

@@ -141,7 +141,7 @@ async def get_quality_checker() -> TranslationQualityChecker | None:
     return quality_checker  # type: ignore[no-any-return]
 
 
-router = APIRouter(prefix="/api/v1/multi-language", tags=["multi-language"])
+router = APIRouter(prefix="/multi-language", tags=["multi-language"])
 
 
 @router.post("/translate", response_model=TranslationAPIResponse)

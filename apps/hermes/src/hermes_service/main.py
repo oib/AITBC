@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import httpx
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
@@ -84,25 +85,23 @@ def _check_db() -> bool:
         return False
 
 
-def _check_coordinator() -> bool:
+async def _check_coordinator() -> bool:
     """Check Agent Coordinator reachability."""
     try:
-        import requests
-
-        response = requests.get(f"{COORDINATOR_URL}/health", timeout=5)
-        return response.status_code == 200
+        async with httpx.AsyncClient(timeout=5) as client:
+            response = await client.get(f"{COORDINATOR_URL}/health")
+            return response.status_code == 200
     except Exception:
         return False
 
 
-def _check_blockchain_rpc() -> bool:
+async def _check_blockchain_rpc() -> bool:
     """Check blockchain RPC reachability."""
     try:
-        import requests
-
         rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
-        response = requests.get(f"{rpc_url}/health", timeout=5)
-        return response.status_code == 200
+        async with httpx.AsyncClient(timeout=5) as client:
+            response = await client.get(f"{rpc_url}/health")
+            return response.status_code == 200
     except Exception:
         return False
 
@@ -110,7 +109,7 @@ def _check_blockchain_rpc() -> bool:
 @app.get("/health")
 async def health() -> dict[str, Any]:
     """Health check endpoint with dependency verification."""
-    checks = {"database": _check_db(), "coordinator": _check_coordinator(), "blockchain_rpc": _check_blockchain_rpc()}
+    checks = {"database": _check_db(), "coordinator": await _check_coordinator(), "blockchain_rpc": await _check_blockchain_rpc()}
     all_healthy = all(checks.values())
     status = "healthy" if all_healthy else "degraded"
     return {"status": status, "service": "hermes-service", "checks": checks}
@@ -249,7 +248,7 @@ async def remote_execute_coin_request(
     if not signed_tx:
         raise HTTPException(status_code=500, detail="Failed to generate signed transaction")
     try:
-        from aitbc.network.http_client import AITBCHTTPClient
+        from aitbc.network import AITBCHTTPClient
 
         http_client = AITBCHTTPClient(base_url=tx_service.rpc_url, timeout=30)
         result = http_client.post("/rpc/transaction", json=signed_tx)

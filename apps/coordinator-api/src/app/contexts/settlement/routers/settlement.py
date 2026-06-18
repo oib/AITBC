@@ -11,7 +11,8 @@ from pydantic import BaseModel, Field
 
 from aitbc.rate_limiting import rate_limit
 
-from ....auth import get_api_key
+from ....auth import MinerDep  # NEW: JWT auth (miners handle settlements)
+# from ....auth import get_api_key  # OLD: API key auth (deprecated)
 
 router = APIRouter(prefix="/settlement", tags=["settlement"])
 
@@ -44,7 +45,7 @@ async def initiate_cross_chain_settlement(
     request: Request,
     settlement_request: CrossChainSettlementRequest,
     background_tasks: BackgroundTasks,
-    api_key: Annotated[str, Depends(get_api_key)],
+    user: MinerDep,
 ) -> CrossChainSettlementResponse:
     """Initiate a cross-chain settlement"""
     try:
@@ -63,7 +64,7 @@ async def initiate_cross_chain_settlement(
         )
 
         # Add background task to process settlement
-        background_tasks.add_task(manager.process_settlement, settlement_id, api_key)
+        background_tasks.add_task(manager.process_settlement, settlement_id, user["sub"])
 
         return CrossChainSettlementResponse(
             settlement_id=settlement_id,
@@ -81,7 +82,7 @@ async def initiate_cross_chain_settlement(
 async def get_settlement_status(
     request: Request,
     settlement_id: str,
-    api_key: Annotated[str, Depends(get_api_key)],
+    user: MinerDep,
 ) -> dict[str, Any]:
     """Get settlement status"""
     try:
@@ -110,14 +111,14 @@ async def get_settlement_status(
 @rate_limit(rate=200, per=60)
 async def list_settlements(
     request: Request,
-    api_key: Annotated[str, Depends(get_api_key)],
+    user: MinerDep,
     limit: int = 50,
     offset: int = 0,
 ) -> dict[str, Any]:
     """List settlements with pagination"""
     try:
         manager = BridgeManager()
-        settlements = await manager.list_settlements(api_key=api_key, limit=limit, offset=offset)
+        settlements = await manager.list_settlements(api_key=user["sub"], limit=limit, offset=offset)
 
         return {"settlements": settlements, "total": len(settlements), "limit": limit, "offset": offset}
 
@@ -130,12 +131,12 @@ async def list_settlements(
 async def cancel_settlement(
     request: Request,
     settlement_id: str,
-    api_key: Annotated[str, Depends(get_api_key)],
+    user: MinerDep,
 ) -> dict[str, str]:
     """Cancel a pending settlement"""
     try:
         manager = BridgeManager()
-        success = await manager.cancel_settlement(settlement_id, api_key)
+        success = await manager.cancel_settlement(settlement_id, user["sub"])
 
         if not success:
             raise HTTPException(status_code=400, detail="Cannot cancel settlement")
@@ -146,3 +147,39 @@ async def cancel_settlement(
         raise
     except (ValueError, KeyError, AttributeError) as e:
         raise HTTPException(status_code=500, detail=f"Failed to cancel settlement: {str(e)}") from e
+
+
+# ============================================================================
+# MIGRATION NOTES: API Key to JWT Auth
+# ============================================================================
+#
+# Migration completed: 2025-01-XX
+#
+# Changes made:
+# 1. Import change:
+#    OLD: from ....auth import get_api_key
+#    NEW: from ....auth import MinerDep
+#
+# 2. Dependency changes (4 endpoints):
+#    - initiate_cross_chain_settlement: api_key -> user: MinerDep
+#    - get_settlement_status: api_key -> user: MinerDep
+#    - list_settlements: api_key -> user: MinerDep
+#    - cancel_settlement: api_key -> user: MinerDep
+#
+# 3. API key references updated:
+#    - background_tasks.add_task(..., user["sub"])
+#    - manager.list_settlements(api_key=user["sub"], ...)
+#    - manager.cancel_settlement(..., user["sub"])
+#
+# 4. JWT benefits:
+#    - user["sub"]: Miner user ID
+#    - user["role"]: Role verification (miner)
+#    - user["exp"]: Token expiration
+#    - Centralized auth via security matrix
+#
+# 5. Client code change:
+#    OLD: headers = {"X-Api-Key": "your-api-key"}
+#    NEW: headers = {"Authorization": f"Bearer {token}"}
+#
+# ============================================================================
+
