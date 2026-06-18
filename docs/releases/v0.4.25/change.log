@@ -121,9 +121,7 @@
 - `service.py` (via subpackage)
 - `utils.py` (via subpackage)
 
-**Status**: Legacy file is **dead code** — cannot be imported without refactoring. Subpackage modules have their own test suite in `tests/test_database_subpackage.py` (63 tests, 85% coverage).
-
-**Recommendation**: Remove legacy `database.py` file or refactor to be importable.
+**Status**: Legacy file **REMOVED** (commit ba3f444e: "Remove dead legacy aitbc/database.py, use database/ subpackage"). Subpackage modules have their own test suite in `tests/test_database_subpackage.py` (63 tests, 85% coverage).
 
 ---
 
@@ -336,7 +334,7 @@ def parse_debug(cls, v: bool | str) -> bool:
 | Week | Task | Target | Status |
 |------|------|--------|--------|
 | 3 | Audit all 26 apps for activity | List of active vs inactive apps | ✅ **Done** — 25 active, 1 marked inactive |
-| 3 | Archive or mark inactive apps | Reduced maintenance surface | ✅ **Done** — `peertube-transcoder` marked with DEPRECATED.md; 3 previously removed (blockchain-rpc, blockchain-sync, plugins) |
+| 3 | Archive or mark inactive apps | Reduced maintenance surface | ✅ **Done** — `peertube-transcoder` archived pending v0.5+ reactivation (DEPRECATED.md); 3 previously removed (blockchain-rpc, blockchain-sync, plugins) |
 | 3 | Remove dead `aitbc/database.py` | Use `database/` subpackage | ✅ **Done** — deleted 647-line legacy file |
 | 4 | Document monolithic file refactoring plans | REFACTORING_PLANS.md | ✅ **Done** — 8 files documented |
 | 4 | Run full test suite with all fixes | ≤10 failures, ≥35% coverage | 📋 In progress |
@@ -357,7 +355,7 @@ def parse_debug(cls, v: bool | str) -> bool:
 ### Stretch Goals
 - [ ] Test coverage ≥40%
 - [x] 0 deprecation warnings from project code (`datetime.utcnow()` eliminated)
-- [x] Inactive apps identified and archived (`peertube-transcoder` marked with DEPRECATED.md)
+- [x] Inactive apps identified and archived (`peertube-transcoder` archived pending v0.5+ reactivation)
 - [x] All monolithic files >500 lines have refactoring plans documented → `docs/architecture/REFACTORING_PLANS.md`
 
 ---
@@ -368,7 +366,7 @@ These are acknowledged limitations, not blockers:
 
 1. **Production Integration Tests**: 86 tests require running PostgreSQL/Redis/RabbitMQ. These are out of scope for v0.4.25; will be addressed when test infrastructure is upgraded.
 2. **SQLAlchemy Table Conflicts**: Running the full ~4,700 test suite together causes SQLAlchemy metadata conflicts. This requires test isolation work that's better addressed with a dedicated test infrastructure release.
-3. **Apps Directory Audit**: 26 apps audited. 1 inactive app (`peertube-transcoder`) marked with DEPRECATED.md. 25 apps confirmed active or experimental-but-integrated.
+3. **Apps Directory Audit**: 26 apps audited. 1 inactive app (`peertube-transcoder`) archived pending v0.5+ reactivation. 25 apps confirmed active or experimental-but-integrated.
 
 ---
 
@@ -433,7 +431,6 @@ These are acknowledged limitations, not blockers:
 
 ### Immediate Actions (Day 1-2)
 1. **Work on remaining 0% modules** (state/, etc.)
-2. **Consider removing/refactoring dead legacy `database.py` file**
 
 ### Week 2 Targets
 | Target | Current | Week 2 Goal |
