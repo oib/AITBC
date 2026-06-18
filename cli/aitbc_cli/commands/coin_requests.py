@@ -2,7 +2,7 @@
 
 import json
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 
 import click
 import requests
@@ -107,9 +107,9 @@ def approve(ctx, request_id, reason):
 
         req.status = CoinRequestStatus.APPROVED
         req.approved_by = "cli"
-        req.approved_at = datetime.utcnow()
+        req.approved_at = datetime.now(UTC)
         req.rejection_reason = None
-        req.audit_log += f" | CLI approved at {datetime.utcnow().isoformat()}"
+        req.audit_log += f" | CLI approved at {datetime.now(UTC).isoformat()}"
         if reason:
             req.audit_log += f" | Reason: {reason}"
 
@@ -140,9 +140,9 @@ def reject(ctx, request_id, reason):
 
         req.status = CoinRequestStatus.REJECTED
         req.approved_by = "cli"
-        req.approved_at = datetime.utcnow()
+        req.approved_at = datetime.now(UTC)
         req.rejection_reason = reason
-        req.audit_log += f" | CLI rejected at {datetime.utcnow().isoformat()} | Reason: {reason}"
+        req.audit_log += f" | CLI rejected at {datetime.now(UTC).isoformat()} | Reason: {reason}"
 
         click.echo(f"Request {request_id} rejected successfully.")
 
@@ -203,7 +203,7 @@ def execute(ctx, request_id):
                     result = resp.json()
                     tx_hash = result.get("tx_hash")
                     req.transaction_hash = tx_hash
-                    req.audit_log += f" | Forwarded to hub for execution at {datetime.utcnow().isoformat()} | Hash: {tx_hash}"
+                    req.audit_log += f" | Forwarded to hub for execution at {datetime.now(UTC).isoformat()} | Hash: {tx_hash}"
                     click.echo(f"Transaction submitted by hub: {tx_hash}")
                     click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
                     send_hermes_notification(
@@ -238,7 +238,7 @@ def execute(ctx, request_id):
             click.echo("Error: Failed to generate signed transaction")
             # Revert to PENDING for retry
             req.status = CoinRequestStatus.PENDING
-            req.audit_log += f" | Execution failed: could not generate signed transaction at {datetime.utcnow().isoformat()}"
+            req.audit_log += f" | Execution failed: could not generate signed transaction at {datetime.now(UTC).isoformat()}"
             return
 
         # Submit transaction to blockchain
@@ -253,7 +253,7 @@ def execute(ctx, request_id):
                 # Update database with transaction hash
                 req.transaction_hash = tx_hash
                 req.signed_transaction = json.dumps(signed_tx)
-                req.audit_log += f" | Transaction executed at {datetime.utcnow().isoformat()} | Hash: {tx_hash}"
+                req.audit_log += f" | Transaction executed at {datetime.now(UTC).isoformat()} | Hash: {tx_hash}"
 
                 click.echo(f"Transaction submitted successfully: {tx_hash}")
                 click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
@@ -266,13 +266,13 @@ def execute(ctx, request_id):
             else:
                 # Revert to PENDING on failure
                 req.status = CoinRequestStatus.PENDING
-                req.audit_log += f" | Execution failed: no transaction hash returned at {datetime.utcnow().isoformat()}"
+                req.audit_log += f" | Execution failed: no transaction hash returned at {datetime.now(UTC).isoformat()}"
                 click.echo("Error: Transaction submission failed - no hash returned")
 
         except Exception as e:
             # Revert to PENDING on failure
             req.status = CoinRequestStatus.PENDING
-            req.audit_log += f" | Execution failed: {str(e)} at {datetime.utcnow().isoformat()}"
+            req.audit_log += f" | Execution failed: {str(e)} at {datetime.now(UTC).isoformat()}"
             click.echo(f"Error submitting transaction: {e}")
 
 
