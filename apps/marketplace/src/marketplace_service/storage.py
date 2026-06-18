@@ -11,11 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import SQLModel
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.constants import DATA_DIR
 
 logger = get_logger(__name__)
-DATABASE_URL = os.getenv(
-    "MARKETPLACE_DATABASE_URL", os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/marketplace_service.db")
-)
+DEFAULT_DB = f"sqlite+aiosqlite:///{DATA_DIR}/data/marketplace_service.db"
+DATABASE_URL = os.getenv("MARKETPLACE_DATABASE_URL", os.getenv("DATABASE_URL", DEFAULT_DB))
 engine = create_async_engine(DATABASE_URL, echo=False)
 logger.info("Storage module loaded: engine=%s, DATABASE_URL=%s", engine, os.getenv("MARKETPLACE_DATABASE_URL", "not set"))
 
