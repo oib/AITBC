@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ..deps import get_miner_id, require_miner_key
+from ..auth import MinerDep
 from ..schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
 from ..services import JobService, MinerService
 from ..services.receipts import ReceiptService
@@ -24,11 +24,10 @@ async def register(
     req: MinerRegister,
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    miner_id: Annotated[str, Depends(get_miner_id())],
-    api_key: Annotated[str, Depends(require_miner_key())],
+    user: MinerDep,
 ) -> dict[str, Any]:
     service = MinerService(session)
-    record = service.register(miner_id, req)
+    record = service.register(user["sub"], req)
     return {"status": "ok", "session_token": record.session_token}
 
 
@@ -38,11 +37,10 @@ async def heartbeat(
     req: MinerHeartbeat,
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    miner_id: Annotated[str, Depends(get_miner_id())],
-    api_key: Annotated[str, Depends(require_miner_key())],
+    user: MinerDep,
 ) -> dict[str, str]:
     try:
-        MinerService(session).heartbeat(miner_id, req)
+        MinerService(session).heartbeat(user["sub"], req)
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not registered") from None
     return {"status": "ok"}
@@ -54,10 +52,9 @@ async def poll(
     request: Request,
     req: PollRequest,
     session: Annotated[Session, Depends(get_session)],
-    api_key: Annotated[str, Depends(require_miner_key())],
-    miner_id: Annotated[str, Depends(get_miner_id())],
+    user: MinerDep,
 ) -> AssignedJob | Response:
-    job = MinerService(session).poll(miner_id, req.max_wait_seconds)
+    job = MinerService(session).poll(user["sub"], req.max_wait_seconds)
     if job is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     return job  # type: ignore[no-any-return]
@@ -70,7 +67,7 @@ async def submit_result(
     job_id: str,
     req: JobResultSubmit,
     session: Annotated[Session, Depends(get_session)],
-    miner_id: Annotated[str, Depends(get_miner_id())],
+    user: MinerDep,
 ) -> dict[str, Any]:
     job_service = JobService(session)
     miner_service = MinerService(session)
@@ -89,7 +86,7 @@ async def submit_result(
         requested_at = job.requested_at if job.requested_at.tzinfo else job.requested_at.replace(tzinfo=UTC)
         duration_ms = int((now - requested_at).total_seconds() * 1000)
         metrics["duration_ms"] = duration_ms
-    receipt = receipt_service.create_receipt(job, miner_id, req.result, metrics)
+    receipt = receipt_service.create_receipt(job, user["sub"], req.result, metrics)
     job.receipt = receipt
     job.receipt_id = receipt["receipt_id"] if receipt else None
     session.add(job)
@@ -106,7 +103,7 @@ async def submit_result(
         else:
             logger.error("Failed to auto-release payment %s for job %s", job.payment_id, job.id)
     miner_service.release(
-        miner_id, success=True, duration_ms=duration_ms, receipt_id=receipt["receipt_id"] if receipt else None
+        user["sub"], success=True, duration_ms=duration_ms, receipt_id=receipt["receipt_id"] if receipt else None
     )
     return {"status": "ok", "receipt": receipt}
 
@@ -118,11 +115,11 @@ async def submit_failure(
     job_id: str,
     req: JobFailSubmit,
     session: Annotated[Session, Depends(get_session)],
-    miner_id: Annotated[str, Depends(get_miner_id())],
+    user: MinerDep,
 ) -> dict[str, str]:
     try:
         service = JobService(session)
-        service.fail_job(job_id, miner_id, req.error_message)
+        service.fail_job(job_id, user["sub"], req.error_message)
         return {"status": "ok"}
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
@@ -134,7 +131,7 @@ async def list_miner_jobs(
     request: Request,
     miner_id: str,
     session: Annotated[Session, Depends(get_session)],
-    api_key: Annotated[str, Depends(require_miner_key())],
+    user: MinerDep,
     limit: int = 20,
     offset: int = 0,
     job_type: str | None = None,
@@ -171,7 +168,7 @@ async def get_miner_earnings(
     request: Request,
     miner_id: str,
     session: Annotated[Session, Depends(get_session)],
-    api_key: Annotated[str, Depends(require_miner_key())],
+    user: MinerDep,
     from_time: str | None = None,
     to_time: str | None = None,
 ) -> dict[str, Any]:
@@ -207,12 +204,12 @@ async def update_miner_capabilities(
     miner_id: str,
     req: MinerRegister,
     session: Annotated[Session, Depends(get_session)],
-    api_key: Annotated[str, Depends(require_miner_key())],
+    user: MinerDep,
 ) -> dict[str, Any]:
     """Update capabilities for a registered miner"""
     try:
         service = MinerService(session)
-        record = service.register(miner_id, req)
+        record = service.register(user["sub"], req)
         return {
             "miner_id": miner_id,
             "status": "updated",
@@ -232,7 +229,7 @@ async def deregister_miner(
     request: Request,
     miner_id: str,
     session: Annotated[Session, Depends(get_session)],
-    api_key: Annotated[str, Depends(require_miner_key())],
+    user: MinerDep,
 ) -> dict[str, str]:
     """Deregister a miner from the coordinator"""
     try:
@@ -254,7 +251,7 @@ async def fail_job(
     job_id: str,
     fail_req: JobFailSubmit,
     session: Annotated[Session, Depends(get_session)],
-    api_key: Annotated[str, Depends(require_miner_key())],
+    user: MinerDep,
 ) -> dict[str, str]:
     """Report job failure"""
     try:
@@ -285,7 +282,7 @@ async def complete_job(
     job_id: str,
     complete_req: CompleteJobRequest,
     session: Annotated[Session, Depends(get_session)],
-    api_key: Annotated[str, Depends(require_miner_key())],
+    user: MinerDep,
 ) -> dict[str, Any]:
     """
     Complete a job by submitting execution results.
