@@ -358,3 +358,12 @@ codeql-db/
 # Poetry lock files (coordinator-api uses local poetry)
 apps/coordinator-api/poetry.lock
 contracts/governance/lib/
+
+# ===================
+# Deployment: Docker-free project
+# ===================
+# AITBC deploys exclusively via systemd
+# Docker and containerization are not supported
+Dockerfile
+docker-compose.yml
+.dockerignore
