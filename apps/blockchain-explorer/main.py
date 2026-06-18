@@ -5,6 +5,7 @@ Agent-first API for blockchain data access
 """
 
 import csv
+import hashlib
 import io
 import json
 import os
@@ -29,7 +30,7 @@ except ImportError:
 app = FastAPI(title="AITBC Blockchain Explorer API", version="2.0.0")
 
 # Validation patterns for user inputs to prevent SSRF
-TX_HASH_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")  # 64-character hex string for transaction hash
+TX_HASH_PATTERN = re.compile(r"^(0x)?[a-fA-F0-9]{64}$")  # 64-character hex string, optional 0x prefix
 CHAIN_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]{3,100}$")  # Chain ID pattern (allows dots)
 
 
@@ -40,7 +41,7 @@ def validate_tx_hash(tx_hash: str) -> bool:
     # Check for path traversal or URL manipulation
     if any(char in tx_hash for char in ["/", "\\", "..", "\n", "\r", "\t", "?", "&"]):
         return False
-    # Validate against hash pattern
+    # Validate against hash pattern (allows optional 0x prefix)
     return bool(TX_HASH_PATTERN.match(tx_hash))
 
 
@@ -65,16 +66,6 @@ def list_chains() -> dict[str, Any]:
             {"id": "ait-mainnet", "name": "AIT Main Network", "status": "coming_soon"},
         ]
     }
-
-
-# Configuration - Multi-chain support
-chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
-BLOCKCHAIN_RPC_URLS = {
-    chain_id: "http://localhost:8202",
-    "ait-mainnet": "http://aitbc.keisanki.net:8082",
-}
-DEFAULT_CHAIN = chain_id
-EXTERNAL_RPC_URL = "http://aitbc.keisanki.net:8082"  # External access
 
 
 # Configuration - Multi-chain support
@@ -114,6 +105,16 @@ class AnalyticsRequest(BaseModel):
     metrics: list[str] = Field(default_factory=list)
 
 
+def normalize_block(data: dict[str, Any]) -> dict[str, Any]:
+    """Normalize block data from RPC to explorer format"""
+    if not data:
+        return {}
+    # Map proposer -> validator for UI consistency
+    if "proposer" in data and "validator" not in data:
+        data["validator"] = data["proposer"]
+    return data
+
+
 async def get_chain_head(chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
     """Get chain head from specified chain"""
     try:
@@ -121,7 +122,7 @@ async def get_chain_head(chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
             if response.status_code == 200:
-                return response.json()  # type: ignore[no-any-return]
+                return normalize_block(response.json())  # type: ignore[no-any-return]
     except Exception as e:
         print(f"Error getting chain head for {chain_id}: {e}")
     return {}
@@ -144,20 +145,19 @@ async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> dict[s
 
 
 async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
-    """Get a specific block by height from specified chain"""
+    """Get a specific block by height from specified chain using real blockchain DB"""
     if not validate_chain_id(chain_id):
         print("Invalid chain_id format")
         return {}
     try:
         rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
-        # Since blockchain RPC doesn't have historical block endpoint, return current block
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
+            response = await client.get(f"{rpc_url}/rpc/blocks/{height}", params={"chain_id": chain_id, "include_tx": "false"})
             if response.status_code == 200:
-                data = response.json()
-                # Add the requested height to the response so the UI shows what was searched
-                data["searched_height"] = height
-                return data  # type: ignore[no-any-return]
+                return normalize_block(response.json())  # type: ignore[no-any-return]
+            elif response.status_code == 404:
+                # Block not found - return empty (will be handled by caller)
+                return {}
     except Exception as e:
         print(f"Error getting block {height} for {chain_id}: {e}")
     return {}
@@ -181,16 +181,38 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
     """API endpoint for block by hash"""
     if not validate_tx_hash(hash):
         return {}
+    # Strip 0x prefix for comparison
+    clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
-        # Since blockchain RPC doesn't have block-by-hash endpoint, return current block if hash matches
         rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+        
+        # Get current head to determine height range
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
-            if response.status_code == 200:
-                data = response.json()
-                current_hash = data.get("hash", "")
-                if current_hash.lower() == hash.lower():
-                    return data
+            head_response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
+            if head_response.status_code == 200:
+                head = head_response.json()
+                current_hash = head.get("hash", "")
+                clean_current_hash = current_hash[2:] if current_hash.startswith("0x") else current_hash
+                if clean_current_hash and clean_current_hash.lower() == clean_hash.lower():
+                    return normalize_block(head)
+                
+                # Search through recent blocks using blocks-range
+                current_height = head.get("height", 0)
+                if current_height > 0:
+                    start_height = max(1, current_height - 99)
+                    range_response = await client.get(
+                        f"{rpc_url}/rpc/blocks-range",
+                        params={"start": start_height, "end": current_height, "include_tx": "false", "chain_id": chain_id}
+                    )
+                    if range_response.status_code == 200:
+                        range_data = range_response.json()
+                        blocks = range_data.get("blocks", [])
+                        for block in blocks:
+                            block_hash = block.get("hash", "")
+                            clean_block_hash = block_hash[2:] if block_hash.startswith("0x") else block_hash
+                            if clean_block_hash and clean_block_hash.lower() == clean_hash.lower():
+                                return normalize_block(block)
+        
         return {}
     except Exception as e:
         print(f"Error getting block by hash {hash}: {e}")
@@ -470,46 +492,37 @@ async def export_blocks(format: str = "csv") -> StreamingResponse:
 
 # Helper functions
 async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN) -> list[dict[str, Any]]:
-    """Get latest blocks"""
+    """Get latest blocks from blockchain DB via RPC"""
     try:
         rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
-        blocks = []
-        
-        # Try to get current block first
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
-            if response.status_code == 200:
-                head = response.json()
+            # Get current head to know the height
+            head_response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
+            if head_response.status_code == 200:
+                head = head_response.json()
                 current_height = head.get("height", 0)
-                current_timestamp = head.get("timestamp", datetime.now().isoformat())
+                if current_height == 0:
+                    return []
                 
-                # Since we can't get historical blocks, return the current block
-                # with different timestamps for each "block" to simulate history
-                for i in range(limit):
-                    # Parse the timestamp and subtract time for each block
-                    try:
-                        if isinstance(current_timestamp, str):
-                            base_time = datetime.fromisoformat(current_timestamp.replace('Z', '+00:00'))
-                        else:
-                            base_time = datetime.now()
-                        
-                        # Subtract 1 minute for each historical block
-                        block_time = base_time - timedelta(minutes=i)
-                        block_timestamp = block_time.isoformat()
-                    except:
-                        block_timestamp = datetime.now().isoformat()
-                    
-                    blocks.append({
-                        "height": current_height - i,
-                        "hash": head.get("hash", "") if i == 0 else f"0x{'1234567890abcdef' * 4}",
-                        "validator": "unknown",
-                        "tx_count": head.get("tx_count", 0) if i == 0 else 0,
-                        "timestamp": block_timestamp,
-                    })
-                
-                return blocks
-            else:
-                return []
+                # Fetch real blocks from blockchain DB via blocks-range
+                start_height = max(1, current_height - limit + 1)
+                range_response = await client.get(
+                    f"{rpc_url}/rpc/blocks-range",
+                    params={
+                        "start": start_height,
+                        "end": current_height,
+                        "include_tx": "false",
+                        "chain_id": chain_id,
+                    }
+                )
+                if range_response.status_code == 200:
+                    range_data = range_response.json()
+                    blocks = range_data.get("blocks", [])
+                    # Normalize and reverse to show newest first
+                    blocks = [normalize_block(b) for b in blocks]
+                    blocks.reverse()
+                    return blocks
+        return []
     except Exception as e:
         print(f"Error getting latest blocks: {e}")
         return []
