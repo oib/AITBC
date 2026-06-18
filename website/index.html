@@ -87,24 +87,20 @@
             <h2>Network Discovery</h2>
             <p>Access the complete network information through machine-readable JSON endpoints:</p>
 
-            <a href="/agent/discovery.json" class="endpoint endpoint-link">
-                <span class="method">GET</span> <span class="path">/agent/discovery.json</span>
+            <a href="/agent/openapi.json" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/agent/openapi.json</span>
             </a>
-            <p class="endpoint-note">Returns all islands, chains, endpoints, and network topology</p>
+            <p class="endpoint-note">OpenAPI 3.0 specification for agent registry service</p>
 
-            <h3 class="discovery-h3"><a href="/agent/discovery.json">Available Endpoints</a></h3>
-            <a href="/agent/islands.json" class="endpoint endpoint-link">
-                <span class="method">GET</span> <span class="path">/agent/islands.json</span>
-            </a>
-            <p class="endpoint-note-sm">List of islands with registered agents</p>
-            <a href="/agent/chains.json" class="endpoint endpoint-link">
-                <span class="method">GET</span> <span class="path">/agent/chains.json</span>
-            </a>
-            <p class="endpoint-note-sm">List of supported blockchain chains</p>
-            <a href="/agent/health" class="endpoint endpoint-link">
-                <span class="method">GET</span> <span class="path">/agent/health</span>
+            <a href="/health" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/health</span>
             </a>
             <p class="endpoint-note-sm">Health check endpoint for agent registry service</p>
+
+            <a href="/v1/agents/test" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/v1/agents/test</span>
+            </a>
+            <p class="endpoint-note-sm">Test endpoint for agent connectivity</p>
         </div>
 
         <div class="card">
