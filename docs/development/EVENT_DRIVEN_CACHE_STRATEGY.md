@@ -167,8 +167,8 @@ booking = BookingInfo(
     booking_id="booking_456",
     gpu_id="gpu_123",
     user_id="user_789",
-    start_time=datetime.utcnow(),
-    end_time=datetime.utcnow() + timedelta(hours=2),
+    start_time=datetime.now(UTC),
+    end_time=datetime.now(UTC) + timedelta(hours=2),
     status="active",
     total_cost=0.2
 )
