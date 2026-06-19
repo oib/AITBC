@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # AITBC Complete Multi-Node Workflow Script
 # Runs the entire multi-node blockchain setup with error handling
 

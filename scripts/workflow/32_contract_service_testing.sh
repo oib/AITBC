@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Smart Contract Testing & Service Integration
 # Tests and debugs smart contract deployment, execution, and service interactions

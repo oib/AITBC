@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Contract Integration Testing Suite
 # Comprehensive testing and debugging of contract-service interactions

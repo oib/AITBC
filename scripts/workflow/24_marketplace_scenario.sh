@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Marketplace Scenario Test
 # Complete marketplace workflow: software offer, job execution, escrow, payment

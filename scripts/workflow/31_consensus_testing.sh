@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Cross-Node Consensus Testing
 # Tests and debugs consensus mechanisms between nodes

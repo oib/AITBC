@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Contract Data Analytics & Reporting
 # Comprehensive data analysis and reporting for contract operations and service metrics

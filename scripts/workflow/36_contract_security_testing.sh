@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Contract Security & Vulnerability Testing
 # Comprehensive security analysis for smart contracts and service interactions

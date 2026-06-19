@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Operations Automation Script
 # Handles routine operations, monitoring, and maintenance

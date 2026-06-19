@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Performance Tuning Script - DISABLED
 # This script has been disabled to prevent system modifications

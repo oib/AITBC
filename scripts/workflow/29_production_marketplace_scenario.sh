@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Production Marketplace Scenario - Real AI Integration
 # No simulated responses - actual AI service integration

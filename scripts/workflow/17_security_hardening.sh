@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Security Hardening Script for AITBC Production
 # This script implements security best practices for the blockchain network
 
-set -e  # Exit on any error
+set -euo pipefail
 
 
 # Source scenario configuration

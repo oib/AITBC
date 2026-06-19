@@ -8,6 +8,7 @@ from collections.abc import Callable
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+
 from .factories import MockFactory
 
 logger = get_logger(__name__)

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # AITBC Enterprise Automation Script
 # This script demonstrates advanced enterprise features
 

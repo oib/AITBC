@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Messaging Contract Deployment
 # Deploy and initialize the agent messaging contract on the blockchain

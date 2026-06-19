@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Production Readiness Checklist
 # Validates production readiness across all system components

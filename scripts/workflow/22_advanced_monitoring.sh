@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Basic Monitoring Setup
 # Creates simple monitoring without Grafana/Prometheus

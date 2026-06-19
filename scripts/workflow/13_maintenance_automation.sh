@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # AITBC Maintenance Automation Script
 # Handles environment cleanup, configuration verification, and code synchronization
 

@@ -5,12 +5,10 @@ Agent-first API for blockchain data access
 """
 
 import csv
-import hashlib
 import io
 import json
 import os
 import re
-from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
@@ -185,7 +183,7 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
         rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
-        
+
         # Get current head to determine height range
         async with httpx.AsyncClient() as client:
             head_response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
@@ -195,14 +193,14 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
                 clean_current_hash = current_hash[2:] if current_hash.startswith("0x") else current_hash
                 if clean_current_hash and clean_current_hash.lower() == clean_hash.lower():
                     return normalize_block(head)
-                
+
                 # Search through recent blocks using blocks-range
                 current_height = head.get("height", 0)
                 if current_height > 0:
                     start_height = max(1, current_height - 99)
                     range_response = await client.get(
                         f"{rpc_url}/rpc/blocks-range",
-                        params={"start": start_height, "end": current_height, "include_tx": "false", "chain_id": chain_id}
+                        params={"start": start_height, "end": current_height, "include_tx": "false", "chain_id": chain_id},
                     )
                     if range_response.status_code == 200:
                         range_data = range_response.json()
@@ -212,7 +210,7 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
                             clean_block_hash = block_hash[2:] if block_hash.startswith("0x") else block_hash
                             if clean_block_hash and clean_block_hash.lower() == clean_hash.lower():
                                 return normalize_block(block)
-        
+
         return {}
     except Exception as e:
         print(f"Error getting block by hash {hash}: {e}")
@@ -503,7 +501,7 @@ async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN) -> l
                 current_height = head.get("height", 0)
                 if current_height == 0:
                     return []
-                
+
                 # Fetch real blocks from blockchain DB via blocks-range
                 start_height = max(1, current_height - limit + 1)
                 range_response = await client.get(
@@ -513,7 +511,7 @@ async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN) -> l
                         "end": current_height,
                         "include_tx": "false",
                         "chain_id": chain_id,
-                    }
+                    },
                 )
                 if range_response.status_code == 200:
                     range_data = range_response.json()

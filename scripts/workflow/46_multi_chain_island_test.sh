@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Multi-Chain Island Architecture Test Script
 # Tests the multi-chain island architecture with gossip-based synchronization

@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Master AITBC Multi-Node Blockchain Setup Script
 # This script orchestrates the complete multi-node blockchain setup
 
-set -e  # Exit on any error
+set -euo pipefail
 
 
 # Source scenario configuration

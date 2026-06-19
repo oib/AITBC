@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Maintenance Automation Script
 # Automates weekly maintenance tasks

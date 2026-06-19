@@ -5,7 +5,6 @@ Provides mock factories and test data generators
 
 import secrets
 import uuid
-from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 

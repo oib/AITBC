@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Production Deployment Workflow
 # Optimized production deployment with all features

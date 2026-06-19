@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Complete System Optimization Workflow
 # Optimized workflow for multi-node blockchain setup with all features

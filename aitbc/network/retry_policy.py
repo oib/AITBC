@@ -4,7 +4,8 @@ Retry policy with exponential backoff for HTTP client
 
 import asyncio
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from ..aitbc_logging import get_logger
 from ..exceptions import RetryError
