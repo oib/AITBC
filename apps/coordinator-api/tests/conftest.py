@@ -7,6 +7,8 @@ import pytest
 
 # Set up test environment
 os.environ["TEST_MODE"] = "true"
+os.environ["DEBUG"] = "true"  # Enable debug mode for mock endpoints
+os.environ["ENABLE_MOCK_TRAINING"] = "true"  # Enable mock training endpoints
 project_root = Path(__file__).resolve().parent.parent.parent
 os.environ["AUDIT_LOG_DIR"] = str(project_root / "logs" / "audit")
 os.environ["TEST_DATABASE_URL"] = "sqlite:///:memory:"

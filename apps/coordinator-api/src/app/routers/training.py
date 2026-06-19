@@ -31,70 +31,66 @@ else:
     _state = RedisStateManager.get_instance_sync()
     _NAMESPACE = "training"
 
+    class CreateTrainingRequest(BaseModel):
+        """Request to create training job"""
 
-class CreateTrainingRequest(BaseModel):
-    """Request to create training job"""
+        model_type: str = Field(..., min_length=1, max_length=50, description="Type of model: llm, vision, audio, etc.")
+        dataset_id: str = Field(..., min_length=1)
+        hyperparameters: dict[str, Any] | None = None
+        epochs: int = Field(default=10, ge=1, le=1000)
+        gpu_count: int = Field(default=1, ge=0, le=8)
+        memory_gb: int = Field(default=16, ge=4, le=128)
 
-    model_type: str = Field(..., min_length=1, max_length=50, description="Type of model: llm, vision, audio, etc.")
-    dataset_id: str = Field(..., min_length=1)
-    hyperparameters: dict[str, Any] | None = None
-    epochs: int = Field(default=10, ge=1, le=1000)
-    gpu_count: int = Field(default=1, ge=0, le=8)
-    memory_gb: int = Field(default=16, ge=4, le=128)
+        @field_validator("model_type")
+        @classmethod
+        def validate_model_type(cls, v: str) -> str:
+            valid_types = {"llm", "vision", "audio", "multimodal", "reinforcement"}
+            if v.lower() not in valid_types:
+                raise ValueError(f"model_type must be one of: {', '.join(valid_types)}")
+            return v.lower()
 
-    @field_validator("model_type")
-    @classmethod
-    def validate_model_type(cls, v: str) -> str:
-        valid_types = {"llm", "vision", "audio", "multimodal", "reinforcement"}
-        if v.lower() not in valid_types:
-            raise ValueError(f"model_type must be one of: {', '.join(valid_types)}")
-        return v.lower()
+    class UpdateProgressRequest(BaseModel):
+        """Request to update training progress"""
 
+        job_id: str
+        epoch: int
+        step: int
+        loss: float
+        accuracy: float
+        validation_loss: float = 0.0
 
-class UpdateProgressRequest(BaseModel):
-    """Request to update training progress"""
+    class CompleteTrainingRequest(BaseModel):
+        """Request to complete training"""
 
-    job_id: str
-    epoch: int
-    step: int
-    loss: float
-    accuracy: float
-    validation_loss: float = 0.0
+        job_id: str
+        final_accuracy: float
+        final_loss: float
+        model_path: str
 
+    @router.post("/jobs")
+    async def create_training_job(request: Request, req: CreateTrainingRequest) -> dict[str, Any]:
+        """Create a new training job"""
+        job_counter = await _state.incr(_NAMESPACE, "counter")
+        job_id = f"job_{job_counter}"
 
-class CompleteTrainingRequest(BaseModel):
-    """Request to complete training"""
+        job = {
+            "job_id": job_id,
+            "model_type": req.model_type,
+            "dataset_id": req.dataset_id,
+            "hyperparameters": req.hyperparameters or {},
+            "epochs": req.epochs,
+            "gpu_count": req.gpu_count,
+            "memory_gb": req.memory_gb,
+            "status": "pending",
+            "current_epoch": 0,
+            "current_step": 0,
+            "loss": 0.0,
+            "accuracy": 0.0,
+            "created_at": datetime.now(UTC).isoformat(),
+        }
 
-    job_id: str
-    final_accuracy: float
-    final_loss: float
-    model_path: str
-
-
-@router.post("/jobs")
-async def create_training_job(request: Request, req: CreateTrainingRequest) -> dict[str, Any]:
-    """Create a new training job"""
-    job_counter = await _state.incr(_NAMESPACE, "counter")
-    job_id = f"job_{job_counter}"
-
-    job = {
-        "job_id": job_id,
-        "model_type": req.model_type,
-        "dataset_id": req.dataset_id,
-        "hyperparameters": req.hyperparameters or {},
-        "epochs": req.epochs,
-        "gpu_count": req.gpu_count,
-        "memory_gb": req.memory_gb,
-        "status": "pending",
-        "current_epoch": 0,
-        "current_step": 0,
-        "loss": 0.0,
-        "accuracy": 0.0,
-        "created_at": datetime.now(UTC).isoformat(),
-    }
-
-    await _state.hset(_NAMESPACE, job_id, job)
-    return {"job_id": job_id, "status": "created"}
+        await _state.hset(_NAMESPACE, job_id, job)
+        return {"job_id": job_id, "status": "created"}
 
 
 @router.get("/jobs/{job_id}")

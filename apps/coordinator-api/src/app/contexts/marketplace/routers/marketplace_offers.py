@@ -2,6 +2,7 @@
 
 from typing import Annotated, Any
 
+from aitbc_shared import MarketplaceOffer
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
@@ -11,7 +12,6 @@ from ....auth import AdminDep
 from ....domain import Miner
 from ....schemas import MarketplaceOfferView
 from ....storage import get_session
-from ..domain.marketplace import MarketplaceOffer
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["marketplace-offers"])
