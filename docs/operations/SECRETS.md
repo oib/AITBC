@@ -64,6 +64,8 @@ This document catalogs all secrets and sensitive configuration in the AITBC mono
 
 **Fix applied**: Removed `print()` statements for private key and password. Script now only prints the address, public key, file paths, and a security warning. Secrets are already written to files (keystore_path and password_path with mode 0600).
 
+**Additional fix**: Also removed secret printing from `apps/blockchain-node/scripts/unified_genesis.py` (lines 269-270, 319) which was printing private key and password values.
+
 ---
 
 ### 5. GOOD PRACTICES (Maintain)
