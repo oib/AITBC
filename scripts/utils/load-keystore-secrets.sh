@@ -11,8 +11,15 @@ AUDIT_LOG="/var/log/aitbc/secrets-audit.log"
 ENCRYPTION_KEY_FILE="/etc/aitbc/credentials/encryption_key"
 
 # Create runtime directory (tmpfs, cleared on reboot)
-mkdir -p "$RUN_DIR"
-chmod 700 "$RUN_DIR"
+# Note: May fail on read-only filesystems, continue if directory exists
+mkdir -p "$RUN_DIR" || {
+    if [ ! -d "$RUN_DIR" ]; then
+        echo "Error: Cannot create secrets directory $RUN_DIR"
+        exit 1
+    fi
+}
+# Skip chmod on read-only filesystems (common in containers)
+chmod 700 "$RUN_DIR" 2>/dev/null || true
 
 # Create audit log directory
 mkdir -p "$(dirname "$AUDIT_LOG")"
@@ -106,6 +113,6 @@ if [ -f "/etc/aitbc/blockchain.env" ]; then
     grep -v '^#' /etc/aitbc/blockchain.env | grep -v 'API_KEY_HASH_SECRET' | grep -v 'proposer_id' >> "$ENV_FILE" || true
 fi
 
-chmod 600 "$ENV_FILE"
+chmod 600 "$ENV_FILE" 2>/dev/null || true
 
 log_audit "COMPLETE" "secrets_loaded_to_$ENV_FILE"
