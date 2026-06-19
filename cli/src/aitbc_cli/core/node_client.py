@@ -6,9 +6,9 @@ import os
 from typing import Any
 
 import httpx
+from aitbc.models.chain import ChainInfo, ChainStatus, ChainType, ConsensusAlgorithm
 
 from aitbc import get_logger
-from aitbc.models.chain import ChainInfo, ChainStatus, ChainType, ConsensusAlgorithm
 
 from .config import NodeConfig
 
