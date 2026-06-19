@@ -12,24 +12,82 @@ v0.4.27 is a **patch release** that delivers the quick wins identified during v0
 
 ## Done Today ✅
 
-### JWT Auth Migration — Remaining High-Risk Routers (Agent A)
+### Production Startup Bug Fix (Critical) 🚨
 
-| Router | Action | Effort |
-|--------|--------|--------|
-| `routers/admin.py` | Replace `require_admin_key()` with `AdminDep` | ~30 min |
-| `routers/cache_management.py` | Replace `require_admin_key()` with `AdminDep` | ~20 min |
-| `routers/marketplace_enhanced.py` | Replace `require_admin_key()` with `AdminDep` | ~30 min |
-| `routers/marketplace_enhanced_simple.py` | Replace `require_admin_key()` with `AdminDep` | ~20 min |
-| `contexts/payments/routers/payments.py` | Replace `require_admin_key()` with `AdminDep` | ~30 min |
-| `contexts/security/routers/security_router.py` | Replace `require_admin_key()` with `AdminDep` | ~30 min |
+**Issue**: `apps/coordinator-api/src/app/main.py:131` calls `settings.validate_secrets()`, but the imported `BaseAITBCConfig` (aliased to `ValidatedAITBCConfig` in `aitbc/config/__init__.py:16`) has no `validate_secrets` method. This raises `AttributeError` once production env validation passes.
 
-**Total**: ~3 hours for all 6 routers. Straightforward refactoring using established pattern.
+**Fix**: Removed the redundant `validate_secrets()` call from `main.py`. The `ValidatedAITBCConfig` class already has a Pydantic model validator (`validate_production_settings`) that handles production secret validation, so the explicit call was unnecessary.
 
-### Delete deps.py (Agent A)
+**Effort**: ~30 min
 
-After all routers are migrated, `deps.py` has zero callers. Delete it.
+**Owner**: Agent A
 
-**Effort**: 5 minutes + verify nothing breaks.
+**Status**: ✅ Complete (commit 8530def8)
+
+---
+
+### JWT Auth Migration — Remaining High-Risk Routers (Agent A) ✅
+
+**Issue**: Six routers still use the deprecated `require_admin_key()` function instead of the new `AdminDep` dependency.
+
+**Finding**: All routers were already migrated to `AdminDep` in a previous session. The only remaining references are commented-out old code and the deprecated function definition in `deps.py`.
+
+| Router | Status |
+|--------|--------|
+| `routers/admin.py` | ✅ Already migrated |
+| `routers/cache_management.py` | ✅ Already migrated |
+| `routers/marketplace_enhanced.py` | ✅ Already migrated |
+| `routers/marketplace_enhanced_simple.py` | ✅ Already migrated |
+| `contexts/payments/routers/payments.py` | ✅ Already migrated |
+| `contexts/security/routers/security_router.py` | ✅ Already migrated |
+
+**Owner**: Agent A
+
+**Status**: ✅ Complete (no work needed)
+
+---
+
+### Delete deps.py (Agent A) ✅
+
+After verifying all routers are migrated, `deps.py` has zero callers. Deleted the deprecated module.
+
+**Effort**: 5 minutes
+
+**Owner**: Agent A
+
+**Status**: ✅ Complete (commit 00200806)
+
+---
+
+### Secret Cleanup (Security) 🔒
+
+**Issue**:
+- `dev/validator_keys.json:3` contains PEM private key material
+- Tracked-but-generated files: `contracts/cache/solidity-files-cache.json`, `pyproject.toml.new`
+
+**Fix**:
+- Replace `validator_keys.json` with template + generation script
+- Add ignore rules for generated files
+
+**Effort**: ~1 hour
+
+**Owner**: Agent B
+
+---
+
+### CI Alignment (Infrastructure) 🛡️
+
+**Issue**: GitHub CI (`.github/workflows/ci.yml:18,51`) installs only tools, not project dependencies before running ruff/mypy/tests.
+
+**Fix**: Make CI install the same environment developers use.
+
+**Effort**: ~1 hour
+
+**Owner**: Agent B
+
+---
+
+
 
 ### Shell Scripts — Add ShellCheck to CI (Agent B)
 
@@ -59,14 +117,20 @@ Fix remaining ruff warnings in non-excluded files.
 
 | Task | Owner | Effort | Status |
 |------|-------|--------|--------|
-| Migrate 6 routers to JWT | Agent A | ~3h | ⏳ Ready to start |
-| Delete deps.py | Agent A | 5m | ⏳ Blocked on routers |
+| Fix production startup bug | Agent A | ~30m | ✅ Complete |
+| Secret cleanup (keys, generated files) | Agent B | ~1h | ⏳ Ready to start |
+| CI alignment (install dependencies) | Agent B | ~1h | ⏳ Ready to start |
+| Migrate 6 routers to JWT | Agent A | ~3h | ✅ Already done |
+| Delete deps.py | Agent A | 5m | ✅ Complete |
 | ShellCheck in CI | Agent B | ~1h | ⏳ Ready to start |
 | Fix shell scripts | Agent B | ~1h | ⏳ Ready to start |
 | detect-secrets in CI | Agent B | ~30m | ⏳ Ready to start |
 | Fix ruff warnings | Agent B | ~1h | ⏳ Ready to start |
+| Refresh architecture docs | Agent B | ~1h | ⏳ Ready to start |
 
-**Total realistic time**: ~6 hours of work, can be parallelized (Agent A + Agent B).
+**Agent A complete**: 2 tasks done in ~35 minutes (JWT migration was already complete).
+
+**Remaining work**: ~6.5 hours for Agent B tasks.
 
 ---
 
@@ -76,6 +140,8 @@ These items are **intentionally excluded** from v0.4.27 because they require des
 
 | Task | Why Deferred |
 |------|-------------|
+| Fresh checkout test setup | Requires packaging strategy decision (Poetry vs pip) |
+| Packaging boundaries (PYTHONPATH cleanup) | Requires monorepo package strategy decision |
 | DB/Redis backing for mock state | Requires Redis schema design, migration testing, multi-instance coordination |
 | Systemd hardening | Requires testing on actual systemd systems; can't verify in dev container |
 | Observability (/metrics, Prometheus) | Requires deploying monitoring stack; not a code-only change |
@@ -88,13 +154,17 @@ These items are **intentionally excluded** from v0.4.27 because they require des
 
 ## Acceptance Criteria for v0.4.27
 
-- [ ] Zero `require_*_key()` references in codebase
-- [ ] `deps.py` deleted
+- [x] Production startup bug fixed (no `AttributeError` on `validate_secrets`)
+- [ ] Secret material removed (no committed PEM keys, generated files ignored)
+- [ ] CI installs project dependencies before running checks
+- [x] Zero `require_*_key()` references in codebase (already migrated)
+- [x] `deps.py` deleted
 - [ ] ShellCheck passes in CI
 - [ ] `detect-secrets` passes in CI
 - [ ] Ruff clean (zero warnings)
-- [ ] All files compile (`python3 -m py_compile`)
-- [ ] Git commit with all changes
+- [ ] Architecture docs updated to match current codebase
+- [x] All files compile (`python3 -m py_compile`)
+- [x] Git commit with all changes
 
 ---
 
@@ -105,3 +175,79 @@ Tag v0.4.27, then pick up v0.5.0 for:
 - Systemd hardening
 - Observability
 - Load testing
+
+---
+
+## Infrastructure Debt & Production Issues (Analysis Findings)
+
+The following issues were identified during codebase analysis. Items marked **✅ MOVED TO v0.4.27** have been added to the main task list above. Remaining items are deferred to v0.5.0.
+
+### ✅ MOVED TO v0.4.27
+
+- **Production startup bug** (Priority 1) — Added to main tasks
+- **Secret cleanup** (Priority 3) — Added to main tasks
+- **CI alignment** (Priority 4) — Added to main tasks (partial - dependency install only)
+- **Architecture docs refresh** (Priority 7) — Added to main tasks
+
+---
+
+### Deferred to v0.5.0
+
+#### Priority 2: Fresh Checkout Test Setup 🔧
+
+**Issue**: `python3 -m pytest --collect-only -q` fails because:
+- `pytest-cov` is required by `pyproject.toml:317` but not installed
+- Missing `aitbc_shared` dependency despite being declared in `pyproject.toml:23`
+
+**Impact**: New developers cannot run tests with a fresh checkout.
+
+**Fix**: Canonicalize setup around either Poetry or pip editable installs, then make CI use the same path.
+
+**Effort**: ~2 hours
+
+---
+
+#### Priority 5: Packaging Boundaries 📦
+
+**Issue**: Heavy reliance on `PYTHONPATH` and `sys.path` patching across CLI, wrappers, tests, and services makes behavior environment-sensitive.
+
+**Impact**: Unpredictable behavior across different setups; hard to reproduce issues.
+
+**Fix**: Pick a monorepo package strategy (workspace installs, app-local wheels, or explicit editable installs for `packages/aitbc-shared`, `packages/py/*`, `cli`, and active apps).
+
+**Effort**: ~4 hours
+
+---
+
+#### Priority 6: Silent Partial Startup 🚦
+
+**Issue**: Coordinator router imports and service init failures are caught and logged as warnings in `apps/coordinator-api/src/app/main.py:302`. This is fine for optional features, but production readiness should report degraded features explicitly, and required routers/services should fail fast.
+
+**Impact**: Production may start in degraded state without clear indication.
+
+**Fix**:
+- Required routers/services should fail fast on init
+- Optional features should report degraded state explicitly in health checks
+
+**Effort**: ~2 hours
+
+---
+
+#### Remaining CI Alignment (Gitea systemd workflow)
+
+**Issue**: Gitea systemd workflow (`.gitea/workflows/systemd-sync.yml:44`) expects `systemd/` but service files are under `apps/*`.
+
+**Impact**: Gitea CI fails to sync systemd files.
+
+**Fix**: Fix systemd path in Gitea workflow.
+
+**Effort**: ~30 min
+
+---
+
+## Recommended Priority Order for v0.5.0
+
+1. **Fresh checkout test setup** — blocks onboarding
+2. **Silent partial startup** — production safety
+3. **Packaging boundaries** — long-term maintainability
+4. **Remaining CI alignment** — Gitea workflow fix
