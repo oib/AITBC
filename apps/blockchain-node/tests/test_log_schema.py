@@ -33,9 +33,10 @@ def test_log_schema_enforcement():
 
         # In a real scenario, we would capture logs from the logging system
         # For this test, we validate the log format configuration
-        from aitbc_chain.config import settings
+        # Blockchain-node uses environment variable LOG_FORMAT for logging configuration
+        import os
 
-        assert settings.log_format == "json"
+        assert os.getenv("LOG_FORMAT") == "json"
 
 
 def test_log_schema_required_keys():
