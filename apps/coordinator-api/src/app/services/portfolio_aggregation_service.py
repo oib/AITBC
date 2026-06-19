@@ -7,9 +7,9 @@ import os
 from datetime import UTC, datetime
 from typing import Any
 
-import httpx
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.http_client import RequestIDPropagatingClient
 
 logger = get_logger(__name__)
 
@@ -24,7 +24,7 @@ class PortfolioAggregationService:
         self.trading_service_url = "http://localhost:8104"
         self.ai_service_url = "http://localhost:8005"
         verify_ssl = os.getenv("VERIFY_SSL", "true").lower() == "true"
-        self.http_client = httpx.AsyncClient(timeout=10.0, verify=verify_ssl)
+        self.http_client = RequestIDPropagatingClient(timeout=10.0, verify=verify_ssl)
 
     async def get_unified_portfolio(self, agent_address: str | None = None) -> dict[str, Any]:
         """
