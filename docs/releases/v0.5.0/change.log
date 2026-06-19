@@ -265,7 +265,7 @@ No centralized monitoring. Each service logs differently. No metrics exported.
 - [x] Structured JSON logging available (via LOG_FORMAT=json)
 - [x] Request ID / correlation ID tracking in place
 - [x] All services expose metrics (coordinator, blockchain, marketplace all have /metrics)
-- [ ] Grafana dashboard shows basic health (requires deployment)
+- [x] Grafana dashboard shows basic health (AITBC Health Dashboard with Service Status, Node CPU/Memory, Scrape Duration panels)
 - [x] JSON logging enabled for coordinator-api, blockchain-node, blockchain-p2p, marketplace (other services: text logging ready, JSON on demand)
 
 ---
