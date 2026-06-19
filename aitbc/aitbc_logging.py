@@ -20,9 +20,16 @@ class JournalFormatter(logging.Formatter):
     Produces clean output like:
         [INFO] [app.main] Starting Coordinator API
         [ERROR] [app.core.lifecycle] Database connection failed
+
+    Tracebacks are not included to avoid multi-line journal spam.
+    Use StructuredFormatter (file output) for full traceback capture.
     """
 
     def format(self, record: logging.LogRecord) -> str:
+        # Suppress raw traceback printing by clearing exc_info on the record
+        # The exception is already captured in the message via logger.exception()
+        record.exc_info = None
+        record.exc_text = None
         return f"[{record.levelname}] [{record.name}] {record.getMessage()}"
 
 

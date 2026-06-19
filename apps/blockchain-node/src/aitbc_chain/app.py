@@ -126,7 +126,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         default_chain_id = settings.supported_chains.split(",")[0].strip() if settings.supported_chains else "ait-mainnet"
         create_island_manager(node_id, default_island_id, default_chain_id)
     except Exception as e:
-        _app_logger.error("Failed to initialize island manager: %s", e, exc_info=True)
+        _app_logger.error("Failed to initialize island manager: %s", e)
 
     proposers = []
     block_production_override = _env_value(
@@ -181,7 +181,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         node_type = "hub" if settings.blockchain_mode == "hub" else "follower"
         _app_logger.info("Lease tracker started on %s node (RPC service)", node_type)
     except Exception as e:
-        _app_logger.error("Failed to start lease tracker in RPC service: %s", e, exc_info=True)
+        _app_logger.error("Failed to start lease tracker in RPC service: %s", e)
 
     try:
         yield
