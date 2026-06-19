@@ -11,8 +11,6 @@ Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/gpu/src:/opt/aitbc/packages/py/aitbc-core/src:$PYTHONPATH"
 # Config: DATABASE_URL moved to /etc/aitbc/%N.env (created at deploy time, not committed)
 EnvironmentFile=/etc/aitbc/%N.env
-# Network hardening (v0.5.1): Enforce localhost binding for internal service
-Environment=GPU_BIND_HOST=127.0.0.1
 ExecStart=/opt/aitbc/venv/bin/python -m gpu_service.main
 Restart=on-failure
 RestartSec=5
@@ -33,8 +31,6 @@ LockPersonality=yes
 MemoryDenyWriteExecute=yes
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
-# Network hardening (v0.5.1)
-IPDeny=any
 # Security hardening (v0.5.0)
 ProtectSystem=full
 ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
