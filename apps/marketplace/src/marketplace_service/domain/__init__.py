@@ -2,6 +2,7 @@
 Marketplace Service domain models
 """
 
+from aitbc_shared import MarketplaceOffer
 from .global_marketplace import (
     GlobalMarketplaceConfig,
     GlobalMarketplaceOffer,
@@ -10,7 +11,6 @@ from .global_marketplace import (
     MarketplaceStatus,
     RegionStatus,
 )
-from .marketplace import MarketplaceOffer
 
 __all__ = [
     "MarketplaceOffer",
