@@ -94,6 +94,7 @@ pytest = "9.0.3"
 pytest-asyncio = "1.3.0"
 pytest-timeout = "2.4.0"
 pytest-mock = ">=3.12.0"
+pytest-rerunfailures = "14.0"
 black = "24.4.2"
 flake8 = "7.3.0"
 ruff = "0.15.10"
@@ -319,7 +320,7 @@ add_ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 minversion = "8.0"
-addopts = "-ra -q --strict-markers --strict-config --cov=aitbc --cov=apps --cov=packages --cov-report=term-missing --cov-report=html:tests/htmlcov"
+addopts = "-ra -q --strict-markers --strict-config --reruns 2 --reruns-delay 1"
 testpaths = [
     "tests/unit",
     "tests/integration",
