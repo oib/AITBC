@@ -33,20 +33,26 @@ Mock routers still use module-global `dict()` for state. This was deferred in v0
 | Migrate training router to Redis | ✅ Complete | Agent B |
 | Migrate hermes router to Redis | ✅ Complete | Agent B |
 | Migrate swarm router to Redis | ✅ Complete | Agent B |
-| Add cache invalidation on state mutation | � Partial (clear_namespace method added) | Agent B |
-| Ensure `debug=false` disables mock state creation | 🟡 Partial | Agent B |
-| Migration script: migrate existing in-memory state | 🔴 Not started | TBD |
+| Add cache invalidation on state mutation | ✅ Complete (_invalidate_cache called on hset, hdel, lpush) | Agent B |
+| Ensure `debug=false` disables mock state creation | ✅ Complete (state only created inside `else` block of debug check) | Agent B |
+| Migration script: migrate existing in-memory state | ✅ Complete | Agent B |
 
 ### Implementation Details
 
 **New Files:**
-- `apps/coordinator-api/src/app/services/redis_state.py` — Async Redis state manager with in-memory fallback
+- `apps/coordinator-api/src/app/services/redis_state.py` — Async Redis state manager with in-memory fallback and automatic cache invalidation
+- `scripts/migration/migrate_mock_state_to_redis.py` — Migration script for transitioning from in-memory to Redis state
 
 **Updated Files:**
 - `apps/coordinator-api/src/app/config.py` — Added `RedisConfig` class with connection settings
 - `apps/coordinator-api/src/app/routers/training.py` — Migrated `_mock_jobs` dict to Redis hash
 - `apps/coordinator-api/src/app/routers/hermes.py` — Migrated `_mock_agents` and `_mock_messages` to Redis hash + list
 - `apps/coordinator-api/src/app/routers/swarm.py` — Migrated to Redis hash for nodes, tasks, and clusters
+
+**Features:**
+- Automatic cache invalidation on state mutations (hset, hdel, lpush)
+- Mock state only created when `debug=true` or explicit feature flags enabled
+- Graceful fallback to in-memory when Redis unavailable
 
 **Redis Schema:**
 | Namespace | Redis Type | Purpose |
@@ -186,10 +192,10 @@ Secrets are still scattered. Production needs unified management.
 | Audit all env vars for secret leakage | ✅ Complete | Agent B |
 | Add secret masking to all loggers | � Partial (identified issues) | Agent B |
 | Create `docs/operations/SECRETS.md` runbook | ✅ Complete | Agent B |
-| Fix plaintext passwords in service files | 🔴 Not started | Agent B |
-| Remove hardcoded default passwords from Python | 🔴 Not started | Agent B |
-| Remove default passwords from database URLs | 🔴 Not started | Agent B |
-| Standardize on `/etc/aitbc/%N.env` pattern | 🔴 Not started | DevOps |
+| Fix plaintext passwords in service files | ✅ Complete | Agent B |
+| Remove hardcoded default passwords from Python | ✅ Complete | Agent B |
+| Remove default passwords from database URLs | ✅ Complete | Agent B |
+| Standardize on `/etc/aitbc/%N.env` pattern | � Partial (2 services updated) | DevOps |
 
 ### Audit Findings
 
