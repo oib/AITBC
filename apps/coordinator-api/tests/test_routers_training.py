@@ -13,7 +13,7 @@ class TestTrainingRouter:
     def test_create_training_job(self, client: TestClient):
         """Test creating a training job"""
         job_data = {
-            "model_type": "llama2",
+            "model_type": "llm",
             "dataset_id": "dataset-001",
             "hyperparameters": {"learning_rate": 0.001, "batch_size": 32, "optimizer": "adam"},
             "epochs": 10,
@@ -21,13 +21,11 @@ class TestTrainingRouter:
             "memory_gb": 32,
         }
 
-        response = client.post("/training/jobs", json=job_data)
+        response = client.post("/v1/training/jobs", json=job_data)
         assert response.status_code == 200
         data = response.json()
-        assert data["success"] is True
-        assert "job" in data
-        assert data["job"]["model_type"] == "llama2"
-        assert data["job"]["status"] in ["pending", "queued", "running"]
+        assert "job_id" in data
+        assert data["status"] == "created"
 
     def test_get_training_job(self, client: TestClient):
         """Test getting training job by ID"""

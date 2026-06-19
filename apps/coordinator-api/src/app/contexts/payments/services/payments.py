@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from aitbc_shared import JobPayment, PaymentEscrow
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
@@ -15,7 +16,6 @@ from aitbc.network import AITBCHTTPClient
 
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
-from ..domain.payment import JobPayment, PaymentEscrow
 
 logger = get_logger(__name__)
 
