@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ...models.hermes import ErrorReportModel, HealthCheckModel, RecoveryResultModel
+from ....models.hermes import ErrorReportModel, HealthCheckModel, RecoveryResultModel
 from ....schemas.hermes_health import ErrorReport, HealthCheck, HealthStatus, RecoveryResult
 
 logger = get_logger(__name__)
