@@ -210,9 +210,12 @@ No centralized monitoring. Each service logs differently. No metrics exported.
 **JSON Logging Enabled:**
 - Added `Environment=LOG_FORMAT=json` to `aitbc-coordinator-api.service`
 - Coordinator API now logs in JSON format for structured log aggregation
+- Applied via `systemctl daemon-reload` and `systemctl restart aitbc-coordinator-api.service`
+- Verified via `systemctl show aitbc-coordinator-api.service --property=Environment`
 
 **Updated Files:**
 - `apps/coordinator-api/aitbc-coordinator-api.service` — Added LOG_FORMAT=json
+- Systemd runtime config updated via daemon-reload
 
 **Blockchain Node Metrics (Already Implemented):**
 - `/metrics` endpoint already exists in `apps/blockchain-node/src/aitbc_chain/app.py`
