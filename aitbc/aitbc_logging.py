@@ -18,43 +18,12 @@ class JournalFormatter(logging.Formatter):
     """Compact human-readable formatter for systemd journal output.
 
     Produces clean output like:
-        INFO [app.main] Starting Coordinator API
-        ERROR [app.core.lifecycle] Database connection failed
+        [INFO] [app.main] Starting Coordinator API
+        [ERROR] [app.core.lifecycle] Database connection failed
     """
 
     def format(self, record: logging.LogRecord) -> str:
-        return f"{record.levelname} [{record.name}] {record.getMessage()}"
-
-
-class BlockchainTextFormatter(logging.Formatter):
-    """Compact bracketed formatter that appends blockchain-specific extra fields."""
-
-    BLOCKCHAIN_FIELDS = (
-        "chain_id",
-        "supported_chains",
-        "height",
-        "hash",
-        "proposer",
-        "error",
-        "request_id",
-        "node_id",
-        "correlation_id",
-        "local_height",
-        "sync_mode",
-        "lease_remaining_seconds",
-        "imported",
-        "progress",
-        "gap",
-        "force_pull",
-        "reason",
-    )
-
-    def format(self, record: logging.LogRecord) -> str:
-        message = record.getMessage()
-        extra_fields = [f"{f}={getattr(record, f)}" for f in self.BLOCKCHAIN_FIELDS if hasattr(record, f)]
-        if extra_fields:
-            message = f"{message} [{', '.join(extra_fields)}]"
-        return f"[{record.levelname}] {message}"
+        return f"[{record.levelname}] [{record.name}] {record.getMessage()}"
 
 
 class StructuredFormatter(logging.Formatter):
@@ -181,17 +150,18 @@ def get_logger(name: str) -> logging.Logger:
 
 
 def get_blockchain_logger(name: str) -> logging.Logger:
-    """Get a logger with blockchain-specific extra field formatting."""
+    """Get a logger that reuses the shared AITBC log formatting."""
     logger = logging.getLogger(name)
-    if not logger.handlers:
-        level = _get_log_level()
-        logger.setLevel(level)
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(BlockchainTextFormatter())
-        logger.addHandler(handler)
-        # Prevent propagation to root logger to avoid duplicate logs
-        logger.propagate = False
+    logger.setLevel(_get_log_level())
     return logger
+
+
+def configure_uvicorn_logging() -> None:
+    """Make uvicorn loggers reuse the shared AITBC log format."""
+    for logger_name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+        logger = logging.getLogger(logger_name)
+        logger.propagate = True
+        logger.handlers = []
 
 
 def configure_logging(
@@ -201,6 +171,7 @@ def configure_logging(
     to_file: bool = False,
 ) -> None:
     """Configure root logging level and format"""
+    configure_uvicorn_logging()
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, level.upper()))
 
