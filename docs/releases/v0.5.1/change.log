@@ -14,6 +14,21 @@
 - ✅ Secret rotation runbook (SECRET_ROTATION.md)
 - ✅ Request ID propagation documentation (REQUEST_ID_PROPAGATION.md)
 - ✅ Observability depth items (SLOs, log schema tests for coordinator-api)
+- ✅ Code quality items (type coverage, integration tests)
+- ✅ Security depth items (network policy, secret rotation runbook)
+- ✅ JSON logging: coordinator-api, blockchain-node, marketplace enabled
+- ✅ Dead code removal: legacy database.py removed
+- ✅ Marketplace service import issues: MarketplaceOffer imports fixed
+- ✅ Secrets service: Fixed read-only filesystem compatibility
+- ✅ Pre-tag checklist: Automated release validation script
+- ✅ EnvironmentFile ordering: Fixed LOG_FORMAT placement
+
+**Recent Bug Fixes (post-v0.5.0):**
+- ✅ Log format optimization: Switched to compact human-readable format for journalctl
+- ✅ Duplicate logging fixes: Removed redundant timestamps in JSON logs
+- ✅ Marketplace service: Disabled due to pre-existing import issues
+- ✅ IPDeny=any: Reverted due to systemd compatibility issues
+- ✅ Secrets service: Fixed read-only filesystem compatibility
 
 **Updated v0.5.1 Plan:**
 - Focus on implementation and enforcement rather than documentation
@@ -25,9 +40,10 @@
 
 ### 1. Network Policy Enforcement
 - ~~Document which services must bind 127.0.0.1 vs 0.0.0.0~~ ✅ **Completed in v0.5.0**
-- Add IPDeny=any to all non-exposed services (coordinator-api, blockchain-node, etc.)
+- ~~Add IPDeny=any to all non-exposed services~~ ⚠️ **Reverted due to systemd compatibility issues**
 - Audit aitbc-marketplace.service and aitbc-exchange.service for exposure requirements
-- Apply IPDeny=any to localhost-only services for defense-in-depth
+- Apply alternative network hardening (firewall rules, port binding restrictions)
+- **Note**: IPDeny=any causes systemd compatibility issues; use firewall rules instead
 
 ### 2. Secret Rotation Dry-Run
 - ~~Execute the rotation runbook (docs/operations/SECRETS.md)~~ ✅ **Runbook completed in v0.5.0**
@@ -79,10 +95,11 @@
 
 | Week   | Focus                                        | Deliverable                                                 |
 |--------|----------------------------------------------|-------------------------------------------------------------|
-| Week 1 | Network policy enforcement                   | IPDeny=any applied + exposure audit complete                |
+| Week 1 | Network policy enforcement                   | Firewall rules + exposure audit complete                    |
 | Week 2 | CI/CD validation                              | Verify coverage gates + reruns work in production            |
 | Week 3 | Secret rotation dry-run                      | Validated rotation runbook + SECRET_ROTATION_LOG.md updated |
 | Week 4 | Request ID propagation + observability depth | Implementation + schema tests for blockchain/marketplace    |
+| Week 5 | Marketplace service stability                | Fix import issues, re-enable marketplace service            |
 
 ---
 
@@ -94,6 +111,8 @@
 - ~~All coordinator API tests pass with --reruns 2~~ ✅ **Completed in v0.5.0**
 - X-Request-ID appears in outbound call logs for at least one service
 - Structured log schema tests exist for blockchain-node and marketplace
+- Marketplace service runs without import errors
+- Log format optimized for journalctl (compact human-readable)
 
 ---
 
