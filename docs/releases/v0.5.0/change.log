@@ -221,8 +221,9 @@ Secrets are still scattered. Production needs unified management.
 - `apps/coordinator-api/migrations/003_data_migration.py:197` — default password in migration script
 
 **LOW:**
-- `apps/blockchain-node/scripts/create_genesis_wallet.py:91-92` — prints private key and password to stdout
-- `apps/blockchain-node/scripts/keystore.py:105-134` — prints keystore info to stdout
+- `apps/blockchain-node/scripts/create_genesis_wallet.py:91-92` — prints private key and password to stdout **✅ Fixed**
+- `apps/blockchain-node/scripts/unified_genesis.py:269-270,319` — prints private key and password to stdout **✅ Fixed**
+- `apps/blockchain-node/scripts/keystore.py:105-134` — prints keystore info to stdout (N/A - only prints file path)
 
 **GOOD PRACTICES (maintain):**
 - `EnvironmentFile=/run/aitbc/secrets/.env` used by blockchain-node and coordinator-api
