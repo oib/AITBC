@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # AITBC Production Ready Script
 # Complete production deployment and verification
 

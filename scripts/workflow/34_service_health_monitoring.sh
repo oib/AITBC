@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Service Health Monitoring & Alerting
 # Continuous monitoring of all blockchain services with alerting

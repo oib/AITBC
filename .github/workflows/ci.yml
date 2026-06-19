@@ -15,8 +15,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: pip install ruff
-      - run: ruff check .
+      - name: Install uv
+        run: pip install uv
+      - name: Install project dependencies
+        run: uv sync --dev
+      - run: uv run ruff check .
 
   format:
     name: Format Check
@@ -26,8 +29,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: pip install black
-      - run: black --check .
+      - name: Install uv
+        run: pip install uv
+      - name: Install project dependencies
+        run: uv sync --dev
+      - run: uv run black --check .
 
   typecheck:
     name: Type Check
@@ -37,8 +43,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: pip install mypy
-      - run: mypy aitbc/ cli/ --ignore-missing-imports
+      - name: Install uv
+        run: pip install uv
+      - name: Install project dependencies
+        run: uv sync --dev
+      - run: uv run mypy aitbc/ cli/ --ignore-missing-imports
 
   test:
     name: Test
@@ -48,8 +57,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: pip install pytest pytest-cov
-      - run: pytest --cov=aitbc --cov-report=xml -x
+      - name: Install uv
+        run: pip install uv
+      - name: Install project dependencies
+        run: uv sync --dev
+      - run: uv run pytest --cov=aitbc --cov-report=xml -x
 
   security:
     name: Security Scan
@@ -61,9 +73,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - name: Install uv
+        run: pip install uv
+      - name: Install project dependencies
+        run: uv sync --dev
       - run: pip install bandit semgrep trufflehog
-      - run: bandit -r aitbc/ apps/ cli/ -f json -o bandit-report.json
-      - run: semgrep --config=auto aitbc/ apps/ cli/ --json --output=semgrep-report.json
+      - run: uv run bandit -r aitbc/ apps/ cli/ -f json -o bandit-report.json
+      - run: uv run semgrep --config=auto aitbc/ apps/ cli/ --json --output=semgrep-report.json
       - run: trufflehog git --json --output trufflehog-report.json .
       - name: Check for secrets in code
         run: |
@@ -95,11 +111,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - name: Install uv
+        run: pip install uv
+      - name: Install project dependencies
+        run: uv sync --dev
       - run: pip install openapi-spec-validator
       - name: Validate coordinator-api OpenAPI spec
         run: |
           cd apps/coordinator-api
-          python -c "
+          uv run python -c "
           import sys
           sys.path.insert(0, 'src')
           from app.main import create_app
@@ -109,3 +129,36 @@ jobs:
           validate_spec(spec)
           print('OpenAPI spec is valid')
           "
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: |
+          wget -qO- "https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.linux.x86_64.tar.xz" | tar xJ
+          sudo mv shellcheck-stable/shellcheck /usr/bin/
+          shellcheck --version
+      - name: Run ShellCheck
+        run: |
+          shellcheck scripts/**/*.sh
+
+  detect-secrets:
+    name: Detect Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install detect-secrets
+        run: pip install detect-secrets
+      - name: Run detect-secrets
+        run: |
+          detect-secrets scan --baseline .secrets.baseline || true
+
+          # If no baseline exists, create one
+          if [ ! -f .secrets.baseline ]; then
+            detect-secrets scan > .secrets.baseline
+            echo "Created initial baseline"
+          else
+            detect-secrets scan --baseline .secrets.baseline
+          fi

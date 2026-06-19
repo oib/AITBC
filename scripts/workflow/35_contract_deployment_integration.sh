@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Contract Deployment & Service Integration Testing
 # End-to-end testing of contract deployment, execution, and service interactions

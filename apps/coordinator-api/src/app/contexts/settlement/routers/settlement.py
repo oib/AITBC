@@ -3,15 +3,16 @@ Settlement router for cross-chain settlements
 """
 
 import asyncio
-from typing import Annotated, Any
+from typing import Any
 
 from app.settlement.manager import BridgeManager  # type: ignore[import-not-found]
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import MinerDep  # NEW: JWT auth (miners handle settlements)
+
 # from ....auth import get_api_key  # OLD: API key auth (deprecated)
 
 router = APIRouter(prefix="/settlement", tags=["settlement"])
@@ -182,4 +183,3 @@ async def cancel_settlement(
 #    NEW: headers = {"Authorization": f"Bearer {token}"}
 #
 # ============================================================================
-

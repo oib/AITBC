@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Service Optimization Script for AITBC Production
 # This script optimizes systemd services for production environment
 
-set -e  # Exit on any error
+set -euo pipefail
 
 
 # Source scenario configuration

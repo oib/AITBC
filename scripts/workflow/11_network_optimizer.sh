@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # AITBC Network Optimization Script
 # Optimizes network configuration and performance
 

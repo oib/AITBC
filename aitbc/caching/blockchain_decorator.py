@@ -9,8 +9,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+
 from .blockchain_cache import BlockchainCache
-from .decorators import _generate_cache_key
 from .metrics import get_cache_metrics
 from .redis_cache import get_cache
 
