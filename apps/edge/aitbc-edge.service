@@ -4,8 +4,8 @@ After=network.target postgresql.service
 
 [Service]
 Type=simple
-User=aitbc-public
-Group=aitbc-services
+User=aitbc
+Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/edge
 Environment="PATH=/opt/aitbc/venv/bin"
 Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/edge/src:/opt/aitbc"
