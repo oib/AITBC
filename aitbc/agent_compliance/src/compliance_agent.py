@@ -9,8 +9,9 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from aitbc import get_logger
 from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceBridge  # type: ignore[import-not-found]
+
+from aitbc import get_logger
 
 logger = get_logger(__name__)
 
