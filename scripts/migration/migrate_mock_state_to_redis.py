@@ -25,18 +25,11 @@ from app.services.redis_state import RedisStateManager
 
 async def migrate_training_state(dry_run: bool = False) -> int:
     """Migrate training jobs from in-memory dict to Redis."""
-    from app.routers.training import _NAMESPACE
-
-    # In-memory state is module-global _mock_jobs in the router module
-    # Since we can't easily import the in-memory dict after the module has been
-    # refactored, this script is primarily for future use after state is already
-    # in Redis but needs to be migrated between Redis instances.
-
-    # For current migration, we just ensure the Redis connection is working
     state = await RedisStateManager.get_instance()
+    namespace = "training"
 
     if dry_run:
-        print(f"[DRY RUN] Would migrate training state to namespace: {_NAMESPACE}")
+        print(f"[DRY RUN] Would migrate training state to namespace: {namespace}")
         return 0
 
     # Verify Redis connection
@@ -44,43 +37,44 @@ async def migrate_training_state(dry_run: bool = False) -> int:
         print("Warning: Redis not available, state will remain in-memory")
         return 0
 
-    print(f"Training state namespace '{_NAMESPACE}' ready in Redis")
+    print(f"Training state namespace '{namespace}' ready in Redis")
     return 0
 
 
 async def migrate_hermes_state(dry_run: bool = False) -> int:
     """Migrate Hermes agents and messages from in-memory dict to Redis."""
-    from app.routers.hermes import _AGENT_NS, _MSG_NS
-
     state = await RedisStateManager.get_instance()
+    agent_ns = "hermes:agents"
+    msg_ns = "hermes:messages"
 
     if dry_run:
-        print(f"[DRY RUN] Would migrate Hermes state to namespaces: {_AGENT_NS}, {_MSG_NS}")
+        print(f"[DRY RUN] Would migrate Hermes state to namespaces: {agent_ns}, {msg_ns}")
         return 0
 
     if state._redis is None:
         print("Warning: Redis not available, state will remain in-memory")
         return 0
 
-    print(f"Hermes state namespaces '{_AGENT_NS}', '{_MSG_NS}' ready in Redis")
+    print(f"Hermes state namespaces '{agent_ns}', '{msg_ns}' ready in Redis")
     return 0
 
 
 async def migrate_swarm_state(dry_run: bool = False) -> int:
     """Migrate swarm nodes, tasks, and clusters from in-memory dict to Redis."""
-    from app.routers.swarm import _CLUSTERS_NS, _NODES_NS, _TASKS_NS
-
     state = await RedisStateManager.get_instance()
+    nodes_ns = "swarm:nodes"
+    tasks_ns = "swarm:tasks"
+    clusters_ns = "swarm:clusters"
 
     if dry_run:
-        print(f"[DRY RUN] Would migrate swarm state to namespaces: {_NODES_NS}, {_TASKS_NS}, {_CLUSTERS_NS}")
+        print(f"[DRY RUN] Would migrate swarm state to namespaces: {nodes_ns}, {tasks_ns}, {clusters_ns}")
         return 0
 
     if state._redis is None:
         print("Warning: Redis not available, state will remain in-memory")
         return 0
 
-    print(f"Swarm state namespaces '{_NODES_NS}', '{_TASKS_NS}', '{_CLUSTERS_NS}' ready in Redis")
+    print(f"Swarm state namespaces '{nodes_ns}', '{tasks_ns}', '{clusters_ns}' ready in Redis")
     return 0
 
 
