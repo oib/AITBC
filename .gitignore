@@ -27,6 +27,7 @@ tests/htmlcov/
 .tox/
 .mypy_cache/
 .ruff_cache/
+uv.lock
 
 # ===================
 # Environment Files (SECRETS - NEVER COMMIT)
