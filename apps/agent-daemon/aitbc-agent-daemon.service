@@ -25,9 +25,9 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=AgentDaemon
 # Security settings
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectHome=true
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
 # Security hardening (v0.5.0)
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
