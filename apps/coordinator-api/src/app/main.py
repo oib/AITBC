@@ -34,10 +34,12 @@ from .config import settings
 from .contexts.agent_identity.routers import agent_identity
 from .contexts.blockchain.routers import blockchain
 from .contexts.cross_chain.routers.cross_chain_integration import router as cross_chain
-from .contexts.hermes.routers.hermes_decision import router as hermes_decision
-from .contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced
-from .contexts.hermes.routers.hermes_health import router as hermes_health
-from .contexts.hermes.routers.hermes_resource import router as hermes_resource
+
+# Temporarily disabled due to import chain issues
+# from .contexts.hermes.routers.hermes_decision import router as hermes_decision
+# from .contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced
+# from .contexts.hermes.routers.hermes_health import router as hermes_health
+# from .contexts.hermes.routers.hermes_resource import router as hermes_resource
 from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
 from .contexts.ipfs.routers import router as ipfs
 from .contexts.marketplace.routers import marketplace, marketplace_gpu, marketplace_offers
@@ -379,10 +381,11 @@ def create_app() -> FastAPI:
     app.include_router(web_vitals, prefix="/v1")
     if ml_zk_proofs:
         app.include_router(ml_zk_proofs, prefix="/v1")
-    app.include_router(hermes_enhanced, prefix="/v1")
-    app.include_router(hermes_decision, prefix="/v1")
-    app.include_router(hermes_health, prefix="/v1")
-    app.include_router(hermes_resource, prefix="/v1")
+    # Temporarily disabled due to import chain issues
+    # app.include_router(hermes_enhanced, prefix="/v1")
+    # app.include_router(hermes_decision, prefix="/v1")
+    # app.include_router(hermes_health, prefix="/v1")
+    # app.include_router(hermes_resource, prefix="/v1")
     app.include_router(monitoring_dashboard, prefix="/v1")
     app.include_router(agent_router, prefix="/v1/agents")
     app.include_router(agent_identity, prefix="/v1")
