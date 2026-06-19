@@ -1,5 +1,7 @@
 """
 User Management Router for AITBC
+
+v0.5.1: Session state migrated from module-global dict to RedisStateManager.
 """
 
 import hashlib
@@ -8,6 +10,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
+from app.services.redis_state import RedisStateManager
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 
@@ -19,35 +22,36 @@ from ..storage import get_session
 
 router = APIRouter(tags=["users"])
 
-# In-memory session storage for demo (use Redis in production)
-user_sessions: dict[str, dict[str, Any]] = {}
+# Redis-backed state (falls back to in-memory if Redis unavailable)
+_state = RedisStateManager.get_instance_sync()
+_NAMESPACE = "sessions"
 
 
-def create_session_token(user_id: str) -> str:
+async def create_session_token(user_id: str) -> str:
     """Create a session token for a user"""
     token_data = f"{user_id}:{int(time.time())}"
     token = hashlib.sha256(token_data.encode()).hexdigest()
 
     # Store session
-    user_sessions[token] = {
+    session = {
         "user_id": user_id,
         "created_at": int(time.time()),
         "expires_at": int(time.time()) + 86400,  # 24 hours
     }
+    await _state.cache_set(_NAMESPACE, token, session, ttl=86400)
 
     return token
 
 
-def verify_session_token(token: str) -> str | None:
+async def verify_session_token(token: str) -> str | None:
     """Verify a session token and return user_id"""
-    if token not in user_sessions:
+    session = await _state.cache_get(_NAMESPACE, token)
+    if session is None:
         return None
 
-    session = user_sessions[token]
-
-    # Check if expired
+    # Check if expired (also handles in-memory fallback without TTL)
     if int(time.time()) > session["expires_at"]:
-        del user_sessions[token]
+        await _state.cache_delete(_NAMESPACE, token)
         return None
 
     return session["user_id"]  # type: ignore[no-any-return]
@@ -86,7 +90,7 @@ async def register_user(
     session.commit()
 
     # Create session token
-    token = create_session_token(user.id)
+    token = await create_session_token(user.id)
 
     return {
         "user_id": user.id,
@@ -136,7 +140,7 @@ async def login_user(
         session.commit()
 
     # Create session token
-    token = create_session_token(user.id)
+    token = await create_session_token(user.id)
 
     return {
         "user_id": user.id,
@@ -152,7 +156,7 @@ async def login_user(
 async def get_current_user(session: Annotated[Session, Depends(get_session)], token: str, request: Request) -> dict[str, Any]:
     """Get current user profile"""
 
-    user_id = verify_session_token(token)
+    user_id = await verify_session_token(token)
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
@@ -194,8 +198,8 @@ async def get_user_balance(
 async def logout_user(token: str, request: Request) -> dict[str, str]:
     """Logout user and invalidate session"""
 
-    if token in user_sessions:
-        del user_sessions[token]
+    if await _state.cache_get(_NAMESPACE, token):
+        await _state.cache_delete(_NAMESPACE, token)
 
     return {"message": "Logged out successfully"}
 
