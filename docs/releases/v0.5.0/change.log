@@ -208,14 +208,14 @@ No centralized monitoring. Each service logs differently. No metrics exported.
 - `PerformanceLoggingMiddleware` — logs request timing with X-Process-Time header
 
 **JSON Logging Enabled:**
-- Added `Environment=LOG_FORMAT=json` to `aitbc-coordinator-api.service`
-- Coordinator API now logs in JSON format for structured log aggregation
-- Applied via `systemctl daemon-reload` and `systemctl restart aitbc-coordinator-api.service`
-- Verified via `systemctl show aitbc-coordinator-api.service --property=Environment`
+- Added `Environment=LOG_FORMAT=json` to `aitbc-coordinator-api.service` (unit file)
+- Runtime config synced via `systemctl daemon-reload` and `systemctl restart`
+- Verified runtime config matches unit file via `systemctl show`
+- Note: This was a runtime/supervision sync issue, not a code change
 
 **Updated Files:**
-- `apps/coordinator-api/aitbc-coordinator-api.service` — Added LOG_FORMAT=json
-- Systemd runtime config updated via daemon-reload
+- `apps/coordinator-api/aitbc-coordinator-api.service` — Added LOG_FORMAT.json (unit file)
+- Systemd runtime config — Synced to match unit file via daemon-reload
 
 **Blockchain Node Metrics (Already Implemented):**
 - `/metrics` endpoint already exists in `apps/blockchain-node/src/aitbc_chain/app.py`
