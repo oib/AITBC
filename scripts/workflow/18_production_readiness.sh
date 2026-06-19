@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Production Readiness Script for AITBC
 # This script performs comprehensive production readiness validation
 
-set -e  # Exit on any error
+set -euo pipefail
 
 
 # Source scenario configuration

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # AITBC Transaction Manager Script
 # Enhanced transaction sending with proper error handling
 

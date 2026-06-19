@@ -3,7 +3,6 @@ Route security matrix - defines auth requirements for all routes
 """
 
 from enum import Enum
-from typing import Literal
 
 
 class AuthLevel(Enum):
@@ -25,105 +24,76 @@ ROUTE_SECURITY_MATRIX = {
     "/docs": AuthLevel.NONE,
     "/openapi.json": AuthLevel.NONE,
     "/redoc": AuthLevel.NONE,
-
     # Admin routes
     "/admin": AuthLevel.ADMIN,
     "/routers/admin": AuthLevel.ADMIN,
     "/contexts/admin/*": AuthLevel.ADMIN,
-
     # Client routes
     "/routers/client": AuthLevel.CLIENT,
     "/contexts/certification/*": AuthLevel.CLIENT,
     "/contexts/trading/*": AuthLevel.CLIENT,
     "/contexts/payments/*": AuthLevel.CLIENT,
-
     # Miner routes
     "/routers/miner": AuthLevel.MINER,
     "/contexts/marketplace/*": AuthLevel.MINER,
     "/contexts/settlement/*": AuthLevel.MINER,
-
     # Mixed auth routes (any valid token)
     "/contexts/agent_coordination/*": AuthLevel.ANY,
     "/contexts/agent_identity/*": AuthLevel.ANY,
     "/contexts/hermes/*": AuthLevel.ANY,
     "/contexts/infrastructure/*": AuthLevel.ANY,
     "/contexts/monitoring/*": AuthLevel.ANY,
-
     # Analytics (admin or client)
     "/contexts/analytics/*": AuthLevel.ADMIN_OR_CLIENT,
     "/contexts/ai_analytics/*": AuthLevel.ADMIN_OR_CLIENT,
-
     # Security (admin only)
     "/contexts/security/*": AuthLevel.ADMIN,
-
     # Governance (admin or client)
     "/contexts/governance/*": AuthLevel.ADMIN_OR_CLIENT,
-
     # Staking (admin or client)
     "/contexts/staking/*": AuthLevel.ADMIN_OR_CLIENT,
-
     # Rewards (admin or client)
     "/contexts/rewards/*": AuthLevel.ADMIN_OR_CLIENT,
-
     # Reputation (any)
     "/contexts/reputation/*": AuthLevel.ANY,
-
     # Bounty (any)
     "/contexts/bounty/*": AuthLevel.ANY,
-
     # Knowledge (any)
     "/contexts/knowledge/*": AuthLevel.ANY,
-
     # Developer platform (admin or client)
     "/contexts/developer_platform/*": AuthLevel.ADMIN_OR_CLIENT,
-
     # Ecosystem (any)
     "/contexts/ecosystem/*": AuthLevel.ANY,
-
     # Community (any)
     "/contexts/community/*": AuthLevel.ANY,
-
     # Confidential (admin only)
     "/contexts/confidential/*": AuthLevel.ADMIN,
-
     # Advanced RL (any)
     "/contexts/advanced_rl/*": AuthLevel.ANY,
-
     # Multimodal (any)
     "/contexts/multimodal/*": AuthLevel.ANY,
-
     # Cross-chain (any)
     "/contexts/cross_chain/*": AuthLevel.ANY,
-
     # Blockchain (any)
     "/contexts/blockchain/*": AuthLevel.ANY,
-
     # IPFS (any)
     "/contexts/ipfs/*": AuthLevel.ANY,
-
     # Portfolio (admin or client)
     "/contexts/portfolio/*": AuthLevel.ADMIN_OR_CLIENT,
-
     # Exchange (any)
     "/contexts/exchange/*": AuthLevel.ANY,
-
     # Explorer (any)
     "/contexts/explorer/*": AuthLevel.ANY,
-
     # Services (admin only)
     "/routers/services": AuthLevel.ADMIN,
-
     # Cache management (admin only)
     "/routers/cache_management": AuthLevel.ADMIN,
-
     # Dynamic pricing (admin or client)
     "/routers/dynamic_pricing": AuthLevel.ADMIN_OR_CLIENT,
-
     # Marketplace enhanced (any)
     "/routers/marketplace_enhanced": AuthLevel.ANY,
     "/routers/marketplace_enhanced_simple": AuthLevel.ANY,
     "/routers/marketplace_enhanced_health": AuthLevel.NONE,
-
     # Agent management (admin only)
     "/routers/agent-management": AuthLevel.ADMIN,
 }

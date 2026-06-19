@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Enhanced Hardware+Software Bundle Marketplace Scenario with AI Response Tracking
 # Captures and displays AI prompt and response in final results

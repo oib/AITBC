@@ -4,7 +4,6 @@ Handles metadata validation, storage, and management
 """
 
 import logging
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -106,18 +105,18 @@ class MetadataValidator:
             expected_type = MetadataValidator.VALID_METADATA_KEYS[key]
             if not isinstance(value, expected_type):
                 try:
-                    if expected_type == int:
+                    if expected_type is int:
                         sanitized[key] = int(value)
-                    elif expected_type == float:
+                    elif expected_type is float:
                         sanitized[key] = float(value)
-                    elif expected_type == str:
+                    elif expected_type is str:
                         sanitized[key] = str(value)
-                    elif expected_type == list:
+                    elif expected_type is list:
                         if isinstance(value, str):
                             sanitized[key] = [value]
                         else:
                             sanitized[key] = list(value)
-                    elif expected_type == dict:
+                    elif expected_type is dict:
                         if isinstance(value, str):
                             sanitized[key] = {}
                         else:

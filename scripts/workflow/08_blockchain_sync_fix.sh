@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # AITBC Blockchain Sync Fix Script
 # Resolves synchronization issues between genesis and follower nodes
 

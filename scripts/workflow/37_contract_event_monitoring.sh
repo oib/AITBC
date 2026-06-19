@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Contract Event Monitoring & Logging
 # Comprehensive event tracking and logging for contract operations and service interactions

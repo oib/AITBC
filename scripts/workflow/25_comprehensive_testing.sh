@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Comprehensive Testing Suite
 # Tests all blockchain functionality including marketplace scenarios

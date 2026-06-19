@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
+
 # Pre-Flight Setup Script for AITBC Multi-Node Blockchain
 # This script prepares the system for multi-node blockchain deployment
-
-set -e  # Exit on any error
 
 
 # Source scenario configuration

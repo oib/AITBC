@@ -9,8 +9,8 @@ from collections.abc import Callable
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+
 from .lru_cache import LRUCache
-from .metrics import get_cache_metrics
 from .ttl_cache import TTLCache
 
 logger = get_logger(__name__)

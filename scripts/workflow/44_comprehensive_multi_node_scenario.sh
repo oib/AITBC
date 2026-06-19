@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Comprehensive Multi-Node Scenario Orchestration
 # Executes end-to-end scenarios across all 3 nodes (aitbc1, aitbc, gitea-runner)

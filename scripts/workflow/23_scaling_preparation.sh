@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Scaling Preparation Script
 # Prepares the system for horizontal scaling and multi-node expansion

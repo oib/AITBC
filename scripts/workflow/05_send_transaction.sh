@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Transaction Sending Script for AITBC
 # This script sends 1000 AIT from genesis to aitbc wallet using enhanced CLI
 
-set -e  # Exit on any error
+set -euo pipefail
 
 
 # Source scenario configuration

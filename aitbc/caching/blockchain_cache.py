@@ -5,7 +5,6 @@ Blockchain-specific cache with intelligent invalidation
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-from .redis_cache import RedisCache
 
 logger = get_logger(__name__)
 

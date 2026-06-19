@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 # Stop all AITBC services
 
@@ -43,12 +44,12 @@ if [ -f .service_pids ]; then
     PIDS=$(cat .service_pids)
     echo "Found PIDs: $PIDS"
     for PID in $PIDS; do
-        if kill -0 $PID 2>/dev/null; then
+        if kill -0 "$PID" 2>/dev/null; then
             if [ "$DRY_RUN" = true ]; then
                 echo "[DRY RUN] Would stop PID $PID..."
             else
                 echo "Stopping PID $PID..."
-                kill $PID
+                kill "$PID"
             fi
         fi
     done

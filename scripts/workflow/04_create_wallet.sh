@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Wallet Creation Script for AITBC
 # This script creates a new wallet on the aitbc follower node using enhanced CLI
 
-set -e  # Exit on any error
+set -euo pipefail
 
 
 # Source scenario configuration

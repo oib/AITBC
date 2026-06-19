@@ -5,6 +5,7 @@ Automatic cache invalidation based on blockchain events
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+
 from .blockchain_cache import BlockchainCache
 
 logger = get_logger(__name__)

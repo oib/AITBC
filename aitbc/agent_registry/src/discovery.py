@@ -5,7 +5,6 @@ Handles agent discovery, search, and filtering
 
 import logging
 from decimal import Decimal
-from typing import Any
 
 from .registration import AgentInfo, AgentStatus, CapabilityType
 

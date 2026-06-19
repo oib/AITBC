@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Agent Communication Testing
 # Test the new agent messaging and forum functionality

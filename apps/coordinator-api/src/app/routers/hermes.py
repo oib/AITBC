@@ -13,10 +13,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from app.config import settings
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
-
-from app.config import settings
 
 # Only enable mock endpoints if debug mode or explicit flag is set
 if not (settings.debug or settings.enable_mock_hermes):

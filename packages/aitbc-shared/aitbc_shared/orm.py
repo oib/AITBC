@@ -3,7 +3,7 @@ Shared ORM Configuration
 Provides shared declarative_base and session handling for AITBC applications
 """
 
-from sqlmodel import SQLModel, create_engine, Session
+from sqlmodel import Session, SQLModel, create_engine
 
 # Shared engine - can be configured per application
 _engine = None
@@ -28,8 +28,6 @@ def get_session(database_url: str | None = None):
 
 def init_db(database_url: str | None = None):
     """Initialize the database with all shared models"""
-    from .models.marketplace import MarketplaceBid, MarketplaceOffer
-    from .models.payments import JobPayment, PaymentEscrow
 
     engine = get_engine(database_url)
     SQLModel.metadata.create_all(engine)
