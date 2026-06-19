@@ -240,23 +240,197 @@ done
 
 ---
 
-## Secret Rotation Policy (v0.5.1+)
+## Secret Rotation Policy (v0.5.0+)
 
 ### Principles
 1. **No secret lives forever**: All secrets must be rotatable without downtime.
 2. **No plaintext in Git**: Secrets must never be committed.
 3. **No shared secrets**: Each service gets its own credentials.
 4. **Audit trail**: All secret access is logged.
+5. **Zero downtime**: Use dual-secret overlap window for in-memory secrets.
 
 ### Rotation Schedule
 
 | Secret Type | Rotation Frequency | Method |
 |-------------|-------------------|--------|
 | Database passwords | 90 days | Update `/etc/aitbc/%N.env`, restart service |
-| JWT signing keys | 180 days | Update `/etc/aitbc/secrets/jwt_secret`, rolling restart |
-| API keys | 90 days | Revoke old, generate new, update config |
+| JWT signing keys | 90 days | Update `/run/aitbc/secrets/.env`, dual-secret window |
+| API keys | 60 days | Revoke old, generate new, update config |
 | Validator keys | On compromise or 365 days | Manual process, requires chain coordination |
 | TLS certificates | Before expiry | Automated via cert-manager or cron |
+
+### Detailed Rotation Procedures
+
+#### JWT_SECRET Rotation
+
+**Impact**: Affects coordinator-api authentication tokens.
+
+**Prerequisites:**
+- Access to `/run/aitbc/secrets/.env` or `/etc/aitbc/coordinator-api.env`
+- Service restart capability
+- Token expiration time knowledge (default: 24-48 hours)
+
+**Procedure:**
+```bash
+# 1. Generate new JWT secret
+NEW_JWT_SECRET=$(openssl rand -hex 32)
+echo "New JWT_SECRET: $NEW_JWT_SECRET"
+
+# 2. Backup current secret
+cp /run/aitbc/secrets/.env /run/aitbc/secrets/.env.backup
+
+# 3. Add new secret with different variable name (dual-secret window)
+echo "JWT_SECRET_NEW=$NEW_JWT_SECRET" >> /run/aitbc/secrets/.env
+
+# 4. Reload service configuration
+systemctl reload aitbc-coordinator-api
+
+# 5. Wait for old tokens to expire (24-48 hours)
+echo "Wait for old tokens to expire (24-48 hours)"
+
+# 6. Replace old secret with new secret
+sed -i 's/^JWT_SECRET=.*/JWT_SECRET='"$NEW_JWT_SECRET"'/' /run/aitbc/secrets/.env
+sed -i '/^JWT_SECRET_NEW=/d' /run/aitbc/secrets/.env
+
+# 7. Reload service again
+systemctl reload aitbc-coordinator-api
+
+# 8. Verify service is healthy
+curl http://localhost:8203/health
+
+# 9. Remove backup
+rm /run/aitbc/secrets/.env.backup
+```
+
+**Rollback:**
+```bash
+# If issues occur, restore backup
+cp /run/aitbc/secrets/.env.backup /run/aitbc/secrets/.env
+systemctl reload aitbc-coordinator-api
+```
+
+#### API_KEY_HASH_SECRET Rotation
+
+**Impact**: Affects API key authentication and hashing.
+
+**Prerequisites:**
+- Access to `/run/aitbc/secrets/.env` or `/etc/aitbc/coordinator-api.env`
+- Service restart capability
+- Knowledge of API key expiration times
+
+**Procedure:**
+```bash
+# 1. Generate new API key hash secret
+NEW_API_KEY_SECRET=$(openssl rand -hex 32)
+echo "New API_KEY_HASH_SECRET: $NEW_API_KEY_SECRET"
+
+# 2. Backup current secret
+cp /run/aitbc/secrets/.env /run/aitbc/secrets/.env.backup
+
+# 3. Add new secret with different variable name (dual-secret window)
+echo "API_KEY_HASH_SECRET_NEW=$NEW_API_KEY_SECRET" >> /run/aitbc/secrets/.env
+
+# 4. Reload service configuration
+systemctl reload aitbc-coordinator-api
+
+# 5. Regenerate API keys for all clients
+# (This should be done via API endpoint or admin interface)
+
+# 6. Wait for old API keys to expire (based on your policy)
+echo "Wait for old API keys to expire"
+
+# 7. Replace old secret with new secret
+sed -i 's/^API_KEY_HASH_SECRET=.*/API_KEY_HASH_SECRET='"$NEW_API_KEY_SECRET"'/' /run/aitbc/secrets/.env
+sed -i '/^API_KEY_HASH_SECRET_NEW=/d' /run/aitbc/secrets/.env
+
+# 8. Reload service again
+systemctl reload aitbc-coordinator-api
+
+# 9. Verify service is healthy
+curl http://localhost:8203/health
+
+# 10. Remove backup
+rm /run/aitbc/secrets/.env.backup
+```
+
+**Rollback:**
+```bash
+# If issues occur, restore backup
+cp /run/aitbc/secrets/.env.backup /run/aitbc/secrets/.env
+systemctl reload aitbc-coordinator-api
+```
+
+#### KEYSTORE_PASSWORD Rotation
+
+**Impact**: Affects blockchain node keystore access for block signing.
+
+**Prerequisites:**
+- Access to keystore password file (typically `/run/aitbc/secrets/keystore_password` or `/etc/aitbc/%N.env`)
+- Access to keystore files
+- Blockchain node restart capability
+- Backup of keystore files
+
+**Procedure:**
+```bash
+# 1. Generate new keystore password
+NEW_KEYSTORE_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=' | head -c 32)
+echo "New KEYSTORE_PASSWORD: $NEW_KEYSTORE_PASSWORD"
+
+# 2. Backup current keystore files
+BACKUP_DIR="/var/backups/aitbc/keystore_$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+cp -r /var/lib/aitbc/blockchain/keystore/* "$BACKUP_DIR/"
+
+# 3. Update keystore password file
+echo "$NEW_KEYSTORE_PASSWORD" > /run/aitbc/secrets/keystore_password
+chmod 600 /run/aitbc/secrets/keystore_password
+
+# 4. For each keystore file, re-encrypt with new password
+# (This requires running the re-encryption script)
+python /opt/aitbc/apps/blockchain-node/scripts/reencrypt_keystore.py \
+    --keystore-dir /var/lib/aitbc/blockchain/keystore \
+    --old-password "$OLD_KEYSTORE_PASSWORD" \
+    --new-password "$NEW_KEYSTORE_PASSWORD"
+
+# 5. Restart blockchain node
+systemctl restart aitbc-blockchain-node
+
+# 6. Verify node is healthy
+curl http://localhost:8202/health
+
+# 7. Wait for node to sync and validate blocks
+# Monitor logs: journalctl -u aitbc-blockchain-node -f
+
+# 8. After validation, remove old backup
+rm -rf "$BACKUP_DIR"
+```
+
+**Rollback:**
+```bash
+# If issues occur, restore keystore files
+systemctl stop aitbc-blockchain-node
+cp -r "$BACKUP_DIR"/* /var/lib/aitbc/blockchain/keystore/
+systemctl start aitbc-blockchain-node
+```
+
+### Zero-Downtime Rotation Best Practices
+
+1. **Dual-Secret Window**: Use temporary variable names (e.g., `JWT_SECRET_NEW`) to allow both old and new secrets to work during rotation
+2. **Grace Period**: Wait for old secrets to expire before removing them (typically 24-48 hours for JWT tokens)
+3. **Backup Always**: Always backup secrets before rotation
+4. **Test in Staging**: Test rotation procedures in staging environment first
+5. **Monitor Closely**: Watch logs for authentication errors during rotation
+6. **Rollback Ready**: Have rollback procedure documented and tested
+7. **Document Changes**: Update rotation log with date and new secret versions
+
+### Rotation Tracking
+
+Document all rotations in `docs/operations/SECRET_ROTATION_LOG.md`:
+```markdown
+| Date | Secret | Old Version | New Version | Performed By | Notes |
+|------|--------|-------------|-------------|--------------|-------|
+| 2026-06-19 | JWT_SECRET | v1 | v2 | DevOps | Dual-secret window used |
+```
 
 ### Rotation Procedure
 1. Generate new secret
