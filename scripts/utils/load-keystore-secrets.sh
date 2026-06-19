@@ -22,9 +22,12 @@ mkdir -p "$RUN_DIR" || {
 chmod 700 "$RUN_DIR" 2>/dev/null || true
 
 # Create audit log directory
-mkdir -p "$(dirname "$AUDIT_LOG")"
-touch "$AUDIT_LOG"
-chmod 600 "$AUDIT_LOG"
+mkdir -p "$(dirname "$AUDIT_LOG")" 2>/dev/null || true
+touch "$AUDIT_LOG" 2>/dev/null || {
+    echo "Warning: Cannot create audit log at $AUDIT_LOG (read-only filesystem)"
+    AUDIT_LOG="/dev/null"
+}
+chmod 600 "$AUDIT_LOG" 2>/dev/null || true
 
 # Audit logging function
 log_audit() {
