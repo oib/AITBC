@@ -5,8 +5,8 @@ Requires=aitbc-blockchain-rpc.service
 
 [Service]
 Type=simple
-User=aitbc-internal
-Group=aitbc-services
+User=aitbc
+Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/bridge-monitor
 Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONPATH=/opt/aitbc"

@@ -7,8 +7,8 @@ Wants=aitbc-agent-coordinator.service aitbc-hermes.service
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=aitbc
+Group=aitbc
 WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/blockchain.env
 Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"

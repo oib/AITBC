@@ -5,8 +5,8 @@ Wants=postgresql.service redis.service
 
 [Service]
 Type=simple
-User=aitbc-blockchain
-Group=aitbc-services
+User=aitbc
+Group=aitbc
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src

@@ -4,8 +4,8 @@ After=network.target aitbc-blockchain-node.service
 
 [Service]
 Type=simple
-User=aitbc-public
-Group=aitbc-services
+User=aitbc
+Group=aitbc
 WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
