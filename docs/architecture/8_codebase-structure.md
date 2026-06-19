@@ -418,6 +418,6 @@ website/
 | `examples/nginx/` | Nginx reverse-proxy configuration for production |
 | `extensions/` | Firefox wallet extension source code |
 | `contracts/` | Standalone Solidity contracts (ZKReceiptVerifier) |
-| `systemd/` | Systemd unit files for all AITBC services |
+| `scripts/systemd/` | Systemd unit files for all AITBC services |
 | `docs/` | Markdown documentation (10 numbered sections, guides, reference, architecture) |
 | `assets/` | Shared frontend assets (Tailwind CSS, FontAwesome, Lucide icons, Axios) |
