@@ -39,6 +39,20 @@ class DatabaseConfig(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
 
+class RedisConfig(BaseSettings):
+    """Redis configuration for state management."""
+
+    url: str = Field(default="redis://localhost:6379/0", description="Redis connection URL")
+    enabled: bool = Field(default=False, description="Enable Redis for state backing")
+    max_connections: int = Field(default=10, description="Maximum Redis connections")
+    socket_timeout: int = Field(default=5, description="Redis socket timeout in seconds")
+    socket_connect_timeout: int = Field(default=5, description="Redis socket connect timeout")
+    retry_on_timeout: bool = Field(default=True, description="Retry on Redis timeout")
+    health_check_interval: int = Field(default=30, description="Health check interval in seconds")
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
+
+
 class Settings(BaseAITBCConfig):
     """Unified application settings with environment-based configuration."""
 
@@ -53,6 +67,7 @@ class Settings(BaseAITBCConfig):
 
     # Database
     database: DatabaseConfig = Field(default_factory=DatabaseConfig, description="Database configuration")
+    redis: RedisConfig = Field(default_factory=RedisConfig, description="Redis configuration")
     db_echo: bool = Field(default=False, description="Enable SQLAlchemy query echo")
     db_pool_pre_ping: bool = Field(default=True, description="Enable connection pool pre-ping")
     db_pool_size: int = Field(default=10, description="Database connection pool size")

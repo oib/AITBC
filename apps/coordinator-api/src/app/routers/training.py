@@ -6,13 +6,17 @@ Provides:
 - Progress monitoring
 - Model checkpointing
 - Training logs
+
+v0.5.0: State is now backed by Redis (with in-memory fallback).
 """
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from app.config import settings
+from app.services.redis_state import RedisStateManager
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field, field_validator
 
@@ -23,11 +27,9 @@ if not (settings.debug or settings.enable_mock_training):
 else:
     router = APIRouter(prefix="/training", tags=["training"])
 
-    # TODO(v0.5.0): Replace with Redis-backed job queue.
-    # This in-memory state is temporary and is lost on service restart.
-    # See docs/releases/v0.5.0/change.log for DB/Redis migration plan.
-    _mock_jobs: dict[str, dict[str, Any]] = {}
-    _job_counter = 0
+    # Redis-backed state (falls back to in-memory if Redis unavailable)
+    _state = RedisStateManager.get_instance_sync()
+    _NAMESPACE = "training"
 
 
 class CreateTrainingRequest(BaseModel):
@@ -72,9 +74,8 @@ class CompleteTrainingRequest(BaseModel):
 @router.post("/jobs")
 async def create_training_job(request: Request, req: CreateTrainingRequest) -> dict[str, Any]:
     """Create a new training job"""
-    global _job_counter
-    _job_counter += 1
-    job_id = f"job_{_job_counter}"
+    job_counter = await _state.incr(_NAMESPACE, "counter")
+    job_id = f"job_{job_counter}"
 
     job = {
         "job_id": job_id,
@@ -89,62 +90,71 @@ async def create_training_job(request: Request, req: CreateTrainingRequest) -> d
         "current_step": 0,
         "loss": 0.0,
         "accuracy": 0.0,
-        "created_at": "2024-01-01T00:00:00Z",
+        "created_at": datetime.now(UTC).isoformat(),
     }
 
-    _mock_jobs[job_id] = job
+    await _state.hset(_NAMESPACE, job_id, job)
     return {"job_id": job_id, "status": "created"}
 
 
 @router.get("/jobs/{job_id}")
 async def get_training_job(job_id: str) -> dict[str, Any]:
     """Get training job status"""
-    if job_id not in _mock_jobs:
+    job = await _state.hget(_NAMESPACE, job_id)
+    if job is None:
         return {"error": "Job not found", "job_id": job_id}
-    return _mock_jobs[job_id]
+    return job
 
 
 @router.get("/jobs")
 async def list_training_jobs() -> dict[str, list[dict[str, Any]]]:
     """List all training jobs"""
-    return {"jobs": list(_mock_jobs.values())}
+    jobs = await _state.hgetall(_NAMESPACE)
+    return {"jobs": list(jobs.values())}
 
 
 @router.post("/jobs/{job_id}/progress")
 async def update_progress(job_id: str, req: UpdateProgressRequest) -> dict[str, str]:
     """Update training progress"""
-    if job_id not in _mock_jobs:
+    job = await _state.hget(_NAMESPACE, job_id)
+    if job is None:
         return {"error": "Job not found", "job_id": job_id}
 
-    _mock_jobs[job_id]["current_epoch"] = req.epoch
-    _mock_jobs[job_id]["current_step"] = req.step
-    _mock_jobs[job_id]["loss"] = req.loss
-    _mock_jobs[job_id]["accuracy"] = req.accuracy
-    _mock_jobs[job_id]["validation_loss"] = req.validation_loss
-    _mock_jobs[job_id]["status"] = "training"
+    job["current_epoch"] = req.epoch
+    job["current_step"] = req.step
+    job["loss"] = req.loss
+    job["accuracy"] = req.accuracy
+    job["validation_loss"] = req.validation_loss
+    job["status"] = "training"
+    job["updated_at"] = datetime.now(UTC).isoformat()
 
+    await _state.hset(_NAMESPACE, job_id, job)
     return {"job_id": job_id, "status": "progress_updated"}
 
 
 @router.post("/jobs/{job_id}/complete")
 async def complete_training(job_id: str, req: CompleteTrainingRequest) -> dict[str, str]:
     """Mark training job as complete"""
-    if job_id not in _mock_jobs:
+    job = await _state.hget(_NAMESPACE, job_id)
+    if job is None:
         return {"error": "Job not found", "job_id": job_id}
 
-    _mock_jobs[job_id]["status"] = "completed"
-    _mock_jobs[job_id]["final_accuracy"] = req.final_accuracy
-    _mock_jobs[job_id]["final_loss"] = req.final_loss
-    _mock_jobs[job_id]["model_path"] = req.model_path
+    job["status"] = "completed"
+    job["final_accuracy"] = req.final_accuracy
+    job["final_loss"] = req.final_loss
+    job["model_path"] = req.model_path
+    job["completed_at"] = datetime.now(UTC).isoformat()
 
+    await _state.hset(_NAMESPACE, job_id, job)
     return {"job_id": job_id, "status": "completed"}
 
 
 @router.delete("/jobs/{job_id}")
 async def delete_training_job(job_id: str) -> dict[str, str]:
     """Delete a training job"""
-    if job_id not in _mock_jobs:
+    job = await _state.hget(_NAMESPACE, job_id)
+    if job is None:
         return {"error": "Job not found", "job_id": job_id}
 
-    del _mock_jobs[job_id]
+    await _state.hdel(_NAMESPACE, job_id)
     return {"job_id": job_id, "status": "deleted"}
