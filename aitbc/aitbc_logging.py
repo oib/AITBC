@@ -63,10 +63,14 @@ class StructuredFormatter(logging.Formatter):
         "correlation_id",
     )
 
+    def __init__(self, include_timestamp: bool = True) -> None:
+        """Initialize formatter with optional timestamp inclusion"""
+        super().__init__()
+        self.include_timestamp = include_timestamp
+
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as structured JSON"""
         log_entry = {
-            "timestamp": f"{datetime.now(UTC).isoformat()}Z",
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -74,6 +78,10 @@ class StructuredFormatter(logging.Formatter):
             "function": record.funcName,
             "line": record.lineno,
         }
+
+        # Only include timestamp if configured (avoid duplicate with systemd journal)
+        if self.include_timestamp:
+            log_entry["timestamp"] = f"{datetime.now(UTC).isoformat()}Z"
 
         # Add standard fields
         for f in self.BLOCKCHAIN_FIELDS:
@@ -130,7 +138,9 @@ def setup_logger(
         console_handler = logging.StreamHandler(sys.stdout)
 
         if structured or _get_log_format() == "json":
-            formatter: logging.Formatter = StructuredFormatter()
+            # Disable timestamp in JSON logs when writing to systemd journal (to avoid duplicate timestamps)
+            include_timestamp = to_file  # Only include timestamp when writing to file
+            formatter: logging.Formatter = StructuredFormatter(include_timestamp=include_timestamp)
         else:
             if format_string is None:
                 format_string = "[%(levelname)s] %(message)s"
@@ -155,7 +165,7 @@ def setup_logger(
                 else:
                     file_handler = logging.FileHandler(log_file, encoding="utf-8")
 
-                file_handler.setFormatter(StructuredFormatter())
+                file_handler.setFormatter(StructuredFormatter(include_timestamp=True))
                 logger.addHandler(file_handler)
 
     return logger
@@ -195,7 +205,9 @@ def configure_logging(
     # Console handler
     console_handler = logging.StreamHandler(sys.stdout)
     if structured or _get_log_format() == "json":
-        console_handler.setFormatter(StructuredFormatter())
+        # Disable timestamp in JSON logs when writing to systemd journal (to avoid duplicate timestamps)
+        include_timestamp = to_file  # Only include timestamp when writing to file
+        console_handler.setFormatter(StructuredFormatter(include_timestamp=include_timestamp))
     else:
         console_handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
     root_logger.addHandler(console_handler)
@@ -207,7 +219,7 @@ def configure_logging(
             file_handler = logging.handlers.TimedRotatingFileHandler(
                 log_file, when="midnight", interval=1, backupCount=7, encoding="utf-8"
             )
-            file_handler.setFormatter(StructuredFormatter())
+            file_handler.setFormatter(StructuredFormatter(include_timestamp=True))
             root_logger.addHandler(file_handler)
 
 
