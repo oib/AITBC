@@ -15,7 +15,12 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
-from aitbc.middleware import ErrorHandlerMiddleware, PerformanceLoggingMiddleware, RequestIDMiddleware
+from aitbc.middleware import (
+    ErrorHandlerMiddleware,
+    PerformanceLoggingMiddleware,
+    PrometheusMetricsMiddleware,
+    RequestIDMiddleware,
+)
 
 if TYPE_CHECKING:
     from slowapi.errors import RateLimitExceeded
@@ -249,6 +254,7 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(PerformanceLoggingMiddleware)
+    app.add_middleware(PrometheusMetricsMiddleware)
     app.add_middleware(ErrorHandlerMiddleware)
 
     @app.middleware("http")
@@ -440,7 +446,7 @@ def create_app() -> FastAPI:
     app.include_router(edge_gpu, prefix="/v1")
     app.include_router(multi_modal_rl, prefix="/v1")
     metrics_app = make_asgi_app()
-    app.mount("/metrics", metrics_app)
+    app.mount("/prometheus", metrics_app)
     rate_limit_registry = CollectorRegistry()
     rate_limit_hits_total = Counter(
         "rate_limit_hits_total",
