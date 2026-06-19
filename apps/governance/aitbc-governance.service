@@ -14,9 +14,10 @@ Environment="DB_HOST=localhost"
 Environment="DB_PORT=5432"
 Environment="DB_NAME=aitbc_governance"
 Environment="DB_USER=aitbc_governance"
-Environment="DB_PASS=aitbc_governance_pass"
 Environment="REDIS_URL=redis://localhost:6379/1"
 Environment="GOVERNANCE_PORT=8105"
+# Secret: DB_PASS moved to /etc/aitbc/%N.env (created at deploy time, not committed)
+EnvironmentFile=/etc/aitbc/%N.env
 ExecStart=/opt/aitbc/venv/bin/python -m governance_service.main
 Restart=on-failure
 RestartSec=5
