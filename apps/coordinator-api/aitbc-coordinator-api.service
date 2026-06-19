@@ -26,6 +26,8 @@ RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-coordinator-api
+# Log rotation (v0.5.0)
+LogsDirectory=aitbc
 # Note: ProtectSystem=no removed for service user compatibility
 # Database writes handled through proper file permissions
 # Memory limits
