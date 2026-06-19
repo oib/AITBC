@@ -14,12 +14,30 @@ EnvironmentFile=/etc/aitbc/node.env
 Environment=AITBC_FORCE_ENABLE_BLOCK_PRODUCTION=false
 Environment=enable_block_production=false
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8202 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256 --log-level info --access-log
-Restart=always
+Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=BlockchainRPC
 MemoryMax=512M
+# Security hardening (v0.5.0)
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# Security hardening (v0.5.0)
+ProtectSystem=full
+ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
 
-[Install]
-WantedBy=multi-user.target
+# Security hardening (v0.5.0)
+WatchdogSec=30
+NotifyAccess=all

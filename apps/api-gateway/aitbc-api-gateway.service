@@ -10,8 +10,26 @@ WorkingDirectory=/opt/aitbc/apps/api-gateway
 Environment="PATH=/opt/aitbc/venv/bin"
 Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/api-gateway/src:/opt/aitbc"
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn api_gateway.main:app --host 0.0.0.0 --port 8201 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256
-Restart=always
-RestartSec=10
+Restart=on-failure
+RestartSec=5
+# Security hardening (v0.5.0)
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# Security hardening (v0.5.0)
+ProtectSystem=full
+ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
 
-[Install]
-WantedBy=multi-user.target
+# Security hardening (v0.5.0)
+WatchdogSec=30
+NotifyAccess=all

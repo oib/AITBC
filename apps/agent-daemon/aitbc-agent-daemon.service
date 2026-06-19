@@ -19,17 +19,30 @@ Environment="ENABLE_HERMES_POLLING=true"
 Environment="HERMES_AGENT_IDS=owl-hub"
 Environment="AGENT_DAEMON_CHAINS=ait-hub.aitbc.bubuit.net"
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-coordinator/scripts/agent_daemon.py --wallet my-agent-wallet --address "" --password-file /var/lib/aitbc/keystore/.genesis_password --keystore-dir /var/lib/aitbc/keystore --db-path /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db --rpc-url http://localhost:8202 --poll-interval 10 --reply-message pong --trigger-message ping --chain-id ait-hub.aitbc.bubuit.net
-
-Restart=always
-RestartSec=10
+Restart=on-failure
+RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=AgentDaemon
-
 # Security settings
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
+# Security hardening (v0.5.0)
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# Security hardening (v0.5.0)
+ProtectSystem=full
+ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
 
-[Install]
-WantedBy=multi-user.target
+# Security hardening (v0.5.0)
+WatchdogSec=30
+NotifyAccess=all
