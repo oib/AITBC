@@ -53,7 +53,7 @@
 - **Note**: Requires staging environment for safe testing
 
 ### 3. CI/CD Hardening Validation
-- ~~Coverage gate: Add pytest --cov with fail-under=80~~ ✅ **Completed in v0.5.0**
+- ~~Coverage gate: Add pytest --cov with fail-under=80~~ 🟡 **Configured but actual coverage ~24% - gate would fail. Needs test expansion or threshold adjustment.**
 - ~~Flaky-test detection: Add pytest --reruns 2~~ ✅ **Completed in v0.5.0**
 - ~~Separate lint and test jobs~~ ✅ **Completed in v0.5.0**
 - Validate CI/CD changes work correctly in production
