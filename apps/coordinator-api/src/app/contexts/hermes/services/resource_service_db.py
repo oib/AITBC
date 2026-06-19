@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ....models.hermes import PricingAdjustmentModel, ResourceAllocationModel, ResourceModel
+from ...models.hermes import PricingAdjustmentModel, ResourceAllocationModel, ResourceModel
 from ....schemas.hermes_resource import (
     AllocationStrategy,
     PricingAdjustment,
