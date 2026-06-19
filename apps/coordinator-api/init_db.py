@@ -10,7 +10,7 @@ import sys
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from app.database import init_db
+from app.database_async import init_db
 
 
 async def main():
