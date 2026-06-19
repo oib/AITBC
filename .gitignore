@@ -310,6 +310,7 @@ scripts/deployment/*
 !scripts/deployment/validate-env.sh
 !scripts/deployment/create_aitbc_user.sh
 !scripts/deployment/unify_service_users.sh
+!scripts/deployment/aitbc-logrotate.conf
 scripts/release/*
 !scripts/release/*.example
 !scripts/release/check-v0.5.0.sh
