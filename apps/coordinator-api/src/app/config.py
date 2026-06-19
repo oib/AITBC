@@ -22,6 +22,8 @@ class DatabaseConfig(BaseSettings):
     pool_size: int = 10
     max_overflow: int = 20
     pool_pre_ping: bool = True
+    pool_recycle: int = 3600  # Recycle connections after 1 hour
+    pool_timeout: int = 30  # Connection timeout in seconds
 
     @property
     def effective_url(self) -> str:
