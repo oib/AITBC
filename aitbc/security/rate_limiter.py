@@ -3,8 +3,6 @@ Rate limiter for API rate limiting
 """
 
 import time
-from collections.abc import Callable
-from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 

@@ -4,7 +4,7 @@ Provides health check endpoints for all services
 """
 
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import Enum
 from typing import Any
 

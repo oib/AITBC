@@ -9,7 +9,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
-from .lifecycle import get_lifecycle_state, get_task_manager, managed_lifespan
+from .lifecycle import get_lifecycle_state, get_task_manager
 
 logger = get_logger(__name__)
 

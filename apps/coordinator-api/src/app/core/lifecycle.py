@@ -3,7 +3,6 @@ Lifecycle management for async background tasks
 Provides proper startup/shutdown hooks for background services
 """
 
-import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
