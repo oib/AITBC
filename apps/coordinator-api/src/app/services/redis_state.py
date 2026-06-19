@@ -16,8 +16,6 @@ from typing import Any
 
 from app.config import settings
 
-from typing import Self
-
 
 class RedisStateManager:
     """Manages router state with Redis backing and in-memory fallback."""
@@ -50,7 +48,7 @@ class RedisStateManager:
                 self._memory.pop(k, None)
 
     @classmethod
-    async def get_instance(cls) -> Self:
+    async def get_instance(cls) -> RedisStateManager:
         """Get or create the singleton instance (async-safe)."""
         if cls._instance is None:
             cls._instance = cls()
@@ -58,7 +56,7 @@ class RedisStateManager:
         return cls._instance
 
     @classmethod
-    def get_instance_sync(cls) -> Self:
+    def get_instance_sync(cls) -> RedisStateManager:
         """Get or create the singleton instance (sync, for module-level use)."""
         if cls._instance is None:
             cls._instance = cls()
@@ -113,7 +111,7 @@ class RedisStateManager:
     async def hget(self, namespace: str, key: str) -> dict[str, Any] | None:
         """Get a hash field."""
         if self._redis:
-            raw = await self._redis.hget(self._ns_key(namespace), key)
+            raw: str | None = await self._redis.hget(self._ns_key(namespace), key)  # type: ignore[no-any-return]
             return json.loads(raw) if raw else None
         else:
             return self._memory.get(namespace, {}).get(key)
@@ -121,7 +119,7 @@ class RedisStateManager:
     async def hgetall(self, namespace: str) -> dict[str, dict[str, Any]]:
         """Get all hash fields."""
         if self._redis:
-            raw = await self._redis.hgetall(self._ns_key(namespace))
+            raw: dict[str, str] = await self._redis.hgetall(self._ns_key(namespace))  # type: ignore[no-any-return]
             return {k: json.loads(v) for k, v in raw.items()}
         else:
             return self._memory.get(namespace, {}).copy()
@@ -142,7 +140,8 @@ class RedisStateManager:
     async def incr(self, namespace: str, key: str = "counter") -> int:
         """Increment a counter."""
         if self._redis:
-            return await self._redis.incr(self._key(namespace, key))
+            result: int = await self._redis.incr(self._key(namespace, key))  # type: ignore[no-any-return]
+            return result
         else:
             mem_key = f"{namespace}:{key}"
             current = self._memory.get(mem_key, 0)
@@ -168,11 +167,11 @@ class RedisStateManager:
     async def lrange(self, namespace: str, key: str, start: int = 0, end: int = -1) -> list[dict[str, Any]]:
         """Get a range from a list."""
         if self._redis:
-            raw = await self._redis.lrange(self._key(namespace, key), start, end)
+            raw: list[str] = await self._redis.lrange(self._key(namespace, key), start, end)
             return [json.loads(v) for v in raw]
         else:
             mem_key = f"{namespace}:{key}"
-            items = self._memory.get(mem_key, [])
+            items: list[dict[str, Any]] = self._memory.get(mem_key, [])
             return items[start:end] if end != -1 else items[start:]
 
     # ------------------------------------------------------------------
