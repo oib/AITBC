@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=aitbc-public
-Group=aitbc-services
+User=aitbc
+Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/api-gateway
 Environment="PATH=/opt/aitbc/venv/bin"
 Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/api-gateway/src:/opt/aitbc"

@@ -6,8 +6,8 @@ Wants=aitbc-blockchain-node.service
 
 [Service]
 Type=simple
-User=aitbc-internal
-Group=aitbc-services
+User=aitbc
+Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/coordinator-api/src
 Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/coordinator-api/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src
 # Service-specific secrets (created during v0.5.1 migration from /run/aitbc/secrets/.env)

@@ -4,7 +4,7 @@ After=network.target aitbc-blockchain-rpc.service
 
 [Service]
 Type=simple
-User=root
+User=aitbc
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/etc/aitbc/blockchain.env
