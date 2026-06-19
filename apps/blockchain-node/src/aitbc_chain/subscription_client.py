@@ -50,9 +50,9 @@ class SubscriptionClient:
             await asyncio.gather(*tasks)
         except Exception as e:
             logger.error(
-                "Subscription client error",
-                extra={"error": str(e), "hub_url": self._hub_url, "node_id": self._node_id},
-                exc_info=True,
+                "Subscription client error: %s",
+                str(e),
+                extra={"hub_url": self._hub_url, "node_id": self._node_id},
             )
         finally:
             self._running = False
@@ -94,10 +94,10 @@ class SubscriptionClient:
             self._set_sync_mode("push")
             return True
         except Exception as e:
-            logger.error(
-                "Failed to subscribe to hub",
-                extra={"hub_url": self._hub_url, "node_id": self._node_id, "error": str(e)},
-                exc_info=True,
+            logger.warning(
+                "Failed to subscribe to hub: %s",
+                str(e),
+                extra={"hub_url": self._hub_url, "node_id": self._node_id},
             )
             self._set_sync_mode("pull")
             return False
@@ -121,10 +121,10 @@ class SubscriptionClient:
             )
             return True
         except Exception as e:
-            logger.error(
-                "Failed to send heartbeat",
-                extra={"hub_url": self._hub_url, "node_id": self._node_id, "error": str(e)},
-                exc_info=True,
+            logger.warning(
+                "Heartbeat failed (hub unreachable): %s",
+                str(e),
+                extra={"hub_url": self._hub_url, "node_id": self._node_id},
             )
             return False
 
@@ -154,9 +154,9 @@ class SubscriptionClient:
                     await asyncio.sleep(30)
             except Exception as e:
                 logger.error(
-                    "Subscription loop error",
-                    extra={"hub_url": self._hub_url, "node_id": self._node_id, "error": str(e)},
-                    exc_info=True,
+                    "Subscription loop error: %s",
+                    str(e),
+                    extra={"hub_url": self._hub_url, "node_id": self._node_id},
                 )
                 self._set_sync_mode("pull")
                 await asyncio.sleep(30)
@@ -212,9 +212,9 @@ class SubscriptionClient:
                     await self._heartbeat()
             except Exception as e:
                 logger.error(
-                    "Heartbeat loop error",
-                    extra={"node_id": self._node_id, "hub_url": self._hub_url, "error": str(e)},
-                    exc_info=True,
+                    "Heartbeat loop error: %s",
+                    str(e),
+                    extra={"node_id": self._node_id, "hub_url": self._hub_url},
                 )
 
     async def _receive_via_websocket(self) -> None:
@@ -257,9 +257,9 @@ class SubscriptionClient:
                             await self._import_block(block_data)
                         except Exception as e:
                             logger.error(
-                                "Error processing WebSocket message",
-                                extra={"node_id": self._node_id, "error": str(e)},
-                                exc_info=True,
+                                "Error processing WebSocket message: %s",
+                                str(e),
+                                extra={"node_id": self._node_id},
                             )
             except websockets.exceptions.ConnectionClosed as e:
                 logger.warning(
@@ -269,10 +269,10 @@ class SubscriptionClient:
                 self._set_sync_mode("pull")
                 await asyncio.sleep(5)
             except Exception as e:
-                logger.error(
-                    "WebSocket connection error, falling back to pull",
-                    extra={"ws_url": ws_url, "node_id": self._node_id, "error": str(e)},
-                    exc_info=True,
+                logger.warning(
+                    "WebSocket connection error, falling back to pull: %s",
+                    str(e),
+                    extra={"ws_url": ws_url, "node_id": self._node_id},
                 )
                 self._set_sync_mode("pull")
                 await asyncio.sleep(30)
@@ -310,9 +310,9 @@ class SubscriptionClient:
                 await self._import_block(block_data)
         except Exception as e:
             logger.error(
-                "Redis subscription error",
-                extra={"topic": f"blocks.{self._chain_id}", "node_id": self._node_id, "error": str(e)},
-                exc_info=True,
+                "Redis subscription error: %s",
+                str(e),
+                extra={"topic": f"blocks.{self._chain_id}", "node_id": self._node_id},
             )
             self._set_sync_mode("pull")
 
@@ -355,14 +355,13 @@ class SubscriptionClient:
                 )
         except Exception as e:
             logger.error(
-                "Failed to import block",
+                "Failed to import block %s: %s",
+                block_data.get("height", "?"),
+                str(e),
                 extra={
-                    "height": block_data.get("height"),
                     "hash": block_data.get("hash"),
                     "node_id": self._node_id,
-                    "error": str(e),
                 },
-                exc_info=True,
             )
 
     def _set_sync_mode(self, mode: str) -> None:
