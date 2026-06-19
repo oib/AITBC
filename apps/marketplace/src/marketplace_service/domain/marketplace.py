@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from aitbc_shared import MarketplaceOffer
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
+
+# Re-export MarketplaceOffer from aitbc_shared for compatibility
+__all__ = ["MarketplaceOffer"]
 
 
 # Additional marketplace-specific models
