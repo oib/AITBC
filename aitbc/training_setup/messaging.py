@@ -95,16 +95,15 @@ class MessagingSetup:
             return {"status": "failed", "error": str(e)}
 
     # Backward compatibility aliases
-    def test_messaging_connectivity(self) -> bool:
+    def test_messaging_connectivity(self) -> dict[str, Any]:
         """Alias for verify_messaging_connection (backward compatibility)."""
-        result = self.verify_messaging_connection()
-        return result.get("status") == "completed" and result.get("connection") == "verified"
+        return self.verify_messaging_connection()
 
     def generate_auth_token(self) -> str:
         """Generate mock auth token for testing (backward compatibility)."""
         return secrets.token_hex(32)
 
-    def configure_messaging_auth_with_wallet(self, wallet_name: str = None) -> dict[str, Any]:
+    def configure_messaging_auth_with_wallet(self, wallet_name: str | None = None) -> dict[str, Any]:
         """Alias with optional wallet_name parameter (backward compatibility)."""
         result = self.configure_messaging_auth()
         if wallet_name:
