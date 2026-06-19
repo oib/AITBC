@@ -81,7 +81,7 @@ Mock routers still use module-global `dict()` for state. This was deferred in v0
 | `aitbc:coordinator:swarm:clusters` | Hash | Compute clusters |
 
 ### Acceptance Criteria
-- [x] No module-global `dict()` for persistent state
+- [x] ~~No module-global `dict()` for persistent state~~ ⚠️ Partial: RedisStateManager implemented and main routers (training, hermes, swarm) migrated. Remaining: exchange.py `payments`, users.py `user_sessions`, and other demo storage still use in-memory dicts.
 - [x] State survives service restart (when Redis enabled)
 - [x] Multiple coordinator instances share state via Redis
 - [x] Graceful fallback to in-memory when Redis unavailable
