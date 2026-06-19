@@ -142,6 +142,61 @@ systemctl status aitbc-*
 journalctl -u aitbc-coordinator-api -n 50
 ```
 
+## Log Rotation
+
+### Log Rotation Configuration
+
+AITBC services use systemd journal for logging by default, which is rotated by systemd-journald. For services that write to log files, logrotate is configured.
+
+**Installation:**
+```bash
+# Install logrotate configuration
+sudo cp /opt/aitbc/scripts/deployment/aitbc-logrotate.conf /etc/logrotate.d/aitbc
+
+# Test logrotate configuration
+sudo logrotate -d /etc/logrotate.d/aitbc
+
+# Force logrotate to run immediately
+sudo logrotate -f /etc/logrotate.d/aitbc
+```
+
+**Logrotate Configuration:**
+- Main logs: Daily rotation, 14 days retention
+- Audit logs: Daily rotation, 30 days retention
+- Monitoring logs: Daily rotation, 7 days retention
+- Compressed after rotation (delaycompress)
+- Created with 0640 permissions (aitbc:aitbc)
+
+**Systemd Journal Configuration:**
+Configure journald retention in `/etc/systemd/journald.conf`:
+```ini
+[Journal]
+SystemMaxUse=1G
+SystemMaxFiles=100
+MaxRetentionSec=1month
+```
+
+**LogsDirectory Directive:**
+Some services use `LogsDirectory=aitbc` in systemd service files to ensure log directory creation with proper permissions:
+- Directory: `/var/log/aitbc`
+- Owner: aitbc:aitbc
+- Permissions: 0755
+
+**Verification:**
+```bash
+# Check logrotate configuration
+cat /etc/logrotate.d/aitbc
+
+# Check log directory permissions
+ls -la /var/log/aitbc
+
+# Check systemd journal size
+journalctl --disk-usage
+
+# Check logrotate status
+sudo logrotate -d /etc/logrotate.d/aitbc
+```
+
 ## Rollback
 
 If issues occur after user unification:
