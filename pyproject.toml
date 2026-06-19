@@ -300,6 +300,7 @@ ignore = [
     "C401", # Allow generator expressions in set() calls (style preference)
     "UP041", # Keep asyncio.TimeoutError for explicit async timeout handling
     "W293", # Allow trailing whitespace (style preference)
+    "I001", # Ignore import sorting differences between ruff versions
 ]
 
 [tool.ruff.lint.per-file-ignores]
