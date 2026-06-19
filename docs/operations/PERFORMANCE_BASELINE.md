@@ -1,7 +1,7 @@
 # Performance Baseline
 
 **Last Updated:** 2026-06-19
-**Version:** v0.5.0
+**Version:** v0.5.1
 
 ## Overview
 
@@ -129,6 +129,190 @@ curl http://localhost:8000/prometheus
 # - http_errors_total (counter)
 # - rpc_request_duration_seconds (histogram)
 # - rpc_requests_total (counter)
+```
+
+## Alert Routing for SLOs
+
+### SLO Alerting Strategy
+
+Alerts are configured based on the performance baseline targets to ensure service-level objectives (SLOs) are met.
+
+### Alert Thresholds
+
+#### Coordinator API Alerts
+
+| Metric | Warning Threshold | Critical Threshold | Alert Channel | Escalation |
+|--------|------------------|-------------------|--------------|------------|
+| Job Submit Latency (p95) | > 200ms | > 500ms | #ops-alerts | 15min → #ops-lead |
+| Miner Heartbeat Latency (p95) | > 50ms | > 100ms | #ops-alerts | 15min → #ops-lead |
+| Health Check Latency (p95) | > 100ms | > 200ms | #ops-alerts | 15min → #ops-lead |
+| Error Rate | > 1% | > 5% | #ops-alerts | 5min → #ops-lead |
+| Request Rate Drop | < 80% of baseline | < 50% of baseline | #ops-alerts | 5min → #ops-lead |
+
+#### Database Alerts
+
+| Metric | Warning Threshold | Critical Threshold | Alert Channel | Escalation |
+|--------|------------------|-------------------|--------------|------------|
+| Query Latency (p95) | > 150ms | > 300ms | #ops-alerts | 15min → #ops-lead |
+| Connection Pool Usage | > 80% | > 95% | #ops-alerts | 10min → #ops-lead |
+| Connection Errors | > 0.1% | > 1% | #ops-alerts | 5min → #ops-lead |
+| Query Count per Request | > 15 | > 25 | #ops-alerts | 15min → #ops-lead |
+
+#### Service Health Alerts
+
+| Metric | Warning Threshold | Critical Threshold | Alert Channel | Escalation |
+|--------|------------------|-------------------|--------------|------------|
+| Service Down Time | > 30s | > 2min | #ops-alerts | 1min → #ops-lead |
+| Memory Usage | > 80% | > 95% | #ops-alerts | 15min → #ops-lead |
+| CPU Usage | > 70% | > 90% | #ops-alerts | 15min → #ops-lead |
+| Disk Usage | > 80% | > 90% | #ops-alerts | 30min → #ops-lead |
+
+### Alert Channels
+
+#### Primary Channels
+
+- **#ops-alerts**: Primary operations alert channel
+  - All warning and critical alerts
+  - On-call rotation: 24/7 coverage
+  - Response time: < 5 minutes
+
+- **#ops-lead**: Operations lead escalation channel
+  - Critical alerts that don't resolve
+  - Escalated from #ops-alerts after timeout
+  - Response time: < 15 minutes
+
+#### Secondary Channels
+
+- **#dev-urgent**: Developer urgent issues
+  - Code-related alerts only
+  - Performance regressions
+  - Memory leaks, deadlocks
+
+- **#security-alerts**: Security incidents
+  - Unauthorized access attempts
+  - Secret rotation failures
+  - Anomalous traffic patterns
+
+### Alert Configuration (Prometheus)
+
+#### Example Alert Rules
+
+```yaml
+groups:
+  - name: coordinator_api_slo
+    rules:
+      - alert: CoordinatorAPIHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{endpoint="/v1/training/jobs"}[5m])
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: critical
+          service: coordinator-api
+        annotations:
+          summary: "Coordinator API job submission latency too high"
+          description: "p95 latency for job submission is {{ $value }}s (threshold: 0.5s)"
+
+      - alert: CoordinatorAPIHighErrorRate
+        expr: |
+          rate(http_errors_total{service="coordinator-api"}[5m]) /
+          rate(http_requests_total{service="coordinator-api"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: coordinator-api
+        annotations:
+          summary: "Coordinator API error rate too high"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: |
+          db_pool_active_connections / db_pool_max_connections > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "Pool usage is {{ $value | humanizePercentage }} (threshold: 95%)"
+```
+
+### Alert Routing Matrix
+
+| Alert Type | Severity | Channel | On-Call | Escalation |
+|------------|----------|---------|---------|------------|
+| Service Down | Critical | #ops-alerts | Yes | 1min → #ops-lead |
+| High Latency | Critical | #ops-alerts | Yes | 5min → #ops-lead |
+| High Error Rate | Critical | #ops-alerts | Yes | 5min → #ops-lead |
+| Memory Exhaustion | Critical | #ops-alerts | Yes | 5min → #ops-lead |
+| Database Issues | Critical | #ops-alerts | Yes | 5min → #ops-lead |
+| Security Incident | Critical | #security-alerts | Yes | Immediate |
+| Performance Regression | Warning | #ops-alerts | No | 15min → #ops-lead |
+| Capacity Issues | Warning | #ops-alerts | No | 30min → #ops-lead |
+| Code Issues | Warning | #dev-urgent | No | 1hour → #ops-lead |
+
+### Alert Response Procedures
+
+#### Critical Alerts
+
+1. **Immediate Response (< 5 minutes)**
+   - Acknowledge alert in monitoring system
+   - Check service status: `systemctl status <service>`
+   - Check logs: `journalctl -u <service> -n 100`
+   - Verify impact: Check error rates, latency metrics
+
+2. **Investigation (< 15 minutes)**
+   - Identify root cause using logs and metrics
+   - Check recent deployments or configuration changes
+   - Verify external dependencies (database, Redis, etc.)
+
+3. **Resolution**
+   - Apply fix or rollback if needed
+   - Verify service recovery
+   - Document incident in post-mortem
+
+#### Warning Alerts
+
+1. **Response (< 30 minutes)**
+   - Acknowledge alert
+   - Monitor trend
+   - Plan remediation if trend continues
+
+2. **Resolution**
+   - Schedule fix during maintenance window
+   - Update documentation if needed
+
+### Alert Suppression
+
+Alerts can be suppressed during planned maintenance:
+
+```bash
+# Suppress alerts for 1 hour during maintenance
+curl -X POST http://alertmanager/api/v1/silences \
+  -d '{
+    "matchers": [{"name": "service", "value": "coordinator-api"}],
+    "startsAt": "2026-06-19T10:00:00Z",
+    "endsAt": "2026-06-19T11:00:00Z",
+    "comment": "Planned maintenance window",
+    "createdBy": "ops-team"
+  }'
+```
+
+### Alert Testing
+
+Regular alert testing ensures reliability:
+
+```bash
+# Test alert delivery
+# 1. Simulate high latency
+curl -X POST http://localhost:8000/test/slow-endpoint
+
+# 2. Simulate high error rate
+curl -X POST http://localhost:8000/test/error-endpoint
+
+# 3. Verify alert received in #ops-alerts
+# 4. Verify escalation to #ops-lead if not acknowledged
 ```
 
 ## Database Query Profiling
