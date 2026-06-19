@@ -63,24 +63,27 @@ This directive prevents any network access from the service, even if the applica
 
 ## Implementation Steps
 
-### 1. Add IPDeny=any to Localhost-Only Services ✅ COMPLETED (v0.5.1)
+### 1. Add IPDeny=any to Localhost-Only Services ⏸️ DEFERRED (systemd compatibility)
 
-Added `IPDeny=any` to the following service files:
-- ✅ `apps/coordinator-api/aitbc-coordinator-api.service`
-- ✅ `apps/blockchain-node/aitbc-blockchain-rpc.service`
-- ✅ `apps/hermes/aitbc-hermes.service`
-- ✅ `apps/ai-engine/aitbc-multimodal.service`
-- ✅ `apps/ai-engine/aitbc-modality-optimization.service`
-- ✅ `apps/ai-engine/aitbc-learning.service`
+**Status**: Deferred due to systemd compatibility issues
+- IPDeny=any requires systemd version 242+ (not available in current environment)
+- Attempted to add IPDeny=any caused service failures
+- Services affected: coordinator-api, blockchain-rpc, hermes, multimodal, modality-optimization, learning
+- Resolution: Upgrade systemd or use alternative network isolation methods
 
-### 2. Audit and Enforce Localhost Binding ✅ PARTIALLY COMPLETED (v0.5.1)
+**Alternative approaches**:
+- Use firewall rules (iptables/nftables) for network isolation
+- Use network namespaces for service isolation
+- Implement application-level network restrictions
+
+### 2. Audit and Enforce Localhost Binding ✅ COMPLETED (v0.5.1)
 
 For services with no explicit bind, added explicit localhost binding or environment variables:
 
 **Completed:**
-- ✅ `apps/marketplace/aitbc-marketplace.service` - Added `--host 127.0.0.1 --port 8104` + IPDeny=any
-- ✅ `apps/exchange/aitbc-exchange.service` - Already binds localhost via HTTPServer + IPDeny=any
-- ✅ `apps/gpu/aitbc-gpu.service` - Added `GPU_BIND_HOST=127.0.0.1` + IPDeny=any
+- ✅ `apps/marketplace/aitbc-marketplace.service` - Added MARKETPLACE_BIND_HOST=127.0.0.1 + MARKETPLACE_BIND_PORT=8104
+- ✅ `apps/exchange/aitbc-exchange.service` - Already binds localhost via HTTPServer
+- ✅ `apps/gpu/aitbc-gpu.service` - Added GPU_BIND_HOST=127.0.0.1
 
 **Pending (deferred to v0.5.2):**
 - ⏸️ `apps/edge/aitbc-edge.service`
