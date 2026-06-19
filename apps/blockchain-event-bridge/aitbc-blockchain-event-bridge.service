@@ -15,10 +15,10 @@ RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=EventBridge
-NoNewPrivileges=true
-PrivateTmp=true
+NoNewPrivileges=yes
+PrivateTmp=yes
 # ProtectSystem=strict - Removed for service user compatibility
-# ProtectHome=true - Removed for service user compatibility
+# ProtectHome=yes - Removed for service user compatibility
 ReadWritePaths=/var/lib/aitbc
 ReadWritePaths=/var/log/aitbc
 # Resource limits

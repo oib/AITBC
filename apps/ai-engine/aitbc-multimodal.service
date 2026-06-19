@@ -16,7 +16,7 @@ ExecStart=/opt/aitbc/venv/bin/python -m uvicorn src.app.services.multimodal_app:
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=5
-PrivateTmp=true
+PrivateTmp=yes
 Restart=on-failure
 RestartSec=5
 # Logging
@@ -24,8 +24,8 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-multimodal
 # Security
-NoNewPrivileges=true
-# ProtectHome=true - Removed for service user compatibility
+NoNewPrivileges=yes
+# ProtectHome=yes - Removed for service user compatibility
 # Security hardening (v0.5.0)
 ProtectHome=yes
 ProtectKernelTunables=yes

@@ -18,7 +18,7 @@ ExecStart=/opt/aitbc/venv/bin/python -m app.main
 Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
 KillMode=mixed
 TimeoutStopSec=5
-PrivateTmp=false
+PrivateTmp=yes
 Restart=on-failure
 RestartSec=5
 StartLimitInterval=60
