@@ -520,7 +520,7 @@ No load tests exist. Unknown capacity limits.
 - ✅ SLO definitions: Performance SLOs (p99 < 200ms, error rate < 0.1%)
 - ✅ Alert thresholds: Critical/warning/info alert levels defined
 - ✅ PrometheusRule example: Coordinator API alerts with Alertmanager routing
-- ✅ Log schema enforcement: Structured log tests for coordinator API
+- ✅ Log schema enforcement: Structured log tests for coordinator-api, blockchain-node, and marketplace
 - ✅ Request ID propagation: Implementation plan documented
 
 ### Bug Fixes
