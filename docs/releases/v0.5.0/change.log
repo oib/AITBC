@@ -28,16 +28,41 @@ Mock routers still use module-global `dict()` for state. This was deferred in v0
 
 | Task | Status | Owner |
 |------|--------|-------|
-| Design Redis schema for each state type | 🔴 Not started | Agent A |
-| Implement Redis-backed models | 🔴 Not started | Agent A |
-| Add cache invalidation on state mutation | 🔴 Not started | TBD |
+| Design Redis schema for each state type | ✅ Complete | Agent B |
+| Implement Redis-backed state manager | ✅ Complete | Agent B |
+| Migrate training router to Redis | ✅ Complete | Agent B |
+| Migrate hermes router to Redis | ✅ Complete | Agent B |
+| Migrate swarm router to Redis | ✅ Complete | Agent B |
+| Add cache invalidation on state mutation | � Partial (clear_namespace method added) | Agent B |
 | Ensure `debug=false` disables mock state creation | 🟡 Partial | Agent B |
 | Migration script: migrate existing in-memory state | 🔴 Not started | TBD |
 
+### Implementation Details
+
+**New Files:**
+- `apps/coordinator-api/src/app/services/redis_state.py` — Async Redis state manager with in-memory fallback
+
+**Updated Files:**
+- `apps/coordinator-api/src/app/config.py` — Added `RedisConfig` class with connection settings
+- `apps/coordinator-api/src/app/routers/training.py` — Migrated `_mock_jobs` dict to Redis hash
+- `apps/coordinator-api/src/app/routers/hermes.py` — Migrated `_mock_agents` and `_mock_messages` to Redis hash + list
+- `apps/coordinator-api/src/app/routers/swarm.py` — Migrated to Redis hash for nodes, tasks, and clusters
+
+**Redis Schema:**
+| Namespace | Redis Type | Purpose |
+|-----------|-----------|---------|
+| `aitbc:coordinator:training` | Hash | Training jobs |
+| `aitbc:coordinator:hermes:agents` | Hash | Registered agents |
+| `aitbc:coordinator:hermes:messages` | List | Message queues per agent |
+| `aitbc:coordinator:swarm:nodes` | Hash | Compute nodes |
+| `aitbc:coordinator:swarm:tasks` | Hash | Swarm tasks |
+| `aitbc:coordinator:swarm:clusters` | Hash | Compute clusters |
+
 ### Acceptance Criteria
-- [ ] No module-global `dict()` for persistent state
-- [ ] State survives service restart
-- [ ] Multiple coordinator instances share state via Redis
+- [x] No module-global `dict()` for persistent state
+- [x] State survives service restart (when Redis enabled)
+- [x] Multiple coordinator instances share state via Redis
+- [x] Graceful fallback to in-memory when Redis unavailable
 
 ---
 
