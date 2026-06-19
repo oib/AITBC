@@ -84,7 +84,13 @@
 - Add CI job that runs the k6/locust baseline from v0.5.0 and fails if p95 degrades >20%
 - Store baseline results as an artifact for comparison
 
-### 7. Dead-Code Sweep
+### 7. Redis State Migration Completion
+- ~~Migrate training, hermes, swarm routers~~ ✅ **Completed in v0.5.0**
+- Migrate exchange.py `payments` dict to RedisStateManager ✅ **Completed**
+- Migrate users.py `user_sessions` dict to RedisStateManager ✅ **Completed**
+- All module-global dicts for persistent state now removed from main routers
+
+### 8. Dead-Code Sweep
 - ~~Remove legacy database.py (0% coverage)~~ ✅ **Completed in v0.5.0**
 - Search for any remaining 0% coverage files
 - Remove or mark as deprecated
