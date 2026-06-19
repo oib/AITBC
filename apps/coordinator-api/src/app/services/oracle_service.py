@@ -16,9 +16,9 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
-import httpx
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.http_client import RequestIDPropagatingClient
 
 logger = get_logger(__name__)
 
@@ -92,7 +92,7 @@ class ChainlinkAdapter:
     def __init__(self, rpc_url: str = "https://ethereum-rpc.publicnode.com", enabled: bool = False):
         self.rpc_url = rpc_url
         self.enabled = enabled
-        self._client = httpx.AsyncClient(timeout=30.0)
+        self._client = RequestIDPropagatingClient(timeout=30.0)
         self._decimals = 8
 
     async def get_price(self, pair: str) -> PriceData | None:
