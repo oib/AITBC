@@ -26,7 +26,7 @@
 **Recent Bug Fixes (post-v0.5.0):**
 - ✅ Log format optimization: Switched to compact human-readable format for journalctl
 - ✅ Duplicate logging fixes: Removed redundant timestamps in JSON logs
-- ✅ Marketplace service: Import issues resolved (MarketplaceOffer from aitbc_shared), but service unit not installed in systemd
+- ✅ Marketplace service: Re-enabled and running on 127.0.0.1:8104
 - ✅ IPDeny=any: Reverted due to systemd compatibility issues
 - ✅ Secrets service: Fixed read-only filesystem compatibility
 
