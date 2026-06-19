@@ -3,13 +3,13 @@ from __future__ import annotations
 from statistics import mean
 from typing import Any
 
+from aitbc_shared import MarketplaceOffer
 from sqlmodel import Session, select
 
 from ....schemas import (
     MarketplaceOfferView,
     MarketplaceStatsView,
 )
-from ..domain.marketplace import MarketplaceOffer
 
 # Import plugin manager
 try:

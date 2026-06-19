@@ -3,6 +3,7 @@ Enhanced Marketplace Service - Simplified Version for Deployment
 Basic marketplace enhancement features compatible with existing domain models
 """
 
+from aitbc_shared import MarketplaceOffer
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
@@ -10,8 +11,6 @@ from typing import Any
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
-
-from ..domain import MarketplaceOffer  # type: ignore[attr-defined]
 
 logger = get_logger(__name__)
 
