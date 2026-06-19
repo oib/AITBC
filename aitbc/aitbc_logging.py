@@ -14,6 +14,18 @@ from pathlib import Path
 from typing import Any
 
 
+class JournalFormatter(logging.Formatter):
+    """Compact human-readable formatter for systemd journal output.
+
+    Produces clean output like:
+        INFO [app.main] Starting Coordinator API
+        ERROR [app.core.lifecycle] Database connection failed
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        return f"{record.levelname} [{record.name}] {record.getMessage()}"
+
+
 class BlockchainTextFormatter(logging.Formatter):
     """Compact bracketed formatter that appends blockchain-specific extra fields."""
 
@@ -137,19 +149,11 @@ def setup_logger(
         # Console handler
         console_handler = logging.StreamHandler(sys.stdout)
 
-        if structured or _get_log_format() == "json":
-            # Disable timestamp in JSON logs when writing to systemd journal (to avoid duplicate timestamps)
-            include_timestamp = to_file  # Only include timestamp when writing to file
-            formatter: logging.Formatter = StructuredFormatter(include_timestamp=include_timestamp)
-        else:
-            if format_string is None:
-                format_string = "[%(levelname)s] %(message)s"
-            formatter = logging.Formatter(format_string)
-
-        console_handler.setFormatter(formatter)
+        # Console handler - compact human-readable for journal
+        console_handler.setFormatter(JournalFormatter())
         logger.addHandler(console_handler)
 
-        # File handler with rotation
+        # File handler with rotation (JSON format with timestamps for log aggregation)
         if to_file and service_name:
             log_file = _get_log_file_path(service_name)
             if log_file:
@@ -204,17 +208,12 @@ def configure_logging(
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
 
-    # Console handler
+    # Console handler - use compact format for journal readability
     console_handler = logging.StreamHandler(sys.stdout)
-    if structured or _get_log_format() == "json":
-        # Disable timestamp in JSON logs when writing to systemd journal (to avoid duplicate timestamps)
-        include_timestamp = to_file  # Only include timestamp when writing to file
-        console_handler.setFormatter(StructuredFormatter(include_timestamp=include_timestamp))
-    else:
-        console_handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+    console_handler.setFormatter(JournalFormatter())
     root_logger.addHandler(console_handler)
 
-    # File handler with rotation
+    # File handler with rotation (JSON format with timestamps for log aggregation)
     if to_file and service_name:
         log_file = _get_log_file_path(service_name)
         if log_file:
