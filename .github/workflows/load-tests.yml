@@ -1,0 +1,73 @@
+name: Load Tests (Nightly)
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  load-test:
+    name: Load Test Coordinator API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install uv
+        run: pip install uv
+      - name: Install project dependencies
+        run: uv sync --dev
+      - name: Install locust
+        run: uv run pip install locust
+      - name: Start coordinator API in background
+        run: |
+          cd apps/coordinator-api
+          uv run uvicorn app.main:app --host 127.0.0.1 --port 8203 &
+          sleep 10
+      - name: Wait for API to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:8203/health > /dev/null; then
+              echo "API is ready"
+              break
+            fi
+            echo "Waiting for API... ($i/30)"
+            sleep 2
+          done
+      - name: Run normal load test
+        run: |
+          uv run locust -f tests/load/test_coordinator_api.py \
+            --host http://localhost:8203 \
+            --headless \
+            --users 100 \
+            --spawn-rate 10 \
+            --run-time 60s \
+            --html reports/load_test_normal.html \
+            --csv reports/load_test_normal
+      - name: Run stress load test
+        run: |
+          uv run locust -f tests/load/test_coordinator_api.py \
+            --host http://localhost:8203 \
+            --headless \
+            --users 500 \
+            --spawn-rate 50 \
+            --run-time 30s \
+            --html reports/load_test_stress.html \
+            --csv reports/load_test_stress
+      - name: Upload load test reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-test-reports
+          path: |
+            reports/load_test_normal.html
+            reports/load_test_normal_stats.csv
+            reports/load_test_normal_stats_history.csv
+            reports/load_test_normal_failures.csv
+            reports/load_test_stress.html
+            reports/load_test_stress_stats.csv
+            reports/load_test_stress_stats_history.csv
+            reports/load_test_stress_failures.csv
+          retention-days: 30
