@@ -1,0 +1,109 @@
+# v0.5.1 Release Plan
+
+**Theme**: Production hardening — CI/CD reliability, network security, and observability depth.
+
+**Goal**: Address the remaining post-v0.5.0 items without introducing new features. Keep scope tight; defer anything requiring architectural changes.
+
+---
+
+## Status Update (from v0.5.0 completion)
+
+**Already Completed in v0.5.0:**
+- ✅ CI/CD hardening items 11, 12, 13 (coverage gate, flaky-test detection, separate jobs)
+- ✅ Network policy documentation (NETWORK_POLICY.md)
+- ✅ Secret rotation runbook (SECRET_ROTATION.md)
+- ✅ Request ID propagation documentation (REQUEST_ID_PROPAGATION.md)
+- ✅ Observability depth items (SLOs, log schema tests for coordinator-api)
+
+**Updated v0.5.1 Plan:**
+- Focus on implementation and enforcement rather than documentation
+- Prioritize actionable items over planning items
+
+---
+
+## P0 (Must-have for v0.5.1)
+
+### 1. Network Policy Enforcement
+- ~~Document which services must bind 127.0.0.1 vs 0.0.0.0~~ ✅ **Completed in v0.5.0**
+- Add IPDeny=any to all non-exposed services (coordinator-api, blockchain-node, etc.)
+- Audit aitbc-marketplace.service and aitbc-exchange.service for exposure requirements
+- Apply IPDeny=any to localhost-only services for defense-in-depth
+
+### 2. Secret Rotation Dry-Run
+- ~~Execute the rotation runbook (docs/operations/SECRETS.md)~~ ✅ **Runbook completed in v0.5.0**
+- Rotate JWT_SECRET using the documented dual-secret overlap window
+- Validate zero-downtime: no 401s for in-flight requests during rotation
+- Update docs/operations/SECRET_ROTATION_LOG.md with the actual run
+- **Note**: Requires staging environment for safe testing
+
+### 3. CI/CD Hardening Validation
+- ~~Coverage gate: Add pytest --cov with fail-under=80~~ ✅ **Completed in v0.5.0**
+- ~~Flaky-test detection: Add pytest --reruns 2~~ ✅ **Completed in v0.5.0**
+- ~~Separate lint and test jobs~~ ✅ **Completed in v0.5.0**
+- Validate CI/CD changes work correctly in production
+- Monitor flaky test rerun counts as CI metric
+
+---
+
+## P1 (Should-have for v0.5.1)
+
+### 4. Request ID Propagation Implementation
+- ~~Document status and implementation plan~~ ✅ **Completed in v0.5.0**
+- Implement X-Request-ID forwarding to outbound HTTP calls (blockchain RPC, Redis, external APIs)
+- Add middleware or client wrapper to propagate the header
+- Update integration tests to verify propagation
+
+### 5. Observability Depth Completion
+- ~~Define SLOs and alert thresholds~~ ✅ **Completed in v0.5.0**
+- ~~Add structured log schema enforcement for coordinator-api~~ ✅ **Completed in v0.5.0**
+- Finish structured log schema enforcement: add similar schema tests for blockchain-node and marketplace
+- Define and document alert routing for the SLOs created in v0.5.0
+- Deploy PrometheusRule and Alertmanager configurations
+
+---
+
+## P2 (Nice-to-have; defer if scope creeps)
+
+### 6. Performance Regression Guard
+- Add CI job that runs the k6/locust baseline from v0.5.0 and fails if p95 degrades >20%
+- Store baseline results as an artifact for comparison
+
+### 7. Dead-Code Sweep
+- ~~Remove legacy database.py (0% coverage)~~ ✅ **Completed in v0.5.0**
+- Search for any remaining 0% coverage files
+- Remove or mark as deprecated
+
+---
+
+## Updated Execution Order
+
+| Week   | Focus                                        | Deliverable                                                 |
+|--------|----------------------------------------------|-------------------------------------------------------------|
+| Week 1 | Network policy enforcement                   | IPDeny=any applied + exposure audit complete                |
+| Week 2 | CI/CD validation                              | Verify coverage gates + reruns work in production            |
+| Week 3 | Secret rotation dry-run                      | Validated rotation runbook + SECRET_ROTATION_LOG.md updated |
+| Week 4 | Request ID propagation + observability depth | Implementation + schema tests for blockchain/marketplace    |
+
+---
+
+## Updated Acceptance Criteria for v0.5.1 Tag
+
+- ~~CI passes with coverage gate enabled~~ ✅ **Completed in v0.5.0**
+- No service binds 0.0.0.0 unless explicitly documented as exposed
+- SECRET_ROTATION_LOG.md contains at least one successful rotation entry
+- ~~All coordinator API tests pass with --reruns 2~~ ✅ **Completed in v0.5.0**
+- X-Request-ID appears in outbound call logs for at least one service
+- Structured log schema tests exist for blockchain-node and marketplace
+
+---
+
+## Recommendation
+
+Keep v0.5.1 narrow. Focus on:
+1. **Implementation** (IPDeny=any, request ID propagation)
+2. **Validation** (CI/CD changes, secret rotation dry-run)
+3. **Completion** (observability depth for remaining services)
+
+Do not add new endpoints, features, or major refactors. The goal is production trust: reliable CI, secure network posture, and proven operational procedures.
+
+If P0 items are completed faster than expected, pull in P1 items; otherwise, defer P1/P2 to v0.6.0.
