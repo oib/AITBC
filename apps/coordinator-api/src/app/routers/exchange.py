@@ -1,5 +1,7 @@
 """
 Bitcoin Exchange Router for AITBC
+
+v0.5.1: Payment state migrated from module-global dict to RedisStateManager.
 """
 
 import time
@@ -7,6 +9,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from app.services.redis_state import RedisStateManager
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from aitbc.aitbc_logging import get_logger
@@ -28,8 +31,9 @@ logger = get_logger(__name__)
 
 router = APIRouter(tags=["exchange"])
 
-# In-memory storage for demo (use database in production)
-payments: dict[str, dict[str, Any]] = {}
+# Redis-backed state (falls back to in-memory if Redis unavailable)
+_state = RedisStateManager.get_instance_sync()
+_NAMESPACE = "exchange"
 
 # Bitcoin configuration
 BITCOIN_CONFIG: dict[str, Any] = {
@@ -75,7 +79,7 @@ async def create_payment(
     }
 
     # Store payment
-    payments[payment_id] = payment
+    await _state.hset(_NAMESPACE, payment_id, payment)
 
     # Start payment monitoring in background
     background_tasks.add_task(monitor_payment, payment_id)
@@ -89,14 +93,14 @@ async def create_payment(
 async def get_payment_status(request: Request, payment_id: str) -> dict[str, Any]:
     """Get payment status"""
 
-    if payment_id not in payments:
+    payment = await _state.hget(_NAMESPACE, payment_id)
+    if payment is None:
         raise HTTPException(status_code=404, detail="Payment not found")
-
-    payment = payments[payment_id]
 
     # Check if expired
     if payment["status"] == "pending" and time.time() > payment["expires_at"]:
         payment["status"] = "expired"
+        await _state.hset(_NAMESPACE, payment_id, payment)
 
     return payment
 
@@ -106,10 +110,9 @@ async def get_payment_status(request: Request, payment_id: str) -> dict[str, Any
 async def confirm_payment(request: Request, payment_id: str, tx_hash: str) -> dict[str, Any]:
     """Confirm payment (webhook from payment processor)"""
 
-    if payment_id not in payments:
+    payment = await _state.hget(_NAMESPACE, payment_id)
+    if payment is None:
         raise HTTPException(status_code=404, detail="Payment not found")
-
-    payment = payments[payment_id]
 
     if payment["status"] != "pending":
         raise HTTPException(status_code=400, detail="Payment not in pending state")
@@ -120,6 +123,7 @@ async def confirm_payment(request: Request, payment_id: str, tx_hash: str) -> di
     payment["status"] = "confirmed"
     payment["tx_hash"] = tx_hash
     payment["confirmed_at"] = int(time.time())
+    await _state.hset(_NAMESPACE, payment_id, payment)
 
     # Mint AITBC tokens to user's wallet
     try:
@@ -154,8 +158,10 @@ async def get_market_stats(request: Request) -> MarketStatsResponse:
     current_time = int(time.time())
     yesterday_time = current_time - 24 * 60 * 60  # 24 hours ago
 
+    all_payments = (await _state.hgetall(_NAMESPACE)).values()
+
     daily_volume = 0
-    for payment in payments.values():
+    for payment in all_payments:
         if payment["status"] == "confirmed" and payment.get("confirmed_at", 0) > yesterday_time:
             daily_volume += payment["aitbc_amount"]
 
@@ -168,8 +174,8 @@ async def get_market_stats(request: Request) -> MarketStatsResponse:
         price_change_24h=price_change_percent,
         daily_volume=daily_volume,
         daily_volume_btc=daily_volume / BITCOIN_CONFIG["exchange_rate"],
-        total_payments=len([p for p in payments.values() if p["status"] == "confirmed"]),
-        pending_payments=len([p for p in payments.values() if p["status"] == "pending"]),
+        total_payments=len([p for p in all_payments if p["status"] == "confirmed"]),
+        pending_payments=len([p for p in all_payments if p["status"] == "pending"]),
     )
 
 
@@ -200,12 +206,15 @@ async def monitor_payment(payment_id: str) -> None:
 
     import asyncio
 
-    while payment_id in payments:
-        payment = payments[payment_id]
+    while True:
+        payment = await _state.hget(_NAMESPACE, payment_id)
+        if payment is None:
+            break
 
         # Check if expired
         if payment["status"] == "pending" and time.time() > payment["expires_at"]:
             payment["status"] = "expired"
+            await _state.hset(_NAMESPACE, payment_id, payment)
             break
 
         # In production, check blockchain for payment
