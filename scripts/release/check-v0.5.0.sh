@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # Pre-tag checklist for v0.5.0 release
+# Usage: bash scripts/release/check-v0.5.0.sh
 
 echo "=== v0.5.0 Pre-Tag Release Checklist ==="
 echo ""
