@@ -14,6 +14,7 @@ Environment="PYTHONPATH=/opt/aitbc:/opt/aitbc/aitbc"
 Environment="BLOCKCHAIN_RPC_URL=http://localhost:8202"
 # Config: REDIS_URL moved to /etc/aitbc/%N.env (created at deploy time, not committed)
 EnvironmentFile=/etc/aitbc/%N.env
+# Network hardening (v0.5.1): Exchange service binds to localhost via HTTPServer
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/exchange/simple_exchange_api.py --port 8106
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
@@ -36,6 +37,8 @@ LockPersonality=yes
 MemoryDenyWriteExecute=yes
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
+# Network hardening (v0.5.1)
+IPDeny=any
 # Security hardening (v0.5.0)
 ProtectSystem=full
 ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
