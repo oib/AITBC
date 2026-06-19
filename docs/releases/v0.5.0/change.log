@@ -214,7 +214,8 @@ No centralized monitoring. Each service logs differently. No metrics exported.
 **Marketplace Service Metrics (Complete):**
 - `/metrics` — Prometheus metrics endpoint implemented in `apps/marketplace/src/marketplace_service/main.py`
 - Uses prometheus_client's `generate_latest()` for standard Prometheus format
-- Service currently disabled due to pre-existing import issues (MarketplaceOffer)
+- MarketplaceOffer import issues resolved (importing from aitbc_shared)
+- Service unit file exists but not installed in systemd (not-found status)
 
 **New Middleware:** `aitbc/middleware/prometheus_metrics.py`
 - `PrometheusMetricsMiddleware` — tracks all HTTP requests automatically
@@ -232,11 +233,11 @@ No centralized monitoring. Each service logs differently. No metrics exported.
 **JSON Logging Enabled:**
 - Added `Environment=LOG_FORMAT=json` to `aitbc-coordinator-api.service` (unit file)
 - Added `Environment=LOG_FORMAT=json` to `aitbc-blockchain-node.service` (unit file)
-- Added `Environment=LOG_FORMAT=json` to `aitbc-marketplace.service` (unit file, service disabled)
+- Added `Environment=LOG_FORMAT=json` to `aitbc-marketplace.service` (unit file, service not installed in systemd)
 - Runtime config synced via `systemctl daemon-reload` and `systemctl restart`
 - Verified runtime config matches unit file via `systemctl show`
 - Note: This was a runtime/supervision sync issue, not a code change
-- Note: Marketplace service is disabled due to pre-existing import issues (MarketplaceOffer)
+- Note: Marketplace service unit file exists but not installed in systemd (not-found status)
 
 **Updated Files:**
 - `apps/coordinator-api/aitbc-coordinator-api.service` — Added LOG_FORMAT.json (unit file)
@@ -524,10 +525,10 @@ No load tests exist. Unknown capacity limits.
 
 ### Bug Fixes
 - ✅ Coordinator-api import errors: Fixed MarketplaceOffer, JobPayment, PaymentEscrow imports
-- ✅ Marketplace service import errors: Fixed MarketplaceOffer imports (service still disabled due to other issues)
+- ✅ Marketplace service import errors: Fixed MarketplaceOffer imports (importing from aitbc_shared)
 - ✅ Secrets service failure: Fixed read-only filesystem compatibility
 - ✅ Training router: Fixed endpoint registration and test configuration
-- ✅ Marketplace service: Disabled due to pre-existing import issues (MarketplaceOffer)
+- ✅ Marketplace service: Import issues resolved, but service unit not installed in systemd
 
 ### Release Hygiene
 - ✅ Pre-tag checklist: Automated release validation script

@@ -26,7 +26,7 @@
 **Recent Bug Fixes (post-v0.5.0):**
 - ✅ Log format optimization: Switched to compact human-readable format for journalctl
 - ✅ Duplicate logging fixes: Removed redundant timestamps in JSON logs
-- ✅ Marketplace service: Disabled due to pre-existing import issues
+- ✅ Marketplace service: Import issues resolved (MarketplaceOffer from aitbc_shared), but service unit not installed in systemd
 - ✅ IPDeny=any: Reverted due to systemd compatibility issues
 - ✅ Secrets service: Fixed read-only filesystem compatibility
 
@@ -99,7 +99,7 @@
 | Week 2 | CI/CD validation                              | Verify coverage gates + reruns work in production            |
 | Week 3 | Secret rotation dry-run                      | Validated rotation runbook + SECRET_ROTATION_LOG.md updated |
 | Week 4 | Request ID propagation + observability depth | Implementation + schema tests for blockchain/marketplace    |
-| Week 5 | Marketplace service stability                | Fix import issues, re-enable marketplace service            |
+| Week 5 | Marketplace service deployment              | Install marketplace service unit and enable service          |
 
 ---
 
@@ -111,7 +111,7 @@
 - ~~All coordinator API tests pass with --reruns 2~~ ✅ **Completed in v0.5.0**
 - X-Request-ID appears in outbound call logs for at least one service
 - Structured log schema tests exist for blockchain-node and marketplace
-- Marketplace service runs without import errors
+- Marketplace service unit installed and enabled in systemd
 - Log format optimized for journalctl (compact human-readable)
 
 ---
