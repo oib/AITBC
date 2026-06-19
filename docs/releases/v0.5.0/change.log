@@ -141,8 +141,8 @@ No centralized monitoring. Each service logs differently. No metrics exported.
 | Task | Status | Owner |
 |------|--------|-------|
 | Add `/metrics` endpoint to coordinator API | ✅ Complete | Agent B |
-| Add `/metrics` endpoint to blockchain node | 🔴 Not started | TBD |
-| Add `/metrics` endpoint to marketplace | 🔴 Not started | TBD |
+| Add `/metrics` endpoint to blockchain node | ✅ Complete (already implemented) | Agent B |
+| Add `/metrics` endpoint to marketplace | ✅ Complete (already implemented) | Agent B |
 | Standardize log format to JSON | ✅ Complete (enabled in coordinator-api service) | Agent B |
 | Add structured logging (request_id, trace_id) | ✅ Complete (already exists) | Agent B |
 | Add request latency histograms | ✅ Complete | Agent B |
@@ -175,13 +175,24 @@ No centralized monitoring. Each service logs differently. No metrics exported.
 **Updated Files:**
 - `apps/coordinator-api/aitbc-coordinator-api.service` — Added LOG_FORMAT=json
 
+**Blockchain Node Metrics (Already Implemented):**
+- `/metrics` endpoint already exists in `apps/blockchain-node/src/aitbc_chain/app.py`
+- Uses prometheus_client's `generate_latest()` for Prometheus format
+- Integrated with existing metrics_registry for custom metrics
+- Includes health check endpoint at `/health`
+
+**Marketplace Metrics (Already Implemented):**
+- `/metrics` endpoint already exists in `apps/marketplace/src/marketplace_service/main.py`
+- Uses prometheus_client's `generate_latest()` for Prometheus format
+- Includes health, readiness, and liveness endpoints
+
 ### Acceptance Criteria
 - [x] Coordinator API exposes `/prometheus` in Prometheus format
 - [x] Request latency histograms tracked automatically
 - [x] Error rate counters tracked automatically
 - [x] Structured JSON logging available (via LOG_FORMAT=json)
 - [x] Request ID / correlation ID tracking in place
-- [ ] All services expose metrics (coordinator done, blockchain/marketplace pending)
+- [x] All services expose metrics (coordinator, blockchain, marketplace all have /metrics)
 - [ ] Grafana dashboard shows basic health (requires deployment)
 
 ---
