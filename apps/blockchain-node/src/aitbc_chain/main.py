@@ -134,7 +134,9 @@ class BlockchainNode:
 
     async def _ensure_genesis_for_chains(self) -> None:
         for chain_id in self._supported_chains():
-            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=lambda chain_id=chain_id: session_scope(chain_id))  # type: ignore[arg-type]
+            proposer = PoAProposer(
+                config=self._proposer_config(chain_id), session_factory=lambda chain_id=chain_id: session_scope(chain_id)
+            )  # type: ignore[arg-type]
             await proposer._ensure_genesis_block()
 
     async def _setup_gossip_subscribers(self) -> None:
@@ -189,7 +191,10 @@ class BlockchainNode:
                             logger.info("Received block from gossip for chain %s", chain_id_param)
                             logger.info("Importing block for chain %s: %s", chain_id_param, block_data.get("height"))
 
-                            sync = ChainSync(session_factory=lambda chain_id_param=chain_id_param: session_scope(chain_id_param), chain_id=chain_id_param)  # type: ignore[arg-type]
+                            sync = ChainSync(
+                                session_factory=lambda chain_id_param=chain_id_param: session_scope(chain_id_param),
+                                chain_id=chain_id_param,
+                            )  # type: ignore[arg-type]
                             res = sync.import_block(block_data, transactions=block_data.get("transactions"))
                             logger.info("Import result: accepted=%s, reason=%s", res.accepted, res.reason)
                             if not res.accepted and "Gap detected" in res.reason and settings.auto_sync_enabled:
@@ -281,7 +286,7 @@ class BlockchainNode:
                     extra={"node_id": node_id, "default_island": default_island_id},
                 )
             except Exception as e:
-                logger.error("Failed to initialize island manager: %s", e, exc_info=True)
+                logger.error("Failed to initialize island manager: %s", e)
         else:
             logger.warning("Island manager not available - island operations will be disabled")
         if settings.blockchain_mode == "hub":
@@ -337,7 +342,9 @@ class BlockchainNode:
             if chain_id in self._proposers:
                 continue
 
-            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=lambda chain_id=chain_id: session_scope(chain_id))  # type: ignore[arg-type]
+            proposer = PoAProposer(
+                config=self._proposer_config(chain_id), session_factory=lambda chain_id=chain_id: session_scope(chain_id)
+            )  # type: ignore[arg-type]
             self._proposers[chain_id] = proposer
             self._task_registry.create_task(proposer.start, name=f"proposer_{chain_id}")
 
@@ -358,7 +365,9 @@ class BlockchainNode:
                     # Check if we're actually receiving blocks by comparing heights
                     for chain_id in chains:
                         try:
-                            sync = ChainSync(session_factory=lambda chain_id=chain_id: session_scope(chain_id), chain_id=chain_id)
+                            sync = ChainSync(
+                                session_factory=lambda chain_id=chain_id: session_scope(chain_id), chain_id=chain_id
+                            )
                             local_status = sync.get_sync_status()
                             local_height = local_status.get("head_height", 0)
 
@@ -393,7 +402,9 @@ class BlockchainNode:
                     )
                     for chain_id in chains:
                         try:
-                            sync = ChainSync(session_factory=lambda chain_id=chain_id: session_scope(chain_id), chain_id=chain_id)
+                            sync = ChainSync(
+                                session_factory=lambda chain_id=chain_id: session_scope(chain_id), chain_id=chain_id
+                            )
                             imported = await sync.bulk_import_from(source_url)
                             if imported > 0:
                                 logger.info(
@@ -404,15 +415,15 @@ class BlockchainNode:
                                 )
                         except Exception as e:
                             logger.error(
-                                "Periodic sync failed for chain %s",
+                                "Periodic sync failed for chain %s: %s",
                                 chain_id,
-                                extra={"chain_id": chain_id, "error": str(e)},
-                                exc_info=True,
+                                str(e),
+                                extra={"chain_id": chain_id},
                             )
                 else:
                     logger.debug("Skipping periodic pull: WebSocket push is active and gap is acceptable")
             except Exception as e:
-                logger.error("Periodic sync task error", extra={"error": str(e)}, exc_info=True)
+                logger.error("Periodic sync task error: %s", str(e))
             try:
                 await asyncio.wait_for(self._stop_event.wait(), timeout=sync_interval)
                 break
