@@ -15,10 +15,8 @@ Environment="BLOCKCHAIN_RPC_PORT=8202"
 Environment="GPU_SERVICE_HOST=localhost"
 Environment="GPU_SERVICE_PORT=8101"
 Environment="API_PORT=8111"
-# Config: DATABASE_URL moved to /etc/aitbc/%N.env (created at deploy time, not committed)
+# Service-specific secrets (moved from /etc/aitbc/secrets/jwt_secret during v0.5.1 migration)
 EnvironmentFile=/etc/aitbc/%N.env
-# Secret: JWT secret already in separate file
-EnvironmentFile=/etc/aitbc/secrets/jwt_secret
 ExecStart=/opt/aitbc/venv/bin/python -m aitbc_edge.main
 Restart=on-failure
 RestartSec=5
