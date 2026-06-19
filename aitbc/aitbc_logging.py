@@ -185,6 +185,8 @@ def get_blockchain_logger(name: str) -> logging.Logger:
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(BlockchainTextFormatter())
         logger.addHandler(handler)
+        # Prevent propagation to root logger to avoid duplicate logs
+        logger.propagate = False
     return logger
 
 
