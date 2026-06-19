@@ -111,7 +111,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from .contracts.escrow import create_escrow_manager
 
     create_escrow_manager()
-    _app_logger.info("EscrowManager initialised")
     init_mempool(
         backend=settings.mempool_backend,
         db_url=settings.mempool_db_url,
@@ -120,15 +119,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     _app_logger.info("Initializing gossip backend: %s, url: %s", settings.gossip_backend, settings.gossip_broadcast_url)
     create_backend("broadcast", broadcast_url=settings.gossip_broadcast_url)
-    _app_logger.info("Gossip backend initialized successfully")
+
     try:
         node_id = os.getenv("NODE_ID", "unknown-node")
         default_island_id = os.getenv("DEFAULT_ISLAND_ID", f"{settings.supported_chains.split(',')[0].strip()}-island")
         default_chain_id = settings.supported_chains.split(",")[0].strip() if settings.supported_chains else "ait-mainnet"
         create_island_manager(node_id, default_island_id, default_chain_id)
-        _app_logger.info("Island manager initialized", extra={"node_id": node_id, "default_island": default_island_id})
     except Exception as e:
         _app_logger.error("Failed to initialize island manager: %s", e, exc_info=True)
+
     proposers = []
     block_production_override = _env_value(
         "AITBC_FORCE_ENABLE_BLOCK_PRODUCTION", "ENABLE_BLOCK_PRODUCTION", "enable_block_production"
@@ -136,7 +135,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     block_production_enabled = settings.enable_block_production
     if block_production_override is not None:
         block_production_enabled = block_production_override.strip().lower() in {"1", "true", "yes", "on"}
-    _app_logger.info("Block production enabled: %s, proposer_id: %s", block_production_enabled, settings.proposer_id)
+
     if block_production_enabled and settings.proposer_id:
         try:
             from .consensus import PoAProposer, ProposerConfig
@@ -157,36 +156,33 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 set_poa_proposer(proposer)
                 asyncio.create_task(proposer.start())
                 proposers.append(proposer)
-            _app_logger.info(
-                "PoA proposer initialized for mining integration",
-                extra={"proposer_id": settings.proposer_id, "supported_chains": supported_chains},
-            )
         except Exception as e:
             _app_logger.warning("Failed to initialize PoA proposer for mining: %s", e)
+
     try:
         from .services.balance_tracker import init_balance_tracker
 
         init_balance_tracker(session_scope)
-        _app_logger.info("Balance tracker initialized")
     except Exception as e:
         _app_logger.warning("Failed to initialize balance tracker: %s", e)
+
+    # Consolidated startup summary
     _app_logger.info(
-        "Blockchain node started",
-        extra={
-            "supported_chains": settings.supported_chains,
-            "blockchain_mode": settings.blockchain_mode,
-            "market_role": settings.market_role,
-            "hardware_profile": settings.hardware_profile,
-        },
+        "Blockchain node started: chains=%s mode=%s role=%s hardware=%s block_prod=%s",
+        settings.supported_chains,
+        settings.blockchain_mode,
+        settings.market_role,
+        settings.hardware_profile,
+        block_production_enabled,
     )
+
     try:
         await lease_tracker.start()
-        if settings.blockchain_mode == "hub":
-            _app_logger.info("Lease tracker started on hub node (RPC service)")
-        else:
-            _app_logger.info("Lease tracker started on follower node (RPC service)")
+        node_type = "hub" if settings.blockchain_mode == "hub" else "follower"
+        _app_logger.info("Lease tracker started on %s node (RPC service)", node_type)
     except Exception as e:
         _app_logger.error("Failed to start lease tracker in RPC service: %s", e, exc_info=True)
+
     try:
         yield
     finally:
