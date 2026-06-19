@@ -106,7 +106,7 @@ Systemd units were deferred in v0.4.26. Production services need security isolat
 | Add `WatchdogSec=30` + `NotifyAccess=all` | ✅ Complete | Agent B |
 | Add `Restart=on-failure`, `RestartSec=5` | ✅ Complete | Agent B |
 | Move secrets to `/etc/aitbc/%N.env` | ✅ Complete (v0.5.1: all services migrated, per-service .env files created) | Agent B |
-| Create `aitbc` user (non-root) for all services | 🟡 Partial (tooling ready, deployment pending) | Agent B |
+| Create `aitbc` user (non-root) for all services | ✅ Complete (v0.5.1: user created, all 31 services migrated and restarted) | Agent B |
 
 ### Security Directives Added
 
