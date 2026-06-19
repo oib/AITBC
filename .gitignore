@@ -307,6 +307,8 @@ scripts/deployment/*
 !scripts/deployment/deploy.sh
 !scripts/deployment/setup.sh
 !scripts/deployment/validate-env.sh
+!scripts/deployment/create_aitbc_user.sh
+!scripts/deployment/unify_service_users.sh
 scripts/gpu/*
 !scripts/gpu/*.example
 !scripts/gpu/README.md

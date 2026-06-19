@@ -19,6 +19,7 @@ This directory contains production deployment guides and procedures for the AITB
 ## Additional Deployment Documentation
 
 - [Deployment Dependencies](DEPENDENCIES.md) - System-level dependencies for deployment
+- [Service Users](SERVICE_USERS.md) - Service user management and unification
 - [SMART_CONTRACT_DEPLOYMENT.md](SMART_CONTRACT_DEPLOYMENT.md) - Smart contract deployment procedures
 - [5_marketplace-deployment.md](5_marketplace-deployment.md) - Marketplace deployment guide
 - [debian-miner-installation.md](debian-miner-installation.md) - Debian-specific miner installation

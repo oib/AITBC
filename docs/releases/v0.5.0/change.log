@@ -89,8 +89,8 @@ Systemd units were deferred in v0.4.26. Production services need security isolat
 | Add additional security directives | ✅ Complete | Agent B |
 | Add `WatchdogSec=30` + `NotifyAccess=all` | ✅ Complete | Agent B |
 | Add `Restart=on-failure`, `RestartSec=5` | ✅ Complete | Agent B |
-| Move secrets to `/etc/aitbc/%N.env` | ✅ Complete | Agent B |
-| Create `aitbc` user (non-root) for all services | ✅ Complete (tooling ready) | Agent B |
+| Move secrets to `/etc/aitbc/%N.env` | 🟡 Partial (tooling ready, deployment pending) | Agent B |
+| Create `aitbc` user (non-root) for all services | 🟡 Partial (tooling ready, deployment pending) | Agent B |
 
 ### Security Directives Added
 
@@ -124,6 +124,29 @@ All 31 service files hardened with:
 - `docs/deployment/SERVICE_USERS.md` (user management documentation)
 - `docs/releases/v0.5.0/systemd-hardening-report.md`
 
+### User Management Tooling
+
+**Current User Distribution:**
+Before unification, services use multiple different users:
+- `root` (5 services): miner, agent-daemon, blockchain-sync, agent-management, blockchain-explorer
+- `aitbc-internal` (11 services): coordinator-api, agent-coordinator, governance, marketplace, etc.
+- `aitbc-blockchain` (3 services): blockchain-node, blockchain-p2p, blockchain-rpc
+- `aitbc-gpu` (1 service): gpu
+- `aitbc-wallet` (1 service): wallet
+- `aitbc-public` (6 services): edge, whisper, ffmpeg, blockchain-event-bridge, api-gateway, ai
+
+**Deployment Scripts:**
+- `create_aitbc_user.sh` — Creates unified `aitbc` user with proper group memberships
+- `unify_service_users.sh` — Updates all service files to use `aitbc` user
+- `SERVICE_USERS.md` — Complete user management documentation
+
+**User Permissions:**
+- `aitbc` user with no login shell
+- Member of `aitbc`, `aitbc-services`, `video`, `render` groups
+- Proper directory permissions for `/var/lib/aitbc`, `/var/log/aitbc`, `/run/aitbc`, `/etc/aitbc`
+
+**Note:** Tooling is ready for deployment. Actual user unification requires running scripts during deployment and restarting services.
+
 ### Acceptance Criteria
 - [x] All services have security hardening directives
 - [x] `Restart=on-failure` standardized across all services
@@ -144,9 +167,9 @@ No centralized monitoring. Each service logs differently. No metrics exported.
 | Task | Status | Owner |
 |------|--------|-------|
 | Add `/metrics` endpoint to coordinator API | ✅ Complete | Agent B |
-| Add `/metrics` endpoint to blockchain node | ✅ Complete (already implemented) | Agent B |
-| Add `/metrics` endpoint to marketplace | ✅ Complete (already implemented) | Agent B |
-| Standardize log format to JSON | ✅ Complete (enabled in coordinator-api service) | Agent B |
+| Add `/metrics` endpoint to blockchain node | 🟡 Partial (infrastructure exists, needs verification) | Agent B |
+| Add `/metrics` endpoint to marketplace | 🟡 Partial (infrastructure exists, needs verification) | Agent B |
+| Standardize log format to JSON | 🟡 Partial (coordinator-api enabled, other services pending) | Agent B |
 | Add structured logging (request_id, trace_id) | ✅ Complete (already exists) | Agent B |
 | Add request latency histograms | ✅ Complete | Agent B |
 | Add error rate counters | ✅ Complete | Agent B |
