@@ -11,10 +11,16 @@ This catches regressions when someone switches log formatters.
 """
 
 import json
+import os
 import re
+import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
+# Add the marketplace src directory to the path
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 
 def test_log_schema_enforcement():
@@ -32,7 +38,8 @@ def test_log_schema_enforcement():
 
         # In a real scenario, we would capture logs from the logging system
         # For this test, we validate the log format configuration
-        # Marketplace service should have JSON logging enabled
+        # Marketplace service uses environment variable LOG_FORMAT for logging configuration
+        assert os.getenv("LOG_FORMAT") == "json"
 
 
 def test_log_schema_required_keys():
