@@ -88,11 +88,10 @@ def create_genesis_wallet(password: str = None):
     print("✅ Created new genesis wallet with secure random private key")
     print(f"Address: {ait_address}")
     print(f"Public key: {pub_key_bytes.hex()}")
-    print(f"Private key: {private_key_bytes.hex()}")
-    print(f"Password: {password}")
     print(f"Wallet saved to: {keystore_path}")
     print(f"Password saved to: {password_path}")
-    print("⚠️  IMPORTANT: Store the password securely!")
+    print("⚠️  IMPORTANT: The private key and password are saved to the files above.")
+    print("⚠️  NEVER share or print the private key or password.")
 
     return ait_address, pub_key_bytes.hex(), private_key_bytes.hex(), password
 

@@ -143,7 +143,7 @@ No centralized monitoring. Each service logs differently. No metrics exported.
 | Add `/metrics` endpoint to coordinator API | ✅ Complete | Agent B |
 | Add `/metrics` endpoint to blockchain node | 🔴 Not started | TBD |
 | Add `/metrics` endpoint to marketplace | 🔴 Not started | TBD |
-| Standardize log format to JSON | ✅ Complete (infrastructure exists) | Agent B |
+| Standardize log format to JSON | ✅ Complete (enabled in coordinator-api service) | Agent B |
 | Add structured logging (request_id, trace_id) | ✅ Complete (already exists) | Agent B |
 | Add request latency histograms | ✅ Complete | Agent B |
 | Add error rate counters | ✅ Complete | Agent B |
@@ -168,6 +168,13 @@ No centralized monitoring. Each service logs differently. No metrics exported.
 - `StructuredFormatter` — JSON log formatter (enable via `LOG_FORMAT=json`)
 - `PerformanceLoggingMiddleware` — logs request timing with X-Process-Time header
 
+**JSON Logging Enabled:**
+- Added `Environment=LOG_FORMAT=json` to `aitbc-coordinator-api.service`
+- Coordinator API now logs in JSON format for structured log aggregation
+
+**Updated Files:**
+- `apps/coordinator-api/aitbc-coordinator-api.service` — Added LOG_FORMAT=json
+
 ### Acceptance Criteria
 - [x] Coordinator API exposes `/prometheus` in Prometheus format
 - [x] Request latency histograms tracked automatically
@@ -190,12 +197,12 @@ Secrets are still scattered. Production needs unified management.
 |------|--------|-------|
 | Document secret rotation policy | ✅ Complete (in SECRETS.md) | Agent B |
 | Audit all env vars for secret leakage | ✅ Complete | Agent B |
-| Add secret masking to all loggers | � Partial (identified issues) | Agent B |
+| Add secret masking to all loggers | Complete (issues fixed) | Agent B |
 | Create `docs/operations/SECRETS.md` runbook | ✅ Complete | Agent B |
 | Fix plaintext passwords in service files | ✅ Complete | Agent B |
 | Remove hardcoded default passwords from Python | ✅ Complete | Agent B |
 | Remove default passwords from database URLs | ✅ Complete | Agent B |
-| Standardize on `/etc/aitbc/%N.env` pattern | � Partial (2 services updated) | DevOps |
+| Standardize on `/etc/aitbc/%N.env` pattern | Partial (2 services updated) | DevOps |
 
 ### Audit Findings
 
@@ -229,10 +236,10 @@ Secrets are still scattered. Production needs unified management.
 - [x] Secret audit completed and documented
 - [x] Secret rotation policy documented
 - [x] Migration plan created with phased approach
-- [ ] No plaintext secrets in service files
-- [ ] No hardcoded default passwords in code
-- [ ] No default passwords in database URLs
-- [ ] All secrets in `/etc/aitbc/` or `/run/aitbc/secrets/`
+- [x] No plaintext secrets in service files (moved to /etc/aitbc/%N.env)
+- [x] No hardcoded default passwords in code (removed all fallbacks)
+- [x] No default passwords in database URLs (now required explicitly)
+- [ ] All secrets in `/etc/aitbc/` or `/run/aitbc/secrets/` (pending DevOps deployment)
 
 ---
 

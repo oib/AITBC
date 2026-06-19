@@ -9,6 +9,7 @@ User=aitbc-internal
 Group=aitbc-services
 WorkingDirectory=/opt/aitbc/apps/coordinator-api/src
 Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/coordinator-api/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src
+Environment=LOG_FORMAT=json
 # ExecStartPre=/opt/aitbc/scripts/utils/load-keystore-secrets.sh - Removed for service user compatibility
 EnvironmentFile=/run/aitbc/secrets/.env
 EnvironmentFile=/etc/aitbc/blockchain.env
