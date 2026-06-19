@@ -84,9 +84,28 @@ def get_sync_engine() -> Any:
     Returns:
         Engine: SQLAlchemy synchronous engine
     """
-    from .database import engine
+    from .config import settings
+    from sqlmodel import create_engine
 
-    return engine
+    if settings.get_effective_database_url().startswith("sqlite"):
+        from sqlalchemy import StaticPool
+
+        return create_engine(
+            settings.get_effective_database_url(),
+            connect_args={"check_same_thread": False, "timeout": 30},
+            poolclass=StaticPool,
+            echo=settings.db_echo,
+            pool_pre_ping=settings.db_pool_pre_ping,
+        )
+    else:
+        return create_engine(
+            settings.get_effective_database_url(),
+            pool_size=settings.database.pool_size,
+            max_overflow=settings.database.max_overflow,
+            pool_pre_ping=settings.db_pool_pre_ping,
+            pool_recycle=settings.db_pool_recycle,
+            echo=settings.db_echo,
+        )
 
 
 async def close_async_db() -> None:
