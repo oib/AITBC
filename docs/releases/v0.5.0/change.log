@@ -75,21 +75,53 @@ Systemd units were deferred in v0.4.26. Production services need security isolat
 
 | Task | Status | Owner |
 |------|--------|-------|
-| Audit all `.service` files in `systemd/` | 🔴 Not started | Agent B |
-| Add `PrivateTmp=yes` to all services | 🔴 Not started | Agent B |
-| Add `NoNewPrivileges=yes` to all services | 🔴 Not started | Agent B |
-| Add `ProtectSystem=strict` to all services | 🔴 Not started | Agent B |
-| Add `ProtectHome=yes` to all services | 🔴 Not started | Agent B |
+| Audit all `.service` files | ✅ Complete | Agent B |
+| Add `PrivateTmp=yes` to all services | ✅ Complete | Agent B |
+| Add `NoNewPrivileges=yes` to all services | ✅ Complete | Agent B |
+| Add `ProtectSystem` (full/strict) to all services | ✅ Complete | Agent B |
+| Add `ProtectHome=yes` to all services | ✅ Complete | Agent B |
+| Add additional security directives | ✅ Complete | Agent B |
+| Add `WatchdogSec=30` + `NotifyAccess=all` | ✅ Complete | Agent B |
+| Add `Restart=on-failure`, `RestartSec=5` | ✅ Complete | Agent B |
 | Move secrets to `/etc/aitbc/%N.env` | 🔴 Not started | Agent B |
-| Add `WatchdogSec=30` + `NotifyAccess=all` | 🔴 Not started | Agent B |
-| Add `Restart=on-failure`, `RestartSec=5` | 🔴 Not started | Agent B |
 | Create `aitbc` user (non-root) for all services | 🔴 Not started | DevOps |
 
+### Security Directives Added
+
+All 31 service files hardened with:
+- `PrivateTmp=yes` — isolated /tmp per service
+- `NoNewPrivileges=yes` — prevent privilege escalation
+- `ProtectHome=yes` — no home directory access
+- `ProtectKernelTunables=yes` — read-only /proc/sys
+- `ProtectKernelModules=yes` — no kernel module loading
+- `ProtectControlGroups=yes` — read-only cgroupfs
+- `RestrictSUIDSGID=yes` — no SUID/SGID binaries
+- `RestrictRealtime=yes` — no real-time scheduling
+- `RestrictNamespaces=yes` — no namespace creation
+- `LockPersonality=yes` — no personality changes
+- `MemoryDenyWriteExecute=yes` — no W^X violations
+- `SystemCallArchitectures=native` — native arch only
+- `SystemCallFilter=@system-service` — restricted syscalls
+- `ProtectSystem=full` + `ReadWritePaths` (write-access services)
+- `ProtectSystem=strict` (read-only services: P2P, plugin, load-secrets)
+- `Restart=on-failure`, `RestartSec=5` (standardized from varying values)
+- `WatchdogSec=30`, `NotifyAccess=all` (health monitoring)
+
+### Files Changed
+- All `apps/*/*.service` files
+- `scripts/monitoring/aitbc-monitoring.service`
+- `scripts/systemd/aitbc-recovery.service`
+- `scripts/utils/*.service`
+- `scripts/utils/harden-systemd-services.py` (automation script)
+- `docs/releases/v0.5.0/systemd-hardening-report.md`
+
 ### Acceptance Criteria
-- [ ] `systemd-analyze security` shows no "unsafe" services
-- [ ] No secrets in `/etc/systemd/system/*.service`
-- [ ] All services run as `aitbc` user
-- [ ] Services auto-restart on crash
+- [x] All services have security hardening directives
+- [x] `Restart=on-failure` standardized across all services
+- [x] `RestartSec=5` standardized
+- [ ] `systemd-analyze security` shows no "unsafe" services (requires deployment)
+- [ ] No secrets in `/etc/systemd/system/*.service` (requires migration)
+- [ ] All services run as `aitbc` user (requires DevOps)
 
 ---
 
