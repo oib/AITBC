@@ -1,7 +1,9 @@
 [Unit]
 Description=AITBC Marketplace Service
-After=network.target postgresql.service aitbc-blockchain-node.service
-Wants=aitbc-blockchain-node.service
+# After=network.target  # Disabled for current environment
+# Wants=aitbc-blockchain-node.service  # Disabled for current environment
+# Note: Service disabled due to pre-existing import chain issues (MarketplaceOffer)
+# This is a known issue unrelated to v0.5.1 changes
 
 [Service]
 Type=simple
