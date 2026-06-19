@@ -147,7 +147,9 @@ class TrainingEnvironment:
         log.info("Environment verification completed")
         return results
 
-    def setup_training_wallet(self, wallet_name: str, password: str = "training123") -> dict[str, Any]:
+    def setup_training_wallet(self, wallet_name: str, password: str | None = None) -> dict[str, Any]:
+        if password is None:
+            raise ValueError("password is required and must not be empty")
         """
         Setup a training wallet with funding.
 
