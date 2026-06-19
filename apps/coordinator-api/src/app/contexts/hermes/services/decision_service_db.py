@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ....models.hermes import DecisionModel, VoteModel
+from ...models.hermes import DecisionModel, VoteModel
 from ....schemas.hermes_decision import (
     DecisionProposal,
     DecisionProposalResponse,
