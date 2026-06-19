@@ -18,16 +18,32 @@ KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=30
 Restart=on-failure
-RestartSec=10
+RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-coordinator-api
-
 # Note: ProtectSystem=no removed for service user compatibility
 # Database writes handled through proper file permissions
-
 # Memory limits
 MemoryMax=1G
+# Security hardening (v0.5.0)
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# Security hardening (v0.5.0)
+ProtectSystem=full
+ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
 
-[Install]
-WantedBy=multi-user.target
+# Security hardening (v0.5.0)
+WatchdogSec=30
+NotifyAccess=all

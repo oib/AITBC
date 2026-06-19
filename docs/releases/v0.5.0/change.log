@@ -107,7 +107,6 @@ No centralized monitoring. Each service logs differently. No metrics exported.
 | Add `/metrics` endpoint to marketplace | 🔴 Not started | TBD |
 | Standardize log format to JSON | 🔴 Not started | TBD |
 | Add structured logging (request_id, trace_id) | 🔴 Not started | TBD |
-| Create `docker-compose.monitoring.yml` (Prometheus + Grafana) | 🔴 Not started | DevOps |
 | Add request latency histograms | 🔴 Not started | TBD |
 | Add error rate counters | 🔴 Not started | TBD |
 

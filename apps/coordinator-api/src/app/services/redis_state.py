@@ -28,6 +28,26 @@ class RedisStateManager:
         self._redis: Any = None
         self._memory: dict[str, Any] = {}
         self._initialized = False
+        self._cache_prefix = "aitbc:coordinator:cache"
+
+    async def _invalidate_cache(self, namespace: str) -> None:
+        """Invalidate cached entries for a namespace on state mutation."""
+        cache_pattern = f"{self._cache_prefix}:{namespace}:*"
+        if self._redis:
+            try:
+                cursor = 0
+                while True:
+                    cursor, keys = await self._redis.scan(cursor, match=cache_pattern, count=100)
+                    if keys:
+                        await self._redis.delete(*keys)
+                    if cursor == 0:
+                        break
+            except Exception:
+                pass
+        else:
+            keys_to_remove = [k for k in self._memory if k.startswith(f"{self._cache_prefix}:{namespace}:")]
+            for k in keys_to_remove:
+                self._memory.pop(k, None)
 
     @classmethod
     async def get_instance(cls) -> Self:
@@ -81,13 +101,14 @@ class RedisStateManager:
     # ------------------------------------------------------------------
 
     async def hset(self, namespace: str, key: str, value: dict[str, Any]) -> None:
-        """Set a hash field."""
+        """Set a hash field and invalidate related cache."""
         if self._redis:
             await self._redis.hset(self._ns_key(namespace), key, json.dumps(value))
         else:
             if namespace not in self._memory:
                 self._memory[namespace] = {}
             self._memory[namespace][key] = value
+        await self._invalidate_cache(namespace)
 
     async def hget(self, namespace: str, key: str) -> dict[str, Any] | None:
         """Get a hash field."""
@@ -106,12 +127,13 @@ class RedisStateManager:
             return self._memory.get(namespace, {}).copy()
 
     async def hdel(self, namespace: str, key: str) -> None:
-        """Delete a hash field."""
+        """Delete a hash field and invalidate related cache."""
         if self._redis:
             await self._redis.hdel(self._ns_key(namespace), key)
         else:
             if namespace in self._memory:
                 self._memory[namespace].pop(key, None)
+        await self._invalidate_cache(namespace)
 
     # ------------------------------------------------------------------
     # Counter operations (for job/message counters)
@@ -133,7 +155,7 @@ class RedisStateManager:
     # ------------------------------------------------------------------
 
     async def lpush(self, namespace: str, key: str, value: dict[str, Any]) -> None:
-        """Push to a list."""
+        """Push to a list and invalidate related cache."""
         if self._redis:
             await self._redis.lpush(self._key(namespace, key), json.dumps(value))
         else:
@@ -141,6 +163,7 @@ class RedisStateManager:
             if mem_key not in self._memory:
                 self._memory[mem_key] = []
             self._memory[mem_key].insert(0, value)
+        await self._invalidate_cache(namespace)
 
     async def lrange(self, namespace: str, key: str, start: int = 0, end: int = -1) -> list[dict[str, Any]]:
         """Get a range from a list."""

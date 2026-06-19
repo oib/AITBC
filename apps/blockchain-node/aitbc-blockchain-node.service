@@ -17,25 +17,38 @@ ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.main
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10
-
 # Production reliability
-Restart=always
+Restart=on-failure
 RestartSec=5
-
 # Production logging
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-blockchain
-
 # Production security
 NoNewPrivileges=true
 # ProtectHome=true - Removed for service user compatibility
-
 # Production performance
 LimitNOFILE=65536
 LimitNPROC=4096
 MemoryMax=2G
 CPUQuota=50%
+# Security hardening (v0.5.0)
+PrivateTmp=yes
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# Security hardening (v0.5.0)
+ProtectSystem=full
+ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
 
-[Install]
-WantedBy=multi-user.target
+# Security hardening (v0.5.0)
+WatchdogSec=30
+NotifyAccess=all

@@ -10,7 +10,7 @@ WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/blockchain-event-bridge/aitbc-blockchain-event-bridge-wrapper.py
-Restart=always
+Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
@@ -21,9 +21,23 @@ PrivateTmp=true
 # ProtectHome=true - Removed for service user compatibility
 ReadWritePaths=/var/lib/aitbc
 ReadWritePaths=/var/log/aitbc
-
 # Resource limits
 LimitNOFILE=65536
+# Security hardening (v0.5.0)
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# Security hardening (v0.5.0)
+ProtectSystem=full
 
-[Install]
-WantedBy=multi-user.target
+# Security hardening (v0.5.0)
+WatchdogSec=30
+NotifyAccess=all
