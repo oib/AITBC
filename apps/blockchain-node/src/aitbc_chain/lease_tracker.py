@@ -52,7 +52,7 @@ class LeaseTracker:
             self._cleanup_task = asyncio.create_task(self._cleanup_loop())
             logger.info("Lease tracker started successfully")
         except Exception as e:
-            logger.error("Failed to start lease tracker: %s", e, exc_info=True)
+            logger.error("Failed to start lease tracker: %s", e)
             raise
 
     async def stop(self) -> None:

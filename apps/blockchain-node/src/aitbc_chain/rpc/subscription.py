@@ -48,7 +48,7 @@ async def register_subscription(request: dict[str, Any]) -> dict[str, Any]:
             "lease_duration": duration or settings.lease_duration,
         }
     except Exception as e:
-        logger.error("Failed to register subscription: %s", e, exc_info=True)
+        logger.error("Failed to register subscription: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
