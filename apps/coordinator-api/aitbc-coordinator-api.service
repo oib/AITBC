@@ -1,7 +1,8 @@
 [Unit]
 Description=AITBC Coordinator API
-After=network.target aitbc-load-secrets.service aitbc-blockchain-node.service redis.service
-Wants=aitbc-load-secrets.service aitbc-blockchain-node.service redis.service
+After=network.target aitbc-load-secrets.service aitbc-blockchain-node.service
+Wants=aitbc-load-secrets.service aitbc-blockchain-node.service
+# Requires Redis for state management (training, hermes, swarm routers) - add redis.service dependency when Redis is deployed
 
 [Service]
 Type=simple
