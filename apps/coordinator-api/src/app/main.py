@@ -15,6 +15,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.http_client import setup_request_id_context
 from aitbc.middleware import (
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
@@ -258,6 +259,12 @@ def create_app() -> FastAPI:
     app.add_middleware(PerformanceLoggingMiddleware)
     app.add_middleware(PrometheusMetricsMiddleware)
     app.add_middleware(ErrorHandlerMiddleware)
+
+    @app.middleware("http")
+    async def request_id_context_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        """Set request ID in context for HTTP client propagation."""
+        setup_request_id_context(request)
+        return await call_next(request)
 
     @app.middleware("http")
     async def security_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
