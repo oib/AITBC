@@ -27,6 +27,8 @@ from .rpc.router import router as rpc_router
 from .rpc.utils import set_poa_proposer
 from .rpc.websocket import router as websocket_router
 
+from aitbc.aitbc_logging import configure_logging
+
 marketplace_router: APIRouter | None
 try:
     from .rpc.marketplace import router as marketplace_router
@@ -199,6 +201,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    configure_logging(level="INFO")
     app = FastAPI(title="AITBC Blockchain Node", version="v0.2.2", lifespan=lifespan)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(RateLimitMiddleware, max_requests=5000, window_seconds=60)
