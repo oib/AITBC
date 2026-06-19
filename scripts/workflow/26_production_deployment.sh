@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Production Deployment Script
 # Deploys the complete multi-node blockchain setup for production

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Real Hardware+Software Bundle Marketplace Scenario
 # Uses actual GPU specifications with software services

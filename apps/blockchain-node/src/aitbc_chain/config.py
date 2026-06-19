@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import uuid
 from pathlib import Path
-from typing import ClassVar
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -114,6 +113,7 @@ class ChainSettings(BaseSettings):
 
     # Sync settings
     trusted_proposers: str = ""  # comma-separated list of trusted proposer IDs
+
     @classmethod
     def get_genesis_candidates(cls, chain_id: str) -> list[str]:
         """Get genesis file candidates for a specific chain ID"""
@@ -122,6 +122,7 @@ class ChainSettings(BaseSettings):
             f"{DATA_DIR}/data/{chain_id}/genesis.json",
             f"{DATA_DIR}/data/{os.getenv('CHAIN_ID', '')}/genesis.json",
         ]
+
     max_reorg_depth: int = 10  # max blocks to reorg on conflict
     sync_validate_signatures: bool = True  # validate proposer signatures on import
 

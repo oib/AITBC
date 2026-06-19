@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Monitoring Setup Script for AITBC Production
 # This script sets up comprehensive health monitoring and alerting
 
-set -e  # Exit on any error
+set -euo pipefail
 
 
 # Source scenario configuration

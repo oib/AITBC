@@ -12,11 +12,9 @@ Migration guide:
 
 import warnings
 
-from aitbc.security import SecurityAuditLog, SecurityAuditor, SecurityValidator
-
 # RateLimiter was not in the original security_hardening.py, but is now in aitbc.security
 # We import it here for backward compatibility with code that might expect it
-from aitbc.security import RateLimiter
+from aitbc.security import RateLimiter, SecurityAuditLog, SecurityAuditor, SecurityValidator
 
 warnings.warn(
     "aitbc.security_hardening is deprecated, use aitbc.security instead",

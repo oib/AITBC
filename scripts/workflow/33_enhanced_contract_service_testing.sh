@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AITBC Enhanced Contract Testing & Service Integration
 # Tests actual available services with proper API structure

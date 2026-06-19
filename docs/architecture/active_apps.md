@@ -1,6 +1,6 @@
 # Active AITBC Applications
 
-This document lists all active AITBC applications as of v0.4.26.
+This document lists all active AITBC applications as of v0.6.0.
 
 ## Core Services
 
@@ -226,3 +226,9 @@ All active applications have recent git activity (within the last 6 months) and 
 - Referenced in CI workflows
 - Have systemd service files
 - Are core services required for platform operation
+
+## Version Information
+
+- **Current Version**: 0.6.0 (as per pyproject.toml)
+- **Last Updated**: 2026-06-19
+- **Documentation Version**: v0.6.0

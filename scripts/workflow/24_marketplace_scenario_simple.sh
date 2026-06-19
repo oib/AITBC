@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Simplified Hardware+Software Bundle Marketplace Scenario using existing blockchain endpoints
 echo "=== 🛒 SIMPLIFIED HARDWARE+SOFTWARE BUNDLE MARKETPLACE SCENARIO ==="

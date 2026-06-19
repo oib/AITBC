@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from aitbc_shared import MarketplaceBid, MarketplaceOffer
+from aitbc_shared import MarketplaceBid
 
 from ..storage.schema import MARKETPLACE_BID_TABLE
 

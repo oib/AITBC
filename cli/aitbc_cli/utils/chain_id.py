@@ -10,12 +10,12 @@ from .http_client import AITBCHTTPClient, NetworkError
 def get_default_chain_id() -> str:
     """Return the default chain ID from environment."""
     import os
-    
+
     # Get from environment variable (set in /etc/aitbc/blockchain.env)
     chain_id = os.getenv("CHAIN_ID")
     if chain_id:
         return chain_id
-    
+
     # No default available - empty string
     return ""
 
@@ -59,10 +59,11 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
 
     # Fallback to environment variable if detection fails
     import os
+
     chain_id = os.getenv("CHAIN_ID")
     if chain_id:
         return chain_id
-    
+
     # Final fallback - empty string to indicate no chain detected
     return ""
 

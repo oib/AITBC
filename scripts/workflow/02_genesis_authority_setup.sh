@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
+
 # Genesis Authority Setup Script for AITBC Node (aitbc1)
 # This script configures aitbc1 as the genesis authority node
-
-set -e  # Exit on any error
 
 
 # Source scenario configuration

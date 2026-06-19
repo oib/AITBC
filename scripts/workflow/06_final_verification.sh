@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Final Verification Script for AITBC Multi-Node Blockchain
 # This script verifies the complete multi-node setup using enhanced CLI
 
-set -e  # Exit on any error
+set -euo pipefail
 
 
 # Source scenario configuration

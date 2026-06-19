@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Follower Node Setup Script for AITBC Node (aitbc)
 # This script configures aitbc as a follower node
 
-set -e  # Exit on any error
+set -euo pipefail
 
 
 # Source scenario configuration

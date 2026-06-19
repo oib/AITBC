@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # AITBC Complete Blockchain Sync Script
 # Handles complete synchronization between nodes
 
