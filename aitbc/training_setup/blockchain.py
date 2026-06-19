@@ -107,9 +107,9 @@ class BlockchainSetup:
             log.warning("Genesis balance check failed: %s", e)
         return {"status": "completed", "funding_source": "genesis", "note": "Genesis wallet used as funding source"}
 
-    def fund_training_wallet(
-        self, wallet_name: str, faucet_amount: int = 1000, password: str = "training123"
-    ) -> dict[str, Any]:
+    def fund_training_wallet(self, wallet_name: str, faucet_amount: int = 1000, password: str | None = None) -> dict[str, Any]:
+        if password is None:
+            raise ValueError("password is required and must not be empty")
         """
         Fund a training wallet from genesis.
 

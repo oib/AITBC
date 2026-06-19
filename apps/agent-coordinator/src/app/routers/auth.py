@@ -31,11 +31,18 @@ async def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
 
         import os
 
-        # Get passwords with fallback defaults for testing
+        # Get passwords from environment (no hardcoded defaults)
+        admin_password = os.getenv("ADMIN_PASSWORD")
+        operator_password = os.getenv("OPERATOR_PASSWORD")
+        user_password = os.getenv("USER_PASSWORD")
+
+        if not admin_password:
+            raise HTTPException(status_code=500, detail="ADMIN_PASSWORD environment variable not configured")
+
         demo_users = {
-            "admin": os.getenv("TEST_ADMIN_PASSWORD") or os.getenv("DEMO_ADMIN_PASSWORD") or "admin123",
-            "operator": os.getenv("TEST_OPERATOR_PASSWORD") or os.getenv("DEMO_OPERATOR_PASSWORD") or "operator123",
-            "user": os.getenv("TEST_USER_PASSWORD") or os.getenv("DEMO_USER_PASSWORD") or "user123",
+            "admin": admin_password,
+            "operator": operator_password or "",
+            "user": user_password or "",
         }
 
         # Validate credentials
