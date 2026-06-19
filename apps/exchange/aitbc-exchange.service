@@ -5,8 +5,8 @@ Wants=aitbc-blockchain-node.service
 
 [Service]
 Type=simple
-User=aitbc-internal
-Group=aitbc-services
+User=aitbc
+Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/exchange
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
