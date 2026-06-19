@@ -1,7 +1,7 @@
 [Unit]
 Description=AITBC Coordinator API
-After=network.target aitbc-load-secrets.service aitbc-blockchain-node.service
-Wants=aitbc-load-secrets.service aitbc-blockchain-node.service
+After=network.target aitbc-load-secrets.service aitbc-blockchain-node.service redis.service
+Wants=aitbc-load-secrets.service aitbc-blockchain-node.service redis.service
 
 [Service]
 Type=simple
@@ -9,11 +9,13 @@ User=aitbc-internal
 Group=aitbc-services
 WorkingDirectory=/opt/aitbc/apps/coordinator-api/src
 Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/coordinator-api/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src
-Environment=LOG_FORMAT=json
 # ExecStartPre=/opt/aitbc/scripts/utils/load-keystore-secrets.sh - Removed for service user compatibility
+# Load environment files first (later files override earlier ones)
 EnvironmentFile=/run/aitbc/secrets/.env
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
+# Set LOG_FORMAT after EnvironmentFile to prevent secrets from clobbering this setting
+Environment=LOG_FORMAT=json
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8203 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256 --log-level info --access-log
 KillMode=mixed
 KillSignal=SIGTERM
