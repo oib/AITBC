@@ -26,7 +26,7 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-agent-coordinator
 # Production security
-NoNewPrivileges=true
+NoNewPrivileges=yes
 # Production performance
 LimitNOFILE=65536
 LimitNPROC=4096
