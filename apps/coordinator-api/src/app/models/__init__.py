@@ -3,13 +3,7 @@ Models package for the AITBC Coordinator API
 """
 
 # Import basic types from types.py to avoid circular imports
-from ..contexts.marketplace.domain.marketplace import (
-    MarketplaceOffer,
-)
-from ..contexts.payments.domain.payment import (
-    JobPayment,
-    PaymentEscrow,
-)
+from aitbc_shared import MarketplaceOffer, JobPayment, PaymentEscrow
 from ..custom_types import (
     Constraints,
     JobState,
