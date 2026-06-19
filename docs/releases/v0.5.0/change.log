@@ -8,6 +8,19 @@ v0.5.0 follows v0.4.27 and focuses on **infrastructure and state management** �
 **Theme**: "Harden the Foundation"
 **Success Criteria**: All services are stateful, observable, and production-deployable.
 
+## Overall Status
+
+| Priority | Area | Status | Notes |
+|----------|------|--------|-------|
+| **P0** | DB/Redis Backing for Mock State | ✅ Complete | RedisStateManager with in-memory fallback |
+| **P1** | Systemd Hardening | 🟡 Partial | Security directives complete, secrets/user migration pending deployment |
+| **P1** | Observability Standardization | 🟡 Partial | Coordinator API complete, other services need JSON logging |
+| **P1** | Secret Management | 🟡 Partial | Audit/fixes complete, full standardization pending deployment |
+| **P1** | Performance Baseline | 🟡 Partial | Infrastructure complete, limited endpoint testing |
+| **P2** | Documentation & Tooling | ❌ Not started | Staging guide, readiness checks |
+
+**Summary**: All P0 tasks complete. P1 tasks have infrastructure/tooling ready but require deployment or additional service configuration.
+
 ---
 
 ## P0: DB/Redis Backing for Mock State
@@ -220,6 +233,7 @@ No centralized monitoring. Each service logs differently. No metrics exported.
 - [x] Request ID / correlation ID tracking in place
 - [x] All services expose metrics (coordinator, blockchain, marketplace all have /metrics)
 - [ ] Grafana dashboard shows basic health (requires deployment)
+- [ ] JSON logging enabled for all services (currently only coordinator-api)
 
 ---
 
@@ -234,12 +248,12 @@ Secrets are still scattered. Production needs unified management.
 |------|--------|-------|
 | Document secret rotation policy | ✅ Complete (in SECRETS.md) | Agent B |
 | Audit all env vars for secret leakage | ✅ Complete | Agent B |
-| Add secret masking to all loggers | Complete (issues fixed) | Agent B |
+| Add secret masking to all loggers | ✅ Complete (issues fixed) | Agent B |
 | Create `docs/operations/SECRETS.md` runbook | ✅ Complete | Agent B |
 | Fix plaintext passwords in service files | ✅ Complete | Agent B |
 | Remove hardcoded default passwords from Python | ✅ Complete | Agent B |
 | Remove default passwords from database URLs | ✅ Complete | Agent B |
-| Standardize on `/etc/aitbc/%N.env` pattern | Complete (8 services updated) | Agent B |
+| Standardize on `/etc/aitbc/%N.env` pattern | 🟡 Partial (2 services updated, tooling ready for full migration) | Agent B |
 
 ### Audit Findings
 
@@ -285,7 +299,7 @@ Secrets are still scattered. Production needs unified management.
 - [x] No plaintext secrets in service files (moved to /etc/aitbc/%N.env)
 - [x] No hardcoded default passwords in code (removed all fallbacks)
 - [x] No default passwords in database URLs (now required explicitly)
-- [x] All services standardized on /etc/aitbc/%N.env pattern (8 services updated)
+- [ ] All services standardized on /etc/aitbc/%N.env pattern (8 services updated, tooling ready for full migration)
 
 ---
 
@@ -299,8 +313,8 @@ No load tests exist. Unknown capacity limits.
 | Task | Status | Owner |
 |------|--------|-------|
 | Add `tests/load/test_coordinator.py` (k6 or locust) | ✅ Complete | Agent B |
-| Test job submit endpoint at 100 req/s | ✅ Complete (locust test configured) | Agent B |
-| Test miner heartbeat at 1000 req/s | ✅ Complete (locust test configured) | Agent B |
+| Test job submit endpoint at 100 req/s | 🟡 Partial (health endpoint tested: 192 req/s, other endpoints not configured) | Agent B |
+| Test miner heartbeat at 1000 req/s | 🟡 Partial (health endpoint tested: 192 req/s, other endpoints not configured) | Agent B |
 | Profile DB queries for N+1 issues | ✅ Complete (profiling script created) | Agent B |
 | Add DB connection pool limits | ✅ Complete (added to DatabaseConfig) | Agent B |
 | Document baseline capacity | ✅ Complete (implementation documented) | Agent B |
@@ -364,6 +378,7 @@ No load tests exist. Unknown capacity limits.
 - Max response time: 34ms
 - Failure rate: 0.26%
 - Total requests: 4,433
+- Note: Only health endpoint tested (other endpoints not configured in running API)
 
 **CI Configuration:**
 - Created `.github/workflows/load-tests.yml` for nightly load tests
