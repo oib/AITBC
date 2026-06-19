@@ -155,30 +155,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         audit_dir = anyio.Path(settings.audit_log_dir)
         await audit_dir.mkdir(parents=True, exist_ok=True)
-        logger.info("Audit logging directory: %s", audit_dir)
-        logger.info("Rate limiting configuration:")
-        logger.info("  Jobs submit: %s", settings.rate_limit_jobs_submit)
-        logger.info("  Miner register: %s", settings.rate_limit_miner_register)
-        logger.info("  Miner heartbeat: %s", settings.rate_limit_miner_heartbeat)
-        logger.info("  Admin stats: %s", settings.rate_limit_admin_stats)
-        logger.info("Coordinator API started on %s:%s", settings.app_host, settings.port)
-        logger.info("Database adapter: %s", settings.database.adapter)
-        logger.info("Environment: %s", settings.environment)
-        logger.info("=== Coordinator API Configuration Summary ===")
-        logger.info("Environment: %s", settings.environment)
-        logger.info("Database: %s", settings.database.adapter)
-        logger.info("Rate Limits:")
-        logger.info("  Jobs submit: %s", settings.rate_limit_jobs_submit)
-        logger.info("  Miner register: %s", settings.rate_limit_miner_register)
-        logger.info("  Miner heartbeat: %s", settings.rate_limit_miner_heartbeat)
-        logger.info("  Admin stats: %s", settings.rate_limit_admin_stats)
-        logger.info("  Marketplace list: %s", settings.rate_limit_marketplace_list)
-        logger.info("  Marketplace stats: %s", settings.rate_limit_marketplace_stats)
-        logger.info("  Marketplace bid: %s", settings.rate_limit_marketplace_bid)
-        logger.info("  Exchange payment: %s", settings.rate_limit_exchange_payment)
+
+        # Consolidated startup summary
+        logger.info(
+            "Coordinator API started: host=%s port=%s db=%s env=%s",
+            settings.app_host,
+            settings.port,
+            settings.database.adapter,
+            settings.environment,
+        )
+        logger.info(
+            "Rate limits: jobs=%s miner_reg=%s miner_hb=%s admin=%s marketplace=%s exchange=%s",
+            settings.rate_limit_jobs_submit,
+            settings.rate_limit_miner_register,
+            settings.rate_limit_miner_heartbeat,
+            settings.rate_limit_admin_stats,
+            settings.rate_limit_marketplace_list,
+            settings.rate_limit_exchange_payment,
+        )
         logger.info("Audit logging: %s", settings.audit_log_dir)
-        logger.info("=== Startup Complete ===")
-        logger.info("Health check endpoints initialized")
         logger.info("🚀 Coordinator API is ready to serve requests")
 
         lifecycle_state.set_state(lifecycle_state.RUNNING)
@@ -210,10 +205,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await task_manager.stop_all()
             logger.info("Cleaning up rate limiting state...")
             logger.info("Cleaning up audit resources...")
-            logger.info("=== Coordinator API Shutdown Summary ===")
-            logger.info("All resources cleaned up successfully")
             logger.info("Graceful shutdown completed")
-            logger.info("=== Shutdown Complete ===")
         except Exception as e:
             logger.error("Error during shutdown: %s", e)
 
@@ -311,37 +303,39 @@ def create_app() -> FastAPI:
     app.include_router(agent_router, prefix="/v1")
     app.include_router(islands_proxy, prefix="/v1")
     app.include_router(cross_chain, prefix="/v1")
+
+    # Optional routers with consolidated logging
+    optional_routers = []
     try:
         from .routers.zk_proofs import router as zk_proofs_router
 
         app.include_router(zk_proofs_router, prefix="/v1")
-        logger.info("ZK proofs router included")
+        optional_routers.append("zk_proofs")
     except Exception as e:
         logger.warning("Failed to include ZK proofs router: %s", e)
     try:
         from .routers.fhe import router as fhe_router
 
         app.include_router(fhe_router, prefix="/v1")
-        logger.info("FHE router included")
+        optional_routers.append("fhe")
     except Exception as e:
         logger.warning("Failed to include FHE router: %s", e)
     try:
         from .routers.oracle import router as oracle_router
 
         app.include_router(oracle_router, prefix="/v1")
-        logger.info("Oracle router included")
+        optional_routers.append("oracle")
     except Exception as e:
         logger.warning("Failed to include Oracle router: %s", e)
     try:
         from .routers.disputes import router as disputes_router
 
         app.include_router(disputes_router, prefix="/v1")
-        logger.info("Disputes router included")
+        optional_routers.append("disputes")
         from .services.dispute_resolution import init_dispute_service
         from .storage.db import get_session
 
         init_dispute_service(get_session)
-        logger.info("Dispute service initialized")
     except Exception as e:
         logger.warning("Failed to include disputes router: %s", e)
     app.include_router(portfolio_router, prefix="/v1")
@@ -349,60 +343,56 @@ def create_app() -> FastAPI:
         from .routers.bounty import router as bounty_router
 
         app.include_router(bounty_router, prefix="/v1")
-        logger.info("Bounty router included")
+        optional_routers.append("bounty")
     except Exception as e:
         logger.warning("Failed to include Bounty router: %s", e)
     try:
         from .routers.hermes import router as hermes_router
 
         app.include_router(hermes_router, prefix="/v1")
-        logger.info("Hermes router included")
+        optional_routers.append("hermes")
     except Exception as e:
         logger.warning("Failed to include Hermes router: %s", e)
+
+    # Core routers
     app.include_router(swarm, prefix="/v1")
-    logger.info("Swarm router included")
     app.include_router(ipfs, prefix="/v1/ipfs", tags=["ipfs"])
-    logger.info("IPFS router included")
     app.include_router(payments, prefix="/v1")
-    logger.info("Payments router included")
     app.include_router(training, prefix="/v1")
-    logger.info("Training router included")
     app.include_router(inference, prefix="/v1")
-    logger.info("Inference router included")
-    try:
-        from .routers.governance import router as governance_router
-
-        app.include_router(governance_router, prefix="/v1")
-        logger.info("Governance router included")
-        from .services.governance_service import init_governance_service
-        from .storage.db import get_session
-
-        init_governance_service(get_session)
-        logger.info("Governance service initialized")
-    except Exception as e:
-        logger.warning("Failed to include governance router: %s", e)
     app.include_router(explorer, prefix="/v1")
     app.include_router(services, prefix="/v1")
     app.include_router(users, prefix="/v1")
     app.include_router(exchange, prefix="/v1")
     app.include_router(web_vitals, prefix="/v1")
-    if ml_zk_proofs:
-        app.include_router(ml_zk_proofs, prefix="/v1")
-    # Temporarily disabled due to import chain issues
-    # app.include_router(hermes_enhanced, prefix="/v1")
-    # app.include_router(hermes_decision, prefix="/v1")
-    # app.include_router(hermes_health, prefix="/v1")
-    # app.include_router(hermes_resource, prefix="/v1")
     app.include_router(monitoring_dashboard, prefix="/v1")
     app.include_router(agent_router, prefix="/v1/agents")
     app.include_router(agent_identity, prefix="/v1")
     app.include_router(developer_platform, prefix="/v1")
     app.include_router(governance_enhanced, prefix="/v1")
+
+    # More optional routers
+    try:
+        from .routers.governance import router as governance_router
+
+        app.include_router(governance_router, prefix="/v1")
+        optional_routers.append("governance")
+        from .services.governance_service import init_governance_service
+        from .storage.db import get_session
+
+        init_governance_service(get_session)
+    except Exception as e:
+        logger.warning("Failed to include governance router: %s", e)
+
+    if ml_zk_proofs:
+        app.include_router(ml_zk_proofs, prefix="/v1")
+        optional_routers.append("ml_zk_proofs")
+
     try:
         from .contexts.staking.routers.staking import router as staking_router
 
         app.include_router(staking_router, prefix="/v1")
-        logger.info("Staking router included")
+        optional_routers.append("staking")
     except Exception as e:
         logger.warning("Failed to include staking router: %s", e)
     try:
@@ -410,7 +400,7 @@ def create_app() -> FastAPI:
 
         if agent_security_router:
             app.include_router(agent_security_router, prefix="/v1")
-            logger.info("Security router included")
+            optional_routers.append("agent_security")
         else:
             logger.warning("Security router not available")
     except Exception as e:
@@ -420,7 +410,7 @@ def create_app() -> FastAPI:
 
         if trading:
             app.include_router(trading, prefix="/v1")
-            logger.info("Trading router included")
+            optional_routers.append("trading")
         else:
             logger.warning("Trading router not available")
     except Exception as e:
@@ -430,7 +420,7 @@ def create_app() -> FastAPI:
 
         if reputation:
             app.include_router(reputation, prefix="/v1")
-            logger.info("Reputation router included")
+            optional_routers.append("reputation")
         else:
             logger.warning("Reputation router not available")
     except Exception as e:
@@ -440,7 +430,7 @@ def create_app() -> FastAPI:
 
         if rewards:
             app.include_router(rewards, prefix="/v1")
-            logger.info("Rewards router included")
+            optional_routers.append("rewards")
         else:
             logger.warning("Rewards router not available")
     except Exception as e:
@@ -449,12 +439,20 @@ def create_app() -> FastAPI:
         from .contexts.knowledge.routers.knowledge import router as knowledge_router
 
         app.include_router(knowledge_router, prefix="/v1")
-        logger.info("Knowledge Graph router included")
+        optional_routers.append("knowledge")
     except Exception as e:
         logger.warning("Failed to include Knowledge Graph router: %s", e)
+
+    # Core routers
     app.include_router(blockchain, prefix="/v1")
     app.include_router(edge_gpu, prefix="/v1")
     app.include_router(multi_modal_rl, prefix="/v1")
+
+    # Log optional routers summary
+    if optional_routers:
+        logger.info("Optional routers loaded: %s", ", ".join(optional_routers))
+
+    # Prometheus metrics
     metrics_app = make_asgi_app()
     app.mount("/prometheus", metrics_app)
     rate_limit_registry = CollectorRegistry()
