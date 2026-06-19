@@ -5,13 +5,12 @@ Implements sophisticated royalty distribution, model licensing, and advanced ver
 
 from __future__ import annotations
 
+from aitbc_shared import MarketplaceOffer
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
 from sqlmodel import Session, select
-
-from ..domain.marketplace import MarketplaceOffer
 
 
 class RoyaltyTier(StrEnum):
