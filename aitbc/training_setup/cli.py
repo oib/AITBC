@@ -121,7 +121,8 @@ def verify(aitbc_dir):
 @click.argument("wallet_name")
 @click.option(
     "--password",
-    default="training123",
+    prompt=True,
+    hide_input=True,
     help="Wallet password",
 )
 @click.option(

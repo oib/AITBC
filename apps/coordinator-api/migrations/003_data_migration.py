@@ -194,7 +194,7 @@ async def main():
         required=True,
         choices=["migrate_receipts", "migrate_jobs", "migrate_miners", "backfill_history", "cleanup", "update_stats", "all"],
     )
-    parser.add_argument("--database-url", default="postgresql://aitbc:aitbc@localhost:5432/coordinator")
+    parser.add_argument("--database-url", required=True, help="Database URL (e.g., postgresql://user:pass@host/db)")
     parser.add_argument("--input-file", help="Input file for migration")
     args = parser.parse_args()
     migration = DataMigration(args.database_url)
