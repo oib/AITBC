@@ -643,7 +643,7 @@ async def submit_transaction(
     transaction_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]
 ) -> Any:
     """Submit marketplace transaction"""
-    from .domain.marketplace import MarketplaceOffer
+    from aitbc_shared import MarketplaceOffer
 
     transaction_type = transaction_data.get("type")
     action = transaction_data.get("action")
@@ -674,7 +674,7 @@ async def get_transactions(
     """Query marketplace transactions"""
     from sqlalchemy import select
 
-    from .domain.marketplace import MarketplaceOffer
+    from aitbc_shared import MarketplaceOffer
 
     try:
         transactions = []
