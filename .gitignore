@@ -176,6 +176,10 @@ keystore/.password.*
 private_key.*
 *.private
 
+# Generated validator keys
+dev/validator_keys.json
+dev/validator_keys.json.template
+
 # ===================
 # Backup Files (organized)
 # ===================
@@ -358,6 +362,12 @@ codeql-db/
 # Poetry lock files (coordinator-api uses local poetry)
 apps/coordinator-api/poetry.lock
 contracts/governance/lib/
+
+# Generated cache files
+contracts/cache/solidity-files-cache.json
+
+# Package manager generated files
+pyproject.toml.new
 
 # ===================
 # Deployment: Docker-free project

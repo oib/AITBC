@@ -10,10 +10,10 @@ from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 from aitbc.rate_limiting import rate_limit
 
+from ..auth import ClientDep
 from ..config import settings
 from ..contexts.payments.services.payments import PaymentService
 from ..custom_types import JobState
-from ..auth import ClientDep
 from ..schemas import JobCreate, JobPaymentCreate, JobResult, JobView
 from ..services import JobService
 from ..storage import get_session

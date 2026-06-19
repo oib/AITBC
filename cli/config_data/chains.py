@@ -30,7 +30,7 @@ class ChainRegistry:
     def _load_default_chains(self) -> None:
         """Load default chain configurations"""
         import os
-        
+
         # Load chain from environment
         chain_id = os.getenv("CHAIN_ID", "")
         if chain_id:
