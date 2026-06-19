@@ -10,6 +10,7 @@ This directory contains production deployment guides and procedures for the AITB
 - [Multi Server](multi-server.md) - Multi-server deployment
 - [Cloud Deployment](cloud-deployment.md) - AWS, GCP, Azure deployment
 - [Docker Deployment](docker-deployment.md) - Containerized deployment
+- [Staging Environment](STAGING.md) - Staging environment setup and management
 - [Configuration](configuration.md) - Environment configuration
 - [SSL/TLS Setup](ssl-tls-setup.md) - SSL/TLS configuration
 - [Health Checks](health-checks.md) - Service health monitoring
@@ -17,6 +18,7 @@ This directory contains production deployment guides and procedures for the AITB
 
 ## Additional Deployment Documentation
 
+- [Deployment Dependencies](DEPENDENCIES.md) - System-level dependencies for deployment
 - [SMART_CONTRACT_DEPLOYMENT.md](SMART_CONTRACT_DEPLOYMENT.md) - Smart contract deployment procedures
 - [5_marketplace-deployment.md](5_marketplace-deployment.md) - Marketplace deployment guide
 - [debian-miner-installation.md](debian-miner-installation.md) - Debian-specific miner installation

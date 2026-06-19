@@ -13,6 +13,7 @@ from collections.abc import Callable
 from fastapi import Request, Response
 from prometheus_client import Counter, Histogram
 from starlette.middleware.base import BaseHTTPMiddleware
+from typing import cast
 
 # Default registry metrics (not using custom registry to avoid conflicts)
 REQUEST_LATENCY = Histogram(
@@ -72,4 +73,4 @@ class PrometheusMetricsMiddleware(BaseHTTPMiddleware):
                 status_code=status_code,
             ).inc()
 
-        return response
+        return cast(Response, response)

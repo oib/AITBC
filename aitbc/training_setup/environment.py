@@ -228,7 +228,9 @@ class TrainingEnvironment:
         """Delegate to blockchain_setup (backward compatibility)."""
         return self.blockchain_setup.setup_faucet_wallet()
 
-    def fund_training_wallet(self, wallet_name: str, faucet_amount: int = None, password: str = None) -> dict[str, Any]:
+    def fund_training_wallet(
+        self, wallet_name: str, faucet_amount: int | None = None, password: str | None = None
+    ) -> dict[str, Any]:
         """Delegate to blockchain_setup (backward compatibility)."""
         amount = faucet_amount or self.faucet_amount
         pwd = password or "training123"
@@ -238,7 +240,7 @@ class TrainingEnvironment:
         """Delegate to messaging_setup (backward compatibility)."""
         return self.messaging_setup.generate_auth_token()
 
-    def configure_messaging_auth(self, wallet_name: str = None) -> dict[str, Any]:
+    def configure_messaging_auth(self, wallet_name: str | None = None) -> dict[str, Any]:
         """Delegate to messaging_setup (backward compatibility)."""
         return self.messaging_setup.configure_messaging_auth_with_wallet(wallet_name)
 
