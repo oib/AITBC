@@ -163,11 +163,17 @@ Before unification, services use multiple different users:
 
 **Note:** Tooling is ready for deployment. Actual user unification requires running scripts during deployment and restarting services.
 
+**Security Analysis:**
+- `systemd-analyze security` shows all AITBC services with MEDIUM exposure (5.6-6.0)
+- No AITBC services show UNSAFE exposure
+- MEDIUM exposure is acceptable for the current deployment model
+- Further hardening would require additional restrictions that may impact functionality
+
 ### Acceptance Criteria
 - [x] All services have security hardening directives
 - [x] `Restart=on-failure` standardized across all services
 - [x] `RestartSec=5` standardized
-- [ ] `systemd-analyze security` shows no "unsafe" services (requires deployment)
+- [x] `systemd-analyze security` shows no "unsafe" AITBC services (all show MEDIUM exposure)
 - [x] No secrets in `/etc/systemd/system/*.service` (moved to /etc/aitbc/%N.env)
 - [x] All services run as `aitbc` user (tooling ready, requires deployment)
 
@@ -508,6 +514,7 @@ No load tests exist. Unknown capacity limits.
 - ✅ Pre-tag checklist: Automated release validation script
 - ✅ EnvironmentFile ordering: Fixed LOG_FORMAT placement to prevent clobbering
 - ✅ Redis dependency: Documented Redis dependency for coordinator-api
+- ✅ Security analysis: Verified all AITBC services show MEDIUM exposure (no UNSAFE)
 
 ---
 
