@@ -127,9 +127,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.warning("Database warmup failed: %s", e)
         if settings.environment == "production":
-            logger.info("Production environment detected, validating configuration")
-            settings.validate_secrets()
-            logger.info("Configuration validation passed")
+            logger.info("Production environment detected, configuration validated by Pydantic model validator")
 
         # Check for duplicate routes
         route_pairs = set()
