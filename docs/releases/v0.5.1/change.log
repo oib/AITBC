@@ -72,7 +72,7 @@
 ### 5. Observability Depth Completion
 - ~~Define SLOs and alert thresholds~~ ✅ **Completed in v0.5.0**
 - ~~Add structured log schema enforcement for coordinator-api~~ ✅ **Completed in v0.5.0**
-- Finish structured log schema enforcement: add similar schema tests for blockchain-node and marketplace
+- ~~Finish structured log schema enforcement: add similar schema tests for blockchain-node and marketplace~~ ✅ **Completed**
 - Define and document alert routing for the SLOs created in v0.5.0
 - Deploy PrometheusRule and Alertmanager configurations
 
