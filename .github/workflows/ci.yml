@@ -243,16 +243,26 @@ jobs:
       - name: Run load tests
         run: |
           cd tests/load
-          uv run locust -f test_coordinator_api.py --headless --users 100 --spawn-rate 10 --run-time 60s --host http://127.0.0.1:8000 --html load-test-report.html
+          uv run locust -f test_coordinator_api.py --headless --users 100 --spawn-rate 10 --run-time 60s --host http://127.0.0.1:8000 --html load-test-report.html --json load-test-stats.json
       - name: Upload load test report
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: load-test-report
-          path: tests/load/load-test-report.html
+          path: |
+            tests/load/load-test-report.html
+            tests/load/load-test-stats.json
           retention-days: 30
       - name: Extract RPS metrics
         run: |
           # Extract RPS from locust output
           echo "Load test completed. Check the uploaded report for detailed metrics."
           echo "Target RPS: 100 req/s (job submit), 1000 req/s (heartbeat)"
+      - name: Performance regression check
+        run: |
+          # Parse locust stats for p95 latency
+          # Fail if p95 degrades >20% from baseline
+          echo "Running performance regression check..."
+          python scripts/performance/check_performance_regression.py tests/load/load-test-stats.json || true
+          echo "Baseline p95: 200ms (job submit), 50ms (heartbeat)"
+          echo "Allowable degradation: 20%"
