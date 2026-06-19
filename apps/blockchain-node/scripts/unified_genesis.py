@@ -266,11 +266,11 @@ def main():
 
         print(f"Address: {wallet_result['address']}")
         print(f"Public key: {wallet_result['public_key']}")
-        print(f"Private key: {wallet_result['private_key']}")
-        print(f"Password: {wallet_result['password']}")
 
         save_genesis_wallet(wallet_result["wallet"], Path(args.keystore_path), wallet_result["password"])
         print(f"Wallet saved to: {args.keystore_path}")
+        print("⚠️  IMPORTANT: The private key and password are saved to the keystore file.")
+        print("⚠️  NEVER share or print the private key or password.")
 
         proposer = args.proposer or wallet_result["address"]
     else:
@@ -316,8 +316,8 @@ def main():
     print(f"  Genesis Block: {genesis_block['hash']}")
     if wallet_result:
         print(f"  Genesis Wallet: {wallet_result['address']}")
-        print(f"  Wallet Password: {wallet_result['password']}")
-        print("  ⚠️  IMPORTANT: Store the password securely!")
+        print("  ⚠️  IMPORTANT: The wallet password is saved to the keystore file.")
+        print("  ⚠️  NEVER share or print the password.")
     print(f"  Database: {args.db_path}")
     print(f"  Config: {args.genesis_path}")
 
