@@ -9,7 +9,7 @@ This document tracks all secret rotations performed in the AITBC infrastructure.
 
 | Date | Secret | Old Version | New Version | Performed By | Notes |
 |------|--------|-------------|-------------|--------------|-------|
-| | | | | | |
+| 2026-06-19 | JWT_SECRET | sha256:e3b0c442 | sha256:711a859f | Devin (automated) | Successful rolling rotation using dual-secret overlap. All 5 services (coordinator-api, blockchain-node, marketplace, exchange, gpu) restarted successfully with zero downtime. |
 | | | | | | |
 | | | | | | |
 
