@@ -7,7 +7,6 @@ from uuid import uuid4
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
-from aitbc_shared import MarketplaceOffer
 
 # Additional marketplace-specific models
 class Plugin(SQLModel, table=True):
