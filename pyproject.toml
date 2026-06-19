@@ -291,20 +291,14 @@ select = [
     "G002", # logging statement uses .format() or % formatting
     "B008", # do not perform function calls in argument defaults
     "B023", # function definition does not bind loop variable
-    "ASYNC", # async/await best practices
 ]
 ignore = [
     "E501",  # line too long, handled by black
     "C901",  # too complex
     "UP040", # Don't upgrade TypeAlias to `type` statement (breaks MyPy base class usage)
-    "ASYNC105", # Allow async context managers in sync functions (for gradual migration)
-    "ASYNC109", # Allow timeout parameter in async functions (valid pattern in our codebase)
     "E402", # Allow module level imports not at top of file (for re-exports in crypto/security.py and network/http_client.py)
-    "ASYNC210", # Allow blocking HTTP methods in async functions (for alerting code)
     "C401", # Allow generator expressions in set() calls (style preference)
     "UP041", # Keep asyncio.TimeoutError for explicit async timeout handling
-    "ASYNC230", # Allow blocking file operations in async functions (for systemd operations, file I/O)
-    "ASYNC221", # Allow blocking subprocess calls in async functions (for systemctl commands)
     "W293", # Allow trailing whitespace (style preference)
 ]
 
