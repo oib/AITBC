@@ -315,9 +315,9 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
         conn = sqlite3.connect(str(chain_db_path))
         cursor = conn.cursor()
 
-        # Total AIT from TRANSFER + GPU_MARKETPLACE transactions (sum of amounts)
+        # Total AIT from TRANSFER + GPU_MARKETPLACE transactions (sum of values)
         cursor.execute("""
-            SELECT COALESCE(SUM(CAST(amount AS REAL)), 0)
+            SELECT COALESCE(SUM(CAST(value AS REAL)), 0)
             FROM "transaction"
             WHERE type IN ('TRANSFER', 'GPU_MARKETPLACE')
         """)
@@ -387,7 +387,7 @@ async def api_provider_reputation(provider_id: str, chain_id: str | None = DEFAU
 
         # Find all transactions related to this provider
         cursor.execute("""
-            SELECT type, amount, created_at, payload
+            SELECT type, value, created_at, payload
             FROM "transaction"
             WHERE sender = ? OR recipient = ?
             ORDER BY created_at ASC
@@ -402,13 +402,13 @@ async def api_provider_reputation(provider_id: str, chain_id: str | None = DEFAU
         confirmed_count = 0
 
         for tx in txs:
-            tx_type, amount, created_at, payload = tx
+            tx_type, tx_value, created_at, payload = tx
             if first_tx_date is None:
                 first_tx_date = created_at
             if tx_type == "GPU_MARKETPLACE":
                 gpu_offers += 1
             try:
-                total_volume += float(amount or 0)
+                total_volume += float(tx_value or 0)
             except Exception:
                 pass
             confirmed_count += 1
