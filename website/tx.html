@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AITBC Transaction Detail</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .detail-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+        .detail-header h2 {
+            margin: 0;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .detail-card {
+            background: var(--code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+        }
+        .detail-label {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+        .detail-value {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+        .payload-box {
+            background: var(--code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            overflow-x: auto;
+        }
+        .payload-box pre {
+            margin: 0;
+            font-size: 0.8rem;
+            color: var(--text);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-nav">
+                <a href="/">Home</a>
+                <a href="/explorer.html">Explorer</a>
+                <a href="/marketplace.html">Marketplace</a>
+            </div>
+            <h1>Transaction Detail</h1>
+        </header>
+
+        <div id="loading" class="loading">Loading transaction...</div>
+        <div id="content" style="display:none;">
+            <div class="detail-header">
+                <span class="badge badge-primary" id="tx-type-badge">TX</span>
+                <span id="tx-hash-display" class="detail-value" style="font-size:0.8rem;color:var(--text-muted);"></span>
+            </div>
+
+            <div class="detail-grid" id="tx-details"></div>
+
+            <div class="card" id="payload-card" style="display:none;">
+                <h2>Payload</h2>
+                <div class="payload-box"><pre id="payload-content"></pre></div>
+            </div>
+        </div>
+
+        <div id="error" class="loading" style="display:none; color:#ef4444;"></div>
+    </div>
+
+    <script>
+        const EXPLORER_API_URL = 'http://ait-hub.aitbc.bubuit.net:8100';
+
+        function getParam(name) {
+            const url = new URL(window.location.href);
+            return url.searchParams.get(name);
+        }
+
+        function copyBtn(text) {
+            return `<button class="copy-btn" onclick="navigator.clipboard.writeText('${text}')" title="Copy">⧉</button>`;
+        }
+
+        async function loadTransaction() {
+            const hash = getParam('hash');
+
+            if (!hash) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').textContent = 'Missing transaction hash parameter';
+                document.getElementById('error').style.display = 'block';
+                return;
+            }
+
+            try {
+                const resp = await fetch(`${EXPLORER_API_URL}/api/transactions/${hash}`);
+                const data = await resp.json();
+
+                if (!data || !data.hash) {
+                    throw new Error('Transaction not found');
+                }
+
+                document.title = `AITBC TX ${data.hash.substring(0, 16)}...`;
+                document.getElementById('tx-type-badge').textContent = data.type || 'TX';
+                document.getElementById('tx-hash-display').textContent = data.hash;
+
+                const details = [
+                    { label: 'Hash', value: data.hash + ' ' + copyBtn(data.hash) },
+                    { label: 'Type', value: data.type || 'Unknown' },
+                    { label: 'Status', value: data.status || 'Unknown' },
+                    { label: 'Block Height', value: `<a href="/block.html?height=${data.block_height}">${data.block_height}</a>` },
+                    { label: 'From', value: (data.from || data.sender || 'N/A') + ' ' + copyBtn(data.from || data.sender || '') },
+                    { label: 'To', value: (data.to || data.recipient || 'N/A') + ' ' + copyBtn(data.to || data.recipient || '') },
+                    { label: 'Value', value: data.value !== undefined ? data.value : 'N/A' },
+                    { label: 'Fee', value: data.fee !== undefined ? data.fee : 'N/A' },
+                    { label: 'Nonce', value: data.nonce !== undefined ? data.nonce : 'N/A' },
+                    { label: 'Timestamp', value: data.created_at ? new Date(data.created_at).toLocaleString() : 'N/A' },
+                ];
+
+                document.getElementById('tx-details').innerHTML = details.map(d => `
+                    <div class="detail-card">
+                        <div class="detail-label">${d.label}</div>
+                        <div class="detail-value">${d.value}</div>
+                    </div>
+                `).join('');
+
+                if (data.payload) {
+                    let payloadText;
+                    try {
+                        payloadText = JSON.stringify(typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload, null, 2);
+                    } catch (e) {
+                        payloadText = String(data.payload);
+                    }
+                    document.getElementById('payload-content').textContent = payloadText;
+                    document.getElementById('payload-card').style.display = 'block';
+                }
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+            } catch (err) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').textContent = err.message || 'Failed to load transaction';
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadTransaction);
+    </script>
+</body>
+</html>
