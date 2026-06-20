@@ -197,12 +197,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const txCount = block.txCount || 0;
         const blockHash = block.hash || 'N/A';
         return `
-            <div class="endpoint fade-in block-item block-collapsed" data-height="${block.height}" onclick="toggleBlockDetail(${block.height}, this)">
+            <div class="endpoint fade-in block-item" data-height="${block.height}" style="cursor:pointer;" onclick="location.href='/block.html?height=${block.height}'">
                 <div class="block-header">
                     <span class="badge badge-primary">#${block.height}</span>
                     <span class="block-hash">${blockHash}</span>
                     ${copyBtn(blockHash)}
-                    <span class="expand-indicator">▼</span>
+                    <span class="expand-indicator">→</span>
                 </div>
                 <div class="block-timestamp">
                     ${timestamp} UTC
@@ -210,7 +210,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="block-meta">
                     Transactions: ${txCount}
                 </div>
-                <div class="block-detail-panel" style="display:none;"></div>
             </div>
         `;
     }
@@ -589,11 +588,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             const dir = type === 'transaction' ? getTxDirection(item, searchedAddress) : '';
+            const clickTarget = type === 'block'
+                ? `/block.html?height=${item.height}`
+                : `/tx.html?hash=${encodeURIComponent(item.tx_hash || item.hash || '')}`;
+            const isBlock = type === 'block';
             return `
-            <div class="endpoint fade-in block-item">
+            <div class="endpoint fade-in block-item" style="cursor:pointer;" onclick="location.href='${clickTarget}'">
                 <div class="block-header">
                     <div class="flex-center">
-                        <span class="badge badge-primary">${type === 'block' ? '#' + item.height : (item.type ? item.type + ' - ' : '') + (item.tx_hash || item.hash || 'N/A').substring(0, 16) + '...'}</span>
+                        <span class="badge badge-primary">${isBlock ? '#' + item.height : (item.type ? item.type + ' - ' : '') + (item.tx_hash || item.hash || 'N/A').substring(0, 16) + '...'}</span>
                         ${directionBadge(dir)}
                     </div>
                     <div class="result-timestamp">
