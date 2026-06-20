@@ -132,11 +132,51 @@ async def get_chain_head(chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
 
 
 async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
-    """Get transaction by hash from specified chain"""
-    if not validate_tx_hash(tx_hash) or not validate_chain_id(chain_id):
-        print("Invalid tx_hash or chain_id format")
+    """Get transaction by hash from specified chain using direct DB lookup"""
+    if not validate_chain_id(chain_id):
+        print("Invalid chain_id format")
         return {}
     try:
+        import sqlite3
+        from pathlib import Path
+
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+
+        if chain_db_path.exists():
+            conn = sqlite3.connect(str(chain_db_path))
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status, value, fee, nonce
+                FROM "transaction"
+                WHERE tx_hash = ?
+            """, (tx_hash,))
+
+            result = cursor.fetchone()
+            conn.close()
+
+            if result:
+                tx_hash_db, sender, recipient, payload, block_height, created_at, tx_type, status, value, fee, nonce = result
+                return {
+                    "hash": tx_hash_db,
+                    "tx_hash": tx_hash_db,
+                    "sender": sender,
+                    "from": sender,
+                    "recipient": recipient,
+                    "to": recipient,
+                    "payload": payload,
+                    "block_height": block_height,
+                    "created_at": created_at,
+                    "type": tx_type,
+                    "status": status,
+                    "value": value,
+                    "fee": fee,
+                    "nonce": nonce,
+                }
+
+        # Fallback to RPC if DB lookup fails
         rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{rpc_url}/rpc/tx/{tx_hash}", params={"chain_id": chain_id})
@@ -901,16 +941,35 @@ async def api_block(height: int, chain_id: str | None = DEFAULT_CHAIN) -> dict[s
 async def api_transaction(tx_hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
     """API endpoint for transaction data, normalized for frontend"""
     tx = await get_transaction(tx_hash, chain_id if chain_id else DEFAULT_CHAIN)
-    payload = tx.get("payload", {})
+    if not tx:
+        return {}
+    # Try to parse payload for additional fields
+    payload_data = {}
+    try:
+        raw_payload = tx.get("payload", "{}")
+        if isinstance(raw_payload, str) and raw_payload.strip():
+            payload_data = json.loads(raw_payload)
+        elif isinstance(raw_payload, dict):
+            payload_data = raw_payload
+    except Exception:
+        pass
     return {
         "hash": tx.get("tx_hash"),
+        "tx_hash": tx.get("tx_hash"),
         "block_height": tx.get("block_height"),
         "from": tx.get("sender"),
+        "sender": tx.get("sender"),
         "to": tx.get("recipient"),
-        "type": payload.get("type", "transfer"),
-        "amount": payload.get("amount", 0),
-        "fee": payload.get("fee", 0),
+        "recipient": tx.get("recipient"),
+        "type": tx.get("type") or payload_data.get("type", "transfer"),
+        "status": tx.get("status", "confirmed"),
+        "value": tx.get("value") if tx.get("value") is not None else payload_data.get("amount", 0),
+        "amount": tx.get("value") if tx.get("value") is not None else payload_data.get("amount", 0),
+        "fee": tx.get("fee") if tx.get("fee") is not None else payload_data.get("fee", 0),
+        "nonce": tx.get("nonce", 0),
+        "created_at": tx.get("created_at"),
         "timestamp": tx.get("created_at"),
+        "payload": tx.get("payload"),
     }
 
 
