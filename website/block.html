@@ -160,7 +160,7 @@
                 }
                 function linkableAddress(addr) {
                     if (!addr || addr === 'N/A') return 'N/A';
-                    return `<a href="/explorer.html?search=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${addr}</a>`;
+                    return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${addr}</a>`;
                 }
 
                 const details = [
