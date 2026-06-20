@@ -188,6 +188,7 @@ def list(ctx, provider: str | None, status: str | None, service_type: str | None
                             "Provider": offer.get("provider_address", "N/A")[:16] + "..." if len(offer.get("provider_address", "")) > 16 else offer.get("provider_address", "N/A"),
                             "Node ID": offer.get("node_id", "N/A"),
                             "GPU": f"{offer.get('gpu_name', 'N/A')} ({offer.get('gpu_device', 'N/A')})",
+                            "Endpoint": offer.get("public_endpoint", "N/A")[:30] + "..." if len(offer.get("public_endpoint", "")) > 30 else offer.get("public_endpoint", "N/A"),
                             "Status": offer.get("status", "unknown"),
                             "Rating": f"{offer.get('avg_rating', 0):.1f} ({offer.get('rating_count', 0)} reviews)",
                         })
