@@ -129,9 +129,9 @@
                 document.getElementById('tx-type-badge').textContent = data.type || 'TX';
                 document.getElementById('tx-hash-display').textContent = data.hash;
 
-                function linkableHash(hash) {
+                function plainHash(hash) {
                     if (!hash || hash === 'N/A') return 'N/A';
-                    return `<span class="clickable-value" onclick="navigator.clipboard.writeText('${hash}');this.style.color='var(--success)';setTimeout(()=>this.style.color='',800)" title="Click to copy">${hash}</span>`;
+                    return `<span style="font-family:var(--font-mono);">${hash}</span>`;
                 }
                 function linkableAddress(addr) {
                     if (!addr || addr === 'N/A') return 'N/A';
@@ -139,7 +139,7 @@
                 }
 
                 const details = [
-                    { label: 'Hash', value: linkableHash(data.hash) + ' ' + copyBtn(data.hash) },
+                    { label: 'Hash', value: plainHash(data.hash) + ' ' + copyBtn(data.hash) },
                     { label: 'Type', value: data.type || 'Unknown' },
                     { label: 'Status', value: data.status || 'Unknown' },
                     { label: 'Block Height', value: `<a href="/block.html?height=${data.block_height}">${data.block_height}</a>` },
