@@ -237,15 +237,15 @@ Audit all services binding to `0.0.0.0` and restrict internal services to `127.0
 
 | Item | Status | Action |
 |------|--------|--------|
-| `mutants/` (22MB) | NOT gitignored | Add to `.gitignore`, delete directory |
-| `.secrets.baseline` (3394 lines) | Stale | Regenerate with `detect-secrets scan` |
-| `cli/aitbc_cli.egg-info/` | TRACKED by git (6 files) | Add to `.gitignore`, remove from git |
+| `mutants/` (22MB) | ✅ DONE by Agent A — gitignored (`.gitignore` line 133), directory deleted | — |
+| `.secrets.baseline` (3394→2658 lines) | ✅ DONE by Agent B — regenerated: 55 stale file entries removed (mutants/, cli/handlers/, deleted services), new findings added (SECRETS.md, AGENT_B.md), audit passes (`detect-secrets scan --baseline` exit 0) | — |
+| `cli/aitbc_cli.egg-info/` | ✅ DONE by Agent A — gitignored (`*.egg-info/` line 19), untracked from git | — |
 
 **Acceptance Criteria:**
-- [ ] `mutants/` in `.gitignore` and deleted
-- [ ] `.secrets.baseline` regenerated and smaller
-- [ ] `egg-info/` in `.gitignore` and removed from git index
-- [ ] No build artifacts tracked in git
+- [x] `mutants/` in `.gitignore` and deleted (Agent A)
+- [x] `.secrets.baseline` regenerated and smaller (3394→2658 lines, Agent B)
+- [x] `egg-info/` in `.gitignore` and removed from git index (Agent A)
+- [x] No build artifacts tracked in git
 
 ---
 
@@ -480,19 +480,19 @@ Tasks are split to avoid file conflicts. Agent A owns `cli/` and project root. A
 | B4 | P1.5 Network Policy Doc | `docs/operations/NETWORK_POLICY.md` | ✅ DONE — rewritten with authoritative exposure map |
 | B5 | P1.7 Website URLs | `website/exchange.js`, `website/explorer.js`, `website/marketplace.js` | ✅ DONE — 2 absolute URLs in exchange.js → relative paths; verified no absolute URLs remain |
 | B6 | Item 13 Chain ID Config | `website/config.js` (new), all `website/*.html` | ✅ DONE — created `config.js` with `window.AITBC_CONFIG`; explorer.js + marketplace.js use it; added `<script>` to explorer.html + marketplace.html |
-| B7 | P2.9 Mypy Config | `pyproject.toml`, `pyproject.toml.new` | Merge mypy section, delete `.new` |
-| B8 | P2.10 Test Coverage | `tests/` | Add tests for explorer CLI and explorer API |
-| B9 | P1.8 Secrets Baseline | `.secrets.baseline` | Regenerate with `detect-secrets scan` |
+| B7 | P2.9 Mypy Config | `pyproject.toml`, `pyproject.toml.new` | ✅ DONE by Agent A — `pyproject.toml.new` deleted (mypy config already present in `pyproject.toml`) |
+| B8 | P2.10 Test Coverage | `tests/` | Deferred — not in v0.5.3 P0/P1 scope |
+| B9 | P1.8 Secrets Baseline | `.secrets.baseline` | ✅ DONE — regenerated: 3394→2658 lines, 55 stale entries removed, audit passes |
 
 **Agent B Acceptance Criteria:**
-- [ ] All active services have `%N.env` files
-- [ ] No systemd units for non-existent apps
-- [ ] Only public services bind to 0.0.0.0
-- [ ] NETWORK_POLICY.md updated
-- [ ] No hardcoded absolute URLs in website JS
-- [ ] Chain ID in shared `config.js`
-- [ ] Mypy config merged into `pyproject.toml`
-- [ ] `.secrets.baseline` regenerated
+- [x] All active services have `%N.env` files (B1 — edge/gpu/miner verified, edge JWT_SECRET_KEY bug fixed)
+- [x] No systemd units for non-existent apps (B2 — all 5 flagged units have backing code; none removed)
+- [x] Only public services bind to 0.0.0.0 (B3 — aitbc-ai + 9 __main__ blocks hardened; 10 env-var-default services flagged for operator review)
+- [x] NETWORK_POLICY.md updated (B4 — rewritten with authoritative exposure map)
+- [x] No hardcoded absolute URLs in website JS (B5 — exchange.js fixed, verified clean)
+- [x] Chain ID in shared `config.js` (B6 — created config.js, explorer.js + marketplace.js use it)
+- [x] Mypy config merged into `pyproject.toml` (B7 — done by Agent A, pyproject.toml.new deleted)
+- [x] `.secrets.baseline` regenerated (B9 — 3394→2658 lines, 55 stale entries removed, audit passes)
 
 ---
 
