@@ -86,3 +86,27 @@ async def get_transaction(
 ) -> dict[str, Any]:
     """Get transaction details by hash from blockchain RPC"""
     return _service(session).get_transaction(tx_hash)  # type: ignore[no-any-return]
+
+
+@router.get("/blocks/by-hash/{block_hash}", summary="Get block details by hash")
+@rate_limit(rate=100, per=60)
+async def get_block_by_hash(
+    request: Request,
+    *,
+    session: Annotated[Session, Depends(get_session)],
+    block_hash: str,
+) -> dict[str, Any]:
+    """Get block details by hash from blockchain database"""
+    return _service(session).get_block_by_hash(block_hash)  # type: ignore[no-any-return]
+
+
+@router.get("/transactions/by-hash/{tx_hash}", summary="Get transaction details by hash")
+@rate_limit(rate=100, per=60)
+async def get_transaction_by_hash(
+    request: Request,
+    *,
+    session: Annotated[Session, Depends(get_session)],
+    tx_hash: str,
+) -> dict[str, Any]:
+    """Get transaction details by hash from blockchain database"""
+    return _service(session).get_transaction_by_hash(tx_hash)  # type: ignore[no-any-return]
