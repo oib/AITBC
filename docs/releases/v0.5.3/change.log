@@ -346,6 +346,18 @@ Two GPU command groups that may overlap in functionality.
 
 **Action:** Audit overlap. Consolidate if redundant or clarify distinction.
 
+**RESOLVED (Agent A, v0.5.3):** Audit confirms these are two distinct, complementary
+command groups — not duplicates. No consolidation needed.
+
+| Group | File | Backend | Commands | Purpose |
+|-------|------|---------|----------|---------|
+| `gpu` | gpu_marketplace.py | gpu-service (HTTP, port 8101) | discover, list, register, unregister, update | Local GPU hardware management (no island credentials) |
+| `gpu-onchain` | gpu_resources.py | blockchain (immutable on-chain records) | allocate, allocations, list, query, register | On-chain GPU resource tracking |
+
+The `register`/`list` name overlap is intentional — same verb, different target
+(local service vs blockchain). Distinct group names (`gpu` vs `gpu-onchain`) and
+distinct docstrings make the separation clear to users. Kept both as-is.
+
 ### 13. Website Chain ID Hardcoding
 
 **File:** `website/explorer.js` (line 110)
