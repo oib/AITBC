@@ -355,15 +355,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 displayError('No transactions found for this address/node ID');
                 return;
             }
-            displayResults(txs, 'transaction');
+            displayResults(txs, 'transaction', address);
         } catch (error) {
             console.error('Error searching by address:', error);
             displayError('No transactions found for address');
         }
     }
 
+    // Compute transaction direction relative to searched address
+    function getTxDirection(tx, searchedAddr) {
+        if (!searchedAddr) return '';
+        const s = (tx.sender || '').toLowerCase();
+        const r = (tx.recipient || '').toLowerCase();
+        const addr = searchedAddr.toLowerCase();
+        if (s === addr && r === addr) return 'self';
+        if (s === addr) return 'out';
+        if (r === addr) return 'in';
+        try {
+            const payload = typeof tx.payload === 'string' ? JSON.parse(tx.payload) : tx.payload;
+            if (payload && payload.provider_node_id && payload.provider_node_id.toLowerCase() === addr) return 'self';
+            if (payload && payload.node_id && payload.node_id.toLowerCase() === addr) return 'self';
+        } catch (e) {}
+        return '';
+    }
+
+    function directionBadge(direction) {
+        if (!direction) return '';
+        const labels = { out: 'OUT →', in: 'IN ←', self: 'SELF ↻' };
+        return `<span class="dir-badge dir-${direction}">${labels[direction]}</span>`;
+    }
+
     // Display results
-    function displayResults(results, type) {
+    function displayResults(results, type, searchedAddress = '') {
         console.log('displayResults called with:', results.length, 'results of type:', type);
         const section = document.getElementById('results-section');
         const container = document.getElementById('results-container');
@@ -528,11 +551,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
             }
 
+            const dir = type === 'transaction' ? getTxDirection(item, searchedAddress) : '';
             return `
             <div class="endpoint fade-in block-item">
                 <div class="block-header">
                     <div class="flex-center">
                         <span class="badge badge-primary">${type === 'block' ? '#' + item.height : (item.type ? item.type + ' - ' : '') + (item.tx_hash || item.hash || 'N/A').substring(0, 16) + '...'}</span>
+                        ${directionBadge(dir)}
                     </div>
                     <div class="result-timestamp">
                         ${timestamp}
