@@ -126,10 +126,11 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1", help="Bind host")
     parser.add_argument("--port", type=int, default=7070, help="Bind port")
     parser.add_argument("--log-level", default="info", help="Log level")
+    parser.add_argument("--access-log", action="store_true", default=False, help="Enable access logging")
     args = parser.parse_args()
     logger.info("Starting gossip relay on %s:%s", args.host, args.port)
     app = create_app()
-    uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level)
+    uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level, access_log=args.access_log)
 
 
 if __name__ == "__main__":

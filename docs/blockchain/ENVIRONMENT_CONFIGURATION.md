@@ -31,13 +31,15 @@ AITBC uses three environment configuration files:
 
 *Required if `enable_block_production=true`
 
-### P2P Configuration
+### P2P / Gossip Relay Configuration
+
+> **Note:** The P2P gossip relay (`aitbc-blockchain-p2p`, port 7070) is a **hub-only** service for internal gossip broadcasting. Followers do not need to configure these settings or run the p2p service. Followers receive blocks via the [lease-based subscription system](#subscription-configuration) over the hub's RPC endpoint.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `p2p_bind_host` | Yes | `0.0.0.0` | Interface to bind P2P service |
-| `p2p_bind_port` | Yes | `7070` | P2P service port |
-| `p2p_peers` | No | - | Comma-separated list of peer nodes (e.g., `aitbc1:7070,aitbc2:7070`) |
+| `p2p_bind_host` | Hub only | `0.0.0.0` | Interface to bind gossip relay service |
+| `p2p_bind_port` | Hub only | `7070` | Gossip relay service port (hub-only) |
+| `p2p_peers` | No | - | Comma-separated list of peer nodes (legacy, not used by subscription system) |
 | `trusted_proposers` | No | - | For follower nodes - trusted proposer addresses |
 
 ### Node-Specific Overrides
@@ -45,7 +47,7 @@ AITBC uses three environment configuration files:
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `NODE_HOST` | No | `0.0.0.0` | Override default host binding |
-| `NODE_PORT` | No | `7070` | Override default port |
+| `NODE_PORT` | No | `7070` | Override default port (hub gossip relay) |
 
 ### Example node.env (Hub Node)
 
@@ -82,16 +84,11 @@ enable_block_production=true
 # Node Identity
 NODE_ID=aitbc2
 
-# P2P Configuration
+# P2P Configuration (not needed for followers — subscription system uses RPC)
 p2p_node_id=node-7af14c549bab473d9deb4ca8ab4bdcde
-p2p_bind_host=0.0.0.0
-p2p_bind_port=7070
 proposer_id=ait1ytkh0cn8v2a4zjwzyav6854832myf9j7unsse8yntmuwzst4qhtqe9hqdw
 
-# P2P Peers (connect to hub and other nodes)
-p2p_peers=node1:7070,node2:7070
-
-# Trusted Propers (for follower nodes)
+# Trusted Proposers (for follower nodes)
 trusted_proposers=
 
 # Block Production Configuration
@@ -152,6 +149,29 @@ enable_block_production=false
 | `SYNC_IMPORT_PORT` | No | `8202` | Import service port |
 | `SYNC_CHAIN_ID` | No | - | Chain ID to sync |
 | `auto_sync_enabled` | No | `false` | Enable automatic sync on gap detection |
+
+### Subscription Configuration
+
+Followers receive blocks from the hub via a **lease-based subscription system** over the hub's RPC endpoint. This replaces the legacy P2P gossip approach.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `subscription_enabled` | No | `true` | Enable lease-based block subscription from hub (followers) |
+| `subscription_transport` | No | `websocket` | Transport for block push: `websocket`, `http`, or `redis` |
+| `default_peer_rpc_url` | Followers | - | Hub RPC URL (e.g., `http://hub.aitbc.bubuit.net/rpc`) |
+
+**How it works:**
+1. Follower registers via `POST <default_peer_rpc_url>/subscribe` to obtain a lease
+2. Follower opens WebSocket to `ws://<hub>/rpc/subscribe/ws` for real-time block push
+3. Follower sends periodic `POST <default_peer_rpc_url>/heartbeat` to extend the lease
+4. If the follower falls behind, it uses bulk sync via `POST /rpc/sync` to catch up
+
+**Example (follower blockchain.env):**
+```bash
+default_peer_rpc_url=http://hub.aitbc.bubuit.net/rpc
+subscription_enabled=true
+subscription_transport=websocket
+```
 
 ### Blockchain Configuration
 
@@ -443,9 +463,11 @@ EnvironmentFile=/etc/aitbc/node.env
 **Characteristics:**
 - `enable_block_production=false`
 - `block_production_chains=` (empty)
-- `p2p_peers=hub:7070,other:7070`
+- `subscription_enabled=true`
+- `default_peer_rpc_url=http://hub.aitbc.bubuit.net/rpc`
 - `auto_sync_enabled=true`
-- `default_peer_rpc_url=http://hub:8202`
+- Does **not** run `aitbc-blockchain-p2p` (hub-only service)
+- Receives blocks via lease-based subscription over RPC (WebSocket push)
 - Syncs genesis from hub
 
 **Example:** gitea-runner following both chains
@@ -477,11 +499,11 @@ enable_block_production=false
 
 ### Issue: P2P service fails to start
 
-**Cause:** Missing `p2p_bind_host` or `p2p_bind_port`
+**Cause:** Missing `p2p_bind_host` or `p2p_bind_port` (hub nodes only)
 
 **Solution:**
 ```bash
-# Add to node.env
+# Add to node.env (hub nodes only — followers don't need the p2p service)
 p2p_bind_host=0.0.0.0
 p2p_bind_port=7070
 ```
@@ -539,12 +561,13 @@ Before starting services, verify:
 - [ ] `NODE_ID` is unique across all nodes
 - [ ] `p2p_node_id` is unique across all nodes
 - [ ] `proposer_id` is unique for each proposer node
-- [ ] `p2p_bind_host` and `p2p_bind_port` are set
+- [ ] `p2p_bind_host` and `p2p_bind_port` are set (hub nodes only)
 - [ ] `supported_chains` matches the network chain ID
 - [ ] `island_id` is set correctly
 - [ ] `auto_sync_enabled` is `true` for follower nodes
 - [ ] `enable_block_production` is `false` for follower nodes
-- [ ] `default_peer_rpc_url` points to hub node for followers
+- [ ] `default_peer_rpc_url` points to hub node RPC URL for followers
+- [ ] `subscription_enabled` is `true` for follower nodes
 - [ ] Redis URLs are correct and accessible
 - [ ] `blockchain-secrets.env` exists and has correct permissions (600)
 - [ ] `COORDINATOR_API_KEY` and `SECRET_KEY` match hub's shared secrets

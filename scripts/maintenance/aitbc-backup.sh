@@ -19,18 +19,21 @@ log "Starting AITBC backup to ${BACKUP_DIR}"
 mkdir -p "${BACKUP_DIR}"
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
-# Source secrets if available
-if [ -f /etc/aitbc/blockchain-secrets.env ]; then
-    # shellcheck source=/dev/null
-    set -a; source /etc/aitbc/blockchain-secrets.env; set +a
+# Read password from credentials dir (NOT from blockchain-secrets.env which is published)
+GOVERNANCE_PW=""
+if [ -f /etc/aitbc/credentials/postgres_aitbc_governance_password ]; then
+    GOVERNANCE_PW=$(cat /etc/aitbc/credentials/postgres_aitbc_governance_password)
+elif [ -f /etc/aitbc/aitbc-governance.env ]; then
+    # Fallback: read DB_PASS from governance env file
+    GOVERNANCE_PW=$(grep "^DB_PASS=" /etc/aitbc/aitbc-governance.env 2>/dev/null | cut -d= -f2-)
 fi
 
 log "Backing up PostgreSQL aitbc_governance..."
-if [ -z "${PGPASSWORD:-}" ]; then
-    error "  PostgreSQL backup FAILED: PGPASSWORD not set and no password file found"
-    error "  Set PGPASSWORD or add POSTGRES_PASSWORD to /etc/aitbc/blockchain-secrets.env"
+if [ -z "$GOVERNANCE_PW" ]; then
+    error "  PostgreSQL backup FAILED: no governance password found"
+    error "  Expected /etc/aitbc/credentials/postgres_aitbc_governance_password or DB_PASS in /etc/aitbc/aitbc-governance.env"
 else
-    if pg_dump -U aitbc_governance -h localhost aitbc_governance \
+    if PGPASSWORD="$GOVERNANCE_PW" pg_dump -U aitbc_governance -h localhost aitbc_governance \
         | gzip > "${BACKUP_DIR}/governance_postgres.sql.gz"; then
         log "  PostgreSQL backup: OK ($(du -sh "${BACKUP_DIR}/governance_postgres.sql.gz" | cut -f1))"
     else

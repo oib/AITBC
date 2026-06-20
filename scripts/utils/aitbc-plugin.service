@@ -33,3 +33,6 @@ SystemCallFilter=@system-service
 
 # Security hardening (v0.5.0)
 ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target

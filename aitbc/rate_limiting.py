@@ -53,10 +53,16 @@ def rate_limit(
 
     def decorator(func: Callable[P, Any]) -> Callable[P, Any]:
         # Temporarily return a no-op decorator
-        @wraps(func)
-        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
-            return await func(*args, **kwargs)
-        return wrapper
+        if asyncio.iscoroutinefunction(func):
+            @wraps(func)
+            async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
+                return await func(*args, **kwargs)
+            return wrapper
+        else:
+            @wraps(func)
+            def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
+                return func(*args, **kwargs)
+            return wrapper
 
     return decorator
 

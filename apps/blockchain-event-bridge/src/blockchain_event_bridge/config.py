@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     gossip_broadcast_url: str | None = Field(default=None)
 
     # Coordinator API
-    coordinator_api_url: str = Field(default="http://localhost:8011")
+    coordinator_api_url: str = Field(default="http://localhost:8203")
     coordinator_api_key: str | None = Field(default=None)
 
     # Event subscription filters

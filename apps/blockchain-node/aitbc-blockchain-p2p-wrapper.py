@@ -34,6 +34,7 @@ exec_cmd = [
     "0.0.0.0",
     "--port",
     "7070",
+    "--access-log",
 ]
 
 logger.info(f"Executing: {' '.join(exec_cmd)}")
