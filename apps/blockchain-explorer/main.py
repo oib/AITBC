@@ -148,14 +148,75 @@ async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any
         print("Invalid chain_id format")
         return {}
     try:
-        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{rpc_url}/rpc/blocks/{height}", params={"chain_id": chain_id, "include_tx": "false"})
-            if response.status_code == 200:
-                return normalize_block(response.json())  # type: ignore[no-any-return]
-            elif response.status_code == 404:
-                # Block not found - return empty (will be handled by caller)
+        # First try blockchain database for direct lookup
+        import sqlite3
+        from pathlib import Path
+        
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+        
+        if chain_db_path.exists():
+            conn = sqlite3.connect(str(chain_db_path))
+            cursor = conn.cursor()
+            
+            # Get block data
+            cursor.execute("""
+                SELECT height, hash, proposer, timestamp, tx_count, state_root
+                FROM block 
+                WHERE height = ?
+            """, (height,))
+            
+            result = cursor.fetchone()
+            
+            if result:
+                height, block_hash, proposer, timestamp, tx_count, state_root = result
+                
+                # Get transactions for this block
+                cursor.execute("""
+                    SELECT tx_hash, sender, recipient, payload, type, status, created_at
+                    FROM "transaction" 
+                    WHERE block_height = ?
+                    ORDER BY created_at
+                """, (height,))
+                
+                transactions = []
+                for row in cursor.fetchall():
+                    tx_hash, sender, recipient, payload, tx_type, status, created_at = row
+                    transactions.append({
+                        "tx_hash": tx_hash,
+                        "sender": sender,
+                        "recipient": recipient,
+                        "payload": payload,
+                        "type": tx_type,
+                        "status": status,
+                        "created_at": created_at,
+                    })
+                
+                conn.close()
+                
+                return {
+                    "height": height,
+                    "hash": block_hash,
+                    "proposer": proposer,
+                    "timestamp": timestamp,
+                    "txCount": tx_count,
+                    "stateRoot": state_root,
+                    "transactions": transactions
+                }
+            else:
+                conn.close()
                 return {}
+        else:
+            # Fallback to RPC method
+            rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{rpc_url}/rpc/blocks/{height}", params={"chain_id": chain_id, "include_tx": "false"})
+                if response.status_code == 200:
+                    return normalize_block(response.json())  # type: ignore[no-any-return]
+                elif response.status_code == 404:
+                    # Block not found - return empty (will be handled by caller)
+                    return {}
     except Exception as e:
         print(f"Error getting block {height} for {chain_id}: {e}")
     return {}
@@ -310,7 +371,51 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAI
 @app.get("/api/blocks/{height}")
 async def api_block(height: int, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
     """API endpoint for block data"""
-    return await get_block(height, chain_id)  # type: ignore[arg-type]
+    block_data = await get_block(height, chain_id)  # type: ignore[arg-type]
+    
+    # Add transactions for this block
+    try:
+        import sqlite3
+        from pathlib import Path
+        
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+        
+        if chain_db_path.exists():
+            conn = sqlite3.connect(str(chain_db_path))
+            cursor = conn.cursor()
+            
+            # Get transactions for this block
+            cursor.execute("""
+                SELECT tx_hash, sender, recipient, payload, type, status, created_at
+                FROM "transaction" 
+                WHERE block_height = ?
+                ORDER BY created_at
+            """, (height,))
+            
+            transactions = []
+            for row in cursor.fetchall():
+                tx_hash, sender, recipient, payload, tx_type, status, created_at = row
+                transactions.append({
+                    "tx_hash": tx_hash,
+                    "sender": sender,
+                    "recipient": recipient,
+                    "payload": payload,
+                    "type": tx_type,
+                    "status": status,
+                    "created_at": created_at,
+                })
+            
+            conn.close()
+            block_data["transactions"] = transactions
+        else:
+            block_data["transactions"] = []
+    except Exception as e:
+        print(f"Error getting transactions for block {height}: {e}")
+        block_data["transactions"] = []
+    
+    return block_data
 
 
 @app.get("/api/transactions/{tx_hash}")
@@ -582,35 +687,94 @@ async def export_blocks(format: str = "csv") -> StreamingResponse:
 async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN) -> list[dict[str, Any]]:
     """Get latest blocks from blockchain DB via RPC"""
     try:
-        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
-        async with httpx.AsyncClient() as client:
-            # Get current head to know the height
-            head_response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
-            if head_response.status_code == 200:
-                head = head_response.json()
-                current_height = head.get("height", 0)
-                if current_height == 0:
-                    return []
+        # First try blockchain database for direct lookup
+        import sqlite3
+        from pathlib import Path
+        
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+        
+        if chain_db_path.exists():
+            conn = sqlite3.connect(str(chain_db_path))
+            cursor = conn.cursor()
+            
+            # Get latest blocks
+            cursor.execute("""
+                SELECT height, hash, proposer, timestamp, tx_count, state_root
+                FROM block 
+                ORDER BY height DESC
+                LIMIT ?
+            """, (limit,))
+            
+            blocks = []
+            for row in cursor.fetchall():
+                height, block_hash, proposer, timestamp, tx_count, state_root = row
+                
+                # Get transactions for this block
+                cursor.execute("""
+                    SELECT tx_hash, sender, recipient, payload, type, status, created_at
+                    FROM "transaction" 
+                    WHERE block_height = ?
+                    ORDER BY created_at
+                """, (height,))
+                
+                transactions = []
+                for tx_row in cursor.fetchall():
+                    tx_hash, sender, recipient, payload, tx_type, status, created_at = tx_row
+                    transactions.append({
+                        "tx_hash": tx_hash,
+                        "sender": sender,
+                        "recipient": recipient,
+                        "payload": payload,
+                        "type": tx_type,
+                        "status": status,
+                        "created_at": created_at,
+                    })
+                
+                blocks.append({
+                    "height": height,
+                    "hash": block_hash,
+                    "proposer": proposer,
+                    "timestamp": timestamp,
+                    "txCount": tx_count,
+                    "stateRoot": state_root,
+                    "transactions": transactions
+                })
+            
+            conn.close()
+            return blocks
+        else:
+            # Fallback to RPC method
+            rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+            async with httpx.AsyncClient() as client:
+                # Get current head to know the height
+                head_response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
+                if head_response.status_code == 200:
+                    head = head_response.json()
+                    current_height = head.get("height", 0)
+                    if current_height == 0:
+                        return []
 
-                # Fetch real blocks from blockchain DB via blocks-range
-                start_height = max(1, current_height - limit + 1)
-                range_response = await client.get(
-                    f"{rpc_url}/rpc/blocks-range",
-                    params={
-                        "start": start_height,
-                        "end": current_height,
-                        "include_tx": "false",
-                        "chain_id": chain_id,
-                    },
-                )
-                if range_response.status_code == 200:
-                    range_data = range_response.json()
-                    blocks = range_data.get("blocks", [])
-                    # Normalize and reverse to show newest first
-                    blocks = [normalize_block(b) for b in blocks]
-                    blocks.reverse()
-                    return blocks
-        return []
+                    # Fetch real blocks from blockchain DB via blocks-range
+                    start_height = max(1, current_height - limit + 1)
+                    range_response = await client.get(
+                        f"{rpc_url}/rpc/blocks-range",
+                        params={
+                            "start": start_height,
+                            "end": current_height,
+                            "include_tx": "false",
+                            "chain_id": chain_id,
+                        },
+                    )
+                    if range_response.status_code == 200:
+                        range_data = range_response.json()
+                        blocks = range_data.get("blocks", [])
+                        # Normalize and reverse to show newest first
+                        blocks = [normalize_block(b) for b in blocks]
+                        blocks.reverse()
+                        return blocks
+            return []
     except Exception as e:
         print(f"Error getting latest blocks: {e}")
         return []
