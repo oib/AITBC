@@ -3,6 +3,30 @@ function formatHash(hash) {
     return hash;
 }
 
+function copyToClipboard(text, btnEl) {
+    if (!text || text === 'N/A') return;
+    navigator.clipboard.writeText(text).then(() => {
+        const original = btnEl.innerHTML;
+        btnEl.innerHTML = '<span style="color:var(--success)">Copied!</span>';
+        setTimeout(() => { btnEl.innerHTML = original; }, 1200);
+    }).catch(() => {
+        // Fallback for older browsers or permissions issues
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        const original = btnEl.innerHTML;
+        btnEl.innerHTML = '<span style="color:var(--success)">Copied!</span>';
+        setTimeout(() => { btnEl.innerHTML = original; }, 1200);
+    });
+}
+
+function copyBtn(text) {
+    return `<button class="copy-btn" onclick="copyToClipboard('${text}', this)" title="Copy to clipboard">📋</button>`;
+}
+
 // Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize icons
@@ -74,11 +98,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     const txCount = block.txCount || 0;
 
+                    const blockHash = block.hash || 'N/A';
                     return `
                     <div class="endpoint fade-in block-item">
                         <div class="block-header">
                             <span class="badge badge-primary">#${block.height}</span>
-                            <span class="block-hash">${block.hash || 'N/A'}</span>
+                            <span class="block-hash">${blockHash}</span>
+                            ${copyBtn(blockHash)}
                         </div>
                         <div class="block-timestamp">
                             ${timestamp} UTC
@@ -323,11 +349,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                     }
                                 }
                                 
+                                const innerTxHash = tx.tx_hash || 'N/A';
                                 return `
                                     <div class="transaction-item">
                                         <div class="tx-header">
                                             <span class="tx-type">${tx.type || 'Unknown'}</span>
-                                            <span class="tx-hash">${formatHash(tx.tx_hash)}</span>
+                                            <span class="tx-hash">${formatHash(innerTxHash)} ${copyBtn(innerTxHash)}</span>
                                         </div>
                                         <div class="tx-status ${tx.status === 'confirmed' ? 'confirmed' : 'pending'}">
                                             ${tx.status || 'Unknown'}
@@ -347,9 +374,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     `;
                 }
                 
+                const blockHashVal = item.hash || 'N/A';
                 details = `
                     <div class="result-hash">
-                        Hash: ${item.hash || 'N/A'}
+                        Hash: ${blockHashVal} ${copyBtn(blockHashVal)}
                     </div>
                     <div class="result-detail">
                         Validator: ${item.proposer || item.validator || 'unknown'}
@@ -381,9 +409,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
                 
+                const txHashVal = item.tx_hash || item.hash || 'N/A';
+                const fromAddr = item.from || item.sender || 'N/A';
+                const toAddr = item.to || item.recipient || 'N/A';
                 details = `
                     <div class="result-hash">
-                        Hash: ${item.tx_hash || item.hash || 'N/A'}
+                        Hash: ${txHashVal} ${copyBtn(txHashVal)}
                     </div>
                     <div class="result-detail">
                         Type: ${item.type || 'Unknown'}
@@ -392,10 +423,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         Block: ${item.block_height || 'N/A'}
                     </div>
                     <div class="result-detail">
-                        From: ${item.from || item.sender || 'N/A'}
+                        From: ${fromAddr} ${copyBtn(fromAddr)}
                     </div>
                     <div class="result-detail">
-                        To: ${item.to || item.recipient || 'N/A'}
+                        To: ${toAddr} ${copyBtn(toAddr)}
                     </div>
                     ${payloadDetails}
                 `;
