@@ -477,6 +477,28 @@ input[type="number"] {
     vertical-align: middle;
 }
 
+/* Block card expand/collapse */
+.block-collapsed {
+    cursor: pointer;
+}
+.block-collapsed:hover {
+    border-color: var(--primary);
+}
+.block-expanded {
+    border-color: var(--primary);
+}
+.expand-indicator {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+}
+.block-detail-panel {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+}
+
 /* Explorer-specific styles */
 .explorer-container {
     max-width: 1200px;
