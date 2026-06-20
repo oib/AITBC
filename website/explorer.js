@@ -118,6 +118,7 @@ document.addEventListener('DOMContentLoaded', function() {
         await loadActivityChart();
         await loadLatestBlocks();
         await updateLiveFeed();
+        await loadTopAddresses();
     }
 
     // Load activity timeline chart
@@ -219,6 +220,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
         }).join('');
+    }
+
+    // Top addresses leaderboard
+    async function loadTopAddresses() {
+        try {
+            const resp = await fetch(`${EXPLORER_API_URL}/api/analytics/top-addresses?chain_id=${currentChain}&limit=20`);
+            const data = await resp.json();
+            const container = document.getElementById('top-addresses-container');
+            if (!container) return;
+            const addresses = data.addresses || [];
+            if (addresses.length === 0) {
+                container.innerHTML = '<p class="loading-text">No address data yet.</p>';
+                return;
+            }
+            container.innerHTML = `
+                <table>
+                    <thead><tr><th>#</th><th>Address</th><th>TXs</th><th>Volume (AIT)</th></tr></thead>
+                    <tbody>
+                        ${addresses.map((a, i) => `
+                            <tr onclick="location.href='/explorer.html?search=${encodeURIComponent(a.address)}'" style="cursor:pointer;">
+                                <td>${i + 1}</td>
+                                <td>${a.address}</td>
+                                <td>${a.transaction_count}</td>
+                                <td>${a.volume.toLocaleString()}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } catch (error) {
+            console.error('Error loading top addresses:', error);
+        }
     }
 
     // Update chain stats
