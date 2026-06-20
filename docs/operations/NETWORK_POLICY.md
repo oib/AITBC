@@ -1,30 +1,97 @@
 # Network Policy Documentation
 
-## Service Exposure Policy
+> **Last verified:** 2026-06-20 (v0.5.3, Agent B)
+> **Source of truth:** `/etc/systemd/system/aitbc-*.service` `ExecStart` lines + app source defaults.
 
-### Localhost-Only Services (Internal)
+This document is the authoritative map of which AITBC services bind to which
+network interfaces, and the policy that governs exposure.
 
-These services bind to 127.0.0.1 and should not be exposed externally:
+## Policy
 
-| Service | Port | Purpose | Exposure |
-|---------|------|---------|----------|
-| `aitbc-coordinator-api.service` | 8203 | Main REST API | **Localhost only** |
-| `aitbc-blockchain-rpc.service` | 8545 | Blockchain RPC | **Localhost only** |
-| `aitbc-marketplace.service` | 8000 | Marketplace API | **Localhost only** |
-| `aitbc-governance.service` | 8001 | Governance API | **Localhost only** |
-| `aitbc-wallet.service` | 8002 | Wallet API | **Localhost only** |
+1. **Public / P2P services** bind to `0.0.0.0` — they must be reachable from
+   external peers or clients.
+2. **Internal services** bind to `127.0.0.1` — they are consumed only by other
+   local services, the CLI, or the public-facing gateway/explorer which proxy
+   to them.
+3. Services that read a `*_BIND_HOST` env var default to `0.0.0.0` in source for
+   dev convenience; production must set `*_BIND_HOST=127.0.0.1` in the service
+   env file unless the service is in the public list below.
 
-### Exposed Services (External)
+---
 
-These services are designed to be exposed to external networks:
+## Public / P2P services (intentionally `0.0.0.0`)
 
-| Service | Port | Purpose | Exposure |
-|---------|------|---------|----------|
-| `aitbc-blockchain-p2p.service` | 30333 | P2P networking | **External** (P2P protocol) |
-| `aitbc-blockchain-sync.service` | 30334 | Blockchain sync | **External** (sync protocol) |
-| `aitbc-miner.service` | 30335 | Mining operations | **External** (mining protocol) |
+| Service | Port | Purpose | Binding |
+|---------|------|---------|---------|
+| `aitbc-api-gateway` | 8201 | Public API gateway | `0.0.0.0` (systemd `--host 0.0.0.0`) |
+| `aitbc-blockchain-explorer` | 8100 | Public block explorer web UI | `0.0.0.0` (hardcoded in `apps/blockchain-explorer/main.py`) |
+| `aitbc-blockchain-p2p` | p2p port (config) | P2P peer networking | `0.0.0.0` (intentional, `nosec B104`) |
+| `aitbc-blockchain-node` | p2p/rpc (config) | Node process hosting P2P + RPC | P2P `0.0.0.0`; RPC exposed separately via `aitbc-blockchain-rpc` at `127.0.0.1` |
 
-### Defense-in-Depth Recommendations
+These must NOT be changed to `127.0.0.1`.
+
+---
+
+## Internal services (verified `127.0.0.1`)
+
+These bind to loopback only. Verified from systemd `ExecStart` or source.
+
+| Service | Port | Binding | Verification |
+|---------|------|---------|--------------|
+| `aitbc-ai` | 8005 | `127.0.0.1` | **FIXED in v0.5.3** — systemd unit changed from `0.0.0.0` to `127.0.0.1` |
+| `aitbc-blockchain-rpc` | 8202 | `127.0.0.1` | systemd `--host 127.0.0.1` |
+| `aitbc-coordinator-api` | 8203 | `127.0.0.1` | systemd `--host 127.0.0.1` |
+| `aitbc-learning` | 8012 | `127.0.0.1` | systemd `--host 127.0.0.1` (runs `adaptive_learning_app`) |
+| `aitbc-modality-optimization` | 8021 | `127.0.0.1` | systemd `--host 127.0.0.1` |
+| `aitbc-multimodal` | 8020 | `127.0.0.1` | systemd `--host 127.0.0.1` |
+| `aitbc-exchange` | 8106 | `127.0.0.1` | source: `HTTPServer(("localhost", port), ...)` |
+
+### Coordinator-API sub-app `__main__` blocks (hardened in v0.5.3)
+
+These files are not run as standalone systemd units in production (the three
+above are), but their `if __name__ == "__main__"` dev entrypoints were changed
+from `host="0.0.0.0"` to `host="127.0.0.1"` so accidental `python -m` execution
+does not expose internal services:
+
+- `apps/coordinator-api/src/app/services/adaptive_learning_app.py` (8005)
+- `apps/coordinator-api/src/app/services/modality_optimization_app.py` (8004)
+- `apps/coordinator-api/src/app/services/multimodal_app.py` (8002)
+- `apps/coordinator-api/src/app/services/gpu_multimodal_app.py` (8003)
+- `apps/coordinator-api/src/app/services/advanced_ai_service.py` (8015)
+- `apps/coordinator-api/src/app/services/enterprise_integration/api_gateway.py` (8010)
+- `apps/coordinator-api/src/app/routers/marketplace_enhanced_app.py` (8002)
+- `apps/coordinator-api/src/app/contexts/hermes/routers/hermes_enhanced_app.py` (8014)
+
+---
+
+## Services with `*_BIND_HOST` env-var default `0.0.0.0` (review pending)
+
+These services default to `0.0.0.0` in source but honor a `*_BIND_HOST` env var.
+They were **not** changed in v0.5.3 because they were not in the explicit
+hardening list and some may require external access depending on deployment
+topology. Operators should set `*_BIND_HOST=127.0.0.1` in the service env file
+(`/etc/aitbc/%N.env`) for any that are purely internal.
+
+| Service | Port | Env var | Default | Recommended |
+|---------|------|---------|---------|-------------|
+| `aitbc-edge` | 8111 | `EDGE_BIND_HOST` (settings.api_host) | `0.0.0.0` | Review — likely internal |
+| `aitbc-gpu` | 8101 | `GPU_BIND_HOST` | `0.0.0.0` | Review — likely internal |
+| `aitbc-hermes` | 8103 | `HERMES_BIND_HOST` | `0.0.0.0` | Review — likely internal |
+| `aitbc-marketplace` | 8102 | `MARKETPLACE_BIND_HOST` | `0.0.0.0` | Review — public website proxies to it |
+| `aitbc-trading` | 8104 | `TRADING_BIND_HOST` | `0.0.0.0` | Review — likely internal |
+| `aitbc-wallet` | 8108 | `WALLET_BIND_HOST` | `0.0.0.0` | Review — likely internal |
+| `aitbc-whisper` | 8110 | `WHISPER_BIND_HOST` | `0.0.0.0` | Review — likely internal |
+| `aitbc-governance` | 8105 | `GOVERNANCE_BIND_HOST` | `0.0.0.0` | Review — likely internal |
+| `aitbc-ffmpeg` | 8230 | `FFMPEG_BIND_HOST` | `0.0.0.0` | Review — likely internal |
+| `aitbc-plugin` | 8109 | (hardcoded in wrapper) | `0.0.0.0` | Review — wrapper hardcodes host; refactor to env var |
+
+**Action for operators:** for each "likely internal" service, add
+`<SERVICE>_BIND_HOST=127.0.0.1` to `/etc/aitbc/aitbc-<service>.env` and restart.
+Re-verify with `ss -tlnp | grep <port>`.
+
+---
+
+## Defense-in-Depth Recommendations
 
 For localhost-only services, consider adding additional security:
 
@@ -39,33 +106,6 @@ ExecStart=/opt/aitbc/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --
 # IPAllow=127.0.0.1  # Only allow localhost
 ```
 
-## Current Service Bindings
-
-### Coordinator API
-```ini
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8203
-```
-✅ **Correct**: Binds to 127.0.0.1 only
-
-### Blockchain Node Services
-```ini
-# P2P service (exposed)
-ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.p2p --host 0.0.0.0 --port 30333
-
-# RPC service (localhost only)
-ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.rpc --host 127.0.0.1 --port 8545
-
-# Sync service (exposed)
-ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.sync --host 0.0.0.0 --port 30334
-```
-✅ **Correct**: P2P and sync exposed, RPC localhost-only
-
-### Marketplace Service
-```ini
-ExecStart=/opt/aitbc/venv/bin/python -m marketplace_service.main --host 127.0.0.1 --port 8000
-```
-✅ **Correct**: Binds to 127.0.0.1 only
-
 ## Firewall Recommendations
 
 ### UFW (Uncomplicated Firewall)
@@ -74,10 +114,10 @@ ExecStart=/opt/aitbc/venv/bin/python -m marketplace_service.main --host 127.0.0.
 # Allow SSH
 ufw allow 22/tcp
 
-# Allow blockchain P2P and sync ports
-ufw allow 30333/tcp  # P2P
-ufw allow 30334/tcp  # Sync
-ufw allow 30335/tcp  # Mining
+# Allow public AITBC services
+ufw allow 8201/tcp  # api-gateway
+ufw allow 8100/tcp  # blockchain-explorer web
+ufw allow <p2p-port>/tcp  # blockchain P2P
 
 # Deny all other incoming traffic
 ufw default deny incoming
@@ -96,10 +136,10 @@ iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 # Allow SSH
 iptables -A INPUT -p tcp --dport 22 -j ACCEPT
 
-# Allow blockchain P2P and sync
-iptables -A INPUT -p tcp --dport 30333 -j ACCEPT
-iptables -A INPUT -p tcp --dport 30334 -j ACCEPT
-iptables -A INPUT -p tcp --dport 30335 -j ACCEPT
+# Allow public AITBC services
+iptables -A INPUT -p tcp --dport 8201 -j ACCEPT  # api-gateway
+iptables -A INPUT -p tcp --dport 8100 -j ACCEPT  # explorer web
+iptables -A INPUT -p tcp --dport <p2p-port> -j ACCEPT  # P2P
 
 # Allow localhost
 iptables -A INPUT -i lo -j ACCEPT
@@ -108,18 +148,6 @@ iptables -A INPUT -i lo -j ACCEPT
 iptables -A INPUT -j DROP
 ```
 
-## Service Dependencies
-
-### Coordinator API Dependencies
-- **Required**: `aitbc-blockchain-node.service` (RPC)
-- **Optional**: `redis.service` (when deployed)
-- **Network**: Localhost only (127.0.0.1:8203)
-
-### Blockchain Node Dependencies
-- **Required**: `postgresql.service` (database)
-- **Optional**: `redis.service` (caching)
-- **Network**: Mixed (RPC localhost, P2P/sync external)
-
 ## Monitoring and Alerting
 
 ### Network Connection Monitoring
@@ -127,23 +155,24 @@ iptables -A INPUT -j DROP
 Monitor for unexpected external connections to localhost-only services:
 
 ```bash
-# Check for external connections to coordinator-api
-ss -tunp | grep :8203 | grep -v 127.0.0.1
+# List all AITBC listening sockets and their bind addresses
+ss -tlnp | grep -E ':(8005|8202|8203|8012|8020|8021|8106)\b'
 
-# Check for external connections to blockchain RPC
-ss -tunp | grep :8545 | grep -v 127.0.0.1
+# Any of the above NOT showing 127.0.0.1 is a policy violation.
 ```
 
 ### Alert Thresholds
 
-- **Critical**: External connection to localhost-only service
-- **Warning**: Unexpected port binding on exposed service
+- **Critical**: External connection to a localhost-only service
+- **Warning**: Unexpected port binding on a public service
 - **Info**: Normal service startup/port binding
 
 ## Implementation Status
 
-- ✅ Service binding documentation complete
-- ✅ Current service bindings verified
-- ✅ Firewall recommendations provided
+- ✅ Public vs internal service classification complete
+- ✅ `aitbc-ai` systemd unit hardened to `127.0.0.1` (v0.5.3)
+- ✅ Coordinator-API sub-app `__main__` defaults hardened to `127.0.0.1` (v0.5.3)
+- ✅ Service binding documentation complete and verified against systemd units
+- ⏳ `*_BIND_HOST` env-var-default services pending operator review (see table above)
 - ⏳ IPDeny/IPAllow directives not yet implemented (optional)
 - ⏳ Firewall rules not yet deployed (DevOps task)

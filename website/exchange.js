@@ -1,6 +1,6 @@
 async function fetchPrices() {
     try {
-        const response = await fetch('http://hub.aitbc.bubuit.net/v1/exchange/history');
+        const response = await fetch('/v1/exchange/history');
         const data = await response.json();
 
         if (!data.success) {
@@ -17,7 +17,7 @@ async function fetchPrices() {
 
 async function fetchBridgeStatus() {
     try {
-        const response = await fetch('http://hub.aitbc.bubuit.net/v1/bridge/status');
+        const response = await fetch('/v1/bridge/status');
         const data = await response.json();
 
         updateBridgeStatus(data);
