@@ -395,9 +395,9 @@ async def register_plugin(
 
 @app.get("/v1/marketplace/offer")
 async def list_software_offers(
-    service_type: str | None,
-    status: str | None,
     svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+    service_type: str | None = None,
+    status: str | None = None,
 ) -> Any:
     """List marketplace offers (hardware+software bundles)"""
     try:

@@ -11,7 +11,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ..config import settings
 from ..logger import get_logger
-from ..mempool import get_mempool
+from ..mempool import get_mempool as get_mempool_instance
 from .accounts import (
     create_account,
     faucet_request,
@@ -306,8 +306,10 @@ async def submit_transaction_route(request: Request, tx_data: TransactionRequest
 
 @router.get("/mempool", summary="Get pending transactions")
 @rate_limit(rate=200, per=60)
-async def get_mempool_route(request: Request, chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
+async def get_mempool_api_route(request: Request, chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
     """Get pending transactions from mempool"""
+    # Import locally to avoid circular dependency
+    from .transactions import get_mempool
     return await get_mempool(request, chain_id, limit)
 
 
@@ -850,7 +852,7 @@ async def subscribers_route(chain_id: str | None = None) -> dict[str, Any]:
 async def get_pending_transactions_route(request: Request, chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
     """Get pending transactions from mempool (alias for /mempool)"""
     try:
-        mempool = get_mempool()
+        mempool = get_mempool_instance()
         pending_txs = mempool.get_pending_transactions(chain_id=chain_id, limit=limit)
         return {"transactions": pending_txs, "count": len(pending_txs)}
     except Exception as e:
