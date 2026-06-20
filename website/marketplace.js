@@ -13,7 +13,7 @@ async function fetchOffers() {
         if (currentStatusFilter !== 'all') {
             params.append('status', currentStatusFilter);
         }
-        
+
         const url = `/v1/marketplace/offer?${params.toString()}`;
         const response = await fetch(url);
         const data = await response.json();
@@ -78,16 +78,16 @@ function createOfferCard(offer) {
     const ratingStars = offer.avg_rating ? '★'.repeat(Math.round(offer.avg_rating)) : 'N/A';
     const ratingCount = offer.rating_count || 0;
     const providerId = offer.provider_address || offer.node_id || '';
-    
+
     const registeredDate = offer.registered_at ? new Date(offer.registered_at).toLocaleDateString() : 'N/A';
     const updatedDate = offer.updated_at ? new Date(offer.updated_at).toLocaleDateString() : 'N/A';
-    
+
     // Blockchain verification information
     const isConfirmed = offer.confirmed === true;
-    const confirmationBadge = isConfirmed 
+    const confirmationBadge = isConfirmed
         ? `<span class="blockchain-confirmed">✓ Confirmed in Block #${offer.block_height}</span>`
         : `<span class="blockchain-pending">⏳ Pending (Not on blockchain)</span>`;
-    
+
     const blockInfo = isConfirmed ? `
         <div class="blockchain-info">
             <div class="blockchain-detail">
@@ -119,7 +119,7 @@ function createOfferCard(offer) {
                 <div class="offer-title">${formatServiceTitle(offer)}</div>
                 <div class="offer-status ${statusClass}">${statusText}</div>
             </div>
-            
+
             <div class="blockchain-status">
                 ${confirmationBadge}
             </div>
@@ -131,7 +131,7 @@ function createOfferCard(offer) {
             <div class="offer-description">
                 ${offer.description || 'No description available'}
             </div>
-            
+
             <div class="offer-details">
                 <div class="offer-detail">
                     <div class="offer-detail-label">Service Type</div>
@@ -154,7 +154,7 @@ function createOfferCard(offer) {
                     <div class="offer-detail-value">${formatEndpoint(offer.public_endpoint || offer.endpoint)}</div>
                 </div>
             </div>
-            
+
             <div class="offer-details-list">
                 <div class="offer-list-item">
                     <span class="offer-list-label">Provider:</span>
@@ -189,7 +189,7 @@ function createOfferCard(offer) {
                     <span class="offer-list-value">${formatTimestamp(offer.block_timestamp)}</span>
                 </div>
             </div>
-            
+
             <div class="offer-meta">
                 <div class="offer-rating">
                     <span class="offer-rating-value">${ratingStars}</span>
@@ -293,7 +293,7 @@ document.addEventListener('DOMContentLoaded', function() {
 async function fetchReputation(providerId, elementId) {
     if (!providerId) return;
     try {
-        const response = await fetch(`/explorer-api/api/analytics/provider-reputation/${encodeURIComponent(providerId)}?chain_id=ait-hub.aitbc.bubuit.net`);
+        const response = await fetch(`/explorer-api/api/analytics/provider-reputation/${encodeURIComponent(providerId)}?chain_id=${window.AITBC_CONFIG.chainId}`);
         const data = await response.json();
         const el = document.getElementById(elementId);
         if (el) {
@@ -353,7 +353,7 @@ function updateHealthItem(name, up, latency) {
 // Fetch network stats
 async function fetchNetworkStats() {
     try {
-        const response = await fetch('/explorer-api/api/analytics/network-stats?chain_id=ait-hub.aitbc.bubuit.net');
+        const response = await fetch(`/explorer-api/api/analytics/network-stats?chain_id=${window.AITBC_CONFIG.chainId}`);
         const data = await response.json();
         document.getElementById('stat-total-ait').textContent = data.total_ait.toLocaleString();
         document.getElementById('stat-active-offers').textContent = data.active_offers.toLocaleString();
