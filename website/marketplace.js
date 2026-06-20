@@ -77,12 +77,47 @@ function createOfferCard(offer) {
     
     const registeredDate = offer.registered_at ? new Date(offer.registered_at).toLocaleDateString() : 'N/A';
     const updatedDate = offer.updated_at ? new Date(offer.updated_at).toLocaleDateString() : 'N/A';
+    
+    // Blockchain verification information
+    const isConfirmed = offer.confirmed === true;
+    const confirmationBadge = isConfirmed 
+        ? `<span class="blockchain-confirmed">✓ Confirmed in Block #${offer.block_height}</span>`
+        : `<span class="blockchain-pending">⏳ Pending (Not on blockchain)</span>`;
+    
+    const blockInfo = isConfirmed ? `
+        <div class="blockchain-info">
+            <div class="blockchain-detail">
+                <span class="blockchain-label">Block Height:</span>
+                <span class="blockchain-value">${offer.block_height}</span>
+            </div>
+            <div class="blockchain-detail">
+                <span class="blockchain-label">Block Hash:</span>
+                <span class="blockchain-value">${formatHash(offer.block_hash)}</span>
+            </div>
+            <div class="blockchain-detail">
+                <span class="blockchain-label">Transaction Hash:</span>
+                <span class="blockchain-value">${formatHash(offer.tx_hash)}</span>
+            </div>
+            <div class="blockchain-detail">
+                <span class="blockchain-label">Block Time:</span>
+                <span class="blockchain-value">${offer.block_timestamp ? new Date(offer.block_timestamp).toLocaleString() : 'N/A'}</span>
+            </div>
+            <div class="blockchain-detail">
+                <span class="blockchain-label">Proposer:</span>
+                <span class="blockchain-value">${formatAddress(offer.block_proposer)}</span>
+            </div>
+        </div>
+    ` : '';
 
     return `
         <div class="offer-card">
             <div class="offer-header">
                 <div class="offer-title">${formatServiceTitle(offer)}</div>
                 <div class="offer-status ${statusClass}">${statusText}</div>
+            </div>
+            
+            <div class="blockchain-status">
+                ${confirmationBadge}
             </div>
             
             <div class="offer-description">
@@ -124,6 +159,8 @@ function createOfferCard(offer) {
                 </div>
             </div>
             
+            ${blockInfo}
+            
             <div class="offer-meta">
                 <div class="offer-rating">
                     <span class="offer-rating-value">${ratingStars}</span>
@@ -148,6 +185,12 @@ function formatAddress(address) {
     if (!address) return 'N/A';
     if (address.length <= 16) return address;
     return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
+}
+
+function formatHash(hash) {
+    if (!hash) return 'N/A';
+    if (hash.length <= 16) return hash;
+    return `${hash.substring(0, 10)}...${hash.substring(hash.length - 8)}`;
 }
 
 function formatEndpoint(endpoint) {
