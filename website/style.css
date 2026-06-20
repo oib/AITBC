@@ -795,6 +795,54 @@ button:active {
     color: var(--text-muted);
     font-size: 0.875rem;
 }
+/* Health check grid */
+.health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+.health-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--code);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+.health-status {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.health-status.up {
+    background: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+}
+.health-status.down {
+    background: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
+}
+.health-status.loading {
+    background: #71717a;
+    animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+.health-name {
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+.health-latency {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
 .status-filter select {
     background: var(--code);
     border: 1px solid var(--border);
