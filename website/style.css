@@ -455,6 +455,28 @@ input[type="number"] {
     user-select: none;
 }
 
+/* Copy button styles */
+.copy-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0.1rem 0.3rem;
+    margin-left: 0.25rem;
+    border-radius: 3px;
+    opacity: 0.6;
+    transition: opacity 0.2s, background 0.2s;
+    color: var(--text-muted);
+}
+.copy-btn:hover {
+    opacity: 1;
+    background: var(--border);
+}
+.result-hash .copy-btn,
+.tx-hash .copy-btn {
+    vertical-align: middle;
+}
+
 /* Explorer-specific styles */
 .explorer-container {
     max-width: 1200px;
