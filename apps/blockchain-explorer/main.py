@@ -235,6 +235,84 @@ async def api_latest_blocks(chain_id: str | None = DEFAULT_CHAIN, limit: int = 1
     return {"blocks": blocks}
 
 
+@app.get("/api/blocks/non-empty")
+async def api_non_empty_blocks(
+    chain_id: str | None = DEFAULT_CHAIN,
+    limit: int = 10,
+    search_limit: int = 10000,
+) -> dict[str, Any]:
+    """API endpoint for non-empty blocks (blocks with transactions)"""
+    try:
+        import sqlite3
+        from pathlib import Path
+
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+
+        if not chain_db_path.exists():
+            return {"blocks": []}
+
+        conn = sqlite3.connect(str(chain_db_path))
+        cursor = conn.cursor()
+
+        # Get current chain height
+        cursor.execute("SELECT MAX(height) FROM block")
+        max_height = cursor.fetchone()[0] or 0
+
+        # Find non-empty blocks by searching backwards from tip
+        # Join with transaction table to find blocks that have transactions
+        cursor.execute("""
+            SELECT DISTINCT b.height, b.hash, b.proposer, b.timestamp, b.tx_count, b.state_root
+            FROM block b
+            INNER JOIN "transaction" t ON b.height = t.block_height
+            WHERE b.height <= ?
+            ORDER BY b.height DESC
+            LIMIT ?
+        """, (max_height, limit))
+
+        blocks = []
+        for row in cursor.fetchall():
+            height, block_hash, proposer, timestamp, tx_count, state_root = row
+
+            # Get transactions for this block
+            cursor.execute("""
+                SELECT tx_hash, sender, recipient, payload, type, status, created_at
+                FROM "transaction"
+                WHERE block_height = ?
+                ORDER BY created_at
+            """, (height,))
+
+            transactions = []
+            for tx_row in cursor.fetchall():
+                tx_hash, sender, recipient, payload, tx_type, status, created_at = tx_row
+                transactions.append({
+                    "tx_hash": tx_hash,
+                    "sender": sender,
+                    "recipient": recipient,
+                    "payload": payload,
+                    "type": tx_type,
+                    "status": status,
+                    "created_at": created_at,
+                })
+
+            blocks.append({
+                "height": height,
+                "hash": block_hash,
+                "proposer": proposer,
+                "timestamp": timestamp,
+                "txCount": tx_count,
+                "stateRoot": state_root,
+                "transactions": transactions,
+            })
+
+        conn.close()
+        return {"blocks": blocks}
+    except Exception as e:
+        print(f"Error getting non-empty blocks: {e}")
+        return {"blocks": []}
+
+
 @app.get("/api/blocks/by-hash/{hash}")
 async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
     """API endpoint for block by hash"""
