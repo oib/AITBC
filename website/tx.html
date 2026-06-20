@@ -17,34 +17,6 @@
         .detail-header h2 {
             margin: 0;
         }
-        .detail-list {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 1.5rem;
-            font-size: 0.9rem;
-        }
-        .detail-list tr {
-            border-bottom: 1px solid var(--border);
-        }
-        .detail-list tr:last-child {
-            border-bottom: none;
-        }
-        .detail-list td {
-            padding: 0.6rem 0.75rem;
-            vertical-align: top;
-        }
-        .detail-list td:first-child {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            width: 140px;
-            white-space: nowrap;
-        }
-        .detail-list td:last-child {
-            font-family: var(--font-mono);
-            word-break: break-all;
-        }
         .payload-box {
             background: var(--code);
             border: 1px solid var(--border);
@@ -81,12 +53,12 @@
         <div id="content" style="display:none;">
             <div class="detail-header">
                 <span class="badge badge-primary" id="tx-type-badge">TX</span>
-                <span id="tx-hash-display" class="detail-value" style="font-size:0.8rem;color:var(--text-muted);"></span>
+                <span id="tx-hash-display" style="font-size:0.8rem;color:var(--text-muted);font-family:var(--font-mono);"></span>
             </div>
 
-            <table class="detail-list" id="tx-details"></table>
+            <div id="tx-details"></div>
 
-            <div class="card" id="payload-card" style="display:none;">
+            <div class="card" id="payload-card" style="display:none;margin-top:1.5rem;">
                 <h2>Payload</h2>
                 <div class="payload-box"><pre id="payload-content"></pre></div>
             </div>
@@ -104,7 +76,17 @@
         }
 
         function copyBtn(text) {
-            return `<button class="copy-btn" onclick="navigator.clipboard.writeText('${text}')" title="Copy">⧉</button>`;
+            return `<button class="copy-btn" onclick="event.stopPropagation();navigator.clipboard.writeText('${text}')" title="Copy">⧉</button>`;
+        }
+
+        function plainHash(hash) {
+            if (!hash || hash === 'N/A') return 'N/A';
+            return `<span style="font-family:var(--font-mono);">${hash}</span>`;
+        }
+
+        function addrLink(addr) {
+            if (!addr || addr === 'N/A') return 'N/A';
+            return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${addr}</a>`;
         }
 
         async function loadTransaction() {
@@ -129,38 +111,33 @@
                         location.href = `/block.html?height=${blockData.height}`;
                         return;
                     }
-                    throw new Error('Transaction not found');
+                    throw new Error('No transaction or block found for this hash');
                 }
 
                 document.title = `AITBC TX ${data.hash.substring(0, 16)}...`;
                 document.getElementById('tx-type-badge').textContent = data.type || 'TX';
                 document.getElementById('tx-hash-display').textContent = data.hash;
 
-                function plainHash(hash) {
-                    if (!hash || hash === 'N/A') return 'N/A';
-                    return `<span style="font-family:var(--font-mono);">${hash}</span>`;
-                }
-                function linkableAddress(addr) {
-                    if (!addr || addr === 'N/A') return 'N/A';
-                    return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${addr}</a>`;
-                }
-
                 const details = [
+                    { label: 'Type', value: `<span class="badge badge-primary">${data.type || 'TX'}</span>` },
                     { label: 'Hash', value: plainHash(data.hash) + ' ' + copyBtn(data.hash) },
-                    { label: 'Type', value: data.type || 'Unknown' },
                     { label: 'Status', value: data.status || 'Unknown' },
-                    { label: 'Block Height', value: `<a href="/block.html?height=${data.block_height}">${data.block_height}</a>` },
-                    { label: 'From', value: linkableAddress(data.from || data.sender) + ' ' + copyBtn(data.from || data.sender || '') },
-                    { label: 'To', value: linkableAddress(data.to || data.recipient) + ' ' + copyBtn(data.to || data.recipient || '') },
+                    { label: 'Block', value: `<a href="/block.html?height=${data.block_height}">#${data.block_height}</a>` },
+                    { label: 'From', value: addrLink(data.from || data.sender) + ' ' + copyBtn(data.from || data.sender || '') },
+                    { label: 'To', value: addrLink(data.to || data.recipient) + ' ' + copyBtn(data.to || data.recipient || '') },
                     { label: 'Value', value: data.value !== undefined ? data.value : 'N/A' },
                     { label: 'Fee', value: data.fee !== undefined ? data.fee : 'N/A' },
                     { label: 'Nonce', value: data.nonce !== undefined ? data.nonce : 'N/A' },
                     { label: 'Timestamp', value: data.created_at ? new Date(data.created_at).toLocaleString() : 'N/A' },
                 ];
 
-                document.getElementById('tx-details').innerHTML = details.map(d => `
-                    <tr><td>${d.label}</td><td>${d.value}</td></tr>
-                `).join('');
+                document.getElementById('tx-details').innerHTML = `
+                    <div class="endpoint fade-in block-item" style="padding:0;">
+                        <table class="block-list-table">
+                            ${details.map(d => `<tr><td>${d.label}</td><td>${d.value}</td></tr>`).join('')}
+                        </table>
+                    </div>
+                `;
 
                 if (data.payload) {
                     let payloadText;
