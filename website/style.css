@@ -322,6 +322,92 @@ input[type="number"] {
     margin-bottom: 1rem;
 }
 
+/* Explorer transaction styles */
+.block-transactions {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: var(--code);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+.transactions-header {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+}
+.transaction-item {
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+.transaction-item:last-child {
+    margin-bottom: 0;
+}
+.tx-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+.tx-type {
+    font-weight: 600;
+    color: var(--primary);
+    font-size: 0.85rem;
+}
+.tx-hash {
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.tx-status {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 0.25rem;
+}
+.tx-status.confirmed {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+.tx-status.pending {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+}
+.tx-marketplace-details {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: var(--code);
+    border-radius: 4px;
+}
+.tx-detail-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.tx-detail-item:last-child {
+    border-bottom: none;
+}
+.tx-detail-label {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+.tx-detail-value {
+    color: var(--text);
+    font-size: 0.75rem;
+    font-family: 'Courier New', monospace;
+}
+.no-transactions {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.85rem;
+}
+
 /* Explorer-specific styles */
 .explorer-container {
     max-width: 1200px;
@@ -559,8 +645,9 @@ button:active {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 1.5rem;
+    padding: 1.25rem;
     margin-bottom: 1rem;
+    overflow: hidden;
 }
 .offer-header {
     display: flex;
@@ -618,8 +705,42 @@ button:active {
     font-size: 0.8rem;
     font-family: 'Courier New', monospace;
     word-break: break-all;
-    line-height: 1.3;
+    line-height: 1.2;
     overflow-wrap: break-word;
+    max-width: 100%;
+}
+
+.offer-details-list {
+    background: var(--code);
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+.offer-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.offer-list-item:last-child {
+    border-bottom: none;
+}
+.offer-list-label {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    min-width: 100px;
+}
+.offer-list-value {
+    color: var(--text);
+    font-size: 0.8rem;
+    font-family: 'Courier New', monospace;
+    word-break: break-all;
+    text-align: right;
+    flex: 1;
+    margin-left: 1rem;
 }
 .offer-description {
     color: var(--text-muted);
@@ -654,4 +775,25 @@ button:active {
     font-size: 3rem;
     margin-bottom: 1rem;
     opacity: 0.5;
+}
+
+/* Responsive marketplace styles */
+@media (max-width: 768px) {
+    .offer-details {
+        grid-template-columns: 1fr;
+    }
+    .offer-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .offer-meta {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .filter-buttons {
+        flex-direction: column;
+    }
+    .filter-btn {
+        width: 100%;
+    }
 }
