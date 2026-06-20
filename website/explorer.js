@@ -239,7 +239,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <thead><tr><th>#</th><th>Address</th><th>TXs</th><th>Volume (AIT)</th></tr></thead>
                     <tbody>
                         ${addresses.map((a, i) => `
-                            <tr onclick="location.href='/explorer.html?search=${encodeURIComponent(a.address)}'" style="cursor:pointer;">
+                            <tr onclick="location.href='/search.html?query=${encodeURIComponent(a.address)}'" style="cursor:pointer;">
                                 <td>${i + 1}</td>
                                 <td>${a.address}</td>
                                 <td>${a.transaction_count}</td>
@@ -377,23 +377,14 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Is number:', isNumber, 'Is hash:', isHash);
 
         if (isNumber) {
-            // Search by block height
-            console.log('Searching by block height:', parseInt(query));
-            await searchBlock(parseInt(query));
+            // Go directly to block detail
+            location.href = `/block.html?height=${query}`;
         } else if (isHash) {
-            // Search by hash - try both block and transaction
-            console.log('Searching by hash:', query);
-            await searchByHash(query);
+            // Try hash as transaction first, then block
+            location.href = `/tx.html?hash=${encodeURIComponent(query)}`;
         } else {
-            // Search by address or try as block height if it looks like a number with extra chars
-            const cleanNumber = query.replace(/[^0-9]/g, '');
-            if (cleanNumber && cleanNumber === query) {
-                console.log('Searching by block height (cleaned):', parseInt(cleanNumber));
-                await searchBlock(parseInt(cleanNumber));
-            } else {
-                console.log('Searching by address:', query);
-                await searchByAddress(query);
-            }
+            // Address or other search -> dedicated search page
+            location.href = `/search.html?query=${encodeURIComponent(query)}`;
         }
     }
 
@@ -977,10 +968,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initial load
     refreshData();
 
-    // Handle search from URL param (e.g. from Top Addresses click)
+    // Redirect old ?search= param to dedicated search page
     const urlSearch = new URL(window.location.href).searchParams.get('search');
     if (urlSearch) {
-        document.getElementById('search-input').value = urlSearch;
-        performSearch();
+        location.replace(`/search.html?query=${encodeURIComponent(urlSearch)}`);
     }
 });
