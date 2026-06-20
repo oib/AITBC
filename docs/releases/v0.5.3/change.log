@@ -1,0 +1,456 @@
+# v0.5.3 Release Plan
+
+**Theme**: Codebase cleanup & hardening — dead code removal, security posture improvement, and configuration consistency.
+
+**Goal**: Reduce technical debt accumulated through v0.5.0–v0.5.2 by removing dead code, consolidating duplicate modules, fixing service configuration issues, and tightening network exposure. No new features.
+
+---
+
+## Status Update (from v0.5.2 completion)
+
+**Already Completed in v0.5.2:**
+- ✅ Blockchain Explorer enhancements (pagination, copy-to-clipboard, skip empty blocks, non-empty blocks endpoint)
+- ✅ Marketplace website integration (marketplace.html, marketplace.js, CSS styling, navigation updates)
+- ✅ Explorer analytics (activity timeline, network stats, provider reputation, top addresses)
+- ✅ Dedicated detail pages (block.html, tx.html, search.html)
+- ✅ Real-time features (live feed ticker, auto-refresh)
+- ✅ Mobile responsiveness across all website pages
+
+**Recent Additions (post-v0.5.2):**
+- ✅ CLI Explorer integration (`aitbc explorer` command group with 14 subcommands)
+- ✅ CLI `--use-explorer` flag on `transactions status` and `transactions search`
+- ✅ Explorer API URL added to CLI config (`explorer_api_url`, default `http://localhost:8100`)
+- ✅ CLI help-only behavior fixed (no more traceback when running command groups without subcommand)
+- ✅ Coordinator API service fixed (missing `%N.env` file created with JWT_SECRET)
+- ✅ Marketplace "Create Offer" form removed from website (CLI-only as intended)
+
+**Identified Issues for v0.5.3:**
+- 🟡 Dead CLI code: `cli/src/`, `cli/handlers/`, `cli/cleanup/`, `cli/variants/`, `cli/click_cli.py`, `cli/enterprise_cli.py`, `cli/genesis_cli.py`
+- 🟡 Duplicate config files: 3 separate `config.py` files in CLI with overlapping purposes
+- 🟡 Disabled CLI commands: 3 commands disabled due to missing imports
+- 🟡 Root-level artifacts: `marketplace.db`, `create_sample_offers.py`, `create_sample_offers_simple.py`, `pyproject.toml.new`
+- 🟡 24 services binding to 0.0.0.0 (internal services should use 127.0.0.1)
+- 🟡 5 systemd services without corresponding apps (learning, modality-optimization, multimodal, plugin, recovery)
+- 🟡 Hardcoded URLs in website JavaScript
+- 🟡 `mutants/` directory (22MB) not gitignored
+- 🟡 `.secrets.baseline` stale (3394 lines, needs regeneration)
+- 🟡 Missing environment files for some services (edge, gpu, miner)
+- 🟡 `cli/aitbc_cli.egg-info/` tracked by git (6 files)
+- 🟡 Exchange command duplication: `exchange.py` + `exchange_island.py` + `exchange/` subpackage
+- 🟡 GPU command duplication: `gpu_marketplace.py` and `gpu_resources.py` both register as `gpu`
+
+---
+
+## P0 (Must-have for v0.5.3)
+
+### 1. Dead Code Removal — CLI
+
+Remove obsolete CLI entry points and directories that are no longer used:
+
+| Path | Reason | Action |
+|------|--------|--------|
+| `cli/click_cli.py` | Broken imports (`from commands import ...` — no `commands/` dir exists) | Delete |
+| `cli/enterprise_cli.py` | Superseded by `aitbc` binary, hardcoded wrong port `8006` | Delete |
+| `cli/genesis_cli.py` | Superseded by `aitbc genesis` command group | Delete |
+| `cli/aitbc_cli.py` | Deprecated shim — verify no users, then delete | Delete |
+| `cli/src/` | Stale partial duplicate (only 2 files, both exist in `aitbc_cli/core/`) | Delete |
+| `cli/handlers/` | 18 files, zero imports from active CLI code (old parser/handler architecture) | Delete |
+| `cli/cleanup/` | Historical cleanup docs (CLI_CLEANUP_PLAN.md, CLI_CLEANUP_SUMMARY.md) | Delete |
+| `cli/variants/` | `main_minimal.py` — unused minimal CLI variant | Delete |
+
+**Verification:** After deletion, run `aitbc --help` and all command groups to confirm nothing breaks.
+
+**Acceptance Criteria:**
+- [ ] All files/directories above deleted
+- [ ] `aitbc --help` still shows all active commands
+- [ ] `aitbc explorer`, `aitbc transactions`, `aitbc wallet` still work
+- [ ] No import errors in CLI startup
+
+---
+
+### 2. Disabled CLI Commands — Fix or Remove
+
+**File:** `cli/aitbc_cli/core/main.py` (lines 24-26, 41, 134-135)
+
+3 commands are disabled with comments:
+- `node` — imports from non-existent `aitbc_cli.core`
+- `agent_comm` — imports from non-existent `aitbc_cli.core`
+- `deployment` — missing `core.deployment` module
+
+**Action:**
+- Audit each disabled command's imports
+- If fixable: fix imports and re-enable
+- If not fixable: delete the command file and remove from `main.py`
+
+**Acceptance Criteria:**
+- [ ] No disabled commands remain in `main.py`
+- [ ] Either commands work or their files are deleted
+- [ ] `main.py` has no commented-out import lines
+
+---
+
+### 3. Root-Level Artifact Cleanup
+
+Remove files that don't belong in the project root:
+
+| File | Reason | Action |
+|------|--------|--------|
+| `marketplace.db` | Test database in root (real DB is in `data/`) | Delete |
+| `create_sample_offers.py` | One-off script, should be in `scripts/` | Move to `scripts/marketplace/` or delete |
+| `create_sample_offers_simple.py` | One-off script | Move to `scripts/marketplace/` or delete |
+| `pyproject.toml.new` | Unmerged mypy config draft (341 lines) | Merge into `pyproject.toml` or delete |
+
+**Acceptance Criteria:**
+- [ ] No `.db` files in project root
+- [ ] No one-off scripts in project root
+- [ ] No `.new` files in project root
+
+---
+
+### 4. Service Configuration Audit
+
+#### 4a. Missing Environment Files
+
+**Verified missing env files (using `%N.env` pattern):**
+- `/etc/aitbc/aitbc-edge.env` — missing
+- `/etc/aitbc/aitbc-gpu.env` — missing
+- `/etc/aitbc/aitbc-miner.env` — missing
+
+**Action:** Create missing env files with required variables for each service.
+
+#### 4b. Unused Systemd Service Files
+
+**Verified services without corresponding apps:**
+
+| Service | App Exists? | Action |
+|---------|-------------|--------|
+| `aitbc-learning` | No app in `apps/` | Remove unit |
+| `aitbc-modality-optimization` | No app in `apps/` | Remove unit |
+| `aitbc-multimodal` | No app in `apps/` | Remove unit |
+| `aitbc-plugin` | No app in `apps/` | Remove unit |
+| `aitbc-recovery` | No app in `apps/` | Remove unit |
+
+**Note:** Services like `blockchain-p2p`, `blockchain-rpc`, `blockchain-sync` are sub-services of `blockchain-node`. `explorer` is an alias for `blockchain-explorer`. `ai` maps to `ai-engine`. `agent-registry` maps to `agent-coordinator`. These are legitimate.
+
+**Acceptance Criteria:**
+- [ ] All active services have their `%N.env` files
+- [ ] No systemd units for non-existent apps
+- [ ] `systemctl daemon-reload` succeeds after cleanup
+
+---
+
+## P1 (Should-have for v0.5.3)
+
+### 5. Network Exposure Hardening
+
+Audit all services binding to `0.0.0.0` and restrict internal services to `127.0.0.1`:
+
+**Total 0.0.0.0 bindings found:** 24 across all app source files.
+
+**Key services that should remain on 0.0.0.0 (public/P2P):**
+- `aitbc-blockchain-p2p` (P2P networking)
+- `aitbc-api-gateway` (public API, port 8201)
+- `aitbc-blockchain-explorer` (public web, port 8100)
+
+**Key services that should be restricted to 127.0.0.1 (internal):**
+- `aitbc-ai-engine` (port 8005) — uvicorn.run with `host="0.0.0.0"`
+- `aitbc-coordinator-api` internal services:
+  - multimodal_app (port 8002)
+  - modality_optimization_app (port 8004)
+  - advanced_ai_service (port 8015)
+  - adaptive_learning_app (port 8005)
+  - gpu_multimodal_app (port 8003)
+  - enterprise_integration/api_gateway (port 8010)
+  - marketplace_enhanced_app (port 8002)
+  - hermes_enhanced_app (port 8014)
+- `aitbc-agent-coordinator` (if not public)
+
+**Action:**
+- For each service, change `host="0.0.0.0"` to `host="127.0.0.1"` in source or env config
+- Document which services are intentionally public in `docs/operations/NETWORK_POLICY.md`
+
+**Acceptance Criteria:**
+- [ ] Only documented public services bind to 0.0.0.0
+- [ ] All internal services bind to 127.0.0.1
+- [ ] NETWORK_POLICY.md updated with current exposure map
+
+---
+
+### 6. CLI Config Consolidation
+
+**Current state:** 3 separate `config.py` files:
+- `cli/aitbc_cli/config.py` — CLI-level config (CLIConfig class)
+- `cli/aitbc_cli/core/config.py` — Core config (multichain config loader)
+- `cli/aitbc_cli/commands/config.py` — Config command implementation
+
+**Action:**
+- Audit which config is used where
+- Consolidate `cli/aitbc_cli/config.py` and `cli/aitbc_cli/core/config.py` if overlapping
+- Keep `commands/config.py` as the CLI command (not a config definition)
+
+**Acceptance Criteria:**
+- [ ] Single source of truth for CLI configuration
+- [ ] No duplicate config classes
+- [ ] All imports updated
+
+---
+
+### 7. Website Hardcoded URLs
+
+**Files affected:**
+- `website/exchange.js` (lines 3, 20) — hardcoded `http://hub.aitbc.bubuit.net`
+- `website/explorer.js` (line 110) — hardcoded `ait-hub.aitbc.bubuit.net`
+- `website/marketplace.js` (lines 296, 356) — hardcoded `ait-hub.aitbc.bubuit.net`
+
+**Action:**
+- Replace absolute URLs in `exchange.js` with relative paths (`/v1/exchange/history`)
+- Extract `chain_id` into a shared config (e.g., `website/config.js` with `const CHAIN_ID = '...'`)
+- Fetch chain_id from `/api/chains` endpoint where possible
+
+**Acceptance Criteria:**
+- [ ] No hardcoded absolute URLs in website JS
+- [ ] Chain ID configurable via shared config
+- [ ] Website works in development and production
+
+---
+
+### 8. Gitignore & Cleanup
+
+| Item | Status | Action |
+|------|--------|--------|
+| `mutants/` (22MB) | NOT gitignored | Add to `.gitignore`, delete directory |
+| `.secrets.baseline` (3394 lines) | Stale | Regenerate with `detect-secrets scan` |
+| `cli/aitbc_cli.egg-info/` | TRACKED by git (6 files) | Add to `.gitignore`, remove from git |
+
+**Acceptance Criteria:**
+- [ ] `mutants/` in `.gitignore` and deleted
+- [ ] `.secrets.baseline` regenerated and smaller
+- [ ] `egg-info/` in `.gitignore` and removed from git index
+- [ ] No build artifacts tracked in git
+
+---
+
+## P2 (Nice-to-have; defer if scope creeps)
+
+### 9. Mypy Configuration Merge
+
+**File:** `pyproject.toml.new` (341 lines of mypy config)
+
+**Action:**
+- Review the mypy configuration in `pyproject.toml.new`
+- Merge `[tool.mypy]` section into `pyproject.toml`
+- Run `mypy` on core modules to establish baseline
+- Delete `pyproject.toml.new`
+
+**Acceptance Criteria:**
+- [ ] Mypy config merged into `pyproject.toml`
+- [ ] `mypy` runs without configuration errors
+- [ ] `pyproject.toml.new` deleted
+
+---
+
+### 10. Test Coverage Expansion
+
+**Current:** 771 test files, ~50% coverage
+**Target:** 65% by v0.5.3, 85% by v0.6.0
+
+**Focus areas:**
+- CLI explorer commands (`cli/aitbc_cli/commands/explorer.py`) — no tests yet
+- Blockchain explorer API (`apps/blockchain-explorer/main.py`) — limited tests
+- Marketplace service — verify blockchain integration tests
+
+**Acceptance Criteria:**
+- [ ] Tests for `explorer.py` CLI commands
+- [ ] Coverage increased to 65%
+
+---
+
+## Execution Order
+
+| Phase | Focus | Deliverable |
+|-------|-------|-------------|
+| Phase 1 | Dead code removal (CLI) | `cli/src/`, `cli/handlers/`, `cli/cleanup/`, `cli/variants/`, old entry points deleted |
+| Phase 2 | Disabled commands | Fix or delete disabled CLI commands |
+| Phase 3 | Root cleanup | Remove `marketplace.db`, sample scripts, `pyproject.toml.new` |
+| Phase 4 | Service audit | Missing env files created, unused systemd units removed |
+| Phase 5 | Network hardening | Internal services restricted to 127.0.0.1 |
+| Phase 6 | Config consolidation | CLI config unified |
+| Phase 7 | Website fixes | Hardcoded URLs extracted to config |
+| Phase 8 | Gitignore & cleanup | `mutants/` gitignored, secrets baseline regenerated |
+
+---
+
+## Acceptance Criteria for v0.5.3 Tag
+
+| Criterion | Status | Verification |
+|-----------|--------|--------------|
+| No dead CLI code (handlers, src, variants, old entry points) | 🟡 | `find cli/ -name "handlers" -o -name "variants" -o -name "src"` returns empty |
+| No disabled commands in main.py | 🟡 | `grep "Disabled" cli/aitbc_cli/core/main.py` returns nothing |
+| No root-level artifacts (db, sample scripts, .new files) | 🟡 | `ls /opt/aitbc/*.db /opt/aitbc/*.new` returns nothing |
+| All active services have env files | 🟡 | Audit script returns no MISSING entries |
+| No systemd units for non-existent apps | 🟡 | Each unit has corresponding app |
+| Internal services bind to 127.0.0.1 | 🟡 | `grep -r "0.0.0.0" apps/ \| grep -v P2P` returns only documented services |
+| No hardcoded absolute URLs in website JS | 🟡 | `grep "http://" website/*.js` returns nothing |
+| `mutants/` gitignored | 🟡 | `git check-ignore mutants/` succeeds |
+| CLI config consolidated | 🟡 | Single `config.py` for CLIConfig |
+| `aitbc --help` works after all changes | 🟡 | Manual verification |
+
+---
+
+## Risk Assessment
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Deleting handlers/ breaks something | Medium | Verify no imports first, keep backup |
+| Changing 0.0.0.0 to 127.0.0.1 breaks remote access | High | Test each service after change, document in NETWORK_POLICY.md |
+| Removing systemd units breaks dependencies | Low | Check `Wants=`/`Requires=` in other units first |
+| CLI config consolidation breaks imports | Medium | Update all imports in same commit |
+
+---
+
+## New Findings from Verification (Added Post-Analysis)
+
+### 11. Exchange Command Duplication
+
+**Files:** `cli/aitbc_cli/commands/exchange.py`, `cli/aitbc_cli/commands/exchange_island.py`, `cli/aitbc_cli/commands/exchange/` (subpackage)
+
+Three separate exchange-related command implementations exist. The `exchange/` subpackage contains `bridge.py`, `main.py`, `payments.py`, `trading.py`, `wallet.py`.
+
+**Action:** Audit overlap between `exchange.py`, `exchange_island.py`, and `exchange/` subpackage. Consolidate or clarify which is canonical.
+
+### 12. GPU Command Duplication
+
+**Files:** `cli/aitbc_cli/commands/gpu_marketplace.py` (registered as `gpu`), `cli/aitbc_cli/commands/gpu_resources.py` (registered as `gpu_onchain`)
+
+Two GPU command groups that may overlap in functionality.
+
+**Action:** Audit overlap. Consolidate if redundant or clarify distinction.
+
+### 13. Website Chain ID Hardcoding
+
+**File:** `website/explorer.js` (line 110)
+```javascript
+let currentChain = 'ait-hub.aitbc.bubuit.net';
+```
+
+This was noted in the original plan but the verification confirms it's still present. The marketplace.js uses this same chain_id in API calls.
+
+**Action:** Extract chain_id to a shared `website/config.js` file that all pages import.
+
+---
+
+## Verification Checklist (Run Before Tag)
+
+Run these commands to verify each item before releasing:
+
+```bash
+# P0.1: Dead code removed
+[ ! -d /opt/aitbc/cli/src ] && [ ! -d /opt/aitbc/cli/handlers ] && \
+[ ! -d /opt/aitbc/cli/cleanup ] && [ ! -d /opt/aitbc/cli/variants ] && \
+[ ! -f /opt/aitbc/cli/click_cli.py ] && [ ! -f /opt/aitbc/cli/enterprise_cli.py ] && \
+[ ! -f /opt/aitbc/cli/genesis_cli.py ] && echo "OK" || echo "FAIL"
+
+# P0.2: No disabled commands
+! grep -q "Disabled" /opt/aitbc/cli/aitbc_cli/core/main.py && echo "OK" || echo "FAIL"
+
+# P0.3: No root artifacts
+[ ! -f /opt/aitbc/marketplace.db ] && [ ! -f /opt/aitbc/create_sample_offers.py ] && \
+[ ! -f /opt/aitbc/create_sample_offers_simple.py ] && [ ! -f /opt/aitbc/pyproject.toml.new ] && \
+echo "OK" || echo "FAIL"
+
+# P0.4: No missing env files
+for svc in /etc/systemd/system/aitbc-*.service; do
+  name=$(basename $svc .service)
+  grep -q "EnvironmentFile=.*%N" $svc 2>/dev/null && \
+    [ ! -f /etc/aitbc/$name.env ] && echo "MISSING: $name.env"
+done
+
+# P1.5: Count 0.0.0.0 bindings
+grep -rn "0.0.0.0" /opt/aitbc/apps/*/src --include="*.py" 2>/dev/null | \
+  grep -i "uvicorn.run\|app.run\|host=" | wc -l
+
+# P1.7: No hardcoded absolute URLs
+grep -q "http://hub.aitbc.bubuit.net" /opt/aitbc/website/*.js 2>/dev/null && \
+  echo "FAIL" || echo "OK"
+
+# P1.8: mutants gitignored
+git -C /opt/aitbc check-ignore /opt/aitbc/mutants/ >/dev/null 2>&1 && echo "OK" || echo "FAIL"
+
+# CLI works
+aitbc --help >/dev/null 2>&1 && echo "CLI OK" || echo "CLI FAIL"
+```
+
+---
+
+## v0.5.3 Status: PLANNED
+
+Release plan created and verified against actual codebase. All items are cleanup/hardening — no new features. Scope is deliberately tight to reduce technical debt before v0.6.0 feature work begins.
+
+Ready for execution.
+
+---
+
+## Task Assignment: Agent A & Agent B
+
+Tasks are split to avoid file conflicts. Agent A owns `cli/` and project root. Agent B owns `apps/`, `website/`, and `/etc/aitbc/`.
+
+### Agent A — CLI & Code Cleanup
+
+**Scope:** `cli/`, project root, `.gitignore`
+
+| Task | Item | Files | Action |
+|------|------|-------|--------|
+| A1 | P0.1 Dead Code Removal | `cli/click_cli.py`, `cli/enterprise_cli.py`, `cli/genesis_cli.py`, `cli/aitbc_cli.py`, `cli/src/`, `cli/handlers/`, `cli/cleanup/`, `cli/variants/` | Delete all |
+| A2 | P0.2 Disabled Commands | `cli/aitbc_cli/core/main.py`, `cli/aitbc_cli/commands/node.py`, `cli/aitbc_cli/commands/agent_comm.py`, `cli/aitbc_cli/commands/deployment.py` | Fix imports or delete |
+| A3 | P0.3 Root Artifacts | `/opt/aitbc/marketplace.db`, `/opt/aitbc/create_sample_offers.py`, `/opt/aitbc/create_sample_offers_simple.py` | Delete (move scripts to `scripts/marketplace/` if needed) |
+| A4 | P1.6 Config Consolidation | `cli/aitbc_cli/config.py`, `cli/aitbc_cli/core/config.py` | Merge into single config |
+| A5 | P1.8 Gitignore | `.gitignore`, `cli/aitbc_cli.egg-info/`, `mutants/` | Add to gitignore, remove from git index, delete mutants/ |
+| A6 | Item 11 Exchange Duplication | `cli/aitbc_cli/commands/exchange.py`, `cli/aitbc_cli/commands/exchange_island.py`, `cli/aitbc_cli/commands/exchange/` | Audit and consolidate |
+| A7 | Item 12 GPU Duplication | `cli/aitbc_cli/commands/gpu_marketplace.py`, `cli/aitbc_cli/commands/gpu_resources.py` | Audit and consolidate |
+
+**Agent A Acceptance Criteria:**
+- [ ] `aitbc --help` works after all changes
+- [ ] `aitbc explorer`, `aitbc transactions`, `aitbc wallet` work
+- [ ] No disabled commands in `main.py`
+- [ ] No dead directories in `cli/`
+- [ ] No `.db` or `.new` files in project root
+- [ ] `mutants/` and `egg-info/` gitignored
+- [ ] Single `config.py` for CLIConfig
+- [ ] Exchange and GPU commands consolidated or documented
+
+---
+
+### Agent B — Services, Security & Website
+
+**Scope:** `apps/`, `website/`, `/etc/aitbc/`, `docs/operations/`
+
+| Task | Item | Files | Action |
+|------|------|-------|--------|
+| B1 | P0.4a Missing Env Files | `/etc/aitbc/aitbc-edge.env`, `/etc/aitbc/aitbc-gpu.env`, `/etc/aitbc/aitbc-miner.env` | Create with required vars |
+| B2 | P0.4b Unused Systemd Units | `/etc/systemd/system/aitbc-learning.service`, `aitbc-modality-optimization.service`, `aitbc-multimodal.service`, `aitbc-plugin.service`, `aitbc-recovery.service` | Remove units, daemon-reload |
+| B3 | P1.5 Network Hardening | `apps/ai-engine/src/ai_service.py`, `apps/coordinator-api/src/app/services/*.py`, `apps/coordinator-api/src/app/routers/*.py` | Change `0.0.0.0` to `127.0.0.1` for internal services |
+| B4 | P1.5 Network Policy Doc | `docs/operations/NETWORK_POLICY.md` | Update exposure map |
+| B5 | P1.7 Website URLs | `website/exchange.js`, `website/explorer.js`, `website/marketplace.js` | Replace hardcoded URLs with relative paths |
+| B6 | Item 13 Chain ID Config | `website/config.js` (new), all `website/*.html` | Extract chain_id to shared config |
+| B7 | P2.9 Mypy Config | `pyproject.toml`, `pyproject.toml.new` | Merge mypy section, delete `.new` |
+| B8 | P2.10 Test Coverage | `tests/` | Add tests for explorer CLI and explorer API |
+| B9 | P1.8 Secrets Baseline | `.secrets.baseline` | Regenerate with `detect-secrets scan` |
+
+**Agent B Acceptance Criteria:**
+- [ ] All active services have `%N.env` files
+- [ ] No systemd units for non-existent apps
+- [ ] Only public services bind to 0.0.0.0
+- [ ] NETWORK_POLICY.md updated
+- [ ] No hardcoded absolute URLs in website JS
+- [ ] Chain ID in shared `config.js`
+- [ ] Mypy config merged into `pyproject.toml`
+- [ ] `.secrets.baseline` regenerated
+
+---
+
+### Coordination Notes
+
+- **No file conflicts:** Agent A works in `cli/` and root. Agent B works in `apps/`, `website/`, `/etc/aitbc/`.
+- **Shared file:** `.gitignore` — Agent A adds `mutants/` and `egg-info/`. Agent B adds nothing. No conflict.
+- **Shared file:** `pyproject.toml` — Agent B merges mypy config. Agent A does not touch it. No conflict.
+- **Verification:** Both agents run the verification checklist before tagging.
