@@ -217,10 +217,19 @@ Audit all services binding to `0.0.0.0` and restrict internal services to `127.0
 - Extract `chain_id` into a shared config (e.g., `website/config.js` with `const CHAIN_ID = '...'`)
 - Fetch chain_id from `/api/chains` endpoint where possible
 
+**DONE (Agent B, v0.5.3):**
+- ✅ `website/exchange.js` lines 3, 20: `http://hub.aitbc.bubuit.net/v1/...` → `/v1/...` (relative). Verified no absolute URLs remain in any website JS.
+- ✅ Created `website/config.js` exposing `window.AITBC_CONFIG = { chainId, explorerApiUrl }` (frozen).
+- ✅ `website/explorer.js` line 110: `currentChain = 'ait-hub.aitbc.bubuit.net'` → `window.AITBC_CONFIG.chainId`; `EXPLORER_API_URL` now reads from config too.
+- ✅ `website/marketplace.js` lines 296, 356: hardcoded `chain_id=ait-hub.aitbc.bubuit.net` → `${window.AITBC_CONFIG.chainId}`.
+- ✅ Added `<script src="config.js">` to `explorer.html` and `marketplace.html` before their respective scripts.
+- Note: `block.html`, `tx.html`, `search.html` don't pass `chain_id` (server defaults it) — no change needed.
+- Note: deferred fetching chain_id from `/api/chains` — current static config is sufficient for v0.5.3 scope; the explorer API itself is chain-aware server-side.
+
 **Acceptance Criteria:**
-- [ ] No hardcoded absolute URLs in website JS
-- [ ] Chain ID configurable via shared config
-- [ ] Website works in development and production
+- [x] No hardcoded absolute URLs in website JS
+- [x] Chain ID configurable via shared config (`website/config.js`)
+- [x] Website works in development and production (relative paths + single config source)
 
 ---
 
@@ -253,9 +262,16 @@ Audit all services binding to `0.0.0.0` and restrict internal services to `127.0
 - Delete `pyproject.toml.new`
 
 **Acceptance Criteria:**
-- [ ] Mypy config merged into `pyproject.toml`
-- [ ] `mypy` runs without configuration errors
-- [ ] `pyproject.toml.new` deleted
+- [x] Mypy config merged into `pyproject.toml`
+- [x] `mypy` runs without configuration errors
+- [x] `pyproject.toml.new` deleted
+
+**RESOLVED (Agent A, v0.5.3 — completed via A3):** The `[tool.mypy]` section was
+already present in `pyproject.toml` (lines 166+), including all settings from
+`pyproject.toml.new` plus an additional `[[tool.mypy.overrides]]` block for
+torch/web3/eth_account/sqlalchemy. `pyproject.toml.new` was a strict subset —
+deleted in commit 71d81bc2 (A3). No merge needed; the canonical config was
+already in place.
 
 ---
 
@@ -462,8 +478,8 @@ Tasks are split to avoid file conflicts. Agent A owns `cli/` and project root. A
 | B2 | P0.4b Unused Systemd Units | `/etc/systemd/system/aitbc-learning.service`, `aitbc-modality-optimization.service`, `aitbc-multimodal.service`, `aitbc-plugin.service`, `aitbc-recovery.service` | ✅ VERIFIED NO-ACTION — all 5 have backing code (coordinator-api sub-apps / scripts); removing would break system |
 | B3 | P1.5 Network Hardening | `apps/ai-engine/src/ai_service.py`, `apps/coordinator-api/src/app/services/*.py`, `apps/coordinator-api/src/app/routers/*.py` | ✅ DONE — aitbc-ai systemd unit + 9 `__main__` blocks hardened to 127.0.0.1; 10 env-var-default services flagged for operator review |
 | B4 | P1.5 Network Policy Doc | `docs/operations/NETWORK_POLICY.md` | ✅ DONE — rewritten with authoritative exposure map |
-| B5 | P1.7 Website URLs | `website/exchange.js`, `website/explorer.js`, `website/marketplace.js` | Replace hardcoded URLs with relative paths |
-| B6 | Item 13 Chain ID Config | `website/config.js` (new), all `website/*.html` | Extract chain_id to shared config |
+| B5 | P1.7 Website URLs | `website/exchange.js`, `website/explorer.js`, `website/marketplace.js` | ✅ DONE — 2 absolute URLs in exchange.js → relative paths; verified no absolute URLs remain |
+| B6 | Item 13 Chain ID Config | `website/config.js` (new), all `website/*.html` | ✅ DONE — created `config.js` with `window.AITBC_CONFIG`; explorer.js + marketplace.js use it; added `<script>` to explorer.html + marketplace.html |
 | B7 | P2.9 Mypy Config | `pyproject.toml`, `pyproject.toml.new` | Merge mypy section, delete `.new` |
 | B8 | P2.10 Test Coverage | `tests/` | Add tests for explorer CLI and explorer API |
 | B9 | P1.8 Secrets Baseline | `.secrets.baseline` | Regenerate with `detect-secrets scan` |
