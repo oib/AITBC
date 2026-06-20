@@ -128,25 +128,31 @@ class InMemoryGossipBackend(GossipBackend):
 
 
 class BroadcastGossipBackend(GossipBackend):
+    """Redis pub/sub backend for cross-process gossip.
+
+    Uses redis-py directly instead of the broadcaster library for
+    compatibility with redis-py 8.x.
+    """
+
     def __init__(self, url: str) -> None:
-        if Broadcast is None:
-            self._broadcast = _InProcessBroadcast()
-        else:
-            self._broadcast = Broadcast(url)
+        self._url = url
+        self._redis: Any = None
         self._tasks: set[asyncio.Task[None]] = set()
         self._lock = asyncio.Lock()
         self._running = False
 
     async def start(self) -> None:
         if not self._running:
-            await self._broadcast.connect()
+            import redis.asyncio as aioredis
+
+            self._redis = aioredis.Redis.from_url(self._url, socket_timeout=None, socket_connect_timeout=5)
             self._running = True
 
     async def publish(self, topic: str, message: Any) -> None:
         if not self._running:
             raise RuntimeError("Broadcast backend not started")
         payload = _encode_message(message)
-        await self._broadcast.publish(topic, payload)
+        await self._redis.publish(topic, payload)
         _increment_publication("gossip_broadcast_publications", topic)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
@@ -163,25 +169,35 @@ class BroadcastGossipBackend(GossipBackend):
             from aitbc.aitbc_logging import get_logger
 
             logger = get_logger(__name__)
-            logger.info("[BROKER SUB] Starting broadcast subscription for topic: %s", topic)
+            logger.info("[BROKER SUB] Starting redis subscription for topic: %s", topic)
             try:
-                async with self._broadcast.subscribe(topic) as subscriber:
-                    logger.info("[BROKER SUB] Successfully subscribed to broadcast topic: %s", topic)
-                    async for event in subscriber:
-                        if stop_event.is_set():
-                            logger.info("[BROKER SUB] Stop event set for topic: %s", topic)
-                            break
-                        data = _decode_message(getattr(event, "message", event))
-                        logger.info("[BROKER SUB] Received message from broadcast for topic %s", topic)
-                        try:
-                            await queue.put(data)
-                            _set_queue_gauge(topic, queue.qsize())
-                        except asyncio.CancelledError:
-                            logger.warning("[BROKER SUB] Subscription cancelled for topic: %s", topic)
-                            break
+                import redis.asyncio as aioredis
+
+                # Use a dedicated connection with no socket timeout for pubsub
+                # (listen() blocks indefinitely waiting for messages)
+                sub_redis = aioredis.Redis.from_url(self._url, socket_timeout=None, socket_connect_timeout=5)
+                pubsub = sub_redis.pubsub()
+                await pubsub.subscribe(topic)
+                logger.info("[BROKER SUB] Successfully subscribed to redis topic: %s", topic)
+                async for message in pubsub.listen():
+                    if stop_event.is_set():
+                        logger.info("[BROKER SUB] Stop event set for topic: %s", topic)
+                        break
+                    if message["type"] != "message":
+                        continue
+                    data = _decode_message(message["data"])
+                    logger.info("[BROKER SUB] Received message from redis for topic %s", topic)
+                    try:
+                        await queue.put(data)
+                        _set_queue_gauge(topic, queue.qsize())
+                    except asyncio.CancelledError:
+                        logger.warning("[BROKER SUB] Subscription cancelled for topic: %s", topic)
+                        break
+                await pubsub.aclose()
+                await sub_redis.aclose()
             except Exception as e:
-                logger.error("[BROKER SUB ERROR] Broadcast subscription error for topic %s: %s", topic, e)
-            logger.info("[BROKER SUB] Broadcast subscription ended for topic: %s", topic)
+                logger.error("[BROKER SUB ERROR] Redis subscription error for topic %s: %s", topic, e)
+            logger.info("[BROKER SUB] Redis subscription ended for topic: %s", topic)
 
         task = asyncio.create_task(_run_subscription(), name=f"broadcast-sub:{topic}")
         async with self._lock:
@@ -211,8 +227,8 @@ class BroadcastGossipBackend(GossipBackend):
             task.cancel()
             with suppress(asyncio.CancelledError):
                 await task
-        if self._running:
-            await self._broadcast.disconnect()
+        if self._running and self._redis:
+            await self._redis.aclose()
             self._running = False
 
 
