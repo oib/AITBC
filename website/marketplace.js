@@ -364,8 +364,8 @@ function loadReputations() {
 async function checkServiceHealth() {
     const services = [
         { name: 'marketplace', url: '/v1/marketplace/status' },
-        { name: 'explorer', url: '/api/chain/head' },
-        { name: 'coordinator', url: '/v1/explorer/status' },
+        { name: 'explorer', url: '/explorer-api/api/chain/head' },
+        { name: 'coordinator', url: '/c/health' },
     ];
 
     for (const svc of services) {
