@@ -367,6 +367,54 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
         return {"total_ait": 0, "active_offers": 0, "unique_nodes": 0, "unique_providers": 0, "total_transactions": 0}
 
 
+@app.get("/api/analytics/top-addresses")
+async def api_top_addresses(
+    chain_id: str | None = DEFAULT_CHAIN,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Get top addresses by transaction count and AIT volume"""
+    try:
+        import sqlite3
+        from pathlib import Path
+
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+
+        if not chain_db_path.exists():
+            return {"addresses": []}
+
+        conn = sqlite3.connect(str(chain_db_path))
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT
+                CASE WHEN sender = 'faucet' OR sender = '0x0000000000000000000000000000000000000000' THEN recipient ELSE sender END as addr,
+                COUNT(*) as tx_count,
+                COALESCE(SUM(CAST(value AS REAL)), 0) as volume
+            FROM "transaction"
+            WHERE sender != 'faucet' AND sender != '0x0000000000000000000000000000000000000000'
+            GROUP BY addr
+            ORDER BY tx_count DESC
+            LIMIT ?
+        """, (limit,))
+
+        addresses = []
+        for row in cursor.fetchall():
+            addr, tx_count, volume = row
+            addresses.append({
+                "address": addr,
+                "transaction_count": tx_count,
+                "volume": round(volume, 2),
+            })
+
+        conn.close()
+        return {"addresses": addresses}
+    except Exception as e:
+        print(f"Error getting top addresses: {e}")
+        return {"addresses": []}
+
+
 @app.get("/api/analytics/provider-reputation/{provider_id}")
 async def api_provider_reputation(provider_id: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
     """Compute provider reputation score from blockchain history"""

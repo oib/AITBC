@@ -950,6 +950,45 @@ button:active {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.top-addresses-table {
+    margin-top: 1rem;
+    overflow-x: auto;
+}
+.top-addresses-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.top-addresses-table th {
+    text-align: left;
+    padding: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+}
+.top-addresses-table td {
+    padding: 0.6rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+}
+.top-addresses-table tr:hover td {
+    background: rgba(255,255,255,0.03);
+}
+.top-addresses-table td:first-child {
+    font-weight: 600;
+    color: var(--primary);
+    width: 40px;
+}
+.top-addresses-table td a {
+    color: var(--text);
+    text-decoration: none;
+}
+.top-addresses-table td a:hover {
+    text-decoration: underline;
+}
+
 .live-feed-time {
     font-size: 0.7rem;
     color: var(--text-muted);
