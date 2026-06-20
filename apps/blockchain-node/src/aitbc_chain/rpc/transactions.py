@@ -173,18 +173,24 @@ async def query_transactions(
 ) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
     chain_id_arg = chain_id if chain_id else ""
-    chain_id = get_chain_id(chain_id_arg)
+    resolved_chain_id = get_chain_id(chain_id_arg)
+    
+    _logger.info(f"Query transactions - chain_id_arg: {chain_id_arg}, resolved_chain_id: {resolved_chain_id}")
 
     with session_scope() as session:
-        query = select(Transaction).where(Transaction.chain_id == chain_id)
+        query = select(Transaction).where(Transaction.chain_id == resolved_chain_id)
+        
+        _logger.info(f"Query: {query}")
 
         # Apply filters based on payload fields
         transactions = session.exec(query).all()
+        
+        _logger.info(f"Found {len(transactions)} transactions for chain {resolved_chain_id}")
 
         results = []
         for tx in transactions:
-            # Filter by transaction type in payload
-            if transaction_type and tx.payload.get("type") != transaction_type:
+            # Filter by transaction type in transaction type field (not payload)
+            if transaction_type and tx.type != transaction_type:
                 continue
 
             # Filter by island_id in payload
@@ -215,6 +221,7 @@ async def query_transactions(
                     "sender": tx.sender,
                     "recipient": tx.recipient,
                     "payload": tx.payload,
+                    "type": tx.type,
                     "status": tx.status,
                     "created_at": tx.created_at.isoformat(),
                     "timestamp": tx.timestamp,
@@ -227,5 +234,7 @@ async def query_transactions(
         # Apply limit
         if limit:
             results = results[:limit]
+        
+        _logger.info(f"Returning {len(results)} transactions after filtering")
 
         return results
