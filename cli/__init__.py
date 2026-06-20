@@ -11,8 +11,7 @@ from pathlib import Path
 CLI_DIR = Path(__file__).parent
 sys.path.insert(0, str(CLI_DIR))
 
-# Import and run the main CLI
-from aitbc_cli.core.main import main  # noqa: E402
-
 if __name__ == "__main__":
+    from aitbc_cli.core.main import main  # noqa: E402
+
     main()
