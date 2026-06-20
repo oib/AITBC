@@ -6,7 +6,6 @@
     <title>AITBC Block Detail</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <style>
         .detail-header {
             display: flex;
@@ -67,7 +66,7 @@
         }
 
         function copyBtn(text) {
-            return `<button class="copy-btn" onclick="navigator.clipboard.writeText('${text}')" title="Copy">⧉</button>`;
+            return `<button class="copy-btn" onclick="event.stopPropagation();navigator.clipboard.writeText('${text}')" title="Copy">⧉</button>`;
         }
 
         async function loadBlock() {
@@ -103,14 +102,9 @@
                     if (!hash || hash === 'N/A') return 'N/A';
                     return `<span style="font-family:var(--font-mono);">${hash}</span>`;
                 }
-                function linkableAddress(addr) {
-                    if (!addr || addr === 'N/A') return 'N/A';
-                    return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${addr}</a>`;
-                }
-
                 function addrLink(addr) {
                     if (!addr || addr === 'N/A') return 'N/A';
-                    return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value">${addr}</a>`;
+                    return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${addr}</a>`;
                 }
 
                 document.getElementById('block-details').innerHTML = `
@@ -118,7 +112,7 @@
                         <table class="block-list-table">
                             <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${data.height}</td></tr>
                             <tr><td>Hash</td><td>${plainHash(data.hash)} ${copyBtn(data.hash || '')}</td></tr>
-                            <tr><td>Proposer</td><td>${linkableAddress(data.proposer)} ${copyBtn(data.proposer || '')}</td></tr>
+                            <tr><td>Proposer</td><td>${addrLink(data.proposer)} ${copyBtn(data.proposer || '')}</td></tr>
                             <tr><td>Timestamp</td><td>${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A'}</td></tr>
                             <tr><td>Transactions</td><td>${data.txCount ?? data.transactions?.length ?? 0}</td></tr>
                             <tr><td>State Root</td><td>${plainHash(data.stateRoot)} ${copyBtn(data.stateRoot || '')}</td></tr>

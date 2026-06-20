@@ -106,13 +106,27 @@
                 return;
             }
 
+            // Smart redirect for block heights and hashes
+            const cleanQuery = query.replace(/^#/, '');
+            const isNumber = /^\d+$/.test(cleanQuery);
+            const isHash = /^(0x)?[a-fA-F0-9]{64}$/.test(cleanQuery);
+
+            if (isNumber) {
+                location.href = `/block.html?height=${cleanQuery}`;
+                return;
+            }
+            if (isHash) {
+                location.href = `/tx.html?hash=${encodeURIComponent(cleanQuery)}`;
+                return;
+            }
+
             document.title = `Search: ${query}`;
             document.getElementById('query-display').textContent = query;
 
             try {
                 const [txResp, blockResp] = await Promise.all([
-                    fetch(`${EXPLORER_API_URL}/api/transactions/search?address=${encodeURIComponent(query)}`),
-                    fetch(`${EXPLORER_API_URL}/api/blocks/by-address/${encodeURIComponent(query)}`),
+                    fetch(`${EXPLORER_API_URL}/api/transactions/search?address=${encodeURIComponent(query)}&limit=50`),
+                    fetch(`${EXPLORER_API_URL}/api/blocks/by-address/${encodeURIComponent(query)}&limit=50`),
                 ]);
                 const txData = await txResp.json();
                 const blockData = await blockResp.json();
