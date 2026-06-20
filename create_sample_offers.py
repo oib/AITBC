@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create sample marketplace offers for testing"""
+"""Create sample marketplace offers for testing (MOCK DATA - NOT ON BLOCKCHAIN)"""
 
 import sys
 import asyncio
@@ -28,10 +28,11 @@ engine = create_async_engine(DATABASE_URL, echo=True)
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 async def create_sample_offers():
-    """Create sample marketplace offers"""
+    """Create sample marketplace offers (MOCK DATA - NOT ON BLOCKCHAIN)"""
     async with async_session() as session:
         # Sample offers with public endpoints using nginx proxy paths
         # Using proxy paths for customer accessibility through standard HTTP
+        # NOTE: These are MOCK offers for testing - they are NOT on the blockchain
         hub_url = "hub.aitbc.bubuit.net"
         sample_offers = [
             {
@@ -50,12 +51,14 @@ async def create_sample_offers():
                 "gpu_device": "0",
                 "gpu_uuid": "GPU-abc123",
                 "gpu_offer_id": "gpu-001",
-                "description": "Llama3 8B model inference on RTX 4060 Ti with 16GB VRAM",
+                "description": "Llama3 8B model inference on RTX 4060 Ti with 16GB VRAM (MOCK DATA)",
                 "status": "active",
                 "registered_at": datetime.now(UTC),
                 "updated_at": datetime.now(UTC),
                 "avg_rating": 4.5,
                 "rating_count": 12
+                # Note: Blockchain verification fields are added by marketplace service
+                # when querying blockchain data, not stored in local database
             },
             {
                 "plugin_id": "ollama-mistral-7b",
@@ -73,12 +76,14 @@ async def create_sample_offers():
                 "gpu_device": "0",
                 "gpu_uuid": "GPU-abc123",
                 "gpu_offer_id": "gpu-001",
-                "description": "Mistral 7B model for fast inference with good quality",
+                "description": "Mistral 7B model for fast inference with good quality (MOCK DATA)",
                 "status": "active",
                 "registered_at": datetime.now(UTC),
                 "updated_at": datetime.now(UTC),
                 "avg_rating": 4.2,
                 "rating_count": 8
+                # Note: Blockchain verification fields are added by marketplace service
+                # when querying blockchain data, not stored in local database
             },
             {
                 "plugin_id": "whisper-large-v3",
@@ -96,12 +101,14 @@ async def create_sample_offers():
                 "gpu_device": "0",
                 "gpu_uuid": "GPU-abc123",
                 "gpu_offer_id": "gpu-001",
-                "description": "High-accuracy speech recognition using Whisper Large v3",
+                "description": "High-accuracy speech recognition using Whisper Large v3 (MOCK DATA)",
                 "status": "active",
                 "registered_at": datetime.now(UTC),
                 "updated_at": datetime.now(UTC),
                 "avg_rating": 4.8,
                 "rating_count": 15
+                # Note: Blockchain verification fields are added by marketplace service
+                # when querying blockchain data, not stored in local database
             },
             {
                 "plugin_id": "ffmpeg-transcode-h264",
@@ -119,12 +126,14 @@ async def create_sample_offers():
                 "gpu_device": "0",
                 "gpu_uuid": "GPU-abc123",
                 "gpu_offer_id": "gpu-001",
-                "description": "Hardware-accelerated H.264 video transcoding using NVENC",
+                "description": "Hardware-accelerated H.264 video transcoding using NVENC (MOCK DATA)",
                 "status": "active",
                 "registered_at": datetime.now(UTC),
                 "updated_at": datetime.now(UTC),
                 "avg_rating": 4.0,
                 "rating_count": 5
+                # Note: Blockchain verification fields are added by marketplace service
+                # when querying blockchain data, not stored in local database
             },
             {
                 "plugin_id": "peertube-pruner-v2",
@@ -142,12 +151,14 @@ async def create_sample_offers():
                 "gpu_device": "0",
                 "gpu_uuid": "GPU-abc123",
                 "gpu_offer_id": "gpu-001",
-                "description": "PeerTube video pruning and optimization service",
+                "description": "PeerTube video pruning and optimization service (MOCK DATA)",
                 "status": "inactive",
                 "registered_at": datetime.now(UTC),
                 "updated_at": datetime.now(UTC),
                 "avg_rating": 3.5,
                 "rating_count": 3
+                # Note: Blockchain verification fields are added by marketplace service
+                # when querying blockchain data, not stored in local database
             }
         ]
 
@@ -177,7 +188,9 @@ async def create_sample_offers():
                 print(f"Created new offer: {plugin_id}")
         
         await session.commit()
-        print(f"Processed {len(sample_offers)} marketplace offers")
+        print(f"Processed {len(sample_offers)} marketplace offers (MOCK DATA - NOT ON BLOCKCHAIN)")
+        print("⚠️  WARNING: These are mock offers for testing only - they are NOT confirmed on the blockchain")
+        print("⚠️  For real marketplace functionality, offers should be submitted via blockchain transactions")
 
 if __name__ == "__main__":
     asyncio.run(create_sample_offers())
