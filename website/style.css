@@ -1031,6 +1031,32 @@ button:active {
     background: var(--primary-dark);
 }
 
+.block-list-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.block-list-table td {
+    padding: 0.4rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+.block-list-table tr:last-child td {
+    border-bottom: none;
+}
+.block-list-table td:first-child {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    width: 100px;
+    white-space: nowrap;
+}
+.block-list-table td:last-child {
+    font-family: var(--font-mono);
+    word-break: break-all;
+}
+
 .top-addresses-table td a:hover {
     text-decoration: underline;
 }
@@ -1233,6 +1259,9 @@ button:active {
     }
     .search-row button {
         width: 100%;
+    }
+    .block-list-table td:first-child {
+        width: 80px;
     }
     .block-header {
         flex-direction: column;
