@@ -115,7 +115,44 @@ document.addEventListener('DOMContentLoaded', function() {
     // Refresh data
     async function refreshData() {
         await updateChainStats();
+        await loadActivityChart();
         await loadLatestBlocks();
+    }
+
+    // Load activity timeline chart
+    async function loadActivityChart() {
+        try {
+            const response = await fetch(`${EXPLORER_API_URL}/api/analytics/activity?chain_id=${currentChain}&days=30`);
+            const data = await response.json();
+            const canvas = document.getElementById('activity-chart');
+            if (!canvas || !data.labels || data.labels.length === 0) return;
+
+            const ctx = canvas.getContext('2d');
+            // Destroy existing chart if any
+            if (window.activityChartInstance) {
+                window.activityChartInstance.destroy();
+            }
+            window.activityChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: data.datasets,
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true, ticks: { color: '#71717a' } },
+                        y: { stacked: true, ticks: { color: '#71717a' }, grid: { color: '#27272a' } },
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#e4e4e7' } },
+                    },
+                },
+            });
+        } catch (error) {
+            console.error('Error loading activity chart:', error);
+        }
     }
 
     // Update chain stats
